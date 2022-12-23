@@ -26,6 +26,11 @@ jobs:
 
       - name: Install Poetry dependencies
         run: bin/install
+      
+      - name: Format and Lint
+        run: |
+          black --check .  # Black for Python
+          poetry run cairo-format -c $(find contracts -type f -name "*.cairo")
 
       - name: Compile
         run: poetry run nile compile

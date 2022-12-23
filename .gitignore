@@ -1,6 +1,13 @@
 # Ignore nile build artifacts
 **/artifacts
 
+# Ignore SARIF (static analyzer output) files
+**/*.sarif
+
+#
+# Nile generated gitignore
+#
+
 .DS_Store
 .temp/
 
