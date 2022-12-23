@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Exit on error, don't allow this to be overridden
+set -eu
+
+# Poetry does not properly resolve platforms and implementations
+# for two packages (fastecdsa and crypto-cpp-py). Install these via
+# pip directly to pick up the correct --platform and --implementation
+# arguments
+poetry run pip3 install fastecdsa==2.2.3
+poetry run pip install crypto-cpp-py==1.0.4
+
+# Install the rest of the deps
+poetry install --no-root

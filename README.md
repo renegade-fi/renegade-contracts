@@ -2,6 +2,9 @@
 #
 
 <div>
+  <img
+    src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/test.yml/badge.svg"
+  />
   <a href="https://twitter.com/renegade_fi" target="_blank">
     <img src="https://img.shields.io/twitter/follow/renegade_fi?style=social" />
   </a>
@@ -31,7 +34,7 @@ poetry --version
 
 Now, install the project dependencies by running
 ```
-poetry install
+bin/install
 ```
 This should install all the important dependencies for developing on the project. This includes `nile` (Cairo toolchain), amarna (Cairo linter), `pytest` for unit tests.
 
