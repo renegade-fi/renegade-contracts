@@ -8,6 +8,9 @@
   <img
     src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/lint.yml/badge.svg"
   />
+  <img
+    src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/black.yml/badge.svg"
+  />
   <a href="https://twitter.com/renegade_fi" target="_blank">
     <img src="https://img.shields.io/twitter/follow/renegade_fi?style=social" />
   </a>
