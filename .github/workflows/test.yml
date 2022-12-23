@@ -1,0 +1,24 @@
+name: test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    container: ghcr.io/tarrencev/starknet-scaffold:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.3.1
+      - name: Install Poetry dependencies
+        run: poetry install --no-interaction
+      - name: Compile
+        run: poetry run nile compile
+      - name: Test
+        run: poetry run pytest
