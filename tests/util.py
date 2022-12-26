@@ -1,3 +1,7 @@
+"""
+From OpenZeppelin testing utils:
+https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/utils.py
+"""
 import os
 
 from typing import Tuple
@@ -5,20 +9,34 @@ from pathlib import Path
 
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.starknet.business_logic.execution.objects import OrderedEvent
-from starkware.starknet.business_logic.transaction.objects import InternalTransaction, InternalDeclare, TransactionExecutionInfo
+from starkware.starknet.business_logic.transaction.objects import (
+    InternalTransaction,
+    InternalDeclare,
+    TransactionExecutionInfo,
+)
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starknet.core.os.class_hash import compute_class_hash
-from starkware.starknet.core.os.transaction_hash.transaction_hash import TransactionHashPrefix
+from starkware.starknet.core.os.transaction_hash.transaction_hash import (
+    TransactionHashPrefix,
+)
 from starkware.starknet.core.os.contract_address.contract_address import (
     calculate_contract_address_from_hash,
 )
 from starkware.starknet.definitions.general_config import StarknetChainId
 from starkware.starknet.public.abi import get_selector_from_name
-from starkware.starknet.services.api.gateway.transaction import InvokeFunction, DeployAccount
+from starkware.starknet.services.api.gateway.transaction import (
+    InvokeFunction,
+    DeployAccount,
+)
 from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.testing.starknet import Starknet
 
-from nile.signer import Signer, from_call_to_call_array, get_transaction_hash, TRANSACTION_VERSION
+from nile.signer import (
+    Signer,
+    from_call_to_call_array,
+    get_transaction_hash,
+    TRANSACTION_VERSION,
+)
 from nile.utils import to_uint
 
 """
@@ -30,7 +48,7 @@ INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
 TRUE = 1
 FALSE = 0
-IACCOUNT_ID = 0xa66bd575
+IACCOUNT_ID = 0xA66BD575
 
 _root = Path(__file__).parent.parent
 
@@ -39,14 +57,16 @@ Setup Utils from Openzeppelin's test utils:
 https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/utils.py
 """
 
+
 def get_cairo_path():
-    CAIRO_PATH = os.getenv('CAIRO_PATH')
+    CAIRO_PATH = os.getenv("CAIRO_PATH")
     cairo_path = []
 
     if CAIRO_PATH is not None:
         cairo_path = [p for p in CAIRO_PATH.split(":")]
 
     return cairo_path
+
 
 def contract_path(name):
     if name.startswith("tests/"):
@@ -104,9 +124,7 @@ def get_contract_class(contract, is_path=False):
         path = _get_path_from_name(contract)
 
     contract_class = compile_starknet_files(
-        files=[path],
-        debug_info=True,
-        cairo_path=get_cairo_path()
+        files=[path], debug_info=True, cairo_path=get_cairo_path()
     )
     return contract_class
 
@@ -123,7 +141,7 @@ def cached_contract(state, _class, deployed):
         state=state,
         abi=_class.abi,
         contract_address=deployed.contract_address,
-        deploy_call_info=deployed.deploy_call_info
+        deploy_call_info=deployed.deploy_call_info,
     )
     return contract
 
@@ -133,16 +151,17 @@ Signers from Openzeppelin's test util Signers:
 https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/signers.py
 """
 
-class BaseSigner():
-    async def send_transaction(self, account, to, selector_name, calldata, nonce=None, max_fee=0):
-        return await self.send_transactions(account, [(to, selector_name, calldata)], nonce, max_fee)
+
+class BaseSigner:
+    async def send_transaction(
+        self, account, to, selector_name, calldata, nonce=None, max_fee=0
+    ):
+        return await self.send_transactions(
+            account, [(to, selector_name, calldata)], nonce, max_fee
+        )
 
     async def send_transactions(
-        self,
-        account,
-        calls,
-        nonce=None,
-        max_fee=0
+        self, account, calls, nonce=None, max_fee=0
     ) -> TransactionExecutionInfo:
         raw_invocation = get_raw_invoke(account, calls)
         state = raw_invocation.state
@@ -188,7 +207,9 @@ class BaseSigner():
         state = account.state
 
         if nonce is None:
-            nonce = await state.state.get_nonce_at(contract_address=account.contract_address)
+            nonce = await state.state.get_nonce_at(
+                contract_address=account.contract_address
+            )
 
         contract_class = get_contract_class(contract_name)
         class_hash = get_class_hash(contract_name)
@@ -200,7 +221,7 @@ class BaseSigner():
             nonce=nonce,
             version=TRANSACTION_VERSION,
             max_fee=max_fee,
-            chain_id=StarknetChainId.TESTNET.value
+            chain_id=StarknetChainId.TESTNET.value,
         )
 
         signature = self.sign(transaction_hash)
@@ -218,8 +239,7 @@ class BaseSigner():
         execution_info = await state.execute_tx(tx=tx)
 
         await state.state.set_contract_class(
-            class_hash=tx.class_hash,
-            contract_class=contract_class
+            class_hash=tx.class_hash, contract_class=contract_class
         )
         return class_hash, execution_info
 
@@ -235,7 +255,7 @@ class BaseSigner():
             salt=salt,
             class_hash=self.class_hash,
             constructor_calldata=calldata,
-            deployer_address=0
+            deployer_address=0,
         )
 
         transaction_hash = get_transaction_hash(
@@ -245,7 +265,7 @@ class BaseSigner():
             nonce=nonce,
             version=TRANSACTION_VERSION,
             max_fee=max_fee,
-            chain_id=StarknetChainId.TESTNET.value
+            chain_id=StarknetChainId.TESTNET.value,
         )
 
         signature = self.sign(transaction_hash)
@@ -266,6 +286,7 @@ class BaseSigner():
 
         execution_info = await state.execute_tx(tx=tx)
         return execution_info
+
 
 class MockSigner(BaseSigner):
     """
@@ -298,6 +319,7 @@ class MockSigner(BaseSigner):
         )
 
     """
+
     def __init__(self, private_key):
         self.signer = Signer(private_key)
         self.public_key = self.signer.public_key
