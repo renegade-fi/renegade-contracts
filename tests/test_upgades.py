@@ -5,62 +5,20 @@ import os
 
 from typing import Tuple
 
-import asyncio
 import pytest
 
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.testing.contract import DeclaredClass, StarknetContract
 
-from util import cached_contract, MockSigner
+from util import MockSigner
 
-# The path to the mock account contract source code
-ACCOUNT_FILE = os.path.join("tests", "mocks", "Account.cairo")
 # The path to the alternative, proxiable implementation with a dummy interface
 ALTERNATIVE_IMPL_FILE = os.path.join("tests", "mocks", "ProxyImplementation.cairo")
 # The path to the contract source code
 CONTRACT_FILE = os.path.join("contracts", "contract.cairo")
 # The path to the proxy contract source code
 PROXY_FILE = os.path.join("contracts", "proxy", "Proxy.cairo")
-
-
-@pytest.fixture(scope="module")
-def private_key() -> int:
-    """
-    A mock public key for the user calling the contracts
-    """
-    return 12345  # dummy value
-
-
-@pytest.fixture(scope="module")
-def signer(private_key: int) -> MockSigner:
-    """
-    Constructs a mock transaction signer
-    """
-    return MockSigner(private_key)
-
-
-@pytest.fixture(scope="module")
-async def starknet_state() -> Starknet:
-    """
-    Bootstrap the StarkNet mock network
-
-    For now this just creates the network with no special setup
-    """
-    return await Starknet.empty()
-
-
-@pytest.fixture(scope="module")
-async def admin_account(
-    signer: MockSigner, starknet_state: Starknet
-) -> StarknetContract:
-    """
-    Deploys an admin account that can be used for proxy admin ops
-    """
-    # Rebind inputs to their completed futures
-    return await starknet_state.deploy(
-        source=ACCOUNT_FILE, constructor_calldata=[signer.public_key]
-    )
 
 
 @pytest.fixture(scope="module")
