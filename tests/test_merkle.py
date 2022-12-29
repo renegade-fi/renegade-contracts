@@ -23,6 +23,8 @@ EMPTY_LEAF_VAL = (
 MERKLE_HEIGHT = 5
 # The path to the Merkle tree contract source
 MERKLE_FILE = os.path.join("contracts", "merkle", "Merkle.cairo")
+# The number of historical roots stored by the contract
+MERKLE_ROOT_HISTORY_LENGTH = 30
 # The number of historical roots stored by the Merkle contract
 ROOT_HISTORY_LEN = 30
 # The number of bits that can be stored in a Starkware felt
@@ -146,6 +148,46 @@ class TestMerkle:
         # Retreive the Merkle root after the insertions are complete
         exec_info = await merkle_contract.get_root(index=0).call()
         assert exec_info.result == (expected_root,)
+
+    @pytest.mark.asycio
+    async def test_root_history(self, merkle_contract: StarknetContract):
+        """
+        Tests that the Merkle history is properly formed as each insertion
+        is executed
+        """
+        # Sample random leaf data
+        n_insertions = 2**MERKLE_HEIGHT
+        leaf_data = [
+            random.getrandbits(STARKWARE_FELT_BITS) for _ in range(n_insertions)
+        ]
+
+        # Incrementally insert the leaves and compute the expected history
+        expected_history = []
+        inserted_leaves = []
+        for leaf in leaf_data:
+            # Append the leaf to the list of active leaves
+            inserted_leaves.append(leaf)
+            incremental_leaf_data = inserted_leaves + [EMPTY_LEAF_VAL] * (
+                n_insertions - len(inserted_leaves)
+            )
+
+            # Compute the partial root
+            expected_history.append(compute_merkle_root(incremental_leaf_data))
+
+        # Insert values into the Merkle history, check the new root as we progress
+        for (expected_root, next_leaf) in zip(expected_history, leaf_data):
+            exec_info = await merkle_contract.insert(value=next_leaf).execute()
+            assert exec_info.result == (expected_root,)
+
+        # Now test historial root queries
+        # Truncate to the history size of Merkle contract history
+        # The contract's history buffer is in reverse (newest is index 0)
+        expected_history.reverse()
+        expected_history = expected_history[:MERKLE_ROOT_HISTORY_LENGTH]
+
+        for (i, expected_root) in enumerate(expected_history):
+            exec_info = await merkle_contract.get_root(index=i).call()
+            assert exec_info.result == (expected_root,)
 
     @pytest.mark.asyncio
     async def test_insert_full_tree(self, merkle_contract: StarknetContract):
