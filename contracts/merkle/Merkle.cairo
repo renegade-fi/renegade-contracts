@@ -23,21 +23,6 @@ const ROOT_HISTORY_LENGTH = 30;
 const EMPTY_LEAF_VAL = 306932273398430716639340090025251549301604242969558673011416862133942957551;
 
 //
-// Events
-//
-@event
-func change_subtree(height: felt, new_val: felt) {
-}
-
-@event
-func hash_left(left: felt, right: felt, res: felt) {
-}
-
-@event
-func hash_right(left: felt, right: felt, res: felt) {
-}
-
-//
 // Storage
 //
 
@@ -64,7 +49,7 @@ func Merkle_root_history(index: felt) -> (root_val: felt) {
 
 // Stores the siblings of the next inserted
 @storage_var
-func Merkle_sibling_pathway(height: felt) -> (res: felt) {
+func Merkle_sibling_path(height: felt) -> (res: felt) {
 }
 
 // Stores a mapping from height to the value of a node in an empty tree
@@ -72,6 +57,15 @@ func Merkle_sibling_pathway(height: felt) -> (res: felt) {
 // filled
 @storage_var
 func Merkle_zeros(height: felt) -> (res: felt) {
+}
+
+//
+// Events
+//
+
+// Emitted when the root of the global tree changes
+@event
+func Merkle_root_changed(prev_root: felt, new_root: felt) {
 }
 
 //
@@ -116,7 +110,7 @@ func setup_empty_tree{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     // The next value in the sibling pathway is the current hash, when the first value
     // is inserted into the Merkle tree, it will be hashed against the same values used
     // in this recursion
-    Merkle_sibling_pathway.write(height=height, value=current_leaf);
+    Merkle_sibling_path.write(height=height, value=current_leaf);
 
     // Hash the current leaf with itself and recurse
     let (next_leaf) = hash2{hash_ptr=pedersen_ptr}(current_leaf, current_leaf);
@@ -236,7 +230,7 @@ func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     //      2. The current insertion index is a right child; in this case, the subtree
     //         of the parent is filled as well, meaning we should set the updated sibling
     //         to the zero value at this height; representing the parent's right child
-    let (current_sibling_value) = Merkle_sibling_pathway.read(height=height);
+    let (current_sibling_value) = Merkle_sibling_path.read(height=height);
     if (subtree_filled == 1) {
         // Choose between the current value and the parent's right hand child
         local new_value;
@@ -255,8 +249,7 @@ func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
             tempvar range_check_ptr = range_check_ptr;
         }
 
-        Merkle_sibling_pathway.write(height=height, value=new_value);
-        change_subtree.emit(height=height, new_val=new_value);
+        Merkle_sibling_path.write(height=height, value=new_value);
 
         // Rebind implicit args
         tempvar syscall_ptr = syscall_ptr;
@@ -275,12 +268,10 @@ func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         // Left hand side
         let (next_value) = hash2{hash_ptr=pedersen_ptr}(value, current_sibling_value);
         assert new_subtree_filled = 0;
-        hash_left.emit(left=value, right=current_sibling_value, res=next_value);
     } else {
         // Right hand side
         let (next_value) = hash2{hash_ptr=pedersen_ptr}(current_sibling_value, value);
         assert new_subtree_filled = subtree_filled;
-        hash_right.emit(left=current_sibling_value, right=value, res=next_value);
     }
 
     let (root) = hash_with_siblings(
@@ -297,6 +288,10 @@ func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 func store_new_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     new_root: felt
 ) {
+    // Emit an event describing the update
+    let (current_root) = Merkle_root_history.read(index=0);
+    Merkle_root_changed.emit(prev_root=current_root, new_root=new_root);
+
     // Compute the next insertion index
     let (current_history_index) = Merkle_history_index.read();
     let (_, next_index) = unsigned_div_rem(current_history_index + 1, ROOT_HISTORY_LENGTH);
@@ -306,5 +301,6 @@ func store_new_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_
 
     // Update the current root index in the ring buffer
     Merkle_history_index.write(value=current_history_index + 1);
+
     return ();
 }
