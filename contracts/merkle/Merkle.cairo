@@ -23,6 +23,21 @@ const ROOT_HISTORY_LENGTH = 30;
 const EMPTY_LEAF_VAL = 306932273398430716639340090025251549301604242969558673011416862133942957551;
 
 //
+// Events
+//
+@event
+func change_subtree(height: felt, new_val: felt) {
+}
+
+@event
+func hash_left(left: felt, right: felt, res: felt) {
+}
+
+@event
+func hash_right(left: felt, right: felt, res: felt) {
+}
+
+//
 // Storage
 //
 
@@ -50,6 +65,13 @@ func Merkle_root_history(index: felt) -> (root_val: felt) {
 // Stores the siblings of the next inserted
 @storage_var
 func Merkle_sibling_pathway(height: felt) -> (res: felt) {
+}
+
+// Stores a mapping from height to the value of a node in an empty tree
+// at the given height. Used to set the sibling pathway when a subtree is
+// filled
+@storage_var
+func Merkle_zeros(height: felt) -> (res: felt) {
 }
 
 //
@@ -87,6 +109,9 @@ func setup_empty_tree{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     if (height == 0) {
         return (root=current_leaf);
     }
+
+    // Write the zeor value at this height to storage
+    Merkle_zeros.write(height=height, value=current_leaf);
 
     // The next value in the sibling pathway is the current hash, when the first value
     // is inserted into the Merkle tree, it will be hashed against the same values used
@@ -199,11 +224,39 @@ func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         return (root=value);
     }
 
+    // Fetch the least significant bit of the insertion index, this tells us
+    // whether (at the current height), we are hashing into the left or right
+    // hand value
+    let (next_index, is_right) = unsigned_div_rem(insert_index, 2);
+
     // If the subtree rooted at the current node is filled, update the sibling value
-    // for the next insertion
+    // for the next insertion. There are two cases here:
+    //      1. The current insertion index is a left child; in this case the updated
+    //         sibling value is the newly computed node value.
+    //      2. The current insertion index is a right child; in this case, the subtree
+    //         of the parent is filled as well, meaning we should set the updated sibling
+    //         to the zero value at this height; representing the parent's right child
     let (current_sibling_value) = Merkle_sibling_pathway.read(height=height);
     if (subtree_filled == 1) {
-        Merkle_sibling_pathway.write(height=height, value=value);
+        // Choose between the current value and the parent's right hand child
+        local new_value;
+        if (is_right == 0) {
+            new_value = value;
+
+            tempvar syscall_ptr = syscall_ptr;
+            tempvar pedersen_ptr = pedersen_ptr;
+            tempvar range_check_ptr = range_check_ptr;
+        } else {
+            let (res) = Merkle_zeros.read(height=height);
+            new_value = res;
+
+            tempvar syscall_ptr = syscall_ptr;
+            tempvar pedersen_ptr = pedersen_ptr;
+            tempvar range_check_ptr = range_check_ptr;
+        }
+
+        Merkle_sibling_pathway.write(height=height, value=new_value);
+        change_subtree.emit(height=height, new_val=new_value);
 
         // Rebind implicit args
         tempvar syscall_ptr = syscall_ptr;
@@ -217,14 +270,17 @@ func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 
     // Mux between hashing the current value as the left or right sibling depending on
     // the index being inserted into
-    let (next_index, is_odd) = unsigned_div_rem(insert_index, 2);
     local new_subtree_filled;
-    if (is_odd == 0) {
+    if (is_right == 0) {
+        // Left hand side
         let (next_value) = hash2{hash_ptr=pedersen_ptr}(value, current_sibling_value);
         assert new_subtree_filled = 0;
+        hash_left.emit(left=value, right=current_sibling_value, res=next_value);
     } else {
+        // Right hand side
         let (next_value) = hash2{hash_ptr=pedersen_ptr}(current_sibling_value, value);
         assert new_subtree_filled = subtree_filled;
+        hash_right.emit(left=current_sibling_value, right=value, res=next_value);
     }
 
     let (root) = hash_with_siblings(
