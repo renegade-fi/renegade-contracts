@@ -2,13 +2,14 @@
 Groups tests for the main contract's code
 """
 import os
+import random
 
 import pytest
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.testing.contract import DeclaredClass, StarknetContract
 
-from util import MockSigner
+from util import random_felt, MockSigner
 from test_merkle import empty_merkle_tree_root
 
 #############
@@ -160,3 +161,66 @@ class TestProxy:
 ########################
 # Contract Logic Tests #
 ########################
+class TestMainContract:
+    """
+    Groups unit tests for the high level functionality of the main contract
+    """
+
+    @pytest.mark.asyncio
+    async def test_get_root(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests the get_root method, after deploy it should be equal to the root of an
+        empty Merkle tree
+        """
+        expected_root = empty_merkle_tree_root(MERKLE_TREE_HEIGHT)
+        exec_info = await signer.send_transaction(
+            admin_account, proxy_deploy.contract_address, "get_root", []
+        )
+
+        assert exec_info.call_info.retdata[1] == expected_root
+
+    @pytest.mark.asyncio
+    async def test_is_nullifier_used(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests the is_nullifier_used method
+        """
+        # Random nullifier should begin unused
+        nullifier = random_felt()
+        exec_info = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "is_nullifier_used",
+            [nullifier],
+        )
+
+        assert exec_info.call_info.retdata[1] == 0  # False
+
+        # Use the nullifier via `wallet_update`
+        commitment = random_felt()
+        nullifier2 = random_felt()
+        await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "update_wallet",
+            [commitment, nullifier, nullifier2],
+        )
+
+        # Check that the nullifier is now used
+        exec_info = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "is_nullifier_used",
+            [nullifier],
+        )
+
+        assert exec_info.call_info.retdata[1] == 1  # True

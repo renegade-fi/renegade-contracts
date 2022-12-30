@@ -19,17 +19,6 @@ func Nullifier_spent_set(nullifier: felt) -> (present: felt) {
 }
 
 //
-// Constructor
-//
-
-@external
-func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    // Call the initializable guard; ensures that the tree is only initialized once
-    Initializable.initialize();
-    return ();
-}
-
-//
 // Getters
 //
 

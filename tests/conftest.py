@@ -1,6 +1,8 @@
 import os
-import pytest
+import random
+
 import asyncio
+import pytest
 
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.testing.contract import StarknetContract
@@ -9,6 +11,10 @@ from util import MockSigner
 
 # The path to the mock account contract source code
 ACCOUNT_FILE = os.path.join("tests", "mocks", "Account.cairo")
+
+############
+# Fixtures #
+############
 
 
 @pytest.fixture(scope="module")
