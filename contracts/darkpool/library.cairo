@@ -2,8 +2,11 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.uint256 import Uint256
+from starkware.starknet.common.syscalls import get_caller_address
 
 from openzeppelin.upgrades.library import Proxy
+from openzeppelin.token.erc20.IERC20 import IERC20
 
 from contracts.merkle.IMerkle import IMerkle
 from contracts.nullifier.INullifierSet import INullifierSet
@@ -24,7 +27,7 @@ struct ExternalTransfer {
     // The mint (contract address) of the token being transferred
     mint: felt,
     // The amount of the token transferred
-    amount: felt,
+    amount: Uint256,
     // The direction of transfer -- 0 is deposit, 1 is withdraw
     direction: felt,
 }
@@ -111,12 +114,13 @@ namespace Darkpool {
         return (new_root=new_root);
     }
 
-    // @notice update a wallet in the commitment tree
+    // @dev update a wallet in the commitment tree
     // @param commitment the commitment to the updated wallet
     // @param match_nullifier the wallet match nullifier for the wallet before it was updated
     // @param spend_nullifier the wallet spend nullifier for the wallet before it was updated
+    // @param external_transfers_len the number of external transfers in the update
+    // @param external_transfers the transfers to execute outside of the darkpool
     // @return the root of the state tree after the new commitment is inserted
-    @external
     func update_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         commitment: felt,
         match_nullifier: felt,
@@ -139,5 +143,55 @@ namespace Darkpool {
         );
 
         return (new_root=new_root);
+    }
+
+    // @dev executes a set of external ERC20 transfers
+    // @param contract_address the address of the current contract
+    // @param external_address the external address to withdraw to/deposit from
+    // @param transfers_len the number of external transfers to execute
+    // @param transfers the external transfers to execute
+    func _execute_transfers{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        contract_address: felt,
+        external_address: felt,
+        transfers_len: felt,
+        transfers: ExternalTransfer*
+    ) {
+        // Base case
+        if (transfers_len == 0) {
+            return ();
+        }
+
+
+        // Execute the first transfer in the list
+        let next_transfer = transfers[0];
+        _assert_zero_or_one(value=next_transfer.direction);
+
+        if (next_transfer.direction == 0) {
+            // Deposit
+            IERC20.transferFrom(
+                contract_address=next_transfer.mint,
+                sender=external_address, 
+                receipient=contract_address, 
+                amount=next_transfer.amount
+            );
+        } else {
+            // Withdraw
+            IERC20.transfer(
+                contract_address=next_transfer.mint,
+                recipient=external_address,
+                amount=next_transfer.amount
+            );
+        }
+
+        // Recurse
+        _execute_transfers(external_address=external_address, transfers_len=transfers_len - 1, &transfers[1]);
+        return ();
+    }
+
+    func _assert_zero_or_one{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        value: felt
+    ) {
+        assert value * (1 - value) = 0;
+        return ();
     }
 }
