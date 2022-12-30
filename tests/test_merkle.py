@@ -14,6 +14,8 @@ from starkware.starknet.testing.contract import StarknetContract
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.starkware_utils.error_handling import StarkException
 
+from util import random_felt
+
 # The value on an empty leaf in the Merkle tree, defined to be keccak256('renegade')
 # taken modulo the Cairo field
 EMPTY_LEAF_VAL = (
@@ -27,8 +29,6 @@ MERKLE_FILE = os.path.join("contracts", "merkle", "Merkle.cairo")
 MERKLE_ROOT_HISTORY_LENGTH = 30
 # The number of historical roots stored by the Merkle contract
 ROOT_HISTORY_LEN = 30
-# The number of bits that can be stored in a Starkware felt
-STARKWARE_FELT_BITS = 251
 
 ###########
 # Helpers #
@@ -121,7 +121,7 @@ class TestMerkle:
         Tests that inserts into the tree update the root properly
         """
         # Compute the expected root of the first insert into the tree
-        insert_value = random.getrandbits(STARKWARE_FELT_BITS)
+        insert_value = random_felt()
         expected_root = insert_value
 
         n_elems = 2**MERKLE_HEIGHT
@@ -140,7 +140,7 @@ class TestMerkle:
         """
         # Select a set of random set of values
         n_values = 2**MERKLE_HEIGHT
-        leaf_values = [random.getrandbits(STARKWARE_FELT_BITS) for _ in range(n_values)]
+        leaf_values = [random_felt() for _ in range(n_values)]
 
         # Compute the expected merkle root
         expected_root = compute_merkle_root(leaf_values)
@@ -161,9 +161,7 @@ class TestMerkle:
         """
         # Sample random leaf data
         n_insertions = 2**MERKLE_HEIGHT
-        leaf_data = [
-            random.getrandbits(STARKWARE_FELT_BITS) for _ in range(n_insertions)
-        ]
+        leaf_data = [random_felt() for _ in range(n_insertions)]
 
         # Incrementally insert the leaves and compute the expected history
         expected_history = []
@@ -200,7 +198,7 @@ class TestMerkle:
         """
         # Select a set of random set of values
         n_values = 2**MERKLE_HEIGHT
-        leaf_values = [random.getrandbits(STARKWARE_FELT_BITS) for _ in range(n_values)]
+        leaf_values = [random_felt() for _ in range(n_values)]
 
         # Compute the expected merkle root
         expected_root = compute_merkle_root(leaf_values)

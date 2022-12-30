@@ -4,9 +4,6 @@
 
 @contract_interface
 namespace INullifierSet {
-    func initializer() {
-    }
-
     func is_nullifier_used(nullifier: felt) -> (res: felt) {
     }
 

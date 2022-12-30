@@ -77,9 +77,6 @@ namespace Merkle {
     func initialize_tree{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         height: felt
     ) {
-        // Call the initializable guard; ensures that the tree is only initialized once
-        Initializable.initialize();
-
         // Set the height
         Merkle_height.write(value=height);
 

@@ -3,6 +3,7 @@ From OpenZeppelin testing utils:
 https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/utils.py
 """
 import os
+import random
 
 from typing import Tuple
 from pathlib import Path
@@ -37,10 +38,29 @@ from nile.signer import (
     get_transaction_hash,
     TRANSACTION_VERSION,
 )
-from nile.utils import to_uint
+
+#############
+# Constants #
+#############
+
+# The number of bits that can be stored in a Starkware felt
+STARKWARE_FELT_BITS = 251
+
+###########
+# Helpers #
+###########
+
+
+def random_felt() -> int:
+    """
+    Samples a random 251 bit felt
+    """
+    return random.getrandbits(STARKWARE_FELT_BITS)
+
 
 """
-Constants
+Setup Utils from Openzeppelin's test utils:
+https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/utils.py
 """
 
 MAX_UINT256 = (2**128 - 1, 2**128 - 1)
@@ -51,11 +71,6 @@ FALSE = 0
 IACCOUNT_ID = 0xA66BD575
 
 _root = Path(__file__).parent.parent
-
-"""
-Setup Utils from Openzeppelin's test utils:
-https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/utils.py
-"""
 
 
 def get_cairo_path():
