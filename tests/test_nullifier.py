@@ -22,28 +22,13 @@ async def nullifier_contract(starknet_state: Starknet) -> StarknetContract:
     """
     Deploys the nullifier set contract and returns a reference
     """
-    nullifier_contract = await starknet_state.deploy(source=NULLIFIER_CONTRACT_PATH)
-    await nullifier_contract.initializer().execute()
-
-    return nullifier_contract
+    return await starknet_state.deploy(source=NULLIFIER_CONTRACT_PATH)
 
 
 class TestNullifier:
     """
     Groups tests for the nullifier set
     """
-
-    @pytest.mark.asyncio
-    async def test_double_initialize(self, nullifier_contract: StarknetContract):
-        """
-        Tests that initializing twice fails
-        """
-        # The `merkle_contract` fixture has already initialized the contract,
-        # call the `merkle_contract.intializer` method again and expect an error
-        await assert_revert(
-            nullifier_contract.initializer().execute(),
-            reverted_with="Initializable: contract already initialized",
-        )
 
     @pytest.mark.asyncio
     async def test_valid_nullifiers(self, nullifier_contract: StarknetContract):

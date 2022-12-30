@@ -332,7 +332,6 @@ class MockSigner(BaseSigner):
 
 def get_raw_invoke(sender: StarknetContract, calls):
     """Return raw invoke, remove when test framework supports `invoke`."""
-    print(f"type(sender) = {type(sender)}")
     call_array, calldata = from_call_to_call_array(calls)
     raw_invocation = sender.__execute__(call_array, calldata)
     return raw_invocation
