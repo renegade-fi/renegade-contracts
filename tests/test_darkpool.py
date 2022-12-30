@@ -19,7 +19,7 @@ from test_merkle import empty_merkle_tree_root
 # The path to the alternative, proxiable implementation with a dummy interface
 ALTERNATIVE_IMPL_FILE = os.path.join("tests", "mocks", "ProxyImplementation.cairo")
 # The path to the contract source code
-CONTRACT_FILE = os.path.join("contracts", "contract.cairo")
+CONTRACT_FILE = os.path.join("contracts", "darkpool", "Darkpool.cairo")
 # The path to the Merkle tree contract source
 MERKLE_FILE = os.path.join("contracts", "merkle", "Merkle.cairo")
 # The height of the Merkle tree used in the contract
@@ -161,6 +161,8 @@ class TestProxy:
 ########################
 # Contract Logic Tests #
 ########################
+
+
 class TestMainContract:
     """
     Groups unit tests for the high level functionality of the main contract
@@ -212,7 +214,7 @@ class TestMainContract:
             admin_account,
             proxy_deploy.contract_address,
             "update_wallet",
-            [commitment, nullifier, nullifier2],
+            [commitment, nullifier, nullifier2, 0],
         )
 
         # Check that the nullifier is now used
