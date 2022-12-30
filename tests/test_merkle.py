@@ -30,22 +30,6 @@ ROOT_HISTORY_LEN = 30
 # The number of bits that can be stored in a Starkware felt
 STARKWARE_FELT_BITS = 251
 
-############
-# Fixtures #
-############
-
-
-@pytest.fixture(scope="function")
-async def merkle_contract(starknet_state: Starknet) -> StarknetContract:
-    """
-    Deploys the merkle tree contract and returns a reference to it
-    """
-    merkle_contract = await starknet_state.deploy(source=MERKLE_FILE)
-    await merkle_contract.initializer(height=MERKLE_HEIGHT).execute()
-
-    return merkle_contract
-
-
 ###########
 # Helpers #
 ###########
@@ -71,22 +55,42 @@ def compute_merkle_root(leaves: List[int]) -> int:
     return res[0]
 
 
+def empty_merkle_tree_root(height: int) -> int:
+    """
+    Computes the root of an empty merkle tree of the given heightj
+    """
+    root = EMPTY_LEAF_VAL
+    for _ in range(height):
+        root = pedersen_hash(root, root)
+
+    return root
+
+
+############
+# Fixtures #
+############
+
+
+@pytest.fixture(scope="function")
+async def merkle_contract(starknet_state: Starknet) -> StarknetContract:
+    """
+    Deploys the merkle tree contract and returns a reference to it
+    """
+    merkle_contract = await starknet_state.deploy(source=MERKLE_FILE)
+    await merkle_contract.initializer(height=MERKLE_HEIGHT).execute()
+
+    return merkle_contract
+
+
+#####################
+# Merkle Tree Tests #
+#####################
+
+
 class TestMerkle:
     """
     Groups unit tests for the Merkle tree implementation
     """
-
-    @pytest.mark.asyncio
-    async def test_double_initialize(self, merkle_contract: StarknetContract):
-        """
-        Tests that the Merkle tree cannot be doubly initialized
-        """
-        # The `merkle_contract` fixture has already initialized the contract,
-        # call the `merkle_contract.intializer` method again and expect an error
-        await assert_revert(
-            merkle_contract.initializer(height=MERKLE_HEIGHT).execute(),
-            reverted_with="Initializable: contract already initialized",
-        )
 
     @pytest.mark.asyncio
     async def test_initial_root(self, merkle_contract: StarknetContract):
