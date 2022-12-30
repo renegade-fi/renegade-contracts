@@ -1,4 +1,3 @@
-// This contract is implemented as a
 %lang starknet
 
 from openzeppelin.security.initializable.library import Initializable
