@@ -133,7 +133,7 @@ class TestMerkle:
         exec_info = await merkle_contract.insert(value=insert_value).execute()
         assert exec_info.result == (expected_root,)
 
-    @pytest.mark.asycio
+    @pytest.mark.asyncio
     async def test_multi_insert(self, merkle_contract: StarknetContract):
         """
         Tests that the root is updated properly when filling the Merkle tree
@@ -153,7 +153,7 @@ class TestMerkle:
         exec_info = await merkle_contract.get_root(index=0).call()
         assert exec_info.result == (expected_root,)
 
-    @pytest.mark.asycio
+    @pytest.mark.asyncio
     async def test_root_history(self, merkle_contract: StarknetContract):
         """
         Tests that the Merkle history is properly formed as each insertion
