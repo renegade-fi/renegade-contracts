@@ -3,7 +3,7 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.uint256 import Uint256
-from starkware.starknet.common.syscalls import get_caller_address
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 
 from openzeppelin.upgrades.library import Proxy
 from openzeppelin.token.erc20.IERC20 import IERC20
@@ -45,6 +45,24 @@ func Renegade_merkle_class() -> (res: felt) {
 @storage_var
 func Renegade_nullifier_class() -> (res: felt) {
 }
+
+//
+// Events
+//
+
+// An event representing a deposit from an external account to the darkpool
+@event
+func Renegade_deposit(sender: felt, mint: felt, amount: Uint256) {
+}
+
+// An event representing a withdraw from the darkpool to an external account
+@event
+func Renegade_withdraw(recipient: felt, mint: felt, amount: Uint256) {
+}
+
+//
+// Library methods
+//
 
 namespace Darkpool {
     // @dev initializes the contract state and sets up the proxy
@@ -128,10 +146,14 @@ namespace Darkpool {
         external_transfers_len: felt,
         external_transfers: ExternalTransfer*,
     ) -> (new_root: felt) {
+        alloc_locals;
+
         // TODO: Add verification of VALID WALLET UPDATE
         // Insert the updated commitment into the state tree
         let (merkle_class) = Renegade_merkle_class.read();
-        let (new_root) = IMerkle.library_call_insert(class_hash=merkle_class, value=commitment);
+        let (local new_root) = IMerkle.library_call_insert(
+            class_hash=merkle_class, value=commitment
+        );
 
         // Add both the match and spend nullifiers to the spent nullifier set
         let (nullifier_class) = Renegade_nullifier_class.read();
@@ -140,6 +162,16 @@ namespace Darkpool {
         );
         INullifierSet.library_call_mark_nullifier_used(
             class_hash=nullifier_class, nullifier=spend_nullifier
+        );
+
+        // Process the external transfers
+        let (contract_address) = get_contract_address();
+        let (caller_address) = get_caller_address();
+        _execute_transfers(
+            contract_address=contract_address,
+            external_address=caller_address,
+            transfers_len=external_transfers_len,
+            transfers=external_transfers,
         );
 
         return (new_root=new_root);
@@ -154,44 +186,55 @@ namespace Darkpool {
         contract_address: felt,
         external_address: felt,
         transfers_len: felt,
-        transfers: ExternalTransfer*
+        transfers: ExternalTransfer*,
     ) {
         // Base case
         if (transfers_len == 0) {
             return ();
         }
 
-
         // Execute the first transfer in the list
         let next_transfer = transfers[0];
-        _assert_zero_or_one(value=next_transfer.direction);
+
+        // Assert that the direction is set as zero or one
+        with_attr error_message("direction must be 0 or 1, got {next_transfer.direction}") {
+            assert next_transfer.direction * (1 - next_transfer.direction) = 0;
+        }
 
         if (next_transfer.direction == 0) {
             // Deposit
             IERC20.transferFrom(
                 contract_address=next_transfer.mint,
-                sender=external_address, 
-                receipient=contract_address, 
-                amount=next_transfer.amount
+                sender=external_address,
+                recipient=contract_address,
+                amount=next_transfer.amount,
+            );
+
+            // Emit an event
+            Renegade_deposit.emit(
+                sender=external_address, mint=next_transfer.mint, amount=next_transfer.amount
             );
         } else {
             // Withdraw
             IERC20.transfer(
                 contract_address=next_transfer.mint,
                 recipient=external_address,
-                amount=next_transfer.amount
+                amount=next_transfer.amount,
+            );
+
+            // Emit an event
+            Renegade_withdraw.emit(
+                recipient=external_address, mint=next_transfer.mint, amount=next_transfer.amount
             );
         }
 
         // Recurse
-        _execute_transfers(external_address=external_address, transfers_len=transfers_len - 1, &transfers[1]);
-        return ();
-    }
-
-    func _assert_zero_or_one{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        value: felt
-    ) {
-        assert value * (1 - value) = 0;
+        _execute_transfers(
+            contract_address=contract_address,
+            external_address=external_address,
+            transfers_len=transfers_len - 1,
+            transfers=&transfers[1],
+        );
         return ();
     }
 }
