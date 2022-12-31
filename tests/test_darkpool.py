@@ -11,8 +11,8 @@ from starkware.starknet.testing.contract import DeclaredClass, StarknetContract
 
 from nile.utils import assert_revert, str_to_felt, to_uint
 
+from merkle import MerkleTree
 from util import random_felt, MockSigner
-from test_merkle import empty_merkle_tree_root
 
 #############
 # Constants #
@@ -150,10 +150,10 @@ class TestProxy:
         exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
-        assert exec_info.call_info.retdata[1] == empty_merkle_tree_root(
-            MERKLE_TREE_HEIGHT
+        assert (
+            exec_info.call_info.retdata[1]
+            == MerkleTree(height=MERKLE_TREE_HEIGHT).get_root()
         )
-
         # Redirect the proxy to the alternative implementation
         await signer.send_transaction(
             admin_account,
@@ -183,8 +183,9 @@ class TestProxy:
         exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
-        assert exec_info.call_info.retdata[1] == empty_merkle_tree_root(
-            MERKLE_TREE_HEIGHT
+        assert (
+            exec_info.call_info.retdata[1]
+            == MerkleTree(height=MERKLE_TREE_HEIGHT).get_root()
         )
 
 
@@ -209,7 +210,7 @@ class TestInitialState:
         Tests the get_root method, after deploy it should be equal to the root of an
         empty Merkle tree
         """
-        expected_root = empty_merkle_tree_root(MERKLE_TREE_HEIGHT)
+        expected_root = MerkleTree(height=MERKLE_TREE_HEIGHT).get_root()
         exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
