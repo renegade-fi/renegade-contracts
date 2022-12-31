@@ -1,7 +1,10 @@
 // Groups library methods for the darkpool implementation
 %lang starknet
 
+from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.hash_chain import hash_chain
+from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.uint256 import Uint256
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 
@@ -38,12 +41,12 @@ struct ExternalTransfer {
 
 // Stores the implementation class hash for the Merkle tree interface
 @storage_var
-func Renegade_merkle_class() -> (res: felt) {
+func Darkpool_merkle_class() -> (res: felt) {
 }
 
 // Stores the implementation class hash for the Nullifier set interface
 @storage_var
-func Renegade_nullifier_class() -> (res: felt) {
+func Darkpool_nullifier_class() -> (res: felt) {
 }
 
 //
@@ -52,12 +55,12 @@ func Renegade_nullifier_class() -> (res: felt) {
 
 // An event representing a deposit from an external account to the darkpool
 @event
-func Renegade_deposit(sender: felt, mint: felt, amount: Uint256) {
+func Darkpool_deposit(sender: felt, mint: felt, amount: Uint256) {
 }
 
 // An event representing a withdraw from the darkpool to an external account
 @event
-func Renegade_withdraw(recipient: felt, mint: felt, amount: Uint256) {
+func Darkpool_withdraw(recipient: felt, mint: felt, amount: Uint256) {
 }
 
 //
@@ -79,8 +82,8 @@ namespace Darkpool {
         IMerkle.library_call_initializer(class_hash=merkle_class, height=MERKLE_TREE_HEIGHT);
 
         // Write the implementation class hashes to storage
-        Renegade_merkle_class.write(value=merkle_class);
-        Renegade_nullifier_class.write(value=nullifier_class);
+        Darkpool_merkle_class.write(value=merkle_class);
+        Darkpool_nullifier_class.write(value=nullifier_class);
 
         return ();
     }
@@ -95,7 +98,7 @@ namespace Darkpool {
         root: felt
     ) {
         // Get the implementation class
-        let (merkle_class) = Renegade_merkle_class.read();
+        let (merkle_class) = Darkpool_merkle_class.read();
         let (root) = IMerkle.library_call_get_root(class_hash=merkle_class, index=0);
         return (root=root);
     }
@@ -106,7 +109,7 @@ namespace Darkpool {
         nullifier: felt
     ) -> (res: felt) {
         // Get the implementation class
-        let (nullifier_class) = Renegade_nullifier_class.read();
+        let (nullifier_class) = Darkpool_nullifier_class.read();
         let (res) = INullifierSet.library_call_is_nullifier_used(
             class_hash=nullifier_class, nullifier=nullifier
         );
@@ -126,7 +129,7 @@ namespace Darkpool {
     ) -> (new_root: felt) {
         // TODO: Add verification of VALID WALLET CREATE
         // Insert the new wallet's commitment into the state tree
-        let (merkle_class) = Renegade_merkle_class.read();
+        let (merkle_class) = Darkpool_merkle_class.read();
         let (new_root) = IMerkle.library_call_insert(class_hash=merkle_class, value=commitment);
 
         return (new_root=new_root);
@@ -150,13 +153,13 @@ namespace Darkpool {
 
         // TODO: Add verification of VALID WALLET UPDATE
         // Insert the updated commitment into the state tree
-        let (merkle_class) = Renegade_merkle_class.read();
+        let (merkle_class) = Darkpool_merkle_class.read();
         let (local new_root) = IMerkle.library_call_insert(
             class_hash=merkle_class, value=commitment
         );
 
         // Add both the match and spend nullifiers to the spent nullifier set
-        let (nullifier_class) = Renegade_nullifier_class.read();
+        let (nullifier_class) = Darkpool_nullifier_class.read();
         INullifierSet.library_call_mark_nullifier_used(
             class_hash=nullifier_class, nullifier=match_nullifier
         );
@@ -211,7 +214,7 @@ namespace Darkpool {
             );
 
             // Emit an event
-            Renegade_deposit.emit(
+            Darkpool_deposit.emit(
                 sender=external_address, mint=next_transfer.mint, amount=next_transfer.amount
             );
         } else {
@@ -223,7 +226,7 @@ namespace Darkpool {
             );
 
             // Emit an event
-            Renegade_withdraw.emit(
+            Darkpool_withdraw.emit(
                 recipient=external_address, mint=next_transfer.mint, amount=next_transfer.amount
             );
         }
@@ -236,5 +239,64 @@ namespace Darkpool {
             transfers=&transfers[1],
         );
         return ();
+    }
+
+    // @dev encumber two wallets that have matched
+    // @param match_nullifier1 the wallet match nullifier of the first wallet
+    // @param match_nullifier2 the wallet match nullifier of the second wallet
+    // @param note1_ciphertext_len the number of felts in the first encrypted note
+    // @param note1_ciphertext the first note, encrypted under the first party's key
+    // @param note2_ciphertext_len the number of felts in the second encrypted note
+    // @param note2_ciphertext the second note, encrypted under the second party's key
+    // @return the new root after inserting the notes into the commitment tree
+    func process_match{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        match_nullifier1: felt,
+        match_nullifier2: felt,
+        note1_ciphertext_len: felt,
+        note1_ciphertext: felt*,
+        note2_ciphertext_len: felt,
+        note2_ciphertext: felt*,
+    ) -> (new_root: felt) {
+        alloc_locals;
+
+        // Insert the nullifiers into the nullifier set
+        let (nullifier_class) = Darkpool_nullifier_class.read();
+        INullifierSet.library_call_mark_nullifier_used(
+            class_hash=nullifier_class, nullifier=match_nullifier1
+        );
+        INullifierSet.library_call_mark_nullifier_used(
+            class_hash=nullifier_class, nullifier=match_nullifier2
+        );
+
+        // Hash the note ciphertexts and add them to the commitment tree
+        let (local merkle_class) = Darkpool_merkle_class.read();
+        let (hash_note1) = _hash_array(note1_ciphertext_len, note1_ciphertext);
+        IMerkle.library_call_insert(class_hash=merkle_class, value=hash_note1);
+
+        let (hash_note2) = _hash_array(note2_ciphertext_len, note2_ciphertext);
+        let (new_root) = IMerkle.library_call_insert(class_hash=merkle_class, value=hash_note2);
+
+        return (new_root=new_root);
+    }
+
+    // @dev helper to hash an array of values
+    // @param data_len the number of felts to hash
+    // @param data a pointer to the data being hashed
+    // @return the hash of the data computed as per:
+    // https://docs.starknet.io/documentation/architecture_and_concepts/Hashing/hash-functions/#array_hashing
+    func _hash_array{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        data_len: felt, data: felt*
+    ) -> (hash: felt) {
+        alloc_locals;
+
+        // Allocate a segment for the payload to be hashed from
+        let (local hash_payload: felt*) = alloc();
+        hash_payload[0] = data_len;
+
+        memcpy(&hash_payload[1], data, data_len);
+
+        // Hash the payload with a chained pedersen hash
+        let (hash) = hash_chain{hash_ptr=pedersen_ptr}(hash_payload);
+        return (hash=hash);
     }
 }

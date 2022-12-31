@@ -101,3 +101,32 @@ func update_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     );
     return (new_root=new_root);
 }
+
+// @notice encumber two wallets by submitting a successfully completed match to the contract
+// @param match_nullifier1 the wallet match nullifier of the first wallet
+// @param match_nullifier2 the wallet match nullifier of the second wallet
+// @param note1_ciphertext_len the number of felts in the first encrypted note
+// @param note1_ciphertext the first note, encrypted under the first party's key
+// @param note2_ciphertext_len the number of felts in the second encrypted note
+// @param note2_ciphertext the second note, encrypted under the second party's key
+// @return the new root after inserting the notes into the commitment tree
+@external
+func match{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    match_nullifier1: felt,
+    match_nullifier2: felt,
+    note1_ciphertext_len: felt,
+    note1_ciphertext: felt*,
+    note2_ciphertext_len: felt,
+    note2_ciphertext: felt*,
+) -> (new_root: felt) {
+    let (new_root) = Darkpool.process_match(
+        match_nullifier1=match_nullifier1,
+        match_nullifier2=match_nullifier2,
+        note1_ciphertext_len=note1_ciphertext_len,
+        note1_ciphertext=note1_ciphertext,
+        note2_ciphertext_len=note2_ciphertext_len,
+        note2_ciphertext=note2_ciphertext,
+    );
+
+    return (new_root=new_root);
+}
