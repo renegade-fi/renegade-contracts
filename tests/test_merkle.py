@@ -3,7 +3,6 @@ Groups tests for the Merkle tree implementation
 """
 import os
 import pytest
-import random
 
 from typing import List
 
@@ -14,13 +13,9 @@ from starkware.starknet.testing.contract import StarknetContract
 from starkware.crypto.signature.fast_pedersen_hash import pedersen_hash
 from starkware.starkware_utils.error_handling import StarkException
 
+from merkle import MerkleTree, EMPTY_LEAF_VAL
 from util import random_felt
 
-# The value on an empty leaf in the Merkle tree, defined to be keccak256('renegade')
-# taken modulo the Cairo field
-EMPTY_LEAF_VAL = (
-    306932273398430716639340090025251549301604242969558673011416862133942957551
-)
 # The height of the Merkle tree used for testing
 MERKLE_HEIGHT = 5
 # The path to the Merkle tree contract source
@@ -29,41 +24,6 @@ MERKLE_FILE = os.path.join("contracts", "merkle", "Merkle.cairo")
 MERKLE_ROOT_HISTORY_LENGTH = 30
 # The number of historical roots stored by the Merkle contract
 ROOT_HISTORY_LEN = 30
-
-###########
-# Helpers #
-###########
-
-
-def assert_power_of_2(n: int):
-    """
-    Asserts that the input is a power of 2
-    """
-    assert n & (n - 1) == 0 and n > 0
-
-
-def compute_merkle_root(leaves: List[int]) -> int:
-    """
-    Computes the merkle root of the given
-    """
-    assert_power_of_2(len(leaves))
-
-    res = leaves
-    while len(res) > 1:
-        res = [pedersen_hash(res[i], res[i + 1]) for i in range(0, len(res), 2)]
-
-    return res[0]
-
-
-def empty_merkle_tree_root(height: int) -> int:
-    """
-    Computes the root of an empty merkle tree of the given heightj
-    """
-    root = EMPTY_LEAF_VAL
-    for _ in range(height):
-        root = pedersen_hash(root, root)
-
-    return root
 
 
 ############
@@ -99,9 +59,8 @@ class TestMerkle:
         proper emptry tree root
         """
         # Compute the expected root value
-        expected_root = EMPTY_LEAF_VAL
-        for _ in range(MERKLE_HEIGHT):
-            expected_root = pedersen_hash(expected_root, expected_root)
+        tree = MerkleTree(height=MERKLE_HEIGHT)
+        expected_root = tree.get_root()
 
         # Fetch the roots in the history, all should be initialized to
         # the same value
@@ -122,12 +81,8 @@ class TestMerkle:
         """
         # Compute the expected root of the first insert into the tree
         insert_value = random_felt()
-        expected_root = insert_value
-
-        n_elems = 2**MERKLE_HEIGHT
-        leaf_data = [insert_value] + [EMPTY_LEAF_VAL] * (n_elems - 1)
-
-        expected_root = compute_merkle_root(leaf_data)
+        tree = MerkleTree.from_leaf_data(height=MERKLE_HEIGHT, leaves=[insert_value])
+        expected_root = tree.get_root()
 
         # Insert the value into the contract and check the root
         exec_info = await merkle_contract.insert(value=insert_value).execute()
@@ -142,8 +97,8 @@ class TestMerkle:
         n_values = 2**MERKLE_HEIGHT
         leaf_values = [random_felt() for _ in range(n_values)]
 
-        # Compute the expected merkle root
-        expected_root = compute_merkle_root(leaf_values)
+        tree = MerkleTree.from_leaf_data(height=MERKLE_HEIGHT, leaves=leaf_values)
+        expected_root = tree.get_root()
 
         # Insert into the contract's tree
         for value in leaf_values:
@@ -164,17 +119,12 @@ class TestMerkle:
         leaf_data = [random_felt() for _ in range(n_insertions)]
 
         # Incrementally insert the leaves and compute the expected history
+        tree = MerkleTree(height=MERKLE_HEIGHT)
         expected_history = []
-        inserted_leaves = []
         for leaf in leaf_data:
-            # Append the leaf to the list of active leaves
-            inserted_leaves.append(leaf)
-            incremental_leaf_data = inserted_leaves + [EMPTY_LEAF_VAL] * (
-                n_insertions - len(inserted_leaves)
-            )
-
             # Compute the partial root
-            expected_history.append(compute_merkle_root(incremental_leaf_data))
+            tree.insert(leaf)
+            expected_history.append(tree.get_root())
 
         # Insert values into the Merkle history, check the new root as we progress
         for (expected_root, next_leaf) in zip(expected_history, leaf_data):
@@ -199,9 +149,6 @@ class TestMerkle:
         # Select a set of random set of values
         n_values = 2**MERKLE_HEIGHT
         leaf_values = [random_felt() for _ in range(n_values)]
-
-        # Compute the expected merkle root
-        expected_root = compute_merkle_root(leaf_values)
 
         # Insert into the contract's tree
         for value in leaf_values:
