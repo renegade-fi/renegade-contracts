@@ -5,12 +5,12 @@ import os
 
 import pytest
 
+from starkware.cairo.common.hash_chain import compute_hash_chain
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.testing.contract import DeclaredClass, StarknetContract
 
 from nile.utils import assert_revert, str_to_felt, to_uint
-
 from merkle import MerkleTree
 from util import random_felt, MockSigner
 
@@ -451,3 +451,130 @@ class TestDepositWithdraw:
             ),
             reverted_with="direction must be 0 or 1",
         )
+
+
+class TestMatch:
+    """
+    Groups tests for the match/encumbering process
+    """
+
+    @pytest.mark.asyncio
+    async def test_match_root(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests the basic functionality of executing a match, validates that
+        the root is correctly updated
+        """
+        # Generate random nullifiers and match ciphertexts
+        ciphertext_len = 5
+        match_nullifier1 = random_felt()
+        match_nullifier2 = random_felt()
+        note1_ciphertext = [random_felt() for _ in range(ciphertext_len)]
+        note2_ciphertext = [random_felt() for _ in range(ciphertext_len)]
+
+        # Execute the match transaction
+        exec_info = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "match",
+            [
+                match_nullifier1,
+                match_nullifier2,
+                ciphertext_len,
+                *note1_ciphertext,
+                ciphertext_len,
+                *note2_ciphertext,
+            ],
+        )
+
+        # Compute the expected value for the new Merkle root
+        hashed_ciphertext1 = compute_hash_chain([ciphertext_len] + note1_ciphertext)
+        hashed_ciphertext2 = compute_hash_chain([ciphertext_len] + note2_ciphertext)
+
+        tree = MerkleTree.from_leaf_data(
+            height=MERKLE_TREE_HEIGHT, leaves=[hashed_ciphertext1, hashed_ciphertext2]
+        )
+        expected_root = tree.get_root()
+
+        assert exec_info.call_info.retdata[1] == expected_root
+
+    @pytest.mark.asyncio
+    async def test_match_encumber(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+        erc20_contract: StarknetContract,
+    ):
+        """
+        Tests that once a match has occurred the wallet cannot be updated
+        """
+        # Generate random nullifiers and match ciphertexts
+        ciphertext_len = 5
+        match_nullifier1 = random_felt()
+        match_nullifier2 = random_felt()
+        note1_ciphertext = [random_felt() for _ in range(ciphertext_len)]
+        note2_ciphertext = [random_felt() for _ in range(ciphertext_len)]
+
+        # Execute the match transaction
+        await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "match",
+            [
+                match_nullifier1,
+                match_nullifier2,
+                ciphertext_len,
+                *note1_ciphertext,
+                ciphertext_len,
+                *note2_ciphertext,
+            ],
+        )
+
+        # Now attempt to withdraw a balance from the wallet using the same
+        # wallet nullifier as above; tx should fail
+        amount_uint = to_uint(10)
+        wallet_commit1 = random_felt()
+        wallet_commit2 = random_felt()
+        settle_nullifier1 = random_felt()
+        settle_nullifier2 = random_felt()
+
+        external_transfer_payload = (
+            erc20_contract.contract_address,  # mint
+            *amount_uint,  # amount
+            1,  # withdraw
+        )
+
+        # Create one withdraw transaction for each wallet
+        wallet1_tx = signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "update_wallet",
+            [
+                wallet_commit1,
+                match_nullifier1,
+                settle_nullifier1,
+                1,
+                *external_transfer_payload,
+            ],
+        )
+
+        wallet2_tx = signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "update_wallet",
+            [
+                wallet_commit2,
+                match_nullifier2,
+                settle_nullifier2,
+                1,
+                *external_transfer_payload,
+            ],
+        )
+
+        await assert_revert(wallet1_tx, "nullifier already used")
+        await assert_revert(wallet2_tx, "nullifier already used")
