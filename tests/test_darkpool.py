@@ -277,6 +277,7 @@ class TestDepositWithdraw:
     ):
         """
         Deposit an amount of the ERC20 token into the darkpool
+        Returns the new root and the wallet commitment that was used
         """
         amount_uint = to_uint(amount)
         wallet_commit = random_felt()
@@ -297,7 +298,7 @@ class TestDepositWithdraw:
             *amount_uint,  # amount
             0,  # deposit
         )
-        await signer.send_transaction(
+        exec_info = await signer.send_transaction(
             admin_account,
             proxy.contract_address,
             "update_wallet",
@@ -309,6 +310,8 @@ class TestDepositWithdraw:
                 *external_transfer_payload,
             ],
         )
+
+        return exec_info.call_info.retdata[1], wallet_commit
 
     async def withdraw(
         amount: int,
@@ -331,7 +334,7 @@ class TestDepositWithdraw:
             *amount_uint,  # amount
             1,  # withdraw
         )
-        await signer.send_transaction(
+        exec_info = await signer.send_transaction(
             admin_account,
             proxy.contract_address,
             "update_wallet",
@@ -343,6 +346,8 @@ class TestDepositWithdraw:
                 *external_transfer_payload,
             ],
         )
+
+        return exec_info.call_info.retdata[1], wallet_commit
 
     #########
     # Tests #
@@ -361,9 +366,14 @@ class TestDepositWithdraw:
         """
         # Transfer half of the initial supply to the darkpool
         half_balance = ERC20_BALANCE / 2
-        await TestDepositWithdraw.deposit(
+        new_root, wallet_commit = await TestDepositWithdraw.deposit(
             half_balance, signer, admin_account, proxy_deploy, erc20_contract
         )
+        expected_root = MerkleTree.from_leaf_data(
+            height=MERKLE_TREE_HEIGHT, leaves=[wallet_commit]
+        ).get_root()
+
+        assert new_root == expected_root
 
         # Check the balances of the darkpool contract and the depositer
         # both should now be at half of the initial supply
@@ -390,9 +400,13 @@ class TestDepositWithdraw:
         Tests withdrawing from the darkpool
         """
         # First transfer the whole balance to the darkpool
-        await TestDepositWithdraw.deposit(
+        new_root, wallet_commit = await TestDepositWithdraw.deposit(
             ERC20_BALANCE, signer, admin_account, proxy_deploy, erc20_contract
         )
+        expected_root = MerkleTree.from_leaf_data(
+            height=MERKLE_TREE_HEIGHT, leaves=[wallet_commit]
+        ).get_root()
+        assert expected_root == new_root
 
         # Now withdraw half
         half_balance = ERC20_BALANCE / 2

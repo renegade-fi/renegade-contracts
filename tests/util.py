@@ -170,7 +170,7 @@ https://github.com/OpenZeppelin/cairo-contracts/blob/main/tests/signers.py
 class BaseSigner:
     async def send_transaction(
         self, account, to, selector_name, calldata, nonce=None, max_fee=0
-    ):
+    ) -> TransactionExecutionInfo:
         return await self.send_transactions(
             account, [(to, selector_name, calldata)], nonce, max_fee
         )
