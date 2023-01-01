@@ -592,3 +592,196 @@ class TestMatch:
 
         await assert_revert(wallet1_tx, "nullifier already used")
         await assert_revert(wallet2_tx, "nullifier already used")
+
+
+class TestSettle:
+    """
+    Groups tests for the note settle process
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("from_internal_tx", [0, 1])
+    async def test_settle(
+        self,
+        from_internal_tx: int,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests the flow of settling on a note that came from a match
+        Attempts to double spend the note, verifies that this fails
+        """
+        # Spend the note and update the wallet
+        wallet_commit = random_felt()
+        match_nullifier = random_felt()
+        spend_nullifier = random_felt()
+        note_redeem_nullifier = random_felt()
+        calldata = [
+            from_internal_tx,
+            wallet_commit,
+            match_nullifier,
+            spend_nullifier,
+            note_redeem_nullifier,
+        ]
+
+        exec_info = await signer.send_transaction(
+            admin_account, proxy_deploy.contract_address, "settle", calldata
+        )
+
+        # Verify that the Merkle root has updated correctly
+        tree = MerkleTree.from_leaf_data(
+            height=MERKLE_TREE_HEIGHT, leaves=[wallet_commit]
+        )
+        assert exec_info.call_info.retdata[1] == tree.get_root()
+
+        # Attempt to spend the note a second time on the same wallet
+        await assert_revert(
+            signer.send_transaction(
+                admin_account, proxy_deploy.contract_address, "settle", calldata
+            ),
+            reverted_with="nullifier already used",
+        )
+
+        # Attempt to spend the note a second time on a different wallet
+        await assert_revert(
+            signer.send_transaction(
+                admin_account,
+                proxy_deploy.contract_address,
+                "settle",
+                [
+                    from_internal_tx,  # from_internal_transaction
+                    random_felt(),  # wallet_commitment
+                    random_felt(),  # match_nullifier
+                    random_felt(),  # spend_nullifier
+                    note_redeem_nullifier,
+                ],
+            ),
+            reverted_with="nullifier already used",
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("from_internal_tx", [0, 1])
+    async def test_update_after_settle(
+        self,
+        from_internal_tx: int,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+        erc20_contract: StarknetContract,
+    ):
+        """
+        Attempts to update and match a wallet after an order has been settled on it
+        verifies that both operations fail
+        """
+        # Settle an order on the wallet
+        wallet_commit = random_felt()
+        match_nullifier = random_felt()
+        spend_nullifier = random_felt()
+        note_redeem_nullifier = random_felt()
+
+        await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "settle",
+            [
+                from_internal_tx,
+                wallet_commit,
+                match_nullifier,
+                spend_nullifier,
+                note_redeem_nullifier,
+            ],
+        )
+
+        # Attempt to withdraw from the darkpool using the old wallet
+        external_transfer_payload = (
+            erc20_contract.contract_address,  # mint
+            *to_uint(10),  # amount
+            1,  # withdraw
+        )
+
+        await assert_revert(
+            signer.send_transaction(
+                admin_account,
+                proxy_deploy.contract_address,
+                "update_wallet",
+                [
+                    wallet_commit,
+                    match_nullifier,
+                    spend_nullifier,
+                    1,
+                    *external_transfer_payload,
+                ],
+            ),
+            reverted_with="nullifier already used",
+        )
+
+        # Attempt to make another match on the old wallet
+        # We only assert this here for an internal tx, for a note settle
+        # that is generated via match, it is assumed that a previous call
+        # to match nullified the match_nullifier
+        if from_internal_tx == 1:
+            await assert_revert(
+                signer.send_transaction(
+                    admin_account,
+                    proxy_deploy.contract_address,
+                    "match",
+                    [
+                        match_nullifier,
+                        random_felt(),  # match_nullifier2
+                        1,  # note1_ciphertext_len
+                        random_felt(),  # note1_ciphertext
+                        1,  # note2_ciphertext_len
+                        random_felt(),  # note2_ciphertext
+                    ],
+                ),
+                reverted_with="nullifier already used",
+            )
+
+    @pytest.mark.asyncio
+    async def test_encumber_then_settle_internal(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests that a wallet cannot settle an internal transfer after
+        being encumbered
+        """
+        # Match the wallet
+        wallet_commit = random_felt()
+        match_nullifier = random_felt()
+        spend_nullifier = random_felt()
+        note_redeem_nullifier = random_felt()
+
+        await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "match",
+            [
+                match_nullifier,
+                random_felt(),  # match_nullifier2
+                1,  # note1_ciphertext_len
+                random_felt(),  # note1_ciphertext
+                1,  # note2_ciphertext_len
+                random_felt(),  # note2_ciphertext
+            ],
+        )
+
+        # Now attempt to settle a (separate) internal note, verify that this fails
+        await assert_revert(
+            signer.send_transaction(
+                admin_account,
+                proxy_deploy.contract_address,
+                "settle",
+                [
+                    1,  # from_internal_transfer
+                    wallet_commit,
+                    match_nullifier,
+                    spend_nullifier,
+                    note_redeem_nullifier,
+                ],
+            ),
+            reverted_with="nullifier already used",
+        )
