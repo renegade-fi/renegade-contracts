@@ -146,6 +146,8 @@ namespace Darkpool {
         commitment: felt,
         match_nullifier: felt,
         spend_nullifier: felt,
+        internal_transfer_ciphertext_len: felt,
+        internal_transfer_ciphertext: felt*,
         external_transfers_len: felt,
         external_transfers: ExternalTransfer*,
     ) -> (new_root: felt) {
@@ -177,6 +179,17 @@ namespace Darkpool {
             transfers=external_transfers,
         );
 
+        // Process the internal transfer if one exists
+        if (internal_transfer_ciphertext_len == 0) {
+            return (new_root=new_root);
+        }
+
+        let (transfer_commitment) = _hash_array(
+            internal_transfer_ciphertext_len, internal_transfer_ciphertext
+        );
+        let (new_root) = IMerkle.library_call_insert(
+            class_hash=merkle_class, value=transfer_commitment
+        );
         return (new_root=new_root);
     }
 

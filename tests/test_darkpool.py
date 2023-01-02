@@ -245,7 +245,7 @@ class TestInitialState:
             admin_account,
             proxy_deploy.contract_address,
             "update_wallet",
-            [commitment, nullifier, nullifier2, 0],
+            [commitment, nullifier, nullifier2, 0, 0],
         )
 
         # Check that the nullifier is now used
@@ -259,7 +259,7 @@ class TestInitialState:
         assert exec_info.call_info.retdata[1] == 1  # True
 
 
-class TestDepositWithdraw:
+class TestWalletUpdate:
     """
     Groups tests for depositing, withdrawing from the darkpool
     """
@@ -306,6 +306,7 @@ class TestDepositWithdraw:
                 wallet_commit,
                 match_nullifier,
                 settle_nullifier,
+                0,  # internal_transfer_ciphertext_len
                 1,
                 *external_transfer_payload,
             ],
@@ -342,6 +343,7 @@ class TestDepositWithdraw:
                 wallet_commit,
                 match_nullifier,
                 settle_nullifier,
+                0,  # internal_transfer_ciphertext_len
                 1,
                 *external_transfer_payload,
             ],
@@ -366,7 +368,7 @@ class TestDepositWithdraw:
         """
         # Transfer half of the initial supply to the darkpool
         half_balance = ERC20_BALANCE / 2
-        new_root, wallet_commit = await TestDepositWithdraw.deposit(
+        new_root, wallet_commit = await TestWalletUpdate.deposit(
             half_balance, signer, admin_account, proxy_deploy, erc20_contract
         )
         expected_root = MerkleTree.from_leaf_data(
@@ -400,7 +402,7 @@ class TestDepositWithdraw:
         Tests withdrawing from the darkpool
         """
         # First transfer the whole balance to the darkpool
-        new_root, wallet_commit = await TestDepositWithdraw.deposit(
+        new_root, wallet_commit = await TestWalletUpdate.deposit(
             ERC20_BALANCE, signer, admin_account, proxy_deploy, erc20_contract
         )
         expected_root = MerkleTree.from_leaf_data(
@@ -410,7 +412,7 @@ class TestDepositWithdraw:
 
         # Now withdraw half
         half_balance = ERC20_BALANCE / 2
-        await TestDepositWithdraw.withdraw(
+        await TestWalletUpdate.withdraw(
             half_balance, signer, admin_account, proxy_deploy, erc20_contract
         )
 
@@ -459,12 +461,55 @@ class TestDepositWithdraw:
                     wallet_commit,
                     match_nullifier,
                     settle_nullifier,
+                    0,  # internal_transfer_ciphertext_len
                     1,
                     *external_transfer_payload,
                 ],
             ),
             reverted_with="direction must be 0 or 1",
         )
+
+    @pytest.mark.asyncio
+    async def test_internal_transfer(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests that internal transfers are properly committed to in the state tree
+        """
+        wallet_commit = random_felt()
+        match_nullifier = random_felt()
+        settle_nullifier = random_felt()
+
+        # Construct a mock internal transfer
+        ciphertext_len = 5
+        internal_transfer_ciphertext = [random_felt() for _ in range(ciphertext_len)]
+
+        # Execute the internal transfer, assert that the new root has committed the transfer ciphertext
+        exec_info = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "update_wallet",
+            [
+                wallet_commit,
+                match_nullifier,
+                settle_nullifier,
+                ciphertext_len,
+                *internal_transfer_ciphertext,
+                0,  # external_transfers_len
+            ],
+        )
+
+        ciphertext_commitment = compute_hash_chain(
+            [ciphertext_len] + internal_transfer_ciphertext
+        )
+        tree = MerkleTree.from_leaf_data(
+            height=MERKLE_TREE_HEIGHT, leaves=[wallet_commit, ciphertext_commitment]
+        )
+
+        assert exec_info.call_info.retdata[1] == tree.get_root()
 
 
 class TestMatch:
@@ -572,6 +617,7 @@ class TestMatch:
                 wallet_commit1,
                 match_nullifier1,
                 settle_nullifier1,
+                0,  # internal_transfers_ciphertext_len
                 1,
                 *external_transfer_payload,
             ],
@@ -585,6 +631,7 @@ class TestMatch:
                 wallet_commit2,
                 match_nullifier2,
                 settle_nullifier2,
+                0,  # internal_transfers_ciphertext_len
                 1,
                 *external_transfer_payload,
             ],
@@ -709,6 +756,7 @@ class TestSettle:
                     wallet_commit,
                     match_nullifier,
                     spend_nullifier,
+                    0,  # internal_transfers_ciphertext_len
                     1,
                     *external_transfer_payload,
                 ],

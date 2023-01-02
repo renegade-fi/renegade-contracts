@@ -89,6 +89,8 @@ func update_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     commitment: felt,
     match_nullifier: felt,
     spend_nullifier: felt,
+    internal_transfer_ciphertext_len: felt,
+    internal_transfer_ciphertext: felt*,
     external_transfers_len: felt,
     external_transfers: ExternalTransfer*,
 ) -> (new_root: felt) {
@@ -96,6 +98,8 @@ func update_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         commitment=commitment,
         match_nullifier=match_nullifier,
         spend_nullifier=spend_nullifier,
+        internal_transfer_ciphertext_len=internal_transfer_ciphertext_len,
+        internal_transfer_ciphertext=internal_transfer_ciphertext,
         external_transfers_len=external_transfers_len,
         external_transfers=external_transfers,
     );
