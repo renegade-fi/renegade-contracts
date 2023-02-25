@@ -1,6 +1,10 @@
 # Ignore nile build artifacts
 **/artifacts
 
+# Ignore Nile deployment, declaration, account caches
+*.accounts.json
+localhost.*
+
 # Ignore SARIF (static analyzer output) files
 **/*.sarif
 
