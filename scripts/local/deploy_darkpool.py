@@ -6,6 +6,8 @@ all to a deployed proxy
 import logging
 
 from nile.common import ETH_TOKEN_ADDRESS
+from nile.core.types.account import Account
+from nile.nre import NileRuntimeEnvironment
 from nile.utils import to_uint, hex_address
 from starkware.starknet.public.abi import get_selector_from_name
 
@@ -23,7 +25,7 @@ Script
 """
 
 
-async def run(nre):
+async def run(nre: NileRuntimeEnvironment):
     """
     Declares the Merkle and Nullifier classes, along with the darkpool
     places all implementation classes into the proxy
@@ -39,7 +41,7 @@ async def run(nre):
     await deploy_proxy(nre, account)
 
 
-async def declare_contracts(nre, account):
+async def declare_contracts(nre: NileRuntimeEnvironment, account: Account):
     """
     Declare the merkle tree impl, nullifier set impl, darkpool impl, and proxy
     """
@@ -60,7 +62,7 @@ async def declare_contracts(nre, account):
     await tx.execute()
 
 
-async def deploy_proxy(nre, account):
+async def deploy_proxy(nre: NileRuntimeEnvironment, account: Account):
     """
     Deploy the proxy contract with the correct implementation hashes
     """

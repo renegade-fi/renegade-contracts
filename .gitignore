@@ -4,6 +4,7 @@
 # Ignore Nile deployment, declaration, account caches
 *.accounts.json
 localhost.*
+goerli.*
 
 # Ignore SARIF (static analyzer output) files
 **/*.sarif
