@@ -19,6 +19,13 @@ func Nullifier_spent_set(nullifier: felt) -> (present: felt) {
 }
 
 //
+// Events
+//
+@event
+func Nullifier_spent(nullifier: felt) {
+}
+
+//
 // Getters
 //
 
@@ -50,5 +57,8 @@ func mark_nullifier_used{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 
     // Add to set
     Nullifier_spent_set.write(nullifier=nullifier, value=1);
+
+    // Emit an event on the nullifier
+    Nullifier_spent.emit(nullifier=nullifier);
     return ();
 }
