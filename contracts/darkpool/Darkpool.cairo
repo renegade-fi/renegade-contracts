@@ -41,6 +41,32 @@ func upgrade{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return ();
 }
 
+// @notice upgrades the implementation class hash of the Merkle tree in the contract
+// @param implementation_hash the class hash of the Merkle tree implementation
+@external
+func upgrade_merkle{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    implementation_hash: felt
+) {
+    // Only an admin may update the Merkle implementation
+    Proxy.assert_only_admin();
+
+    Darkpool.set_merkle_class(class_hash=implementation_hash);
+    return ();
+}
+
+// @notice upgrades the implementation class hash of the nullifier set in the contract
+// @param implementation_hash the class hash of the nullifier set implementation
+@external
+func upgrade_nullifier{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    implementation_hash: felt
+) {
+    // Only an admin may update the nullifier set implementation
+    Proxy.assert_only_admin();
+
+    Darkpool.set_nullifier_class(class_hash=implementation_hash);
+    return ();
+}
+
 //
 // Getters
 //

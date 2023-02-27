@@ -63,6 +63,16 @@ func Darkpool_deposit(sender: felt, mint: felt, amount: Uint256) {
 func Darkpool_withdraw(recipient: felt, mint: felt, amount: Uint256) {
 }
 
+// An event representing a change to the Merkle tree implementation class
+@event
+func Darkpool_merkle_class_changed(old_class: felt, new_class: felt) {
+}
+
+// An event representing a change to the Nullifier set implementation class
+@event
+func Darkpool_nullifier_set_changed(old_class: felt, new_class: felt) {
+}
+
 //
 // Library methods
 //
@@ -85,6 +95,34 @@ namespace Darkpool {
         Darkpool_merkle_class.write(value=merkle_class);
         Darkpool_nullifier_class.write(value=nullifier_class);
 
+        return ();
+    }
+
+    // @dev upgrades the Merkle implementation class
+    // @param class_hash the hash of the implementation class used for Merkle operations
+    func set_merkle_class{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        class_hash: felt
+    ) {
+        // Read the class to emit it as an event first
+        let (merkle_class) = Darkpool_merkle_class.read();
+        Darkpool_merkle_class_changed.emit(old_class=merkle_class, new_class=class_hash);
+
+        // Write the new class hash
+        Darkpool_merkle_class.write(value=class_hash);
+        return ();
+    }
+
+    // @dev upgrades the Nullifier set implementation class
+    // @param class_hash the hash of the implementation class used for Nullifier operations
+    func set_nullifier_class{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        class_hash: felt
+    ) {
+        // Read the existing class hash to emit it as an event
+        let (nullifier_class) = Darkpool_nullifier_class.read();
+        Darkpool_nullifier_set_changed.emit(old_class=nullifier_class, new_class=class_hash);
+
+        // Write the new class hash
+        Darkpool_nullifier_class.write(value=class_hash);
         return ();
     }
 
