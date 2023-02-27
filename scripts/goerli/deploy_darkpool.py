@@ -6,8 +6,7 @@ all to a deployed proxy
 import logging
 
 from nile.common import ETH_TOKEN_ADDRESS
-from nile.core.types.account import Account
-from nile.core.types.tx_wrappers import DeployContractTxWrapper
+from nile.core.account import Account
 from nile.nre import NileRuntimeEnvironment
 from nile.utils import to_uint, hex_address
 from starkware.starknet.public.abi import get_selector_from_name
@@ -33,6 +32,7 @@ async def run(nre: NileRuntimeEnvironment):
     places all implementation classes into the proxy
     """
     logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().disabled = False
 
     # Find a set of pre-deployed accounts
     accounts = await nre.get_accounts()
@@ -50,40 +50,42 @@ async def declare_contracts(nre: NileRuntimeEnvironment, account: Account, nonce
     Declare the merkle tree impl, nullifier set impl, darkpool impl, and proxy
     """
     # Declare the Merkle tree implementation
-    tx = await account.declare(
+    await account.declare(
         MERKLE_CONTRACT_NAME,
         alias=MERKLE_CONTRACT_NAME,
         nonce=nonce,
         max_fee=MAX_FEE,
+        watch_mode="track",
     )
-    await tx.execute(watch_mode="track")
     nonce += 1
 
     # Declare the nullifier set implementation
-    tx = await account.declare(
+    await account.declare(
         NULLIFIER_CONTRACT_NAME,
         alias=NULLIFIER_CONTRACT_NAME,
         nonce=nonce,
         max_fee=MAX_FEE,
     )
-    await tx.execute(watch_mode="track")
     nonce += 1
 
     # Declare the darkpool implementation
-    tx = await account.declare(
+    await account.declare(
         DARKPOOL_CONTRACT_NAME,
         alias=DARKPOOL_CONTRACT_NAME,
         nonce=nonce,
         max_fee=MAX_FEE,
+        watch_mode="track",
     )
-    await tx.execute(watch_mode="track")
     nonce += 1
 
     # Declare the proxy
-    tx = await account.declare(
-        PROXY_CONTRACT_NAME, alias=PROXY_CONTRACT_NAME, nonce=nonce, max_fee=MAX_FEE
+    await account.declare(
+        PROXY_CONTRACT_NAME,
+        alias=PROXY_CONTRACT_NAME,
+        nonce=nonce,
+        max_fee=MAX_FEE,
+        watch_mode="track",
     )
-    await tx.execute(watch_mode="track")
     nonce += 1
 
     return nonce
@@ -114,17 +116,14 @@ async def deploy_proxy(nre: NileRuntimeEnvironment, account: Account, nonce: int
     ]
 
     # First, estimate the fee and then
-    tx: DeployContractTxWrapper = await account.deploy_contract(
+    await account.deploy_contract(
         PROXY_CONTRACT_NAME,
         123,  # salt
         42,  # unique
         proxy_calldata,
         alias=PROXY_CONTRACT_NAME,
         nonce=nonce,
+        watch_mode="track",
     )
-    max_fee = await tx.estimate_fee()
-    tx.max_fee = max_fee
-
-    await tx.execute(watch_mode="track")
 
     logging.info("\n🕺 Deployment finished!")
