@@ -46,7 +46,7 @@ func insert{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(val
     let (next_index) = Merkle.increment_next_index();
 
     // Compute the new root after the insertion
-    let (new_root) = Merkle.hash_with_siblings(
+    let (new_root) = Merkle.insert(
         value=value, height=height, insert_index=next_index, subtree_filled=1
     );
     Merkle.store_new_root(new_root=new_root);

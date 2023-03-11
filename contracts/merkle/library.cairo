@@ -68,6 +68,22 @@ func Merkle_zeros(height: felt) -> (res: felt) {
 func Merkle_root_changed(prev_root: felt, new_root: felt) {
 }
 
+// Emitted when a value is inserted into the Merkle tree
+@event
+func Merkle_value_inserted(index: felt, value: felt) {
+}
+
+// Emitted when an internal node of the global tree changes
+//
+// The height is the height (from the root) of the internal node that changed
+// where 0 represents a root
+//
+// The index represents the index into the siblings array; i.e. the list formed by
+// reading the nodes at the given height, left to right.
+@event
+func Merkle_internal_node_changed(height: felt, index: felt, new_value: felt) {
+}
+
 //
 // Library methods
 //
@@ -200,10 +216,24 @@ namespace Merkle {
     // @param subtree_filled whether the subtree rooted at the current node is filled. If so
     // we update the sibling path so that this node is used on subsequent hashes
     // @return the root computed by hashing the value into the
-    func hash_with_siblings{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    func insert{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        value: felt, height: felt, insert_index: felt, subtree_filled: felt
+    ) -> (root: felt) {
+        // Emit an event for insertion then delegate to helper
+        Merkle_value_inserted.emit(index=insert_index, value=value);
+
+        let (root) = insert_impl(value, height, insert_index, subtree_filled);
+        return (root=root);
+    }
+
+    // @dev recursive helper to hash siblings up a tree
+    func insert_impl{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         value: felt, height: felt, insert_index: felt, subtree_filled: felt
     ) -> (root: felt) {
         alloc_locals;
+
+        // Emit an event indicating that the internal node has changed
+        Merkle_internal_node_changed.emit(height=height, index=insert_index, new_value=value);
 
         // Base case
         if (height == 0) {
@@ -266,7 +296,7 @@ namespace Merkle {
             assert new_subtree_filled = subtree_filled;
         }
 
-        let (root) = hash_with_siblings(
+        let (root) = insert_impl(
             value=next_value,
             height=height - 1,
             insert_index=next_index,
