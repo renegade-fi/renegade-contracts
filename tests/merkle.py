@@ -63,9 +63,9 @@ class MerkleTree:
         self.next_leaf = 0
         self.zeros = []
         self.merkle_entries = dict()
-        self.root = self._initailize_zeros()
+        self.root = self._initialize_zeros()
 
-    def _initailize_zeros(self) -> int:
+    def _initialize_zeros(self) -> int:
         """
         Setup the zero values at each level of the tree
 

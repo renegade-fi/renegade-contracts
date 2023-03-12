@@ -25,6 +25,37 @@ MERKLE_ROOT_HISTORY_LENGTH = 30
 # The number of historical roots stored by the Merkle contract
 ROOT_HISTORY_LEN = 30
 
+###########
+# Helpers #
+###########
+
+
+def validate_merkle_tree_insertion_event(event, index, value):
+    """
+    Validates that the event correctly represents the insertion event at the
+    given index of the given value
+    """
+    assert event.index == index
+    assert event.value == value
+
+
+def validate_internal_node_changed_event(event, height, index, new_value):
+    """
+    Validates that the given event correctly represents an internal node change
+    at the given (height, index) pair to the given value
+    """
+    assert event.height == height
+    assert event.index == index
+    assert event.new_value == new_value
+
+
+def validate_merkle_root_changed_event(event, prev_root, new_root):
+    """
+    Validates that the given event correctly represents a Merkle root change
+    """
+    assert event.prev_root == prev_root
+    assert event.new_root == new_root
+
 
 ############
 # Fixtures #
@@ -56,7 +87,7 @@ class TestMerkle:
     async def test_initial_root(self, merkle_contract: StarknetContract):
         """
         Tests that fetching the root from a newly initialized contract returns the
-        proper emptry tree root
+        proper empty tree root
         """
         # Compute the expected root value
         tree = MerkleTree(height=MERKLE_HEIGHT)
@@ -104,7 +135,7 @@ class TestMerkle:
         for value in leaf_values:
             exec_info = await merkle_contract.insert(value=value).execute()
 
-        # Retreive the Merkle root after the insertions are complete
+        # Retrieve the Merkle root after the insertions are complete
         exec_info = await merkle_contract.get_root(index=0).call()
         assert exec_info.result == (expected_root,)
 
@@ -131,7 +162,7 @@ class TestMerkle:
             exec_info = await merkle_contract.insert(value=next_leaf).execute()
             assert exec_info.result == (expected_root,)
 
-        # Now test historial root queries
+        # Now test historical root queries
         # Truncate to the history size of Merkle contract history
         # The contract's history buffer is in reverse (newest is index 0)
         expected_history.reverse()
@@ -156,4 +187,42 @@ class TestMerkle:
 
         await assert_revert(
             merkle_contract.insert(value=1).execute(), "merkle tree full"
+        )
+
+    @pytest.mark.asyncio
+    async def test_merkle_insertion_events(self, merkle_contract: StarknetContract):
+        """
+        Tests that inserting into the Merkle tree produces the correct events
+        """
+        # Insert a value into the empty tree
+        inserted_value = 1
+        res = await merkle_contract.insert(value=inserted_value).execute()
+
+        # One for insertion, one for each depth in the tree, one for the new root
+        assert len(res.main_call_events) == 1 + (MERKLE_HEIGHT + 1) + 1
+
+        # Validate the initial event for insertion
+        insertion_event = res.main_call_events[0]
+        validate_merkle_tree_insertion_event(
+            res.main_call_events[0], index=0, value=inserted_value
+        )
+
+        # Validate the events emitted as internal nodes in the tree change
+        internal_node_update_events = res.main_call_events[1 : MERKLE_HEIGHT + 1]
+        curr_val = inserted_value
+        empty_node_val = EMPTY_LEAF_VAL
+        for (i, event) in enumerate(internal_node_update_events):
+            height = MERKLE_HEIGHT - i
+            validate_internal_node_changed_event(
+                event, height, index=0, new_value=curr_val
+            )
+            curr_val = pedersen_hash(curr_val, empty_node_val)
+            empty_node_val = pedersen_hash(empty_node_val, empty_node_val)
+
+        # Validate the final root update event
+        root_update_event = res.main_call_events[-1]
+        initial_root = MerkleTree(height=MERKLE_HEIGHT).get_root()
+
+        validate_merkle_root_changed_event(
+            root_update_event, prev_root=initial_root, new_root=curr_val
         )
