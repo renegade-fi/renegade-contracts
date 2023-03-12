@@ -65,6 +65,7 @@ async def declare_contracts(nre: NileRuntimeEnvironment, account: Account, nonce
         alias=NULLIFIER_CONTRACT_NAME,
         nonce=nonce,
         max_fee=MAX_FEE,
+        watch_mode="track",
     )
     nonce += 1
 
@@ -122,7 +123,7 @@ async def deploy_proxy(nre: NileRuntimeEnvironment, account: Account, nonce: int
         42,  # unique
         proxy_calldata,
         alias=PROXY_CONTRACT_NAME,
-        nonce=nonce,
+        max_fee=MAX_FEE,
         watch_mode="track",
     )
 
