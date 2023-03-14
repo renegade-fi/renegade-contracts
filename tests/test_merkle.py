@@ -93,17 +93,17 @@ class TestMerkle:
         tree = MerkleTree(height=MERKLE_HEIGHT)
         expected_root = tree.get_root()
 
-        # Fetch the roots in the history, all should be initialized to
-        # the same value
-        for _ in range(ROOT_HISTORY_LEN):
-            exec_info = await merkle_contract.get_root(index=0).call()
-            assert exec_info.result == (expected_root,)
+        # Fetch the current root from the contract
+        exec_info = await merkle_contract.get_root().call()
+        assert exec_info.result == (expected_root,)
 
-        # Fetch an out of bounds value, expect an error
-        await assert_revert(
-            merkle_contract.get_root(index=ROOT_HISTORY_LEN).call(),
-            "root index must be within history length",  # Expected substring
-        )
+        # Check that the contract marks the root as being part of the history
+        exec_info = await merkle_contract.root_in_history(root=expected_root).call()
+        assert exec_info.result == (1,)
+
+        # Generate a random root and verify that it is not in the history
+        exec_info = await merkle_contract.root_in_history(root=random_felt()).call()
+        assert exec_info.result == (0,)
 
     @pytest.mark.asyncio
     async def test_single_insert(self, merkle_contract: StarknetContract):
@@ -136,7 +136,7 @@ class TestMerkle:
             exec_info = await merkle_contract.insert(value=value).execute()
 
         # Retrieve the Merkle root after the insertions are complete
-        exec_info = await merkle_contract.get_root(index=0).call()
+        exec_info = await merkle_contract.get_root().call()
         assert exec_info.result == (expected_root,)
 
     @pytest.mark.asyncio
@@ -162,15 +162,9 @@ class TestMerkle:
             exec_info = await merkle_contract.insert(value=next_leaf).execute()
             assert exec_info.result == (expected_root,)
 
-        # Now test historical root queries
-        # Truncate to the history size of Merkle contract history
-        # The contract's history buffer is in reverse (newest is index 0)
-        expected_history.reverse()
-        expected_history = expected_history[:MERKLE_ROOT_HISTORY_LENGTH]
-
-        for (i, expected_root) in enumerate(expected_history):
-            exec_info = await merkle_contract.get_root(index=i).call()
-            assert exec_info.result == (expected_root,)
+        for expected_root in expected_history:
+            exec_info = await merkle_contract.root_in_history(root=expected_root).call()
+            assert exec_info.result == (1,)
 
     @pytest.mark.asyncio
     async def test_insert_full_tree(self, merkle_contract: StarknetContract):
