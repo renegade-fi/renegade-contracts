@@ -12,10 +12,6 @@ from starkware.cairo.common.pow import pow
 // Consts
 //
 
-// The number of roots to store in the root history
-// Provers may use a slightly stale root to avoid contention between
-// concurrent order settlement
-const ROOT_HISTORY_LENGTH = 30;
 // The value of an empty leaf in the Merkle tree, this value is computed as
 // the keccak256 hash of the string 'renegade' taken modulo the Cairo field's
 // prime modulus: 2 ** 251 + 17 * 2 ** 192 + 1, defined here:
@@ -36,15 +32,18 @@ func Merkle_height() -> (res: felt) {
 func Merkle_next_index() -> (res: felt) {
 }
 
-// The index in the history that corresponds to the most recent root
-// This storage value is accessed as a ring buffer of size ROOT_HISTORY_LENGTH
+// The most recent Merkle root in the root history
 @storage_var
-func Merkle_history_index() -> (res: felt) {
+func Merkle_current_root() -> (res: felt) {
 }
 
-// A history of roots in the Merkle tree
+// A history of roots in the tree, maps roots to the index in
+// the histroy that the value was inserted
+//
+// We treat index 0 (map default value) to mean that a given value
+// is not in the root history.
 @storage_var
-func Merkle_root_history(index: felt) -> (root_val: felt) {
+func Merkle_root_history(root_val: felt) -> (index: felt) {
 }
 
 // Stores the siblings of the next inserted
@@ -88,6 +87,10 @@ func Merkle_internal_node_changed(height: felt, index: felt, new_value: felt) {
 // Library methods
 //
 namespace Merkle {
+    //
+    // Initialization
+    //
+
     // @dev Helper to setup the Merkle tree
     // @param height the height of the Merkle tree
     func initialize_tree{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -101,17 +104,13 @@ namespace Merkle {
 
         // Set the root history to the root of an empty tree with the given height
         let (root) = setup_empty_tree(height=height, current_leaf=EMPTY_LEAF_VAL);
-        initialize_root_history(history_length=ROOT_HISTORY_LENGTH, root_value=root);
-        return ();
-    }
+        Merkle_current_root.write(value=root);
 
-    // @dev get the height of the tree
-    // @return the height of the tree
-    func height{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
-        height: felt
-    ) {
-        let (height) = Merkle_height.read();
-        return (height=height);
+        // We set this at index 1, index 0 is reserved because Cairo maps return 0 on default
+        // we would like to interpret 0 as meaning that a value is not in the root history
+        Merkle_root_history.write(root_val=root, value=1);
+
+        return ();
     }
 
     // @dev Helper to compute the root of an empty Merkle tree and fill
@@ -141,6 +140,45 @@ namespace Merkle {
         return (root=root);
     }
 
+    //
+    // Getters
+    //
+
+    // @dev get the height of the tree
+    // @return the height of the tree
+    func height{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+        height: felt
+    ) {
+        let (height) = Merkle_height.read();
+        return (height=height);
+    }
+
+    // @dev get the current root of the tree
+    // @return the root
+    func current_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+        root: felt
+    ) {
+        let (root) = Merkle_current_root.read();
+        return (root=root);
+    }
+
+    // @dev check whether the current root is in the tree
+    // @return 0 if the value is not in the root history, 1 otherwise
+    func root_in_history{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        root: felt
+    ) -> (res: felt) {
+        let (index) = Merkle_root_history.read(root_val=root);
+        if (index == 0) {
+            return (res=0);
+        }
+
+        return (res=1);
+    }
+
+    //
+    // Setters
+    //
+
     // @dev Increments the next index storage variable to allocate space for an insertion
     // @return the previous valud of next_index, the empty leaf being inserted into
     func increment_next_index{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -158,54 +196,6 @@ namespace Merkle {
         // Increment the next index if the tree has room
         Merkle_next_index.write(value=next_index + 1);
         return (prev_index=next_index);
-    }
-
-    // @dev Helper to initialize the root history to the default root
-    // @param history_length the length of the history of roots to store
-    // @param root_value the value of the root to initialize the history with
-    func initialize_root_history{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        history_length: felt, root_value: felt
-    ) {
-        with_attr error_message("history length must be at least zero") {
-            assert_nn(history_length);
-        }
-
-        // Base case
-        if (history_length == 0) {
-            return ();
-        }
-
-        // Set the correct index in the root history and recurse
-        // Subtract one from history_length to zero index the recursion
-        Merkle_root_history.write(index=history_length - 1, value=root_value);
-        initialize_root_history(history_length=history_length - 1, root_value=root_value);
-        return ();
-    }
-
-    // @dev gets a root in the root history
-    // @param index the index of the root in the history, zero being the current root
-    // @return the root at the given index in the root history
-    func get_root_in_history{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-        index: felt
-    ) -> (root: felt) {
-        // Verify that the requested index is within the history length
-        with_attr error_message(
-                "root index must be within history length, {index} > {[ROOT_HISTORY_LENGTH]}") {
-            assert_lt(index, ROOT_HISTORY_LENGTH);
-        }
-
-        // Compute the corresonding index in the root history ring buffer; this is:
-        //      (curr_root_index - index) % history_length
-        // to avoid underflow, we compute this as
-        //      (curr_root_index + history_length - index) % history_length
-        let (current_root) = Merkle_history_index.read();
-        let (_, access_index) = unsigned_div_rem(
-            current_root + ROOT_HISTORY_LENGTH - index, ROOT_HISTORY_LENGTH
-        );
-
-        // Return the requested root
-        let (res) = Merkle_root_history.read(index=access_index);
-        return (root=res);
     }
 
     // @dev helper to insert a value into the Merkle tree
@@ -311,18 +301,15 @@ namespace Merkle {
         new_root: felt
     ) {
         // Emit an event describing the update
-        let (current_root) = Merkle_root_history.read(index=0);
+        let (current_root) = Merkle_current_root.read();
         Merkle_root_changed.emit(prev_root=current_root, new_root=new_root);
 
-        // Compute the next insertion index
-        let (current_history_index) = Merkle_history_index.read();
-        let (_, next_index) = unsigned_div_rem(current_history_index + 1, ROOT_HISTORY_LENGTH);
+        // Get the index of the next root
+        let (current_root_index) = Merkle_root_history.read(root_val=current_root);
+        Merkle_root_history.write(root_val=new_root, value=current_root_index + 1);
 
-        // Write into the next index
-        Merkle_root_history.write(index=next_index, value=new_root);
-
-        // Update the current root index in the ring buffer
-        Merkle_history_index.write(value=current_history_index + 1);
+        // Store the new root as current root and in the history
+        Merkle_current_root.write(value=new_root);
 
         return ();
     }

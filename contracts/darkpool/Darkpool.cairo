@@ -80,6 +80,17 @@ func get_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}()
     return (root=root);
 }
 
+// @notice returns whether the given root is in the history
+// @param the root to check the history for
+// @return 1 if the root is in the history, 0 if it is not
+@view
+func root_in_history{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    root: felt
+) -> (res: felt) {
+    let (res) = Darkpool.root_in_history(root=root);
+    return (res=res);
+}
+
 // @dev returns whether a given nullifier has already been used
 // @return a boolean encoded as a felt -- 1 for true, 0 for false
 @view

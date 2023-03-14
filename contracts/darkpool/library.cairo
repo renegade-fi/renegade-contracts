@@ -137,8 +137,20 @@ namespace Darkpool {
     ) {
         // Get the implementation class
         let (merkle_class) = Darkpool_merkle_class.read();
-        let (root) = IMerkle.library_call_get_root(class_hash=merkle_class, index=0);
+        let (root) = IMerkle.library_call_get_root(class_hash=merkle_class);
         return (root=root);
+    }
+
+    // @dev returns whether the given root is in the root history
+    // @param root the root to check for in the history
+    // @return 1 if the root is in the history, 0 if it is not
+    func root_in_history{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        root: felt
+    ) -> (res: felt) {
+        // Get the implementation class
+        let (merkle_class) = Darkpool_merkle_class.read();
+        let (res) = IMerkle.library_call_root_in_history(class_hash=merkle_class, root=root);
+        return (res=res);
     }
 
     // @dev returns whether a given nullifier has already been used
