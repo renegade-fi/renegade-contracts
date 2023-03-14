@@ -211,11 +211,29 @@ class TestInitialState:
         empty Merkle tree
         """
         expected_root = MerkleTree(height=MERKLE_TREE_HEIGHT).get_root()
+
+        # Test the `get_root` view
         exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
-
         assert exec_info.call_info.retdata[1] == expected_root
+
+        # Test the `root_in_history` view
+        exec_info = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "root_in_history",
+            [expected_root],
+        )
+        assert exec_info.call_info.retdata[1] == 1  # true
+
+        exec_info = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "root_in_history",
+            [random_felt()],
+        )
+        assert exec_info.call_info.retdata[1] == 0  # false
 
     @pytest.mark.asyncio
     async def test_is_nullifier_used(
