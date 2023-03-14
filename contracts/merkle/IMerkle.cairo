@@ -7,7 +7,10 @@ namespace IMerkle {
     func initializer(height: felt) {
     }
 
-    func get_root(index: felt) -> (root: felt) {
+    func get_root() -> (root: felt) {
+    }
+
+    func root_in_history(root: felt) -> (res: felt) {
     }
 
     func insert(value: felt) -> (new_root: felt) {

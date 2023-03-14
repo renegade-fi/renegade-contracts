@@ -20,12 +20,24 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 // Getters
 //
 
-@external
-func get_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(index: felt) -> (
-    root: felt
-) {
-    let (root) = Merkle.get_root_in_history(index=index);
+// @notice returns the most recent root in the Merkle history
+// @return the current root
+@view
+func get_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (root: felt) {
+    let (root) = Merkle.current_root();
     return (root=root);
+}
+
+// @notice returns whether a given root is in the Merkle tree's root history, result is
+// 1 if the root *is* in the history, 0 if it *is not* in the history
+// @param root the root to check the history for
+// @return res the result (0 or 1) of the check
+@view
+func root_in_history{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    root: felt
+) -> (res: felt) {
+    let (res) = Merkle.root_in_history(root=root);
+    return (res=res);
 }
 
 //
