@@ -110,7 +110,11 @@ func is_nullifier_used{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 // @return the new root after the wallet is inserted into the tree
 @external
 func new_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    commitment: felt
+    commitment: felt,
+    encryption_blob_len: felt,
+    encryption_blob: felt*,
+    proof_blob_len: felt,
+    proof_blob: felt*,
 ) -> (new_root: felt) {
     let (new_root) = Darkpool.new_wallet(commitment=commitment);
     return (new_root=new_root);
