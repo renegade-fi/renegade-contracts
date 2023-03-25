@@ -263,7 +263,8 @@ class TestInitialState:
             admin_account,
             proxy_deploy.contract_address,
             "update_wallet",
-            [commitment, nullifier, nullifier2, 0, 0],
+            # Zero the blobs used for transfers, encryption, and proofs
+            [commitment, nullifier, nullifier2, 0, 0, 0, 0],
         )
 
         # Check that the nullifier is now used
@@ -327,6 +328,8 @@ class TestWalletUpdate:
                 0,  # internal_transfer_ciphertext_len
                 1,
                 *external_transfer_payload,
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
             ],
         )
 
@@ -364,6 +367,8 @@ class TestWalletUpdate:
                 0,  # internal_transfer_ciphertext_len
                 1,
                 *external_transfer_payload,
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
             ],
         )
 
@@ -482,6 +487,8 @@ class TestWalletUpdate:
                     0,  # internal_transfer_ciphertext_len
                     1,
                     *external_transfer_payload,
+                    0,  # encryption_blob_len
+                    0,  # proof_blob_len
                 ],
             ),
             reverted_with="direction must be 0 or 1",
@@ -517,6 +524,8 @@ class TestWalletUpdate:
                 ciphertext_len,
                 *internal_transfer_ciphertext,
                 0,  # external_transfers_len
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
             ],
         )
 
@@ -638,6 +647,8 @@ class TestMatch:
                 0,  # internal_transfers_ciphertext_len
                 1,
                 *external_transfer_payload,
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
             ],
         )
 
@@ -652,6 +663,8 @@ class TestMatch:
                 0,  # internal_transfers_ciphertext_len
                 1,
                 *external_transfer_payload,
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
             ],
         )
 
@@ -777,6 +790,8 @@ class TestSettle:
                     0,  # internal_transfers_ciphertext_len
                     1,
                     *external_transfer_payload,
+                    0,  # encryption_blob_len
+                    0,  # proof_blob_len
                 ],
             ),
             reverted_with="nullifier already used",

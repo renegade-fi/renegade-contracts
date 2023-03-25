@@ -134,6 +134,10 @@ func update_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     internal_transfer_ciphertext: felt*,
     external_transfers_len: felt,
     external_transfers: ExternalTransfer*,
+    encryption_blob_len: felt,
+    encryption_blob: felt*,
+    proof_blob_len: felt,
+    proof_blob: felt*,
 ) -> (new_root: felt) {
     let (new_root) = Darkpool.update_wallet(
         commitment=commitment,
