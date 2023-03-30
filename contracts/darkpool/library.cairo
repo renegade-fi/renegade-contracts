@@ -27,6 +27,8 @@ const MERKLE_TREE_HEIGHT = 32;
 
 // Represents an external transfer of an ERC20 token
 struct ExternalTransfer {
+    // The address of the account contract to deposit from or withdraw to
+    account_addr: felt,
     // The mint (contract address) of the token being transferred
     mint: felt,
     // The amount of the token transferred
@@ -271,7 +273,7 @@ namespace Darkpool {
             // Deposit
             IERC20.transferFrom(
                 contract_address=next_transfer.mint,
-                sender=external_address,
+                sender=next_transfer.account_addr,
                 recipient=contract_address,
                 amount=next_transfer.amount,
             );
@@ -284,7 +286,7 @@ namespace Darkpool {
             // Withdraw
             IERC20.transfer(
                 contract_address=next_transfer.mint,
-                recipient=external_address,
+                recipient=next_transfer.account_addr,
                 amount=next_transfer.amount,
             );
 

@@ -313,6 +313,7 @@ class TestWalletUpdate:
 
         # Transfer half of the token balance to the darkpool
         external_transfer_payload = (
+            admin_account.contract_address,  # sender
             erc20_contract.contract_address,  # mint
             *amount_uint,  # amount
             0,  # deposit
@@ -352,6 +353,7 @@ class TestWalletUpdate:
 
         # Transfer half of the token balance to the darkpool
         external_transfer_payload = (
+            admin_account.contract_address,  # recipient
             erc20_contract.contract_address,  # mint
             *amount_uint,  # amount
             1,  # withdraw
@@ -471,6 +473,7 @@ class TestWalletUpdate:
 
         # Transfer half of the token balance to the darkpool
         external_transfer_payload = (
+            admin_account.contract_address,  # sender/receiver
             erc20_contract.contract_address,  # mint
             *amount_uint,  # amount
             2,  # invalid direction
