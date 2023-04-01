@@ -37,6 +37,16 @@ struct ExternalTransfer {
     direction: felt,
 }
 
+// Represents an encrypted note placed in the commitment tree
+struct EncryptedNote {
+    // A commitment to the note
+    commitment: felt,
+    // The length of the ciphertext blob for the note
+    ciphertext_len: felt,
+    // The ciphertext blob of the note
+    ciphertext: felt*,
+}
+
 //
 // Storage
 //
@@ -317,10 +327,11 @@ namespace Darkpool {
     func process_match{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         match_nullifier1: felt,
         match_nullifier2: felt,
-        note1_ciphertext_len: felt,
-        note1_ciphertext: felt*,
-        note2_ciphertext_len: felt,
-        note2_ciphertext: felt*,
+        party0_note_commit: felt,
+        party1_note_commit: felt,
+        relayer0_note_commit: felt,
+        relayer1_note_commit: felt,
+        protocol_note_commit: felt,
     ) -> (new_root: felt) {
         alloc_locals;
 
@@ -333,13 +344,15 @@ namespace Darkpool {
             class_hash=nullifier_class, nullifier=match_nullifier2
         );
 
-        // Hash the note ciphertexts and add them to the commitment tree
+        // Insert the note commitments into the state tree
         let (local merkle_class) = Darkpool_merkle_class.read();
-        let (hash_note1) = _hash_array(note1_ciphertext_len, note1_ciphertext);
-        IMerkle.library_call_insert(class_hash=merkle_class, value=hash_note1);
-
-        let (hash_note2) = _hash_array(note2_ciphertext_len, note2_ciphertext);
-        let (new_root) = IMerkle.library_call_insert(class_hash=merkle_class, value=hash_note2);
+        IMerkle.library_call_insert(class_hash=merkle_class, value=party0_note_commit);
+        IMerkle.library_call_insert(class_hash=merkle_class, value=party1_note_commit);
+        IMerkle.library_call_insert(class_hash=merkle_class, value=relayer0_note_commit);
+        IMerkle.library_call_insert(class_hash=merkle_class, value=relayer1_note_commit);
+        let (new_root) = IMerkle.library_call_insert(
+            class_hash=merkle_class, value=protocol_note_commit
+        );
 
         return (new_root=new_root);
     }

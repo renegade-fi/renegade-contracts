@@ -5,7 +5,7 @@ from openzeppelin.upgrades.library import Proxy
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 
-from contracts.darkpool.library import Darkpool, ExternalTransfer
+from contracts.darkpool.library import Darkpool, ExternalTransfer, EncryptedNote
 
 //
 // Initializer
@@ -152,29 +152,38 @@ func update_wallet{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 }
 
 // @notice encumber two wallets by submitting a successfully completed match to the contract
-// @param match_nullifier1 the wallet match nullifier of the first wallet
-// @param match_nullifier2 the wallet match nullifier of the second wallet
-// @param note1_ciphertext_len the number of felts in the first encrypted note
-// @param note1_ciphertext the first note, encrypted under the first party's key
-// @param note2_ciphertext_len the number of felts in the second encrypted note
-// @param note2_ciphertext the second note, encrypted under the second party's key
-// @return the new root after inserting the notes into the commitment tree
+// @dev for now the arguments are overly verbose, considering that we'll be rewriting this all
+// in Cairo 1.0 soon, it's not worth cleaning this up for now.
 @external
 func match{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     match_nullifier1: felt,
     match_nullifier2: felt,
-    note1_ciphertext_len: felt,
-    note1_ciphertext: felt*,
-    note2_ciphertext_len: felt,
-    note2_ciphertext: felt*,
+    party0_note_commit: felt,
+    party0_note_ciphertext_len: felt,
+    party0_note_ciphertext: felt*,
+    party1_note_commit: felt,
+    party1_note_ciphertext_len: felt,
+    party1_note_ciphertext: felt*,
+    relayer0_note_commit: felt,
+    relayer0_note_ciphertext_len: felt,
+    relayer0_note_ciphertext: felt*,
+    relayer1_note_commit: felt,
+    relayer1_note_ciphertext_len: felt,
+    relayer1_note_ciphertext: felt*,
+    protocol_note_commit: felt,
+    protocol_note_ciphertext_len: felt,
+    protocol_note_ciphertext: felt*,
+    proof_blob_len: felt,
+    proof_blob: felt*,
 ) -> (new_root: felt) {
     let (new_root) = Darkpool.process_match(
         match_nullifier1=match_nullifier1,
         match_nullifier2=match_nullifier2,
-        note1_ciphertext_len=note1_ciphertext_len,
-        note1_ciphertext=note1_ciphertext,
-        note2_ciphertext_len=note2_ciphertext_len,
-        note2_ciphertext=note2_ciphertext,
+        party0_note_commit=party0_note_commit,
+        party1_note_commit=party1_note_commit,
+        relayer0_note_commit=relayer0_note_commit,
+        relayer1_note_commit=relayer1_note_commit,
+        protocol_note_commit=protocol_note_commit,
     );
 
     return (new_root=new_root);
