@@ -203,6 +203,10 @@ func settle{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     match_nullifier: felt,
     spend_nullifier: felt,
     note_redeem_nullifier: felt,
+    wallet_ciphertext_len: felt,
+    wallet_ciphertext: felt*,
+    proof_blob_len: felt,
+    proof_blob: felt*,
 ) -> (new_root: felt) {
     let (new_root) = Darkpool.process_settle(
         from_internal_transfer=from_internal_transfer,
