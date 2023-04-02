@@ -755,17 +755,25 @@ class TestSettle:
         Tests the flow of settling on a note that came from a match
         Attempts to double spend the note, verifies that this fails
         """
+        wallet_ciphertext_len = 5
+        proof_len = 10
+
         # Spend the note and update the wallet
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         spend_nullifier = random_felt()
         note_redeem_nullifier = random_felt()
+
         calldata = [
             from_internal_tx,
             wallet_commit,
             match_nullifier,
             spend_nullifier,
             note_redeem_nullifier,
+            wallet_ciphertext_len,
+            *random_felts(wallet_ciphertext_len),
+            proof_len,
+            *random_felts(proof_len),
         ]
 
         exec_info = await signer.send_transaction(
@@ -798,6 +806,8 @@ class TestSettle:
                     random_felt(),  # match_nullifier
                     random_felt(),  # spend_nullifier
                     note_redeem_nullifier,
+                    0,  # ciphertext_len
+                    0,  # proof_len
                 ],
             ),
             reverted_with="nullifier already used",
@@ -817,6 +827,9 @@ class TestSettle:
         Attempts to update and match a wallet after an order has been settled on it
         verifies that both operations fail
         """
+        ciphertext_len = 5
+        proof_len = 10
+
         # Settle an order on the wallet
         wallet_commit = random_felt()
         match_nullifier = random_felt()
@@ -833,12 +846,16 @@ class TestSettle:
                 match_nullifier,
                 spend_nullifier,
                 note_redeem_nullifier,
+                ciphertext_len,
+                *random_felts(ciphertext_len),
+                proof_len,
+                *random_felts(proof_len),
             ],
         )
 
         # Attempt to withdraw from the darkpool using the old wallet
         external_transfer_payload = (
-            admin_account.contract_address, # account_addr
+            admin_account.contract_address,  # account_addr
             erc20_contract.contract_address,  # mint
             *to_uint(10),  # amount
             1,  # withdraw
@@ -915,6 +932,8 @@ class TestSettle:
                     match_nullifier,
                     spend_nullifier,
                     note_redeem_nullifier,
+                    0,  # ciphertext_len
+                    0,  # proof_len
                 ],
             ),
             reverted_with="nullifier already used",
