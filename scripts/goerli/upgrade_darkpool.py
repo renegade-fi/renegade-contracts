@@ -48,9 +48,12 @@ async def run(nre: NileRuntimeEnvironment):
     )
     account_nonce += 1
 
+    proxy_addr, _ = nre.get_deployment(PROXY_CONTRACT_NAME)
+    darkpool_hash = nre.get_declaration(DARKPOOL_CONTRACT_NAME)
+
     # Upgrade the darkpool in the proxy
     await account.send(
-        PROXY_CONTRACT_NAME,
+        proxy_addr,
         "upgrade",
         [darkpool_hash],
         nonce=account_nonce,
