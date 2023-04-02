@@ -5,6 +5,8 @@ import os
 
 import pytest
 
+from typing import List
+
 from starkware.cairo.common.hash_chain import compute_hash_chain
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.testing.starknet import Starknet
@@ -38,6 +40,18 @@ MERKLE_TREE_HEIGHT = 32
 NULLIFIER_CONTRACT_PATH = os.path.join("contracts", "nullifier", "NullifierSet.cairo")
 # The path to the proxy contract source code
 PROXY_FILE = os.path.join("contracts", "proxy", "Proxy.cairo")
+
+###########
+# Helpers #
+###########
+
+
+def random_felts(n: int) -> List[int]:
+    """
+    Generates `n` random Starknet field elements
+    """
+    return [random_felt() for _ in range(0, n)]
+
 
 ############
 # Fixtures #
@@ -547,6 +561,49 @@ class TestMatch:
     Groups tests for the match/encumbering process
     """
 
+    def get_match_calldata(
+        match_nullifier1=None,
+        match_nullifier2=None,
+        party0_note_commit=None,
+        party1_note_commit=None,
+        relayer0_note_commit=None,
+        relayer1_note_commit=None,
+        protocol_note_commit=None,
+    ) -> List[int]:
+        """
+        Sets up mock calldata for the `match` function
+        """
+        ciphertext_len = 5
+        proof_blob_len = 10
+
+        return [
+            match_nullifier1 or random_felt(),
+            match_nullifier2 or random_felt(),
+            # Party 0 note commitment and ciphertext
+            party0_note_commit or random_felt(),
+            ciphertext_len,
+            *random_felts(ciphertext_len),
+            # Party 1 note commitment and ciphertext
+            party1_note_commit or random_felt(),
+            ciphertext_len,
+            *random_felts(ciphertext_len),
+            # Relayer 0 note commitment and ciphertext
+            relayer0_note_commit or random_felt(),
+            ciphertext_len,
+            *random_felts(ciphertext_len),
+            # Relayer 1 note commitment and ciphertext
+            relayer1_note_commit or random_felt(),
+            ciphertext_len,
+            *random_felts(ciphertext_len),
+            # Protocol note commitment and ciphertext
+            protocol_note_commit or random_felt(),
+            ciphertext_len,
+            *random_felts(ciphertext_len),
+            # Proof blob
+            proof_blob_len,
+            *random_felts(proof_blob_len),
+        ]
+
     @pytest.mark.asyncio
     async def test_match_root(
         self,
@@ -560,32 +617,42 @@ class TestMatch:
         """
         # Generate random nullifiers and match ciphertexts
         ciphertext_len = 5
+        proof_blob_len = 10
         match_nullifier1 = random_felt()
         match_nullifier2 = random_felt()
-        note1_ciphertext = [random_felt() for _ in range(ciphertext_len)]
-        note2_ciphertext = [random_felt() for _ in range(ciphertext_len)]
+
+        # Generate note commitments
+        party0_note_commit = random_felt()
+        party1_note_commit = random_felt()
+        relayer0_note_commit = random_felt()
+        relayer1_note_commit = random_felt()
+        protocol_note_commit = random_felt()
 
         # Execute the match transaction
+        calldata = TestMatch.get_match_calldata(
+            party0_note_commit=party0_note_commit,
+            party1_note_commit=party1_note_commit,
+            relayer0_note_commit=relayer0_note_commit,
+            relayer1_note_commit=relayer1_note_commit,
+            protocol_note_commit=protocol_note_commit,
+        )
+        print(f"\n\ncalldata: {calldata}\n\n")
         exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "match",
-            [
-                match_nullifier1,
-                match_nullifier2,
-                ciphertext_len,
-                *note1_ciphertext,
-                ciphertext_len,
-                *note2_ciphertext,
-            ],
+            calldata=calldata,
         )
 
-        # Compute the expected value for the new Merkle root
-        hashed_ciphertext1 = compute_hash_chain([ciphertext_len] + note1_ciphertext)
-        hashed_ciphertext2 = compute_hash_chain([ciphertext_len] + note2_ciphertext)
-
         tree = MerkleTree.from_leaf_data(
-            height=MERKLE_TREE_HEIGHT, leaves=[hashed_ciphertext1, hashed_ciphertext2]
+            height=MERKLE_TREE_HEIGHT,
+            leaves=[
+                party0_note_commit,
+                party1_note_commit,
+                relayer0_note_commit,
+                relayer1_note_commit,
+                protocol_note_commit,
+            ],
         )
         expected_root = tree.get_root()
 
@@ -606,22 +673,16 @@ class TestMatch:
         ciphertext_len = 5
         match_nullifier1 = random_felt()
         match_nullifier2 = random_felt()
-        note1_ciphertext = [random_felt() for _ in range(ciphertext_len)]
-        note2_ciphertext = [random_felt() for _ in range(ciphertext_len)]
 
         # Execute the match transaction
+        calldata = TestMatch.get_match_calldata(
+            match_nullifier1=match_nullifier1, match_nullifier2=match_nullifier2
+        )
         await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "match",
-            [
-                match_nullifier1,
-                match_nullifier2,
-                ciphertext_len,
-                *note1_ciphertext,
-                ciphertext_len,
-                *note2_ciphertext,
-            ],
+            calldata,
         )
 
         # Now attempt to withdraw a balance from the wallet using the same
@@ -633,6 +694,7 @@ class TestMatch:
         settle_nullifier2 = random_felt()
 
         external_transfer_payload = (
+            admin_account.contract_address,  # account_addr
             erc20_contract.contract_address,  # mint
             *amount_uint,  # amount
             1,  # withdraw
@@ -776,6 +838,7 @@ class TestSettle:
 
         # Attempt to withdraw from the darkpool using the old wallet
         external_transfer_payload = (
+            admin_account.contract_address, # account_addr
             erc20_contract.contract_address,  # mint
             *to_uint(10),  # amount
             1,  # withdraw
@@ -810,14 +873,7 @@ class TestSettle:
                     admin_account,
                     proxy_deploy.contract_address,
                     "match",
-                    [
-                        match_nullifier,
-                        random_felt(),  # match_nullifier2
-                        1,  # note1_ciphertext_len
-                        random_felt(),  # note1_ciphertext
-                        1,  # note2_ciphertext_len
-                        random_felt(),  # note2_ciphertext
-                    ],
+                    TestMatch.get_match_calldata(match_nullifier1=match_nullifier),
                 ),
                 reverted_with="nullifier already used",
             )
@@ -839,18 +895,12 @@ class TestSettle:
         spend_nullifier = random_felt()
         note_redeem_nullifier = random_felt()
 
+        calldata = TestMatch.get_match_calldata(match_nullifier1=match_nullifier)
         await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "match",
-            [
-                match_nullifier,
-                random_felt(),  # match_nullifier2
-                1,  # note1_ciphertext_len
-                random_felt(),  # note1_ciphertext
-                1,  # note2_ciphertext_len
-                random_felt(),  # note2_ciphertext
-            ],
+            calldata,
         )
 
         # Now attempt to settle a (separate) internal note, verify that this fails
