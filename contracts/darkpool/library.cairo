@@ -6,7 +6,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash_chain import hash_chain
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.uint256 import Uint256
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, get_tx_info
 
 from openzeppelin.upgrades.library import Proxy
 from openzeppelin.token.erc20.IERC20 import IERC20
@@ -37,13 +37,10 @@ struct ExternalTransfer {
     direction: felt,
 }
 
-// Represents an encrypted note placed in the commitment tree
-struct EncryptedNote {
-    // A commitment to the note
-    commitment: felt,
-    // The length of the ciphertext blob for the note
+struct CiphertextBlob {
+    // The number of felts in the blob
     ciphertext_len: felt,
-    // The ciphertext blob of the note
+    // The ciphertext blob itself
     ciphertext: felt*,
 }
 
@@ -61,9 +58,20 @@ func Darkpool_merkle_class() -> (res: felt) {
 func Darkpool_nullifier_class() -> (res: felt) {
 }
 
+// Stores a mapping from the wallet identity to the hash of the last transaction
+// in which it was changed
+@storage_var
+func Darkpool_wallet_last_modified(pk_view: felt) -> (last_updated: felt) {
+}
+
 //
 // Events
 //
+
+// An event representing an update to the encrypted wallet identified by pk_view
+@event
+func Darkpool_wallet_update(pk_view: felt) {
+}
 
 // An event representing a deposit from an external account to the darkpool
 @event
@@ -142,6 +150,16 @@ namespace Darkpool {
     // Getters
     //
 
+    // @dev returns the hash of the most recent transaction to update a given wallet
+    // as identified by pk_view
+    // @return the tx hash
+    func get_wallet_update{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        pk_view: felt
+    ) -> (tx_hash: felt) {
+        let (tx_hash) = Darkpool_wallet_last_modified.read(pk_view=pk_view);
+        return (tx_hash=tx_hash);
+    }
+
     // @dev returns the most recent root of the Merkle state tree
     // @return the root at the zero'th index in the root history
     func get_root{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
@@ -182,6 +200,21 @@ namespace Darkpool {
     //
     // Setters
     //
+
+    // @dev sets the wallet update storage variable to the current transaction hash,
+    // indicating that the wallet has been modified at this transaction
+    func mark_wallet_updated{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+        pk_view: felt
+    ) {
+        // Get the current tx hash and update the storage mapping
+        let (tx_info) = get_tx_info();
+        Darkpool_wallet_last_modified.write(pk_view=pk_view, value=tx_info.transaction_hash);
+
+        // Emit an event for the wallet update
+        Darkpool_wallet_update.emit(pk_view=pk_view);
+
+        return ();
+    }
 
     // @dev adds a new wallet to the commitment tree
     // @param commitment the commitment to the new wallet
