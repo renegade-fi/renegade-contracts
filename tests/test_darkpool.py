@@ -5,12 +5,13 @@ import os
 
 import pytest
 
-from typing import List
+from typing import List, Tuple
 
 from starkware.cairo.common.hash_chain import compute_hash_chain
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.testing.starknet import Starknet
 from starkware.starknet.testing.contract import DeclaredClass, StarknetContract
+from starkware.starknet.business_logic.execution.objects import TransactionExecutionInfo
 
 from nile.utils import assert_revert, str_to_felt, to_uint
 from merkle import MerkleTree
@@ -161,7 +162,7 @@ class TestProxy:
         """
         # Send a transaction to implementation_v0, increase the balance, fetch the balance, assert
         # the correctness
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
         assert (
@@ -180,7 +181,7 @@ class TestProxy:
         await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "setValue", [30]
         )
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "getValue", []
         )
 
@@ -194,7 +195,7 @@ class TestProxy:
             [main_impl_contract_class.class_hash],
         )
 
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
         assert (
@@ -208,7 +209,7 @@ class TestProxy:
 ########################
 
 
-class TestInitialState:
+class TestState:
     """
     Groups unit tests for the high level functionality of the main contract
     """
@@ -227,13 +228,13 @@ class TestInitialState:
         expected_root = MerkleTree(height=MERKLE_TREE_HEIGHT).get_root()
 
         # Test the `get_root` view
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "get_root", []
         )
         assert exec_info.call_info.retdata[1] == expected_root
 
         # Test the `root_in_history` view
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "root_in_history",
@@ -241,7 +242,7 @@ class TestInitialState:
         )
         assert exec_info.call_info.retdata[1] == 1  # true
 
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "root_in_history",
@@ -261,7 +262,7 @@ class TestInitialState:
         """
         # Random nullifier should begin unused
         nullifier = random_felt()
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "is_nullifier_used",
@@ -271,6 +272,7 @@ class TestInitialState:
         assert exec_info.call_info.retdata[1] == 0  # False
 
         # Use the nullifier via `wallet_update`
+        pk_view = random_felt()
         commitment = random_felt()
         nullifier2 = random_felt()
         await signer.send_transaction(
@@ -278,11 +280,11 @@ class TestInitialState:
             proxy_deploy.contract_address,
             "update_wallet",
             # Zero the blobs used for transfers, encryption, and proofs
-            [commitment, nullifier, nullifier2, 0, 0, 0, 0],
+            [pk_view, commitment, nullifier, nullifier2, 0, 0, 0, 0],
         )
 
         # Check that the nullifier is now used
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "is_nullifier_used",
@@ -290,6 +292,100 @@ class TestInitialState:
         )
 
         assert exec_info.call_info.retdata[1] == 1  # True
+
+    @pytest.mark.asyncio
+    async def test_wallet_last_modified(
+        self,
+        signer: MockSigner,
+        admin_account: StarknetContract,
+        proxy_deploy: StarknetContract,
+    ):
+        """
+        Tests the wallet last modified view method and storage behavior
+        """
+        pk_view = random_felt()
+        wallet_commitment = random_felt()
+
+        # Call get_wallet_update on a non-existent wallet
+        _, exec_info = await signer.send_transaction(
+            admin_account, proxy_deploy.contract_address, "get_wallet_update", [pk_view]
+        )
+
+        assert exec_info.call_info.retdata[1] == 0  # no entry
+
+        # Create the wallet, then verify the value
+        tx_hash, _ = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "new_wallet",
+            [
+                pk_view,
+                wallet_commitment,
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
+            ],
+        )
+
+        _, exec_info = await signer.send_transaction(
+            admin_account, proxy_deploy.contract_address, "get_wallet_update", [pk_view]
+        )
+
+        assert exec_info.call_info.retdata[1] == tx_hash
+
+        # Update the wallet and verify the hash changes
+        new_wallet_commit = random_felt()
+        match_nullifier = random_felt()
+        spend_nullifier = random_felt()
+
+        tx_hash, _ = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "update_wallet",
+            [
+                pk_view,
+                new_wallet_commit,
+                match_nullifier,
+                spend_nullifier,
+                0,  # internal_transfer_ciphertext_len
+                0,  # external_transfers_len
+                0,  # encryption_blob_len
+                0,  # proof_blob_len
+            ],
+        )
+
+        _, exec_info = await signer.send_transaction(
+            admin_account, proxy_deploy.contract_address, "get_wallet_update", [pk_view]
+        )
+
+        assert exec_info.call_info.retdata[1] == tx_hash
+
+        # Settle a note into the wallet and verify the hash changes
+        new_wallet_commit = random_felt()
+        match_nullifier = random_felt()
+        spend_nullifier = random_felt()
+        note_redeem_nullifier = random_felt()
+
+        tx_hash, _ = await signer.send_transaction(
+            admin_account,
+            proxy_deploy.contract_address,
+            "settle",
+            [
+                pk_view,
+                0,  # from_internal_transfer
+                new_wallet_commit,
+                match_nullifier,
+                spend_nullifier,
+                note_redeem_nullifier,
+                0,  # wallet_ciphertext_len
+                0,  # proof_blob_len
+            ],
+        )
+
+        _, exec_info = await signer.send_transaction(
+            admin_account, proxy_deploy.contract_address, "get_wallet_update", [pk_view]
+        )
+
+        assert exec_info.call_info.retdata[1] == tx_hash
 
 
 class TestWalletUpdate:
@@ -313,6 +409,7 @@ class TestWalletUpdate:
         Returns the new root and the wallet commitment that was used
         """
         amount_uint = to_uint(amount)
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         settle_nullifier = random_felt()
@@ -332,11 +429,12 @@ class TestWalletUpdate:
             *amount_uint,  # amount
             0,  # deposit
         )
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy.contract_address,
             "update_wallet",
             [
+                pk_view,
                 wallet_commit,
                 match_nullifier,
                 settle_nullifier,
@@ -361,6 +459,7 @@ class TestWalletUpdate:
         Withdraw the given amount from the pool
         """
         amount_uint = to_uint(amount)
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         settle_nullifier = random_felt()
@@ -372,11 +471,12 @@ class TestWalletUpdate:
             *amount_uint,  # amount
             1,  # withdraw
         )
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy.contract_address,
             "update_wallet",
             [
+                pk_view,
                 wallet_commit,
                 match_nullifier,
                 settle_nullifier,
@@ -481,6 +581,7 @@ class TestWalletUpdate:
         has an invalid direction (i.e. not zero or one) fails
         """
         amount_uint = to_uint(1)
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         settle_nullifier = random_felt()
@@ -498,6 +599,7 @@ class TestWalletUpdate:
                 proxy_deploy.contract_address,
                 "update_wallet",
                 [
+                    pk_view,
                     wallet_commit,
                     match_nullifier,
                     settle_nullifier,
@@ -521,6 +623,7 @@ class TestWalletUpdate:
         """
         Tests that internal transfers are properly committed to in the state tree
         """
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         settle_nullifier = random_felt()
@@ -530,11 +633,12 @@ class TestWalletUpdate:
         internal_transfer_ciphertext = [random_felt() for _ in range(ciphertext_len)]
 
         # Execute the internal transfer, assert that the new root has committed the transfer ciphertext
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "update_wallet",
             [
+                pk_view,
                 wallet_commit,
                 match_nullifier,
                 settle_nullifier,
@@ -637,7 +741,7 @@ class TestMatch:
             protocol_note_commit=protocol_note_commit,
         )
         print(f"\n\ncalldata: {calldata}\n\n")
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account,
             proxy_deploy.contract_address,
             "match",
@@ -671,6 +775,7 @@ class TestMatch:
         """
         # Generate random nullifiers and match ciphertexts
         ciphertext_len = 5
+        pk_view = random_felt()
         match_nullifier1 = random_felt()
         match_nullifier2 = random_felt()
 
@@ -706,6 +811,7 @@ class TestMatch:
             proxy_deploy.contract_address,
             "update_wallet",
             [
+                pk_view,
                 wallet_commit1,
                 match_nullifier1,
                 settle_nullifier1,
@@ -722,6 +828,7 @@ class TestMatch:
             proxy_deploy.contract_address,
             "update_wallet",
             [
+                pk_view,
                 wallet_commit2,
                 match_nullifier2,
                 settle_nullifier2,
@@ -759,12 +866,14 @@ class TestSettle:
         proof_len = 10
 
         # Spend the note and update the wallet
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         spend_nullifier = random_felt()
         note_redeem_nullifier = random_felt()
 
         calldata = [
+            pk_view,
             from_internal_tx,
             wallet_commit,
             match_nullifier,
@@ -776,7 +885,7 @@ class TestSettle:
             *random_felts(proof_len),
         ]
 
-        exec_info = await signer.send_transaction(
+        _, exec_info = await signer.send_transaction(
             admin_account, proxy_deploy.contract_address, "settle", calldata
         )
 
@@ -801,6 +910,7 @@ class TestSettle:
                 proxy_deploy.contract_address,
                 "settle",
                 [
+                    random_felt(),  # pk_view
                     from_internal_tx,  # from_internal_transaction
                     random_felt(),  # wallet_commitment
                     random_felt(),  # match_nullifier
@@ -831,6 +941,7 @@ class TestSettle:
         proof_len = 10
 
         # Settle an order on the wallet
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         spend_nullifier = random_felt()
@@ -841,6 +952,7 @@ class TestSettle:
             proxy_deploy.contract_address,
             "settle",
             [
+                pk_view,
                 from_internal_tx,
                 wallet_commit,
                 match_nullifier,
@@ -867,6 +979,7 @@ class TestSettle:
                 proxy_deploy.contract_address,
                 "update_wallet",
                 [
+                    pk_view,
                     wallet_commit,
                     match_nullifier,
                     spend_nullifier,
@@ -907,6 +1020,7 @@ class TestSettle:
         being encumbered
         """
         # Match the wallet
+        pk_view = random_felt()
         wallet_commit = random_felt()
         match_nullifier = random_felt()
         spend_nullifier = random_felt()
@@ -927,6 +1041,7 @@ class TestSettle:
                 proxy_deploy.contract_address,
                 "settle",
                 [
+                    pk_view,
                     1,  # from_internal_transfer
                     wallet_commit,
                     match_nullifier,

@@ -177,7 +177,7 @@ class BaseSigner:
 
     async def send_transactions(
         self, account, calls, nonce=None, max_fee=0
-    ) -> TransactionExecutionInfo:
+    ) -> Tuple[int, TransactionExecutionInfo]:
         raw_invocation = get_raw_invoke(account, calls)
         state = raw_invocation.state
 
@@ -210,7 +210,7 @@ class BaseSigner:
             external_tx=external_tx, general_config=state.general_config
         )
         execution_info = await state.execute_tx(tx=tx)
-        return execution_info
+        return transaction_hash, execution_info
 
     async def declare_class(
         self,
