@@ -1,0 +1,57 @@
+name: test_nile
+
+on: pull_request
+
+env:
+  CAIRO_ARCHIVE_LINK: https://github.com/starkware-libs/cairo/releases/download/v1.0.0-alpha.6/release-x86_64-unknown-linux-musl.tar.gz
+  CAIRO_COMPILER_MANIFEST: ./cairo/Cargo.toml
+
+jobs:
+  test_nile:
+    name: test_nile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main branch
+        uses: actions/checkout@v3
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install Cairo
+        uses: ./.github/actions/install_cairo
+        with:
+          CAIRO_ARCHIVE_LINK: $CAIRO_ARCHIVE_LINK
+
+      - name: Install nile-rs
+        run: cargo install --git https://github.com/OpenZeppelin/nile-rs --tag v0.1.0-rc.2 --profile release
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - uses: actions/cache@v3
+        id: py-cache
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ env.pythonLocation }}
+
+      - name: Install starknet-devnet
+        if: steps.py-cache.outputs.cache-hit != 'true'
+        run: pip3 install starknet-devnet==v0.5.0a1
+
+      # We need to fetch the Cairo v1.0.0-alpha.6 source for starknet-devnet
+      # to be able to use the compiler manifest
+      - name: "Fetch Cairo source"
+        run: |
+          mkdir ./cairo-tmp &&
+          git clone --branch v1.0.0-alpha.6 https://github.com/starkware-libs/cairo.git ./cairo-tmp &&
+          cp -r ./cairo-tmp/* ./cairo
+
+      - name: Run Nile test script
+        run: nile-rs run example
+      

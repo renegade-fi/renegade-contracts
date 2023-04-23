@@ -1,0 +1,23 @@
+name: format
+
+on: pull_request
+
+env:
+  SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.1.0/scarb-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main branch
+        uses: actions/checkout@v3
+
+      - name: Install Scarb
+        uses: ./.github/actions/install_scarb
+        with:
+          SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
+
+      - name: Check formatting
+        run: scarb fmt -c
+      

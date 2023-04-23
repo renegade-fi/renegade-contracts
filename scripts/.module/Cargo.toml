@@ -4,5 +4,10 @@ name = "nile-rs-scripts-module"
 version = "0.1.0"
 
 [dependencies]
-tokio = { version = "1"}
-nile-rs = { git = "https://github.com/OpenZeppelin/nile-rs/", tag = "v0.1.0-rc.1"}
+tokio = { version = "1" }
+nile-rs = { git = "https://github.com/OpenZeppelin/nile-rs/", tag = "v0.1.0-rc.2" }
+regex = "1"
+lazy_static = "1.4.0"
+starknet-core = { git = "https://github.com/xJonathanLEI/starknet-rs", rev = "e72cc0a" }
+starknet-providers = { git = "https://github.com/xJonathanLEI/starknet-rs", rev = "e72cc0a" }
+eyre = "0.6.8"

@@ -4,6 +4,9 @@ version = "0.1.0"    # the current version, obeying semver
 
 [[target.starknet-contract]]
 
+[scripts]
+test = "scarb eject && cairo-test --path . --starknet -f renegade_contracts"
+
 [tool.nile_rs]
 artifacts_dir = "./target/release"
 contracts_dir = "./src"

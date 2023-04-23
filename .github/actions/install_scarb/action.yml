@@ -1,0 +1,18 @@
+name: Install Scarb
+description: Downloads and installs latest stable Scarb release
+inputs:
+  SCARB_ARCHIVE_LINK:
+    description: "URL from which to download the Scarb release"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: "[Scarb] Download binaries"
+      shell: bash
+      run: curl -L -o scarb.zip ${{inputs.SCARB_ARCHIVE_LINK}}
+    - name: "[Scarb] Unzip binaries"
+      shell: bash
+      run: mkdir ./scarb && tar -xvf scarb.zip --strip-components 1 -C ./scarb
+    - name: "[Scarb] Make binaries available"
+      shell: bash
+      run: echo "./scarb/bin" >> $GITHUB_PATH
