@@ -1,0 +1,38 @@
+# Based on https://github.com/keep-starknet-strange/quaireaux/blob/main/.github/workflows/test.yml
+
+name: test
+
+on: [push, pull_request]
+
+env:
+  CAIRO_COMPILER_VERSION: 1.0.0-alpha.6
+  CAIRO_ARCHIVE_LINK: https://github.com/starkware-libs/cairo/releases/download/v1.0.0-alpha.6/release-x86_64-unknown-linux-musl.tar.gz
+  CAIRO_ARCHIVE_NAME: cairo.zip
+  SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.1.0/scarb-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  SCARB_ARCHIVE_NAME: scarb.zip
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step 1 - Checking out main branch
+        uses: actions/checkout@v3
+
+      - name: Step 2 - Downloading Cairo 1.0 binaries
+        run: curl -L -o $CAIRO_ARCHIVE_NAME $CAIRO_ARCHIVE_LINK
+      - name: Step 3 - Unzipping binaries
+        run: tar -xvf $CAIRO_ARCHIVE_NAME
+      - name: Step 4 - Making binaries available
+        run: echo "./cairo/bin" >> $GITHUB_PATH
+
+      - name: Step 5 - Downloading Scarb binaries
+        run: curl -L -o $SCARB_ARCHIVE_NAME $SCARB_ARCHIVE_LINK
+      - name: Step 6 - Unzipping binaries
+        run: tar -xvf $SCARB_ARCHIVE_NAME
+      - name: Step 7 - Making binaries available
+        run: echo "./scarb/bin" >> $GITHUB_PATH
+
+      - name: Step 8 - Running tests
+        run: scarb run test
+      
