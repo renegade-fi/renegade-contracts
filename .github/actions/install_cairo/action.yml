@@ -1,0 +1,18 @@
+name: Install Cairo
+description: Downloads and installs latest Cairo 1.0 release running on Starknet
+inputs:
+  CAIRO_ARCHIVE_LINK:
+    description: "URL from which to download the Cairo release"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: "[Cairo] Download binaries"
+      shell: bash
+      run: curl -L -o cairo.zip ${{inputs.CAIRO_ARCHIVE_LINK}}
+    - name: "[Cairo] Unzip binaries"
+      shell: bash
+      run: mkdir ./cairo && tar -xvf cairo.zip --strip-components 1 -C ./cairo
+    - name: "[Cairo] Make binaries available"
+      shell: bash
+      run: echo "./cairo/bin" >> $GITHUB_PATH
