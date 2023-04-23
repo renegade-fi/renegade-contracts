@@ -1,0 +1,2 @@
+[crate_roots]
+renegade_contracts = "src"
