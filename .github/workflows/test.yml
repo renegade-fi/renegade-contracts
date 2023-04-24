@@ -1,5 +1,3 @@
-# Based on https://github.com/keep-starknet-strange/quaireaux/blob/main/.github/workflows/test.yml
-
 name: test
 
 on: [push, pull_request]

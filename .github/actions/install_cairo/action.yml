@@ -8,8 +8,11 @@ runs:
   using: "composite"
   steps:
     - name: "[Cairo] Downloading binaries"
+      shell: bash
       run: curl -L -o cairo.zip ${{inputs.CAIRO_ARCHIVE_LINK}}
     - name: "[Cairo] Unzipping binaries"
+      shell: bash
       run: tar -xvf cairo.zip
     - name: "[Cairo] Making binaries available"
+      shell: bash
       run: echo "./cairo/bin" >> $GITHUB_PATH
