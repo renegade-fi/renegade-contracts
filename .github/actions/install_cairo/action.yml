@@ -7,9 +7,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: [Cairo] Downloading binaries
+    - name: "[Cairo] Downloading binaries"
       run: curl -L -o cairo.zip ${{inputs.CAIRO_ARCHIVE_LINK}}
-    - name: [Cairo] Unzipping binaries
+    - name: "[Cairo] Unzipping binaries"
       run: tar -xvf cairo.zip
-    - name: [Cairo] Making binaries available
+    - name: "[Cairo] Making binaries available"
       run: echo "./cairo/bin" >> $GITHUB_PATH
