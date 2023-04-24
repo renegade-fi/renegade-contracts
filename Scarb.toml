@@ -16,3 +16,7 @@ contracts_dir = "./src"
 networks = [
     { name = "localhost", gateway = "http://127.0.0.1:5050/gateway", chain_id = "1536727068981429685321" }
 ]
+
+[dependencies]
+# Pinned to the last alpha.6 commit
+quaireaux_math = { git = "https://github.com/keep-starknet-strange/quaireaux", rev = "4c93251" }
