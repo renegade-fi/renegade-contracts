@@ -1,4 +1,5 @@
 /target
 /.env
 /deployments
-.DS_Store
+/.DS_Store
+/cairo_project.toml

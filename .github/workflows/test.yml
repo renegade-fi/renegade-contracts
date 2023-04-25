@@ -11,7 +11,7 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - name: Checking out main branch
+      - name: Check out main branch
         uses: actions/checkout@v3
 
       # Scarb 0.1.0 packages in Cairo v0.1.0-alpha.6,
@@ -28,6 +28,19 @@ jobs:
         with:
           SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
 
-      - name: Running tests
+      # Because Scarb doesn't yet include a Cairo test runner,
+      # we have to use `scarb-eject` to vendor in Scarb dependencies
+      # from the Scarb cache.
+      # This requires us to have the Rust toolchain installed.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install scarb-eject
+        run: cargo install --git https://github.com/software-mansion-labs/scarb-eject
+
+      - name: Create cairo_project.toml
+        run: scarb eject
+
+      - name: Run tests
         run: scarb run test
       

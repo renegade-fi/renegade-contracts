@@ -10,7 +10,7 @@ jobs:
     name: format
     runs-on: ubuntu-latest
     steps:
-      - name: Checking out main branch
+      - name: Check out main branch
         uses: actions/checkout@v3
 
       - name: Install Scarb
@@ -18,6 +18,6 @@ jobs:
         with:
           SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
 
-      - name: Checking formatting
+      - name: Check formatting
         run: scarb fmt -c
       
