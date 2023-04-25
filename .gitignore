@@ -1,3 +1,4 @@
 /target
 /.env
 /deployments
+.DS_Store
