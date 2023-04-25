@@ -1,8 +1,5 @@
 #[abi]
 trait IMerkle {
-    // I wonder if it's more efficient to use a raw felt252 here...
-    // That's what all the integer types boil down to, right?
-    // Let's start by seeing how height gets used...
     #[external]
     fn initializer(height: u8);
     #[view]
@@ -11,6 +8,12 @@ trait IMerkle {
     fn root_in_history(root: u256) -> bool;
     #[external]
     fn insert(value: u256) -> u256;
+    #[event]
+    fn Merkle_root_changed(prev_root: u256, new_root: u256);
+    #[event]
+    fn Merkle_value_inserted(index: u128, value: u256);
+    #[event]
+    fn Merkle_internal_node_changed(height: u8, index: u128, new_value: u256);
 }
 
 #[contract]
