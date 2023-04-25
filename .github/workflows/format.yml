@@ -1,6 +1,6 @@
 name: format
 
-on: [push, pull_request]
+on: pull_request
 
 env:
   SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.1.0/scarb-v0.1.0-x86_64-unknown-linux-gnu.tar.gz

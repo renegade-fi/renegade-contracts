@@ -1,6 +1,6 @@
 name: test
 
-on: [push, pull_request]
+on: pull_request
 
 env:
   CAIRO_ARCHIVE_LINK: https://github.com/starkware-libs/cairo/releases/download/v1.0.0-alpha.6/release-x86_64-unknown-linux-musl.tar.gz
