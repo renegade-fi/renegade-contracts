@@ -18,13 +18,21 @@ fn main() {
         dest_path,
         with_disclosure
             + &r#"
+pub mod utils;
 extern crate nile_rs;
 use nile_rs::nre::NileRuntimeEnvironment;
 
 #[tokio::main]
 async fn main() {
     let nre = NileRuntimeEnvironment::new("<network>").unwrap();
-    run(nre).await;
+    let mut devnet = utils::spawn_devnet().await;
+    match run(nre).await {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("An error occurred: {}", e);
+        }
+    }
+    devnet.kill().unwrap();
 }
 "#
             .replace("<network>", &network),
