@@ -13,6 +13,17 @@ jobs:
       - name: Check out main branch
         uses: actions/checkout@v3
 
+      # Because Scarb doesn't yet include a Cairo test runner,
+      # we have to use `scarb-eject` to vendor in Scarb dependencies
+      # from the Scarb cache.
+      # This requires us to have the Rust toolchain installed.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
       # Scarb 0.1.0 packages in Cairo v0.1.0-alpha.6,
       # but our `test` Scarb script requires it to be installed manually
       # (to make use of the cairo-test executable),
@@ -24,17 +35,6 @@ jobs:
         uses: ./.github/actions/install_scarb
         with:
           SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
-
-      # Because Scarb doesn't yet include a Cairo test runner,
-      # we have to use `scarb-eject` to vendor in Scarb dependencies
-      # from the Scarb cache.
-      # This requires us to have the Rust toolchain installed.
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
 
       - name: Install scarb-eject
         run: cargo install --git https://github.com/software-mansion-labs/scarb-eject

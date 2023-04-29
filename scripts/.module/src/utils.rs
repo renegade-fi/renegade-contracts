@@ -24,7 +24,7 @@ pub async fn spawn_devnet() -> Child {
         .unwrap();
 
     // Janky spinwait for the devnet to finish spinning up
-    let timeout = Duration::from_secs(60);
+    let timeout = Duration::from_secs(300);
     let start = Instant::now();
     let mut is_ready = provider.get_block(BlockId::Latest).await;
     while is_ready.is_err() {

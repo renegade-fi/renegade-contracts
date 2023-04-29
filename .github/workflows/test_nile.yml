@@ -3,7 +3,7 @@ name: test_nile
 on: pull_request
 
 env:
-  CAIRO_COMPILER_MANIFEST: /cairo/Cargo.toml
+  CAIRO_COMPILER_MANIFEST: ./cairo/Cargo.toml
 
 jobs:
   test_nile:
@@ -43,5 +43,4 @@ jobs:
 
       - name: Run Nile test script
         run: nile-rs run example
-        timeout-minutes: 5
       

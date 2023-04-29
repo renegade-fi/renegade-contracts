@@ -6,20 +6,20 @@ runs:
     - uses: actions/cache@v3
       id: cache-cairo
       with:
-        path: /cairo
+        path: ./cairo
         key: cairo
     - name: "[Cairo] Fetch source"
       if: steps.cache-cairo.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        sudo mkdir -p /cairo &&
-        sudo mkdir /cairo-tmp &&
-        sudo git clone --branch v1.0.0-alpha.6 https://github.com/starkware-libs/cairo.git /cairo-tmp &&
-        sudo cp -r /cairo-tmp/* /cairo
+        mkdir -p ./cairo &&
+        mkdir ./cairo-tmp &&
+        git clone --branch v1.0.0-alpha.6 https://github.com/starkware-libs/cairo.git ./cairo-tmp &&
+        cp -r ./cairo-tmp/* ./cairo
     - name: "[Cairo] Build source"
       if: steps.cache-cairo.outputs.cache-hit != 'true'
       shell: bash
-      run: cd /cairo && cargo build --release
+      run: cd ./cairo && cargo build --release
     - name: "[Cairo] Make binaries available"
       shell: bash
-      run: echo "/cairo/target/release" >> $GITHUB_PATH
+      run: echo "./cairo/target/release" >> $GITHUB_PATH
