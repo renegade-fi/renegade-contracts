@@ -5,7 +5,7 @@ runs:
   steps:
     - name: "[Cairo] Set root user"
       shell: bash
-      run: su
+      run: sudo -i
     - uses: actions/cache@v3
       id: cache-cairo
       with:
