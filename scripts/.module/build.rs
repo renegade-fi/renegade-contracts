@@ -32,6 +32,7 @@ async fn main() {
             eprintln!("An error occurred: {}", e);
         }
     }
+    println!("killing devnet");
     devnet.kill().unwrap();
 }
 "#

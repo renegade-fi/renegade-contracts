@@ -7,6 +7,7 @@ use regex::Regex;
 use starknet_core::types::{BlockId, FieldElement};
 use starknet_providers::{Provider, SequencerGatewayProvider};
 use std::process::{Child, Command, Output, Stdio};
+use std::time::{Duration, Instant};
 use std::{env, str};
 
 // Assumes `starknet-devnet` binary is available and `CAIRO_COMPILER_MANIFEST` is a set env var
@@ -14,6 +15,7 @@ pub async fn spawn_devnet() -> Child {
     let cairo_compiler_manifest = env::var("CAIRO_COMPILER_MANIFEST").unwrap();
     let provider = SequencerGatewayProvider::starknet_nile_localhost();
 
+    println!("spawning devnet...");
     let devnet = Command::new("starknet-devnet")
         .args(vec!["--cairo-compiler-manifest", &cairo_compiler_manifest])
         .stdout(Stdio::null())
@@ -22,10 +24,14 @@ pub async fn spawn_devnet() -> Child {
         .unwrap();
 
     // Janky spinwait for the devnet to finish spinning up
+    let timeout = Duration::from_secs(60);
+    let start = Instant::now();
     let mut is_ready = provider.get_block(BlockId::Latest).await;
     while is_ready.is_err() {
-        // TODO: Give this a timeout?
         is_ready = provider.get_block(BlockId::Latest).await;
+        if start.elapsed() >= timeout {
+            panic!("devnet taking too long to spin up")
+        }
     }
 
     devnet

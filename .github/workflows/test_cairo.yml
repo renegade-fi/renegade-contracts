@@ -1,4 +1,4 @@
-name: test
+name: test_cairo
 
 on: pull_request
 
@@ -7,8 +7,8 @@ env:
   SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.1.0/scarb-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
 
 jobs:
-  test:
-    name: test
+  test_cairo:
+    name: test_cairo
     runs-on: ubuntu-latest
     steps:
       - name: Check out main branch
@@ -34,6 +34,10 @@ jobs:
       # This requires us to have the Rust toolchain installed.
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Install scarb-eject
         run: cargo install --git https://github.com/software-mansion-labs/scarb-eject
