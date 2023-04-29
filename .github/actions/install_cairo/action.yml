@@ -12,8 +12,8 @@ runs:
       if: steps.cache-cairo.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        mkdir -p /cairo &&
-        mkdir /cairo-tmp &&
+        sudo mkdir -p /cairo &&
+        sudo mkdir /cairo-tmp &&
         git clone --branch v1.0.0-alpha.6 https://github.com/starkware-libs/cairo.git /cairo-tmp &&
         cp -r /cairo-tmp/* /cairo
     - name: "[Cairo] Build source"

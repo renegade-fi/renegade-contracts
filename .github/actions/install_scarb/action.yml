@@ -19,7 +19,7 @@ runs:
     - name: "[Scarb] Unzip binaries"
       if: steps.cache-scarb.outputs.cache-hit != 'true'
       shell: bash
-      run: mkdir /scarb && tar -xvf scarb.zip --strip-components 1 -C /scarb
+      run: sudo mkdir /scarb && tar -xvf scarb.zip --strip-components 1 -C /scarb
     - name: "[Scarb] Make binaries available"
       shell: bash
       run: echo "/scarb/bin" >> $GITHUB_PATH
