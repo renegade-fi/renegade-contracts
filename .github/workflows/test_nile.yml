@@ -27,7 +27,7 @@ jobs:
           CAIRO_ARCHIVE_LINK: $CAIRO_ARCHIVE_LINK
 
       - name: Install nile-rs
-        run: cargo install --git https://github.com/OpenZeppelin/nile-rs --branch v0.1.0-rc.2 --profile release
+        run: cargo install --git https://github.com/OpenZeppelin/nile-rs --tag v0.1.0-rc.2 --profile release
 
       - name: Set up Python
         uses: actions/setup-python@v4
