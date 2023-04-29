@@ -19,7 +19,7 @@ runs:
     - name: "[Cairo] Build source"
       if: steps.cache-cairo.outputs.cache-hit != 'true'
       shell: bash
-      run: cd /cairo && sudo cargo build --release
+      run: cd /cairo && cargo build --release
     - name: "[Cairo] Make binaries available"
       shell: bash
       run: echo "/cairo/target/release" >> $GITHUB_PATH
