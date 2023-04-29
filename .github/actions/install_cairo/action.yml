@@ -3,6 +3,9 @@ description: Fetches Cairo1.0.0-alpha.6 and builds it. Assumes `cargo` has alrea
 runs:
   using: "composite"
   steps:
+    - name: "[Cairo] Set root user"
+      shell: bash
+      run: su
     - uses: actions/cache@v3
       id: cache-cairo
       with:
@@ -12,8 +15,8 @@ runs:
       if: steps.cache-cairo.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        sudo mkdir -p /cairo &&
-        sudo mkdir /cairo-tmp &&
+        mkdir -p /cairo &&
+        mkdir /cairo-tmp &&
         git clone --branch v1.0.0-alpha.6 https://github.com/starkware-libs/cairo.git /cairo-tmp &&
         cp -r /cairo-tmp/* /cairo
     - name: "[Cairo] Build source"
