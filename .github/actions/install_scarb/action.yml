@@ -7,17 +7,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache@v3
-      id: cache-scarb
-      with:
-        path: ./scarb
-        key: ${{inputs.SCARB_ARCHIVE_LINK}}
     - name: "[Scarb] Download binaries"
-      if: steps.cache-scarb.outputs.cache-hit != 'true'
       shell: bash
       run: curl -L -o scarb.zip ${{inputs.SCARB_ARCHIVE_LINK}}
     - name: "[Scarb] Unzip binaries"
-      if: steps.cache-scarb.outputs.cache-hit != 'true'
       shell: bash
       run: mkdir ./scarb && tar -xvf scarb.zip --strip-components 1 -C ./scarb
     - name: "[Scarb] Make binaries available"

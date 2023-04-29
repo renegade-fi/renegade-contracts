@@ -1,25 +1,18 @@
 name: Install Cairo
-description: Fetches Cairo1.0.0-alpha.6 and builds it. Assumes `cargo` has already been installed.
+description: Downloads and installs latest Cairo 1.0 release running on Starknet
+inputs:
+  CAIRO_ARCHIVE_LINK:
+    description: "URL from which to download the Cairo release"
+    required: true
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache@v3
-      id: cache-cairo
-      with:
-        path: ./cairo
-        key: cairo
-    - name: "[Cairo] Fetch source"
-      if: steps.cache-cairo.outputs.cache-hit != 'true'
+    - name: "[Cairo] Download binaries"
       shell: bash
-      run: |
-        mkdir -p ./cairo &&
-        mkdir ./cairo-tmp &&
-        git clone --branch v1.0.0-alpha.6 https://github.com/starkware-libs/cairo.git ./cairo-tmp &&
-        cp -r ./cairo-tmp/* ./cairo
-    - name: "[Cairo] Build source"
-      if: steps.cache-cairo.outputs.cache-hit != 'true'
+      run: curl -L -o cairo.zip ${{inputs.CAIRO_ARCHIVE_LINK}}
+    - name: "[Cairo] Unzip binaries"
       shell: bash
-      run: cd ./cairo && cargo build --release
+      run: mkdir ./cairo && tar -xvf cairo.zip --strip-components 1 -C ./cairo
     - name: "[Cairo] Make binaries available"
       shell: bash
-      run: echo "./cairo/target/release" >> $GITHUB_PATH
+      run: echo "./cairo/bin" >> $GITHUB_PATH
