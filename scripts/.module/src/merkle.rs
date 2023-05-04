@@ -71,6 +71,12 @@ impl Config for MerkleConfig {
 
 pub type FeltMerkleTree = MerkleTree<MerkleConfig>;
 
+/// The value of an empty leaf in the Merkle tree:
+/// 306932273398430716639340090025251549301604242969558673011416862133942957551
+/// This value is computed as the keccak256 hash of the string 'renegade'
+/// taken modulo the Cairo field's prime modulus:
+/// 2 ** 251 + 17 * 2 ** 192 + 1 = 3618502788666131213697322783095070105623107215331596699973092056135872020481
+/// defined here: https://docs.starknet.io/documentation/architecture_and_concepts/Hashing/hash-functions/#domain_and_range
 pub const EMPTY_LEAF_VAL: &str =
     "306932273398430716639340090025251549301604242969558673011416862133942957551";
 

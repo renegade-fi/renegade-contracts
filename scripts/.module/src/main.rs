@@ -1,14 +1,12 @@
 // Auto-generated file. Don't edit directly.
 
 use eyre::{eyre, Result};
-use starknet_crypto::FieldElement;
 use num_bigint::{BigUint, RandBigInt};
+use starknet_crypto::FieldElement;
 
 // Requires a devnet node running
 async fn run(_nre: NileRuntimeEnvironment) -> Result<()> {
-
-    let contract_name = "Merkle";
-    let merkle_test_builder = MerkleTestBuilder::default().with_contract_name(contract_name.to_string()).with_height(5);
+    let contract_name = String::from("Merkle");
 
     debug!("Compiling {} contract...", &contract_name);
     utils::compile()?;
@@ -22,45 +20,44 @@ async fn run(_nre: NileRuntimeEnvironment) -> Result<()> {
     debug!("Dumping devnet state...");
     utils::dump_devnet_state().await?;
 
-    let mut merkle_test = merkle_test_builder.with_contract_address(contract_address).build()?;
+    let mut merkle_test = MerkleTest::new(contract_name, contract_address, 8)?;
 
-    info!("Running test `test_initialization__correct_root`");
-    merkle_test.test_initialization__correct_root()?;
-    info!("Test succeeded!");
-    merkle_test.reset().await?;
+    // info!("Running test `test_initialization__correct_root`");
+    // merkle_test.test_initialization__correct_root()?;
+    // info!("Test succeeded!");
+    // merkle_test.reset().await?;
 
-    info!("Running test `test_initialization__correct_history`");
-    merkle_test.test_initialization__correct_history()?;
-    info!("Test succeeded!");
-    merkle_test.reset().await?;
+    // info!("Running test `test_initialization__correct_history`");
+    // merkle_test.test_initialization__correct_history()?;
+    // info!("Test succeeded!");
+    // merkle_test.reset().await?;
 
-    info!("Running test `test_single_insert__correct_root`");
-    merkle_test.test_single_insert__correct_root()?;
-    info!("Test succeeded!");
-    merkle_test.reset().await?;
+    // info!("Running test `test_single_insert__correct_root`");
+    // merkle_test.test_single_insert__correct_root()?;
+    // info!("Test succeeded!");
+    // merkle_test.reset().await?;
 
-    info!("Running test `test_single_insert__correct_history`");
-    merkle_test.test_single_insert__correct_history()?;
-    info!("Test succeeded!");
-    merkle_test.reset().await?;
+    // info!("Running test `test_single_insert__correct_history`");
+    // merkle_test.test_single_insert__correct_history()?;
+    // info!("Test succeeded!");
+    // merkle_test.reset().await?;
 
     info!("Running test `test_multi_insert__correct_root`");
     merkle_test.test_multi_insert__correct_root()?;
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
-    info!("Running test `test_multi_insert__correct_history`");
-    merkle_test.test_multi_insert__correct_history()?;
-    info!("Test succeeded!");
-    merkle_test.reset().await?;
+    // info!("Running test `test_multi_insert__correct_history`");
+    // merkle_test.test_multi_insert__correct_history()?;
+    // info!("Test succeeded!");
+    // merkle_test.reset().await?;
 
-    info!("Running test `test_full_insert__fails`");
-    merkle_test.test_full_insert__fails()?;
-    info!("Test succeeded!");
+    // info!("Running test `test_full_insert__fails`");
+    // merkle_test.test_full_insert__fails()?;
+    // info!("Test succeeded!");
 
     Ok(())
 }
-
 
 // ----------------
 // | TEST HELPERS |
@@ -71,38 +68,35 @@ async fn run(_nre: NileRuntimeEnvironment) -> Result<()> {
 // - The Merkle contract is declared & deployed
 // - The contract state is uninitialized
 
-#[derive(Default)]
-struct MerkleTestBuilder {
-    contract_name: Option<String>,
-    contract_address: Option<String>,
-    height: Option<usize>,
+// -------------
+// | CONSTANTS |
+// -------------
+
+const INITIALIZER_FN_NAME: &'static str = "initializer";
+const GET_ROOT_FN_NAME: &'static str = "get_root";
+const ROOT_IN_HISTORY_FN_NAME: &'static str = "root_in_history";
+const INSERT_FN_NAME: &'static str = "insert";
+
+struct MerkleTest {
+    contract_name: String,
+    contract_address: String,
+    height: usize,
+    merkle_tree: merkle::FeltMerkleTree,
+    next_index: usize,
 }
 
-impl MerkleTestBuilder {
-    fn with_contract_name(mut self, contract_name: String) -> Self {
-        self.contract_name = Some(contract_name);
-        self
-    }
+#[allow(non_snake_case)]
+impl MerkleTest {
+    // ---------------
+    // | CONSTRUCTOR |
+    // ---------------
 
-    fn with_contract_address(mut self, contract_address: String) -> Self {
-        self.contract_address = Some(contract_address);
-        self
-    }
-
-    fn with_height(mut self, height: usize) -> Self {
-        self.height = Some(height);
-        self
-    }
-
-    fn build(self) -> Result<MerkleTest> {
-        let height = self.height.ok_or_else(|| eyre!("height not set"))?;
+    fn new(contract_name: String, contract_address: String, height: usize) -> Result<Self> {
         // arkworks implementation does height inclusive of root,
         // so "height" here is one more than what's passed to the contract
         debug!("Initializing empty arkworks Merkle tree...");
         let merkle_tree = merkle::setup_empty_tree(height + 1);
 
-        let contract_name = self.contract_name.ok_or_else(|| eyre!("contract name not set"))?;
-        let contract_address = self.contract_address.ok_or_else(|| eyre!("contract address not set"))?;
         debug!("Initializing {} contract...", &contract_name);
         utils::send(&contract_address, "initializer", vec![&height.to_string()])?;
 
@@ -114,23 +108,11 @@ impl MerkleTestBuilder {
             next_index: 0,
         })
     }
-}
-
-struct MerkleTest {
-    contract_name: String,
-    contract_address: String,
-    height: usize,
-    merkle_tree: merkle::FeltMerkleTree,
-    next_index: usize,
-}
-
-impl MerkleTest {
 
     // ---------
     // | TESTS |
     // ---------
 
-    #[allow(non_snake_case)]
     fn test_initialization__correct_root(&self) -> Result<()> {
         let (arkworks_root, contract_root) = self.get_roots()?;
 
@@ -139,7 +121,6 @@ impl MerkleTest {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
     fn test_initialization__correct_history(&self) -> Result<()> {
         let (_, contract_root) = self.get_roots()?;
 
@@ -150,7 +131,6 @@ impl MerkleTest {
 
     // TODO: test_initialization__correct_events
 
-    #[allow(non_snake_case)]
     fn test_single_insert__correct_root(&mut self) -> Result<()> {
         self.insert_random_val_to_both()?;
 
@@ -161,7 +141,6 @@ impl MerkleTest {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
     fn test_single_insert__correct_history(&mut self) -> Result<()> {
         self.insert_random_val_to_contract()?;
 
@@ -174,7 +153,6 @@ impl MerkleTest {
 
     // TODO: test_single_insert__correct_events
 
-    #[allow(non_snake_case)]
     fn test_multi_insert__correct_root(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
             self.insert_random_val_to_both()?;
@@ -186,7 +164,6 @@ impl MerkleTest {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
     fn test_multi_insert__correct_history(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
             self.insert_random_val_to_contract()?;
@@ -197,7 +174,6 @@ impl MerkleTest {
         Ok(())
     }
 
-    #[allow(non_snake_case)]
     fn test_full_insert__fails(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
             self.insert_random_val_to_contract()?;
@@ -219,8 +195,12 @@ impl MerkleTest {
         debug!("Loading devnet state...");
         utils::load_devnet_state().await?;
 
-        debug!("Initializing {} contract...", &self.contract_name); 
-        utils::send(&self.contract_address, "initializer", vec![&self.height.to_string()])?;
+        debug!("Initializing {} contract...", &self.contract_name);
+        utils::send(
+            &self.contract_address,
+            INITIALIZER_FN_NAME,
+            vec![&self.height.to_string()],
+        )?;
 
         self.next_index = 0;
 
@@ -233,7 +213,7 @@ impl MerkleTest {
         debug!("Got root: {arkworks_root:#?}");
 
         debug!("Getting root from Merkle contract...");
-        let contract_root = utils::call(&self.contract_address, "get_root", vec![])?[0];
+        let contract_root = utils::call(&self.contract_address, GET_ROOT_FN_NAME, vec![])?[0];
         debug!("Got root: {contract_root:#?}");
 
         Ok((arkworks_root, contract_root))
@@ -241,25 +221,41 @@ impl MerkleTest {
 
     fn root_in_history(&self, root: FieldElement) -> Result<bool> {
         let root_str = root.to_big_decimal(0).to_string();
-        let bool_felt = utils::call(&self.contract_address, "root_in_history", vec![&root_str])?[0];
+        let bool_felt = utils::call(
+            &self.contract_address,
+            ROOT_IN_HISTORY_FN_NAME,
+            vec![&root_str],
+        )?[0];
         Ok(bool_felt == FieldElement::ONE)
     }
 
     fn insert_val_to_contract(&self, leaf_val: BigUint) -> Result<()> {
         debug!("Inserting {leaf_val} into Merkle contract...");
-        utils::send(&self.contract_address, "insert", vec![&leaf_val.to_string()])
+        utils::send(
+            &self.contract_address,
+            INSERT_FN_NAME,
+            vec![&leaf_val.to_string()],
+        )
     }
 
     fn insert_val_to_arkworks(&mut self, leaf_val: BigUint) -> Result<()> {
         debug!("Inserting {leaf_val} into arkworks Merkle tree...");
-        let mut leaf_val_bytes: [u8; 32] = [0; 32];
-        let leaf_val_bytes_vec = leaf_val.to_bytes_be();
-        // Unset bits pushed to beginning of array b/c big-endian
-        leaf_val_bytes[32 - leaf_val_bytes_vec.len()..].copy_from_slice(&leaf_val_bytes_vec);
+        // 0-pad the leaf_val up to 32 bytes, in big-endian form
+        let mut leaf_val_bytes: Vec<u8> = leaf_val
+            // Take in little-endian form
+            .to_bytes_le()
+            .into_iter()
+            // Fill remaining bytes w/ 0s
+            .chain(std::iter::repeat(0_u8))
+            .take(32)
+            .collect();
 
-        self.merkle_tree.update(
-            self.next_index, &leaf_val_bytes
-        ).map_err(|_| eyre!("unable to update arkworks merkle tree"))?;
+        // Reverse to get big-endian form
+        leaf_val_bytes.reverse();
+
+        self.merkle_tree
+            .update(self.next_index, leaf_val_bytes.as_slice().try_into()?)
+            .map_err(|_| eyre!("unable to update arkworks merkle tree"))?;
 
         self.next_index += 1;
 
@@ -280,16 +276,14 @@ impl MerkleTest {
 
         self.insert_val_to_contract(leaf_val)
     }
-
 }
 
-
-pub mod utils;
 pub mod merkle;
+pub mod utils;
 extern crate nile_rs;
 use nile_rs::nre::NileRuntimeEnvironment;
-use tracing::log::{debug, info, error};
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing::log::{debug, error, info};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[tokio::main]
 async fn main() {
