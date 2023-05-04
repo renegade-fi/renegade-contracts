@@ -3,15 +3,15 @@ trait IMerkle {
     #[external]
     fn initializer(height: u8);
     #[view]
-    fn get_root() -> u256;
+    fn get_root() -> felt252;
     #[view]
-    fn root_in_history(root: u256) -> bool;
+    fn root_in_history(root: felt252) -> bool;
     #[external]
-    fn insert(value: u256) -> u256;
+    fn insert(value: felt252) -> felt252;
     #[event]
-    fn Merkle_root_changed(prev_root: u256, new_root: u256);
+    fn Merkle_root_changed(prev_root: felt252, new_root: felt252);
     #[event]
-    fn Merkle_value_inserted(index: u128, value: u256);
+    fn Merkle_value_inserted(index: u128, value: felt252);
     #[event]
-    fn Merkle_internal_node_changed(height: u8, index: u128, new_value: u256);
+    fn Merkle_internal_node_changed(height: u8, index: u128, new_value: felt252);
 }

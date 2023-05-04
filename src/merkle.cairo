@@ -15,17 +15,17 @@ mod Merkle {
     }
 
     #[view]
-    fn get_root() -> u256 {
+    fn get_root() -> felt252 {
         MerkleLib::get_root()
     }
 
     #[view]
-    fn root_in_history(root: u256) -> bool {
+    fn root_in_history(root: felt252) -> bool {
         MerkleLib::root_in_history(root)
     }
 
     #[external]
-    fn insert(value: u256) -> u256 {
+    fn insert(value: felt252) -> felt252 {
         MerkleLib::insert(value)
     }
 }

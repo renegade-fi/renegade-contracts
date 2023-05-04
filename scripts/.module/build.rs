@@ -19,20 +19,29 @@ fn main() {
         with_disclosure
             + &r#"
 pub mod utils;
+pub mod merkle;
 extern crate nile_rs;
 use nile_rs::nre::NileRuntimeEnvironment;
+use tracing::log::{debug, info, error};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_env("NILE_LOG"))
+        .init();
     let nre = NileRuntimeEnvironment::new("<network>").unwrap();
     let mut devnet = utils::spawn_devnet().await;
     match run(nre).await {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("An error occurred: {}", e);
+            debug!("Killing devnet...");
+            devnet.kill().unwrap();
+            error!("An error occurred: {}", e);
         }
     }
-    println!("killing devnet");
+    debug!("Killing devnet...");
     devnet.kill().unwrap();
 }
 "#

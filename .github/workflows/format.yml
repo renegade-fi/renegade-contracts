@@ -13,11 +13,21 @@ jobs:
       - name: Check out main branch
         uses: actions/checkout@v3
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
       - name: Install Scarb
         uses: ./.github/actions/install_scarb
         with:
           SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
 
-      - name: Check formatting
+      - name: Check Cairo formatting
         run: scarb fmt -c
+
+      - name: Check Rust formatting
+        run: cargo fmt --check
       

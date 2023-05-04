@@ -4,20 +4,29 @@
 use eyre::{eyre, Result, WrapErr};
 use lazy_static::lazy_static;
 use regex::Regex;
+use reqwest::Client;
 use starknet_core::types::{BlockId, FieldElement};
 use starknet_providers::{Provider, SequencerGatewayProvider};
+use std::collections::HashMap;
 use std::process::{Child, Command, Output, Stdio};
 use std::time::{Duration, Instant};
 use std::{env, str};
+use tracing::log::{debug, trace};
 
 // Assumes `starknet-devnet` binary is available and `CAIRO_COMPILER_MANIFEST` is a set env var
 pub async fn spawn_devnet() -> Child {
     let cairo_compiler_manifest = env::var("CAIRO_COMPILER_MANIFEST").unwrap();
     let provider = SequencerGatewayProvider::starknet_nile_localhost();
 
-    println!("spawning devnet...");
+    debug!("Spawning devnet...");
     let devnet = Command::new("starknet-devnet")
-        .args(vec!["--cairo-compiler-manifest", &cairo_compiler_manifest])
+        .args(vec![
+            "--cairo-compiler-manifest",
+            &cairo_compiler_manifest,
+            "-t",
+            "180",
+            "--lite-mode",
+        ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
@@ -37,11 +46,49 @@ pub async fn spawn_devnet() -> Child {
     devnet
 }
 
+pub async fn dump_devnet_state() -> Result<()> {
+    let client = Client::new();
+    let mut body = HashMap::new();
+    let devnet_state_path = env::var("DEVNET_STATE_PATH").unwrap();
+    body.insert("path", &devnet_state_path);
+    debug!("Dumping devnet state...");
+    Ok(client
+        .post("http://localhost:5050/dump")
+        .json(&body)
+        .send()
+        .await
+        .map(|_| ())?)
+}
+
+pub async fn load_devnet_state() -> Result<()> {
+    let client = Client::new();
+    let mut body = HashMap::new();
+    let devnet_state_path = env::var("DEVNET_STATE_PATH").unwrap();
+    body.insert("path", &devnet_state_path);
+    debug!("Loading devnet state...");
+    Ok(client
+        .post("http://localhost:5050/load")
+        .json(&body)
+        .send()
+        .await
+        .map(|_| ())?)
+}
+
 fn execute_nile_rs_command(args: Vec<&str>) -> Result<Output> {
-    Command::new("nile-rs")
+    let output = Command::new("nile-rs")
         .args(args)
         .output()
-        .wrap_err("failed to execute nile-rs command")
+        .wrap_err("failed to execute nile-rs command")?;
+
+    trace!("{}", str::from_utf8(&output.stdout)?);
+
+    if !output.status.success() {
+        return Err(eyre!(
+            "nile-rs command failed:\n{}",
+            str::from_utf8(&output.stderr)?
+        ));
+    }
+    Ok(output)
 }
 
 pub fn compile() -> Result<()> {

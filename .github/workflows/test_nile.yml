@@ -5,6 +5,7 @@ on: pull_request
 env:
   CAIRO_ARCHIVE_LINK: https://github.com/starkware-libs/cairo/releases/download/v1.0.0-alpha.6/release-x86_64-unknown-linux-musl.tar.gz
   CAIRO_COMPILER_MANIFEST: ./cairo/Cargo.toml
+  DEVNET_STATE_PATH: ./dump.pkl
 
 jobs:
   test_nile:
@@ -53,5 +54,7 @@ jobs:
           cp -r ./cairo-tmp/* ./cairo
 
       - name: Run Nile test script
-        run: nile-rs run example
+        env:
+          NILE_LOG: "nile_rs_scripts_module=info"
+        run: nile-rs run test_merkle
       
