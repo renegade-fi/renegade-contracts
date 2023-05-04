@@ -36,6 +36,8 @@ async fn main() {
     match run(nre).await {
         Ok(_) => {}
         Err(e) => {
+            debug!("Killing devnet...");
+            devnet.kill().unwrap();
             error!("An error occurred: {}", e);
         }
     }

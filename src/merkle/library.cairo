@@ -64,6 +64,7 @@ mod MerkleLib {
     // | LIBRARY |
     // -----------
 
+    /// 2^128 - 1
     const MAX_CAPACITY: u128 = 340282366920938463463374607431768211455_u128;
 
     /// The value of an empty leaf in the Merkle tree:
@@ -122,6 +123,33 @@ mod MerkleLib {
         root_history::write(root, 1_u128);
     }
 
+
+    /// Insert a value into the Merkle tree
+    /// Parameters:
+    /// - `value`: The value to insert into the tree
+    /// Returns:
+    /// - The root computed by hashing the value into the tree
+    fn insert(value: felt252) -> felt252 {
+        let height = height::read();
+
+        // Increment the index of the next empty leaf
+        let curr_index = _increment_next_index();
+
+        // Delegate to helper for insertion, get new root
+        let new_root = _insert(value, height, curr_index, true);
+
+        _store_new_root(new_root);
+
+        // Emit an event for insertion
+        Merkle_value_inserted(curr_index, value);
+
+        new_root
+    }
+
+    // -----------
+    // | HELPERS |
+    // -----------
+
     /// Helper to compute the root of an empty Merkle tree and fill
     /// in the initial values for the sibling pathway along the way
     /// Parameters:
@@ -156,36 +184,14 @@ mod MerkleLib {
     /// - The previous value of `next_index`, the empty leaf being inserted into
     fn _increment_next_index() -> u128 {
         let height = height::read();
-        let next_index = next_index::read();
+        let curr_index = next_index::read();
         let tree_capacity = capacity::read();
 
-        assert(next_index < tree_capacity, 'merkle tree full');
+        assert(curr_index < tree_capacity, 'merkle tree full');
 
         // Increment the next index if the tree has room
-        next_index::write(next_index + 1_u128);
-        return next_index;
-    }
-
-    /// Insert a value into the Merkle tree
-    /// Parameters:
-    /// - `value`: The value to insert into the tree
-    /// Returns:
-    /// - The root computed by hashing the value into the tree
-    fn insert(value: felt252) -> felt252 {
-        let height = height::read();
-
-        // Increment the index of the next empty leaf
-        let next_index = _increment_next_index();
-
-        // Delegate to helper for insertion, get new root
-        let new_root = _insert(value, height, next_index, true);
-
-        _store_new_root(new_root);
-
-        // Emit an event for insertion
-        Merkle_value_inserted(next_index, value);
-
-        new_root
+        next_index::write(curr_index + 1_u128);
+        return curr_index;
     }
 
     /// Recursive helper to hash siblings up a tree
@@ -221,7 +227,8 @@ mod MerkleLib {
         //         sibling value is the newly computed node value.
         //      2. The current insertion index is a right child; in this case, the subtree
         //         of the parent is filled as well, meaning we should set the updated sibling
-        //         to the zero value at this height; representing the parent's right child
+        //         to the zero value at this height; representing an empty child of the parent's
+        //         sibling
         let current_sibling_value = sibling_path::read(height);
         if subtree_filled {
             if is_left {
