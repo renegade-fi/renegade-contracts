@@ -1,5 +1,3 @@
-// Auto-generated file. Don't edit directly.
-
 use eyre::{eyre, Result};
 use starknet_crypto::FieldElement;
 use num_bigint::{BigUint, RandBigInt};
@@ -126,7 +124,6 @@ impl MerkleTest {
     // | TESTS |
     // ---------
 
-    ///
     #[allow(non_snake_case)]
     fn test_initialization__correct_root(&self) -> Result<()> {
         let (arkworks_root, contract_root) = self.get_roots()?;
@@ -248,7 +245,6 @@ impl MerkleTest {
         let leaf_val_bytes_vec = leaf_val.to_bytes_be();
         // Unset bits pushed to beginning of array b/c big-endian
         leaf_val_bytes[32 - leaf_val_bytes_vec.len()..].copy_from_slice(&leaf_val_bytes_vec);
-        debug!("{}", leaf_val_bytes.len());
 
         self.merkle_tree.update(
             self.next_index, &leaf_val_bytes
@@ -273,28 +269,3 @@ impl MerkleTest {
 
 }
 
-
-pub mod utils;
-pub mod merkle;
-extern crate nile_rs;
-use nile_rs::nre::NileRuntimeEnvironment;
-use tracing::log::{debug, info, error};
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
-
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::from_env("NILE_LOG"))
-        .init();
-    let nre = NileRuntimeEnvironment::new("localhost").unwrap();
-    let mut devnet = utils::spawn_devnet().await;
-    match run(nre).await {
-        Ok(_) => {}
-        Err(e) => {
-            error!("An error occurred: {}", e);
-        }
-    }
-    debug!("Killing devnet...");
-    devnet.kill().unwrap();
-}
