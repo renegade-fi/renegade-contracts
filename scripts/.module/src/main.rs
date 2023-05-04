@@ -54,6 +54,10 @@ async fn run(_nre: NileRuntimeEnvironment) -> Result<()> {
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
+    info!("Running test `test_full_insert__fails`");
+    merkle_test.test_full_insert__fails()?;
+    info!("Test succeeded!");
+
     Ok(())
 }
 
@@ -126,7 +130,6 @@ impl MerkleTest {
     // | TESTS |
     // ---------
 
-    ///
     #[allow(non_snake_case)]
     fn test_initialization__correct_root(&self) -> Result<()> {
         let (arkworks_root, contract_root) = self.get_roots()?;
@@ -149,7 +152,7 @@ impl MerkleTest {
 
     #[allow(non_snake_case)]
     fn test_single_insert__correct_root(&mut self) -> Result<()> {
-        self.insert_random_val()?;
+        self.insert_random_val_to_both()?;
 
         let (arkworks_root, contract_root) = self.get_roots()?;
 
@@ -160,7 +163,7 @@ impl MerkleTest {
 
     #[allow(non_snake_case)]
     fn test_single_insert__correct_history(&mut self) -> Result<()> {
-        self.insert_random_val()?;
+        self.insert_random_val_to_contract()?;
 
         let (_, contract_root) = self.get_roots()?;
 
@@ -174,7 +177,7 @@ impl MerkleTest {
     #[allow(non_snake_case)]
     fn test_multi_insert__correct_root(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
-            self.insert_random_val()?;
+            self.insert_random_val_to_both()?;
         }
 
         let (arkworks_root, contract_root) = self.get_roots()?;
@@ -186,7 +189,7 @@ impl MerkleTest {
     #[allow(non_snake_case)]
     fn test_multi_insert__correct_history(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
-            self.insert_random_val()?;
+            self.insert_random_val_to_contract()?;
             let (_, contract_root) = self.get_roots()?;
             assert!(self.root_in_history(contract_root)?);
         }
@@ -197,10 +200,10 @@ impl MerkleTest {
     #[allow(non_snake_case)]
     fn test_full_insert__fails(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
-            self.insert_random_val()?;
+            self.insert_random_val_to_contract()?;
         }
 
-        self.insert_random_val()?;
+        assert!(self.insert_random_val_to_contract().is_err());
 
         Ok(())
     }
@@ -242,33 +245,40 @@ impl MerkleTest {
         Ok(bool_felt == FieldElement::ONE)
     }
 
-    fn insert_val(&mut self, leaf_val: BigUint) -> Result<()> {
+    fn insert_val_to_contract(&self, leaf_val: BigUint) -> Result<()> {
+        debug!("Inserting {leaf_val} into Merkle contract...");
+        utils::send(&self.contract_address, "insert", vec![&leaf_val.to_string()])
+    }
+
+    fn insert_val_to_arkworks(&mut self, leaf_val: BigUint) -> Result<()> {
         debug!("Inserting {leaf_val} into arkworks Merkle tree...");
         let mut leaf_val_bytes: [u8; 32] = [0; 32];
         let leaf_val_bytes_vec = leaf_val.to_bytes_be();
         // Unset bits pushed to beginning of array b/c big-endian
         leaf_val_bytes[32 - leaf_val_bytes_vec.len()..].copy_from_slice(&leaf_val_bytes_vec);
-        debug!("{}", leaf_val_bytes.len());
 
         self.merkle_tree.update(
             self.next_index, &leaf_val_bytes
         ).map_err(|_| eyre!("unable to update arkworks merkle tree"))?;
-
-        debug!("Inserting {leaf_val} into Merkle contract...");
-        utils::send(&self.contract_address, "insert", vec![&leaf_val.to_string()])?;
 
         self.next_index += 1;
 
         Ok(())
     }
 
-    fn insert_random_val(&mut self) -> Result<()> {
+    fn insert_random_val_to_both(&mut self) -> Result<()> {
         let mut rng = rand::thread_rng();
         let leaf_val = rng.gen_biguint(251);
 
-        self.insert_val(leaf_val)?;
+        self.insert_val_to_arkworks(leaf_val.clone())?;
+        self.insert_val_to_contract(leaf_val)
+    }
 
-        Ok(())
+    fn insert_random_val_to_contract(&self) -> Result<()> {
+        let mut rng = rand::thread_rng();
+        let leaf_val = rng.gen_biguint(251);
+
+        self.insert_val_to_contract(leaf_val)
     }
 
 }
