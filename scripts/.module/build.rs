@@ -20,29 +20,39 @@ fn main() {
             + &r#"
 pub mod utils;
 pub mod merkle;
-extern crate nile_rs;
-use nile_rs::nre::NileRuntimeEnvironment;
-use tracing::log::{debug, info, error};
+pub mod nullifier_set;
+use tracing::log::{debug, error};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tokio::runtime::Builder;
+use std::process::exit;
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::from_env("NILE_LOG"))
-        .init();
-    let nre = NileRuntimeEnvironment::new("<network>").unwrap();
-    let mut devnet = utils::spawn_devnet().await;
-    match run(nre).await {
-        Ok(_) => {}
+fn main() {
+
+    let runtime = Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let res = runtime.block_on(async {
+        tracing_subscriber::registry()
+            .with(fmt::layer())
+            .with(EnvFilter::from_env("NILE_LOG"))
+            .init();
+
+        let mut devnet = utils::devnet_utils::spawn_devnet().await;
+        let res = run().await;
+        debug!("Killing devnet...");
+        devnet.kill()?;
+        res
+    });
+
+    match res {
+        Ok(_) => exit(0),
         Err(e) => {
-            debug!("Killing devnet...");
-            devnet.kill().unwrap();
-            error!("An error occurred: {}", e);
+            error!("{}", e);
+            exit(1)
         }
     }
-    debug!("Killing devnet...");
-    devnet.kill().unwrap();
 }
 "#
             .replace("<network>", &network),

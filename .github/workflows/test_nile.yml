@@ -56,5 +56,5 @@ jobs:
       - name: Run Nile test script
         env:
           NILE_LOG: "nile_rs_scripts_module=info"
-        run: nile-rs run test_merkle
+        run: nile-rs run test
       
