@@ -74,35 +74,62 @@ pub async fn load_devnet_state() -> Result<()> {
         .map(|_| ())?)
 }
 
-fn execute_nile_rs_command(args: Vec<&str>) -> Result<Output> {
+pub async fn prep_contract(contract_name: &str) -> Result<String> {
+    debug!("Declaring {} contract...", &contract_name);
+    declare(&contract_name)?;
+
+    debug!("Deploying {} contract...", &contract_name);
+    let contract_address = deploy(&contract_name)?;
+
+    dump_devnet_state().await?;
+
+    Ok(contract_address)
+}
+
+fn execute_nile_rs_command(args: Vec<String>) -> Result<Output> {
     let output = Command::new("nile-rs")
         .args(args)
         .output()
         .wrap_err("failed to execute nile-rs command")?;
 
-    trace!("{}", str::from_utf8(&output.stdout)?);
+    let output_str = str::from_utf8(&output.stdout)?;
 
     if !output.status.success() {
         return Err(eyre!(
-            "nile-rs command failed:\n{}",
-            str::from_utf8(&output.stderr)?
+            "nile-rs command failed:\n{}\n{}",
+            output_str,
+            str::from_utf8(&output.stderr)?,
         ));
+    } else {
+        trace!("{}", output_str);
     }
+
     Ok(output)
 }
 
 pub fn compile() -> Result<()> {
-    execute_nile_rs_command(vec!["compile"]).map(|_| ())
+    execute_nile_rs_command(vec!["compile".to_string()]).map(|_| ())
 }
 
 pub fn declare(contract: &str) -> Result<()> {
-    let full_contract_name: &str = &format!("renegade_contracts_{contract}");
-    execute_nile_rs_command(vec!["declare", full_contract_name, "-d", "0", "-t"]).map(|_| ())
+    let full_contract_name = format!("renegade_contracts_{contract}");
+    execute_nile_rs_command(
+        vec!["declare", &full_contract_name, "-d", "0", "-t"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect(),
+    )
+    .map(|_| ())
 }
 
 pub fn deploy(contract: &str) -> Result<String> {
-    let full_contract_name: &str = &format!("renegade_contracts_{contract}");
-    let output = execute_nile_rs_command(vec!["deploy", full_contract_name, "-d", "0", "-t"])?;
+    let full_contract_name = format!("renegade_contracts_{contract}");
+    let output = execute_nile_rs_command(
+        vec!["deploy", &full_contract_name, "-d", "0", "-t"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect(),
+    )?;
     parse_contract_address_from_output(output)
 }
 
@@ -119,11 +146,11 @@ fn parse_contract_address_from_output(output: Output) -> Result<String> {
 }
 
 pub fn call(
-    contract_address: &str,
-    function_name: &str,
-    calldata: Vec<&str>,
+    contract_address: String,
+    function_name: String,
+    calldata: Vec<String>,
 ) -> Result<Vec<FieldElement>> {
-    let mut args = vec!["raw-call", contract_address, function_name];
+    let mut args: Vec<String> = vec!["raw-call".to_string(), contract_address, function_name];
     args.extend(calldata);
     let output = execute_nile_rs_command(args)?;
     let res = String::from_utf8(output.stdout)?;
@@ -139,9 +166,17 @@ pub fn call(
     Ok(field_elements)
 }
 
-pub fn send(contract_address: &str, function_name: &str, calldata: Vec<&str>) -> Result<()> {
-    let mut args = vec!["send", "--address", contract_address, function_name];
+pub fn send(contract_address: String, function_name: String, calldata: Vec<String>) -> Result<()> {
+    let mut args: Vec<String> = vec!["send", "--address", &contract_address, &function_name]
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
     args.extend(calldata);
-    args.extend(vec!["-d", "0", "-t"]);
+    args.extend(
+        vec!["-d", "0", "-t"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>(),
+    );
     execute_nile_rs_command(args).map(|_| ())
 }
