@@ -2,8 +2,6 @@
 mod NullifierSetLib {
     use traits::Into;
 
-    use renegade_contracts::utils::dalek_order;
-
     // -----------
     // | STORAGE |
     // -----------
@@ -40,11 +38,6 @@ mod NullifierSetLib {
     fn mark_nullifier_used(nullifier: felt252) {
         // Assert that the nullifier hasn't already been used
         assert(!nullifier_spent_set::read(nullifier), 'nullifier already spent');
-
-        // Assert nullifier is in Dalek scalar field
-        // For now, this is a trivial check, as nullifiers are felt252s
-        // and necessarily fit into the Dalek scalar field order
-        assert(nullifier.into() < dalek_order(), 'nullifier not in field');
 
         // Add to set
         nullifier_spent_set::write(nullifier, true);

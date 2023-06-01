@@ -1,32 +1,24 @@
-use eyre::{eyre, Result};
+use eyre::Result;
 use starknet_crypto::FieldElement;
 use tracing::log::{debug, info};
 
 use crate::merkle::ark_merkle;
-use crate::utils::{common_utils, devnet_utils};
-
-// -------------
-// | CONSTANTS |
-// -------------
-
-const CONTRACT_NAME: &'static str = "Merkle";
-const INITIALIZER_FN_NAME: &'static str = "initializer";
-const GET_ROOT_FN_NAME: &'static str = "get_root";
-const ROOT_IN_HISTORY_FN_NAME: &'static str = "root_in_history";
-const INSERT_FN_NAME: &'static str = "insert";
+use crate::utils::{common_utils::*, devnet_utils};
 
 pub async fn run() -> Result<()> {
-    let contract_name = String::from(CONTRACT_NAME);
-    let contract_address = devnet_utils::prep_contract(&contract_name).await?;
-    let mut merkle_test = MerkleTest::new(contract_name, contract_address, 5)?;
+    let mut merkle_test = MerkleTest::new(
+        MERKLE_CONTRACT_NAME.to_string(),
+        get_once_cell_string(&MERKLE_CONTRACT_ADDRESS)?.clone(),
+        MERKLE_HEIGHT,
+    )?;
 
     info!("Running test `test_initialization__correct_root`");
     merkle_test.test_initialization__correct_root()?;
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
-    info!("Running test `test_initialization__correct_history`");
-    merkle_test.test_initialization__correct_history()?;
+    info!("Running test `test_initialization__correct_root_history`");
+    merkle_test.test_initialization__correct_root_history()?;
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
@@ -35,8 +27,8 @@ pub async fn run() -> Result<()> {
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
-    info!("Running test `test_single_insert__correct_history`");
-    merkle_test.test_single_insert__correct_history()?;
+    info!("Running test `test_single_insert__correct_root_history`");
+    merkle_test.test_single_insert__correct_root_history()?;
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
@@ -45,8 +37,8 @@ pub async fn run() -> Result<()> {
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
-    info!("Running test `test_multi_insert__correct_history`");
-    merkle_test.test_multi_insert__correct_history()?;
+    info!("Running test `test_multi_insert__correct_root_history`");
+    merkle_test.test_multi_insert__correct_root_history()?;
     info!("Test succeeded!");
     merkle_test.reset().await?;
 
@@ -67,8 +59,8 @@ pub async fn run() -> Result<()> {
 // - The contract state is uninitialized
 
 struct MerkleTest {
-    contract_name: String,
-    contract_address: String,
+    merkle_contract_name: String,
+    merkle_contract_address: String,
     height: usize,
     merkle_tree: ark_merkle::FeltMerkleTree,
     next_index: usize,
@@ -80,22 +72,24 @@ impl MerkleTest {
     // | CONSTRUCTOR |
     // ---------------
 
-    fn new(contract_name: String, contract_address: String, height: usize) -> Result<Self> {
-        // arkworks implementation does height inclusive of root,
-        // so "height" here is one more than what's passed to the contract
-        debug!("Initializing empty arkworks Merkle tree...");
-        let merkle_tree = ark_merkle::setup_empty_tree(height + 1);
+    fn new(
+        merkle_contract_name: String,
+        merkle_contract_address: String,
+        height: usize,
+    ) -> Result<Self> {
+        let merkle_tree = init_arkworks_merkle_tree(height);
 
-        debug!("Initializing {} contract...", &contract_name);
+        debug!("Initializing {} contract...", &merkle_contract_name);
         devnet_utils::send(
-            contract_address.clone(),
-            INITIALIZER_FN_NAME.to_string(),
-            vec![height.to_string()],
+            &merkle_contract_address,
+            INITIALIZER_FN_NAME,
+            vec![&height.to_string()],
+            0,
         )?;
 
         Ok(MerkleTest {
-            contract_name,
-            contract_address,
+            merkle_contract_name,
+            merkle_contract_address,
             height,
             merkle_tree,
             next_index: 0,
@@ -114,10 +108,14 @@ impl MerkleTest {
         Ok(())
     }
 
-    fn test_initialization__correct_history(&self) -> Result<()> {
+    fn test_initialization__correct_root_history(&self) -> Result<()> {
         let (_, contract_root) = self.get_roots()?;
 
-        assert!(self.root_in_history(contract_root)?);
+        assert!(root_in_history(
+            &self.merkle_contract_name,
+            &self.merkle_contract_address,
+            contract_root
+        )?);
 
         Ok(())
     }
@@ -134,12 +132,16 @@ impl MerkleTest {
         Ok(())
     }
 
-    fn test_single_insert__correct_history(&mut self) -> Result<()> {
+    fn test_single_insert__correct_root_history(&mut self) -> Result<()> {
         self.insert_random_val_to_contract()?;
 
         let (_, contract_root) = self.get_roots()?;
 
-        assert!(self.root_in_history(contract_root)?);
+        assert!(root_in_history(
+            &self.merkle_contract_name,
+            &self.merkle_contract_address,
+            contract_root
+        )?);
 
         Ok(())
     }
@@ -157,11 +159,15 @@ impl MerkleTest {
         Ok(())
     }
 
-    fn test_multi_insert__correct_history(&mut self) -> Result<()> {
+    fn test_multi_insert__correct_root_history(&mut self) -> Result<()> {
         for _ in 0..2_usize.pow(self.height.try_into()?) {
             self.insert_random_val_to_contract()?;
             let (_, contract_root) = self.get_roots()?;
-            assert!(self.root_in_history(contract_root)?);
+            assert!(root_in_history(
+                &self.merkle_contract_name,
+                &self.merkle_contract_address,
+                contract_root
+            )?);
         }
 
         Ok(())
@@ -188,11 +194,12 @@ impl MerkleTest {
         debug!("Loading devnet state...");
         devnet_utils::load_devnet_state().await?;
 
-        debug!("Initializing {} contract...", &self.contract_name);
+        debug!("Initializing {} contract...", &self.merkle_contract_name);
         devnet_utils::send(
-            self.contract_address.clone(),
-            INITIALIZER_FN_NAME.to_string(),
-            vec![self.height.to_string()],
+            &self.merkle_contract_address,
+            INITIALIZER_FN_NAME,
+            vec![&self.height.to_string()],
+            0,
         )?;
 
         self.next_index = 0;
@@ -201,53 +208,31 @@ impl MerkleTest {
     }
 
     fn get_roots(&self) -> Result<(FieldElement, FieldElement)> {
-        debug!("Getting root from arkworks Merkle tree...");
-        let arkworks_root = FieldElement::from_bytes_be(&self.merkle_tree.root())?;
-        debug!("Got root: {arkworks_root:#?}");
+        let arkworks_root = get_ark_root(&self.merkle_tree)?;
 
-        debug!("Getting root from {} contract...", &self.contract_name);
-        let contract_root = devnet_utils::call(
-            self.contract_address.clone(),
-            GET_ROOT_FN_NAME.to_string(),
-            vec![],
-        )?[0];
-        debug!("Got root: {contract_root:#?}");
+        let contract_root =
+            get_contract_root(&self.merkle_contract_name, &self.merkle_contract_address)?;
 
         Ok((arkworks_root, contract_root))
     }
 
-    fn root_in_history(&self, root: FieldElement) -> Result<bool> {
-        let root_str = root.to_big_decimal(0).to_string();
-        let bool_felt = devnet_utils::call(
-            self.contract_address.clone(),
-            ROOT_IN_HISTORY_FN_NAME.to_string(),
-            vec![root_str],
-        )?[0];
-        Ok(bool_felt == FieldElement::ONE)
-    }
-
     fn insert_val_to_contract(&self, leaf_val: FieldElement) -> Result<()> {
-        let leaf_val_str = common_utils::felt_to_dec_str(leaf_val);
+        let leaf_val_str = felt_to_dec_str(leaf_val);
         debug!(
             "Inserting {} into {} contract...",
-            &leaf_val_str, &self.contract_name
+            &leaf_val_str, &self.merkle_contract_name
         );
         devnet_utils::send(
-            self.contract_address.clone(),
-            INSERT_FN_NAME.to_string(),
-            vec![leaf_val_str],
+            &self.merkle_contract_address,
+            INSERT_FN_NAME,
+            vec![&leaf_val_str],
+            0,
         )
+        .map(|_| ())
     }
 
     fn insert_val_to_arkworks(&mut self, leaf_val: FieldElement) -> Result<()> {
-        debug!(
-            "Inserting {} into arkworks Merkle tree...",
-            common_utils::felt_to_dec_str(leaf_val.clone())
-        );
-
-        self.merkle_tree
-            .update(self.next_index, &leaf_val.to_bytes_be())
-            .map_err(|_| eyre!("unable to update arkworks merkle tree"))?;
+        insert_val_to_arkworks(&mut self.merkle_tree, self.next_index, leaf_val)?;
 
         self.next_index += 1;
 
@@ -255,14 +240,14 @@ impl MerkleTest {
     }
 
     fn insert_random_val_to_both(&mut self) -> Result<()> {
-        let leaf_val = common_utils::gen_random_felt(common_utils::MAX_FELT_BIT_SIZE)?;
+        let leaf_val = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
         self.insert_val_to_arkworks(leaf_val.clone())?;
         self.insert_val_to_contract(leaf_val)
     }
 
     fn insert_random_val_to_contract(&self) -> Result<()> {
-        let leaf_val = common_utils::gen_random_felt(common_utils::MAX_FELT_BIT_SIZE)?;
+        let leaf_val = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
         self.insert_val_to_contract(leaf_val)
     }

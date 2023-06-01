@@ -4,10 +4,13 @@ use eyre::Result;
 async fn run() -> Result<()> {
 
     debug!("Compiling contracts...");
-    utils::devnet_utils::compile()?;
+    utils::devnet_utils::compile("./Scarb.toml")?;
 
-    merkle::tests::run().await?;
+    utils::common_utils::init_devnet_state(None).await?;
+
     nullifier_set::tests::run().await?;
+    merkle::tests::run().await?;
+    // darkpool::tests::run().await?;
 
     Ok(())
 }
