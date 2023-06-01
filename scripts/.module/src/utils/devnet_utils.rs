@@ -24,8 +24,10 @@ pub async fn spawn_devnet() -> Child {
             "--cairo-compiler-manifest",
             &cairo_compiler_manifest,
             "-t",
-            "180",
+            "300",
             "--lite-mode",
+            "--seed",
+            "0",
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -74,19 +76,16 @@ pub async fn load_devnet_state() -> Result<()> {
         .map(|_| ())?)
 }
 
-pub async fn prep_contract(contract_name: &str) -> Result<String> {
-    debug!("Declaring {} contract...", &contract_name);
-    declare(&contract_name)?;
-
-    debug!("Deploying {} contract...", &contract_name);
-    let contract_address = deploy(&contract_name)?;
+pub async fn prep_contract(contract_name: &str, calldata: Vec<&str>) -> Result<(String, String)> {
+    let class_hash = declare(contract_name)?;
+    let contract_address = deploy(&contract_name, calldata)?;
 
     dump_devnet_state().await?;
 
-    Ok(contract_address)
+    Ok((class_hash, contract_address))
 }
 
-fn execute_nile_rs_command(args: Vec<String>) -> Result<Output> {
+fn execute_nile_rs_command(args: Vec<&str>) -> Result<Output> {
     let output = Command::new("nile-rs")
         .args(args)
         .output()
@@ -107,50 +106,32 @@ fn execute_nile_rs_command(args: Vec<String>) -> Result<Output> {
     Ok(output)
 }
 
-pub fn compile() -> Result<()> {
-    execute_nile_rs_command(vec!["compile".to_string()]).map(|_| ())
+pub fn compile(manifest_path: &str) -> Result<()> {
+    execute_nile_rs_command(vec!["compile", "--manifest-path", manifest_path]).map(|_| ())
 }
 
-pub fn declare(contract: &str) -> Result<()> {
-    let full_contract_name = format!("renegade_contracts_{contract}");
-    execute_nile_rs_command(
-        vec!["declare", &full_contract_name, "-d", "0", "-t"]
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect(),
-    )
-    .map(|_| ())
+pub fn declare(contract_name: &str) -> Result<String> {
+    debug!("Declaring {} contract...", &contract_name);
+    let output = execute_nile_rs_command(vec!["declare", contract_name, "-d", "0", "-t"])?;
+    parse_hash_from_output(output, "Class hash: ")
 }
 
-pub fn deploy(contract: &str) -> Result<String> {
-    let full_contract_name = format!("renegade_contracts_{contract}");
-    let output = execute_nile_rs_command(
-        vec!["deploy", &full_contract_name, "-d", "0", "-t"]
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect(),
-    )?;
-    parse_contract_address_from_output(output)
-}
+pub fn deploy(contract_name: &str, calldata: Vec<&str>) -> Result<String> {
+    debug!("Deploying {} contract...", contract_name);
+    let mut args = vec!["deploy", contract_name, "-d", "0", "-t"];
 
-fn parse_contract_address_from_output(output: Output) -> Result<String> {
-    lazy_static! {
-        static ref CONTRACT_ADDRESS_REGEX: Regex = Regex::new(r"Contract address: ").unwrap();
-    }
-    let stdout = str::from_utf8(&output.stdout)?;
-    Ok(CONTRACT_ADDRESS_REGEX
-        .split(stdout)
-        .nth(1)
-        .ok_or_else(|| eyre!("malformed deploy output"))?[..66]
-        .into())
+    args.extend(calldata);
+
+    let output = execute_nile_rs_command(args)?;
+    parse_hash_from_output(output, "Contract address: ")
 }
 
 pub fn call(
-    contract_address: String,
-    function_name: String,
-    calldata: Vec<String>,
+    contract_address: &str,
+    function_name: &str,
+    calldata: Vec<&str>,
 ) -> Result<Vec<FieldElement>> {
-    let mut args: Vec<String> = vec!["raw-call".to_string(), contract_address, function_name];
+    let mut args = vec!["raw-call", contract_address, function_name];
     args.extend(calldata);
     let output = execute_nile_rs_command(args)?;
     let res = String::from_utf8(output.stdout)?;
@@ -166,17 +147,43 @@ pub fn call(
     Ok(field_elements)
 }
 
-pub fn send(contract_address: String, function_name: String, calldata: Vec<String>) -> Result<()> {
-    let mut args: Vec<String> = vec!["send", "--address", &contract_address, &function_name]
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect();
+pub fn send(
+    contract_address: &str,
+    function_name: &str,
+    calldata: Vec<&str>,
+    account_index: usize,
+) -> Result<String> {
+    let mut args = vec!["send", "--address", contract_address, function_name];
     args.extend(calldata);
-    args.extend(
-        vec!["-d", "0", "-t"]
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>(),
-    );
-    execute_nile_rs_command(args).map(|_| ())
+    let account_index_str = account_index.to_string();
+    args.extend(vec!["-d", &account_index_str, "-t"]);
+    let output = execute_nile_rs_command(args)?;
+    parse_hash_from_output(output, "Transaction hash: ")
+}
+
+fn parse_hash_from_output(output: Output, hash_prefix: &str) -> Result<String> {
+    let hash_prefix_regex = Regex::new(hash_prefix).unwrap();
+    let stdout = str::from_utf8(&output.stdout)?;
+    let hash = hash_prefix_regex
+        .split(stdout)
+        .nth(1)
+        .ok_or_else(|| eyre!("malformed deploy output"))?[..66]
+        .into();
+    Ok(hash)
+}
+
+pub fn get_predeployed_account(index: usize) -> Result<String> {
+    assert!(index < 10);
+    let output = execute_nile_rs_command(vec!["get-accounts", "--predeployed-accounts"])?;
+    parse_account_from_output(output, index)
+}
+
+fn parse_account_from_output(output: Output, index: usize) -> Result<String> {
+    let stdout = str::from_utf8(&output.stdout)?;
+    let account = stdout
+        .split('\n')
+        .nth(index + 1)
+        .ok_or_else(|| eyre!("malformed get-accounts output"))?[11..]
+        .into();
+    Ok(account)
 }
