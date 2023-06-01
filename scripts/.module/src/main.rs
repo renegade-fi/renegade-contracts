@@ -4,24 +4,33 @@ use eyre::Result;
 
 // Requires a devnet node running
 async fn run() -> Result<()> {
-    debug!("Compiling contracts...");
-    utils::devnet_utils::compile()?;
 
+    debug!("Compiling contracts...");
+    utils::devnet_utils::compile("./Scarb.toml")?;
+
+    utils::common_utils::init_devnet_state(None).await?;
+
+    nullifier_set::tests::run().await?;
     merkle::tests::run().await?;
-    // nullifier_set::tests::run().await?;
+    // darkpool::tests::run().await?;
 
     Ok(())
 }
-pub mod merkle;
-pub mod nullifier_set;
 pub mod utils;
-use std::process::exit;
+pub mod nullifier_set;
+pub mod merkle;
+// pub mod darkpool;
+use tracing::log::{debug, warn, error};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tokio::runtime::Builder;
-use tracing::log::{debug, error};
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use std::process::exit;
 
 fn main() {
-    let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
+
+    let runtime = Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
 
     let res = runtime.block_on(async {
         tracing_subscriber::registry()
@@ -31,6 +40,8 @@ fn main() {
 
         let mut devnet = utils::devnet_utils::spawn_devnet().await;
         let res = run().await;
+        // If we panic on an assertion in a test, we never get here...
+        // Maybe just don't use asserts?
         debug!("Killing devnet...");
         devnet.kill()?;
         res

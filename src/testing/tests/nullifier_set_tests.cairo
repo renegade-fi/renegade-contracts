@@ -41,14 +41,3 @@ fn test_invalid_nullifier_basic() {
     // Try marking nullifier as used (again)
     NullifierSet::__external::mark_nullifier_used(test_utils::serialized_element(nullifier));
 }
-// #[test]
-// #[available_gas(300000)]
-// #[should_panic]
-// fn test_nullifier_not_in_field() {
-//     let nullifier = dalek_order() + 1.into();
-
-//     // Mark nullifier as used
-//     NullifierSet::__external::mark_nullifier_used(test_utils::serialized_element(nullifier));
-// }
-
-

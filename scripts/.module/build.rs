@@ -19,8 +19,9 @@ fn main() {
         with_disclosure
             + &r#"
 pub mod utils;
-pub mod merkle;
 pub mod nullifier_set;
+pub mod merkle;
+// pub mod darkpool;
 use tracing::log::{debug, error};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tokio::runtime::Builder;
@@ -41,6 +42,8 @@ fn main() {
 
         let mut devnet = utils::devnet_utils::spawn_devnet().await;
         let res = run().await;
+        // If we panic on an assertion in a test, we never get here...
+        // Maybe just don't use asserts?
         debug!("Killing devnet...");
         devnet.kill()?;
         res
