@@ -4,3 +4,4 @@
 /.DS_Store
 /cairo_project.toml
 /Cargo.lock
+/.vscode

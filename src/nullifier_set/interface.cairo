@@ -1,9 +1,9 @@
 #[abi]
 trait INullifierSet {
     #[view]
-    fn is_nullifier_used(nullifier: u256) -> bool;
+    fn is_nullifier_used(nullifier: felt252) -> bool;
     #[external]
-    fn mark_nullifier_used(nullifier: u256);
+    fn mark_nullifier_used(nullifier: felt252);
     #[event]
-    fn Nullifier_spent(nullifier: u256);
+    fn Nullifier_spent(nullifier: felt252);
 }

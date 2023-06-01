@@ -1,5 +1,7 @@
 #[contract]
 mod NullifierSetLib {
+    use traits::Into;
+
     use renegade_contracts::utils::dalek_order;
 
     // -----------
@@ -8,8 +10,7 @@ mod NullifierSetLib {
 
     struct Storage {
         /// Mapping from nullifier to bool indicating if the nullifier is spent
-        /// Nullifiers are field elements of the *Dalek scalar field*
-        nullifier_spent_set: LegacyMap::<u256, bool>
+        nullifier_spent_set: LegacyMap::<felt252, bool>
     }
 
     // ----------
@@ -18,7 +19,7 @@ mod NullifierSetLib {
 
     /// Emitted when the given nullifier is marked as spent
     #[event]
-    fn Nullifier_spent(nullifier: u256) {}
+    fn Nullifier_spent(nullifier: felt252) {}
 
     // -----------
     // | LIBRARY |
@@ -29,19 +30,21 @@ mod NullifierSetLib {
     /// - `nullifier`: The nullifier value to check
     /// Returns:
     /// - A boolean indicating whether the nullifier is spent already
-    fn is_nullifier_used(nullifier: u256) -> bool {
+    fn is_nullifier_used(nullifier: felt252) -> bool {
         nullifier_spent_set::read(nullifier)
     }
 
     /// Marks the given nullifier as used, asserts that it has not already been used
     /// Parameters:
     /// - `nullifier`: The nullifier value to mark as used
-    fn mark_nullifier_used(nullifier: u256) {
+    fn mark_nullifier_used(nullifier: felt252) {
         // Assert that the nullifier hasn't already been used
         assert(!nullifier_spent_set::read(nullifier), 'nullifier already spent');
 
         // Assert nullifier is in Dalek scalar field
-        assert(nullifier < dalek_order(), 'nullifier not in field');
+        // For now, this is a trivial check, as nullifiers are felt252s
+        // and necessarily fit into the Dalek scalar field order
+        assert(nullifier.into() < dalek_order(), 'nullifier not in field');
 
         // Add to set
         nullifier_spent_set::write(nullifier, true);
