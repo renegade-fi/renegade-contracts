@@ -12,7 +12,7 @@ async fn run() -> Result<()> {
 
     nullifier_set::tests::run().await?;
     merkle::tests::run().await?;
-    // darkpool::tests::run().await?;
+    darkpool::tests::run().await?;
 
     Ok(())
 }
