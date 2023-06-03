@@ -94,7 +94,7 @@ pub async fn run() -> Result<()> {
 
 // Making tests async for now, can still do this w/ tokio::test
 async fn test_initialization__correct_root() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     let ark_merkle_tree = init_arkworks_merkle_tree(MERKLE_HEIGHT);
 
@@ -108,25 +108,22 @@ async fn test_initialization__correct_root() -> Result<()> {
 }
 
 async fn test_new_wallet__correct_root() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     // Until we implement verification of `VALID WALLET CREATE`,
     // we can test with completely dummy values for the wallet blinder
     // and commitment
-    let public_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-    let private_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let wallet_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment,
-        private_share_commitment,
-        Vec::new(),
-        Vec::new(),
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_blinder_share */
+        wallet_share_commitment,
+        Vec::new(), /* public_wallet_shares */
+        Vec::new(), /* proof_blob */
     )?;
 
     let mut ark_merkle_tree = init_arkworks_merkle_tree(MERKLE_HEIGHT);
-    insert_val_to_arkworks(&mut ark_merkle_tree, 0, public_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 1, private_share_commitment)?;
+    insert_val_to_arkworks(&mut ark_merkle_tree, 0, wallet_share_commitment)?;
 
     assert_roots_equal(
         DARKPOOL_CONTRACT_NAME,
@@ -138,18 +135,17 @@ async fn test_new_wallet__correct_root() -> Result<()> {
 }
 
 async fn test_new_wallet__correct_wallet_last_modified() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
-    let public_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let wallet_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let tx_hash_felt = create_new_wallet(
-        public_blinder_share,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
+        wallet_blinder_share,
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_share_commitment */
+        Vec::new(),                          /* public_wallet_shares */
+        Vec::new(),                          /* proof_blob */
     )?;
-    let last_modified_res = get_public_blinder_transaction(public_blinder_share)?;
+    let last_modified_res = get_wallet_blinder_transaction(wallet_blinder_share)?;
 
     assert_eq!(tx_hash_felt, last_modified_res);
 
@@ -157,38 +153,21 @@ async fn test_new_wallet__correct_wallet_last_modified() -> Result<()> {
 }
 
 async fn test_update_wallet__correct_root() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
-    let public_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-    let private_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let wallet_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment,
-        private_share_commitment,
-        Vec::new(),
-        Vec::new(),
+    update_wallet(
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_blinder_share */
+        wallet_share_commitment,
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* old_shares_nullifier */
+        Vec::new(),                          /* public_wallet_shares */
+        Vec::new(),                          /* external_transfers */
+        Vec::new(),                          /* proof_blob */
     )?;
 
     let mut ark_merkle_tree = init_arkworks_merkle_tree(MERKLE_HEIGHT);
-    insert_val_to_arkworks(&mut ark_merkle_tree, 0, public_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 1, private_share_commitment)?;
-
-    let updated_public_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-    let updated_private_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-
-    update_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        updated_public_share_commitment,
-        updated_private_share_commitment,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-        Vec::new(),
-    )?;
-
-    insert_val_to_arkworks(&mut ark_merkle_tree, 2, updated_public_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 3, updated_private_share_commitment)?;
+    insert_val_to_arkworks(&mut ark_merkle_tree, 0, wallet_share_commitment)?;
 
     assert_roots_equal(
         DARKPOOL_CONTRACT_NAME,
@@ -200,28 +179,19 @@ async fn test_update_wallet__correct_root() -> Result<()> {
 }
 
 async fn test_update_wallet__correct_wallet_last_modified() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-    )?;
-
-    let public_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let wallet_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let tx_hash_felt = update_wallet(
-        public_blinder_share,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-        Vec::new(),
+        wallet_blinder_share,
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_share_commitment */
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* old_shares_nullifier */
+        Vec::new(),                          /* public_wallet_shares */
+        Vec::new(),                          /* external_transfers */
+        Vec::new(),                          /* proof_blob */
     )?;
-    let last_modified_res = get_public_blinder_transaction(public_blinder_share)?;
+    let last_modified_res = get_wallet_blinder_transaction(wallet_blinder_share)?;
 
     assert_eq!(tx_hash_felt, last_modified_res);
 
@@ -229,26 +199,17 @@ async fn test_update_wallet__correct_wallet_last_modified() -> Result<()> {
 }
 
 async fn test_update_wallet__correct_nullifiers_used() -> Result<()> {
-    init_darkpool(0, false)?;
-
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-    )?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     let old_shares_nullifier = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     update_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_blinder_share */
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_share_commitment */
         old_shares_nullifier,
-        Vec::new(),
-        Vec::new(),
-        Vec::new(),
+        Vec::new(), /* public_wallet_shares */
+        Vec::new(), /* external_transfers */
+        Vec::new(), /* proof_blob */
     )?;
 
     assert!(is_nullifier_used(
@@ -263,15 +224,7 @@ async fn test_update_wallet__correct_nullifiers_used() -> Result<()> {
 async fn test_update_wallet__deposit() -> Result<()> {
     // Account 0 is blessed w/ funds from test init
     // Deposit into darkpool and check both balances
-    init_darkpool(0, false)?;
-
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-    )?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     let external_transfers = vec![ExternalTransfer {
         account_addr: FieldElement::from_hex_be(get_once_cell_string(
@@ -283,13 +236,12 @@ async fn test_update_wallet__deposit() -> Result<()> {
     }];
 
     update_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_blinder_share */
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_share_commitment */
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* old_shares_nullifier */
+        Vec::new(),                          /* public_wallet_shares */
         external_transfers,
-        Vec::new(),
+        Vec::new(), /* proof_blob */
     )?;
 
     let account_balance = get_balance(&get_once_cell_string(&PREDEPLOYED_ACCOUNT_ADDRESS)?)?;
@@ -311,18 +263,10 @@ async fn test_update_wallet__deposit() -> Result<()> {
 async fn test_update_wallet__withdraw() -> Result<()> {
     // Account 0 is blessed w/ funds from test init
     // Transfer to darkpool (hacky, but works), then withdraw and check both balances
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     debug!("Transferring funds to darkpool to simulate deposit...");
     transfer_to_darkpool([FieldElement::from(100u8), FieldElement::ZERO])?;
-
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-    )?;
 
     let external_transfers = vec![ExternalTransfer {
         account_addr: FieldElement::from_hex_be(get_once_cell_string(
@@ -334,13 +278,12 @@ async fn test_update_wallet__withdraw() -> Result<()> {
     }];
 
     update_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_blinder_share */
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* wallet_share_commitment */
+        gen_random_felt(MAX_FELT_BIT_SIZE)?, /* old_shares_nullifier */
+        Vec::new(),                          /* public_wallet_shares */
         external_transfers,
-        Vec::new(),
+        Vec::new(), /* proof_blob */
     )?;
 
     let account_balance = get_balance(&get_once_cell_string(&PREDEPLOYED_ACCOUNT_ADDRESS)?)?;
@@ -357,44 +300,25 @@ async fn test_update_wallet__withdraw() -> Result<()> {
 }
 
 async fn test_process_match__correct_root() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
-    let public_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-    let private_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment,
-        private_share_commitment,
-        Vec::new(),
-        Vec::new(),
-    )?;
-
-    let mut ark_merkle_tree = init_arkworks_merkle_tree(MERKLE_HEIGHT);
-    insert_val_to_arkworks(&mut ark_merkle_tree, 0, public_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 1, private_share_commitment)?;
-
-    let party_0_public_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-    let party_0_private_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let party_0_wallet_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let party_0_match_payload = MatchPayload {
-        public_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         old_shares_nullifier: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment: party_0_public_share_commitment,
-        private_share_commitment: party_0_private_share_commitment,
+        wallet_share_commitment: party_0_wallet_share_commitment,
         public_wallet_shares: Vec::new(),
         valid_commitments_proof_blob: Vec::new(),
         valid_reblind_proof_blob: Vec::new(),
     };
 
-    let party_1_public_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
-    let party_1_private_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let party_1_wallet_share_commitment = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let party_1_match_payload = MatchPayload {
-        public_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         old_shares_nullifier: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment: party_1_public_share_commitment,
-        private_share_commitment: party_1_private_share_commitment,
+        wallet_share_commitment: party_1_wallet_share_commitment,
         public_wallet_shares: Vec::new(),
         valid_commitments_proof_blob: Vec::new(),
         valid_reblind_proof_blob: Vec::new(),
@@ -403,14 +327,13 @@ async fn test_process_match__correct_root() -> Result<()> {
     process_match(
         party_0_match_payload,
         party_1_match_payload,
-        Vec::new(),
-        Vec::new(),
+        Vec::new(), /* match_proof_blob */
+        Vec::new(), /* settle_proof_blob */
     )?;
 
-    insert_val_to_arkworks(&mut ark_merkle_tree, 2, party_0_public_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 3, party_0_private_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 4, party_1_public_share_commitment)?;
-    insert_val_to_arkworks(&mut ark_merkle_tree, 5, party_1_private_share_commitment)?;
+    let mut ark_merkle_tree = init_arkworks_merkle_tree(MERKLE_HEIGHT);
+    insert_val_to_arkworks(&mut ark_merkle_tree, 0, party_0_wallet_share_commitment)?;
+    insert_val_to_arkworks(&mut ark_merkle_tree, 1, party_1_wallet_share_commitment)?;
 
     assert_roots_equal(
         DARKPOOL_CONTRACT_NAME,
@@ -422,23 +345,14 @@ async fn test_process_match__correct_root() -> Result<()> {
 }
 
 async fn test_process_match__correct_nullifiers_used() -> Result<()> {
-    init_darkpool(0, false)?;
-
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-    )?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     let party_0_old_shares_nullifier = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let party_0_match_payload = MatchPayload {
-        public_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         old_shares_nullifier: party_0_old_shares_nullifier,
-        public_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        private_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         public_wallet_shares: Vec::new(),
         valid_commitments_proof_blob: Vec::new(),
         valid_reblind_proof_blob: Vec::new(),
@@ -447,10 +361,9 @@ async fn test_process_match__correct_nullifiers_used() -> Result<()> {
     let party_1_old_shares_nullifier = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let party_1_match_payload = MatchPayload {
-        public_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_blinder_share: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         old_shares_nullifier: party_1_old_shares_nullifier,
-        public_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        private_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         public_wallet_shares: Vec::new(),
         valid_commitments_proof_blob: Vec::new(),
         valid_reblind_proof_blob: Vec::new(),
@@ -459,8 +372,8 @@ async fn test_process_match__correct_nullifiers_used() -> Result<()> {
     process_match(
         party_0_match_payload,
         party_1_match_payload,
-        Vec::new(),
-        Vec::new(),
+        Vec::new(), /* match_proof_blob */
+        Vec::new(), /* settle_proof_blob */
     )?;
 
     assert!(is_nullifier_used(
@@ -479,35 +392,25 @@ async fn test_process_match__correct_nullifiers_used() -> Result<()> {
 }
 
 async fn test_process_match__correct_wallet_last_modified() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
-    create_new_wallet(
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        Vec::new(),
-        Vec::new(),
-    )?;
-
-    let party_0_public_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let party_0_wallet_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let party_0_match_payload = MatchPayload {
-        public_blinder_share: party_0_public_blinder_share,
+        wallet_blinder_share: party_0_wallet_blinder_share,
         old_shares_nullifier: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        private_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         public_wallet_shares: Vec::new(),
         valid_commitments_proof_blob: Vec::new(),
         valid_reblind_proof_blob: Vec::new(),
     };
 
-    let party_1_public_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
+    let party_1_wallet_blinder_share = gen_random_felt(MAX_FELT_BIT_SIZE)?;
 
     let party_1_match_payload = MatchPayload {
-        public_blinder_share: party_1_public_blinder_share,
+        wallet_blinder_share: party_1_wallet_blinder_share,
         old_shares_nullifier: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        public_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
-        private_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
+        wallet_share_commitment: gen_random_felt(MAX_FELT_BIT_SIZE)?,
         public_wallet_shares: Vec::new(),
         valid_commitments_proof_blob: Vec::new(),
         valid_reblind_proof_blob: Vec::new(),
@@ -516,12 +419,12 @@ async fn test_process_match__correct_wallet_last_modified() -> Result<()> {
     let tx_hash_felt = process_match(
         party_0_match_payload,
         party_1_match_payload,
-        Vec::new(),
-        Vec::new(),
+        Vec::new(), /* match_proof_blob */
+        Vec::new(), /* settle_proof_blob */
     )?;
 
-    let party_0_last_modified_res = get_public_blinder_transaction(party_0_public_blinder_share)?;
-    let party_1_last_modified_res = get_public_blinder_transaction(party_1_public_blinder_share)?;
+    let party_0_last_modified_res = get_wallet_blinder_transaction(party_0_wallet_blinder_share)?;
+    let party_1_last_modified_res = get_wallet_blinder_transaction(party_1_wallet_blinder_share)?;
 
     assert_eq!(tx_hash_felt, party_0_last_modified_res);
     assert_eq!(tx_hash_felt, party_1_last_modified_res);
@@ -530,7 +433,7 @@ async fn test_process_match__correct_wallet_last_modified() -> Result<()> {
 }
 
 async fn test_upgrade__darkpool() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     // Get merkle root
     let original_contract_root = get_contract_root(
@@ -542,8 +445,8 @@ async fn test_upgrade__darkpool() -> Result<()> {
     upgrade(
         get_once_cell_string(&UPGRADE_TARGET_CLASS_HASH)?,
         UPGRADE_FN_NAME,
-        0,
-        false,
+        0,     /* account_index */
+        false, /* should_fail */
     )?;
     assert_upgrade_target_set_get()?;
 
@@ -551,8 +454,8 @@ async fn test_upgrade__darkpool() -> Result<()> {
     upgrade(
         get_once_cell_string(&DARKPOOL_CLASS_HASH)?,
         UPGRADE_FN_NAME,
-        0,
-        false,
+        0,     /* account_index */
+        false, /* should_fail */
     )?;
     let contract_root = get_contract_root(
         DARKPOOL_CONTRACT_NAME,
@@ -565,7 +468,7 @@ async fn test_upgrade__darkpool() -> Result<()> {
 }
 
 async fn test_upgrade__merkle() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     // Get merkle root
     let original_contract_root = get_contract_root(
@@ -577,8 +480,8 @@ async fn test_upgrade__merkle() -> Result<()> {
     upgrade(
         get_once_cell_string(&UPGRADE_TARGET_CLASS_HASH)?,
         UPGRADE_MERKLE_FN_NAME,
-        0,
-        false,
+        0,     /* account_index */
+        false, /* should_fail */
     )?;
     assert_upgrade_target_root()?;
 
@@ -586,8 +489,8 @@ async fn test_upgrade__merkle() -> Result<()> {
     upgrade(
         get_once_cell_string(&MERKLE_CLASS_HASH)?,
         UPGRADE_MERKLE_FN_NAME,
-        0,
-        false,
+        0,     /* account_index */
+        false, /* should_fail */
     )?;
     let contract_root = get_contract_root(
         DARKPOOL_CONTRACT_NAME,
@@ -600,7 +503,7 @@ async fn test_upgrade__merkle() -> Result<()> {
 }
 
 async fn test_upgrade__nullifier_set() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
 
     // Get random nullifier
     let nullifier = gen_random_felt(MAX_FELT_BIT_SIZE)?;
@@ -617,8 +520,8 @@ async fn test_upgrade__nullifier_set() -> Result<()> {
     upgrade(
         get_once_cell_string(&UPGRADE_TARGET_CLASS_HASH)?,
         UPGRADE_NULLIFIER_SET_FN_NAME,
-        0,
-        false,
+        0,     /* account_index */
+        false, /* should_fail */
     )?;
 
     assert!(is_nullifier_used(
@@ -631,8 +534,8 @@ async fn test_upgrade__nullifier_set() -> Result<()> {
     upgrade(
         get_once_cell_string(&NULLIFIER_SET_CLASS_HASH)?,
         UPGRADE_NULLIFIER_SET_FN_NAME,
-        0,
-        false,
+        0,     /* account_index */
+        false, /* should_fail */
     )?;
 
     assert!(!is_nullifier_used(
@@ -645,46 +548,46 @@ async fn test_upgrade__nullifier_set() -> Result<()> {
 }
 
 async fn test_ownable__initializer() -> Result<()> {
-    init_darkpool(1, true)?;
+    init_darkpool(1 /* account_index */, true /* should_fail */)?;
     devnet_utils::load_devnet_state().await
 }
 
 async fn test_ownable__upgrade() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
     upgrade(
         get_once_cell_string(&UPGRADE_TARGET_CLASS_HASH)?,
         UPGRADE_FN_NAME,
-        1,
-        true,
+        1,    /* account_index */
+        true, /* should_fail */
     )?;
     devnet_utils::load_devnet_state().await
 }
 
 async fn test_ownable__upgrade_merkle() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
     upgrade(
         get_once_cell_string(&UPGRADE_TARGET_CLASS_HASH)?,
         UPGRADE_MERKLE_FN_NAME,
-        1,
-        true,
+        1,    /* account_index */
+        true, /* should_fail */
     )?;
     devnet_utils::load_devnet_state().await
 }
 
 async fn test_ownable__upgrade_nullifier_set() -> Result<()> {
-    init_darkpool(0, false)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
     upgrade(
         get_once_cell_string(&UPGRADE_TARGET_CLASS_HASH)?,
         UPGRADE_NULLIFIER_SET_FN_NAME,
-        1,
-        true,
+        1,    /* account_index */
+        true, /* should_fail */
     )?;
     devnet_utils::load_devnet_state().await
 }
 
 async fn test_initializable() -> Result<()> {
-    init_darkpool(0, false)?;
-    init_darkpool(0, true)?;
+    init_darkpool(0 /* account_index */, false /* should_fail */)?;
+    init_darkpool(0 /* account_index */, true /* should_fail */)?;
     devnet_utils::load_devnet_state().await
 }
 
@@ -717,23 +620,20 @@ fn init_darkpool(account_index: usize, should_fail: bool) -> Result<()> {
 }
 
 fn create_new_wallet(
-    public_blinder_share: FieldElement,
-    public_share_commitment: FieldElement,
-    private_share_commitment: FieldElement,
+    wallet_blinder_share: FieldElement,
+    wallet_share_commitment: FieldElement,
     public_wallet_shares: Vec<FieldElement>,
     proof_blob: Vec<FieldElement>,
 ) -> Result<FieldElement> {
-    let public_blinder_share_calldata = felt_to_dec_str(public_blinder_share);
-    let public_share_commitment_calldata = felt_to_dec_str(public_share_commitment);
-    let private_share_commitment_calldata = felt_to_dec_str(private_share_commitment);
+    let wallet_blinder_share_calldata = felt_to_dec_str(wallet_blinder_share);
+    let wallet_share_commitment_calldata = felt_to_dec_str(wallet_share_commitment);
     let public_wallet_shares_calldata: Vec<String> =
         calldata_to_str_vec(public_wallet_shares.to_calldata());
     let proof_blob_calldata: Vec<String> = calldata_to_str_vec(proof_blob.to_calldata());
     debug!("Creating new wallet...");
     let mut calldata: Vec<&str> = vec![
-        &public_blinder_share_calldata,
-        &public_share_commitment_calldata,
-        &private_share_commitment_calldata,
+        &wallet_blinder_share_calldata,
+        &wallet_share_commitment_calldata,
     ];
     calldata.extend(public_wallet_shares_calldata.iter().map(|s| s.as_str()));
     calldata.extend(proof_blob_calldata.iter().map(|s| s.as_str()));
@@ -748,17 +648,15 @@ fn create_new_wallet(
 }
 
 fn update_wallet(
-    public_blinder_share: FieldElement,
-    public_share_commitment: FieldElement,
-    private_share_commitment: FieldElement,
+    wallet_blinder_share: FieldElement,
+    wallet_share_commitment: FieldElement,
     old_shares_nullifier: FieldElement,
     public_wallet_shares: Vec<FieldElement>,
     external_transfers: Vec<ExternalTransfer>,
     proof_blob: Vec<FieldElement>,
 ) -> Result<FieldElement> {
-    let public_blinder_share_calldata = felt_to_dec_str(public_blinder_share);
-    let public_share_commitment_calldata = felt_to_dec_str(public_share_commitment);
-    let private_share_commitment_calldata = felt_to_dec_str(private_share_commitment);
+    let wallet_blinder_share_calldata = felt_to_dec_str(wallet_blinder_share);
+    let wallet_share_commitment_calldata = felt_to_dec_str(wallet_share_commitment);
     let old_shares_nullifier_calldata = felt_to_dec_str(old_shares_nullifier);
 
     let public_wallet_shares_calldata: Vec<String> =
@@ -768,9 +666,8 @@ fn update_wallet(
 
     debug!("Updating wallet...");
     let mut calldata: Vec<&str> = vec![
-        &public_blinder_share_calldata,
-        &public_share_commitment_calldata,
-        &private_share_commitment_calldata,
+        &wallet_blinder_share_calldata,
+        &wallet_share_commitment_calldata,
         &old_shares_nullifier_calldata,
     ];
     calldata.extend(public_wallet_shares_calldata.iter().map(|s| s.as_str()));
@@ -855,16 +752,16 @@ fn process_match(
     FieldElement::from_hex_be(&tx_hash).map_err(|_| eyre!("could not parse FieldElement from hex"))
 }
 
-fn get_public_blinder_transaction(public_blinder_share: FieldElement) -> Result<FieldElement> {
-    let public_blinder_share_calldata = felt_to_dec_str(public_blinder_share);
+fn get_wallet_blinder_transaction(wallet_blinder_share: FieldElement) -> Result<FieldElement> {
+    let wallet_blinder_share_calldata = felt_to_dec_str(wallet_blinder_share);
     debug!(
         "Querying last time wallet w/ identifier {} was modified",
-        &public_blinder_share_calldata
+        &wallet_blinder_share_calldata
     );
     Ok(devnet_utils::call(
         get_once_cell_string(&DARKPOOL_CONTRACT_ADDRESS)?,
-        GET_PUBLIC_BLINDER_TX_FN_NAME,
-        vec![public_blinder_share_calldata.as_str()],
+        GET_WALLET_BLINDER_TX_FN_NAME,
+        vec![wallet_blinder_share_calldata.as_str()],
     )?[0])
 }
 

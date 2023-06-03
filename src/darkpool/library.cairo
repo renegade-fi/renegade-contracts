@@ -56,10 +56,9 @@ mod DarkpoolLib {
     /// Represents the artifacts produced by one of the parties in a match
     #[derive(Drop)]
     struct MatchPayload {
-        public_blinder_share: felt252,
+        wallet_blinder_share: felt252,
         old_shares_nullifier: felt252,
-        public_share_commitment: felt252,
-        private_share_commitment: felt252,
+        wallet_share_commitment: felt252,
         public_wallet_shares: Array::<felt252>,
         valid_commitments_proof_blob: Array::<felt252>,
         valid_reblind_proof_blob: Array::<felt252>,
@@ -67,10 +66,9 @@ mod DarkpoolLib {
 
     impl MatchPayloadSerde of Serde::<MatchPayload> {
         fn serialize(ref serialized: Array<felt252>, input: MatchPayload) {
-            Serde::<felt252>::serialize(ref serialized, input.public_blinder_share);
+            Serde::<felt252>::serialize(ref serialized, input.wallet_blinder_share);
             Serde::<felt252>::serialize(ref serialized, input.old_shares_nullifier);
-            Serde::<felt252>::serialize(ref serialized, input.public_share_commitment);
-            Serde::<felt252>::serialize(ref serialized, input.private_share_commitment);
+            Serde::<felt252>::serialize(ref serialized, input.wallet_share_commitment);
             Serde::<Array::<felt252>>::serialize(ref serialized, input.public_wallet_shares);
             Serde::<Array::<felt252>>::serialize(
                 ref serialized, input.valid_commitments_proof_blob
@@ -80,10 +78,9 @@ mod DarkpoolLib {
         fn deserialize(ref serialized: Span<felt252>) -> Option<MatchPayload> {
             Option::Some(
                 MatchPayload {
-                    public_blinder_share: Serde::<felt252>::deserialize(ref serialized)?,
+                    wallet_blinder_share: Serde::<felt252>::deserialize(ref serialized)?,
                     old_shares_nullifier: Serde::<felt252>::deserialize(ref serialized)?,
-                    public_share_commitment: Serde::<felt252>::deserialize(ref serialized)?,
-                    private_share_commitment: Serde::<felt252>::deserialize(ref serialized)?,
+                    wallet_share_commitment: Serde::<felt252>::deserialize(ref serialized)?,
                     public_wallet_shares: Serde::<Array::<felt252>>::deserialize(ref serialized)?,
                     valid_commitments_proof_blob: Serde::<Array::<felt252>>::deserialize(
                         ref serialized
@@ -114,10 +111,9 @@ mod DarkpoolLib {
     // | EVENTS |
     // ----------
 
-    /// Emitted when there's an update to the encrypted wallet identified by `public_blinder_share`
-    // TODO: Do we want this at all? Why are we doxxing the wallet that was updated?
+    /// Emitted when there's an update to the encrypted wallet identified by `wallet_blinder_share`
     #[event]
-    fn Darkpool_wallet_update(public_blinder_share: felt252) {}
+    fn Darkpool_wallet_update(wallet_blinder_share: felt252) {}
 
     /// Emitted when there's a deposit from an external account to the darkpool
     #[event]
@@ -150,8 +146,6 @@ mod DarkpoolLib {
     fn initializer(
         _merkle_class_hash: ClassHash, _nullifier_set_class_hash: ClassHash, _height: u8
     ) {
-        // TODO: Add `proxy_admin` param & Proxy init logic
-
         // Save Merkle tree & nullifier set class hashes to storage
         merkle_class_hash::write(_merkle_class_hash);
         nullifier_set_class_hash::write(_nullifier_set_class_hash);
@@ -189,11 +183,11 @@ mod DarkpoolLib {
     /// Returns the hash of the most recent transaction to update a given wallet
     /// as indexed by the public share of the wallet blinder
     /// Parameters:
-    /// - `public_blinder_share`: The identifier of the wallet
+    /// - `wallet_blinder_share`: The identifier of the wallet
     /// Returns:
     /// - The tx hash
-    fn get_public_blinder_transaction(public_blinder_share: felt252) -> felt252 {
-        wallet_last_modified::read(public_blinder_share)
+    fn get_wallet_blinder_transaction(wallet_blinder_share: felt252) -> felt252 {
+        wallet_last_modified::read(wallet_blinder_share)
     }
 
     /// Returns the most recent root of the Merkle state tree
@@ -228,27 +222,29 @@ mod DarkpoolLib {
     /// Sets the wallet update storage variable to the current transaction hash,
     /// indicating that the wallet has been modified at this transaction
     /// Parameters:
-    /// - `public_blinder_share`: The identifier of the wallet
-    fn mark_wallet_updated(public_blinder_share: felt252) {
+    /// - `wallet_blinder_share`: The identifier of the wallet
+    fn mark_wallet_updated(wallet_blinder_share: felt252) {
+        // Check that wallet blinder share isn't already indexed
+        assert(wallet_last_modified::read(wallet_blinder_share) == 0, 'wallet already indexed');
         // Get the current tx hash
         let tx_hash = info::get_tx_info().unbox().transaction_hash;
         // Update storage mapping
-        wallet_last_modified::write(public_blinder_share, tx_hash);
+        wallet_last_modified::write(wallet_blinder_share, tx_hash);
         // Emit event
-        Darkpool_wallet_update(public_blinder_share);
+        Darkpool_wallet_update(wallet_blinder_share);
     }
 
     /// Adds a new wallet to the commitment tree
     /// Parameters:
-    /// - `public_blinder_share`: The public share of the wallet blinder, used for indexing
-    /// - `commitment`: The commitment to the new wallet
+    /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
+    /// - `wallet_share_commitment`: The commitment to the new wallet's shares
+    /// - `public_wallet_shares`: The public shares of the new wallet
     /// - `proof_blob`: The proof of `VALID_WALLET_CREATE`
     /// Returns:
     /// - The new root after the wallet is inserted into the tree
     fn new_wallet(
-        public_blinder_share: felt252,
-        public_share_commitment: felt252,
-        private_share_commitment: felt252,
+        wallet_blinder_share: felt252,
+        wallet_share_commitment: felt252,
         public_wallet_shares: Array::<felt252>,
         proof_blob: Array::<felt252>,
     ) -> felt252 {
@@ -256,29 +252,27 @@ mod DarkpoolLib {
 
         // Insert the new wallet's commitment into the Merkle tree
         let merkle_tree = _get_merkle_tree();
-        merkle_tree.insert(public_share_commitment);
-        let new_root = merkle_tree.insert(private_share_commitment);
+        let new_root = merkle_tree.insert(wallet_share_commitment);
 
         // Mark wallet as updated
-        mark_wallet_updated(public_blinder_share);
+        mark_wallet_updated(wallet_blinder_share);
 
         new_root
     }
 
     /// Update a wallet in the commitment tree
     /// Parameters:
-    /// - `public_blinder_share`: The public share of the wallet blinder, used for indexing
-    /// - `commitment`: The commitment to the updated wallet
-    /// - `public_shares_nullifier`: The nullifier for the public shares of the wallet before it was updated
-    /// - `private_shares_nullifier`: The nullifier for the private shares of the wallet before it was updated
+    /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
+    /// - `wallet_share_commitment`: The commitment to the updated wallet's shares
+    /// - `old_shares_nullifier`: The nullifier for the public shares of the wallet before it was updated
+    /// - `public_wallet_shares`: The public shares of the wallet after it was updated
     /// - `external_transfers`: The external transfers (ERC20 deposit/withdrawal)
     /// - `proof_blob`: The proof of `VALID_WALLET_UPDATE`
     /// Returns:
     /// - The root of the tree after the new commitment is inserted
     fn update_wallet(
-        public_blinder_share: felt252,
-        public_share_commitment: felt252,
-        private_share_commitment: felt252,
+        wallet_blinder_share: felt252,
+        wallet_share_commitment: felt252,
         old_shares_nullifier: felt252,
         public_wallet_shares: Array::<felt252>,
         mut external_transfers: Array::<ExternalTransfer>,
@@ -288,10 +282,9 @@ mod DarkpoolLib {
 
         // Insert the updated wallet's commitment into the Merkle tree
         let merkle_tree = _get_merkle_tree();
-        merkle_tree.insert(public_share_commitment);
-        let new_root = merkle_tree.insert(private_share_commitment);
+        let new_root = merkle_tree.insert(wallet_share_commitment);
 
-        // Add both the public and private share nullifiers to the spent nullifier set
+        // Add the old shares nullifier to the spent nullifier set
         let nullifier_set = _get_nullifier_set();
         nullifier_set.mark_nullifier_used(old_shares_nullifier);
 
@@ -301,7 +294,7 @@ mod DarkpoolLib {
         _execute_external_transfers(contract_address, caller_address, external_transfers);
 
         // Mark wallet as updated
-        mark_wallet_updated(public_blinder_share);
+        mark_wallet_updated(wallet_blinder_share);
 
         new_root
     }
@@ -310,9 +303,8 @@ mod DarkpoolLib {
     /// Parameters:
     /// - `party_0_payload`: The first party's match payload
     /// - `party_1_payload`: The second party's match payload
-    /// - `protocol_note_commitment`: A commitment to the protocol note generated from the match
-    /// - `protocol_note_ciphertext`: The encrypted protocol note generated from the match
-    /// - `proof_blob`: The proof of `VALID_MATCH_MPC`
+    /// - `match_proof_blob`: The proof of `VALID_MATCH_MPC`
+    /// - `settle_proof_blob`: The proof of `VALID_SETTLE`
     fn process_match(
         party_0_payload: MatchPayload,
         party_1_payload: MatchPayload,
@@ -324,14 +316,12 @@ mod DarkpoolLib {
         nullifier_set.mark_nullifier_used(party_1_payload.old_shares_nullifier);
 
         let merkle_tree = _get_merkle_tree();
-        merkle_tree.insert(party_0_payload.public_share_commitment);
-        merkle_tree.insert(party_0_payload.private_share_commitment);
-        merkle_tree.insert(party_1_payload.public_share_commitment);
-        let new_root = merkle_tree.insert(party_1_payload.private_share_commitment);
+        merkle_tree.insert(party_0_payload.wallet_share_commitment);
+        let new_root = merkle_tree.insert(party_1_payload.wallet_share_commitment);
 
         // Mark wallet as updated
-        mark_wallet_updated(party_0_payload.public_blinder_share);
-        mark_wallet_updated(party_1_payload.public_blinder_share);
+        mark_wallet_updated(party_0_payload.wallet_blinder_share);
+        mark_wallet_updated(party_1_payload.wallet_blinder_share);
 
         new_root
     }
@@ -339,10 +329,6 @@ mod DarkpoolLib {
     // -----------
     // | HELPERS |
     // -----------
-
-    // What am I doing... can't I just call functions on the libraries directly instead of doing library calls?
-    // Ah - this is in case we want to upgrade the implementations. We don't have to redeploy the Darkpool,
-    // just re-declare the libraries.
 
     /// Returns the library dispatcher struct for the Merkle interface,
     /// using the currently stored Merkle class hash
@@ -375,7 +361,6 @@ mod DarkpoolLib {
     /// - `contract_address`: The address of the current contract // TODO: Should we just get this inside the body of this function?
     /// - `caller_address`: The address triggering the withdrawal / deposit // TODO: Should we just get this inside the body of this function?
     /// - `transfers`: The external transfers to execute
-    // TODO: Hmm, is there an OZ IERC20 in Cairo1 yet?
     fn _execute_external_transfers(
         contract_address: ContractAddress,
         caller_address: ContractAddress,

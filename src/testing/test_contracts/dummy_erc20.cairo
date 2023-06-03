@@ -1,5 +1,6 @@
 //! Adapted from https://github.com/starkware-libs/cairo/blob/v1.0.0-alpha.6/crates/cairo-lang-starknet/test_data/erc20.cairo
 //! Used to test external transfers in the darkpool.
+//! NOT SAFE FOR DEPLOYMENT AND ONLY MEANT FOR TESTING USE.
 
 #[contract]
 mod DummyERC20 {

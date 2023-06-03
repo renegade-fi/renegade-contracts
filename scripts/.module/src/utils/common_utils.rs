@@ -92,10 +92,9 @@ impl CalldataSerializable for ExternalTransfer {
 }
 
 pub struct MatchPayload {
-    pub public_blinder_share: FieldElement,
+    pub wallet_blinder_share: FieldElement,
     pub old_shares_nullifier: FieldElement,
-    pub public_share_commitment: FieldElement,
-    pub private_share_commitment: FieldElement,
+    pub wallet_share_commitment: FieldElement,
     pub public_wallet_shares: Vec<FieldElement>,
     pub valid_commitments_proof_blob: Vec<FieldElement>,
     pub valid_reblind_proof_blob: Vec<FieldElement>,
@@ -104,10 +103,9 @@ pub struct MatchPayload {
 impl CalldataSerializable for MatchPayload {
     fn to_calldata(self) -> Calldata {
         [
-            self.public_blinder_share,
+            self.wallet_blinder_share,
             self.old_shares_nullifier,
-            self.public_share_commitment,
-            self.private_share_commitment,
+            self.wallet_share_commitment,
         ]
         .into_iter()
         .chain(iter::once(FieldElement::from(

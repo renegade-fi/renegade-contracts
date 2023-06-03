@@ -58,8 +58,8 @@ mod Darkpool {
     // -------------
 
     #[view]
-    fn get_public_blinder_transaction(public_blinder_share: felt252) -> felt252 {
-        DarkpoolLib::get_public_blinder_transaction(public_blinder_share)
+    fn get_wallet_blinder_transaction(public_blinder_share: felt252) -> felt252 {
+        DarkpoolLib::get_wallet_blinder_transaction(public_blinder_share)
     }
 
     #[view]
@@ -79,35 +79,28 @@ mod Darkpool {
 
     #[external]
     fn new_wallet(
-        public_blinder_share: felt252,
-        public_share_commitment: felt252,
-        private_share_commitment: felt252,
+        wallet_blinder_share: felt252,
+        wallet_share_commitment: felt252,
         public_wallet_shares: Array::<felt252>,
         proof_blob: Array::<felt252>,
     ) -> felt252 {
         DarkpoolLib::new_wallet(
-            public_blinder_share,
-            public_share_commitment,
-            private_share_commitment,
-            public_wallet_shares,
-            proof_blob,
+            wallet_blinder_share, wallet_share_commitment, public_wallet_shares, proof_blob, 
         )
     }
 
     #[external]
     fn update_wallet(
-        public_blinder_share: felt252,
-        public_share_commitment: felt252,
-        private_share_commitment: felt252,
+        wallet_blinder_share: felt252,
+        wallet_share_commitment: felt252,
         old_shares_nullifier: felt252,
         public_wallet_shares: Array::<felt252>,
         mut external_transfers: Array::<DarkpoolLib::ExternalTransfer>,
         proof_blob: Array::<felt252>,
     ) -> felt252 {
         DarkpoolLib::update_wallet(
-            public_blinder_share,
-            public_share_commitment,
-            private_share_commitment,
+            wallet_blinder_share,
+            wallet_share_commitment,
             old_shares_nullifier,
             public_wallet_shares,
             external_transfers,
