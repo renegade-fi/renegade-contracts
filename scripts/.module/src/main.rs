@@ -4,7 +4,6 @@ use eyre::Result;
 
 // Requires a devnet node running
 async fn run() -> Result<()> {
-
     debug!("Compiling contracts...");
     utils::devnet_utils::compile("./Scarb.toml")?;
 
@@ -16,21 +15,17 @@ async fn run() -> Result<()> {
 
     Ok(())
 }
-pub mod utils;
-pub mod nullifier_set;
 pub mod merkle;
+pub mod nullifier_set;
+pub mod utils;
 // pub mod darkpool;
-use tracing::log::{debug, warn, error};
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
-use tokio::runtime::Builder;
 use std::process::exit;
+use tokio::runtime::Builder;
+use tracing::log::{debug, error, warn};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 fn main() {
-
-    let runtime = Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
     let res = runtime.block_on(async {
         tracing_subscriber::registry()
