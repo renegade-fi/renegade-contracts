@@ -4,7 +4,6 @@ use option::OptionTrait;
 use array::ArrayTrait;
 
 use renegade_contracts::testing::test_utils;
-use renegade_contracts::utils::dalek_order;
 
 
 fn is_nullifier_used_helper(nullifier: felt252) -> bool {
