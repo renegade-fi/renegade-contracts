@@ -1,4 +1,4 @@
-name: test_nile
+name: Devnet Tests
 
 on: pull_request
 
@@ -8,8 +8,8 @@ env:
   DEVNET_STATE_PATH: ./dump.pkl
 
 jobs:
-  test_nile:
-    name: test_nile
+  test_devnet:
+    name: test_devnet
     runs-on: ubuntu-latest
     steps:
       - name: Check out main branch

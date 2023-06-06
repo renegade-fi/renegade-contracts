@@ -1,6 +1,6 @@
 [package]
-name = "renegade_contracts" # the name of the package
-version = "0.1.0"    # the current version, obeying semver
+name = "renegade_contracts"
+version = "0.1.0"
 
 [[target.starknet-contract]]
 
@@ -10,12 +10,6 @@ test = "scarb eject && cairo-test --path . --starknet -f renegade_contracts"
 [tool.nile_rs]
 artifacts_dir = "./target/release/"
 contracts_dir = "./src"
-
-# # This is the default localhost configuration, the value is added as an example
-# # and you can safely remove it.
-# networks = [
-#     { name = "localhost", gateway = "http://127.0.0.1:5050/gateway", chain_id = "1536727068981429685321" }
-# ]
 
 [dependencies]
 # Pinned to the last alpha.6 commit

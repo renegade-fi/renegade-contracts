@@ -1,4 +1,4 @@
-name: test_cairo
+name: Cairo Tests
 
 on: pull_request
 
