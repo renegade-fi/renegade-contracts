@@ -21,7 +21,7 @@ fn main() {
 pub mod utils;
 pub mod nullifier_set;
 pub mod merkle;
-// pub mod darkpool;
+pub mod darkpool;
 use tracing::log::{debug, error};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tokio::runtime::Builder;

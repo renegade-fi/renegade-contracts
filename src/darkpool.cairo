@@ -58,8 +58,8 @@ mod Darkpool {
     // -------------
 
     #[view]
-    fn get_wallet_blinder_transaction(public_blinder_share: felt252) -> felt252 {
-        DarkpoolLib::get_wallet_blinder_transaction(public_blinder_share)
+    fn get_wallet_blinder_transaction(wallet_blinder_share: felt252) -> felt252 {
+        DarkpoolLib::get_wallet_blinder_transaction(wallet_blinder_share)
     }
 
     #[view]

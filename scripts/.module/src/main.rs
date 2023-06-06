@@ -15,13 +15,13 @@ async fn run() -> Result<()> {
 
     Ok(())
 }
+pub mod darkpool;
 pub mod merkle;
 pub mod nullifier_set;
 pub mod utils;
-// pub mod darkpool;
 use std::process::exit;
 use tokio::runtime::Builder;
-use tracing::log::{debug, error, warn};
+use tracing::log::{debug, error};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 fn main() {

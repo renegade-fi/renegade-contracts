@@ -8,24 +8,24 @@ use tracing::log::debug;
 use crate::merkle::ark_merkle;
 use crate::utils::devnet_utils;
 
-// pub static DARKPOOL_CLASS_HASH: OnceCell<String> = OnceCell::new();
-// pub static DARKPOOL_CONTRACT_ADDRESS: OnceCell<String> = OnceCell::new();
-// pub const DARKPOOL_CONTRACT_NAME: &'static str = "renegade_contracts_Darkpool";
+pub static DARKPOOL_CLASS_HASH: OnceCell<String> = OnceCell::new();
+pub static DARKPOOL_CONTRACT_ADDRESS: OnceCell<String> = OnceCell::new();
+pub const DARKPOOL_CONTRACT_NAME: &'static str = "renegade_contracts_Darkpool";
 pub const INITIALIZER_FN_NAME: &'static str = "initializer";
-// pub const NEW_WALLET_FN_NAME: &'static str = "new_wallet";
-// pub const GET_PUBLIC_BLINDER_TX_FN_NAME: &'static str = "get_public_blinder_transaction";
-// pub const UPDATE_WALLET_FN_NAME: &'static str = "update_wallet";
-// pub const PROCESS_MATCH_FN_NAME: &'static str = "process_match";
-// pub const UPGRADE_FN_NAME: &'static str = "upgrade";
-// pub const UPGRADE_MERKLE_FN_NAME: &'static str = "upgrade_merkle";
-// pub const UPGRADE_NULLIFIER_SET_FN_NAME: &'static str = "upgrade_nullifier_set";
+pub const NEW_WALLET_FN_NAME: &'static str = "new_wallet";
+pub const GET_WALLET_BLINDER_TX_FN_NAME: &'static str = "get_wallet_blinder_transaction";
+pub const UPDATE_WALLET_FN_NAME: &'static str = "update_wallet";
+pub const PROCESS_MATCH_FN_NAME: &'static str = "process_match";
+pub const UPGRADE_FN_NAME: &'static str = "upgrade";
+pub const UPGRADE_MERKLE_FN_NAME: &'static str = "upgrade_merkle";
+pub const UPGRADE_NULLIFIER_SET_FN_NAME: &'static str = "upgrade_nullifier_set";
 
-// pub static ERC20_CONTRACT_ADDRESS: OnceCell<String> = OnceCell::new();
-// pub static PREDEPLOYED_ACCOUNT_ADDRESS: OnceCell<String> = OnceCell::new();
-// pub const ERC20_CONTRACT_NAME: &'static str = "renegade_contracts_DummyERC20";
-// pub const APPROVE_FN_NAME: &'static str = "approve";
-// pub const TRANSFER_FN_NAME: &'static str = "transfer";
-// pub const BALANCE_OF_FN_NAME: &'static str = "balance_of";
+pub static ERC20_CONTRACT_ADDRESS: OnceCell<String> = OnceCell::new();
+pub static PREDEPLOYED_ACCOUNT_ADDRESS: OnceCell<String> = OnceCell::new();
+pub const ERC20_CONTRACT_NAME: &'static str = "renegade_contracts_DummyERC20";
+pub const APPROVE_FN_NAME: &'static str = "approve";
+pub const TRANSFER_FN_NAME: &'static str = "transfer";
+pub const BALANCE_OF_FN_NAME: &'static str = "balance_of";
 
 pub static MERKLE_CLASS_HASH: OnceCell<String> = OnceCell::new();
 pub static MERKLE_CONTRACT_ADDRESS: OnceCell<String> = OnceCell::new();
@@ -41,12 +41,12 @@ pub const NULLIFIER_SET_CONTRACT_NAME: &'static str = "renegade_contracts_Nullif
 pub const MARK_NULLIFIER_USED_FN_NAME: &'static str = "mark_nullifier_used";
 pub const IS_NULLIFIER_USED_FN_NAME: &'static str = "is_nullifier_used";
 
-// pub static UPGRADE_TARGET_CLASS_HASH: OnceCell<String> = OnceCell::new();
-// pub const UPGRADE_TARGET_CONTRACT_NAME: &'static str = "renegade_contracts_DummyUpgradeTarget";
-// pub const SET_VALUE_FN_NAME: &'static str = "set_value";
-// pub const GET_VALUE_FN_NAME: &'static str = "get_value";
-// // Result of parsing the string 'MOCK' as a felt
-// pub const MOCK_VALUE: &'static str = "1297040203";
+pub static UPGRADE_TARGET_CLASS_HASH: OnceCell<String> = OnceCell::new();
+pub const UPGRADE_TARGET_CONTRACT_NAME: &'static str = "renegade_contracts_DummyUpgradeTarget";
+pub const SET_VALUE_FN_NAME: &'static str = "set_value";
+pub const GET_VALUE_FN_NAME: &'static str = "get_value";
+// Result of parsing the string 'MOCK' as a felt
+pub const MOCK_VALUE: &'static str = "1297040203";
 
 pub const MAX_FELT_BIT_SIZE: u64 = 251;
 const U256_HALF_BITSIZE: u64 = 124;
@@ -274,42 +274,42 @@ pub fn is_nullifier_used(
 }
 
 pub struct StateDump {
-    // pub erc20_contract_address: String,
-    // pub darkpool_class_hash: String,
-    // pub darkpool_contract_address: String,
+    pub erc20_contract_address: String,
+    pub darkpool_class_hash: String,
+    pub darkpool_contract_address: String,
     pub merkle_class_hash: String,
     pub merkle_contract_address: String,
     pub nullifier_set_class_hash: String,
     pub nullifier_set_contract_address: String,
-    // pub upgrade_target_class_hash: String,
-    // pub account_address: String,
+    pub upgrade_target_class_hash: String,
+    pub account_address: String,
 }
 
 pub async fn init_devnet_state(dump: Option<StateDump>) -> Result<()> {
     let state = if let Some(some_dump) = dump {
         some_dump
     } else {
-        // let account_address = devnet_utils::get_predeployed_account(0)?;
-        // debug!("Predeployed account: {}", &account_address);
-        // let account = FieldElement::from_hex_be(&account_address)
-        //     .map_err(|_| eyre!("could not parse FieldElement from hex"))?;
-        // let account_calldata = felt_to_dec_str(account);
-        // let (_, erc20_contract_address) = devnet_utils::prep_contract(
-        //     ERC20_CONTRACT_NAME,
-        //     vec!["0", "0", "0", "1000", "0", &account_calldata]
-        //         .into_iter()
-        //         .collect(),
-        // )
-        // .await?;
-        // debug!("ERC20 contract address: {}", &erc20_contract_address);
+        let account_address = devnet_utils::get_predeployed_account(0)?;
+        debug!("Predeployed account: {}", &account_address);
+        let account = FieldElement::from_hex_be(&account_address)
+            .map_err(|_| eyre!("could not parse FieldElement from hex"))?;
+        let account_calldata = felt_to_dec_str(account);
+        let (_, erc20_contract_address) = devnet_utils::prep_contract(
+            ERC20_CONTRACT_NAME,
+            vec!["0", "0", "0", "1000", "0", &account_calldata]
+                .into_iter()
+                .collect(),
+        )
+        .await?;
+        debug!("ERC20 contract address: {}", &erc20_contract_address);
 
-        // let (darkpool_class_hash, darkpool_contract_address) =
-        //     devnet_utils::prep_contract(DARKPOOL_CONTRACT_NAME, vec![&account_calldata]).await?;
-        // debug!("Darkpool class hash: {}", &darkpool_class_hash);
-        // debug!("Darkpool contract address: {}", &darkpool_contract_address);
+        let (darkpool_class_hash, darkpool_contract_address) =
+            devnet_utils::prep_contract(DARKPOOL_CONTRACT_NAME, vec![&account_calldata]).await?;
+        debug!("Darkpool class hash: {}", &darkpool_class_hash);
+        debug!("Darkpool contract address: {}", &darkpool_contract_address);
 
-        // debug!("Approving darkpool to transfer ERC20 tokens...");
-        // approve_darkpool(&erc20_contract_address, &darkpool_contract_address).await?;
+        debug!("Approving darkpool to transfer ERC20 tokens...");
+        approve_darkpool(&erc20_contract_address, &darkpool_contract_address).await?;
 
         let (merkle_class_hash, merkle_contract_address) =
             devnet_utils::prep_contract(MERKLE_CONTRACT_NAME, vec![]).await?;
@@ -324,29 +324,33 @@ pub async fn init_devnet_state(dump: Option<StateDump>) -> Result<()> {
             &nullifier_set_contract_address
         );
 
-        // let (upgrade_target_class_hash, _) =
-        //     devnet_utils::prep_contract(UPGRADE_TARGET_CONTRACT_NAME, vec![]).await?;
-        // debug!("Upgrade target class hash: {}", upgrade_target_class_hash);
+        let (upgrade_target_class_hash, _) =
+            devnet_utils::prep_contract(UPGRADE_TARGET_CONTRACT_NAME, vec![]).await?;
+        debug!("Upgrade target class hash: {}", upgrade_target_class_hash);
 
         StateDump {
-            // erc20_contract_address,
-            // darkpool_class_hash,
-            // darkpool_contract_address,
+            erc20_contract_address,
+            darkpool_class_hash,
+            darkpool_contract_address,
             merkle_class_hash,
             merkle_contract_address,
             nullifier_set_class_hash,
             nullifier_set_contract_address,
-            // upgrade_target_class_hash,
-            // account_address,
+            upgrade_target_class_hash,
+            account_address,
         }
     };
 
-    // PREDEPLOYED_ACCOUNT_ADDRESS.set(state.account_address).unwrap();
-    // ERC20_CONTRACT_ADDRESS.set(state.erc20_contract_address).unwrap();
-    // DARKPOOL_CLASS_HASH.set(state.darkpool_class_hash).unwrap();
-    // DARKPOOL_CONTRACT_ADDRESS
-    //     .set(state.darkpool_contract_address)
-    //     .unwrap();
+    PREDEPLOYED_ACCOUNT_ADDRESS
+        .set(state.account_address)
+        .unwrap();
+    ERC20_CONTRACT_ADDRESS
+        .set(state.erc20_contract_address)
+        .unwrap();
+    DARKPOOL_CLASS_HASH.set(state.darkpool_class_hash).unwrap();
+    DARKPOOL_CONTRACT_ADDRESS
+        .set(state.darkpool_contract_address)
+        .unwrap();
     MERKLE_CLASS_HASH.set(state.merkle_class_hash).unwrap();
     MERKLE_CONTRACT_ADDRESS
         .set(state.merkle_contract_address)
@@ -357,32 +361,32 @@ pub async fn init_devnet_state(dump: Option<StateDump>) -> Result<()> {
     NULLIFIER_SET_CONTRACT_ADDRESS
         .set(state.nullifier_set_contract_address)
         .unwrap();
-    // UPGRADE_TARGET_CLASS_HASH
-    //     .set(state.upgrade_target_class_hash)
-    //     .unwrap();
+    UPGRADE_TARGET_CLASS_HASH
+        .set(state.upgrade_target_class_hash)
+        .unwrap();
 
     Ok(())
 }
 
-// pub async fn approve_darkpool(
-//     erc20_contract_address: &str,
-//     darkpool_contract_address: &str,
-// ) -> Result<()> {
-//     let darkpool_contract_address_felt = FieldElement::from_hex_be(darkpool_contract_address)?;
+pub async fn approve_darkpool(
+    erc20_contract_address: &str,
+    darkpool_contract_address: &str,
+) -> Result<()> {
+    let darkpool_contract_address_felt = FieldElement::from_hex_be(darkpool_contract_address)?;
 
-//     let mut calldata = vec![darkpool_contract_address_felt];
+    let mut calldata = vec![darkpool_contract_address_felt];
 
-//     let amount = [FieldElement::from(1000_u16), FieldElement::ZERO];
-//     calldata.extend(amount.to_calldata());
+    let amount = [FieldElement::from(1000_u16), FieldElement::ZERO];
+    calldata.extend(amount.to_calldata());
 
-//     let calldata_str = calldata_to_str_vec(calldata);
+    let calldata_str = calldata_to_str_vec(calldata);
 
-//     devnet_utils::send(
-//         erc20_contract_address,
-//         APPROVE_FN_NAME,
-//         calldata_str.iter().map(|s| s.as_str()).collect(),
-//         0,
-//     )?;
+    devnet_utils::send(
+        erc20_contract_address,
+        APPROVE_FN_NAME,
+        calldata_str.iter().map(|s| s.as_str()).collect(),
+        0,
+    )?;
 
-//     devnet_utils::dump_devnet_state().await
-// }
+    devnet_utils::dump_devnet_state().await
+}
