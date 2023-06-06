@@ -18,7 +18,7 @@
     src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/test_cairo.yml/badge.svg"
   />
   <img
-    src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/test_nile.yml/badge.svg"
+    src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/test_devnet.yml/badge.svg"
   />
   <img
     src="https://github.com/renegade-fi/renegade-contracts/actions/workflows/format.yml/badge.svg"
