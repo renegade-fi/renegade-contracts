@@ -3,7 +3,7 @@
 // mod darkpool;
 mod verifier;
 mod utils;
-// mod testing;
+mod testing;
 // mod oz;
 
 
