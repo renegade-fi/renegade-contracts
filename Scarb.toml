@@ -3,14 +3,13 @@ name = "renegade_contracts"
 version = "0.1.0"
 
 [[target.starknet-contract]]
-
-[scripts]
-test = "scarb eject && cairo-test --path . --starknet -f renegade_contracts"
+allowed-libfuncs-list.name = "experimental"
 
 [tool.nile_rs]
 artifacts_dir = "./target/release/"
 contracts_dir = "./src"
 
 [dependencies]
-# Pinned to the last alpha.6 commit
-quaireaux_math = { git = "https://github.com/keep-starknet-strange/quaireaux", rev = "4c93251" }
+starknet = ">=2.0.0-rc2"
+# alexandria_math = { git = "https://github.com/keep-starknet-strange/alexandria" }
+# alexandria_data_structures = { git = "https://github.com/keep-starknet-strange/alexandria" }
