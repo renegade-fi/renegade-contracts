@@ -1,7 +1,9 @@
 use option::OptionTrait;
+use traits::Into;
 use array::{ArrayTrait, SpanTrait};
 use serde::Serde;
-use ec::EcPoint;
+use ec::{EcPoint, ec_point_is_zero, ec_point_unwrap, ec_point_non_zero};
+use zeroable::{IsZeroResult};
 
 use super::serde::EcPointSerde;
 
@@ -63,14 +65,15 @@ impl SpanTPartialEq<T, impl TPartialEq: PartialEq<T>, impl TDrop: Drop<T>> of Pa
 
 impl EcPointPartialEq of PartialEq<EcPoint> {
     fn eq(lhs: @EcPoint, rhs: @EcPoint) -> bool {
-        // Serializing EcPoint => obtaining x, y coords (felt252s)
-        // Comparing equality of felt coords is an appropriate notion of equality for EcPoints
-        let mut lhs_ser = ArrayTrait::new();
-        lhs.serialize(ref lhs_ser);
-        let mut rhs_ser = ArrayTrait::new();
-        rhs.serialize(ref rhs_ser);
-
-        lhs_ser == rhs_ser
+        if ec_point_is_zero(*lhs).into() && ec_point_is_zero(*rhs).into() {
+            true
+        } else if !ec_point_is_zero(*lhs).into() && !ec_point_is_zero(*rhs).into() {
+            let (lhs_x, lhs_y) = ec_point_unwrap(ec_point_non_zero(*lhs));
+            let (rhs_x, rhs_y) = ec_point_unwrap(ec_point_non_zero(*rhs));
+            lhs_x == rhs_x && lhs_y == rhs_y
+        } else {
+            false
+        }
     }
     fn ne(lhs: @EcPoint, rhs: @EcPoint) -> bool {
         !(lhs == rhs)
