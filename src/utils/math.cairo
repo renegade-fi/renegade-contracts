@@ -89,3 +89,13 @@ fn fast_power(mut base: u128, mut power: u128, modulus: u128) -> u128 {
 
     return low;
 }
+
+fn binary_exp(base: felt252, exp: usize) -> felt252 {
+    if exp == 0 {
+        1
+    } else if exp % 2 == 0 {
+        binary_exp(base * base, exp / 2)
+    } else {
+        base * binary_exp(base * base, (exp - 1) / 2)
+    }
+}
