@@ -29,7 +29,7 @@ impl NestedArrayDeepSpanImpl<T> of DeepSpan<Array<T>, Span<T>> {
     }
 }
 
-fn fill_felt_arr(ref arr: Array::<felt252>, val: felt252, mut len: usize) {
+fn tile_felt_arr(ref arr: Array::<felt252>, val: felt252, mut len: usize) {
     loop {
         if len == 0 {
             break;
