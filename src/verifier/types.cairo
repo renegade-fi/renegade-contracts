@@ -28,7 +28,7 @@ struct VerificationJob {
     /// The accumulated result of the verification MSM
     msm_result: Option<EcPoint>,
     // The final verdict of the verification
-    verified: Option<bool>,
+    verified: bool,
 }
 
 /// Represents a polynomial (sum of terms) whose evaluation is a scalar used
