@@ -1,16 +1,19 @@
 use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
 
-use renegade_contracts::utils::{math::dot_product};
+use renegade_contracts::utils::{math::{dot_product, binary_exp}};
 
-use super::types::{VerificationJob, SparseWeightMatrixSpan, SparseWeightVecSpan};
+use super::types::{VerificationJob, SparseWeightMatrixSpan, SparseWeightVec, SparseWeightVecSpan};
 
 // --------
 // | MATH |
 // --------
 
+/// Given a sparse-reduced circuit weight matrix (W_{L, R, O, V}) with (actual)
+/// width `width`, "flattens" the matrix into a `width`-length vector by computing
+/// [z, z^2, ..., z^width] * W_{L, R, O, V} (vector-matrix multiplication)
 fn flatten_sparse_weight_matrix(
-    matrix: SparseWeightMatrixSpan, z_powers_to_q: Span<felt252>, width: usize, 
+    matrix: SparseWeightMatrixSpan, z: felt252, width: usize, 
 ) -> Array<felt252> {
     let mut flattened = ArrayTrait::new();
 
@@ -21,64 +24,70 @@ fn flatten_sparse_weight_matrix(
             break;
         };
 
-        // Get column of weight or zero
-        let mut column = ArrayTrait::new();
-        let mut row_index: usize = 0;
-        loop {
-            if row_index == matrix.len() {
-                break;
-            };
+        // Get column as a SparseWeightVec
+        let mut column = get_sparse_weight_column(matrix, col_index).span();
 
-            let mut row = *matrix.at(row_index);
-            let weight = get_weight_or_zero(ref row, col_index);
-            column.append(weight);
-
-            row_index += 1;
-        };
-
-        // Dot product z_powers_to_q with the column
-        flattened.append(dot_product(z_powers_to_q, column.span()));
+        // Dot product [z, z^2, ..., z^width] with the column
+        flattened.append(flatten_column(column, z));
         col_index += 1;
     };
 
     flattened
 }
 
-fn dot_product_full_sparse(vec: Span<felt252>, ref sparse_vec: SparseWeightVecSpan) -> felt252 {
-    let mut filled_vec = fill_sparse_weight_vec(ref sparse_vec, vec.len());
-    dot_product(vec, filled_vec.span())
-}
-
-fn fill_sparse_weight_vec(ref sparse_vec: SparseWeightVecSpan, len: usize) -> Array<felt252> {
-    let mut filled_vec = ArrayTrait::new();
-    let mut i = 0;
+/// Given a sparse-reduced column vector `col`, "flattens" the vector into a
+/// single scalar by computing sum(z^i * col[i]) for all indices i with non-zero
+/// weights in the column. This is effectively a dot product [z, z^2, ..., z^len(col)] * col,
+/// but omitting multiplications by zero.
+fn flatten_column(mut col: SparseWeightVecSpan, z: felt252) -> felt252 {
+    let mut res = 0;
     loop {
-        if i == len {
-            break;
-        }
-
-        let weight = get_weight_or_zero(ref sparse_vec, i);
-        filled_vec.append(weight);
-        i += 1;
+        match col.pop_front() {
+            Option::Some((i, weight)) => {
+                // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
+                let z_i = binary_exp(z, *i + 1);
+                res += z_i * *weight;
+            },
+            Option::None(()) => {
+                break;
+            }
+        };
     };
 
-    filled_vec
+    res
 }
 
-fn get_weight_or_zero(ref sparse_vec: SparseWeightVecSpan, expected_index: usize) -> felt252 {
-    if sparse_vec.len() != 0 {
-        let (current_index, _) = *sparse_vec.at(0);
-        if current_index == expected_index {
-            // If the index of the current (index, weight) tuple is equal
-            // to the full vector's index, then pop the tuple from the sparse
-            // vector and add the weight to the filled vector.
-            // Unwrapping is safe here since we know sparse_vec.len() > 0
-            let (_, current_weight) = *sparse_vec.pop_front().unwrap();
-            return current_weight;
-        }
-    }
+/// Given a sparse-reduced circuit weight matrix (W_{L, R, O, V}), this extracts
+/// the column at `desired_col_index` as a sparse-reduced vector
+fn get_sparse_weight_column(
+    mut matrix: SparseWeightMatrixSpan, desired_col_index: usize
+) -> SparseWeightVec {
+    let mut column = ArrayTrait::new();
+    let mut row_index = 0;
+    loop {
+        if row_index == matrix.len() {
+            break;
+        };
 
-    // If the sparse vec is empty, or the index of the current tuple
-    // is greater then expected the weight must be zero
-    0
+        let mut row = *matrix.at(row_index);
+        loop {
+            match row.pop_front() {
+                Option::Some((
+                    col_index, current_weight
+                )) => {
+                    if *col_index == desired_col_index {
+                        column.append((row_index, *current_weight));
+                        break;
+                    }
+                },
+                Option::None(()) => {
+                    break;
+                }
+            };
+        };
+
+        row_index += 1;
+    };
+
+    column
 }
