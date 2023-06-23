@@ -171,6 +171,8 @@ struct Proof {
     V: Array<EcPoint>,
 }
 
+// (index, weight) entries in a sparse-reduced vector are expected
+// to be sorted by increasing index
 type SparseWeightVec = Array<(usize, felt252)>;
 type SparseWeightMatrix = Array<SparseWeightVec>;
 
@@ -225,6 +227,7 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
 
             let mut row = *matrix.at(row_index);
             let mut entry_index = 0;
+            let z_i = binary_exp(z, row_index + 1);
             loop {
                 if entry_index == row.len() {
                     break;
@@ -235,7 +238,6 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
                 // Default value for an unset key is 0
                 let mut value = flattened_dict.get(col_index_felt);
                 // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
-                let z_i = binary_exp(z, row_index + 1);
                 value += z_i * weight;
                 flattened_dict.insert(col_index_felt, value);
 
@@ -272,7 +274,10 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
             let mut row = *matrix.at(row_index);
             let mut entry_index = 0;
             loop {
-                if entry_index == row.len() {
+                // Break early if we've passed the desired column's index.
+                // This relies on the assumption that sparse weight vector entries
+                // are sorted by increasing index.
+                if entry_index > col_index || entry_index == row.len() {
                     break;
                 };
 
@@ -300,7 +305,11 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
         column.flatten(z)
     }
 
-    /// Asserts that the matrix has a maximum width of `width`
+    /// Asserts that the matrix has a maximum width of `width`.
+    /// This asserts both that each row has at most `width` entries, and that
+    /// the last entry in each row has an index less than `width`.
+    /// This relies on the assumption that sparse weight vector entries are sorted
+    /// by increasing index.
     fn assert_width(self: @SparseWeightMatrix, width: usize) {
         let matrix: SparseWeightMatrixSpan = self.deep_span();
         let mut row_index = 0;
@@ -310,7 +319,9 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
             };
 
             let row = *matrix.at(row_index);
-            assert(row.len() <= width, 'row too wide');
+            assert(row.len() <= width, 'row has too many entries');
+            let (last_index, _) = *row.at(row.len() - 1);
+            assert(last_index <= width, 'last index in row too big');
 
             row_index += 1;
         };
