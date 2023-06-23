@@ -12,8 +12,8 @@ use renegade_contracts::{
         Verifier,
         types::{
             SparseWeightMatrix, SparseWeightMatrixTrait, SparseWeightVec, SparseWeightVecTrait,
-            CircuitParams, Proof, VerificationJob, RemainingScalarPowers, RemainingGenerators,
-            VecPoly3Term, VecPoly3, VecElem
+            CircuitParams, Proof, VerificationJob, VerificationJobTrait, RemainingGenerators,
+            RemainingGeneratorsTrait, VecPoly3Term, VecPoly3, VecSubterm, VecIndices
         },
         utils::{get_s_elem, calc_delta},
     },
@@ -187,12 +187,12 @@ fn test_calc_delta_basic() {
 // ----------------------------
 
 // The dummy circuit we're using is a very simple circuit with 4 witness elements,
-// 2 multiplication gates, and 2 linear constraints. In total, it is parameterized as follows:
-// n = 2
-// n_plus = 2
-// k = log2(n_plus) = 1
+// 3 multiplication gates, and 2 linear constraints. In total, it is parameterized as follows:
+// n = 3
+// n_plus = 4
+// k = log2(n_plus) = 2
 // m = 4
-// q = 6 (The total number of linear constraints is 6 because there are 2 multiplication gates, and 2 linear constraints per multiplication gate)
+// q = 8 (The total number of linear constraints is 8 because there are 3 multiplication gates, and 2 linear constraints per multiplication gate)
 
 // The circuit is defined as follows:
 //
@@ -202,15 +202,16 @@ fn test_calc_delta_basic() {
 // Circuit:
 // m_1 = multiply(a, b)
 // m_2 = multiply(x, y)
-// constrain(m_1 - 69)
-// constrain(m_2 - 420)
+// m_3 = multiply(m_1, m_2)
+// constrain(a - 69)
+// constrain(m_3 - 420)
 
 // Bearing the following weights:
-// W_L = [[(0, -1)], [], [(1, -1)], [], [], []]
-// W_R = [[], [(0, -1)], [], [(1, -1)], [], []]
-// W_O = [[], [], [], [], [(0, 1)], [(1, 1)]]
-// W_V = [[(0, -1)], [(1, -1)], [(2, -1)], [(3, -1)], [], []]
-// c = [(4, 69), (5, 420)]
+// W_L = [[(0, -1)], [], [(1, -1)], [], [(2, -1)], [], [], []]
+// W_R = [[], [(0, -1)], [], [(1, -1)], [], [(2, -1)], [], []]
+// W_O = [[], [], [], [], [(0, 1)], [(1, 1)], [], [(2, 1)]]
+// W_V = [[(0, -1)], [(1, -1)], [(2, -1)], [(3, -1)], [], [], [0, -1], []]
+// c = [(6, 69), (7, 420)]
 
 #[test]
 #[available_gas(100000000)]
@@ -261,17 +262,14 @@ fn test_queue_verification() {
     let stored_verification_job: VerificationJob = test_utils::single_deserialize(ref retdata);
     let expected_verification_job = get_expected_verification_job();
 
-    'checking y_powers_rem...'.print();
+    'checking y_inv_power...'.print();
     assert(
-        stored_verification_job.y_powers_rem == expected_verification_job.y_powers_rem,
-        'y_powers_rem not equal'
+        stored_verification_job.y_inv_power == expected_verification_job.y_inv_power,
+        'y_inv_power not equal'
     );
 
-    'checking z_powers_rem...'.print();
-    assert(
-        stored_verification_job.z_powers_rem == expected_verification_job.z_powers_rem,
-        'z_powers_rem not equal'
-    );
+    'checking z...'.print();
+    assert(stored_verification_job.z == expected_verification_job.z, 'z not equal');
 
     'checking G_rem...'.print();
     assert(stored_verification_job.G_rem == expected_verification_job.G_rem, 'G_rem not equal');
@@ -290,10 +288,10 @@ fn test_queue_verification() {
         stored_verification_job.verified == expected_verification_job.verified, 'verified not equal'
     );
 
-    'checking scalars_rem...'.print();
+    'checking rem_scalar_polys...'.print();
     assert(
-        stored_verification_job.scalars_rem == expected_verification_job.scalars_rem,
-        'scalars_rem not equal'
+        stored_verification_job.rem_scalar_polys == expected_verification_job.rem_scalar_polys,
+        'rem_scalar_polys not equal'
     );
 
     'checking commitments_rem...'.print();
@@ -392,6 +390,10 @@ fn get_dummy_circuit_weights() -> (
     W_L_2.append((1_usize, -1));
     W_L.append(W_L_2);
     W_L.append(ArrayTrait::new());
+    let mut W_L_4 = ArrayTrait::new();
+    W_L_4.append((2_usize, -1));
+    W_L.append(W_L_4);
+    W_L.append(ArrayTrait::new());
     W_L.append(ArrayTrait::new());
     W_L.append(ArrayTrait::new());
 
@@ -404,6 +406,10 @@ fn get_dummy_circuit_weights() -> (
     let mut W_R_3 = ArrayTrait::new();
     W_R_3.append((1_usize, -1));
     W_R.append(W_R_3);
+    W_R.append(ArrayTrait::new());
+    let mut W_R_5 = ArrayTrait::new();
+    W_R_5.append((2_usize, -1));
+    W_R.append(W_R_5);
     W_R.append(ArrayTrait::new());
     W_R.append(ArrayTrait::new());
 
@@ -418,6 +424,10 @@ fn get_dummy_circuit_weights() -> (
     let mut W_O_5 = ArrayTrait::new();
     W_O_5.append((1_usize, 1));
     W_O.append(W_O_5);
+    W_O.append(ArrayTrait::new());
+    let mut W_O_7 = ArrayTrait::new();
+    W_O_7.append((2_usize, 1));
+    W_O.append(W_O_7);
 
     let mut W_V = ArrayTrait::new();
     let mut W_V_0 = ArrayTrait::new();
@@ -434,19 +444,23 @@ fn get_dummy_circuit_weights() -> (
     W_V.append(W_V_3);
     W_V.append(ArrayTrait::new());
     W_V.append(ArrayTrait::new());
+    let mut W_V_6 = ArrayTrait::new();
+    W_V_6.append((0_usize, -1));
+    W_V.append(W_V_6);
+    W_V.append(ArrayTrait::new());
 
     let mut c = ArrayTrait::new();
-    c.append((4_usize, 69));
-    c.append((5_usize, 420));
+    c.append((6_usize, 69));
+    c.append((7_usize, 420));
 
     (W_L, W_R, W_O, W_V, c)
 }
 
 fn get_dummy_circuit_size_params() -> (usize, usize, usize, usize, usize) {
-    let n = 2;
-    let n_plus = 2;
-    let k = 1;
-    let q = 6;
+    let n = 3;
+    let n_plus = 4;
+    let k = 2;
+    let q = 8;
     let m = 4;
 
     (n, n_plus, k, q, m)
@@ -481,9 +495,11 @@ fn get_dummy_proof() -> Proof {
 
     let mut L = ArrayTrait::new();
     L.append(ec_mul(basepoint, 11));
+    L.append(ec_mul(basepoint, 17));
 
     let mut R = ArrayTrait::new();
     R.append(ec_mul(basepoint, 12));
+    R.append(ec_mul(basepoint, 18));
 
     let mut V = ArrayTrait::new();
     V.append(ec_mul(basepoint, 13));
@@ -512,252 +528,185 @@ fn get_dummy_proof() -> Proof {
 }
 
 fn get_expected_verification_job() -> VerificationJob {
-    VerificationJob {
-        scalars_rem: get_expected_scalars_rem(), y_powers_rem: RemainingScalarPowers {
-            base: 2, power: 1, num_exp_rem: 1, 
-            }, z_powers_rem: RemainingScalarPowers {
-            base: 3, power: 3, num_exp_rem: 5, 
-            }, G_rem: RemainingGenerators {
-            hash_state: 'GeneratorsChainG0000', num_gens_rem: 2, 
-            }, H_rem: RemainingGenerators {
-            hash_state: 'GeneratorsChainH0000', num_gens_rem: 2, 
+    let mut u = ArrayTrait::new();
+    u.append(6);
+    u.append(6);
+    VerificationJobTrait::new(
+        rem_scalar_polys: get_expected_rem_scalar_polys(),
+        y_inv_power: (
+            1809251394333065606848661391547535052811553607665798349986546028067936010241, 1
+        ),
+        z: 3,
+        u: u,
+        vec_indices: VecIndices {
+            w_L_flat_index: 0,
+            w_R_flat_index: 0,
+            w_O_flat_index: 0,
+            w_V_flat_index: 0,
+            s_index: 0,
+            s_inv_index: 0,
+            u_sq_index: 0,
+            u_sq_inv_index: 0,
         },
+        G_rem: RemainingGeneratorsTrait::new('GeneratorsChainG0000', 4),
+        H_rem: RemainingGeneratorsTrait::new('GeneratorsChainH0000', 4),
         commitments_rem: get_expected_commitments_rem(),
-        msm_result: Option::None(()),
-        verified: Option::None(()),
-    }
+    )
 }
 
-// The `scalar` fields in these terms were calculated by hand using the following values,
-// given from the placeholder `squeeze_challenge_scalars` implementation & the `get_dummy_proof` helper:
-// y = 2, z = 3, x = 4, w = 5, u = [6], r = 8, t_hat = 9, t_blind = 10, e_blind = 11, a = 12, b = 13
-fn get_expected_scalars_rem() -> Array<VecPoly3> {
-    let mut scalars_rem = ArrayTrait::new();
+fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
+    let mut rem_scalar_polys = ArrayTrait::new();
 
     // x
-    let mut scalars_rem_0 = ArrayTrait::new();
-    scalars_rem_0
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(4), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_0);
+    let mut rem_scalar_polys_0 = ArrayTrait::new();
+    rem_scalar_polys_0
+        .append(VecPoly3Term { scalar: 4, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_0);
 
     // x^2
-    let mut scalars_rem_1 = ArrayTrait::new();
-    scalars_rem_1
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(16), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_1);
+    let mut rem_scalar_polys_1 = ArrayTrait::new();
+    rem_scalar_polys_1
+        .append(VecPoly3Term { scalar: 16, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_1);
 
     // x^3
-    let mut scalars_rem_2 = ArrayTrait::new();
-    scalars_rem_2
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(64), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_2);
+    let mut rem_scalar_polys_2 = ArrayTrait::new();
+    rem_scalar_polys_2
+        .append(VecPoly3Term { scalar: 64, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_2);
 
     // r*x^2*w_V
-    let mut scalars_rem_3 = ArrayTrait::new();
-    scalars_rem_3
+    let mut rem_scalar_polys_3 = ArrayTrait::new();
+    rem_scalar_polys_3
         .append(
             VecPoly3Term {
-                scalar: Option::Some(128),
-                uses_y_power: false,
-                vec_elem: Option::Some(VecElem::w_V_flat(0))
+                scalar: 128, uses_y_power: false, vec: Option::Some(VecSubterm::W_V_flat(()))
             }
         );
-    scalars_rem.append(scalars_rem_3);
+    rem_scalar_polys.append(rem_scalar_polys_3);
 
     // r*x
-    let mut scalars_rem_4 = ArrayTrait::new();
-    scalars_rem_4
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(32), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_4);
+    let mut rem_scalar_polys_4 = ArrayTrait::new();
+    rem_scalar_polys_4
+        .append(VecPoly3Term { scalar: 32, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_4);
 
     // r*x^3
-    let mut scalars_rem_5 = ArrayTrait::new();
-    scalars_rem_5
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(512), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_5);
+    let mut rem_scalar_polys_5 = ArrayTrait::new();
+    rem_scalar_polys_5
+        .append(VecPoly3Term { scalar: 512, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_5);
 
     // r*x^4
-    let mut scalars_rem_6 = ArrayTrait::new();
-    scalars_rem_6
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(2048), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_6);
+    let mut rem_scalar_polys_6 = ArrayTrait::new();
+    rem_scalar_polys_6
+        .append(VecPoly3Term { scalar: 2048, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_6);
 
     // r*x^5
-    let mut scalars_rem_7 = ArrayTrait::new();
-    scalars_rem_7
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(8192), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_7);
+    let mut rem_scalar_polys_7 = ArrayTrait::new();
+    rem_scalar_polys_7
+        .append(VecPoly3Term { scalar: 8192, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_7);
 
     // r*x^6
-    let mut scalars_rem_8 = ArrayTrait::new();
-    scalars_rem_8
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(32768), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_8);
+    let mut rem_scalar_polys_8 = ArrayTrait::new();
+    rem_scalar_polys_8
+        .append(VecPoly3Term { scalar: 32768, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_8);
 
     // w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat)
-    // w = 5, t_hat = 9, a = 12, b = 13, r = 8, x^2 = 16, w_c = 322947,
-    // delta = 1809251394333065606848661391547535052811553607665798349986546028067936011361
-    // total = 41479833
-    let mut scalars_rem_9 = ArrayTrait::new();
-    scalars_rem_9
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(41479833), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_9);
+    // w = 5, t_hat = 9, a = 12, b = 13, r = 8, x^2 = 16, w_c = 2906523,
+    // delta = 2713877091499598410272992087321302579217330411498697524979819042101904060768
+    // total = 377846265
+    let mut rem_scalar_polys_9 = ArrayTrait::new();
+    rem_scalar_polys_9
+        .append(VecPoly3Term { scalar: 377846265, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_9);
 
     // -e_blind - r*t_blind
-    let mut scalars_rem_10 = ArrayTrait::new();
-    scalars_rem_10
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(-91), uses_y_power: false, vec_elem: Option::None(())
-            }
-        );
-    scalars_rem.append(scalars_rem_10);
+    let mut rem_scalar_polys_10 = ArrayTrait::new();
+    rem_scalar_polys_10
+        .append(VecPoly3Term { scalar: -91, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys.append(rem_scalar_polys_10);
 
     // u_sq
-    let mut scalars_rem_11 = ArrayTrait::new();
-    scalars_rem_11
+    let mut rem_scalar_polys_11 = ArrayTrait::new();
+    rem_scalar_polys_11
         .append(
-            VecPoly3Term {
-                scalar: Option::None(()),
-                uses_y_power: false,
-                vec_elem: Option::Some(VecElem::u_sq(0))
-            }
+            VecPoly3Term { scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(())) }
         );
-    scalars_rem.append(scalars_rem_11);
+    rem_scalar_polys.append(rem_scalar_polys_11);
 
     // u_sq_inv
-    let mut scalars_rem_12 = ArrayTrait::new();
-    scalars_rem_12
+    let mut rem_scalar_polys_12 = ArrayTrait::new();
+    rem_scalar_polys_12
         .append(
             VecPoly3Term {
-                scalar: Option::None(()),
-                uses_y_power: false,
-                vec_elem: Option::Some(VecElem::u_sq_inv(0))
+                scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq_inv(()))
             }
         );
-    scalars_rem.append(scalars_rem_12);
+    rem_scalar_polys.append(rem_scalar_polys_12);
 
     // xy^{-n+}_[0:n] * w_R_flat - as_[0:n]
-    let mut scalars_rem_13 = ArrayTrait::new();
-    scalars_rem_13
+    let mut rem_scalar_polys_13 = ArrayTrait::new();
+    rem_scalar_polys_13
         .append(
             VecPoly3Term {
-                scalar: Option::Some(4),
-                uses_y_power: true,
-                vec_elem: Option::Some(VecElem::w_R_flat(0))
+                scalar: 4, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(()))
             }
         );
-    scalars_rem_13
+    rem_scalar_polys_13
         .append(
-            VecPoly3Term {
-                scalar: Option::Some(-12),
-                uses_y_power: false,
-                vec_elem: Option::Some(VecElem::s((0, 2)))
-            }
+            VecPoly3Term { scalar: -12, uses_y_power: false, vec: Option::Some(VecSubterm::S(())) }
         );
-    scalars_rem.append(scalars_rem_13);
+    rem_scalar_polys.append(rem_scalar_polys_13);
 
     // -as_[n:n+]
-    let mut scalars_rem_14 = ArrayTrait::new();
-    scalars_rem_14
+    let mut rem_scalar_polys_14 = ArrayTrait::new();
+    rem_scalar_polys_14
         .append(
-            VecPoly3Term {
-                scalar: Option::Some(-12),
-                uses_y_power: false,
-                vec_elem: Option::Some(VecElem::s((2, 2)))
-            }
+            VecPoly3Term { scalar: -12, uses_y_power: false, vec: Option::Some(VecSubterm::S(())) }
         );
-    scalars_rem.append(scalars_rem_14);
+    rem_scalar_polys.append(rem_scalar_polys_14);
 
     // -1 + y^{-n+}_[0:n] * (x*w_L_flat + w_O_flat - b*s^-1_[0:n])
-    let mut scalars_rem_15 = ArrayTrait::new();
-    scalars_rem_15
+    let mut rem_scalar_polys_15 = ArrayTrait::new();
+    rem_scalar_polys_15
+        .append(VecPoly3Term { scalar: -1, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys_15
         .append(
             VecPoly3Term {
-                scalar: Option::Some(-1), uses_y_power: false, vec_elem: Option::None(())
+                scalar: 4, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), 
             }
         );
-    scalars_rem_15
+    rem_scalar_polys_15
         .append(
             VecPoly3Term {
-                scalar: Option::Some(4),
-                uses_y_power: true,
-                vec_elem: Option::Some(VecElem::w_L_flat(0)),
+                scalar: 1, uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), 
             }
         );
-    scalars_rem_15
+    rem_scalar_polys_15
         .append(
             VecPoly3Term {
-                scalar: Option::None(()),
-                uses_y_power: true,
-                vec_elem: Option::Some(VecElem::w_O_flat(0)),
+                scalar: -13, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
             }
         );
-    scalars_rem_15
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(-13),
-                uses_y_power: true,
-                vec_elem: Option::Some(VecElem::s_inv((0, 2))),
-            }
-        );
-    scalars_rem.append(scalars_rem_15);
+    rem_scalar_polys.append(rem_scalar_polys_15);
 
     // -1 + y^{-n+}_[n:n+] * (-b*s^-1_[n:n+])
-    let mut scalars_rem_16 = ArrayTrait::new();
-    scalars_rem_16
+    let mut rem_scalar_polys_16 = ArrayTrait::new();
+    rem_scalar_polys_16
+        .append(VecPoly3Term { scalar: -1, uses_y_power: false, vec: Option::None(()) });
+    rem_scalar_polys_16
         .append(
             VecPoly3Term {
-                scalar: Option::Some(-1), uses_y_power: false, vec_elem: Option::None(())
+                scalar: -13, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
             }
         );
-    scalars_rem_16
-        .append(
-            VecPoly3Term {
-                scalar: Option::Some(-13),
-                uses_y_power: true,
-                vec_elem: Option::Some(VecElem::s_inv((2, 2))),
-            }
-        );
-    scalars_rem.append(scalars_rem_16);
+    rem_scalar_polys.append(rem_scalar_polys_16);
 
-    scalars_rem
+    rem_scalar_polys
 }
 
 fn get_expected_commitments_rem() -> Array<EcPoint> {
@@ -786,3 +735,4 @@ fn get_expected_commitments_rem() -> Array<EcPoint> {
 
     commitments_rem
 }
+

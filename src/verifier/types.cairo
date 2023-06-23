@@ -13,17 +13,20 @@ use renegade_contracts::utils::{
     math::{binary_exp}, collections::DeepSpan,
 };
 
-
 /// Tracks the verification of a single proof
 #[derive(Drop, Serde, PartialEq)]
 struct VerificationJob {
     /// The challenge scalars remaining to be used for verification
     // TODO: This may just have to be a pointer (StorageBaseAddress) to the array
-    scalars_rem: Array<VecPoly3>,
-    /// Tracks the powers of challenge scalar y left to compute
-    y_powers_rem: RemainingScalarPowers,
-    /// Tracks the powers of challenge scalar z left to compute
-    z_powers_rem: RemainingScalarPowers,
+    rem_scalar_polys: Array<VecPoly3>,
+    /// Represents the base y^-1 challenge scalar & the last computed power of y^-1
+    y_inv_power: (felt252, felt252),
+    /// The z challenge scalar
+    z: felt252,
+    // The u challenge scalars
+    u: Array<felt252>,
+    /// Tracks the current index used in the w_{L, R, O, V}, s, and s_inv vectors
+    vec_indices: VecIndices,
     /// Tracks the G generators left to sample from the hash chain
     G_rem: RemainingGenerators,
     /// Tracks the H generators left to sample from the hash chain
@@ -37,9 +40,57 @@ struct VerificationJob {
     verified: Option<bool>,
 }
 
+#[generate_trait]
+impl VerificationJobImpl of VerificationJobTrait {
+    fn new(
+        rem_scalar_polys: Array<VecPoly3>,
+        y_inv_power: (felt252, felt252),
+        z: felt252,
+        u: Array<felt252>,
+        vec_indices: VecIndices,
+        G_rem: RemainingGenerators,
+        H_rem: RemainingGenerators,
+        commitments_rem: Array<EcPoint>,
+    ) -> VerificationJob {
+        VerificationJob {
+            rem_scalar_polys,
+            y_inv_power,
+            z,
+            u,
+            vec_indices,
+            G_rem,
+            H_rem,
+            commitments_rem,
+            msm_result: Option::None(()),
+            verified: Option::None(()),
+        }
+    }
+}
+
 /// Represents a polynomial (sum of terms) whose evaluation is a scalar used
 /// for a single point in the verification MSM
 type VecPoly3 = Array<VecPoly3Term>;
+
+#[generate_trait]
+impl VecPoly3Impl of VecPoly3Trait {
+    fn new() -> VecPoly3 {
+        ArrayTrait::new()
+    }
+
+    /// Adds a term to the polynomial
+    fn add_term(
+        self: VecPoly3, scalar: felt252, uses_y_power: bool, vec: Option<VecSubterm>
+    ) -> VecPoly3 {
+        let mut terms = self;
+        terms.append(VecPoly3Term { scalar, uses_y_power, vec });
+        terms
+    }
+
+    /// Creates a polynomial composed of a single scalar value
+    fn single_scalar_poly(scalar: felt252) -> VecPoly3 {
+        VecPoly3Trait::new().add_term(scalar: scalar, uses_y_power: false, vec: Option::None(()))
+    }
+}
 
 /// Represents a single term of the scalar polynomial above.
 ///
@@ -58,96 +109,64 @@ type VecPoly3 = Array<VecPoly3Term>;
 ///
 /// However, these terms are only evaluated once & multiplied by a single generator,
 /// so we just evaluate them up-front and store the result in the `scalar` field here.
-#[derive(Drop, Serde, PartialEq)]
+#[derive(Drop, Serde, PartialEq, Copy)]
 struct VecPoly3Term {
     /// The scalar multiple
-    scalar: Option<felt252>,
+    scalar: felt252,
     /// Whether or not this term uses a power of y. If so, then the power is calculated
     /// & tracked in the `y_powers_rem` field of the `VerificationJob` struct.
-    /// When the `num_exponentiations` field of the `y_powers_rem` struct is 0, then
-    /// the polynomial containing this term is exhaused and can be dropped, moving on to the next sub-MSM
     uses_y_power: bool,
     /// The vector element to multiply by. When the next index is equal to the max index,
     /// the polynomial containing this term is exhausted and can be dropped, moving on to the next sub-MSM
-    vec_elem: Option<VecElem>,
+    vec: Option<VecSubterm>,
 }
 
-#[generate_trait]
-impl VecPoly3Impl of VecPoly3Trait {
-    fn new() -> VecPoly3 {
-        ArrayTrait::new()
-    }
-
-    fn add_term(
-        self: VecPoly3, scalar: Option<felt252>, uses_y_power: bool, vec_elem: Option<VecElem>
-    ) -> VecPoly3 {
-        let mut terms = self;
-        terms.append(VecPoly3Term { scalar, uses_y_power, vec_elem,  });
-        terms
-    }
-
-    fn single_scalar_poly(scalar: felt252) -> VecPoly3 {
-        VecPoly3Trait::new()
-            .add_term(scalar: Option::Some(scalar), uses_y_power: false, vec_elem: Option::None(()))
-    }
-
-    fn map_to_single_scalar_polys(ref scalars: Span<felt252>) -> Array<VecPoly3> {
-        let mut polys = ArrayTrait::new();
-        loop {
-            match scalars.pop_front() {
-                Option::Some(scalar) => {
-                    polys.append(VecPoly3Trait::single_scalar_poly(*scalar));
-                },
-                Option::None(_) => {
-                    break;
-                },
-            };
-        };
-        polys
-    }
-}
-
-/// Represents a vector used in the verification MSM,
-/// specifying the next index to use, and, for the s vectors, the max index to use
+/// Represents which vector the subterm of a scalar polynomial term is drawn from.
 #[derive(Drop, Serde, PartialEq, Copy)]
-enum VecElem {
+enum VecSubterm {
     /// The flattened vector of left weights
-    w_L_flat: usize,
+    W_L_flat: (),
     /// The flattened vector of right weights
-    w_R_flat: usize,
+    W_R_flat: (),
     /// The flattened vector of output weights
-    w_O_flat: usize,
+    W_O_flat: (),
     /// The flattened vector of witness weights
-    w_V_flat: usize,
+    W_V_flat: (),
     /// The vector of G generator coefficients in the IPA proof
-    s: (usize, usize),
+    S: (),
     /// The vector of H generator coefficients in the IPA proof
-    s_inv: (usize, usize),
+    S_inv: (),
     /// The vector of u^2 challenge scalars
-    u_sq: usize,
+    U_sq: (),
     /// The vector of u^-2 challenge scalars
-    u_sq_inv: usize,
+    U_sq_inv: (),
 }
 
-/// Represents the remaining powers of a challenge scalar needed for verification.
-/// We always do consecutive exponentiation, so it's sufficient to just store the
-/// base, the last power computed and the number of exponentiations left to do.
 #[derive(Drop, Serde, PartialEq, Copy)]
-struct RemainingScalarPowers {
-    /// The scalar to exponentiate
-    base: felt252,
-    /// The current result of exponentiation
-    power: felt252,
-    /// The number of exponentiations remaining
-    num_exp_rem: usize,
+struct VecIndices {
+    w_L_flat_index: usize,
+    w_R_flat_index: usize,
+    w_O_flat_index: usize,
+    w_V_flat_index: usize,
+    s_index: usize,
+    s_inv_index: usize,
+    u_sq_index: usize,
+    u_sq_inv_index: usize,
 }
 
 #[derive(Drop, Serde, PartialEq)]
 struct RemainingGenerators {
     /// The current hash chain state / input to the next hash
-    hash_state: felt252,
+    hash_state: u256,
     /// The number of generators remaining to be sampled
     num_gens_rem: usize,
+}
+
+#[generate_trait]
+impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
+    fn new(hash_state: u256, num_gens_rem: usize) -> RemainingGenerators {
+        RemainingGenerators { hash_state, num_gens_rem }
+    }
 }
 
 /// A Bulletproofs proof object (excluding public inputs)
