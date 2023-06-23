@@ -34,7 +34,7 @@ mod DarkpoolLib {
         is_deposit: bool,
     }
 
-    impl ExternalTransferSerde of Serde::<ExternalTransfer> {
+    impl ExternalTransferSerde of Serde<ExternalTransfer> {
         fn serialize(ref serialized: Array::<felt252>, input: ExternalTransfer) {
             Serde::<ContractAddress>::serialize(ref serialized, input.account_addr);
             Serde::<ContractAddress>::serialize(ref serialized, input.mint);
@@ -64,16 +64,14 @@ mod DarkpoolLib {
         valid_reblind_proof_blob: Array::<felt252>,
     }
 
-    impl MatchPayloadSerde of Serde::<MatchPayload> {
+    impl MatchPayloadSerde of Serde<MatchPayload> {
         fn serialize(ref serialized: Array<felt252>, input: MatchPayload) {
             Serde::<felt252>::serialize(ref serialized, input.wallet_blinder_share);
             Serde::<felt252>::serialize(ref serialized, input.old_shares_nullifier);
             Serde::<felt252>::serialize(ref serialized, input.wallet_share_commitment);
-            Serde::<Array::<felt252>>::serialize(ref serialized, input.public_wallet_shares);
-            Serde::<Array::<felt252>>::serialize(
-                ref serialized, input.valid_commitments_proof_blob
-            );
-            Serde::<Array::<felt252>>::serialize(ref serialized, input.valid_reblind_proof_blob);
+            Serde::<Array<felt252>>::serialize(ref serialized, input.public_wallet_shares);
+            Serde::<Array<felt252>>::serialize(ref serialized, input.valid_commitments_proof_blob);
+            Serde::<Array<felt252>>::serialize(ref serialized, input.valid_reblind_proof_blob);
         }
         fn deserialize(ref serialized: Span<felt252>) -> Option<MatchPayload> {
             Option::Some(
@@ -81,13 +79,11 @@ mod DarkpoolLib {
                     wallet_blinder_share: Serde::<felt252>::deserialize(ref serialized)?,
                     old_shares_nullifier: Serde::<felt252>::deserialize(ref serialized)?,
                     wallet_share_commitment: Serde::<felt252>::deserialize(ref serialized)?,
-                    public_wallet_shares: Serde::<Array::<felt252>>::deserialize(ref serialized)?,
-                    valid_commitments_proof_blob: Serde::<Array::<felt252>>::deserialize(
+                    public_wallet_shares: Serde::<Array<felt252>>::deserialize(ref serialized)?,
+                    valid_commitments_proof_blob: Serde::<Array<felt252>>::deserialize(
                         ref serialized
                     )?,
-                    valid_reblind_proof_blob: Serde::<Array::<felt252>>::deserialize(
-                        ref serialized
-                    )?,
+                    valid_reblind_proof_blob: Serde::<Array<felt252>>::deserialize(ref serialized)?,
                 }
             )
         }
@@ -380,9 +376,10 @@ mod DarkpoolLib {
             // Execute the transfer
             if next_transfer.is_deposit {
                 // Deposit
-                erc20.transfer_from(
-                    next_transfer.account_addr, contract_address, next_transfer.amount
-                );
+                erc20
+                    .transfer_from(
+                        next_transfer.account_addr, contract_address, next_transfer.amount
+                    );
 
                 // Emit event
                 Darkpool_deposit(caller_address, next_transfer.mint, next_transfer.amount);
