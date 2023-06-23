@@ -3,8 +3,7 @@ name: Cairo Tests
 on: pull_request
 
 env:
-  CAIRO_ARCHIVE_LINK: https://github.com/starkware-libs/cairo/releases/download/v1.0.0-alpha.6/release-x86_64-unknown-linux-musl.tar.gz
-  SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.1.0/scarb-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.5.0-alpha.0/scarb-v0.5.0-alpha.0-x86_64-unknown-linux-gnu.tar.gz
 
 jobs:
   test_cairo:
@@ -14,37 +13,11 @@ jobs:
       - name: Check out main branch
         uses: actions/checkout@v3
 
-      # Because Scarb doesn't yet include a Cairo test runner,
-      # we have to use `scarb-eject` to vendor in Scarb dependencies
-      # from the Scarb cache.
-      # This requires us to have the Rust toolchain installed.
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-
-      # Scarb 0.1.0 packages in Cairo v0.1.0-alpha.6,
-      # but our `test` Scarb script requires it to be installed manually
-      # (to make use of the cairo-test executable),
-      # so we do so here.
-      - name: Install Cairo
-        uses: ./.github/actions/install_cairo
-        with:
-          CAIRO_ARCHIVE_LINK: $CAIRO_ARCHIVE_LINK
-
       - name: Install Scarb
         uses: ./.github/actions/install_scarb
         with:
           SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
 
-      - name: Install scarb-eject
-        run: cargo install --git https://github.com/software-mansion-labs/scarb-eject
-
-      - name: Create cairo_project.toml
-        run: scarb eject
-
       - name: Run tests
-        run: scarb run test
+        run: scarb test -- -f renegade_contracts
       
