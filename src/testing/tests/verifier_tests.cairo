@@ -1,8 +1,9 @@
+use traits::Into;
 use option::OptionTrait;
 use serde::Serde;
 use clone::Clone;
 use array::{ArrayTrait, SpanTrait};
-use ec::{ec_point_from_x, ec_mul};
+use ec::{ec_point_from_x, ec_mul, ec_point_zero};
 
 use debug::PrintTrait;
 
@@ -10,12 +11,173 @@ use renegade_contracts::{
     verifier::{
         Verifier,
         types::{
-            SparseWeightMatrix, SparseWeightVec, CircuitParams, Proof, VerificationJob,
-            RemainingScalarPowers, RemainingGenerators, VecPoly3Term, VecPoly3, VecElem
-        }
+            SparseWeightMatrix, SparseWeightMatrixTrait, SparseWeightVec, SparseWeightVecTrait,
+            CircuitParams, Proof, VerificationJob, RemainingScalarPowers, RemainingGenerators,
+            VecPoly3Term, VecPoly3, VecElem
+        },
+        utils::{get_s_elem, calc_delta},
     },
-    testing::test_utils, utils::eq::{OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq}
+    testing::test_utils,
+    utils::{
+        eq::{
+            OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
+        },
+        collections::ArrayTraitExt
+    }
 };
+
+// ---------
+// | TESTS |
+// ---------
+
+// ---------------
+// | UTILS TESTS |
+// ---------------
+
+#[test]
+#[available_gas(100000000)]
+fn test_flatten_sparse_weight_matrix_basic() {
+    let matrix = get_test_matrix_1();
+
+    let z = 2;
+    let width = 4;
+
+    let mut expected = ArrayTrait::new();
+    // 2*1 + 4*2 + 8*4 = 42
+    expected.append(42);
+    // 4*3 + 8*5 = 52
+    expected.append(52);
+    // 8*6 = 48
+    expected.append(48);
+    expected.append(0);
+
+    let flattened = matrix.flatten(z, width);
+
+    assert(flattened == expected, 'wrong flattened matrix');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_flatten_column_basic() {
+    let mut column = ArrayTrait::new();
+    column.append((0, 1));
+    column.append((2, 2));
+    column.append((4, 3));
+
+    let z = 2;
+
+    let flattened = column.flatten(z);
+
+    // 2*1 + 8*2 + 32*3 = 114
+    assert(flattened == 114, 'wrong flattened column');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_get_sparse_weight_column_basic() {
+    let matrix = get_test_matrix_1();
+
+    let col_0 = matrix.get_sparse_weight_column(0);
+    let col_1 = matrix.get_sparse_weight_column(1);
+    let col_2 = matrix.get_sparse_weight_column(2);
+    let col_3 = matrix.get_sparse_weight_column(3);
+
+    let mut expected_col_0 = ArrayTrait::new();
+    expected_col_0.append((0, 1));
+    expected_col_0.append((1, 2));
+    expected_col_0.append((2, 4));
+    let mut expected_col_1 = ArrayTrait::new();
+    expected_col_1.append((1, 3));
+    expected_col_1.append((2, 5));
+    let mut expected_col_2 = ArrayTrait::new();
+    expected_col_2.append((2, 6));
+    let expected_col_3 = ArrayTrait::new();
+
+    assert(col_0 == expected_col_0, 'wrong column 0');
+    assert(col_1 == expected_col_1, 'wrong column 1');
+    assert(col_2 == expected_col_2, 'wrong column 1');
+    assert(col_3 == expected_col_3, 'wrong column 1');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_get_s_elem_basic() {
+    let k: usize = 3;
+    let n_plus: usize = 8;
+
+    // u = [2, 3, 4]
+    let mut u: Array<felt252> = ArrayTrait::new();
+    let mut i: usize = 0;
+    loop {
+        if i == k {
+            break;
+        }
+        u.append((i + 2).into());
+        i += 1;
+    };
+    let u = u.span();
+
+    // s has len n_plus = 2^k
+    let mut s: Array<felt252> = ArrayTrait::new();
+    let mut i: usize = 0;
+    loop {
+        if i == n_plus {
+            break;
+        }
+        s.append(get_s_elem(u, i));
+        i += 1;
+    };
+
+    let mut expected_s = ArrayTrait::new();
+    // s[0] = 2^-1 * 3^-1 * 4^-1
+    expected_s.append(1055396646694288270661719145069395447473406271138382370825485183039629339307);
+    // s[1] = 2 * 3^-1 * 4^-1
+    expected_s.append(603083798111021868949553797182511684270517869221932783328848676022645336747);
+    // s[2] = 2^-1 * 3 * 4^-1
+    expected_s.append(2261564242916332008560826739434418816014442009582247937483182535084920012801);
+    // s[3] = 2 * 3 * 4^-1
+    expected_s.append(1809251394333065606848661391547535052811553607665798349986546028067936010242);
+    // s[4] = 2^-1 * 3^-1 * 4
+    expected_s.append(2412335192444087475798215188730046737082071476887731133315394704090581346988);
+    // s[5] = 2 * 3^-1 * 4
+    expected_s.append(2412335192444087475798215188730046737082071476887731133315394704090581346990);
+    // s[6] = 2^-1 * 3 * 4
+    expected_s.append(6);
+    // s[7] = 2 * 3 * 4
+    expected_s.append(24);
+
+    assert(s == expected_s, 'wrong s');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_calc_delta_basic() {
+    let W_L = get_test_matrix_1();
+    let W_R = get_test_matrix_2();
+
+    let n = 4;
+    let z = 2;
+    // y_inv_powers_to_n = [1, 3^-1, 3^-2, 3^-3]
+    let mut y_inv_powers_to_n = ArrayTrait::new();
+    y_inv_powers_to_n.append(1);
+    y_inv_powers_to_n
+        .append(1206167596222043737899107594365023368541035738443865566657697352045290673494);
+    y_inv_powers_to_n
+        .append(2814391057851435388431251053518387859929083389702352988867960488105678238152);
+    y_inv_powers_to_n
+        .append(3350465545061232605275298873236176023725099273455182129604714866792474093038);
+
+    let delta = calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R);
+    delta.print();
+    assert(
+        delta == 1206167596222043737899107594365023368541035738443865566657697352045290674603,
+        'wrong delta'
+    );
+}
+
+// ------------------
+// | CONTRACT TESTS |
+// ------------------
 
 // ----------------------------
 // | DUMMY CIRCUIT DEFINITION |
@@ -47,10 +209,6 @@ use renegade_contracts::{
 // W_V = [[(0, -1)], [(1, -1)], [(2, -1)], [(3, -1)], [], []]
 // c = [(4, 69), (5, 420)]
 
-// ---------
-// | TESTS |
-// ---------
-
 #[test]
 #[available_gas(100000000)]
 fn test_initializer_storage_serde() {
@@ -60,10 +218,9 @@ fn test_initializer_storage_serde() {
     'serializing...'.print();
     let mut calldata = ArrayTrait::new();
     circuit_params.serialize(ref calldata);
-    let calldata_span = calldata.span();
 
     'initializing...'.print();
-    Verifier::__external::initialize(calldata_span);
+    Verifier::__external::initialize(calldata.span());
 
     'fetching circuit params...'.print();
     let mut retdata = Verifier::__external::get_circuit_params(ArrayTrait::new().span());
@@ -78,14 +235,11 @@ fn test_initializer_storage_serde() {
 fn test_queue_verification() {
     'getting dummy circuit params...'.print();
     let circuit_params = get_dummy_circuit_params();
-
-    'serializing...'.print();
     let mut calldata = ArrayTrait::new();
     circuit_params.serialize(ref calldata);
-    let calldata_span = calldata.span();
 
     'initializing...'.print();
-    Verifier::__external::initialize(calldata_span);
+    Verifier::__external::initialize(calldata.span());
 
     'getting dummy proof...'.print();
     let proof = get_dummy_proof();
@@ -95,8 +249,7 @@ fn test_queue_verification() {
     proof.serialize(ref calldata);
     // Add verification job ID to calldata
     11.serialize(ref calldata);
-    let calldata_span = calldata.span();
-    Verifier::__external::queue_verification_job(calldata_span);
+    Verifier::__external::queue_verification_job(calldata.span());
 
     'fetching verification job...'.print();
     let mut calldata = ArrayTrait::new();
@@ -153,6 +306,76 @@ fn test_queue_verification() {
 // -----------
 // | HELPERS |
 // -----------
+
+fn get_test_matrix_1() -> SparseWeightMatrix {
+    // Matrix (full):
+    // [
+    //   [1, 0, 0, 0], 
+    //   [2, 3, 0, 0], 
+    //   [4, 5, 6, 0], 
+    // ]
+
+    // Matrix (sparse):
+    // [
+    //   [(0, 1)], 
+    //   [(0, 2), (1, 3)], 
+    //   [(0, 4), (1, 5), (2, 6)], 
+    // ]
+
+    let mut matrix = ArrayTrait::new();
+
+    let mut row_0 = ArrayTrait::new();
+    row_0.append((0, 1));
+    matrix.append(row_0);
+
+    let mut row_1 = ArrayTrait::new();
+    row_1.append((0, 2));
+    row_1.append((1, 3));
+    matrix.append(row_1);
+
+    let mut row_2 = ArrayTrait::new();
+    row_2.append((0, 4));
+    row_2.append((1, 5));
+    row_2.append((2, 6));
+    matrix.append(row_2);
+
+    matrix
+}
+
+fn get_test_matrix_2() -> SparseWeightMatrix {
+    // Matrix (full):
+    // [
+    //   [0, 0, 0, 1], 
+    //   [0, 0, 3, 2], 
+    //   [0, 6, 5, 4], 
+    // ]
+
+    // Matrix (sparse):
+    // [
+    //   [(3, 1)], 
+    //   [(2, 3), (3, 2)], 
+    //   [(1, 6), (2, 5), (3, 4)], 
+    // ]
+
+    let mut matrix = ArrayTrait::new();
+
+    let mut row_0 = ArrayTrait::new();
+    row_0.append((3, 1));
+    matrix.append(row_0);
+
+    let mut row_1 = ArrayTrait::new();
+    row_1.append((2, 3));
+    row_1.append((3, 2));
+    matrix.append(row_1);
+
+    let mut row_2 = ArrayTrait::new();
+    row_2.append((1, 6));
+    row_2.append((2, 5));
+    row_2.append((3, 4));
+    matrix.append(row_2);
+
+    matrix
+}
 
 fn get_dummy_circuit_weights() -> (
     SparseWeightMatrix, SparseWeightMatrix, SparseWeightMatrix, SparseWeightMatrix, SparseWeightVec, 
@@ -298,7 +521,7 @@ fn get_expected_verification_job() -> VerificationJob {
         },
         commitments_rem: get_expected_commitments_rem(),
         msm_result: Option::None(()),
-        verified: false,
+        verified: Option::None(()),
     }
 }
 
@@ -420,26 +643,26 @@ fn get_expected_scalars_rem() -> Array<VecPoly3> {
         );
     scalars_rem.append(scalars_rem_10);
 
-    // u_sq (length k = 1)
+    // u_sq
     let mut scalars_rem_11 = ArrayTrait::new();
     scalars_rem_11
         .append(
             VecPoly3Term {
-                scalar: Option::Some(6), uses_y_power: false, vec_elem: Option::None(())
+                scalar: Option::None(()),
+                uses_y_power: false,
+                vec_elem: Option::Some(VecElem::u_sq(0))
             }
         );
     scalars_rem.append(scalars_rem_11);
 
-    // u_sq_inv (length k = 1)
+    // u_sq_inv
     let mut scalars_rem_12 = ArrayTrait::new();
     scalars_rem_12
         .append(
             VecPoly3Term {
-                scalar: Option::Some(
-                    603083798111021868949553797182511684270517869221932783328848676022645336747
-                ),
+                scalar: Option::None(()),
                 uses_y_power: false,
-                vec_elem: Option::None(())
+                vec_elem: Option::Some(VecElem::u_sq_inv(0))
             }
         );
     scalars_rem.append(scalars_rem_12);
@@ -532,39 +755,28 @@ fn get_expected_scalars_rem() -> Array<VecPoly3> {
 }
 
 fn get_expected_commitments_rem() -> Array<EcPoint> {
+    let mut dummy_proof = get_dummy_proof();
+
     let mut commitments_rem = ArrayTrait::new();
+    commitments_rem.append(dummy_proof.A_I);
+    commitments_rem.append(dummy_proof.A_O);
+    commitments_rem.append(dummy_proof.S);
+    commitments_rem.append_all(ref dummy_proof.V);
+    commitments_rem.append(dummy_proof.T_1);
+    commitments_rem.append(dummy_proof.T_3);
+    commitments_rem.append(dummy_proof.T_4);
+    commitments_rem.append(dummy_proof.T_5);
+    commitments_rem.append(dummy_proof.T_6);
 
     let basepoint = ec_point_from_x(1).unwrap();
 
-    // A_I
-    commitments_rem.append(ec_mul(basepoint, 3));
-    // A_O
-    commitments_rem.append(ec_mul(basepoint, 4));
-    // S
-    commitments_rem.append(ec_mul(basepoint, 5));
-    // V
-    commitments_rem.append(ec_mul(basepoint, 13));
-    commitments_rem.append(ec_mul(basepoint, 14));
-    commitments_rem.append(ec_mul(basepoint, 15));
-    commitments_rem.append(ec_mul(basepoint, 16));
-    // T_1
-    commitments_rem.append(ec_mul(basepoint, 6));
-    // T_3
-    commitments_rem.append(ec_mul(basepoint, 7));
-    // T_4
-    commitments_rem.append(ec_mul(basepoint, 8));
-    // T_5
-    commitments_rem.append(ec_mul(basepoint, 9));
-    // T_6
-    commitments_rem.append(ec_mul(basepoint, 10));
     // B
     commitments_rem.append(ec_mul(basepoint, 1));
     // B_blind
     commitments_rem.append(ec_mul(basepoint, 2));
-    // L
-    commitments_rem.append(ec_mul(basepoint, 11));
-    // R
-    commitments_rem.append(ec_mul(basepoint, 12));
+
+    commitments_rem.append_all(ref dummy_proof.L);
+    commitments_rem.append_all(ref dummy_proof.R);
 
     commitments_rem
 }
