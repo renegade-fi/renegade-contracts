@@ -168,11 +168,14 @@ fn test_calc_delta_basic() {
         .append(3350465545061232605275298873236176023725099273455182129604714866792474093038);
 
     let delta = calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R);
-    delta.print();
-    assert(
-        delta == 1206167596222043737899107594365023368541035738443865566657697352045290674603,
-        'wrong delta'
-    );
+
+    // delta = <y^{n+}[0:n] * w_R_flat, w_L_flat>
+    // The expected result was calculated by hand using the powers of y^{-1} above
+    // and the result of flattening the matrices W_L and W_R above using z = 2
+    let expected_delta =
+        1206167596222043737899107594365023368541035738443865566657697352045290674603;
+
+    assert(delta == expected_delta, 'wrong delta');
 }
 
 // ------------------
@@ -525,6 +528,9 @@ fn get_expected_verification_job() -> VerificationJob {
     }
 }
 
+// The `scalar` fields in these terms were calculated by hand using the following values,
+// given from the placeholder `squeeze_challenge_scalars` implementation & the `get_dummy_proof` helper:
+// y = 2, z = 3, x = 4, w = 5, u = [6], r = 8, t_hat = 9, t_blind = 10, e_blind = 11, a = 12, b = 13
 fn get_expected_scalars_rem() -> Array<VecPoly3> {
     let mut scalars_rem = ArrayTrait::new();
 
