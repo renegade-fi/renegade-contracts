@@ -304,6 +304,52 @@ fn test_queue_verification() {
     assert(stored_verification_job == expected_verification_job, 'verification job not equal');
 }
 
+#[test]
+#[available_gas(100000000)]
+fn test_step_verification_basic() {
+    'getting dummy circuit params...'.print();
+    let circuit_params = get_dummy_circuit_params();
+    let mut calldata = ArrayTrait::new();
+    circuit_params.serialize(ref calldata);
+
+    'initializing...'.print();
+    Verifier::__external::initialize(calldata.span());
+
+    'getting dummy proof...'.print();
+    let proof = get_dummy_proof();
+
+    'queueing verification job...'.print();
+    let mut calldata = ArrayTrait::new();
+    proof.serialize(ref calldata);
+    // Add verification job ID to calldata
+    11.serialize(ref calldata);
+    Verifier::__external::queue_verification_job(calldata.span());
+
+    'executing verification step...'.print();
+    let mut calldata = ArrayTrait::new();
+    11.serialize(ref calldata);
+    Verifier::__external::step_verification(calldata.span());
+
+    'fetching verification job...'.print();
+    let mut calldata = ArrayTrait::new();
+    calldata.append(11);
+    let mut retdata = Verifier::__external::get_verification_job(calldata.span());
+    let stored_verification_job: VerificationJob = test_utils::single_deserialize(ref retdata);
+
+    'checking scalars used...'.print();
+    assert(stored_verification_job.rem_scalar_polys.len() == 0, 'rem_scalar_polys not empty');
+    'checking commitments used...'.print();
+    assert(stored_verification_job.commitments_rem.len() == 0, 'commitments_rem not empty');
+    'checking G gens used...'.print();
+    assert(stored_verification_job.G_rem.num_gens_rem == 0, 'G_rem not empty');
+    'checking H gens used...'.print();
+    assert(stored_verification_job.H_rem.num_gens_rem == 0, 'H_rem not empty');
+    'checking final msm result...'.print();
+    assert(
+        stored_verification_job.msm_result.unwrap() == get_expected_msm_result(), 'wrong msm_result'
+    );
+}
+
 // -----------
 // | HELPERS |
 // -----------
@@ -734,5 +780,107 @@ fn get_expected_commitments_rem() -> Array<EcPoint> {
     commitments_rem.append_all(ref dummy_proof.R);
 
     commitments_rem
+}
+
+fn get_expected_scalar_poly_evals() -> Array<felt252> {
+    let mut scalars = ArrayTrait::new();
+
+    // Expected scalars:
+    // 1. x = 4
+    scalars.append(4);
+    // 2. x^2 = 16
+    scalars.append(16);
+    // 3. x^3 = 64
+    scalars.append(64);
+    // 4. r*x^2*w_V_flat[0] = 3618502788666131213697322783095070105623107215331596699973092056135871740161
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135871740161);
+    // 5. r*x^2*w_V_flat[1] = 3618502788666131213697322783095070105623107215331596699973092056135872019329
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872019329);
+    // 6. r*x^2*w_V_flat[2] = 3618502788666131213697322783095070105623107215331596699973092056135872017025
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872017025);
+    // 7. r*x^2*w_V_flat[3] = 3618502788666131213697322783095070105623107215331596699973092056135872010113
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872010113);
+    // 8. r*x = 32
+    scalars.append(32);
+    // 9. r*x^3 = 512
+    scalars.append(512);
+    // 10. r*x^4 = 2048
+    scalars.append(2048);
+    // 11. r*x^5 = 8192
+    scalars.append(8192);
+    // 12. r*x^6 = 32768
+    scalars.append(32768);
+    // 13. w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat) = 377846265
+    scalars.append(377846265);
+    // 14. -e_blind - r*t_blind = 3618502788666131213697322783095070105623107215331596699973092056135872020390
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020390);
+    // 15. u_sq[0] = 36
+    scalars.append(36);
+    // 16. u_sq[1] = 36
+    scalars.append(36);
+    // 17. u_sq_inv[0] = 703597764462858847107812763379596964982270847425588247216990122026419559538
+    scalars.append(703597764462858847107812763379596964982270847425588247216990122026419559538);
+    // 18. u_sq_inv[1] = 703597764462858847107812763379596964982270847425588247216990122026419559538
+    scalars.append(703597764462858847107812763379596964982270847425588247216990122026419559538);
+    // 19. xy^{-n+}_[0] * w_R_flat[0] - as_[0] = -36 - 3^{-1} = 2412335192444087475798215188730046737082071476887731133315394704090581346951
+    scalars.append(2412335192444087475798215188730046737082071476887731133315394704090581346951);
+    // 20. xy^{-n+}_[1] * w_R_flat[1] - as_[1] = -174 = 3618502788666131213697322783095070105623107215331596699973092056135872020307
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020307);
+    // 21. xy^{-n+}_[2] * w_R_flat[2] - as_[2] = -741 = 3618502788666131213697322783095070105623107215331596699973092056135872019740
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872019740);
+    // 22. -as[3] = -432 = 3618502788666131213697322783095070105623107215331596699973092056135872020049
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020049);
+    // 23. -1 + y^{-n+}_[0] * (x*w_L_flat[0] + w_O_flat[0] - b*s^-1_[0]) = -238 = 3618502788666131213697322783095070105623107215331596699973092056135872020243
+    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020243);
+    // 24. -1 + y^{-n+}_[1] * (x*w_L_flat[1] + w_O_flat[1] - b*s^-1_[1]) = 303
+    scalars.append(303);
+    // 25. -1 + y^{-n+}_[2] * (x*w_L_flat[2] + w_O_flat[2] - b*s^-1_[2]) = 1393
+    scalars.append(1393);
+    // 26. -1 + y^{-n+}_[3] * (-b*s^-1_[3]) = -1 - 13 * 288^{-1} = 3379782118580518390571457738376992563932693892097914973238756121876908241351
+    scalars.append(3379782118580518390571457738376992563932693892097914973238756121876908241351);
+
+    scalars
+}
+
+fn get_expected_ec_points() -> Array<EcPoint> {
+    let mut points = ArrayTrait::new();
+
+    let mut expected_verification_job = get_expected_verification_job();
+    points.append_all(ref expected_verification_job.commitments_rem);
+
+    // Using _compute_next_generator for now, but idk how i feel about this
+    // wrt not using tested code paths in testing
+    points.append(expected_verification_job.G_rem.compute_next_gen());
+    points.append(expected_verification_job.G_rem.compute_next_gen());
+    points.append(expected_verification_job.G_rem.compute_next_gen());
+    points.append(expected_verification_job.G_rem.compute_next_gen());
+
+    points.append(expected_verification_job.H_rem.compute_next_gen());
+    points.append(expected_verification_job.H_rem.compute_next_gen());
+    points.append(expected_verification_job.H_rem.compute_next_gen());
+    points.append(expected_verification_job.H_rem.compute_next_gen());
+
+    points
+}
+
+fn get_expected_msm_result() -> EcPoint {
+    let mut expected_scalars = get_expected_scalar_poly_evals();
+    let mut expected_points = get_expected_ec_points();
+    assert(expected_scalars.len() == expected_points.len(), 'scalars/points diff len');
+
+    let mut msm_result = ec_point_zero();
+    loop {
+        match expected_scalars.pop_front() {
+            Option::Some(scalar) => {
+                let point = expected_points.pop_front().unwrap();
+                msm_result += ec_mul(point, scalar);
+            },
+            Option::None(()) => {
+                break;
+            }
+        };
+    };
+
+    msm_result
 }
 

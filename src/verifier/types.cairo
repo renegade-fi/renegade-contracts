@@ -13,6 +13,14 @@ use renegade_contracts::utils::{
     math::{binary_exp}, collections::DeepSpan,
 };
 
+// -------------
+// | CONSTANTS |
+// -------------
+
+// 2^{251} + 17 * 2^{192} + 1
+const STARK_FIELD_PRIME: u256 =
+    3618502788666131213697322783095070105623107215331596699973092056135872020481;
+
 /// Tracks the verification of a single proof
 #[derive(Drop, Serde, PartialEq)]
 struct VerificationJob {
@@ -65,6 +73,25 @@ impl VerificationJobImpl of VerificationJobTrait {
             verified: Option::None(()),
         }
     }
+
+    /// Get the next elliptic curve point to be used in the verification MSM
+    fn get_next_point(ref self: VerificationJob) -> Option<EcPoint> {
+        // First we process all of commitments_rem, then we process all of G_rem & H_rem
+        let commitment = self.commitments_rem.pop_front();
+        if commitment.is_some() {
+            return Option::Some(commitment.unwrap());
+        }
+
+        if self.G_rem.num_gens_rem > 0 {
+            return Option::Some(self.G_rem.compute_next_gen());
+        }
+
+        if self.H_rem.num_gens_rem > 0 {
+            return Option::Some(self.H_rem.compute_next_gen());
+        }
+
+        Option::None(())
+    }
 }
 
 /// Represents a polynomial (sum of terms) whose evaluation is a scalar used
@@ -89,6 +116,49 @@ impl VecPoly3Impl of VecPoly3Trait {
     /// Creates a polynomial composed of a single scalar value
     fn single_scalar_poly(scalar: felt252) -> VecPoly3 {
         VecPoly3Trait::new().add_term(scalar: scalar, uses_y_power: false, vec: Option::None(()))
+    }
+
+    /// Indicates whether or not the polynomial uses a power of y^-1
+    fn uses_y(self: @VecPoly3) -> bool {
+        let mut uses_y = false;
+
+        let mut i = 0;
+        loop {
+            if i == self.len() {
+                break;
+            };
+
+            let term = *self.at(i);
+            if term.uses_y_power {
+                uses_y = true;
+                break;
+            };
+
+            i += 1;
+        };
+
+        uses_y
+    }
+
+    /// Indicates which vectors are used in the polynomial
+    fn used_vecs(self: @VecPoly3) -> Array<VecSubterm> {
+        let mut used_vecs = ArrayTrait::new();
+
+        let mut i = 0;
+        loop {
+            if i == self.len() {
+                break;
+            };
+
+            let term = *self.at(i);
+            if term.vec.is_some() {
+                used_vecs.append(term.vec.unwrap());
+            };
+
+            i += 1;
+        };
+
+        used_vecs
     }
 }
 
@@ -154,6 +224,47 @@ struct VecIndices {
     u_sq_inv_index: usize,
 }
 
+#[generate_trait]
+impl VecIndicesImpl of VecIndicesTrait {
+    /// Increments the index of the given vector, returning the new index
+    fn bump_index(ref self: VecIndices, vec_subterm: @VecSubterm) -> usize {
+        match vec_subterm {
+            VecSubterm::W_L_flat(()) => {
+                self.w_L_flat_index += 1;
+                self.w_L_flat_index
+            },
+            VecSubterm::W_R_flat(()) => {
+                self.w_R_flat_index += 1;
+                self.w_R_flat_index
+            },
+            VecSubterm::W_O_flat(()) => {
+                self.w_O_flat_index += 1;
+                self.w_O_flat_index
+            },
+            VecSubterm::W_V_flat(()) => {
+                self.w_V_flat_index += 1;
+                self.w_V_flat_index
+            },
+            VecSubterm::S(()) => {
+                self.s_index += 1;
+                self.s_index
+            },
+            VecSubterm::S_inv(()) => {
+                self.s_inv_index += 1;
+                self.s_inv_index
+            },
+            VecSubterm::U_sq(()) => {
+                self.u_sq_index += 1;
+                self.u_sq_index
+            },
+            VecSubterm::U_sq_inv(()) => {
+                self.u_sq_inv_index += 1;
+                self.u_sq_inv_index
+            },
+        }
+    }
+}
+
 #[derive(Drop, Serde, PartialEq)]
 struct RemainingGenerators {
     /// The current hash chain state / input to the next hash
@@ -166,6 +277,18 @@ struct RemainingGenerators {
 impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
     fn new(hash_state: u256, num_gens_rem: usize) -> RemainingGenerators {
         RemainingGenerators { hash_state, num_gens_rem }
+    }
+
+    /// Draws the next generator from the hash chain
+    fn compute_next_gen(ref self: RemainingGenerators) -> EcPoint {
+        let mut input = ArrayTrait::new();
+        input.append(self.hash_state);
+        let hash_state = keccak_u256s_le_inputs(input.span());
+        self = RemainingGenerators { hash_state, num_gens_rem: self.num_gens_rem - 1 };
+        // TODO: See if there's a cheaper way to get to an EcPoint from a hash
+        let basepoint = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
+        let hash_felt: felt252 = (hash_state % STARK_FIELD_PRIME).try_into().unwrap();
+        ec_mul(basepoint, hash_felt)
     }
 }
 
@@ -338,9 +461,12 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
             };
 
             let row = *matrix.at(row_index);
-            assert(row.len() <= width, 'row has too many entries');
-            let (last_index, _) = *row.at(row.len() - 1);
-            assert(last_index <= width, 'last index in row too big');
+            let row_len = row.len();
+            assert(row_len <= width, 'row has too many entries');
+            if row_len > 0 {
+                let (last_index, _) = *row.at(row.len() - 1);
+                assert(last_index <= width, 'last index in row too big');
+            }
 
             row_index += 1;
         };

@@ -12,6 +12,7 @@ use types::{CircuitParams, Proof, VerificationJob};
 trait IVerifier<TContractState> {
     fn initialize(ref self: TContractState, circuit_params: CircuitParams);
     fn queue_verification_job(ref self: TContractState, proof: Proof, verification_job_id: felt252);
+    fn step_verification(ref self: TContractState, verification_job_id: felt252);
     fn get_circuit_params(self: @TContractState) -> CircuitParams;
     fn get_verification_job(self: @TContractState, verification_job_id: felt252) -> VerificationJob;
 }
@@ -40,9 +41,9 @@ mod Verifier {
         types::{
             VerificationJob, VerificationJobTrait, RemainingGenerators, RemainingGeneratorsTrait,
             VecPoly3, VecPoly3Trait, SparseWeightVec, SparseWeightVecTrait, SparseWeightMatrix,
-            SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams, VecIndices
+            SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams, VecIndices, VecIndicesTrait
         },
-        utils::{squeeze_challenge_scalars, calc_delta}
+        utils::{squeeze_challenge_scalars, calc_delta, get_s_elem}
     };
 
     // -------------
@@ -51,6 +52,8 @@ mod Verifier {
 
     // 2^32 - 1
     const MAX_USIZE: usize = 0xFFFFFFFF;
+
+    const STEP_UNIT_GAS: u128 = 1000000;
 
     // -----------
     // | STORAGE |
@@ -369,6 +372,32 @@ mod Verifier {
                 .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
         }
 
+        fn step_verification(ref self: ContractState, verification_job_id: felt252) {
+            let mut verification_job = self.verification_queue.read(verification_job_id).inner;
+            let mut verified = Option::None(());
+
+            loop {
+                // Loop until we run out of gas or finish the job
+                if testing::get_available_gas() < step_cost_bound(@self) {
+                    break;
+                }
+
+                // We don't actually *need* a mutable reference to the contract state here,
+                // but the compiler doesn't allow taking a snapshot when a mutable reference is in scope
+                let msm_complete = verification_job.step_msm(ref self);
+                if msm_complete {
+                    verified =
+                        Option::Some(verification_job.msm_result.unwrap() == ec_point_zero());
+                    break;
+                };
+            };
+
+            verification_job.verified = verified;
+            self
+                .verification_queue
+                .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+        }
+
         // -----------
         // | GETTERS |
         // -----------
@@ -396,6 +425,230 @@ mod Verifier {
             self: @ContractState, verification_job_id: felt252
         ) -> VerificationJob {
             self.verification_queue.read(verification_job_id).inner
+        }
+    }
+
+    // -----------
+    // | HELPERS |
+    // -----------
+
+    fn step_cost_bound(self: @ContractState) -> u128 {
+        let multiplier = self.q.read().into() * self.n.read().into();
+        multiplier * STEP_UNIT_GAS
+    }
+
+    // ----------
+    // | TRAITS |
+    // ----------
+    // These have to be defined here so that they can properly call methods on ContractState
+
+    #[generate_trait]
+    impl VerificationJobImpl of ContractAwareVerificationJobTrait {
+        fn step_msm(ref self: VerificationJob, ref contract: ContractState) -> bool {
+            let scalar = self.get_next_scalar(@contract);
+            let point = self.get_next_point();
+
+            if scalar.is_some() && point.is_some() {
+                let scalar = scalar.unwrap();
+                let point = point.unwrap();
+
+                let mut msm_result = match self.msm_result {
+                    Option::Some(result) => result,
+                    Option::None(_) => ec_point_zero(),
+                };
+
+                msm_result += ec_mul(point, scalar);
+                self.msm_result = Option::Some(msm_result);
+                false // MSM is not complete
+            } else {
+                true // MSM is complete
+            }
+        }
+
+        fn get_next_scalar(ref self: VerificationJob, contract: @ContractState) -> Option<felt252> {
+            if self.rem_scalar_polys.len() == 0 {
+                return Option::None(());
+            }
+
+            let VerificationJob{rem_scalar_polys: mut rem_scalar_polys,
+            y_inv_power: mut y_inv_power,
+            z,
+            u,
+            vec_indices: mut vec_indices,
+            G_rem,
+            H_rem,
+            commitments_rem,
+            msm_result,
+            verified,
+            } =
+                self;
+
+            let poly = rem_scalar_polys.at(0);
+            let scalar = poly.evaluate(contract, y_inv_power, z, u.span(), @vec_indices);
+
+            if poly.uses_y() {
+                // Last scalar used a power of y, so we now increase it to the next power
+                let (y_inv, curr_y_inv_power) = y_inv_power;
+                y_inv_power = (y_inv, curr_y_inv_power * y_inv);
+            };
+
+            let mut used_vecs = poly.used_vecs();
+            let mut should_pop = false;
+            if used_vecs.len() == 0 {
+                // If poly doesn't use any vector elements, can be popped immediately
+                should_pop = true;
+            } else {
+                loop {
+                    match used_vecs.pop_front() {
+                        Option::Some(vec_subterm) => {
+                            // Last scalar used an element from this vector, so we now
+                            // increase the index of the next element to be used from this vector
+                            let index = vec_indices.bump_index(@vec_subterm);
+                            let max_index = vec_subterm.len(contract);
+
+                            // If the index is now equal to the max index for the vector, we pop the
+                            // current polynomial from `rem_scalar_polys`.
+                            if index == max_index {
+                                should_pop = true;
+
+                                // If the vector was the flattened w_R vector, we reset the
+                                // power of y to be 1 for use in the future scalars of the MSM
+                                if vec_subterm == VecSubterm::W_R_flat(()) {
+                                    let (y_inv, _) = y_inv_power;
+                                    y_inv_power = (y_inv, 1);
+                                };
+                            }
+                        },
+                        Option::None(_) => {
+                            break;
+                        },
+                    };
+                };
+            };
+
+            if should_pop {
+                rem_scalar_polys.pop_front();
+            };
+
+            self = VerificationJob {
+                rem_scalar_polys,
+                y_inv_power,
+                z,
+                u,
+                vec_indices,
+                G_rem,
+                H_rem,
+                commitments_rem,
+                msm_result,
+                verified,
+            };
+
+            Option::Some(scalar)
+        }
+    }
+
+    #[generate_trait]
+    impl VecPoly3Impl of ContractAwareVecPoly3Trait {
+        /// Evaluates the scalar polynomial
+        fn evaluate(
+            self: @VecPoly3,
+            contract: @ContractState,
+            y_inv_power: (felt252, felt252),
+            z: felt252,
+            u: Span<felt252>,
+            vec_indices: @VecIndices,
+        ) -> felt252 {
+            let mut scalar = 0;
+
+            // Evaluate all the terms in the polynomial and add them to `scalar`
+            let mut i = 0;
+            loop {
+                if i == self.len() {
+                    break;
+                };
+
+                let term = *self.at(i);
+                let mut term_eval = term.scalar;
+
+                term_eval *=
+                    if term.uses_y_power {
+                        let (_, y_inv_power) = y_inv_power;
+                        y_inv_power
+                    } else {
+                        1
+                    };
+
+                term_eval *= match term.vec {
+                    Option::Some(vec_subterm) => {
+                        vec_subterm.evaluate(z, u, vec_indices, contract)
+                    },
+                    Option::None(()) => 1,
+                };
+
+                scalar += term_eval;
+                i += 1;
+            };
+
+            scalar
+        }
+    }
+
+    #[generate_trait]
+    impl VecSubtermImpl of ContractAwareVecSubtermTrait {
+        /// Returns the expected length of the given vector
+        fn len(self: @VecSubterm, contract: @ContractState) -> usize {
+            match self {
+                VecSubterm::W_L_flat(()) => contract.n.read(),
+                VecSubterm::W_R_flat(()) => contract.n.read(),
+                VecSubterm::W_O_flat(()) => contract.n.read(),
+                VecSubterm::W_V_flat(()) => contract.m.read(),
+                VecSubterm::S(()) => contract.n_plus.read(),
+                VecSubterm::S_inv(()) => contract.n_plus.read(),
+                VecSubterm::U_sq(()) => contract.k.read(),
+                VecSubterm::U_sq_inv(()) => contract.k.read(),
+            }
+        }
+
+        /// Evaluates the vector element at the given index
+        fn evaluate(
+            self: @VecSubterm,
+            z: felt252,
+            u: Span<felt252>,
+            vec_indices: @VecIndices,
+            contract: @ContractState
+        ) -> felt252 {
+            match self {
+                VecSubterm::W_L_flat(()) => {
+                    contract.W_L.read().inner.get_flattened_elem(*vec_indices.w_L_flat_index, z)
+                },
+                VecSubterm::W_R_flat(()) => {
+                    contract.W_R.read().inner.get_flattened_elem(*vec_indices.w_R_flat_index, z)
+                },
+                VecSubterm::W_O_flat(()) => {
+                    contract.W_O.read().inner.get_flattened_elem(*vec_indices.w_O_flat_index, z)
+                },
+                VecSubterm::W_V_flat(()) => {
+                    contract.W_V.read().inner.get_flattened_elem(*vec_indices.w_V_flat_index, z)
+                },
+                VecSubterm::S(()) => {
+                    get_s_elem(u, *vec_indices.s_index)
+                },
+                VecSubterm::S_inv(()) => {
+                    // s_inv = rev(s)
+                    get_s_elem(u, contract.n_plus.read() - *vec_indices.s_inv_index - 1)
+                },
+                VecSubterm::U_sq(()) => {
+                    let u_i = *u.at(*vec_indices.u_sq_index);
+                    u_i * u_i
+                },
+                VecSubterm::U_sq_inv(()) => {
+                    // Unwrapping here is safe since u challenge scalars are always nonzero
+                    let u_i_inv = felt252_div(
+                        1, (*u.at(*vec_indices.u_sq_inv_index)).try_into().unwrap()
+                    );
+                    u_i_inv * u_i_inv
+                },
+            }
         }
     }
 }
