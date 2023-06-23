@@ -34,10 +34,10 @@ mod Verifier {
     use super::{
         types::{
             VerificationJob, RemainingScalarPowers, RemainingGenerators, VecPoly3Trait,
-            SparseWeightVec, SparseWeightMatrix, SparseWeightMatrixSpan, VecElem, Proof,
-            CircuitParams
+            SparseWeightVec, SparseWeightVecTrait, SparseWeightMatrix, SparseWeightMatrixTrait,
+            SparseWeightMatrixSpan, VecElem, Proof, CircuitParams
         },
-        utils::{flatten_sparse_weight_matrix, flatten_column}
+        utils::{calc_delta, squeeze_challenge_scalars}
     };
 
     // -------------
@@ -159,7 +159,7 @@ mod Verifier {
             let H_rem = RemainingGenerators { hash_state: H_label, num_gens_rem: n_plus };
 
             // Squeeze out challenge scalars from proof
-            let (y, z, x, w, u_sq, u_sq_inv, r) = _squeeze_challenge_scalars(k, @proof);
+            let (y, z, x, w, u, r) = squeeze_challenge_scalars(k, @proof);
 
             // Prep `RemainingScalarPowers` structs for y & z
 
@@ -243,12 +243,9 @@ mod Verifier {
             let mut computed_y_powers = get_consecutive_powers(y_inv, n - 1);
             y_inv_powers_to_n.append_all(ref computed_y_powers);
 
-            let delta = _calc_delta(
-                n, y_inv_powers_to_n.span(), z, W_L.deep_span(), W_R.deep_span()
-            );
+            let delta = calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R);
 
-            let mut c_span = c.span();
-            let w_c = flatten_column(c_span, z);
+            let w_c = c.flatten(z);
 
             // w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat)
             scalars_rem
@@ -265,15 +262,28 @@ mod Verifier {
                 .append(VecPoly3Trait::single_scalar_poly(0 - proof.e_blind - r * proof.t_blind));
             commitments_rem.append(B_blind);
 
-            let mut u_sq_span = u_sq.span();
-            let mut u_sq_inv_span = u_sq_inv.span();
-
             // u_sq
-            extend(ref scalars_rem, VecPoly3Trait::map_to_single_scalar_polys(ref u_sq_span));
+            scalars_rem
+                .append(
+                    VecPoly3Trait::new()
+                        .add_term(
+                            scalar: Option::None(()),
+                            uses_y_power: false,
+                            vec_elem: Option::Some(VecElem::u_sq(0))
+                        )
+                );
             commitments_rem.append_all(ref proof.L);
 
             // u_sq_inv
-            extend(ref scalars_rem, VecPoly3Trait::map_to_single_scalar_polys(ref u_sq_inv_span));
+            scalars_rem
+                .append(
+                    VecPoly3Trait::new()
+                        .add_term(
+                            scalar: Option::None(()),
+                            uses_y_power: false,
+                            vec_elem: Option::Some(VecElem::u_sq_inv(0))
+                        )
+                );
             commitments_rem.append_all(ref proof.R);
 
             // Now, construct scalar polynomials in MSM terms that use G, H generators
@@ -345,7 +355,7 @@ mod Verifier {
                 H_rem,
                 commitments_rem,
                 msm_result: Option::None(()),
-                verified: false,
+                verified: Option::None(()),
             };
 
             // Enqueue verification job
@@ -383,42 +393,5 @@ mod Verifier {
         ) -> VerificationJob {
             self.verification_queue.read(verification_job_id).inner
         }
-    }
-
-    // -----------
-    // | HELPERS |
-    // -----------
-
-    // TODO: This is a placeholder for now, in the future we will have a MerlinTranscript module
-    fn _squeeze_challenge_scalars(
-        k: usize, _proof: @Proof
-    ) -> (felt252, felt252, felt252, felt252, Array<felt252>, Array<felt252>, felt252) {
-        let mut u_sq = ArrayTrait::new();
-        tile_felt_arr(ref u_sq, 6, k);
-
-        let mut u_sq_inv = ArrayTrait::new();
-        tile_felt_arr(
-            ref u_sq_inv,
-            603083798111021868949553797182511684270517869221932783328848676022645336747,
-            k
-        );
-
-        (2, 3, 4, 5, u_sq, u_sq_inv, 8)
-    }
-
-    // TODO: Because this requires flattening the matrices, it may need to be split across multiple EC points
-    fn _calc_delta(
-        n: usize,
-        y_inv_powers_to_n: Span<felt252>,
-        z: felt252,
-        W_L: SparseWeightMatrixSpan,
-        W_R: SparseWeightMatrixSpan
-    ) -> felt252 {
-        // Flatten W_L, W_R using z
-        let w_L_flat = flatten_sparse_weight_matrix(W_L, z, n);
-        let w_R_flat = flatten_sparse_weight_matrix(W_R, z, n);
-
-        // \delta = <y^n * w_R_flat, w_L_flat>
-        dot_product(elt_wise_mul(y_inv_powers_to_n, w_R_flat.span()).span(), w_L_flat.span())
     }
 }
