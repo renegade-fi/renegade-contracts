@@ -41,6 +41,7 @@ fn squeeze_challenge_scalars(
     let mut u = ArrayTrait::new();
     tile_felt_arr(ref u, 6, k);
 
+    // y, z, x, w, u, r
     (2, 3, 4, 5, u, 8)
 }
 
