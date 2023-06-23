@@ -3,6 +3,7 @@ use array::ArrayTrait;
 use array::SpanTrait;
 
 
+/// A trait for creating arbitrarily nested Span types, e.g. for matrices
 trait DeepSpan<T, TSpan> {
     fn deep_span(self: @Array<T>) -> Span<TSpan>;
 }
@@ -29,6 +30,7 @@ impl NestedArrayDeepSpanImpl<T> of DeepSpan<Array<T>, Span<T>> {
     }
 }
 
+/// Append `val` to `arr` `len` times
 fn tile_felt_arr(ref arr: Array::<felt252>, val: felt252, mut len: usize) {
     loop {
         if len == 0 {
@@ -40,6 +42,8 @@ fn tile_felt_arr(ref arr: Array::<felt252>, val: felt252, mut len: usize) {
     }
 }
 
+/// Extend `arr1` with the contents of `arr2`, consuming it in the process.
+/// This allows us to avoid requiring a `Copy` trait for `T`.
 fn extend<T, impl TDrop: Drop<T>>(ref arr1: Array::<T>, mut arr2: Array::<T>) {
     match arr2.pop_front() {
         Option::Some(v) => {
