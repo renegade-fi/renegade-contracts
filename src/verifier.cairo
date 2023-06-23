@@ -4,7 +4,7 @@ mod utils;
 // -------------
 // | INTERFACE |
 // -------------
-// TODO: Move to separate file / module?
+// TODO: Move to separate file / module when extensibility pattern is stabilized
 
 use types::{CircuitParams, Proof, VerificationJob};
 
@@ -20,24 +20,29 @@ trait IVerifier<TContractState> {
 mod Verifier {
     use option::OptionTrait;
     use clone::Clone;
+    use box::BoxTrait;
     use traits::{Into, TryInto};
     use array::{ArrayTrait, SpanTrait};
-    use ec::EcPoint;
+    use ec::{StarkCurve, EcPoint, ec_point_zero, ec_mul, ec_point_new};
+    use keccak::keccak_u256s_le_inputs;
     use math::inv_mod;
+    use gas::withdraw_gas_all;
+
+    use debug::PrintTrait;
 
     use renegade_contracts::utils::{
-        math::{get_consecutive_powers, dot_product, elt_wise_mul, fast_power},
-        collections::{extend, tile_felt_arr, DeepSpan, ArrayTraitExt},
-        storage::{StorageAccessSerdeWrapper}
+        math::{get_consecutive_powers, dot_product, fast_power},
+        collections::{extend, ArrayTraitExt}, storage::{StorageAccessSerdeWrapper},
+        eq::EcPointPartialEq,
     };
 
     use super::{
         types::{
-            VerificationJob, RemainingScalarPowers, RemainingGenerators, VecPoly3Trait,
-            SparseWeightVec, SparseWeightVecTrait, SparseWeightMatrix, SparseWeightMatrixTrait,
-            SparseWeightMatrixSpan, VecElem, Proof, CircuitParams
+            VerificationJob, VerificationJobTrait, RemainingGenerators, RemainingGeneratorsTrait,
+            VecPoly3, VecPoly3Trait, SparseWeightVec, SparseWeightVecTrait, SparseWeightMatrix,
+            SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams, VecIndices
         },
-        utils::{calc_delta, squeeze_challenge_scalars}
+        utils::{squeeze_challenge_scalars, calc_delta}
     };
 
     // -------------
@@ -45,7 +50,7 @@ mod Verifier {
     // -------------
 
     // 2^32 - 1
-    const MAX_USIZE: usize = 4294967295;
+    const MAX_USIZE: usize = 0xFFFFFFFF;
 
     // -----------
     // | STORAGE |
@@ -55,6 +60,8 @@ mod Verifier {
     struct Storage {
         /// Queue of in-progress verification jobs
         verification_queue: LegacyMap<felt252, StorageAccessSerdeWrapper<VerificationJob>>,
+        /// Map of in-use verification job IDs
+        job_id_in_use: LegacyMap<felt252, bool>,
         /// Domain separator for hash chain from which G generators are drawn
         G_label: felt252,
         /// Domain separator for hash chain from which H generators are drawn
@@ -74,7 +81,7 @@ mod Verifier {
         q: usize,
         /// The witness size
         m: usize,
-        // TODO: The circuit weights *definitely* won't fit in a single storage address...
+        // TODO: These may just have to be lists of pointers (StorageBaseAddress) to the matrices
         /// Sparse-reduced matrix of left input weights for the circuit
         W_L: StorageAccessSerdeWrapper<SparseWeightMatrix>,
         /// Sparse-reduced matrix of right input weights for the circuit
@@ -111,6 +118,21 @@ mod Verifier {
                 'n_plus != 2^k'
             );
 
+            // Assert that all weight matrices are have `q` rows
+            assert(circuit_params.W_L.len() == circuit_params.q, 'W_L has wrong number of rows');
+            assert(circuit_params.W_R.len() == circuit_params.q, 'W_R has wrong number of rows');
+            assert(circuit_params.W_O.len() == circuit_params.q, 'W_O has wrong number of rows');
+            assert(circuit_params.W_V.len() == circuit_params.q, 'W_V has wrong number of rows');
+
+            // Assert that all weight matrices have correct max number of columns
+            circuit_params.W_L.assert_width(circuit_params.n);
+            circuit_params.W_R.assert_width(circuit_params.n);
+            circuit_params.W_O.assert_width(circuit_params.n);
+            circuit_params.W_V.assert_width(circuit_params.m);
+
+            // Assert that `c` vector is not too wide
+            assert(circuit_params.c.len() <= circuit_params.q, 'c too wide');
+
             self.n.write(circuit_params.n);
             self.n_plus.write(circuit_params.n_plus);
             self.k.write(circuit_params.k);
@@ -136,8 +158,8 @@ mod Verifier {
             ref self: ContractState, mut proof: Proof, verification_job_id: felt252
         ) {
             // Assert that the verification job ID is not already in use
-            // assert(verification_queue::read(verification_job_id) == ... what is the default value?);
-            // TODO: can just have a separate hashmap attesting to whether or not a job ID is in use
+            assert(!self.job_id_in_use.read(verification_job_id), 'job ID already in use');
+            self.job_id_in_use.write(verification_job_id, true);
 
             let n = self.n.read();
             let n_plus = self.n_plus.read();
@@ -155,50 +177,45 @@ mod Verifier {
 
             // Prep `RemainingGenerators` structs for G and H generators
 
-            let G_rem = RemainingGenerators { hash_state: G_label, num_gens_rem: n_plus };
-            let H_rem = RemainingGenerators { hash_state: H_label, num_gens_rem: n_plus };
+            let G_rem = RemainingGeneratorsTrait::new(G_label.into(), n_plus);
+            let H_rem = RemainingGeneratorsTrait::new(H_label.into(), n_plus);
 
             // Squeeze out challenge scalars from proof
             let (y, z, x, w, u, r) = squeeze_challenge_scalars(k, @proof);
 
-            // Prep `RemainingScalarPowers` structs for y & z
-
-            let y_powers_rem = RemainingScalarPowers {
-                base: y, power: 1, num_exp_rem: n_plus - 1, 
-            };
-
-            let z_powers_rem = RemainingScalarPowers { base: z, power: z, num_exp_rem: q - 1,  };
+            // Calculate mod inv of y
+            // Unwrapping is safe here since y is guaranteed not to be 0
+            let y_inv = felt252_div(1, y.try_into().unwrap());
+            let y_inv_power = (y_inv, 1); // First power of y is y^0 = 1
 
             // Construct scalar polynomials & EC points in the appropriate order
-            // TODO(andrew): DOCUMENT THIS ORDER (AND THE ENTIRE FINAL MSM)
+            // TODO: DOCUMENT THIS ORDER (AND THE ENTIRE FINAL MSM)
 
             // Begin with MSM terms that do not use G, H generators
 
-            let mut scalars_rem = ArrayTrait::new();
+            let mut rem_scalar_polys = ArrayTrait::new();
             let mut commitments_rem = ArrayTrait::new();
 
             let x_2 = x * x;
             let x_3 = x_2 * x;
 
             // x
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(x));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x));
             commitments_rem.append(proof.A_I);
 
             // x^2
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(x_2));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x_2));
             commitments_rem.append(proof.A_O);
 
             // x^3
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(x_3));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x_3));
             commitments_rem.append(proof.S);
 
-            // r*x^2*w_V_flat
-            scalars_rem
+            // r*x^2*w_V_flat[0:m]
+            rem_scalar_polys
                 .append(
                     VecPoly3Trait::new()
-                        .add_term(
-                            Option::Some(r * x_2), false, Option::Some(VecElem::w_V_flat(0)), 
-                        )
+                        .add_term(r * x_2, false, Option::Some(VecSubterm::W_V_flat(())), )
                 );
             commitments_rem.append_all(ref proof.V);
 
@@ -207,39 +224,30 @@ mod Verifier {
             let x_6 = x_5 * x;
 
             // r*x
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(r * x));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x));
             commitments_rem.append(proof.T_1);
 
             // r*x^3
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(r * x_3));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_3));
             commitments_rem.append(proof.T_3);
 
             // r*x^4
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(r * x_4));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_4));
             commitments_rem.append(proof.T_4);
 
             // r*x^5
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(r * x_5));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_5));
             commitments_rem.append(proof.T_5);
 
             // r*x^6
-            scalars_rem.append(VecPoly3Trait::single_scalar_poly(r * x_6));
+            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_6));
             commitments_rem.append(proof.T_6);
 
             // Calculate delta
 
-            // No point in using the precomputed powers of y & z since we need consecutive powers
-            // (would only save us from doing log n, log q multiplications)
-
-            // TODO: Technically, only need powers of y & z for which
-            // the corresponding column of W_R & W_L is non-zero
-
-            // Need powers [0, n) of y^-1
+            // Need powers [0, n) of y^{-1}
             let mut y_inv_powers_to_n = ArrayTrait::new();
             y_inv_powers_to_n.append(1);
-            // Calculate mod inv of y
-            // Unwrapping is safe here since y is guaranteed not to be 0
-            let y_inv = felt252_div(1, y.try_into().unwrap());
             let mut computed_y_powers = get_consecutive_powers(y_inv, n - 1);
             y_inv_powers_to_n.append_all(ref computed_y_powers);
 
@@ -248,7 +256,7 @@ mod Verifier {
             let w_c = c.flatten(z);
 
             // w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat)
-            scalars_rem
+            rem_scalar_polys
                 .append(
                     VecPoly3Trait::single_scalar_poly(
                         w * (proof.t_hat - proof.a * proof.b)
@@ -258,105 +266,101 @@ mod Verifier {
             commitments_rem.append(B);
 
             // -e_blind - r*t_blind
-            scalars_rem
+            rem_scalar_polys
                 .append(VecPoly3Trait::single_scalar_poly(0 - proof.e_blind - r * proof.t_blind));
             commitments_rem.append(B_blind);
 
-            // u_sq
-            scalars_rem
+            // u^2[0:k]
+            rem_scalar_polys
                 .append(
                     VecPoly3Trait::new()
                         .add_term(
-                            scalar: Option::None(()),
-                            uses_y_power: false,
-                            vec_elem: Option::Some(VecElem::u_sq(0))
+                            scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(())), 
                         )
                 );
             commitments_rem.append_all(ref proof.L);
 
-            // u_sq_inv
-            scalars_rem
+            // u^{-2}[0:k]
+            rem_scalar_polys
                 .append(
                     VecPoly3Trait::new()
                         .add_term(
-                            scalar: Option::None(()),
+                            scalar: 1,
                             uses_y_power: false,
-                            vec_elem: Option::Some(VecElem::u_sq_inv(0))
+                            vec: Option::Some(VecSubterm::U_sq_inv(())),
                         )
                 );
             commitments_rem.append_all(ref proof.R);
 
             // Now, construct scalar polynomials in MSM terms that use G, H generators
 
-            // xy^{-n+}_[0:n] * w_R_flat - as_[0:n]
+            // xy^{-n+}[0:n] * w_R_flat[0:n] - as[0:n]
             let g_n_poly = VecPoly3Trait::new()
                 .add_term(
-                    scalar: Option::Some(x),
-                    uses_y_power: true,
-                    vec_elem: Option::Some(VecElem::w_R_flat(0)),
+                    scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(())), 
                 )
                 .add_term(
-                    scalar: Option::Some(0 - proof.a),
-                    uses_y_power: false,
-                    vec_elem: Option::Some(VecElem::s((0, n))),
+                    scalar: 0 - proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
                 );
-            scalars_rem.append(g_n_poly);
+            rem_scalar_polys.append(g_n_poly);
 
-            // -as_[n:n+]
-            let g_n_plus_poly = VecPoly3Trait::new()
-                .add_term(
-                    scalar: Option::Some(0 - proof.a),
-                    uses_y_power: false,
-                    vec_elem: Option::Some(VecElem::s((n, n_plus))),
-                );
-            scalars_rem.append(g_n_plus_poly);
+            // If n = n_plus, we don't need this polynomial (s[n:n_plus] is empty)
+            if n_plus > n {
+                // -as[n:n+]
+                let g_n_plus_poly = VecPoly3Trait::new()
+                    .add_term(
+                        scalar: 0 - proof.a,
+                        uses_y_power: false,
+                        vec: Option::Some(VecSubterm::S(())),
+                    );
+                rem_scalar_polys.append(g_n_plus_poly);
+            }
 
-            // -1 + y^{-n+}_[0:n] * (x*w_L_flat + w_O_flat - b*s^-1_[0:n])
+            // -1 + y^{-n+}[0:n] * (x*w_L_flat[0:n] + w_O_flat[0:n] - b*s^{-1}[0:n])
             let h_n_poly = VecPoly3Trait::new()
+                .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
                 .add_term(
-                    scalar: Option::Some(0 - 1), uses_y_power: false, vec_elem: Option::None(()), 
+                    scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), 
                 )
                 .add_term(
-                    scalar: Option::Some(x),
-                    uses_y_power: true,
-                    vec_elem: Option::Some(VecElem::w_L_flat(0)),
+                    scalar: 1, uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), 
                 )
                 .add_term(
-                    scalar: Option::None(()),
+                    scalar: 0 - proof.b,
                     uses_y_power: true,
-                    vec_elem: Option::Some(VecElem::w_O_flat(0)),
-                )
-                .add_term(
-                    scalar: Option::Some(0 - proof.b),
-                    uses_y_power: true,
-                    vec_elem: Option::Some(VecElem::s_inv((0, n))),
+                    vec: Option::Some(VecSubterm::S_inv(())),
                 );
-            scalars_rem.append(h_n_poly);
+            rem_scalar_polys.append(h_n_poly);
 
-            // -1 + y^{-n+}_[n:n+] * (-b*s^-1_[n:n+])
-            let h_n_plus_poly = VecPoly3Trait::new()
-                .add_term(
-                    scalar: Option::Some(0 - 1), uses_y_power: false, vec_elem: Option::None(()), 
-                )
-                .add_term(
-                    scalar: Option::Some(0 - proof.b),
-                    uses_y_power: true,
-                    vec_elem: Option::Some(VecElem::s_inv((n, n_plus))),
-                );
-            scalars_rem.append(h_n_plus_poly);
+            // If n = n_plus, we don't need this polynomial (s_inv[n:n_plus] is empty)
+            if n_plus > n {
+                // -1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+])
+                let h_n_plus_poly = VecPoly3Trait::new()
+                    .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
+                    .add_term(
+                        scalar: 0 - proof.b,
+                        uses_y_power: true,
+                        vec: Option::Some(VecSubterm::S_inv(())),
+                    );
+                rem_scalar_polys.append(h_n_plus_poly);
+            }
 
             // Pack `VerificationJob` struct
 
-            let verification_job = VerificationJob {
-                scalars_rem,
-                y_powers_rem,
-                z_powers_rem,
-                G_rem,
-                H_rem,
-                commitments_rem,
-                msm_result: Option::None(()),
-                verified: Option::None(()),
+            let vec_indices = VecIndices {
+                w_L_flat_index: 0,
+                w_R_flat_index: 0,
+                w_O_flat_index: 0,
+                w_V_flat_index: 0,
+                s_index: 0,
+                s_inv_index: 0,
+                u_sq_index: 0,
+                u_sq_inv_index: 0,
             };
+
+            let verification_job = VerificationJobTrait::new(
+                rem_scalar_polys, y_inv_power, z, u, vec_indices, G_rem, H_rem, commitments_rem, 
+            );
 
             // Enqueue verification job
 
