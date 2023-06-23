@@ -1,11 +1,16 @@
+use traits::{TryInto, Into};
 use option::{OptionTrait, OptionSerde};
 use array::ArrayTrait;
 use array::SpanTrait;
-use ec::EcPoint;
+use dict::Felt252DictTrait;
+use ec::{StarkCurve, EcPoint, ec_point_new, ec_mul};
+use keccak::keccak_u256s_le_inputs;
+use starknet::StorageAccess;
 
-use renegade_contracts::utils::serde::{EcPointSerde};
-use renegade_contracts::utils::eq::{
-    EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq
+use renegade_contracts::utils::{
+    serde::{EcPointSerde},
+    eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq},
+    math::{binary_exp}, collections::DeepSpan,
 };
 
 
@@ -27,8 +32,9 @@ struct VerificationJob {
     commitments_rem: Array<EcPoint>,
     /// The accumulated result of the verification MSM
     msm_result: Option<EcPoint>,
-    // The final verdict of the verification
-    verified: bool,
+    // The final verdict of the verification. If it is `None`, that means
+    // the verification job s not yet complete.
+    verified: Option<bool>,
 }
 
 /// Represents a polynomial (sum of terms) whose evaluation is a scalar used
@@ -101,7 +107,6 @@ impl VecPoly3Impl of VecPoly3Trait {
     }
 }
 
-
 /// Represents a vector used in the verification MSM,
 /// specifying the next index to use, and, for the s vectors, the max index to use
 #[derive(Drop, Serde, PartialEq, Copy)]
@@ -118,6 +123,10 @@ enum VecElem {
     s: (usize, usize),
     /// The vector of H generator coefficients in the IPA proof
     s_inv: (usize, usize),
+    /// The vector of u^2 challenge scalars
+    u_sq: usize,
+    /// The vector of u^-2 challenge scalars
+    u_sq_inv: usize,
 }
 
 /// Represents the remaining powers of a challenge scalar needed for verification.
@@ -167,6 +176,146 @@ type SparseWeightMatrix = Array<SparseWeightVec>;
 
 type SparseWeightVecSpan = Span<(usize, felt252)>;
 type SparseWeightMatrixSpan = Span<Span<(usize, felt252)>>;
+
+#[generate_trait]
+impl SparseWeightVecImpl of SparseWeightVecTrait {
+    /// "Flattens" the sparse-reduced vector into a single scalar by computing
+    /// sum(z^i * col[i]) for all indices i with non-zero weights in the column.
+    /// This is effectively a dot product [z, z^2, ..., z^len(col)] * col,
+    /// but omitting multiplications by zero.
+    fn flatten(self: @SparseWeightVec, z: felt252) -> felt252 {
+        let mut res = 0;
+        let mut entry_index = 0;
+        loop {
+            if entry_index == self.len() {
+                break;
+            };
+
+            let (i, weight) = *self.at(entry_index);
+            // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
+            let z_i = binary_exp(z, i + 1);
+            res += z_i * weight;
+
+            entry_index += 1;
+        };
+
+        res
+    }
+}
+
+#[generate_trait]
+impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
+    /// "Flattens" the matrix into a `width`-length vector by computing
+    /// [z, z^2, ..., z^height] * W_{L, R, O, V} (vector-matrix multiplication)
+    fn flatten(self: @SparseWeightMatrix, z: felt252, width: usize) -> Array<felt252> {
+        let matrix: SparseWeightMatrixSpan = self.deep_span();
+
+        // Can't set an item at a given index in an array, can only append,
+        // so we use a dict here
+        let mut flattened_dict: Felt252Dict<felt252> = Default::default();
+
+        // Loop over rows first, then entries
+        // Since matrices are sparse and in row-major form, this ensure that we only loop
+        // once per non-zero entry
+        let mut row_index: usize = 0;
+        loop {
+            if row_index == matrix.len() {
+                break;
+            };
+
+            let mut row = *matrix.at(row_index);
+            let mut entry_index = 0;
+            loop {
+                if entry_index == row.len() {
+                    break;
+                };
+
+                let (col_index, weight) = *row.at(entry_index);
+                let col_index_felt = col_index.into();
+                // Default value for an unset key is 0
+                let mut value = flattened_dict.get(col_index_felt);
+                // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
+                let z_i = binary_exp(z, row_index + 1);
+                value += z_i * weight;
+                flattened_dict.insert(col_index_felt, value);
+
+                entry_index += 1;
+            };
+
+            row_index += 1;
+        };
+
+        let mut flattened_vec = ArrayTrait::new();
+        let mut col_index = 0;
+        loop {
+            if col_index == width {
+                break;
+            };
+
+            flattened_vec.append(flattened_dict.get(col_index.into()));
+            col_index += 1;
+        };
+
+        flattened_vec
+    }
+
+    /// Extracts a column from the matrix in the form of a sparse-reduced vector
+    fn get_sparse_weight_column(self: @SparseWeightMatrix, col_index: usize) -> SparseWeightVec {
+        let matrix: SparseWeightMatrixSpan = self.deep_span();
+        let mut column = ArrayTrait::new();
+        let mut row_index = 0;
+        loop {
+            if row_index == matrix.len() {
+                break;
+            };
+
+            let mut row = *matrix.at(row_index);
+            let mut entry_index = 0;
+            loop {
+                if entry_index == row.len() {
+                    break;
+                };
+
+                let (current_index, current_weight) = *row.at(entry_index);
+                if current_index == col_index {
+                    column.append((row_index, current_weight));
+                    break;
+                };
+
+                entry_index += 1;
+            };
+
+            row_index += 1;
+        };
+
+        column
+    }
+
+    /// Gets the element at `index` in the flattened matrix
+    fn get_flattened_elem(self: @SparseWeightMatrix, index: usize, z: felt252) -> felt252 {
+        // Pop column `index` from `matrix` as a `SparseWeightVec`
+        let column = self.get_sparse_weight_column(index);
+
+        // Flatten the column using `z`
+        column.flatten(z)
+    }
+
+    /// Asserts that the matrix has a maximum width of `width`
+    fn assert_width(self: @SparseWeightMatrix, width: usize) {
+        let matrix: SparseWeightMatrixSpan = self.deep_span();
+        let mut row_index = 0;
+        loop {
+            if row_index == matrix.len() {
+                break;
+            };
+
+            let row = *matrix.at(row_index);
+            assert(row.len() <= width, 'row too wide');
+
+            row_index += 1;
+        };
+    }
+}
 
 /// The public parameters of the circuit
 #[derive(Drop, Serde, PartialEq)]
