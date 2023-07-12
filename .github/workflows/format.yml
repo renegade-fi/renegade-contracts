@@ -2,9 +2,6 @@ name: Formatting
 
 on: pull_request
 
-env:
-  SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.5.0-alpha.0/scarb-v0.5.0-alpha.0-x86_64-unknown-linux-gnu.tar.gz
-
 jobs:
   format:
     name: format
@@ -20,13 +17,13 @@ jobs:
         with:
           cache-on-failure: true
 
-      - name: Install Scarb
-        uses: ./.github/actions/install_scarb
+      - name: Setup Scarb
+        uses: software-mansion/setup-scarb@v1.0.1
         with:
-          SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
+          scarb-version: "0.5.2"
 
       - name: Check Cairo formatting
-        run: scarb fmt -c
+        run: scarb fmt --check
 
       - name: Check Rust formatting
         run: cargo fmt --check
