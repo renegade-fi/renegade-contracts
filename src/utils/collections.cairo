@@ -53,17 +53,3 @@ fn extend<T, impl TDrop: Drop<T>>(ref arr1: Array::<T>, mut arr2: Array::<T>) {
         Option::None(()) => (),
     }
 }
-
-// FORKED FROM ALEXANDRIA, MADE COMPATIBLE W/ V2.0.0-RC2:
-#[generate_trait]
-impl ArrayImpl<T, impl TDrop: Drop<T>> of ArrayTraitExt<T> {
-    fn append_all(ref self: Array<T>, ref arr: Array<T>) {
-        match arr.pop_front() {
-            Option::Some(v) => {
-                self.append(v);
-                self.append_all(ref arr);
-            },
-            Option::None(()) => (),
-        }
-    }
-}

@@ -2,7 +2,8 @@ use traits::{Into, TryInto};
 use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
 
-use renegade_contracts::utils::{math::{dot_product, elt_wise_mul}, collections::{tile_felt_arr}};
+use alexandria_linalg::dot::dot;
+use renegade_contracts::utils::{math::elt_wise_mul, collections::{tile_felt_arr}};
 
 use super::types::{SparseWeightMatrix, SparseWeightMatrixTrait, Proof};
 
@@ -62,5 +63,5 @@ fn calc_delta(
     let w_R_flat = W_R.flatten(z, n);
 
     // \delta = <y^n * w_R_flat, w_L_flat>
-    dot_product(elt_wise_mul(y_inv_powers_to_n, w_R_flat.span()).span(), w_L_flat.span())
+    dot(elt_wise_mul(y_inv_powers_to_n, w_R_flat.span()), w_L_flat)
 }

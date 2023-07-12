@@ -7,6 +7,7 @@ use ec::{ec_point_from_x, ec_mul, ec_point_zero};
 
 use debug::PrintTrait;
 
+use alexandria_data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::{
     verifier::{
         Verifier,
@@ -22,7 +23,6 @@ use renegade_contracts::{
         eq::{
             OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
         },
-        collections::ArrayTraitExt
     }
 };
 

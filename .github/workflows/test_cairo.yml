@@ -2,9 +2,6 @@ name: Cairo Tests
 
 on: pull_request
 
-env:
-  SCARB_ARCHIVE_LINK: https://github.com/software-mansion/scarb/releases/download/v0.5.0-alpha.0/scarb-v0.5.0-alpha.0-x86_64-unknown-linux-gnu.tar.gz
-
 jobs:
   test_cairo:
     name: test_cairo
@@ -13,11 +10,10 @@ jobs:
       - name: Check out main branch
         uses: actions/checkout@v3
 
-      - name: Install Scarb
-        uses: ./.github/actions/install_scarb
+      - name: Setup Scarb
+        uses: software-mansion/setup-scarb@v1.0.1
         with:
-          SCARB_ARCHIVE_LINK: $SCARB_ARCHIVE_LINK
+          scarb-version: "0.5.2"
 
-      - name: Run tests
-        run: scarb test -- -f renegade_contracts
-      
+      - name: Run Cairo tests
+        run: scarb test

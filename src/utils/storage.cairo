@@ -13,7 +13,9 @@ use starknet::{
     syscalls::{storage_read_syscall, storage_write_syscall}
 };
 
-use super::{collections::{ArrayTraitExt}, serde::EcPointSerde};
+use alexandria_data_structures::array_ext::ArrayTraitExt;
+
+use super::serde::EcPointSerde;
 
 
 // We use this wrapper struct so that we can do a blanket implementation of StorageAccess for types that impl Serde.
