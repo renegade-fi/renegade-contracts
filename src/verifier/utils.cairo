@@ -3,9 +3,10 @@ use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
 use ec::{ec_point_unwrap, ec_point_non_zero};
 
+use alexandria_linalg::dot::dot;
 use renegade_contracts::{
     transcript::{Transcript, TranscriptTrait},
-    utils::{math::{dot_product, elt_wise_mul}, collections::{tile_felt_arr}}
+    utils::{math::elt_wise_mul, collections::{tile_felt_arr}}
 };
 
 use super::types::{SparseWeightMatrix, SparseWeightMatrixTrait, Proof};

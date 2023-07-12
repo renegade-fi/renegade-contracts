@@ -34,7 +34,7 @@ mod Verifier {
     use alexandria_data_structures::array_ext::ArrayTraitExt;
     use alexandria_math::fast_power::fast_power;
     use renegade_contracts::utils::{
-        math::get_consecutive_powers, collections::{extend}, storage::{StorageAccessSerdeWrapper},
+        math::get_consecutive_powers, collections::extend, storage::StorageAccessSerdeWrapper,
         eq::EcPointPartialEq,
     };
 
@@ -205,182 +205,30 @@ mod Verifier {
             let c = self.c.read().inner;
 
             // Prep `RemainingGenerators` structs for G and H generators
-
-            let G_rem = RemainingGeneratorsTrait::new(G_label.into(), n_plus);
-            let H_rem = RemainingGeneratorsTrait::new(H_label.into(), n_plus);
+            let (G_rem, H_rem) = prep_rem_gens(G_label, H_label, n_plus);
 
             // Squeeze out challenge scalars from proof
             let (mut challenge_scalars, u) = squeeze_challenge_scalars(@proof, m, n_plus);
-            let r = challenge_scalars.pop_front().unwrap();
-            let w = challenge_scalars.pop_front().unwrap();
-            let x = challenge_scalars.pop_front().unwrap();
-            let z = challenge_scalars.pop_front().unwrap();
             let y = challenge_scalars.pop_front().unwrap();
+            let z = challenge_scalars.pop_front().unwrap();
+            let x = challenge_scalars.pop_front().unwrap();
+            let w = challenge_scalars.pop_front().unwrap();
+            let r = challenge_scalars.pop_front().unwrap();
 
             // Calculate mod inv of y
             // Unwrapping is safe here since y is guaranteed not to be 0
             let y_inv = felt252_div(1, y.try_into().unwrap());
             let y_inv_power = (y_inv, 1); // First power of y is y^0 = 1
 
-            // Construct scalar polynomials & EC points in the appropriate order
-            // TODO: DOCUMENT THIS ORDER (AND THE ENTIRE FINAL MSM)
+            // Prep scalar polynomials
+            let rem_scalar_polys = prep_rem_scalar_polys(
+                y_inv, z, x, w, r, @proof, n, n_plus, @W_L, @W_R, @c, 
+            );
 
-            // Begin with MSM terms that do not use G, H generators
-
-            let mut rem_scalar_polys = ArrayTrait::new();
-            let mut commitments_rem = ArrayTrait::new();
-
-            let x_2 = x * x;
-            let x_3 = x_2 * x;
-
-            // x
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x));
-            commitments_rem.append(proof.A_I);
-
-            // x^2
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x_2));
-            commitments_rem.append(proof.A_O);
-
-            // x^3
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x_3));
-            commitments_rem.append(proof.S);
-
-            // r*x^2*w_V_flat[0:m]
-            rem_scalar_polys
-                .append(
-                    VecPoly3Trait::new()
-                        .add_term(r * x_2, false, Option::Some(VecSubterm::W_V_flat(())), )
-                );
-            commitments_rem.append_all(ref proof.V);
-
-            let x_4 = x_3 * x;
-            let x_5 = x_4 * x;
-            let x_6 = x_5 * x;
-
-            // r*x
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x));
-            commitments_rem.append(proof.T_1);
-
-            // r*x^3
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_3));
-            commitments_rem.append(proof.T_3);
-
-            // r*x^4
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_4));
-            commitments_rem.append(proof.T_4);
-
-            // r*x^5
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_5));
-            commitments_rem.append(proof.T_5);
-
-            // r*x^6
-            rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_6));
-            commitments_rem.append(proof.T_6);
-
-            // Calculate delta
-
-            // Need powers [0, n) of y^{-1}
-            let mut y_inv_powers_to_n = ArrayTrait::new();
-            y_inv_powers_to_n.append(1);
-            let mut computed_y_powers = get_consecutive_powers(y_inv, n - 1);
-            y_inv_powers_to_n.append_all(ref computed_y_powers);
-
-            let delta = calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R);
-
-            let w_c = c.flatten(z);
-
-            // w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat)
-            rem_scalar_polys
-                .append(
-                    VecPoly3Trait::single_scalar_poly(
-                        w * (proof.t_hat - proof.a * proof.b)
-                            + r * (x_2 * (w_c + delta) - proof.t_hat)
-                    )
-                );
-            commitments_rem.append(B);
-
-            // -e_blind - r*t_blind
-            rem_scalar_polys
-                .append(VecPoly3Trait::single_scalar_poly(0 - proof.e_blind - r * proof.t_blind));
-            commitments_rem.append(B_blind);
-
-            // u^2[0:k]
-            rem_scalar_polys
-                .append(
-                    VecPoly3Trait::new()
-                        .add_term(
-                            scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(())), 
-                        )
-                );
-            commitments_rem.append_all(ref proof.L);
-
-            // u^{-2}[0:k]
-            rem_scalar_polys
-                .append(
-                    VecPoly3Trait::new()
-                        .add_term(
-                            scalar: 1,
-                            uses_y_power: false,
-                            vec: Option::Some(VecSubterm::U_sq_inv(())),
-                        )
-                );
-            commitments_rem.append_all(ref proof.R);
-
-            // Now, construct scalar polynomials in MSM terms that use G, H generators
-
-            // xy^{-n+}[0:n] * w_R_flat[0:n] - as[0:n]
-            let g_n_poly = VecPoly3Trait::new()
-                .add_term(
-                    scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(())), 
-                )
-                .add_term(
-                    scalar: 0 - proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
-                );
-            rem_scalar_polys.append(g_n_poly);
-
-            // If n = n_plus, we don't need this polynomial (s[n:n_plus] is empty)
-            if n_plus > n {
-                // -as[n:n+]
-                let g_n_plus_poly = VecPoly3Trait::new()
-                    .add_term(
-                        scalar: 0 - proof.a,
-                        uses_y_power: false,
-                        vec: Option::Some(VecSubterm::S(())),
-                    );
-                rem_scalar_polys.append(g_n_plus_poly);
-            }
-
-            // -1 + y^{-n+}[0:n] * (x*w_L_flat[0:n] + w_O_flat[0:n] - b*s^{-1}[0:n])
-            let h_n_poly = VecPoly3Trait::new()
-                .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
-                .add_term(
-                    scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), 
-                )
-                .add_term(
-                    scalar: 1, uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), 
-                )
-                .add_term(
-                    scalar: 0 - proof.b,
-                    uses_y_power: true,
-                    vec: Option::Some(VecSubterm::S_inv(())),
-                );
-            rem_scalar_polys.append(h_n_poly);
-
-            // If n = n_plus, we don't need this polynomial (s_inv[n:n_plus] is empty)
-            if n_plus > n {
-                // -1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+])
-                let h_n_plus_poly = VecPoly3Trait::new()
-                    .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
-                    .add_term(
-                        scalar: 0 - proof.b,
-                        uses_y_power: true,
-                        vec: Option::Some(VecSubterm::S_inv(())),
-                    );
-                rem_scalar_polys.append(h_n_plus_poly);
-            }
+            // Prep commitments
+            let rem_commitments = prep_rem_commitments(ref proof, B, B_blind);
 
             // Pack `VerificationJob` struct
-
             let vec_indices = VecIndices {
                 w_L_flat_index: 0,
                 w_R_flat_index: 0,
@@ -393,11 +241,10 @@ mod Verifier {
             };
 
             let verification_job = VerificationJobTrait::new(
-                rem_scalar_polys, y_inv_power, z, u, vec_indices, G_rem, H_rem, commitments_rem, 
+                rem_scalar_polys, y_inv_power, z, u, vec_indices, G_rem, H_rem, rem_commitments, 
             );
 
             // Enqueue verification job
-
             self
                 .verification_queue
                 .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
@@ -407,32 +254,7 @@ mod Verifier {
 
         fn step_verification(ref self: ContractState, verification_job_id: felt252) {
             let mut verification_job = self.verification_queue.read(verification_job_id).inner;
-            let mut verified = Option::None(());
-
-            loop {
-                // Loop until we run out of gas or finish the job
-                if testing::get_available_gas() < step_cost_bound(@self) {
-                    break;
-                }
-
-                // We don't actually *need* a mutable reference to the contract state here,
-                // but the compiler doesn't allow taking a snapshot when a mutable reference is in scope
-                let msm_complete = verification_job.step_msm(ref self);
-                if msm_complete {
-                    let result = verification_job.msm_result.unwrap() == ec_point_zero();
-                    verified = Option::Some(result);
-
-                    self
-                        .emit(
-                            Event::VerificationJobCompleted(
-                                VerificationJobCompleted { verification_job_id, result }
-                            )
-                        );
-                    break;
-                };
-            };
-
-            verification_job.verified = verified;
+            step_verification_inner(ref self, ref verification_job);
             self
                 .verification_queue
                 .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
@@ -477,6 +299,203 @@ mod Verifier {
         multiplier * STEP_UNIT_GAS
     }
 
+    fn prep_rem_gens(
+        G_label: felt252, H_label: felt252, n_plus: usize
+    ) -> (RemainingGenerators, RemainingGenerators) {
+        (
+            RemainingGeneratorsTrait::new(G_label.into(), n_plus),
+            RemainingGeneratorsTrait::new(H_label.into(), n_plus)
+        )
+    }
+
+    fn prep_rem_scalar_polys(
+        y_inv: felt252,
+        z: felt252,
+        x: felt252,
+        w: felt252,
+        r: felt252,
+        proof: @Proof,
+        n: usize,
+        n_plus: usize,
+        W_L: @SparseWeightMatrix,
+        W_R: @SparseWeightMatrix,
+        c: @SparseWeightVec,
+    ) -> Array<VecPoly3> {
+        let mut rem_scalar_polys: Array<VecPoly3> = ArrayTrait::new();
+
+        // Construct scalar polynomials & EC points in the appropriate order
+        // TODO: DOCUMENT THIS ORDER (AND THE ENTIRE FINAL MSM)
+
+        // Begin with MSM terms that do not use G, H generators
+
+        let mut rem_scalar_polys = ArrayTrait::new();
+
+        let x_2 = x * x;
+        let x_3 = x_2 * x;
+
+        // x
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x));
+
+        // x^2
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x_2));
+
+        // x^3
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(x_3));
+
+        // r*x^2*w_V_flat[0:m]
+        rem_scalar_polys
+            .append(
+                VecPoly3Trait::new()
+                    .add_term(r * x_2, false, Option::Some(VecSubterm::W_V_flat(())), )
+            );
+
+        let x_4 = x_3 * x;
+        let x_5 = x_4 * x;
+        let x_6 = x_5 * x;
+
+        // r*x
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x));
+
+        // r*x^3
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_3));
+
+        // r*x^4
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_4));
+
+        // r*x^5
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_5));
+
+        // r*x^6
+        rem_scalar_polys.append(VecPoly3Trait::single_scalar_poly(r * x_6));
+
+        // Calculate delta
+
+        // Need powers [0, n) of y^{-1}
+        let mut y_inv_powers_to_n = ArrayTrait::new();
+        y_inv_powers_to_n.append(1);
+        let mut computed_y_powers = get_consecutive_powers(y_inv, n - 1);
+        y_inv_powers_to_n.append_all(ref computed_y_powers);
+
+        let delta = calc_delta(n, y_inv_powers_to_n.span(), z, W_L, W_R);
+
+        let w_c = c.flatten(z);
+
+        // w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat)
+        rem_scalar_polys
+            .append(
+                VecPoly3Trait::single_scalar_poly(
+                    w * (*proof.t_hat - *proof.a * *proof.b)
+                        + r * (x_2 * (w_c + delta) - *proof.t_hat)
+                )
+            );
+
+        // -e_blind - r*t_blind
+        rem_scalar_polys
+            .append(VecPoly3Trait::single_scalar_poly(0 - *proof.e_blind - r * *proof.t_blind));
+
+        // u^2[0:k]
+        rem_scalar_polys
+            .append(
+                VecPoly3Trait::new()
+                    .add_term(
+                        scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(())), 
+                    )
+            );
+
+        // u^{-2}[0:k]
+        rem_scalar_polys
+            .append(
+                VecPoly3Trait::new()
+                    .add_term(
+                        scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq_inv(())), 
+                    )
+            );
+
+        // Now, construct scalar polynomials in MSM terms that use G, H generators
+
+        // xy^{-n+}[0:n] * w_R_flat[0:n] - as[0:n]
+        let g_n_poly = VecPoly3Trait::new()
+            .add_term(scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(())), )
+            .add_term(
+                scalar: 0 - *proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
+            );
+        rem_scalar_polys.append(g_n_poly);
+
+        // If n = n_plus, we don't need this polynomial (s[n:n_plus] is empty)
+        if n_plus > n {
+            // -as[n:n+]
+            let g_n_plus_poly = VecPoly3Trait::new()
+                .add_term(
+                    scalar: 0 - *proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
+                );
+            rem_scalar_polys.append(g_n_plus_poly);
+        }
+
+        // -1 + y^{-n+}[0:n] * (x*w_L_flat[0:n] + w_O_flat[0:n] - b*s^{-1}[0:n])
+        let h_n_poly = VecPoly3Trait::new()
+            .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
+            .add_term(scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), )
+            .add_term(scalar: 1, uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), )
+            .add_term(
+                scalar: 0 - *proof.b, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
+            );
+        rem_scalar_polys.append(h_n_poly);
+
+        // If n = n_plus, we don't need this polynomial (s_inv[n:n_plus] is empty)
+        if n_plus > n {
+            // -1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+])
+            let h_n_plus_poly = VecPoly3Trait::new()
+                .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
+                .add_term(
+                    scalar: 0 - *proof.b,
+                    uses_y_power: true,
+                    vec: Option::Some(VecSubterm::S_inv(())),
+                );
+            rem_scalar_polys.append(h_n_plus_poly);
+        }
+
+        rem_scalar_polys
+    }
+
+    fn prep_rem_commitments(ref proof: Proof, B: EcPoint, B_blind: EcPoint) -> Array<EcPoint> {
+        let mut commitments_rem = ArrayTrait::new();
+
+        commitments_rem.append(proof.A_I);
+        commitments_rem.append(proof.A_O);
+        commitments_rem.append(proof.S);
+        commitments_rem.append_all(ref proof.V);
+        commitments_rem.append(proof.T_1);
+        commitments_rem.append(proof.T_3);
+        commitments_rem.append(proof.T_4);
+        commitments_rem.append(proof.T_5);
+        commitments_rem.append(proof.T_6);
+        commitments_rem.append(B);
+        commitments_rem.append(B_blind);
+        commitments_rem.append_all(ref proof.L);
+        commitments_rem.append_all(ref proof.R);
+
+        commitments_rem
+    }
+
+    fn step_verification_inner(ref self: ContractState, ref verification_job: VerificationJob) {
+        let mut verified = Option::None(());
+        loop {
+            // Loop until we run out of gas or finish the job
+            if testing::get_available_gas() < step_cost_bound(@self) {
+                break;
+            }
+
+            // We don't actually *need* a mutable reference to the contract state here,
+            // but the compiler doesn't allow taking a snapshot when a mutable reference is in scope
+            let msm_complete = verification_job.step_msm(ref self);
+            if msm_complete {
+                verified = Option::Some(verification_job.msm_result.unwrap() == ec_point_zero());
+                break;
+            };
+        };
+        verification_job.verified = verified;
+    }
+
     // ----------
     // | TRAITS |
     // ----------
@@ -517,7 +536,7 @@ mod Verifier {
             vec_indices: mut vec_indices,
             G_rem,
             H_rem,
-            commitments_rem,
+            rem_commitments,
             msm_result,
             verified,
             } =
@@ -578,7 +597,7 @@ mod Verifier {
                 vec_indices,
                 G_rem,
                 H_rem,
-                commitments_rem,
+                rem_commitments,
                 msm_result,
                 verified,
             };

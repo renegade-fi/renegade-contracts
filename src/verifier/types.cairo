@@ -1,4 +1,5 @@
 use traits::{TryInto, Into};
+use clone::Clone;
 use option::{OptionTrait, OptionSerde};
 use array::ArrayTrait;
 use array::SpanTrait;
@@ -32,7 +33,7 @@ struct VerificationJob {
     /// Tracks the H generators left to sample from the hash chain
     H_rem: RemainingGenerators,
     /// The proof-specific commitments remaining to be used for verification
-    commitments_rem: Array<EcPoint>,
+    rem_commitments: Array<EcPoint>,
     /// The accumulated result of the verification MSM
     msm_result: Option<EcPoint>,
     // The final verdict of the verification. If it is `None`, that means
@@ -50,7 +51,7 @@ impl VerificationJobImpl of VerificationJobTrait {
         vec_indices: VecIndices,
         G_rem: RemainingGenerators,
         H_rem: RemainingGenerators,
-        commitments_rem: Array<EcPoint>,
+        rem_commitments: Array<EcPoint>,
     ) -> VerificationJob {
         VerificationJob {
             rem_scalar_polys,
@@ -60,7 +61,7 @@ impl VerificationJobImpl of VerificationJobTrait {
             vec_indices,
             G_rem,
             H_rem,
-            commitments_rem,
+            rem_commitments,
             msm_result: Option::None(()),
             verified: Option::None(()),
         }
@@ -69,7 +70,7 @@ impl VerificationJobImpl of VerificationJobTrait {
     /// Get the next elliptic curve point to be used in the verification MSM
     fn get_next_point(ref self: VerificationJob) -> Option<EcPoint> {
         // First we process all of commitments_rem, then we process all of G_rem & H_rem
-        let commitment = self.commitments_rem.pop_front();
+        let commitment = self.rem_commitments.pop_front();
         if commitment.is_some() {
             return Option::Some(commitment.unwrap());
         }
@@ -466,7 +467,7 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
 }
 
 /// The public parameters of the circuit
-#[derive(Drop, Serde, PartialEq)]
+#[derive(Drop, Clone, Serde, PartialEq)]
 struct CircuitParams {
     /// The number of multiplication gates in the circuit
     n: usize,
