@@ -13,7 +13,7 @@ use internal::revoke_ap_tracking;
 use alexandria_data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::{
     verifier::{
-        Verifier, IVerifierDispatcher, IVerifierDispatcherTrait,
+        Verifier, Verifier::ContractState, IVerifier,
         types::{
             SparseWeightMatrix, SparseWeightMatrixTrait, SparseWeightVec, SparseWeightVecTrait,
             CircuitParams, Proof, VerificationJob, VerificationJobTrait, RemainingGenerators,
@@ -26,6 +26,7 @@ use renegade_contracts::{
         eq::{
             OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
         },
+        collections::tile_felt_arr,
     }
 };
 
@@ -230,19 +231,13 @@ fn test_squeeze_challenge_scalars_basic() {
 #[test]
 #[available_gas(100000000)]
 fn test_initializer_storage_serde() {
-    'getting dummy circuit params...'.print();
-    let circuit_params = get_dummy_circuit_params();
+    let mut verifier = Verifier::contract_state_for_testing();
 
-    'serializing...'.print();
-    let mut calldata = ArrayTrait::new();
-    circuit_params.serialize(ref calldata);
-
-    'initializing...'.print();
-    Verifier::__external::initialize(calldata.span());
+    // Initialize verifier
+    let circuit_params = initialize_verifier(ref verifier);
 
     'fetching circuit params...'.print();
-    let mut retdata = Verifier::__external::get_circuit_params(ArrayTrait::new().span());
-    let stored_circuit_params: CircuitParams = test_utils::single_deserialize(ref retdata);
+    let stored_circuit_params = verifier.get_circuit_params();
 
     'checking circuit params...'.print();
     assert(circuit_params == stored_circuit_params, 'circuit params not equal');
@@ -251,29 +246,13 @@ fn test_initializer_storage_serde() {
 #[test]
 #[available_gas(100000000)]
 fn test_queue_verification() {
-    'getting dummy circuit params...'.print();
-    let circuit_params = get_dummy_circuit_params();
-    let mut calldata = ArrayTrait::new();
-    circuit_params.serialize(ref calldata);
+    let mut verifier = Verifier::contract_state_for_testing();
 
-    'initializing...'.print();
-    Verifier::__external::initialize(calldata.span());
+    // Initialize verifier
+    let circuit_params = initialize_verifier(ref verifier);
 
-    'getting dummy proof...'.print();
-    let proof = get_dummy_proof();
-
-    'queueing verification job...'.print();
-    let mut calldata = ArrayTrait::new();
-    proof.serialize(ref calldata);
-    // Add verification job ID to calldata
-    11.serialize(ref calldata);
-    Verifier::__external::queue_verification_job(calldata.span());
-
-    'fetching verification job...'.print();
-    let mut calldata = ArrayTrait::new();
-    calldata.append(11);
-    let mut retdata = Verifier::__external::get_verification_job(calldata.span());
-    let stored_verification_job: VerificationJob = test_utils::single_deserialize(ref retdata);
+    // Queue dummy verification job
+    let stored_verification_job = queue_dummy_verification_job(ref verifier, @circuit_params);
     let expected_verification_job = get_expected_verification_job();
 
     'checking y_inv_power...'.print();
@@ -308,10 +287,10 @@ fn test_queue_verification() {
         'rem_scalar_polys not equal'
     );
 
-    'checking commitments_rem...'.print();
+    'checking rem_commitments...'.print();
     assert(
-        stored_verification_job.commitments_rem == expected_verification_job.commitments_rem,
-        'commitments_rem not equal'
+        stored_verification_job.rem_commitments == expected_verification_job.rem_commitments,
+        'rem_commitments not equal'
     );
 
     'final sanity check'.print();
@@ -321,47 +300,27 @@ fn test_queue_verification() {
 #[test]
 #[available_gas(100000000)]
 fn test_step_verification_basic() {
-    'getting dummy circuit params...'.print();
-    let circuit_params = get_dummy_circuit_params();
-    let mut calldata = ArrayTrait::new();
-    circuit_params.serialize(ref calldata);
+    let mut verifier = Verifier::contract_state_for_testing();
 
-    'initializing...'.print();
-    Verifier::__external::initialize(calldata.span());
+    // Initialize verifier
+    let circuit_params = initialize_verifier(ref verifier);
 
-    'getting dummy proof...'.print();
-    let proof = get_dummy_proof();
-
-    'queueing verification job...'.print();
-    let mut calldata = ArrayTrait::new();
-    proof.serialize(ref calldata);
-    // Add verification job ID to calldata
-    11.serialize(ref calldata);
-    Verifier::__external::queue_verification_job(calldata.span());
+    // Queue dummy verification job
+    let mut verification_job = queue_dummy_verification_job(ref verifier, @circuit_params);
 
     'executing verification step...'.print();
-    let mut calldata = ArrayTrait::new();
-    11.serialize(ref calldata);
-    Verifier::__external::step_verification(calldata.span());
-
-    'fetching verification job...'.print();
-    let mut calldata = ArrayTrait::new();
-    calldata.append(11);
-    let mut retdata = Verifier::__external::get_verification_job(calldata.span());
-    let stored_verification_job: VerificationJob = test_utils::single_deserialize(ref retdata);
+    Verifier::step_verification_inner(ref verifier, ref verification_job);
 
     'checking scalars used...'.print();
-    assert(stored_verification_job.rem_scalar_polys.len() == 0, 'rem_scalar_polys not empty');
+    assert(verification_job.rem_scalar_polys.len() == 0, 'rem_scalar_polys not empty');
     'checking commitments used...'.print();
-    assert(stored_verification_job.commitments_rem.len() == 0, 'commitments_rem not empty');
+    assert(verification_job.rem_commitments.len() == 0, 'rem_commitments not empty');
     'checking G gens used...'.print();
-    assert(stored_verification_job.G_rem.num_gens_rem == 0, 'G_rem not empty');
+    assert(verification_job.G_rem.num_gens_rem == 0, 'G_rem not empty');
     'checking H gens used...'.print();
-    assert(stored_verification_job.H_rem.num_gens_rem == 0, 'H_rem not empty');
+    assert(verification_job.H_rem.num_gens_rem == 0, 'H_rem not empty');
     'checking final msm result...'.print();
-    assert(
-        stored_verification_job.msm_result.unwrap() == get_expected_msm_result(), 'wrong msm_result'
-    );
+    assert(verification_job.msm_result.unwrap() == get_expected_msm_result(), 'wrong msm_result');
 }
 
 // 10x more gas for this test so that verification definitely completes,
@@ -598,6 +557,83 @@ fn get_dummy_circuit_pc_gens() -> (EcPoint, EcPoint) {
     (B, B_blind)
 }
 
+fn initialize_verifier(ref verifier: ContractState) -> CircuitParams {
+    'getting dummy circuit params...'.print();
+    let circuit_params = get_dummy_circuit_params();
+
+    'initializing...'.print();
+    verifier.initialize(circuit_params.clone());
+
+    circuit_params
+}
+
+// Mostly copied from the contract, but uses dummy proof & challenge scalars,
+// and returns verification job instead of writing to contract state.
+fn queue_dummy_verification_job(
+    ref verifier: ContractState, circuit_params: @CircuitParams, 
+) -> VerificationJob {
+    'getting dummy proof...'.print();
+    let mut proof = get_dummy_proof();
+
+    'queueing verification job...'.print();
+    // Skips assertion about verification job id since we don't use it
+
+    let n = *circuit_params.n;
+    let n_plus = *circuit_params.n_plus;
+    let k = *circuit_params.k;
+    let q = *circuit_params.q;
+    let m = *circuit_params.m;
+    let G_label = *circuit_params.G_label;
+    let H_label = *circuit_params.H_label;
+    let B = *circuit_params.B;
+    let B_blind = *circuit_params.B_blind;
+    let W_L = circuit_params.W_L;
+    let W_R = circuit_params.W_R;
+    let W_O = circuit_params.W_O;
+    let W_V = circuit_params.W_V;
+    let c = circuit_params.c;
+
+    // Prep `RemainingGenerators` structs for G and H generators
+    let (G_rem, H_rem) = Verifier::prep_rem_gens(G_label, H_label, n_plus);
+
+    // Squeeze out DUMMY challenge scalars
+    let (mut challenge_scalars, u) = get_dummy_challenge_scalars(k);
+    let y = challenge_scalars.pop_front().unwrap();
+    let z = challenge_scalars.pop_front().unwrap();
+    let x = challenge_scalars.pop_front().unwrap();
+    let w = challenge_scalars.pop_front().unwrap();
+    let r = challenge_scalars.pop_front().unwrap();
+
+    // Calculate mod inv of y
+    // Unwrapping is safe here since y is guaranteed not to be 0
+    let y_inv = felt252_div(1, y.try_into().unwrap());
+    let y_inv_power = (y_inv, 1); // First power of y is y^0 = 1
+
+    // Prep scalar polynomials
+    let rem_scalar_polys = Verifier::prep_rem_scalar_polys(
+        y_inv, z, x, w, r, @proof, n, n_plus, W_L, W_R, c, 
+    );
+
+    // Prep commitments
+    let rem_commitments = Verifier::prep_rem_commitments(ref proof, B, B_blind);
+
+    // Pack `VerificationJob` struct
+    let vec_indices = VecIndices {
+        w_L_flat_index: 0,
+        w_R_flat_index: 0,
+        w_O_flat_index: 0,
+        w_V_flat_index: 0,
+        s_index: 0,
+        s_inv_index: 0,
+        u_sq_index: 0,
+        u_sq_inv_index: 0,
+    };
+
+    VerificationJobTrait::new(
+        rem_scalar_polys, y_inv_power, z, u, vec_indices, G_rem, H_rem, rem_commitments, 
+    )
+}
+
 fn get_dummy_circuit_params() -> CircuitParams {
     let (n, n_plus, k, q, m) = get_dummy_circuit_size_params();
     let (G_label, H_label) = get_dummy_circuit_generator_labels();
@@ -644,6 +680,25 @@ fn get_dummy_proof() -> Proof {
     }
 }
 
+fn get_dummy_challenge_scalars(k: usize) -> (Array<felt252>, Array<felt252>) {
+    let mut u = ArrayTrait::new();
+    tile_felt_arr(ref u, 6, k);
+
+    let mut challenge_scalars = ArrayTrait::new();
+    // y
+    challenge_scalars.append(2);
+    // z
+    challenge_scalars.append(3);
+    // x
+    challenge_scalars.append(4);
+    // w
+    challenge_scalars.append(5);
+    // r
+    challenge_scalars.append(8);
+
+    (challenge_scalars, u)
+}
+
 fn get_expected_verification_job() -> VerificationJob {
     let mut u = ArrayTrait::new();
     u.append(6);
@@ -667,7 +722,7 @@ fn get_expected_verification_job() -> VerificationJob {
         },
         G_rem: RemainingGeneratorsTrait::new('GeneratorsChainG0000', 4),
         H_rem: RemainingGeneratorsTrait::new('GeneratorsChainH0000', 4),
-        commitments_rem: get_expected_commitments_rem(),
+        rem_commitments: get_expected_rem_commitments(),
     )
 }
 
@@ -826,7 +881,7 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
     rem_scalar_polys
 }
 
-fn get_expected_commitments_rem() -> Array<EcPoint> {
+fn get_expected_rem_commitments() -> Array<EcPoint> {
     let mut dummy_proof = get_dummy_proof();
 
     let mut commitments_rem = ArrayTrait::new();
@@ -917,7 +972,7 @@ fn get_expected_ec_points() -> Array<EcPoint> {
     let mut points = ArrayTrait::new();
 
     let mut expected_verification_job = get_expected_verification_job();
-    points.append_all(ref expected_verification_job.commitments_rem);
+    points.append_all(ref expected_verification_job.rem_commitments);
 
     // Using _compute_next_generator for now, but idk how i feel about this
     // wrt not using tested code paths in testing
