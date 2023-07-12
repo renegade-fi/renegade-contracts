@@ -1,5 +1,8 @@
+use traits::TryInto;
 use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
+
+use super::constants::STARK_FIELD_PRIME;
 
 
 /// Get `num_powers` consecutive powers of `val`, starting from `val^1`
@@ -52,4 +55,8 @@ fn binary_exp(base: felt252, exp: usize) -> felt252 {
     } else {
         base * binary_exp(base * base, (exp - 1) / 2)
     }
+}
+
+fn reduce_to_felt(val: u256) -> felt252 {
+    (val % STARK_FIELD_PRIME).try_into().unwrap()
 }
