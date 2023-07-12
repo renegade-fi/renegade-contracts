@@ -19,7 +19,7 @@ use renegade_contracts::{
             CircuitParams, Proof, VerificationJob, VerificationJobTrait, RemainingGenerators,
             RemainingGeneratorsTrait, VecPoly3Term, VecPoly3, VecSubterm, VecIndices
         },
-        utils::{get_s_elem, calc_delta},
+        utils::{get_s_elem, calc_delta, squeeze_challenge_scalars},
     },
     testing::test_utils,
     utils::{
@@ -179,6 +179,17 @@ fn test_calc_delta_basic() {
         1206167596222043737899107594365023368541035738443865566657697352045290674603;
 
     assert(delta == expected_delta, 'wrong delta');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_squeeze_challenge_scalars_basic() {
+    let proof = get_dummy_proof();
+    let (_, n_plus, k, _, m) = get_dummy_circuit_size_params();
+    let (challenge_scalars, u) = squeeze_challenge_scalars(@proof, m, n_plus);
+
+    assert(challenge_scalars.len() == 5, 'wrong # of challenge scalars');
+    assert(u.len() == k, 'wrong # of u challenge scalars');
 }
 
 // ------------------

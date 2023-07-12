@@ -193,6 +193,7 @@ mod Verifier {
             let n_plus = self.n_plus.read();
             let k = self.k.read();
             let q = self.q.read();
+            let m = self.m.read();
             let G_label = self.G_label.read();
             let H_label = self.H_label.read();
             let B = self.B.read().inner;
@@ -209,7 +210,12 @@ mod Verifier {
             let H_rem = RemainingGeneratorsTrait::new(H_label.into(), n_plus);
 
             // Squeeze out challenge scalars from proof
-            let (y, z, x, w, u, r) = squeeze_challenge_scalars(k, @proof);
+            let (mut challenge_scalars, u) = squeeze_challenge_scalars(@proof, m, n_plus);
+            let r = challenge_scalars.pop_front().unwrap();
+            let w = challenge_scalars.pop_front().unwrap();
+            let x = challenge_scalars.pop_front().unwrap();
+            let z = challenge_scalars.pop_front().unwrap();
+            let y = challenge_scalars.pop_front().unwrap();
 
             // Calculate mod inv of y
             // Unwrapping is safe here since y is guaranteed not to be 0
