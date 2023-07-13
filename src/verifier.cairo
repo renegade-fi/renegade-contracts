@@ -102,7 +102,29 @@ mod Verifier {
     // | EVENTS |
     // ----------
 
-    // TODO
+    // TODO: Access / management controls events
+
+    #[derive(Drop, PartialEq, starknet::Event)]
+    struct Initialized {}
+
+    #[derive(Drop, PartialEq, starknet::Event)]
+    struct VerificationJobQueued {
+        verification_job_id: felt252, 
+    }
+
+    #[derive(Drop, PartialEq, starknet::Event)]
+    struct VerificationJobCompleted {
+        verification_job_id: felt252,
+        result: bool,
+    }
+
+    #[event]
+    #[derive(Drop, PartialEq, starknet::Event)]
+    enum Event {
+        Initialized: Initialized,
+        VerificationJobQueued: VerificationJobQueued,
+        VerificationJobCompleted: VerificationJobCompleted,
+    }
 
     // ----------------------------
     // | INTERFACE IMPLEMENTATION |
@@ -151,6 +173,8 @@ mod Verifier {
             self.W_O.write(StorageAccessSerdeWrapper { inner: circuit_params.W_O });
             self.W_V.write(StorageAccessSerdeWrapper { inner: circuit_params.W_V });
             self.c.write(StorageAccessSerdeWrapper { inner: circuit_params.c });
+
+            self.emit(Event::Initialized(Initialized {}));
         }
 
         /// Enqueues a verification job for the given proof, squeezing out challenge scalars
@@ -371,6 +395,8 @@ mod Verifier {
             self
                 .verification_queue
                 .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+
+            self.emit(Event::VerificationJobQueued(VerificationJobQueued { verification_job_id }));
         }
 
         fn step_verification(ref self: ContractState, verification_job_id: felt252) {
@@ -387,8 +413,15 @@ mod Verifier {
                 // but the compiler doesn't allow taking a snapshot when a mutable reference is in scope
                 let msm_complete = verification_job.step_msm(ref self);
                 if msm_complete {
-                    verified =
-                        Option::Some(verification_job.msm_result.unwrap() == ec_point_zero());
+                    let result = verification_job.msm_result.unwrap() == ec_point_zero();
+                    verified = Option::Some(result);
+
+                    self
+                        .emit(
+                            Event::VerificationJobCompleted(
+                                VerificationJobCompleted { verification_job_id, result }
+                            )
+                        );
                     break;
                 };
             };
