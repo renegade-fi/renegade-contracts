@@ -1,16 +1,19 @@
-use traits::Into;
+use traits::{Into, TryInto};
 use option::OptionTrait;
+use result::ResultTrait;
 use serde::Serde;
 use clone::Clone;
 use array::{ArrayTrait, SpanTrait};
 use ec::{ec_point_from_x, ec_mul, ec_point_zero};
 
 use debug::PrintTrait;
+use starknet::{testing::pop_log, Event, syscalls::deploy_syscall};
+use internal::revoke_ap_tracking;
 
 use alexandria_data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::{
     verifier::{
-        Verifier,
+        Verifier, IVerifierDispatcher, IVerifierDispatcherTrait,
         types::{
             SparseWeightMatrix, SparseWeightMatrixTrait, SparseWeightVec, SparseWeightVecTrait,
             CircuitParams, Proof, VerificationJob, VerificationJobTrait, RemainingGenerators,
@@ -347,6 +350,63 @@ fn test_step_verification_basic() {
     'checking final msm result...'.print();
     assert(
         stored_verification_job.msm_result.unwrap() == get_expected_msm_result(), 'wrong msm_result'
+    );
+}
+
+// 10x more gas for this test so that verification definitely completes,
+// ensuring that all events are emitted.
+#[test]
+#[available_gas(1000000000)]
+fn test_verification_events() {
+    revoke_ap_tracking();
+
+    // Set up.
+    let (contract_address, _) = deploy_syscall(
+        Verifier::TEST_CLASS_HASH.try_into().unwrap(), 0, Default::default().span(), false
+    )
+        .unwrap();
+    let mut verifier = IVerifierDispatcher { contract_address };
+
+    'getting dummy circuit params...'.print();
+    let circuit_params = get_dummy_circuit_params();
+
+    'initializing...'.print();
+    verifier.initialize(circuit_params);
+
+    'getting dummy proof...'.print();
+    let proof = get_dummy_proof();
+
+    'queueing verification job...'.print();
+    verifier.queue_verification_job(proof, 11);
+
+    'executing verification...'.print();
+    verifier.step_verification(11);
+
+    'asserting events...'.print();
+
+    let (mut keys, mut data) = pop_log(contract_address).unwrap();
+    assert(
+        @Event::deserialize(ref keys, ref data)
+            .unwrap() == @Verifier::Event::Initialized(Verifier::Initialized {}),
+        'wrong first event'
+    );
+
+    let (mut keys, mut data) = pop_log(contract_address).unwrap();
+    assert(
+        @Event::deserialize(ref keys, ref data)
+            .unwrap() == @Verifier::Event::VerificationJobQueued(
+                Verifier::VerificationJobQueued { verification_job_id: 11 }
+            ),
+        'wrong second event'
+    );
+
+    let (mut keys, mut data) = pop_log(contract_address).unwrap();
+    assert(
+        @Event::deserialize(ref keys, ref data)
+            .unwrap() == @Verifier::Event::VerificationJobCompleted(
+                Verifier::VerificationJobCompleted { verification_job_id: 11, result: false }
+            ),
+        'wrong second event'
     );
 }
 
