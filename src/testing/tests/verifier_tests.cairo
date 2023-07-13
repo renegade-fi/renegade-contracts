@@ -10,7 +10,7 @@ use debug::PrintTrait;
 use starknet::{testing::pop_log, Event, syscalls::deploy_syscall};
 use internal::revoke_ap_tracking;
 
-use alexandria_data_structures::array_ext::ArrayTraitExt;
+use alexandria::data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::{
     verifier::{
         Verifier, Verifier::ContractState, IVerifier,

@@ -31,8 +31,10 @@ mod Verifier {
 
     use debug::PrintTrait;
 
-    use alexandria_data_structures::array_ext::ArrayTraitExt;
-    use alexandria_math::fast_power::fast_power;
+    use alexandria::{
+        data_structures::array_ext::ArrayTraitExt,
+        math::fast_power::fast_power,
+    };
     use renegade_contracts::utils::{
         math::get_consecutive_powers, collections::extend, storage::StorageAccessSerdeWrapper,
         eq::EcPointPartialEq,

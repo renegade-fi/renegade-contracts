@@ -13,7 +13,7 @@ use starknet::{
     syscalls::{storage_read_syscall, storage_write_syscall}
 };
 
-use alexandria_data_structures::array_ext::ArrayTraitExt;
+use alexandria::data_structures::array_ext::ArrayTraitExt;
 
 use super::serde::EcPointSerde;
 

@@ -10,14 +10,12 @@ use renegade_contracts::utils::math::reduce_to_felt;
 struct Transcript {
     /// The current state of the hash chain.
     state: u256,
-    /// A counter that is incremented & absorbed for each challenge squeezed.
-    counter: u8,
 }
 
 #[generate_trait]
 impl TranscriptImpl of TranscriptTrait {
     fn new() -> Transcript {
-        Transcript { state: 0, counter: 0 }
+        Transcript { state: 0 }
     }
 
     /// Absorb data into the transcript,
@@ -29,17 +27,15 @@ impl TranscriptImpl of TranscriptTrait {
 
     /// Squeeze a challenge out of the transcript.
     fn squeeze(ref self: Transcript) -> felt252 {
-        // Hash together current state and counter.
+        // Re-hash the current state.
         // This is necessary to allow squeezing consecutive challenges.
         let mut data = ArrayTrait::new();
-        data.append(self.counter.into());
         data.append(self.state);
-        self.state = keccak_u256s_le_inputs(data.span());
+        let state = keccak_u256s_le_inputs(data.span());
 
-        // Increment counter
-        self.counter += 1;
+        self.state = state;
 
         // Reduce hash state to a field element
-        reduce_to_felt(self.state)
+        reduce_to_felt(state)
     }
 }
