@@ -13,7 +13,7 @@ use internal::revoke_ap_tracking;
 use alexandria::data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::{
     verifier::{
-        Verifier, Verifier::ContractState, IVerifier,
+        Verifier, Verifier::ContractState, IVerifier, IVerifierDispatcher, IVerifierDispatcherTrait,
         types::{
             SparseWeightMatrix, SparseWeightMatrixTrait, SparseWeightVec, SparseWeightVecTrait,
             CircuitParams, Proof, VerificationJob, VerificationJobTrait, RemainingGenerators,
@@ -354,6 +354,7 @@ fn test_verification_events() {
 
     'asserting events...'.print();
 
+    'asserting first event'.print();
     let (mut keys, mut data) = pop_log(contract_address).unwrap();
     assert(
         @Event::deserialize(ref keys, ref data)
@@ -361,6 +362,7 @@ fn test_verification_events() {
         'wrong first event'
     );
 
+    'asserting second event'.print();
     let (mut keys, mut data) = pop_log(contract_address).unwrap();
     assert(
         @Event::deserialize(ref keys, ref data)
@@ -370,13 +372,14 @@ fn test_verification_events() {
         'wrong second event'
     );
 
+    'asserting third event'.print();
     let (mut keys, mut data) = pop_log(contract_address).unwrap();
     assert(
         @Event::deserialize(ref keys, ref data)
             .unwrap() == @Verifier::Event::VerificationJobCompleted(
                 Verifier::VerificationJobCompleted { verification_job_id: 11, result: false }
             ),
-        'wrong second event'
+        'wrong third event'
     );
 }
 

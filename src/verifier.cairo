@@ -21,23 +21,13 @@ trait IVerifier<TContractState> {
 mod Verifier {
     use option::OptionTrait;
     use clone::Clone;
-    use box::BoxTrait;
     use traits::{Into, TryInto};
     use array::{ArrayTrait, SpanTrait};
-    use ec::{StarkCurve, EcPoint, ec_point_zero, ec_mul, ec_point_new};
-    use keccak::keccak_u256s_le_inputs;
-    use math::inv_mod;
-    use gas::withdraw_gas_all;
+    use ec::{EcPoint, ec_point_zero, ec_mul};
 
-    use debug::PrintTrait;
-
-    use alexandria::{
-        data_structures::array_ext::ArrayTraitExt,
-        math::fast_power::fast_power,
-    };
+    use alexandria::{data_structures::array_ext::ArrayTraitExt, math::fast_power::fast_power};
     use renegade_contracts::utils::{
-        math::get_consecutive_powers, collections::extend, storage::StorageAccessSerdeWrapper,
-        eq::EcPointPartialEq,
+        math::get_consecutive_powers, storage::StorageAccessSerdeWrapper, eq::EcPointPartialEq,
     };
 
     use super::{
@@ -257,6 +247,19 @@ mod Verifier {
         fn step_verification(ref self: ContractState, verification_job_id: felt252) {
             let mut verification_job = self.verification_queue.read(verification_job_id).inner;
             step_verification_inner(ref self, ref verification_job);
+
+            match verification_job.verified {
+                Option::Some(result) => {
+                    self
+                        .emit(
+                            Event::VerificationJobCompleted(
+                                VerificationJobCompleted { verification_job_id, result }
+                            )
+                        );
+                },
+                Option::None(()) => {}
+            };
+
             self
                 .verification_queue
                 .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });

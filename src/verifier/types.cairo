@@ -11,7 +11,7 @@ use starknet::StorageAccess;
 use renegade_contracts::utils::{
     serde::{EcPointSerde},
     eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq},
-    math::{binary_exp, reduce_to_felt}, collections::DeepSpan, constants::STARK_FIELD_PRIME,
+    math::{binary_exp, hash_to_felt}, collections::DeepSpan, constants::STARK_FIELD_PRIME,
 };
 
 /// Tracks the verification of a single proof
@@ -280,7 +280,7 @@ impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
         self = RemainingGenerators { hash_state, num_gens_rem: self.num_gens_rem - 1 };
         // TODO: See if there's a cheaper way to get to an EcPoint from a hash
         let basepoint = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
-        let hash_felt = reduce_to_felt(hash_state);
+        let hash_felt = hash_to_felt(hash_state);
         ec_mul(basepoint, hash_felt)
     }
 }
