@@ -567,8 +567,11 @@ fn initialize_verifier(ref verifier: ContractState) -> CircuitParams {
     circuit_params
 }
 
-// Mostly copied from the contract, but uses dummy proof & challenge scalars,
-// and returns verification job instead of writing to contract state.
+/// Enqueues a verification job for a DUMMY proof, squeezing out DUMMY
+/// challenge scalars as necessary.
+/// 
+/// Mostly copied from the contract, but uses dummy proof & challenge scalars,
+/// and returns verification job instead of writing to contract state.
 fn queue_dummy_verification_job(
     ref verifier: ContractState, circuit_params: @CircuitParams, 
 ) -> VerificationJob {
