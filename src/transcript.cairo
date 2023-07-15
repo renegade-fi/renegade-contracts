@@ -5,10 +5,10 @@ use array::ArrayTrait;
 use keccak::keccak_u256s_le_inputs;
 use ec::{ec_point_unwrap, ec_point_non_zero};
 
-use renegade_contracts::utils::{math::hash_to_felt, constants::SHIFT_128};
+use renegade_contracts::utils::math::hash_to_felt;
 
 
-const TRANSCRIPT_SEED: felt252 = 'merlin seed';
+const TRANSCRIPT_SEED: u256 = 'merlin seed';
 
 #[derive(Drop)]
 struct Transcript {
@@ -18,9 +18,9 @@ struct Transcript {
 
 #[generate_trait]
 impl TranscriptImpl of TranscriptTrait {
-    fn new(label: felt252) -> Transcript {
+    fn new(label: u256) -> Transcript {
         let mut data = ArrayTrait::new();
-        data.append(label.into());
+        data.append(label);
         let state = keccak_u256s_le_inputs(data.span());
         Transcript { state }
     }
@@ -28,29 +28,28 @@ impl TranscriptImpl of TranscriptTrait {
     /// Absorb an arbitrary-length message into the transcript,
     /// hashing it together with the label & the current state.
     // TODO: Could make this an Array of u64s... see what feels better
-    fn append_message(ref self: Transcript, label: felt252, mut message: Array<u256>) {
-        message.append(label.into());
+    fn append_message(ref self: Transcript, label: u256, mut message: Array<u256>) {
+        message.append(label);
         message.append(self.state);
         self.state = keccak_u256s_le_inputs(message.span());
     }
 
     /// Absorb a u64 into the transcript
-    fn append_u64(ref self: Transcript, label: felt252, x: u64) {
+    fn append_u64(ref self: Transcript, label: u256, x: u64) {
         let mut message = ArrayTrait::new();
         message.append(x.into());
         self.append_message(label, message);
     }
 
     /// Squeeze a challenge u256 out of the transcript.
-    fn challenge_u256(ref self: Transcript, label: felt252) -> u256 {
+    fn challenge_u256(ref self: Transcript, label: u256) -> u256 {
         let mut data = ArrayTrait::new();
-        data.append(label.into());
+        data.append(label);
         data.append(self.state);
-        self.state = keccak_u256s_le_inputs(data.span());
+        let output = keccak_u256s_le_inputs(data.span());
+        self.state = output;
 
-        let mut data = ArrayTrait::new();
-        data.append(self.state);
-        keccak_u256s_le_inputs(data.span())
+        output
     }
 }
 
@@ -80,7 +79,7 @@ impl TranscriptProtocolImpl of TranscriptProtocol {
     }
 
     /// Append a `scalar` with the given `label`.
-    fn append_scalar(ref self: Transcript, label: felt252, scalar: felt252) {
+    fn append_scalar(ref self: Transcript, label: u256, scalar: felt252) {
         let mut message = ArrayTrait::new();
         message.append(scalar.into());
         self.append_message(label, message);
@@ -88,7 +87,7 @@ impl TranscriptProtocolImpl of TranscriptProtocol {
 
     /// Append a `point` with the given `label`.
     /// Panics if the point is the identity.
-    fn validate_and_append_point(ref self: Transcript, label: felt252, point: EcPoint, ) {
+    fn validate_and_append_point(ref self: Transcript, label: u256, point: EcPoint, ) {
         let mut message = ArrayTrait::new();
         let (x, y) = ec_point_unwrap(ec_point_non_zero(point));
         message.append(x.into());
@@ -97,7 +96,7 @@ impl TranscriptProtocolImpl of TranscriptProtocol {
     }
 
     /// Compute a `label`ed challenge variable.
-    fn challenge_scalar(ref self: Transcript, label: felt252) -> felt252 {
+    fn challenge_scalar(ref self: Transcript, label: u256) -> felt252 {
         hash_to_felt(self.challenge_u256(label))
     }
 

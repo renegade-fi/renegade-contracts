@@ -278,7 +278,7 @@ impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
         input.append(self.hash_state);
         let hash_state = keccak_u256s_le_inputs(input.span());
         self = RemainingGenerators { hash_state, num_gens_rem: self.num_gens_rem - 1 };
-        // TODO: See if there's a cheaper way to get to an EcPoint from a hash
+        // TODO: Ensure this is equivalent to Rust impl
         let basepoint = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
         let hash_felt = hash_to_felt(hash_state);
         ec_mul(basepoint, hash_felt)

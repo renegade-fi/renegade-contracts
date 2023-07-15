@@ -4,7 +4,10 @@ use result::ResultTrait;
 use serde::Serde;
 use clone::Clone;
 use array::{ArrayTrait, SpanTrait};
-use ec::{ec_point_from_x, ec_mul, ec_point_zero};
+use ec::{
+    ec_point_from_x, ec_mul, ec_point_zero, StarkCurve, ec_point_new, ec_point_unwrap,
+    ec_point_non_zero
+};
 
 use debug::PrintTrait;
 use starknet::{testing::pop_log, Event, syscalls::deploy_syscall};
@@ -27,7 +30,8 @@ use renegade_contracts::{
             OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
         },
         collections::tile_felt_arr,
-    }
+    },
+    transcript::{Transcript, TranscriptTrait, TranscriptProtocol, TRANSCRIPT_SEED},
 };
 
 // ---------
@@ -191,6 +195,23 @@ fn test_squeeze_challenge_scalars_basic() {
 
     assert(challenge_scalars.len() == 5, 'wrong # of challenge scalars');
     assert(u.len() == k, 'wrong # of u challenge scalars');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_print_init_transcript() {
+    let gen = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
+    let mut transcript = TranscriptTrait::new(TRANSCRIPT_SEED);
+
+    transcript.rangeproof_domain_sep(1, 2);
+    transcript.innerproduct_domain_sep(3);
+    transcript.r1cs_domain_sep();
+    transcript.r1cs_1phase_domain_sep();
+    transcript.append_scalar('scalar', 4);
+    transcript.validate_and_append_point('gen', gen);
+
+    let challenge = transcript.challenge_scalar('challenge');
+    challenge.print();
 }
 
 // ------------------

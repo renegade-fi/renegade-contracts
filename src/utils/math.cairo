@@ -3,7 +3,9 @@ use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
 use keccak::keccak_u256s_le_inputs;
 
-use super::constants::{STARK_FIELD_PRIME, SHIFT_128};
+use super::constants::{STARK_FIELD_PRIME, SHIFT_256_MOD_P};
+
+use debug::PrintTrait;
 
 
 /// Get `num_powers` consecutive powers of `val`, starting from `val^1`
@@ -61,23 +63,20 @@ fn binary_exp(base: felt252, exp: usize) -> felt252 {
 /// Reduces a hash to a field element, ensuring an indistinguishable-from-uniform
 /// sampling of the field.
 fn hash_to_felt(hash: u256) -> felt252 {
-    // We generate another hash & truncate as necessary to sample
-    // 48 total bytes. We use this to construct a "u384" given by
-    // low_u256 + (high_u128 << 128).
-    // Reducing this "u384" modulo the STARK prime p allows us to
+    // We generate another hash to sample  total bytes.
+    // We use this to construct a "u512" given by
+    // low_u256 + (high_u256 << 256).
+    // Reducing this "u512" modulo the STARK prime p allows us to
     // get an indistinguishable-from-uniform sampling of the field.
     // This reduction is given by:
-    // our_u384 % p = (low_u256 % p) + (high_u128 % p) * 2^128 % p
-    // where in our case, 2^128 % p == 2^128
+    // our_u512 % p = (low_u256 % p) + (high_u256 % p) * 2^256 % p
 
     let mut data = ArrayTrait::new();
     data.append(hash);
     let high_u256 = keccak_u256s_le_inputs(data.span());
 
-    let high_u128 = high_u256.low;
-
     let low_felt = (hash % STARK_FIELD_PRIME).try_into().unwrap(); // low_u256 % p
-    let high_felt = (high_u128.into() % STARK_FIELD_PRIME).try_into().unwrap(); // high_u128 % p
+    let high_felt = (high_u256 % STARK_FIELD_PRIME).try_into().unwrap(); // high_u256 % p
 
-    low_felt + (high_felt * SHIFT_128)
+    low_felt + (high_felt * SHIFT_256_MOD_P)
 }
