@@ -48,11 +48,34 @@ fn squeeze_challenge_scalars(
 ) -> (Array<felt252>, Array<felt252>) {
     let mut challenge_scalars = ArrayTrait::new();
     let mut u = ArrayTrait::new();
+
     let mut transcript = TranscriptTrait::new(TRANSCRIPT_SEED);
 
-    transcript.validate_and_append_point('A_I1', *proof.A_I);
-    transcript.validate_and_append_point('A_O1', *proof.A_O);
-    transcript.validate_and_append_point('S1', *proof.S);
+    transcript.r1cs_domain_sep();
+
+    // TODO: Assert consistent iteration order of witness b/w prover
+    let mut i = 0;
+    loop {
+        if i == m {
+            break;
+        };
+
+        transcript.validate_and_append_point('V', *proof.V.at(i));
+
+        i += 1;
+    };
+
+    transcript.append_u64('m', m.into());
+
+    transcript.validate_and_append_point('A_I1', *proof.A_I1);
+    transcript.validate_and_append_point('A_O1', *proof.A_O1);
+    transcript.validate_and_append_point('S1', *proof.S1);
+
+    // TODO: Assert that it's safe to just absorb these points
+    // into the transcript & omit entirely from MSM
+    transcript.append_point('A_I2', *proof.A_I2);
+    transcript.append_point('A_O2', *proof.A_O2);
+    transcript.append_point('S2', *proof.S2);
 
     challenge_scalars.append(transcript.challenge_scalar('y'));
     challenge_scalars.append(transcript.challenge_scalar('z'));
@@ -63,6 +86,7 @@ fn squeeze_challenge_scalars(
     transcript.validate_and_append_point('T_5', *proof.T_5);
     transcript.validate_and_append_point('T_6', *proof.T_6);
 
+    challenge_scalars.append(transcript.challenge_scalar('u'));
     challenge_scalars.append(transcript.challenge_scalar('x'));
 
     transcript.append_scalar('t_x', *proof.t_hat);
