@@ -200,15 +200,8 @@ fn test_squeeze_challenge_scalars_basic() {
 #[test]
 #[available_gas(100000000)]
 fn test_print_init_transcript() {
-    let gen = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
     let mut transcript = TranscriptTrait::new(TRANSCRIPT_SEED);
-
-    transcript.rangeproof_domain_sep(1, 2);
-    transcript.innerproduct_domain_sep(3);
-    transcript.r1cs_domain_sep();
-    transcript.r1cs_1phase_domain_sep();
-    transcript.append_scalar('scalar', 4);
-    transcript.validate_and_append_point('gen', gen);
+    transcript.append_point('ident', ec_point_zero());
 
     let challenge = transcript.challenge_scalar('challenge');
     challenge.print();
@@ -624,9 +617,10 @@ fn queue_dummy_verification_job(
     let (G_rem, H_rem) = Verifier::prep_rem_gens(G_label, H_label, n_plus);
 
     // Squeeze out DUMMY challenge scalars
-    let (mut challenge_scalars, u) = get_dummy_challenge_scalars(k);
+    let (mut challenge_scalars, u_vec) = get_dummy_challenge_scalars(k);
     let y = challenge_scalars.pop_front().unwrap();
     let z = challenge_scalars.pop_front().unwrap();
+    let u = challenge_scalars.pop_front().unwrap();
     let x = challenge_scalars.pop_front().unwrap();
     let w = challenge_scalars.pop_front().unwrap();
     let r = challenge_scalars.pop_front().unwrap();
@@ -638,7 +632,7 @@ fn queue_dummy_verification_job(
 
     // Prep scalar polynomials
     let rem_scalar_polys = Verifier::prep_rem_scalar_polys(
-        y_inv, z, x, w, r, @proof, n, n_plus, W_L, W_R, c, 
+        y_inv, z, u, x, w, r, @proof, n, n_plus, W_L, W_R, c, 
     );
 
     // Prep commitments
@@ -657,7 +651,7 @@ fn queue_dummy_verification_job(
     };
 
     VerificationJobTrait::new(
-        rem_scalar_polys, y_inv_power, z, u, vec_indices, G_rem, H_rem, rem_commitments, 
+        rem_scalar_polys, y_inv_power, z, u_vec, vec_indices, G_rem, H_rem, rem_commitments, 
     )
 }
 
@@ -688,9 +682,12 @@ fn get_dummy_proof() -> Proof {
     V.append(ec_mul(basepoint, 16));
 
     Proof {
-        A_I: ec_mul(basepoint, 3),
-        A_O: ec_mul(basepoint, 4),
-        S: ec_mul(basepoint, 5),
+        A_I1: ec_mul(basepoint, 3),
+        A_O1: ec_mul(basepoint, 4),
+        S1: ec_mul(basepoint, 5),
+        A_I2: ec_point_zero(),
+        A_O2: ec_point_zero(),
+        S2: ec_point_zero(),
         T_1: ec_mul(basepoint, 6),
         T_3: ec_mul(basepoint, 7),
         T_4: ec_mul(basepoint, 8),
@@ -716,6 +713,8 @@ fn get_dummy_challenge_scalars(k: usize) -> (Array<felt252>, Array<felt252>) {
     challenge_scalars.append(2);
     // z
     challenge_scalars.append(3);
+    // u
+    challenge_scalars.append(1);
     // x
     challenge_scalars.append(4);
     // w
@@ -727,16 +726,16 @@ fn get_dummy_challenge_scalars(k: usize) -> (Array<felt252>, Array<felt252>) {
 }
 
 fn get_expected_verification_job() -> VerificationJob {
-    let mut u = ArrayTrait::new();
-    u.append(6);
-    u.append(6);
+    let mut u_vec = ArrayTrait::new();
+    u_vec.append(6);
+    u_vec.append(6);
     VerificationJobTrait::new(
         rem_scalar_polys: get_expected_rem_scalar_polys(),
         y_inv_power: (
             1809251394333065606848661391547535052811553607665798349986546028067936010241, 1
         ),
         z: 3,
-        u: u,
+        u_vec: u_vec,
         vec_indices: VecIndices {
             w_L_flat_index: 0,
             w_R_flat_index: 0,
@@ -912,9 +911,9 @@ fn get_expected_rem_commitments() -> Array<EcPoint> {
     let mut dummy_proof = get_dummy_proof();
 
     let mut commitments_rem = ArrayTrait::new();
-    commitments_rem.append(dummy_proof.A_I);
-    commitments_rem.append(dummy_proof.A_O);
-    commitments_rem.append(dummy_proof.S);
+    commitments_rem.append(dummy_proof.A_I1);
+    commitments_rem.append(dummy_proof.A_O1);
+    commitments_rem.append(dummy_proof.S1);
     commitments_rem.append_all(ref dummy_proof.V);
     commitments_rem.append(dummy_proof.T_1);
     commitments_rem.append(dummy_proof.T_3);

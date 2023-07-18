@@ -200,9 +200,10 @@ mod Verifier {
             let (G_rem, H_rem) = prep_rem_gens(G_label, H_label, n_plus);
 
             // Squeeze out challenge scalars from proof
-            let (mut challenge_scalars, u) = squeeze_challenge_scalars(@proof, m, n_plus);
+            let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(@proof, m, n_plus);
             let y = challenge_scalars.pop_front().unwrap();
             let z = challenge_scalars.pop_front().unwrap();
+            let u = challenge_scalars.pop_front().unwrap();
             let x = challenge_scalars.pop_front().unwrap();
             let w = challenge_scalars.pop_front().unwrap();
             let r = challenge_scalars.pop_front().unwrap();
@@ -214,7 +215,7 @@ mod Verifier {
 
             // Prep scalar polynomials
             let rem_scalar_polys = prep_rem_scalar_polys(
-                y_inv, z, x, w, r, @proof, n, n_plus, @W_L, @W_R, @c, 
+                y_inv, z, u, x, w, r, @proof, n, n_plus, @W_L, @W_R, @c, 
             );
 
             // Prep commitments
@@ -233,7 +234,7 @@ mod Verifier {
             };
 
             let verification_job = VerificationJobTrait::new(
-                rem_scalar_polys, y_inv_power, z, u, vec_indices, G_rem, H_rem, rem_commitments, 
+                rem_scalar_polys, y_inv_power, z, u_vec, vec_indices, G_rem, H_rem, rem_commitments, 
             );
 
             // Enqueue verification job
@@ -316,6 +317,7 @@ mod Verifier {
     fn prep_rem_scalar_polys(
         y_inv: felt252,
         z: felt252,
+        u: felt252,
         x: felt252,
         w: felt252,
         r: felt252,
@@ -428,10 +430,12 @@ mod Verifier {
 
         // If n = n_plus, we don't need this polynomial (s[n:n_plus] is empty)
         if n_plus > n {
-            // -as[n:n+]
+            // -uas[n:n+]
             let g_n_plus_poly = VecPoly3Trait::new()
                 .add_term(
-                    scalar: 0 - *proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
+                    scalar: 0 - (u * *proof.a),
+                    uses_y_power: false,
+                    vec: Option::Some(VecSubterm::S(())),
                 );
             rem_scalar_polys.append(g_n_plus_poly);
         }
@@ -448,11 +452,11 @@ mod Verifier {
 
         // If n = n_plus, we don't need this polynomial (s_inv[n:n_plus] is empty)
         if n_plus > n {
-            // -1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+])
+            // u(-1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+]))
             let h_n_plus_poly = VecPoly3Trait::new()
-                .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
+                .add_term(scalar: 0 - u, uses_y_power: false, vec: Option::None(()), )
                 .add_term(
-                    scalar: 0 - *proof.b,
+                    scalar: 0 - (u * *proof.b),
                     uses_y_power: true,
                     vec: Option::Some(VecSubterm::S_inv(())),
                 );
@@ -465,9 +469,12 @@ mod Verifier {
     fn prep_rem_commitments(ref proof: Proof, B: EcPoint, B_blind: EcPoint) -> Array<EcPoint> {
         let mut commitments_rem = ArrayTrait::new();
 
-        commitments_rem.append(proof.A_I);
-        commitments_rem.append(proof.A_O);
-        commitments_rem.append(proof.S);
+        commitments_rem.append(proof.A_I1);
+        commitments_rem.append(proof.A_O1);
+        commitments_rem.append(proof.S1);
+        // Since we're currently only doing 1-phase circuits,
+        // we don't actually need to include the A_I2, A_O2, S2 commitments
+        // in the verification MSM (they're the identity point, so have no effect)
         commitments_rem.append_all(ref proof.V);
         commitments_rem.append(proof.T_1);
         commitments_rem.append(proof.T_3);
@@ -537,7 +544,7 @@ mod Verifier {
             let VerificationJob{rem_scalar_polys: mut rem_scalar_polys,
             y_inv_power: mut y_inv_power,
             z,
-            u,
+            u_vec,
             vec_indices: mut vec_indices,
             G_rem,
             H_rem,
@@ -548,7 +555,7 @@ mod Verifier {
                 self;
 
             let poly = rem_scalar_polys.at(0);
-            let scalar = poly.evaluate(contract, y_inv_power, z, u.span(), @vec_indices);
+            let scalar = poly.evaluate(contract, y_inv_power, z, u_vec.span(), @vec_indices);
 
             if poly.uses_y() {
                 // Last scalar used a power of y, so we now increase it to the next power
@@ -598,7 +605,7 @@ mod Verifier {
                 rem_scalar_polys,
                 y_inv_power,
                 z,
-                u,
+                u_vec,
                 vec_indices,
                 G_rem,
                 H_rem,

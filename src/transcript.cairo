@@ -3,7 +3,8 @@
 use traits::Into;
 use array::ArrayTrait;
 use keccak::keccak_u256s_le_inputs;
-use ec::{ec_point_unwrap, ec_point_non_zero};
+use ec::{ec_point_unwrap, ec_point_non_zero, ec_point_is_zero};
+use zeroable::IsZeroResult;
 
 use renegade_contracts::utils::math::hash_to_felt;
 
@@ -27,7 +28,6 @@ impl TranscriptImpl of TranscriptTrait {
 
     /// Absorb an arbitrary-length message into the transcript,
     /// hashing it together with the label & the current state.
-    // TODO: Could make this an Array of u64s... see what feels better
     fn append_message(ref self: Transcript, label: u256, mut message: Array<u256>) {
         message.append(label);
         message.append(self.state);
@@ -86,8 +86,27 @@ impl TranscriptProtocolImpl of TranscriptProtocol {
     }
 
     /// Append a `point` with the given `label`.
+    fn append_point(ref self: Transcript, label: u256, point: EcPoint) {
+        let mut message = ArrayTrait::new();
+        match ec_point_is_zero(point) {
+            IsZeroResult::Zero(()) => {
+                // x
+                message.append(0.into());
+                // y
+                message.append(0.into());
+            },
+            IsZeroResult::NonZero(p) => {
+                let (x, y) = ec_point_unwrap(p);
+                message.append(x.into());
+                message.append(y.into());
+            },
+        }
+        self.append_message(label, message);
+    }
+
+    /// Append a `point` with the given `label`.
     /// Panics if the point is the identity.
-    fn validate_and_append_point(ref self: Transcript, label: u256, point: EcPoint, ) {
+    fn validate_and_append_point(ref self: Transcript, label: u256, point: EcPoint) {
         let mut message = ArrayTrait::new();
         let (x, y) = ec_point_unwrap(ec_point_non_zero(point));
         message.append(x.into());

@@ -25,7 +25,7 @@ struct VerificationJob {
     /// The z challenge scalar
     z: felt252,
     // The u challenge scalars
-    u: Array<felt252>,
+    u_vec: Array<felt252>,
     /// Tracks the current index used in the w_{L, R, O, V}, s, and s_inv vectors
     vec_indices: VecIndices,
     /// Tracks the G generators left to sample from the hash chain
@@ -47,7 +47,7 @@ impl VerificationJobImpl of VerificationJobTrait {
         rem_scalar_polys: Array<VecPoly3>,
         y_inv_power: (felt252, felt252),
         z: felt252,
-        u: Array<felt252>,
+        u_vec: Array<felt252>,
         vec_indices: VecIndices,
         G_rem: RemainingGenerators,
         H_rem: RemainingGenerators,
@@ -57,7 +57,7 @@ impl VerificationJobImpl of VerificationJobTrait {
             rem_scalar_polys,
             y_inv_power,
             z,
-            u,
+            u_vec,
             vec_indices,
             G_rem,
             H_rem,
@@ -288,9 +288,12 @@ impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
 /// A Bulletproofs proof object (excluding public inputs)
 #[derive(Drop, Serde)]
 struct Proof {
-    A_I: EcPoint,
-    A_O: EcPoint,
-    S: EcPoint,
+    A_I1: EcPoint,
+    A_O1: EcPoint,
+    S1: EcPoint,
+    A_I2: EcPoint,
+    A_O2: EcPoint,
+    S2: EcPoint,
     T_1: EcPoint,
     T_3: EcPoint,
     T_4: EcPoint,
