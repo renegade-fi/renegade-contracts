@@ -6,7 +6,7 @@ use keccak::keccak_u256s_le_inputs;
 use ec::{ec_point_unwrap, ec_point_non_zero, ec_point_is_zero};
 use zeroable::IsZeroResult;
 
-use renegade_contracts::utils::math::hash_to_felt;
+use renegade_contracts::{utils::math::hash_to_scalar, verifier::scalar::Scalar};
 
 
 const TRANSCRIPT_SEED: u256 = 'merlin seed';
@@ -79,7 +79,7 @@ impl TranscriptProtocolImpl of TranscriptProtocol {
     }
 
     /// Append a `scalar` with the given `label`.
-    fn append_scalar(ref self: Transcript, label: u256, scalar: felt252) {
+    fn append_scalar(ref self: Transcript, label: u256, scalar: Scalar) {
         let mut message = ArrayTrait::new();
         message.append(scalar.into());
         self.append_message(label, message);
@@ -115,8 +115,8 @@ impl TranscriptProtocolImpl of TranscriptProtocol {
     }
 
     /// Compute a `label`ed challenge variable.
-    fn challenge_scalar(ref self: Transcript, label: u256) -> felt252 {
-        hash_to_felt(self.challenge_u256(label))
+    fn challenge_scalar(ref self: Transcript, label: u256) -> Scalar {
+        hash_to_scalar(self.challenge_u256(label))
     }
 
     // -----------
