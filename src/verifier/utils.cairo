@@ -6,15 +6,17 @@ use ec::{ec_point_unwrap, ec_point_non_zero};
 use alexandria::linalg::dot::dot;
 use renegade_contracts::{
     transcript::{Transcript, TranscriptTrait, TranscriptProtocol, TRANSCRIPT_SEED},
-    utils::{math::elt_wise_mul, collections::{tile_felt_arr}}
+    utils::math::elt_wise_mul
 };
 
-use super::types::{SparseWeightMatrix, SparseWeightMatrixTrait, Proof};
+use super::{
+    types::{SparseWeightMatrix, SparseWeightMatrixTrait, Proof}, scalar::{Scalar, ScalarTrait},
+};
 
 /// This computes the `i`th element of the `s` vector using the `u` challenge scalars.
 /// The explanation for this calculation can be found [here](https://doc-internal.dalek.rs/bulletproofs/inner_product_proof/index.html#verifiers-algorithm)
-fn get_s_elem(u: Span<felt252>, i: usize) -> felt252 {
-    let mut res = 1;
+fn get_s_elem(u: Span<Scalar>, i: usize) -> Scalar {
+    let mut res = 1.into();
     let mut j = 0;
     let mut two_to_j: u128 = 1;
     loop {
@@ -28,7 +30,7 @@ fn get_s_elem(u: Span<felt252>, i: usize) -> felt252 {
         } else {
             // If jth bit of i is 0, then we multiply by u[j]^-1
             // Unwrapping is safe here b/c u scalars are never 0
-            res *= felt252_div(1, (*u.at(j)).try_into().unwrap());
+            res *= u.at(j).inverse();
         };
 
         j += 1;
@@ -45,7 +47,7 @@ fn get_s_elem(u: Span<felt252>, i: usize) -> felt252 {
 // TODO: Squeeze u challenge scalar for 2-phase circuit (confusing variable naming)
 fn squeeze_challenge_scalars(
     proof: @Proof, m: usize, n_plus: usize
-) -> (Array<felt252>, Array<felt252>) {
+) -> (Array<Scalar>, Array<Scalar>) {
     let mut challenge_scalars = ArrayTrait::new();
     let mut u = ArrayTrait::new();
 
@@ -126,11 +128,11 @@ fn squeeze_challenge_scalars(
 // TODO: Technically, only need powers of y for which the corresponding column of W_R & W_L is non-zero
 fn calc_delta(
     n: usize,
-    y_inv_powers_to_n: Span<felt252>,
-    z: felt252,
+    y_inv_powers_to_n: Span<Scalar>,
+    z: Scalar,
     W_L: @SparseWeightMatrix,
     W_R: @SparseWeightMatrix
-) -> felt252 {
+) -> Scalar {
     // Flatten W_L, W_R using z
     let w_L_flat = W_L.flatten(z, n);
     let w_R_flat = W_R.flatten(z, n);

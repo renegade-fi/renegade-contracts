@@ -22,14 +22,14 @@ use renegade_contracts::{
             CircuitParams, Proof, VerificationJob, VerificationJobTrait, RemainingGenerators,
             RemainingGeneratorsTrait, VecPoly3Term, VecPoly3, VecSubterm, VecIndices
         },
-        utils::{get_s_elem, calc_delta, squeeze_challenge_scalars},
+        utils::{get_s_elem, calc_delta, squeeze_challenge_scalars}, scalar::{Scalar, ScalarTrait},
     },
     testing::test_utils,
     utils::{
         eq::{
             OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
         },
-        collections::tile_felt_arr,
+        collections::tile_arr,
     },
     transcript::{Transcript, TranscriptTrait, TranscriptProtocol, TRANSCRIPT_SEED},
 };
@@ -47,17 +47,17 @@ use renegade_contracts::{
 fn test_flatten_sparse_weight_matrix_basic() {
     let matrix = get_test_matrix_1();
 
-    let z = 2;
+    let z = 2.into();
     let width = 4;
 
     let mut expected = ArrayTrait::new();
     // 2*1 + 4*2 + 8*4 = 42
-    expected.append(42);
+    expected.append(42.into());
     // 4*3 + 8*5 = 52
-    expected.append(52);
+    expected.append(52.into());
     // 8*6 = 48
-    expected.append(48);
-    expected.append(0);
+    expected.append(48.into());
+    expected.append(0.into());
 
     let flattened = matrix.flatten(z, width);
 
@@ -68,16 +68,16 @@ fn test_flatten_sparse_weight_matrix_basic() {
 #[available_gas(100000000)]
 fn test_flatten_column_basic() {
     let mut column = ArrayTrait::new();
-    column.append((0, 1));
-    column.append((2, 2));
-    column.append((4, 3));
+    column.append((0, 1.into()));
+    column.append((2, 2.into()));
+    column.append((4, 3.into()));
 
-    let z = 2;
+    let z = 2.into();
 
     let flattened = column.flatten(z);
 
     // 2*1 + 8*2 + 32*3 = 114
-    assert(flattened == 114, 'wrong flattened column');
+    assert(flattened == 114.into(), 'wrong flattened column');
 }
 
 #[test]
@@ -91,14 +91,14 @@ fn test_get_sparse_weight_column_basic() {
     let col_3 = matrix.get_sparse_weight_column(3);
 
     let mut expected_col_0 = ArrayTrait::new();
-    expected_col_0.append((0, 1));
-    expected_col_0.append((1, 2));
-    expected_col_0.append((2, 4));
+    expected_col_0.append((0, 1.into()));
+    expected_col_0.append((1, 2.into()));
+    expected_col_0.append((2, 4.into()));
     let mut expected_col_1 = ArrayTrait::new();
-    expected_col_1.append((1, 3));
-    expected_col_1.append((2, 5));
+    expected_col_1.append((1, 3.into()));
+    expected_col_1.append((2, 5.into()));
     let mut expected_col_2 = ArrayTrait::new();
-    expected_col_2.append((2, 6));
+    expected_col_2.append((2, 6.into()));
     let expected_col_3 = ArrayTrait::new();
 
     assert(col_0 == expected_col_0, 'wrong column 0');
@@ -108,13 +108,13 @@ fn test_get_sparse_weight_column_basic() {
 }
 
 #[test]
-#[available_gas(100000000)]
+#[available_gas(1000000000)] // 10x
 fn test_get_s_elem_basic() {
     let k: usize = 3;
     let n_plus: usize = 8;
 
     // u = [2, 3, 4]
-    let mut u: Array<felt252> = ArrayTrait::new();
+    let mut u: Array<Scalar> = ArrayTrait::new();
     let mut i: usize = 0;
     loop {
         if i == k {
@@ -126,7 +126,7 @@ fn test_get_s_elem_basic() {
     let u = u.span();
 
     // s has len n_plus = 2^k
-    let mut s: Array<felt252> = ArrayTrait::new();
+    let mut s: Array<Scalar> = ArrayTrait::new();
     let mut i: usize = 0;
     loop {
         if i == n_plus {
@@ -138,21 +138,39 @@ fn test_get_s_elem_basic() {
 
     let mut expected_s = ArrayTrait::new();
     // s[0] = 2^-1 * 3^-1 * 4^-1
-    expected_s.append(1055396646694288270661719145069395447473406271138382370825485183039629339307);
+    expected_s
+        .append(
+            2563106141971842943035603638025674658081443490798895304817472949334863279788.into()
+        );
     // s[1] = 2 * 3^-1 * 4^-1
-    expected_s.append(603083798111021868949553797182511684270517869221932783328848676022645336747);
+    expected_s
+        .append(
+            3015418990555109344747768985912558421272286459763406240961732881570427387986.into()
+        );
     // s[2] = 2^-1 * 3 * 4^-1
-    expected_s.append(2261564242916332008560826739434418816014442009582247937483182535084920012801);
+    expected_s
+        .append(
+            1356938545749799205136496043660651289572528906893532808432779796706692324594.into()
+        );
     // s[3] = 2 * 3 * 4^-1
-    expected_s.append(1809251394333065606848661391547535052811553607665798349986546028067936010242);
+    expected_s
+        .append(
+            1809251394333065606848661391547535052763371875858043744577039728942256432793.into()
+        );
     // s[4] = 2^-1 * 3^-1 * 4
-    expected_s.append(2412335192444087475798215188730046737082071476887731133315394704090581346988);
+    expected_s
+        .append(
+            1206167596222043737899107594365023368508914583905362496384693152628170955195.into()
+        );
     // s[5] = 2 * 3^-1 * 4
-    expected_s.append(2412335192444087475798215188730046737082071476887731133315394704090581346990);
+    expected_s
+        .append(
+            1206167596222043737899107594365023368508914583905362496384693152628170955197.into()
+        );
     // s[6] = 2^-1 * 3 * 4
-    expected_s.append(6);
+    expected_s.append(6.into());
     // s[7] = 2 * 3 * 4
-    expected_s.append(24);
+    expected_s.append(24.into());
 
     assert(s == expected_s, 'wrong s');
 }
@@ -164,16 +182,18 @@ fn test_calc_delta_basic() {
     let W_R = get_test_matrix_2();
 
     let n = 4;
-    let z = 2;
+    let z = 2.into();
     // y_inv_powers_to_n = [1, 3^-1, 3^-2, 3^-3]
     let mut y_inv_powers_to_n = ArrayTrait::new();
-    y_inv_powers_to_n.append(1);
+    y_inv_powers_to_n.append(1.into());
     y_inv_powers_to_n
-        .append(1206167596222043737899107594365023368541035738443865566657697352045290673494);
+        .append(
+            2412335192444087475798215188730046737017829167810724992769386305256341910389.into()
+        );
     y_inv_powers_to_n
-        .append(2814391057851435388431251053518387859929083389702352988867960488105678238152);
+        .append(804111730814695825266071729576682245672609722603574997589795435085447303463.into());
     y_inv_powers_to_n
-        .append(3350465545061232605275298873236176023725099273455182129604714866792474093038);
+        .append(268037243604898608422023909858894081890869907534524999196598478361815767821.into());
 
     let delta = calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R);
 
@@ -181,7 +201,8 @@ fn test_calc_delta_basic() {
     // The expected result was calculated by hand using the powers of y^{-1} above
     // and the result of flattening the matrices W_L and W_R above using z = 2
     let expected_delta =
-        1206167596222043737899107594365023368541035738443865566657697352045290674603;
+        2412335192444087475798215188730046737017829167810724992769386305256341911498
+        .into();
 
     assert(delta == expected_delta, 'wrong delta');
 }
@@ -193,7 +214,7 @@ fn test_squeeze_challenge_scalars_basic() {
     let (_, n_plus, k, _, m) = get_dummy_circuit_size_params();
     let (challenge_scalars, u) = squeeze_challenge_scalars(@proof, m, n_plus);
 
-    assert(challenge_scalars.len() == 5, 'wrong # of challenge scalars');
+    assert(challenge_scalars.len() == 6, 'wrong # of challenge scalars');
     assert(u.len() == k, 'wrong # of u challenge scalars');
 }
 
@@ -239,7 +260,7 @@ fn test_print_init_transcript() {
 // W_L = [[(0, -1)], [], [(1, -1)], [], [(2, -1)], [], [], []]
 // W_R = [[], [(0, -1)], [], [(1, -1)], [], [(2, -1)], [], []]
 // W_O = [[], [], [], [], [(0, 1)], [(1, 1)], [], [(2, 1)]]
-// W_V = [[(0, -1)], [(1, -1)], [(2, -1)], [(3, -1)], [], [], [0, -1], []]
+// W_V = [[(0, -1)], [(1, -1)], [(2, -1)], [(3, -1)], [], [], [(0, -1)], []]
 // c = [(6, 69), (7, 420)]
 
 #[test]
@@ -312,7 +333,7 @@ fn test_queue_verification() {
 }
 
 #[test]
-#[available_gas(100000000)]
+#[available_gas(1000000000)] // 10x
 fn test_step_verification_basic() {
     let mut verifier = Verifier::contract_state_for_testing();
 
@@ -419,18 +440,18 @@ fn get_test_matrix_1() -> SparseWeightMatrix {
     let mut matrix = ArrayTrait::new();
 
     let mut row_0 = ArrayTrait::new();
-    row_0.append((0, 1));
+    row_0.append((0, 1.into()));
     matrix.append(row_0);
 
     let mut row_1 = ArrayTrait::new();
-    row_1.append((0, 2));
-    row_1.append((1, 3));
+    row_1.append((0, 2.into()));
+    row_1.append((1, 3.into()));
     matrix.append(row_1);
 
     let mut row_2 = ArrayTrait::new();
-    row_2.append((0, 4));
-    row_2.append((1, 5));
-    row_2.append((2, 6));
+    row_2.append((0, 4.into()));
+    row_2.append((1, 5.into()));
+    row_2.append((2, 6.into()));
     matrix.append(row_2);
 
     matrix
@@ -454,18 +475,18 @@ fn get_test_matrix_2() -> SparseWeightMatrix {
     let mut matrix = ArrayTrait::new();
 
     let mut row_0 = ArrayTrait::new();
-    row_0.append((3, 1));
+    row_0.append((3, 1.into()));
     matrix.append(row_0);
 
     let mut row_1 = ArrayTrait::new();
-    row_1.append((2, 3));
-    row_1.append((3, 2));
+    row_1.append((2, 3.into()));
+    row_1.append((3, 2.into()));
     matrix.append(row_1);
 
     let mut row_2 = ArrayTrait::new();
-    row_2.append((1, 6));
-    row_2.append((2, 5));
-    row_2.append((3, 4));
+    row_2.append((1, 6.into()));
+    row_2.append((2, 5.into()));
+    row_2.append((3, 4.into()));
     matrix.append(row_2);
 
     matrix
@@ -476,15 +497,15 @@ fn get_dummy_circuit_weights() -> (
 ) {
     let mut W_L = ArrayTrait::new();
     let mut W_L_0 = ArrayTrait::new();
-    W_L_0.append((0_usize, -1));
+    W_L_0.append((0_usize, -(1.into())));
     W_L.append(W_L_0);
     W_L.append(ArrayTrait::new());
     let mut W_L_2 = ArrayTrait::new();
-    W_L_2.append((1_usize, -1));
+    W_L_2.append((1_usize, -(1.into())));
     W_L.append(W_L_2);
     W_L.append(ArrayTrait::new());
     let mut W_L_4 = ArrayTrait::new();
-    W_L_4.append((2_usize, -1));
+    W_L_4.append((2_usize, -(1.into())));
     W_L.append(W_L_4);
     W_L.append(ArrayTrait::new());
     W_L.append(ArrayTrait::new());
@@ -493,15 +514,15 @@ fn get_dummy_circuit_weights() -> (
     let mut W_R = ArrayTrait::new();
     W_R.append(ArrayTrait::new());
     let mut W_R_1 = ArrayTrait::new();
-    W_R_1.append((0_usize, -1));
+    W_R_1.append((0_usize, -(1.into())));
     W_R.append(W_R_1);
     W_R.append(ArrayTrait::new());
     let mut W_R_3 = ArrayTrait::new();
-    W_R_3.append((1_usize, -1));
+    W_R_3.append((1_usize, -(1.into())));
     W_R.append(W_R_3);
     W_R.append(ArrayTrait::new());
     let mut W_R_5 = ArrayTrait::new();
-    W_R_5.append((2_usize, -1));
+    W_R_5.append((2_usize, -(1.into())));
     W_R.append(W_R_5);
     W_R.append(ArrayTrait::new());
     W_R.append(ArrayTrait::new());
@@ -512,39 +533,39 @@ fn get_dummy_circuit_weights() -> (
     W_O.append(ArrayTrait::new());
     W_O.append(ArrayTrait::new());
     let mut W_O_4 = ArrayTrait::new();
-    W_O_4.append((0_usize, 1));
+    W_O_4.append((0_usize, 1.into()));
     W_O.append(W_O_4);
     let mut W_O_5 = ArrayTrait::new();
-    W_O_5.append((1_usize, 1));
+    W_O_5.append((1_usize, 1.into()));
     W_O.append(W_O_5);
     W_O.append(ArrayTrait::new());
     let mut W_O_7 = ArrayTrait::new();
-    W_O_7.append((2_usize, 1));
+    W_O_7.append((2_usize, 1.into()));
     W_O.append(W_O_7);
 
     let mut W_V = ArrayTrait::new();
     let mut W_V_0 = ArrayTrait::new();
-    W_V_0.append((0_usize, -1));
+    W_V_0.append((0_usize, -(1.into())));
     W_V.append(W_V_0);
     let mut W_V_1 = ArrayTrait::new();
-    W_V_1.append((1_usize, -1));
+    W_V_1.append((1_usize, -(1.into())));
     W_V.append(W_V_1);
     let mut W_V_2 = ArrayTrait::new();
-    W_V_2.append((2_usize, -1));
+    W_V_2.append((2_usize, -(1.into())));
     W_V.append(W_V_2);
     let mut W_V_3 = ArrayTrait::new();
-    W_V_3.append((3_usize, -1));
+    W_V_3.append((3_usize, -(1.into())));
     W_V.append(W_V_3);
     W_V.append(ArrayTrait::new());
     W_V.append(ArrayTrait::new());
     let mut W_V_6 = ArrayTrait::new();
-    W_V_6.append((0_usize, -1));
+    W_V_6.append((0_usize, -(1.into())));
     W_V.append(W_V_6);
     W_V.append(ArrayTrait::new());
 
     let mut c = ArrayTrait::new();
-    c.append((6_usize, 69));
-    c.append((7_usize, 420));
+    c.append((6_usize, 69.into()));
+    c.append((7_usize, 420.into()));
 
     (W_L, W_R, W_O, W_V, c)
 }
@@ -627,8 +648,8 @@ fn queue_dummy_verification_job(
 
     // Calculate mod inv of y
     // Unwrapping is safe here since y is guaranteed not to be 0
-    let y_inv = felt252_div(1, y.try_into().unwrap());
-    let y_inv_power = (y_inv, 1); // First power of y is y^0 = 1
+    let y_inv = y.inverse();
+    let y_inv_power = (y_inv, 1.into()); // First power of y is y^0 = 1
 
     // Prep scalar polynomials
     let rem_scalar_polys = Verifier::prep_rem_scalar_polys(
@@ -669,17 +690,17 @@ fn get_dummy_proof() -> Proof {
 
     let mut L = ArrayTrait::new();
     L.append(ec_mul(basepoint, 11));
-    L.append(ec_mul(basepoint, 17));
+    L.append(ec_mul(basepoint, 12));
 
     let mut R = ArrayTrait::new();
-    R.append(ec_mul(basepoint, 12));
-    R.append(ec_mul(basepoint, 18));
+    R.append(ec_mul(basepoint, 13));
+    R.append(ec_mul(basepoint, 14));
 
     let mut V = ArrayTrait::new();
-    V.append(ec_mul(basepoint, 13));
-    V.append(ec_mul(basepoint, 14));
     V.append(ec_mul(basepoint, 15));
     V.append(ec_mul(basepoint, 16));
+    V.append(ec_mul(basepoint, 17));
+    V.append(ec_mul(basepoint, 18));
 
     Proof {
         A_I1: ec_mul(basepoint, 3),
@@ -693,48 +714,49 @@ fn get_dummy_proof() -> Proof {
         T_4: ec_mul(basepoint, 8),
         T_5: ec_mul(basepoint, 9),
         T_6: ec_mul(basepoint, 10),
-        t_hat: 9,
-        t_blind: 10,
-        e_blind: 11,
+        t_hat: 9.into(),
+        t_blind: 10.into(),
+        e_blind: 11.into(),
         L,
         R,
-        a: 12,
-        b: 13,
+        a: 12.into(),
+        b: 13.into(),
         V,
     }
 }
 
-fn get_dummy_challenge_scalars(k: usize) -> (Array<felt252>, Array<felt252>) {
+fn get_dummy_challenge_scalars(k: usize) -> (Array<Scalar>, Array<Scalar>) {
     let mut u = ArrayTrait::new();
-    tile_felt_arr(ref u, 6, k);
+    tile_arr(ref u, 8.into(), k);
 
     let mut challenge_scalars = ArrayTrait::new();
     // y
-    challenge_scalars.append(2);
+    challenge_scalars.append(2.into());
     // z
-    challenge_scalars.append(3);
+    challenge_scalars.append(3.into());
     // u
-    challenge_scalars.append(1);
+    challenge_scalars.append(4.into());
     // x
-    challenge_scalars.append(4);
+    challenge_scalars.append(5.into());
     // w
-    challenge_scalars.append(5);
+    challenge_scalars.append(6.into());
     // r
-    challenge_scalars.append(8);
+    challenge_scalars.append(7.into());
 
     (challenge_scalars, u)
 }
 
 fn get_expected_verification_job() -> VerificationJob {
     let mut u_vec = ArrayTrait::new();
-    u_vec.append(6);
-    u_vec.append(6);
+    u_vec.append(8.into());
+    u_vec.append(8.into());
     VerificationJobTrait::new(
         rem_scalar_polys: get_expected_rem_scalar_polys(),
         y_inv_power: (
-            1809251394333065606848661391547535052811553607665798349986546028067936010241, 1
+            1809251394333065606848661391547535052763371875858043744577039728942256432792.into(),
+            1.into()
         ),
-        z: 3,
+        z: 3.into(),
         u_vec: u_vec,
         vec_indices: VecIndices {
             w_L_flat_index: 0,
@@ -758,19 +780,19 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
     // x
     let mut rem_scalar_polys_0 = ArrayTrait::new();
     rem_scalar_polys_0
-        .append(VecPoly3Term { scalar: 4, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 5.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_0);
 
     // x^2
     let mut rem_scalar_polys_1 = ArrayTrait::new();
     rem_scalar_polys_1
-        .append(VecPoly3Term { scalar: 16, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 25.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_1);
 
     // x^3
     let mut rem_scalar_polys_2 = ArrayTrait::new();
     rem_scalar_polys_2
-        .append(VecPoly3Term { scalar: 64, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 125.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_2);
 
     // r*x^2*w_V
@@ -778,7 +800,7 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
     rem_scalar_polys_3
         .append(
             VecPoly3Term {
-                scalar: 128, uses_y_power: false, vec: Option::Some(VecSubterm::W_V_flat(()))
+                scalar: 175.into(), uses_y_power: false, vec: Option::Some(VecSubterm::W_V_flat(()))
             }
         );
     rem_scalar_polys.append(rem_scalar_polys_3);
@@ -786,53 +808,62 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
     // r*x
     let mut rem_scalar_polys_4 = ArrayTrait::new();
     rem_scalar_polys_4
-        .append(VecPoly3Term { scalar: 32, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 35.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_4);
 
     // r*x^3
     let mut rem_scalar_polys_5 = ArrayTrait::new();
     rem_scalar_polys_5
-        .append(VecPoly3Term { scalar: 512, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 875.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_5);
 
     // r*x^4
     let mut rem_scalar_polys_6 = ArrayTrait::new();
     rem_scalar_polys_6
-        .append(VecPoly3Term { scalar: 2048, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 4375.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_6);
 
     // r*x^5
     let mut rem_scalar_polys_7 = ArrayTrait::new();
     rem_scalar_polys_7
-        .append(VecPoly3Term { scalar: 8192, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 21875.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_7);
 
     // r*x^6
     let mut rem_scalar_polys_8 = ArrayTrait::new();
     rem_scalar_polys_8
-        .append(VecPoly3Term { scalar: 32768, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: 109375.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_8);
 
     // w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat)
-    // w = 5, t_hat = 9, a = 12, b = 13, r = 8, x^2 = 16, w_c = 2906523,
-    // delta = 2713877091499598410272992087321302579217330411498697524979819042101904060768
-    // total = 377846265
+    // w = 6, t_hat = 9, a = 12, b = 13, r = 7, x^2 = 25, w_c = 2906523,
+    // delta = 904625697166532803424330695773767526381685937929021872288519864471128261803
+    // total = 2713877091499598410272992087321302579145057813787065616865559593413901236036
     let mut rem_scalar_polys_9 = ArrayTrait::new();
     rem_scalar_polys_9
-        .append(VecPoly3Term { scalar: 377846265, uses_y_power: false, vec: Option::None(()) });
+        .append(
+            VecPoly3Term {
+                scalar: 2713877091499598410272992087321302579145057813787065616865559593413901236036
+                    .into(),
+                uses_y_power: false,
+                vec: Option::None(())
+            }
+        );
     rem_scalar_polys.append(rem_scalar_polys_9);
 
     // -e_blind - r*t_blind
     let mut rem_scalar_polys_10 = ArrayTrait::new();
     rem_scalar_polys_10
-        .append(VecPoly3Term { scalar: -91, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: -81.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys.append(rem_scalar_polys_10);
 
     // u_sq
     let mut rem_scalar_polys_11 = ArrayTrait::new();
     rem_scalar_polys_11
         .append(
-            VecPoly3Term { scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(())) }
+            VecPoly3Term {
+                scalar: 1.into(), uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(()))
+            }
         );
     rem_scalar_polys.append(rem_scalar_polys_11);
 
@@ -841,7 +872,7 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
     rem_scalar_polys_12
         .append(
             VecPoly3Term {
-                scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq_inv(()))
+                scalar: 1.into(), uses_y_power: false, vec: Option::Some(VecSubterm::U_sq_inv(()))
             }
         );
     rem_scalar_polys.append(rem_scalar_polys_12);
@@ -851,55 +882,59 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
     rem_scalar_polys_13
         .append(
             VecPoly3Term {
-                scalar: 4, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(()))
+                scalar: 5.into(), uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(()))
             }
         );
     rem_scalar_polys_13
         .append(
-            VecPoly3Term { scalar: -12, uses_y_power: false, vec: Option::Some(VecSubterm::S(())) }
+            VecPoly3Term {
+                scalar: -12.into(), uses_y_power: false, vec: Option::Some(VecSubterm::S(()))
+            }
         );
     rem_scalar_polys.append(rem_scalar_polys_13);
 
-    // -as_[n:n+]
+    // -uas[n:n+]
     let mut rem_scalar_polys_14 = ArrayTrait::new();
     rem_scalar_polys_14
         .append(
-            VecPoly3Term { scalar: -12, uses_y_power: false, vec: Option::Some(VecSubterm::S(())) }
+            VecPoly3Term {
+                scalar: -48.into(), uses_y_power: false, vec: Option::Some(VecSubterm::S(()))
+            }
         );
     rem_scalar_polys.append(rem_scalar_polys_14);
 
     // -1 + y^{-n+}_[0:n] * (x*w_L_flat + w_O_flat - b*s^-1_[0:n])
     let mut rem_scalar_polys_15 = ArrayTrait::new();
     rem_scalar_polys_15
-        .append(VecPoly3Term { scalar: -1, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: -1.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys_15
         .append(
             VecPoly3Term {
-                scalar: 4, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), 
+                scalar: 5.into(), uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), 
             }
         );
     rem_scalar_polys_15
         .append(
             VecPoly3Term {
-                scalar: 1, uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), 
+                scalar: 1.into(), uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), 
             }
         );
     rem_scalar_polys_15
         .append(
             VecPoly3Term {
-                scalar: -13, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
+                scalar: -13.into(), uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
             }
         );
     rem_scalar_polys.append(rem_scalar_polys_15);
 
-    // -1 + y^{-n+}_[n:n+] * (-b*s^-1_[n:n+])
+    // u(-1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+]))
     let mut rem_scalar_polys_16 = ArrayTrait::new();
     rem_scalar_polys_16
-        .append(VecPoly3Term { scalar: -1, uses_y_power: false, vec: Option::None(()) });
+        .append(VecPoly3Term { scalar: -4.into(), uses_y_power: false, vec: Option::None(()) });
     rem_scalar_polys_16
         .append(
             VecPoly3Term {
-                scalar: -13, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
+                scalar: -52.into(), uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
             }
         );
     rem_scalar_polys.append(rem_scalar_polys_16);
@@ -934,62 +969,97 @@ fn get_expected_rem_commitments() -> Array<EcPoint> {
     commitments_rem
 }
 
-fn get_expected_scalar_poly_evals() -> Array<felt252> {
+fn get_expected_scalar_poly_evals() -> Array<Scalar> {
     let mut scalars = ArrayTrait::new();
 
     // Expected scalars:
-    // 1. x = 4
-    scalars.append(4);
-    // 2. x^2 = 16
-    scalars.append(16);
-    // 3. x^3 = 64
-    scalars.append(64);
-    // 4. r*x^2*w_V_flat[0] = 3618502788666131213697322783095070105623107215331596699973092056135871740161
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135871740161);
-    // 5. r*x^2*w_V_flat[1] = 3618502788666131213697322783095070105623107215331596699973092056135872019329
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872019329);
-    // 6. r*x^2*w_V_flat[2] = 3618502788666131213697322783095070105623107215331596699973092056135872017025
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872017025);
-    // 7. r*x^2*w_V_flat[3] = 3618502788666131213697322783095070105623107215331596699973092056135872010113
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872010113);
-    // 8. r*x = 32
-    scalars.append(32);
-    // 9. r*x^3 = 512
-    scalars.append(512);
-    // 10. r*x^4 = 2048
-    scalars.append(2048);
-    // 11. r*x^5 = 8192
-    scalars.append(8192);
-    // 12. r*x^6 = 32768
-    scalars.append(32768);
-    // 13. w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat) = 377846265
-    scalars.append(377846265);
-    // 14. -e_blind - r*t_blind = 3618502788666131213697322783095070105623107215331596699973092056135872020390
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020390);
-    // 15. u_sq[0] = 36
-    scalars.append(36);
-    // 16. u_sq[1] = 36
-    scalars.append(36);
-    // 17. u_sq_inv[0] = 703597764462858847107812763379596964982270847425588247216990122026419559538
-    scalars.append(703597764462858847107812763379596964982270847425588247216990122026419559538);
-    // 18. u_sq_inv[1] = 703597764462858847107812763379596964982270847425588247216990122026419559538
-    scalars.append(703597764462858847107812763379596964982270847425588247216990122026419559538);
-    // 19. xy^{-n+}_[0] * w_R_flat[0] - as_[0] = -36 - 3^{-1} = 2412335192444087475798215188730046737082071476887731133315394704090581346951
-    scalars.append(2412335192444087475798215188730046737082071476887731133315394704090581346951);
-    // 20. xy^{-n+}_[1] * w_R_flat[1] - as_[1] = -174 = 3618502788666131213697322783095070105623107215331596699973092056135872020307
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020307);
-    // 21. xy^{-n+}_[2] * w_R_flat[2] - as_[2] = -741 = 3618502788666131213697322783095070105623107215331596699973092056135872019740
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872019740);
-    // 22. -as[3] = -432 = 3618502788666131213697322783095070105623107215331596699973092056135872020049
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020049);
-    // 23. -1 + y^{-n+}_[0] * (x*w_L_flat[0] + w_O_flat[0] - b*s^-1_[0]) = -238 = 3618502788666131213697322783095070105623107215331596699973092056135872020243
-    scalars.append(3618502788666131213697322783095070105623107215331596699973092056135872020243);
-    // 24. -1 + y^{-n+}_[1] * (x*w_L_flat[1] + w_O_flat[1] - b*s^-1_[1]) = 303
-    scalars.append(303);
-    // 25. -1 + y^{-n+}_[2] * (x*w_L_flat[2] + w_O_flat[2] - b*s^-1_[2]) = 1393
-    scalars.append(1393);
-    // 26. -1 + y^{-n+}_[3] * (-b*s^-1_[3]) = -1 - 13 * 288^{-1} = 3379782118580518390571457738376992563932693892097914973238756121876908241351
-    scalars.append(3379782118580518390571457738376992563932693892097914973238756121876908241351);
+    // 1. x = 5
+    scalars.append(5.into());
+    // 2. x^2 = 25
+    scalars.append(25.into());
+    // 3. x^3 = 125
+    scalars.append(125.into());
+    // 4. r*x^2*w_V_flat[0] = 3618502788666131213697322783095070105526743751716087489154079457884512482333
+    scalars
+        .append(
+            3618502788666131213697322783095070105526743751716087489154079457884512482333.into()
+        );
+    // 5. r*x^2*w_V_flat[1] = 3618502788666131213697322783095070105526743751716087489154079457884512864008
+    scalars
+        .append(
+            3618502788666131213697322783095070105526743751716087489154079457884512864008.into()
+        );
+    // 6. r*x^2*w_V_flat[2] = 3618502788666131213697322783095070105526743751716087489154079457884512860858
+    scalars
+        .append(
+            3618502788666131213697322783095070105526743751716087489154079457884512860858.into()
+        );
+    // 7. r*x^2*w_V_flat[3] = 3618502788666131213697322783095070105526743751716087489154079457884512851408
+    scalars
+        .append(
+            3618502788666131213697322783095070105526743751716087489154079457884512851408.into()
+        );
+    // 8. r*x = 35
+    scalars.append(35.into());
+    // 9. r*x^3 = 875
+    scalars.append(875.into());
+    // 10. r*x^4 = 4375
+    scalars.append(4375.into());
+    // 11. r*x^5 = 21875
+    scalars.append(21875.into());
+    // 12. r*x^6 = 109375
+    scalars.append(109375.into());
+    // 13. w(t_hat - a * b) + r(x^2*(w_c + delta) - t_hat) = 2713877091499598410272992087321302579145057813787065616865559593413901236036
+    scalars
+        .append(
+            2713877091499598410272992087321302579145057813787065616865559593413901236036.into()
+        );
+    // 14. -e_blind - r*t_blind = -81
+    scalars.append(-81.into());
+    // 15. u_sq[0] = 64
+    scalars.append(64.into());
+    // 16. u_sq[1] = 64
+    scalars.append(64.into());
+    // 17. u_sq_inv[0] = 2770416197572506710487012755807163049543913184907629483883592084942830162712
+    scalars
+        .append(
+            2770416197572506710487012755807163049543913184907629483883592084942830162712.into()
+        );
+    // 18. u_sq_inv[1] = 2770416197572506710487012755807163049543913184907629483883592084942830162712
+    scalars
+        .append(
+            2770416197572506710487012755807163049543913184907629483883592084942830162712.into()
+        );
+    // 19. xy^{-n+}_[0] * w_R_flat[0] - as_[0] = -45 - 3*16^{-1} = 2940033515791231611129074761264744460740479298269321084937689559531166703241
+    scalars
+        .append(
+            2940033515791231611129074761264744460740479298269321084937689559531166703241.into()
+        );
+    // 20. xy^{-n+}_[1] * w_R_flat[1] - as_[1] = -12 - 405*2^{-1} = 1809251394333065606848661391547535052763371875858043744577039728942256432577
+    scalars
+        .append(
+            1809251394333065606848661391547535052763371875858043744577039728942256432577.into()
+        );
+    // 21. xy^{-n+}_[2] * w_R_flat[2] - as_[2] = -12 - 3645*4^{-1} = 2713877091499598410272992087321302579145057813787065616865559593413384648264
+    scalars
+        .append(
+            2713877091499598410272992087321302579145057813787065616865559593413384648264.into()
+        );
+    // 22. -uas[3] = -4*12*64 = -3072
+    scalars.append(-3072.into());
+    // 23. -1 + y^{-n+}_[0] * (x*w_L_flat[0] + w_O_flat[0] - b*s^-1_[0]) = -605
+    scalars.append(-605.into());
+    // 24. -1 + y^{-n+}_[1] * (x*w_L_flat[1] + w_O_flat[1] - b*s^-1_[1]) = 1809251394333065606848661391547535052763371875858043744577039728942256433081
+    scalars
+        .append(
+            1809251394333065606848661391547535052763371875858043744577039728942256433081.into()
+        );
+    // 25. -1 + y^{-n+}_[2] * (x*w_L_flat[2] + w_O_flat[2] - b*s^-1_[2]) = 904625697166532803424330695773767526381685937929021872288519864471128217728
+    scalars
+        .append(904625697166532803424330695773767526381685937929021872288519864471128217728.into());
+    // 26. u(-1 + y^{-n+}_[3] * (-b*s^-1_[3])) = 84808659109362450321031002728790705598283056680845800527048737294168270283
+    scalars
+        .append(84808659109362450321031002728790705598283056680845800527048737294168270283.into());
 
     scalars
 }
@@ -1025,7 +1095,7 @@ fn get_expected_msm_result() -> EcPoint {
         match expected_scalars.pop_front() {
             Option::Some(scalar) => {
                 let point = expected_points.pop_front().unwrap();
-                msm_result += ec_mul(point, scalar);
+                msm_result += ec_mul(point, scalar.into());
             },
             Option::None(()) => {
                 break;

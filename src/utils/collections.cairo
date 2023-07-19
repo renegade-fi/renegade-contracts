@@ -1,6 +1,11 @@
 use option::OptionTrait;
 use array::ArrayTrait;
 use array::SpanTrait;
+use dict::Felt252DictTrait;
+use nullable::FromNullableResult;
+use box::BoxTrait;
+
+use renegade_contracts::verifier::scalar::Scalar;
 
 
 /// A trait for creating arbitrarily nested Span types, e.g. for matrices
@@ -31,7 +36,9 @@ impl NestedArrayDeepSpanImpl<T> of DeepSpan<Array<T>, Span<T>> {
 }
 
 /// Append `val` to `arr` `len` times
-fn tile_felt_arr(ref arr: Array::<felt252>, val: felt252, mut len: usize) {
+fn tile_arr<T, impl TDrop: Drop<T>, impl TCopy: Copy<T>>(
+    ref arr: Array::<T>, val: T, mut len: usize
+) {
     loop {
         if len == 0 {
             break;
@@ -52,4 +59,16 @@ fn extend<T, impl TDrop: Drop<T>>(ref arr1: Array::<T>, mut arr2: Array::<T>) {
         },
         Option::None(()) => (),
     }
+}
+
+fn get_scalar_or_zero(ref dict: Felt252Dict<Nullable<Scalar>>, key: felt252) -> Scalar {
+    let val = dict.get(key);
+    match match_nullable(val) {
+        FromNullableResult::Null(()) => Zeroable::zero(),
+        FromNullableResult::NotNull(val) => val.unbox(),
+    }
+}
+
+fn insert_scalar(ref dict: Felt252Dict<Nullable<Scalar>>, key: felt252, scalar: Scalar) {
+    dict.insert(key, nullable_from_box(BoxTrait::new(scalar)));
 }
