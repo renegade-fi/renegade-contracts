@@ -1,8 +1,7 @@
 use traits::{TryInto, Into};
 use clone::Clone;
 use option::{OptionTrait, OptionSerde};
-use array::ArrayTrait;
-use array::SpanTrait;
+use array::{ArrayTrait, SpanTrait};
 use dict::Felt252DictTrait;
 use ec::{StarkCurve, EcPoint, ec_point_new, ec_mul};
 use keccak::keccak_u256s_le_inputs;
@@ -11,8 +10,10 @@ use starknet::StorageAccess;
 use renegade_contracts::utils::{
     serde::{EcPointSerde},
     eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq},
-    math::{binary_exp, hash_to_felt}, collections::DeepSpan, constants::STARK_FIELD_PRIME,
+    math::{binary_exp, hash_to_felt}, collections::{DeepSpan, get_scalar_or_zero, insert_scalar},
 };
+
+use super::scalar::{Scalar, ScalarTrait};
 
 /// Tracks the verification of a single proof
 #[derive(Drop, Serde, PartialEq)]
@@ -21,11 +22,11 @@ struct VerificationJob {
     // TODO: This may just have to be a pointer (StorageBaseAddress) to the array
     rem_scalar_polys: Array<VecPoly3>,
     /// Represents the base y^-1 challenge scalar & the last computed power of y^-1
-    y_inv_power: (felt252, felt252),
+    y_inv_power: (Scalar, Scalar),
     /// The z challenge scalar
-    z: felt252,
+    z: Scalar,
     // The u challenge scalars
-    u_vec: Array<felt252>,
+    u_vec: Array<Scalar>,
     /// Tracks the current index used in the w_{L, R, O, V}, s, and s_inv vectors
     vec_indices: VecIndices,
     /// Tracks the G generators left to sample from the hash chain
@@ -45,9 +46,9 @@ struct VerificationJob {
 impl VerificationJobImpl of VerificationJobTrait {
     fn new(
         rem_scalar_polys: Array<VecPoly3>,
-        y_inv_power: (felt252, felt252),
-        z: felt252,
-        u_vec: Array<felt252>,
+        y_inv_power: (Scalar, Scalar),
+        z: Scalar,
+        u_vec: Array<Scalar>,
         vec_indices: VecIndices,
         G_rem: RemainingGenerators,
         H_rem: RemainingGenerators,
@@ -99,7 +100,7 @@ impl VecPoly3Impl of VecPoly3Trait {
 
     /// Adds a term to the polynomial
     fn add_term(
-        self: VecPoly3, scalar: felt252, uses_y_power: bool, vec: Option<VecSubterm>
+        self: VecPoly3, scalar: Scalar, uses_y_power: bool, vec: Option<VecSubterm>
     ) -> VecPoly3 {
         let mut terms = self;
         terms.append(VecPoly3Term { scalar, uses_y_power, vec });
@@ -107,7 +108,7 @@ impl VecPoly3Impl of VecPoly3Trait {
     }
 
     /// Creates a polynomial composed of a single scalar value
-    fn single_scalar_poly(scalar: felt252) -> VecPoly3 {
+    fn single_scalar_poly(scalar: Scalar) -> VecPoly3 {
         VecPoly3Trait::new().add_term(scalar: scalar, uses_y_power: false, vec: Option::None(()))
     }
 
@@ -175,7 +176,7 @@ impl VecPoly3Impl of VecPoly3Trait {
 #[derive(Drop, Serde, PartialEq, Copy)]
 struct VecPoly3Term {
     /// The scalar multiple
-    scalar: felt252,
+    scalar: Scalar,
     /// Whether or not this term uses a power of y. If so, then the power is calculated
     /// & tracked in the `y_powers_rem` field of the `VerificationJob` struct.
     uses_y_power: bool,
@@ -299,23 +300,23 @@ struct Proof {
     T_4: EcPoint,
     T_5: EcPoint,
     T_6: EcPoint,
-    t_hat: felt252,
-    t_blind: felt252,
-    e_blind: felt252,
+    t_hat: Scalar,
+    t_blind: Scalar,
+    e_blind: Scalar,
     L: Array<EcPoint>,
     R: Array<EcPoint>,
-    a: felt252,
-    b: felt252,
+    a: Scalar,
+    b: Scalar,
     V: Array<EcPoint>,
 }
 
 // (index, weight) entries in a sparse-reduced vector are expected
 // to be sorted by increasing index
-type SparseWeightVec = Array<(usize, felt252)>;
+type SparseWeightVec = Array<(usize, Scalar)>;
 type SparseWeightMatrix = Array<SparseWeightVec>;
 
-type SparseWeightVecSpan = Span<(usize, felt252)>;
-type SparseWeightMatrixSpan = Span<Span<(usize, felt252)>>;
+type SparseWeightVecSpan = Span<(usize, Scalar)>;
+type SparseWeightMatrixSpan = Span<Span<(usize, Scalar)>>;
 
 #[generate_trait]
 impl SparseWeightVecImpl of SparseWeightVecTrait {
@@ -323,8 +324,8 @@ impl SparseWeightVecImpl of SparseWeightVecTrait {
     /// sum(z^i * col[i]) for all indices i with non-zero weights in the column.
     /// This is effectively a dot product [z, z^2, ..., z^len(col)] * col,
     /// but omitting multiplications by zero.
-    fn flatten(self: @SparseWeightVec, z: felt252) -> felt252 {
-        let mut res = 0;
+    fn flatten(self: @SparseWeightVec, z: Scalar) -> Scalar {
+        let mut res = Zeroable::zero();
         let mut entry_index = 0;
         loop {
             if entry_index == self.len() {
@@ -347,12 +348,12 @@ impl SparseWeightVecImpl of SparseWeightVecTrait {
 impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
     /// "Flattens" the matrix into a `width`-length vector by computing
     /// [z, z^2, ..., z^height] * W_{L, R, O, V} (vector-matrix multiplication)
-    fn flatten(self: @SparseWeightMatrix, z: felt252, width: usize) -> Array<felt252> {
+    fn flatten(self: @SparseWeightMatrix, z: Scalar, width: usize) -> Array<Scalar> {
         let matrix: SparseWeightMatrixSpan = self.deep_span();
 
         // Can't set an item at a given index in an array, can only append,
         // so we use a dict here
-        let mut flattened_dict: Felt252Dict<felt252> = Default::default();
+        let mut flattened_dict: Felt252Dict<Nullable<Scalar>> = Default::default();
 
         // Loop over rows first, then entries
         // Since matrices are sparse and in row-major form, this ensure that we only loop
@@ -373,11 +374,11 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
 
                 let (col_index, weight) = *row.at(entry_index);
                 let col_index_felt = col_index.into();
-                // Default value for an unset key is 0
-                let mut value = flattened_dict.get(col_index_felt);
+                let mut scalar = get_scalar_or_zero(ref flattened_dict, col_index_felt);
+
                 // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
-                value += z_i * weight;
-                flattened_dict.insert(col_index_felt, value);
+                scalar += z_i * weight;
+                insert_scalar(ref flattened_dict, col_index_felt, scalar);
 
                 entry_index += 1;
             };
@@ -392,7 +393,7 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
                 break;
             };
 
-            flattened_vec.append(flattened_dict.get(col_index.into()));
+            flattened_vec.append(get_scalar_or_zero(ref flattened_dict, col_index.into()));
             col_index += 1;
         };
 
@@ -435,7 +436,7 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
     }
 
     /// Gets the element at `index` in the flattened matrix
-    fn get_flattened_elem(self: @SparseWeightMatrix, index: usize, z: felt252) -> felt252 {
+    fn get_flattened_elem(self: @SparseWeightMatrix, index: usize, z: Scalar) -> Scalar {
         // Pop column `index` from `matrix` as a `SparseWeightVec`
         let column = self.get_sparse_weight_column(index);
 

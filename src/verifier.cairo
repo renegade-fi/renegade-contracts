@@ -1,4 +1,5 @@
 mod types;
+mod scalar;
 mod utils;
 
 // -------------
@@ -36,7 +37,7 @@ mod Verifier {
             VecPoly3, VecPoly3Trait, SparseWeightVec, SparseWeightVecTrait, SparseWeightMatrix,
             SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams, VecIndices, VecIndicesTrait
         },
-        utils::{squeeze_challenge_scalars, calc_delta, get_s_elem}
+        utils::{squeeze_challenge_scalars, calc_delta, get_s_elem}, scalar::{Scalar, ScalarTrait}
     };
 
     // -------------
@@ -210,8 +211,8 @@ mod Verifier {
 
             // Calculate mod inv of y
             // Unwrapping is safe here since y is guaranteed not to be 0
-            let y_inv = felt252_div(1, y.try_into().unwrap());
-            let y_inv_power = (y_inv, 1); // First power of y is y^0 = 1
+            let y_inv = y.inverse();
+            let y_inv_power = (y_inv, 1.into()); // First power of y is y^0 = 1
 
             // Prep scalar polynomials
             let rem_scalar_polys = prep_rem_scalar_polys(
@@ -315,12 +316,12 @@ mod Verifier {
     }
 
     fn prep_rem_scalar_polys(
-        y_inv: felt252,
-        z: felt252,
-        u: felt252,
-        x: felt252,
-        w: felt252,
-        r: felt252,
+        y_inv: Scalar,
+        z: Scalar,
+        u: Scalar,
+        x: Scalar,
+        w: Scalar,
+        r: Scalar,
         proof: @Proof,
         n: usize,
         n_plus: usize,
@@ -353,7 +354,7 @@ mod Verifier {
         rem_scalar_polys
             .append(
                 VecPoly3Trait::new()
-                    .add_term(r * x_2, false, Option::Some(VecSubterm::W_V_flat(())), )
+                    .add_term(r * x_2, false, Option::Some(VecSubterm::W_V_flat(())))
             );
 
         let x_4 = x_3 * x;
@@ -379,7 +380,7 @@ mod Verifier {
 
         // Need powers [0, n) of y^{-1}
         let mut y_inv_powers_to_n = ArrayTrait::new();
-        y_inv_powers_to_n.append(1);
+        y_inv_powers_to_n.append(1.into());
         let mut computed_y_powers = get_consecutive_powers(y_inv, n - 1);
         y_inv_powers_to_n.append_all(ref computed_y_powers);
 
@@ -398,14 +399,16 @@ mod Verifier {
 
         // -e_blind - r*t_blind
         rem_scalar_polys
-            .append(VecPoly3Trait::single_scalar_poly(0 - *proof.e_blind - r * *proof.t_blind));
+            .append(VecPoly3Trait::single_scalar_poly(-*proof.e_blind - r * *proof.t_blind));
 
         // u^2[0:k]
         rem_scalar_polys
             .append(
                 VecPoly3Trait::new()
                     .add_term(
-                        scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq(())), 
+                        scalar: 1.into(),
+                        uses_y_power: false,
+                        vec: Option::Some(VecSubterm::U_sq(())),
                     )
             );
 
@@ -414,7 +417,9 @@ mod Verifier {
             .append(
                 VecPoly3Trait::new()
                     .add_term(
-                        scalar: 1, uses_y_power: false, vec: Option::Some(VecSubterm::U_sq_inv(())), 
+                        scalar: 1.into(),
+                        uses_y_power: false,
+                        vec: Option::Some(VecSubterm::U_sq_inv(())),
                     )
             );
 
@@ -422,9 +427,9 @@ mod Verifier {
 
         // xy^{-n+}[0:n] * w_R_flat[0:n] - as[0:n]
         let g_n_poly = VecPoly3Trait::new()
-            .add_term(scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(())), )
+            .add_term(scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_R_flat(())))
             .add_term(
-                scalar: 0 - *proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
+                scalar: -*proof.a, uses_y_power: false, vec: Option::Some(VecSubterm::S(())), 
             );
         rem_scalar_polys.append(g_n_poly);
 
@@ -433,7 +438,7 @@ mod Verifier {
             // -uas[n:n+]
             let g_n_plus_poly = VecPoly3Trait::new()
                 .add_term(
-                    scalar: 0 - (u * *proof.a),
+                    scalar: -(u * *proof.a),
                     uses_y_power: false,
                     vec: Option::Some(VecSubterm::S(())),
                 );
@@ -442,11 +447,13 @@ mod Verifier {
 
         // -1 + y^{-n+}[0:n] * (x*w_L_flat[0:n] + w_O_flat[0:n] - b*s^{-1}[0:n])
         let h_n_poly = VecPoly3Trait::new()
-            .add_term(scalar: 0 - 1, uses_y_power: false, vec: Option::None(()), )
-            .add_term(scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())), )
-            .add_term(scalar: 1, uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), )
+            .add_term(scalar: -1.into(), uses_y_power: false, vec: Option::None(()))
+            .add_term(scalar: x, uses_y_power: true, vec: Option::Some(VecSubterm::W_L_flat(())))
             .add_term(
-                scalar: 0 - *proof.b, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
+                scalar: 1.into(), uses_y_power: true, vec: Option::Some(VecSubterm::W_O_flat(())), 
+            )
+            .add_term(
+                scalar: -*proof.b, uses_y_power: true, vec: Option::Some(VecSubterm::S_inv(())), 
             );
         rem_scalar_polys.append(h_n_poly);
 
@@ -454,9 +461,9 @@ mod Verifier {
         if n_plus > n {
             // u(-1 + y^{-n+}[n:n+] * (-b*s^{-1}[n:n+]))
             let h_n_plus_poly = VecPoly3Trait::new()
-                .add_term(scalar: 0 - u, uses_y_power: false, vec: Option::None(()), )
+                .add_term(scalar: -u, uses_y_power: false, vec: Option::None(()))
                 .add_term(
-                    scalar: 0 - (u * *proof.b),
+                    scalar: -(u * *proof.b),
                     uses_y_power: true,
                     vec: Option::Some(VecSubterm::S_inv(())),
                 );
@@ -528,7 +535,7 @@ mod Verifier {
                     Option::None(_) => ec_point_zero(),
                 };
 
-                msm_result += ec_mul(point, scalar);
+                msm_result += ec_mul(point, scalar.into());
                 self.msm_result = Option::Some(msm_result);
                 false // MSM is not complete
             } else {
@@ -536,7 +543,7 @@ mod Verifier {
             }
         }
 
-        fn get_next_scalar(ref self: VerificationJob, contract: @ContractState) -> Option<felt252> {
+        fn get_next_scalar(ref self: VerificationJob, contract: @ContractState) -> Option<Scalar> {
             if self.rem_scalar_polys.len() == 0 {
                 return Option::None(());
             }
@@ -586,7 +593,7 @@ mod Verifier {
                                 // power of y to be 1 for use in the future scalars of the MSM
                                 if vec_subterm == VecSubterm::W_R_flat(()) {
                                     let (y_inv, _) = y_inv_power;
-                                    y_inv_power = (y_inv, 1);
+                                    y_inv_power = (y_inv, 1.into());
                                 };
                             }
                         },
@@ -624,12 +631,12 @@ mod Verifier {
         fn evaluate(
             self: @VecPoly3,
             contract: @ContractState,
-            y_inv_power: (felt252, felt252),
-            z: felt252,
-            u: Span<felt252>,
+            y_inv_power: (Scalar, Scalar),
+            z: Scalar,
+            u: Span<Scalar>,
             vec_indices: @VecIndices,
-        ) -> felt252 {
-            let mut scalar = 0;
+        ) -> Scalar {
+            let mut scalar = Zeroable::zero();
 
             // Evaluate all the terms in the polynomial and add them to `scalar`
             let mut i = 0;
@@ -646,14 +653,14 @@ mod Verifier {
                         let (_, y_inv_power) = y_inv_power;
                         y_inv_power
                     } else {
-                        1
+                        1.into()
                     };
 
                 term_eval *= match term.vec {
                     Option::Some(vec_subterm) => {
                         vec_subterm.evaluate(z, u, vec_indices, contract)
                     },
-                    Option::None(()) => 1,
+                    Option::None(()) => 1.into(),
                 };
 
                 scalar += term_eval;
@@ -683,11 +690,11 @@ mod Verifier {
         /// Evaluates the vector element at the given index
         fn evaluate(
             self: @VecSubterm,
-            z: felt252,
-            u: Span<felt252>,
+            z: Scalar,
+            u: Span<Scalar>,
             vec_indices: @VecIndices,
             contract: @ContractState
-        ) -> felt252 {
+        ) -> Scalar {
             match self {
                 VecSubterm::W_L_flat(()) => {
                     contract.W_L.read().inner.get_flattened_elem(*vec_indices.w_L_flat_index, z)
@@ -714,9 +721,7 @@ mod Verifier {
                 },
                 VecSubterm::U_sq_inv(()) => {
                     // Unwrapping here is safe since u challenge scalars are always nonzero
-                    let u_i_inv = felt252_div(
-                        1, (*u.at(*vec_indices.u_sq_inv_index)).try_into().unwrap()
-                    );
+                    let u_i_inv = u.at(*vec_indices.u_sq_inv_index).inverse();
                     u_i_inv * u_i_inv
                 },
             }
