@@ -29,7 +29,7 @@ use renegade_contracts::{
         eq::{
             OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
         },
-        collections::tile_arr,
+        collections::tile_arr, constants::{G_LABEL, H_LABEL},
     },
     transcript::{Transcript, TranscriptTrait, TranscriptProtocol, TRANSCRIPT_SEED},
 };
@@ -220,12 +220,94 @@ fn test_squeeze_challenge_scalars_basic() {
 
 #[test]
 #[available_gas(100000000)]
-fn test_print_init_transcript() {
+fn test_transcript_basic() {
+    // Obtained by processing the below transcript in the prover-side implementation
+    let expected_challenge: Scalar =
+        20218297303968297499310910532919921921595889040879854140591046408794752210
+        .into();
+
     let mut transcript = TranscriptTrait::new(TRANSCRIPT_SEED);
+
+    transcript.rangeproof_domain_sep(1, 2);
+    transcript.innerproduct_domain_sep(3);
+    transcript.r1cs_domain_sep();
+    transcript.r1cs_1phase_domain_sep();
+    transcript.append_scalar('scalar', 4.into());
+    transcript.validate_and_append_point('gen', ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y));
     transcript.append_point('ident', ec_point_zero());
 
     let challenge = transcript.challenge_scalar('challenge');
     challenge.print();
+    assert(challenge == expected_challenge, 'wrong challenge');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_transcript_ex_proof() {
+    let proof = get_example_proof();
+    let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(@proof, 4, 4);
+    let y = challenge_scalars.pop_front().unwrap();
+    'y'.print();
+    y.print();
+    let z = challenge_scalars.pop_front().unwrap();
+    'z'.print();
+    z.print();
+    let u = challenge_scalars.pop_front().unwrap();
+    'u'.print();
+    u.print();
+    let x = challenge_scalars.pop_front().unwrap();
+    'x'.print();
+    x.print();
+    let w = challenge_scalars.pop_front().unwrap();
+    'w'.print();
+    w.print();
+    let r = challenge_scalars.pop_front().unwrap();
+    'r'.print();
+    r.print();
+
+    let mut i = 0;
+    loop {
+        if i == u_vec.len() {
+            break;
+        }
+
+        'i'.print();
+        i.print();
+        'u_vec[i]'.print();
+        (*u_vec[i]).print();
+
+        i += 1;
+    };
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_print_generators() {
+    let mut G_rem = RemainingGeneratorsTrait::new(G_LABEL, 4);
+    let mut H_rem = RemainingGeneratorsTrait::new(H_LABEL, 4);
+
+    let mut i = 0;
+    loop {
+        if i == 4 {
+            break;
+        }
+
+        let G = G_rem.compute_next_gen();
+        let (G_x, G_y) = ec_point_unwrap(ec_point_non_zero(G));
+        'G_x'.print();
+        G_x.print();
+        'G_y'.print();
+        G_y.print();
+
+        let H = H_rem.compute_next_gen();
+        let (H_x, H_y) = ec_point_unwrap(ec_point_non_zero(H));
+        'H_x'.print();
+        H_x.print();
+        'H_y'.print();
+        H_y.print();
+
+        i += 1;
+    };
 }
 
 // ------------------
@@ -356,6 +438,27 @@ fn test_step_verification_basic() {
     assert(verification_job.H_rem.num_gens_rem == 0, 'H_rem not empty');
     'checking final msm result...'.print();
     assert(verification_job.msm_result.unwrap() == get_expected_msm_result(), 'wrong msm_result');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_full_verification_ex_proof() {
+    let mut verifier = Verifier::contract_state_for_testing();
+
+    // Initialize verifier
+    let circuit_params = initialize_verifier(ref verifier);
+
+    // Get ex proof
+    let proof = get_example_proof();
+
+    // Queue verification job w/ ex proof
+    verifier.queue_verification_job(proof, 11);
+
+    'executing verification steps...'.print();
+    verifier.step_verification(11);
+
+    let verification_job = verifier.get_verification_job(11);
+    assert(verification_job.verified == Option::Some(true), 'verification failed');
 }
 
 // 10x more gas for this test so that verification definitely completes,
@@ -580,19 +683,10 @@ fn get_dummy_circuit_size_params() -> (usize, usize, usize, usize, usize) {
     (n, n_plus, k, q, m)
 }
 
-fn get_dummy_circuit_generator_labels() -> (felt252, felt252) {
-    let G_label = 'GeneratorsChainG0000';
-    let H_label = 'GeneratorsChainH0000';
-
-    (G_label, H_label)
-}
-
 fn get_dummy_circuit_pc_gens() -> (EcPoint, EcPoint) {
-    let basepoint = ec_point_from_x(1).unwrap();
-    let B = ec_mul(basepoint, 1);
-    let B_blind = ec_mul(basepoint, 2);
+    let gen = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
 
-    (B, B_blind)
+    (gen, gen)
 }
 
 fn initialize_verifier(ref verifier: ContractState) -> CircuitParams {
@@ -624,8 +718,6 @@ fn queue_dummy_verification_job(
     let k = *circuit_params.k;
     let q = *circuit_params.q;
     let m = *circuit_params.m;
-    let G_label = *circuit_params.G_label;
-    let H_label = *circuit_params.H_label;
     let B = *circuit_params.B;
     let B_blind = *circuit_params.B_blind;
     let W_L = circuit_params.W_L;
@@ -635,7 +727,7 @@ fn queue_dummy_verification_job(
     let c = circuit_params.c;
 
     // Prep `RemainingGenerators` structs for G and H generators
-    let (G_rem, H_rem) = Verifier::prep_rem_gens(G_label, H_label, n_plus);
+    let (G_rem, H_rem) = Verifier::prep_rem_gens(n_plus);
 
     // Squeeze out DUMMY challenge scalars
     let (mut challenge_scalars, u_vec) = get_dummy_challenge_scalars(k);
@@ -678,11 +770,10 @@ fn queue_dummy_verification_job(
 
 fn get_dummy_circuit_params() -> CircuitParams {
     let (n, n_plus, k, q, m) = get_dummy_circuit_size_params();
-    let (G_label, H_label) = get_dummy_circuit_generator_labels();
     let (B, B_blind) = get_dummy_circuit_pc_gens();
     let (W_L, W_R, W_O, W_V, c) = get_dummy_circuit_weights();
 
-    CircuitParams { n, n_plus, k, q, m, G_label, H_label, B, B_blind, W_L, W_R, W_O, W_V, c }
+    CircuitParams { n, n_plus, k, q, m, B, B_blind, W_L, W_R, W_O, W_V, c }
 }
 
 fn get_dummy_proof() -> Proof {
@@ -706,9 +797,6 @@ fn get_dummy_proof() -> Proof {
         A_I1: ec_mul(basepoint, 3),
         A_O1: ec_mul(basepoint, 4),
         S1: ec_mul(basepoint, 5),
-        A_I2: ec_point_zero(),
-        A_O2: ec_point_zero(),
-        S2: ec_point_zero(),
         T_1: ec_mul(basepoint, 6),
         T_3: ec_mul(basepoint, 7),
         T_4: ec_mul(basepoint, 8),
@@ -768,8 +856,8 @@ fn get_expected_verification_job() -> VerificationJob {
             u_sq_index: 0,
             u_sq_inv_index: 0,
         },
-        G_rem: RemainingGeneratorsTrait::new('GeneratorsChainG0000', 4),
-        H_rem: RemainingGeneratorsTrait::new('GeneratorsChainH0000', 4),
+        G_rem: RemainingGeneratorsTrait::new('GeneratorsChainG', 4),
+        H_rem: RemainingGeneratorsTrait::new('GeneratorsChainH', 4),
         rem_commitments: get_expected_rem_commitments(),
     )
 }
@@ -1106,3 +1194,110 @@ fn get_expected_msm_result() -> EcPoint {
     msm_result
 }
 
+fn get_example_proof() -> Proof {
+    let A_I1 = ec_point_new(
+        770111350870719683286526108777133171952725637684218279868072019936103541428,
+        2003457537813306299741332002918684483747768138881910398425413976121573292017,
+    );
+    let A_O1 = ec_point_new(
+        1320553836119148939685949671035786997120860908721569847706541153578857357059,
+        1480647247189817402915888798035067746474607734348130953989324641753943659072,
+    );
+    let S1 = ec_point_new(
+        2653861136230098066778466037330442535121593956985649103889081042207056227157,
+        55555996378237983253187172907466209694884058055958995749726396554601703484,
+    );
+    let T_1 = ec_point_new(
+        1229606275541803441957799854304082632823974198657464165472244338976855933316,
+        3374714922463095450815423081949731924924541364547550907053311740380223516055,
+    );
+    let T_3 = ec_point_new(
+        2039701761911194067516160138830136243478654166236103641750890478229927704411,
+        1233687477303605196657893114756779479110323181001585738360052809274803667262,
+    );
+    let T_4 = ec_point_new(
+        67590477984323072493487055051102666892520421542875863260810358346397839950,
+        62284755465226152488417834565124789743841559511016344088274834703797033132,
+    );
+    let T_5 = ec_point_new(
+        1137904407027341494941376258797335234121766980162410168109797491793281578094,
+        642944710614138818683593952493914276608985583419602564924097922292806454096,
+    );
+    let T_6 = ec_point_new(
+        772901899213937559294528806328026555356118170151961093035424115388180363574,
+        3076058318771791585823574641615791077528811361945136369940973580884247582812,
+    );
+    let t_hat = 731382279525747207393781860511354931949103113433847129276612463208117925275.into();
+    let t_blind = 605682385701185353674497076678630771461498917816713121384502418239942483077
+        .into();
+    let e_blind = 581736657158570452674676853987472674830175216957013510218176355686540289446
+        .into();
+    let mut L = ArrayTrait::new();
+    L
+        .append(
+            ec_point_new(
+                2784481712826935193217927831591449018629512091011076093370939638329161139847,
+                829660044967383595331623141400719100347157052961121050280961615133731711453,
+            )
+        );
+    L
+        .append(
+            ec_point_new(
+                3334332833011750286417593303717955400245750006880633460947696289184608212538,
+                3249770855997657827514149001556080586951717643173725399984752841893850108494,
+            )
+        );
+    let mut R = ArrayTrait::new();
+    R
+        .append(
+            ec_point_new(
+                2070845442362945918215652303666567118815236610845778730712129254880909961593,
+                716923786299370408858625320978932121140607517735283813674988548946307628733,
+            )
+        );
+    R
+        .append(
+            ec_point_new(
+                2707436804446939637695989720540294041488829392287934666462266989217897791670,
+                630048247056252809702985897637278487422197358880975733511137296771776704362,
+            )
+        );
+    let a = 647816596367555760642976090193277447711074429393227355146087454155746042017.into();
+    let b = 2309563944115123425290573513394753991737490964139397497246955283558587845937.into();
+
+    let mut V = ArrayTrait::new();
+    // a_comm
+    V
+        .append(
+            ec_point_new(
+                1676011202554147170480496302079201370244475632573293859900871002890262796129,
+                2396636865490994638456331104106263733645788782367273472395406144930250387406,
+            )
+        );
+    // b_comm
+    V
+        .append(
+            ec_point_new(
+                260885421189892756898751760015067230351924776618417562366564871134893809791,
+                1179526167251343664597589338170290126633170134000399253979111639508451538682,
+            )
+        );
+    // x_comm
+    V
+        .append(
+            ec_point_new(
+                3324833730090626974525872402899302150520188025637965566623476530814354734325,
+                3147007486456030910661996439995670279305852583596209647900952752170983517249,
+            )
+        );
+    // y_comm
+    V
+        .append(
+            ec_point_new(
+                3324833730090626974525872402899302150520188025637965566623476530814354734325,
+                3147007486456030910661996439995670279305852583596209647900952752170983517249,
+            )
+        );
+
+    Proof { A_I1, A_O1, S1, T_1, T_3, T_4, T_5, T_6, t_hat, t_blind, e_blind, L, R, a, b, V }
+}
