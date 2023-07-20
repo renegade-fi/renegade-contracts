@@ -17,3 +17,11 @@ const SHIFT_256_SCALAR: u256 =
 // 2^{256} % BASE_FIELD_ORDER
 const SHIFT_256_FELT: felt252 =
     3618502788666127798953978732740734578953660990361066340291730267701097005025;
+
+/// 2^32 - 1
+const MAX_USIZE: usize = 0xFFFFFFFF;
+
+/// Domain separator for hash chain from which G generators are drawn
+const G_LABEL: u256 = 'GeneratorsChainG';
+/// Domain separator for hash chain from which H generators are drawn
+const H_LABEL: u256 = 'GeneratorsChainH';

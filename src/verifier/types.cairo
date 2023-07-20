@@ -10,10 +10,12 @@ use starknet::StorageAccess;
 use renegade_contracts::utils::{
     serde::{EcPointSerde},
     eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq},
-    math::{binary_exp, hash_to_felt}, collections::{DeepSpan, get_scalar_or_zero, insert_scalar},
+    math::{binary_exp, hash_to_scalar}, collections::{DeepSpan, get_scalar_or_zero, insert_scalar},
+    constants::MAX_USIZE,
 };
 
 use super::scalar::{Scalar, ScalarTrait};
+
 
 /// Tracks the verification of a single proof
 #[derive(Drop, Serde, PartialEq)]
@@ -269,7 +271,15 @@ struct RemainingGenerators {
 
 #[generate_trait]
 impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
-    fn new(hash_state: u256, num_gens_rem: usize) -> RemainingGenerators {
+    fn new(input: u256, num_gens_rem: usize) -> RemainingGenerators {
+        // Need to add 4 0-bytes to the "right end" of the input when read
+        // left-to-right as a byte string, but Cairo literals are interpreted
+        // as big-endian (i.e. "read" right-to-left), so this is represented
+        // by a left-shift of 4 bytes
+        let shifted_input = input * (MAX_USIZE.into() + 1_u256);
+        let mut data = ArrayTrait::new();
+        data.append(shifted_input);
+        let hash_state = keccak_u256s_le_inputs(data.span());
         RemainingGenerators { hash_state, num_gens_rem }
     }
 
@@ -279,10 +289,12 @@ impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
         input.append(self.hash_state);
         let hash_state = keccak_u256s_le_inputs(input.span());
         self = RemainingGenerators { hash_state, num_gens_rem: self.num_gens_rem - 1 };
-        // TODO: Ensure this is equivalent to Rust impl
         let basepoint = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
-        let hash_felt = hash_to_felt(hash_state);
-        ec_mul(basepoint, hash_felt)
+        // It is important to sample a scalar field element here rather than
+        // a base field element, since this has a one-to-one mapping with
+        // curve points.
+        let hash_scalar = hash_to_scalar(hash_state);
+        ec_mul(basepoint, hash_scalar.into())
     }
 }
 
@@ -292,9 +304,6 @@ struct Proof {
     A_I1: EcPoint,
     A_O1: EcPoint,
     S1: EcPoint,
-    A_I2: EcPoint,
-    A_O2: EcPoint,
-    S2: EcPoint,
     T_1: EcPoint,
     T_3: EcPoint,
     T_4: EcPoint,
@@ -483,10 +492,6 @@ struct CircuitParams {
     q: usize,
     /// The size of the witness
     m: usize,
-    /// Domain separator for hash chain from which G generators are drawn
-    G_label: felt252,
-    /// Domain separator for hash chain from which H generators are drawn
-    H_label: felt252,
     /// Generator used for Pedersen commitments
     B: EcPoint,
     /// Generator used for blinding in Pedersen commitments
