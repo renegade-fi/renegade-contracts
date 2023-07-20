@@ -1,7 +1,7 @@
 use traits::{Into, TryInto};
 use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
-use ec::{ec_point_unwrap, ec_point_non_zero};
+use ec::{ec_point_unwrap, ec_point_non_zero, ec_point_zero};
 
 use alexandria::linalg::dot::dot;
 use renegade_contracts::{
@@ -13,24 +13,25 @@ use super::{
     types::{SparseWeightMatrix, SparseWeightMatrixTrait, Proof}, scalar::{Scalar, ScalarTrait},
 };
 
+
 /// This computes the `i`th element of the `s` vector using the `u` challenge scalars.
 /// The explanation for this calculation can be found [here](https://doc-internal.dalek.rs/bulletproofs/inner_product_proof/index.html#verifiers-algorithm)
 fn get_s_elem(u: Span<Scalar>, i: usize) -> Scalar {
     let mut res = 1.into();
     let mut j = 0;
     let mut two_to_j: u128 = 1;
+    let k = u.len();
     loop {
-        if j == u.len() {
+        if j == k {
             break;
         }
 
-        if i.into() & two_to_j == two_to_j {
-            // If jth bit of i is 1, then we multiply by u[j]
-            res *= *u.at(j);
+        if i.into() & two_to_j == 0 {
+            // If jth bit of i is 0, then we multiply by u[k - 1 - j]^-1
+            res *= u.at(k - 1 - j).inverse();
         } else {
-            // If jth bit of i is 0, then we multiply by u[j]^-1
-            // Unwrapping is safe here b/c u scalars are never 0
-            res *= u.at(j).inverse();
+            // If jth bit of i is 1, then we multiply by u[k - 1 - j]
+            res *= *u.at(k - 1 - j);
         };
 
         j += 1;
@@ -73,11 +74,13 @@ fn squeeze_challenge_scalars(
     transcript.validate_and_append_point('A_O1', *proof.A_O1);
     transcript.validate_and_append_point('S1', *proof.S1);
 
-    // TODO: Assert that it's safe to just absorb these points
-    // into the transcript & omit entirely from MSM
-    transcript.append_point('A_I2', *proof.A_I2);
-    transcript.append_point('A_O2', *proof.A_O2);
-    transcript.append_point('S2', *proof.S2);
+    // Since we're only doing 1-phase circuits, we use the 1-phase
+    // domain separator, and A_I2, A_O2, & S2 are all the identity point
+    transcript.r1cs_1phase_domain_sep();
+    let ident = ec_point_zero();
+    transcript.append_point('A_I2', ident);
+    transcript.append_point('A_O2', ident);
+    transcript.append_point('S2', ident);
 
     challenge_scalars.append(transcript.challenge_scalar('y'));
     challenge_scalars.append(transcript.challenge_scalar('z'));

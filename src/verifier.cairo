@@ -24,11 +24,12 @@ mod Verifier {
     use clone::Clone;
     use traits::{Into, TryInto};
     use array::{ArrayTrait, SpanTrait};
-    use ec::{EcPoint, ec_point_zero, ec_mul};
+    use ec::{EcPoint, ec_point_zero, ec_mul, ec_point_unwrap, ec_point_non_zero};
 
     use alexandria::{data_structures::array_ext::ArrayTraitExt, math::fast_power::fast_power};
     use renegade_contracts::utils::{
         math::get_consecutive_powers, storage::StorageAccessSerdeWrapper, eq::EcPointPartialEq,
+        constants::{MAX_USIZE, G_LABEL, H_LABEL}
     };
 
     use super::{
@@ -44,9 +45,6 @@ mod Verifier {
     // | CONSTANTS |
     // -------------
 
-    // 2^32 - 1
-    const MAX_USIZE: usize = 0xFFFFFFFF;
-
     const STEP_UNIT_GAS: u128 = 1000000;
 
     // -----------
@@ -59,10 +57,6 @@ mod Verifier {
         verification_queue: LegacyMap<felt252, StorageAccessSerdeWrapper<VerificationJob>>,
         /// Map of in-use verification job IDs
         job_id_in_use: LegacyMap<felt252, bool>,
-        /// Domain separator for hash chain from which G generators are drawn
-        G_label: felt252,
-        /// Domain separator for hash chain from which H generators are drawn
-        H_label: felt252,
         /// Generator used for Pedersen commitments
         B: StorageAccessSerdeWrapper<EcPoint>,
         /// Generator used for blinding in Pedersen commitments
@@ -157,8 +151,6 @@ mod Verifier {
             self.k.write(circuit_params.k);
             self.q.write(circuit_params.q);
             self.m.write(circuit_params.m);
-            self.G_label.write(circuit_params.G_label);
-            self.H_label.write(circuit_params.H_label);
             self.B.write(StorageAccessSerdeWrapper { inner: circuit_params.B });
             self.B_blind.write(StorageAccessSerdeWrapper { inner: circuit_params.B_blind });
             self.W_L.write(StorageAccessSerdeWrapper { inner: circuit_params.W_L });
@@ -187,8 +179,6 @@ mod Verifier {
             let k = self.k.read();
             let q = self.q.read();
             let m = self.m.read();
-            let G_label = self.G_label.read();
-            let H_label = self.H_label.read();
             let B = self.B.read().inner;
             let B_blind = self.B_blind.read().inner;
             let W_L = self.W_L.read().inner;
@@ -198,7 +188,7 @@ mod Verifier {
             let c = self.c.read().inner;
 
             // Prep `RemainingGenerators` structs for G and H generators
-            let (G_rem, H_rem) = prep_rem_gens(G_label, H_label, n_plus);
+            let (G_rem, H_rem) = prep_rem_gens(n_plus);
 
             // Squeeze out challenge scalars from proof
             let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(@proof, m, n_plus);
@@ -278,8 +268,6 @@ mod Verifier {
                 k: self.k.read(),
                 q: self.q.read(),
                 m: self.m.read(),
-                G_label: self.G_label.read(),
-                H_label: self.H_label.read(),
                 B: self.B.read().inner,
                 B_blind: self.B_blind.read().inner,
                 W_L: self.W_L.read().inner,
@@ -306,12 +294,10 @@ mod Verifier {
         multiplier * STEP_UNIT_GAS
     }
 
-    fn prep_rem_gens(
-        G_label: felt252, H_label: felt252, n_plus: usize
-    ) -> (RemainingGenerators, RemainingGenerators) {
+    fn prep_rem_gens(n_plus: usize) -> (RemainingGenerators, RemainingGenerators) {
         (
-            RemainingGeneratorsTrait::new(G_label.into(), n_plus),
-            RemainingGeneratorsTrait::new(H_label.into(), n_plus)
+            RemainingGeneratorsTrait::new(G_LABEL, n_plus),
+            RemainingGeneratorsTrait::new(H_LABEL, n_plus)
         )
     }
 

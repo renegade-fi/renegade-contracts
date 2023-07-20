@@ -1,6 +1,7 @@
 //! A simple Fiat-Shamir transcript that uses a Keccak256 hash chain.
 
-use traits::Into;
+use traits::{Into, TryInto};
+use option::OptionTrait;
 use array::ArrayTrait;
 use keccak::keccak_u256s_le_inputs;
 use ec::{ec_point_unwrap, ec_point_non_zero, ec_point_is_zero};

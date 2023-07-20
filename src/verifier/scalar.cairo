@@ -165,8 +165,7 @@ impl ScalarZeroable of Zeroable<Scalar> {
 
 impl ScalarPrintTrait of PrintTrait<Scalar> {
     fn print(self: Scalar) {
-        // TODO: Consider converting to felt252
-        // so that we can print as a single value
-        self.inner.print();
+        let inner_felt: felt252 = self.into();
+        inner_felt.print();
     }
 }
