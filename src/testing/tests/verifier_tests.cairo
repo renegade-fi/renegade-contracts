@@ -113,14 +113,14 @@ fn test_get_s_elem_basic() {
     let k: usize = 3;
     let n_plus: usize = 8;
 
-    // u = [2, 3, 4]
+    // u = [4, 3, 2]
     let mut u: Array<Scalar> = ArrayTrait::new();
     let mut i: usize = 0;
     loop {
         if i == k {
             break;
         }
-        u.append((i + 2).into());
+        u.append((k + 1 - i).into());
         i += 1;
     };
     let u = u.span();
@@ -222,6 +222,7 @@ fn test_squeeze_challenge_scalars_basic() {
 #[available_gas(100000000)]
 fn test_transcript_basic() {
     // Obtained by processing the below transcript in the prover-side implementation
+    // https://github.com/renegade-fi/mpc-bulletproof/blob/main/src/transcript.rs
     let expected_challenge: Scalar =
         20218297303968297499310910532919921921595889040879854140591046408794752210
         .into();
@@ -454,7 +455,31 @@ fn test_full_verification_ex_proof() {
     // Queue verification job w/ ex proof
     verifier.queue_verification_job(proof, 11);
 
-    'executing verification steps...'.print();
+    'executing verification job'.print();
+    verifier.step_verification(11);
+
+    let verification_job = verifier.get_verification_job(11);
+    assert(verification_job.verified == Option::Some(true), 'verification failed');
+    'proof verified!'.print();
+}
+
+#[test]
+#[should_panic]
+#[available_gas(1000000000)] // 10x
+fn test_full_verification_modified_proof() {
+    let mut verifier = Verifier::contract_state_for_testing();
+
+    // Initialize verifier
+    let circuit_params = initialize_verifier(ref verifier);
+
+    // Get ex proof
+    let mut proof = get_example_proof();
+    proof.a = 1.into();
+
+    // Queue verification job w/ ex proof
+    verifier.queue_verification_job(proof, 11);
+
+    'executing verification job'.print();
     verifier.step_verification(11);
 
     let verification_job = verifier.get_verification_job(11);
@@ -690,10 +715,10 @@ fn get_dummy_circuit_pc_gens() -> (EcPoint, EcPoint) {
 }
 
 fn initialize_verifier(ref verifier: ContractState) -> CircuitParams {
-    'getting dummy circuit params...'.print();
+    'getting example circuit params'.print();
     let circuit_params = get_dummy_circuit_params();
 
-    'initializing...'.print();
+    'initializing verifier'.print();
     verifier.initialize(circuit_params.clone());
 
     circuit_params
