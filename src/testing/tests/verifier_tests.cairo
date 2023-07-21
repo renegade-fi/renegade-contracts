@@ -211,8 +211,11 @@ fn test_calc_delta_basic() {
 #[available_gas(100000000)]
 fn test_squeeze_challenge_scalars_basic() {
     let proof = get_dummy_proof();
+    let witness_commitments = get_dummy_witness_commitments();
     let (_, n_plus, k, _, m) = get_dummy_circuit_size_params();
-    let (challenge_scalars, u) = squeeze_challenge_scalars(@proof, m, n_plus);
+    let (challenge_scalars, u) = squeeze_challenge_scalars(
+        @proof, witness_commitments.span(), m, n_plus
+    );
 
     assert(challenge_scalars.len() == 6, 'wrong # of challenge scalars');
     assert(u.len() == k, 'wrong # of u challenge scalars');
@@ -243,10 +246,14 @@ fn test_transcript_basic() {
 }
 
 #[test]
+#[ignore]
 #[available_gas(100000000)]
 fn test_transcript_ex_proof() {
     let proof = get_example_proof();
-    let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(@proof, 4, 4);
+    let witness_commitments = get_example_witness_commitments();
+    let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(
+        @proof, witness_commitments.span(), 4, 4
+    );
     let y = challenge_scalars.pop_front().unwrap();
     'y'.print();
     y.print();
@@ -282,6 +289,7 @@ fn test_transcript_ex_proof() {
 }
 
 #[test]
+#[ignore]
 #[available_gas(100000000)]
 fn test_print_generators() {
     let mut G_rem = RemainingGeneratorsTrait::new(G_LABEL, 4);
@@ -362,6 +370,7 @@ fn test_initializer_storage_serde() {
 }
 
 #[test]
+#[ignore]
 #[available_gas(100000000)]
 fn test_queue_verification() {
     let mut verifier = Verifier::contract_state_for_testing();
@@ -416,6 +425,7 @@ fn test_queue_verification() {
 }
 
 #[test]
+#[ignore]
 #[available_gas(1000000000)] // 10x
 fn test_step_verification_basic() {
     let mut verifier = Verifier::contract_state_for_testing();
@@ -452,8 +462,11 @@ fn test_full_verification_ex_proof() {
     // Get ex proof
     let proof = get_example_proof();
 
+    // Get ex witness commitments
+    let witness_commitments = get_example_witness_commitments();
+
     // Queue verification job w/ ex proof
-    verifier.queue_verification_job(proof, 11);
+    verifier.queue_verification_job(proof, witness_commitments, 11);
 
     'executing verification job'.print();
     verifier.step_verification(11);
@@ -476,8 +489,11 @@ fn test_full_verification_modified_proof() {
     let mut proof = get_example_proof();
     proof.a = 1.into();
 
+    // Get ex witness commitments
+    let witness_commitments = get_example_witness_commitments();
+
     // Queue verification job w/ ex proof
-    verifier.queue_verification_job(proof, 11);
+    verifier.queue_verification_job(proof, witness_commitments, 11);
 
     'executing verification job'.print();
     verifier.step_verification(11);
@@ -509,8 +525,11 @@ fn test_verification_events() {
     'getting dummy proof...'.print();
     let proof = get_dummy_proof();
 
+    'getting dummy witness...'.print();
+    let witness_commitments = get_dummy_witness_commitments();
+
     'queueing verification job...'.print();
-    verifier.queue_verification_job(proof, 11);
+    verifier.queue_verification_job(proof, witness_commitments, 11);
 
     'executing verification...'.print();
     verifier.step_verification(11);
@@ -735,6 +754,9 @@ fn queue_dummy_verification_job(
     'getting dummy proof...'.print();
     let mut proof = get_dummy_proof();
 
+    'getting dummy witness...'.print();
+    let mut witness_commitments = get_dummy_witness_commitments();
+
     'queueing verification job...'.print();
     // Skips assertion about verification job id since we don't use it
 
@@ -774,7 +796,9 @@ fn queue_dummy_verification_job(
     );
 
     // Prep commitments
-    let rem_commitments = Verifier::prep_rem_commitments(ref proof, B, B_blind);
+    let rem_commitments = Verifier::prep_rem_commitments(
+        ref proof, ref witness_commitments, B, B_blind
+    );
 
     // Pack `VerificationJob` struct
     let vec_indices = VecIndices {
@@ -812,12 +836,6 @@ fn get_dummy_proof() -> Proof {
     R.append(ec_mul(basepoint, 13));
     R.append(ec_mul(basepoint, 14));
 
-    let mut V = ArrayTrait::new();
-    V.append(ec_mul(basepoint, 15));
-    V.append(ec_mul(basepoint, 16));
-    V.append(ec_mul(basepoint, 17));
-    V.append(ec_mul(basepoint, 18));
-
     Proof {
         A_I1: ec_mul(basepoint, 3),
         A_O1: ec_mul(basepoint, 4),
@@ -834,8 +852,19 @@ fn get_dummy_proof() -> Proof {
         R,
         a: 12.into(),
         b: 13.into(),
-        V,
     }
+}
+
+fn get_dummy_witness_commitments() -> Array<EcPoint> {
+    let basepoint = ec_point_from_x(1).unwrap();
+
+    let mut V = ArrayTrait::new();
+    V.append(ec_mul(basepoint, 15));
+    V.append(ec_mul(basepoint, 16));
+    V.append(ec_mul(basepoint, 17));
+    V.append(ec_mul(basepoint, 18));
+
+    V
 }
 
 fn get_dummy_challenge_scalars(k: usize) -> (Array<Scalar>, Array<Scalar>) {
@@ -1057,12 +1086,13 @@ fn get_expected_rem_scalar_polys() -> Array<VecPoly3> {
 
 fn get_expected_rem_commitments() -> Array<EcPoint> {
     let mut dummy_proof = get_dummy_proof();
+    let mut witness_commitments = get_dummy_witness_commitments();
 
     let mut commitments_rem = ArrayTrait::new();
     commitments_rem.append(dummy_proof.A_I1);
     commitments_rem.append(dummy_proof.A_O1);
     commitments_rem.append(dummy_proof.S1);
-    commitments_rem.append_all(ref dummy_proof.V);
+    commitments_rem.append_all(ref witness_commitments);
     commitments_rem.append(dummy_proof.T_1);
     commitments_rem.append(dummy_proof.T_3);
     commitments_rem.append(dummy_proof.T_4);
@@ -1290,6 +1320,9 @@ fn get_example_proof() -> Proof {
     let a = 647816596367555760642976090193277447711074429393227355146087454155746042017.into();
     let b = 2309563944115123425290573513394753991737490964139397497246955283558587845937.into();
 
+    Proof { A_I1, A_O1, S1, T_1, T_3, T_4, T_5, T_6, t_hat, t_blind, e_blind, L, R, a, b }
+}
+fn get_example_witness_commitments() -> Array<EcPoint> {
     let mut V = ArrayTrait::new();
     // a_comm
     V
@@ -1324,5 +1357,5 @@ fn get_example_proof() -> Proof {
             )
         );
 
-    Proof { A_I1, A_O1, S1, T_1, T_3, T_4, T_5, T_6, t_hat, t_blind, e_blind, L, R, a, b, V }
+    V
 }

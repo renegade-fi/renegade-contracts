@@ -316,7 +316,6 @@ struct Proof {
     R: Array<EcPoint>,
     a: Scalar,
     b: Scalar,
-    V: Array<EcPoint>,
 }
 
 // (index, weight) entries in a sparse-reduced vector are expected
