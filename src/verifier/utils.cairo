@@ -47,7 +47,7 @@ fn get_s_elem(u: Span<Scalar>, i: usize) -> Scalar {
 // TODO: Absorb identity points for A_I2, A_O2, S2
 // TODO: Squeeze u challenge scalar for 2-phase circuit (confusing variable naming)
 fn squeeze_challenge_scalars(
-    proof: @Proof, m: usize, n_plus: usize
+    proof: @Proof, witness_commitments: Span<EcPoint>, m: usize, n_plus: usize
 ) -> (Array<Scalar>, Array<Scalar>) {
     let mut challenge_scalars = ArrayTrait::new();
     let mut u = ArrayTrait::new();
@@ -63,7 +63,7 @@ fn squeeze_challenge_scalars(
             break;
         };
 
-        transcript.validate_and_append_point('V', *proof.V.at(i));
+        transcript.validate_and_append_point('V', *witness_commitments.at(i));
 
         i += 1;
     };
