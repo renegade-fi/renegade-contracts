@@ -7,12 +7,19 @@ mod utils;
 // -------------
 // TODO: Move to separate file / module when extensibility pattern is stabilized
 
+use renegade_contracts::utils::serde::EcPointSerde;
+
 use types::{CircuitParams, Proof, VerificationJob};
 
 #[starknet::interface]
 trait IVerifier<TContractState> {
     fn initialize(ref self: TContractState, circuit_params: CircuitParams);
-    fn queue_verification_job(ref self: TContractState, proof: Proof, verification_job_id: felt252);
+    fn queue_verification_job(
+        ref self: TContractState,
+        proof: Proof,
+        witness_commitments: Array<EcPoint>,
+        verification_job_id: felt252
+    );
     fn step_verification(ref self: TContractState, verification_job_id: felt252);
     fn get_circuit_params(self: @TContractState) -> CircuitParams;
     fn get_verification_job(self: @TContractState, verification_job_id: felt252) -> VerificationJob;
@@ -29,7 +36,7 @@ mod Verifier {
     use alexandria::{data_structures::array_ext::ArrayTraitExt, math::fast_power::fast_power};
     use renegade_contracts::utils::{
         math::get_consecutive_powers, storage::StorageAccessSerdeWrapper, eq::EcPointPartialEq,
-        constants::{MAX_USIZE, G_LABEL, H_LABEL}
+        serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
     };
 
     use super::{
@@ -168,17 +175,23 @@ mod Verifier {
         /// - `proof`: The proof to verify
         /// - `verification_job_id`: The ID of the verification job
         fn queue_verification_job(
-            ref self: ContractState, mut proof: Proof, verification_job_id: felt252
+            ref self: ContractState,
+            mut proof: Proof,
+            mut witness_commitments: Array<EcPoint>,
+            verification_job_id: felt252
         ) {
             // Assert that the verification job ID is not already in use
             assert(!self.job_id_in_use.read(verification_job_id), 'job ID already in use');
             self.job_id_in_use.write(verification_job_id, true);
 
+            // Assert that there is the right number of witness commitments
+            let m = self.m.read();
+            assert(witness_commitments.len() == m, 'wrong # of witness commitments');
+
             let n = self.n.read();
             let n_plus = self.n_plus.read();
             let k = self.k.read();
             let q = self.q.read();
-            let m = self.m.read();
             let B = self.B.read().inner;
             let B_blind = self.B_blind.read().inner;
             let W_L = self.W_L.read().inner;
@@ -191,7 +204,9 @@ mod Verifier {
             let (G_rem, H_rem) = prep_rem_gens(n_plus);
 
             // Squeeze out challenge scalars from proof
-            let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(@proof, m, n_plus);
+            let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(
+                @proof, witness_commitments.span(), m, n_plus
+            );
             let y = challenge_scalars.pop_front().unwrap();
             let z = challenge_scalars.pop_front().unwrap();
             let u = challenge_scalars.pop_front().unwrap();
@@ -210,7 +225,9 @@ mod Verifier {
             );
 
             // Prep commitments
-            let rem_commitments = prep_rem_commitments(ref proof, B, B_blind);
+            let rem_commitments = prep_rem_commitments(
+                ref proof, ref witness_commitments, B, B_blind
+            );
 
             // Pack `VerificationJob` struct
             let vec_indices = VecIndices {
@@ -459,7 +476,9 @@ mod Verifier {
         rem_scalar_polys
     }
 
-    fn prep_rem_commitments(ref proof: Proof, B: EcPoint, B_blind: EcPoint) -> Array<EcPoint> {
+    fn prep_rem_commitments(
+        ref proof: Proof, ref witness_commitments: Array<EcPoint>, B: EcPoint, B_blind: EcPoint
+    ) -> Array<EcPoint> {
         let mut commitments_rem = ArrayTrait::new();
 
         commitments_rem.append(proof.A_I1);
@@ -468,7 +487,7 @@ mod Verifier {
         // Since we're currently only doing 1-phase circuits,
         // we don't actually need to include the A_I2, A_O2, S2 commitments
         // in the verification MSM (they're the identity point, so have no effect)
-        commitments_rem.append_all(ref proof.V);
+        commitments_rem.append_all(ref witness_commitments);
         commitments_rem.append(proof.T_1);
         commitments_rem.append(proof.T_3);
         commitments_rem.append(proof.T_4);
