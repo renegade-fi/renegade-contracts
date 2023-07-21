@@ -11,18 +11,20 @@ use renegade_contracts::utils::constants::SCALAR_FIELD_ORDER;
 
 #[derive(Default, Drop, Copy, PartialEq, PartialOrd, Serde)]
 struct Scalar {
-    inner: u256
+    inner: felt252
 }
 
 #[generate_trait]
 impl ScalarImpl of ScalarTrait {
     fn inverse(self: @Scalar) -> Scalar {
-        let inner = mult_inverse(*self.inner, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = mult_inverse((*self.inner).into(), SCALAR_FIELD_ORDER).try_into().unwrap();
         Scalar { inner }
     }
 
     fn pow(self: @Scalar, exponent: u256) -> Scalar {
-        let inner = pow_mod(*self.inner, exponent, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = pow_mod((*self.inner).into(), exponent, SCALAR_FIELD_ORDER).try_into().unwrap();
         Scalar { inner }
     }
 }
@@ -37,7 +39,10 @@ impl ScalarImpl of ScalarTrait {
 
 impl ScalarAdd of Add<Scalar> {
     fn add(lhs: Scalar, rhs: Scalar) -> Scalar {
-        let inner = add_mod(lhs.inner, rhs.inner, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = add_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+            .try_into()
+            .unwrap();
         Scalar { inner }
     }
 }
@@ -54,7 +59,10 @@ impl ScalarAddEq of AddEq<Scalar> {
 
 impl ScalarSub of Sub<Scalar> {
     fn sub(lhs: Scalar, rhs: Scalar) -> Scalar {
-        let inner = sub_mod(lhs.inner, rhs.inner, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = sub_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+            .try_into()
+            .unwrap();
         Scalar { inner }
     }
 }
@@ -71,7 +79,10 @@ impl ScalarSubEq of SubEq<Scalar> {
 
 impl ScalarMul of Mul<Scalar> {
     fn mul(lhs: Scalar, rhs: Scalar) -> Scalar {
-        let inner = mult_mod(lhs.inner, rhs.inner, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = mult_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+            .try_into()
+            .unwrap();
         Scalar { inner }
     }
 }
@@ -90,7 +101,10 @@ impl ScalarDiv of Div<Scalar> {
     fn div(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Under the hood, this is implemented as
         // lhs * rhs.inverse()
-        let inner = div_mod(lhs.inner, rhs.inner, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = div_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+            .try_into()
+            .unwrap();
         Scalar { inner }
     }
 }
@@ -107,7 +121,8 @@ impl ScalarDivEq of DivEq<Scalar> {
 
 impl ScalarNeg of Neg<Scalar> {
     fn neg(a: Scalar) -> Scalar {
-        let inner = add_inverse_mod(a.inner, SCALAR_FIELD_ORDER);
+        // Safe to unwrap b/c scalar field is smaller than base field
+        let inner = add_inverse_mod(a.inner.into(), SCALAR_FIELD_ORDER).try_into().unwrap();
         Scalar { inner }
     }
 }
@@ -122,22 +137,21 @@ impl ScalarNeg of Neg<Scalar> {
 
 impl IntoScalar<T, impl TIntoU256: Into<T, u256>> of Into<T, Scalar> {
     fn into(self: T) -> Scalar {
-        Scalar { inner: self.into() % SCALAR_FIELD_ORDER }
+        let inner_u256 = self.into() % SCALAR_FIELD_ORDER;
+        // Safe to unwrap b/c scalar field is smaller than base field
+        Scalar { inner: inner_u256.try_into().unwrap() }
     }
 }
 
 impl ScalarIntoU256 of Into<Scalar, u256> {
     fn into(self: Scalar) -> u256 {
-        self.inner
+        self.inner.into()
     }
 }
 
 impl ScalarIntoFelt of Into<Scalar, felt252> {
     fn into(self: Scalar) -> felt252 {
-        // Unwrapping here is safe b/c the inner value is always
-        // reduced mod the scalar field order, which is less than
-        // the base field order.
-        self.inner.try_into().unwrap()
+        self.inner
     }
 }
 
@@ -165,7 +179,6 @@ impl ScalarZeroable of Zeroable<Scalar> {
 
 impl ScalarPrintTrait of PrintTrait<Scalar> {
     fn print(self: Scalar) {
-        let inner_felt: felt252 = self.into();
-        inner_felt.print();
+        self.inner.print();
     }
 }
