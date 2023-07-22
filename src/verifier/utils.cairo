@@ -141,5 +141,5 @@ fn calc_delta(
     let w_R_flat = W_R.flatten(z, n);
 
     // \delta = <y^n * w_R_flat, w_L_flat>
-    dot(elt_wise_mul(y_inv_powers_to_n, w_R_flat.span()), w_L_flat)
+    dot(elt_wise_mul(y_inv_powers_to_n, w_R_flat.span()).span(), w_L_flat.span())
 }
