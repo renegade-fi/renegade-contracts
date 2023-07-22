@@ -1,4 +1,4 @@
-// mod nullifier_set;
+mod nullifier_set;
 // mod merkle;
 // mod darkpool;
 mod verifier;

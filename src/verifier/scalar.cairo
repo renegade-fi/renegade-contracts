@@ -2,6 +2,7 @@ use option::OptionTrait;
 use traits::{TryInto, Into};
 use integer::NumericLiteral;
 use debug::PrintTrait;
+use hash::LegacyHash;
 
 use alexandria::math::mod_arithmetics::{
     mult_inverse, pow_mod, add_mod, sub_mod, mult_mod, div_mod, add_inverse_mod
@@ -180,5 +181,15 @@ impl ScalarZeroable of Zeroable<Scalar> {
 impl ScalarPrintTrait of PrintTrait<Scalar> {
     fn print(self: Scalar) {
         self.inner.print();
+    }
+}
+
+// --------
+// | HASH |
+// --------
+
+impl ScalarLegacyHash of LegacyHash<Scalar> {
+    fn hash(state: felt252, value: Scalar) -> felt252 {
+        LegacyHash::hash(state, value.inner)
     }
 }
