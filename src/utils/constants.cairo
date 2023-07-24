@@ -21,6 +21,9 @@ const SHIFT_256_FELT: felt252 =
 /// 2^32 - 1
 const MAX_USIZE: usize = 0xFFFFFFFF;
 
+/// 2^128 - 1
+const MAX_U128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+
 /// Domain separator for hash chain from which G generators are drawn
 const G_LABEL: u256 = 'GeneratorsChainG';
 /// Domain separator for hash chain from which H generators are drawn

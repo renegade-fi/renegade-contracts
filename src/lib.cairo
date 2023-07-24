@@ -1,5 +1,5 @@
-mod nullifier_set;
-// mod merkle;
+// mod nullifier_set;
+mod merkle;
 // mod darkpool;
 mod verifier;
 mod transcript;
