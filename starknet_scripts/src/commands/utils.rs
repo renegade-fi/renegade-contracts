@@ -13,7 +13,7 @@ use starknet::{
     signers::{LocalWallet, SigningKey},
 };
 use std::{fs::File, path::PathBuf, sync::Arc};
-use tracing::trace;
+use tracing::{debug, trace};
 use url::Url;
 
 use crate::cli::Network;
@@ -66,6 +66,25 @@ pub fn setup_account(
     };
 
     Ok(SingleOwnerAccount::new(provider, signer, address, chain_id))
+}
+
+pub async fn get_or_declare(
+    class_hash_hex: Option<String>,
+    sierra_path: PathBuf,
+    casm_path: PathBuf,
+    account: &SingleOwnerAccount<SequencerGatewayProvider, LocalWallet>,
+    nonce: FieldElement,
+) -> Result<FieldElement> {
+    if let Some(class_hash_hex) = class_hash_hex {
+        let class_hash = FieldElement::from_hex_be(&class_hash_hex)?;
+        debug!("Using provided class hash: {:?}", class_hash);
+        Ok(class_hash)
+    } else {
+        let DeclareTransactionResult { class_hash, .. } =
+            declare(sierra_path, casm_path, account, nonce).await?;
+        debug!("Declared contract with class hash: {:?}", class_hash);
+        Ok(class_hash)
+    }
 }
 
 pub async fn declare(
