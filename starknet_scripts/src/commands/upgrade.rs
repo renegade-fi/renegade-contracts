@@ -2,7 +2,7 @@ use std::path::Path;
 
 use eyre::Result;
 use starknet::{
-    accounts::{Account, Call, ConnectedAccount},
+    accounts::{Account, Call},
     core::{
         types::{BlockId, BlockTag, FieldElement},
         utils::get_selector_from_name,
@@ -44,18 +44,15 @@ pub async fn upgrade(args: UpgradeArgs) -> Result<()> {
     let address_felt = FieldElement::from_hex_be(&address)?;
     let mut account = setup_account(address_felt, private_key, network)?;
     account.set_block_id(BlockId::Tag(BlockTag::Pending));
-    let mut nonce = account.get_nonce().await?;
 
     // Declare upgraded contract
     let class_hash_felt = get_or_declare(
         class_hash,
-        Path::new(&artifacts_path).join(format!("{}.json", contract_name)),
+        Path::new(&artifacts_path).join(format!("{}.sierra.json", contract_name)),
         Path::new(&artifacts_path).join(format!("{}.casm", contract_name)),
         &account,
-        nonce,
     )
     .await?;
-    nonce += FieldElement::ONE;
 
     // Upgrade class hash in Darkpool contract
     let darkpool_address_felt = FieldElement::from_hex_be(&darkpool_address)?;
@@ -72,7 +69,6 @@ pub async fn upgrade(args: UpgradeArgs) -> Result<()> {
             selector,
             calldata: vec![class_hash_felt],
         }])
-        .nonce(nonce)
         .send()
         .await?;
     trace!("Upgrade result: {:?}", upgrade_result);

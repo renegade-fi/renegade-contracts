@@ -1,22 +1,10 @@
 //! Command line interface for the Starknet scripts
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, ValueEnum};
+use strum::{Display, EnumIter};
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct CliArgs {
-    #[command(subcommand)]
-    pub command: Commands,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-    /// Deploys and initializes one of the contracts (darkpool, merkle, nullifier set).
-    Deploy(DeployArgs),
-
-    /// Upgrades one of the contracts (darkpool, merkle, nullifier set).
-    Upgrade(UpgradeArgs),
-}
+// TODO: Move everything except for `CliArgs` and `Commands` into library crate,
+// and the former into the binary crate.
 
 #[derive(Args, Debug)]
 pub struct DeployArgs {
@@ -44,6 +32,10 @@ pub struct DeployArgs {
     /// If the darkpool or nullifier set contract is being deployed and this flag is not set,
     /// the nullifier set contract will be declared.
     pub nullifier_set_class_hash: Option<String>,
+
+    #[arg(short, long, long_help)]
+    /// Whether or not to initialize the contract.
+    pub initialize: bool,
 
     #[arg(short, long, long_help)]
     /// The account address of the owner of the Darkpool contract,
@@ -111,7 +103,7 @@ pub struct UpgradeArgs {
     pub private_key: String,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Display, Debug, Clone, ValueEnum, EnumIter)]
 pub enum Contract {
     Darkpool,
     Merkle,
