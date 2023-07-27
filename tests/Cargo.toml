@@ -23,3 +23,4 @@ num-bigint = { version = "0.4.3", features = ["rand"] }
 starknet = { workspace = true }
 katana-core = { git = "https://github.com/dojoengine/dojo.git" }
 dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git" }
+mpc-stark = { git = "https://github.com/renegade-fi/mpc-stark.git" }

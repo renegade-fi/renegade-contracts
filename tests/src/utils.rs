@@ -1,5 +1,6 @@
 use dojo_test_utils::sequencer::{get_default_test_starknet_config, TestSequencer};
 use katana_core::sequencer::SequencerConfig;
+use mpc_stark::algebra::scalar::Scalar;
 use num_bigint::{BigUint, RandBigInt};
 use rand::thread_rng;
 use starknet::core::types::FieldElement;
@@ -36,4 +37,10 @@ pub fn random_felt() -> FieldElement {
     let modulus = BigUint::from_bytes_be(&FieldElement::MAX.to_bytes_be()) + 1_u8;
     let rand_uint = thread_rng().gen_biguint_below(&modulus);
     FieldElement::from_byte_slice_be(&rand_uint.to_bytes_be()).unwrap()
+}
+
+pub fn random_scalar_as_felt() -> FieldElement {
+    let scalar = Scalar::random(&mut thread_rng());
+    // No need to reduce into modulues since the scalar field is smaller than the base field
+    FieldElement::from_byte_slice_be(&scalar.to_bytes_be()).unwrap()
 }
