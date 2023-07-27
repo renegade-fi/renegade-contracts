@@ -25,7 +25,6 @@ use super::ark_merkle::FeltMerkleTree;
 pub const TEST_MERKLE_HEIGHT: usize = 5;
 
 const GET_ROOT_FN_NAME: &str = "get_root";
-const ROOT_IN_HISTORY_FN_NAME: &str = "root_in_history";
 const INSERT_FN_NAME: &str = "insert";
 
 pub static MERKLE_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
@@ -118,14 +117,6 @@ pub async fn contract_get_root(
     Ok(result[0])
 }
 
-pub async fn contract_root_in_history(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
-    root: FieldElement,
-) -> Result<bool> {
-    let result = call_merkle_contract(account, ROOT_IN_HISTORY_FN_NAME, vec![root]).await?;
-    Ok(result[0] == FieldElement::ONE)
-}
-
 pub async fn contract_insert(
     account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
     value: FieldElement,
@@ -163,17 +154,6 @@ pub async fn assert_roots_equal(
 
     debug!("Checking if roots match...");
     assert!(contract_root == ark_root);
-
-    Ok(())
-}
-
-pub async fn assert_root_in_history(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
-) -> Result<()> {
-    let contract_root = contract_get_root(account).await?;
-
-    debug!("Checking if root is in history...");
-    assert!(contract_root_in_history(account, contract_root).await?);
 
     Ok(())
 }
