@@ -2,15 +2,13 @@
 
 use eyre::Result;
 use starknet::core::types::FieldElement;
-use std::path::Path;
 use tracing::{debug, info};
 
 use crate::{
     cli::{Contract, DeployArgs},
     commands::utils::{
-        calculate_contract_address, deploy, get_or_declare, initialize, setup_account,
-        CASM_FILE_EXTENSION, DARKPOOL_CONTRACT_NAME, MERKLE_CONTRACT_NAME, MERKLE_HEIGHT,
-        NULLIFIER_SET_CONTRACT_NAME, SIERRA_FILE_EXTENSION,
+        deploy_darkpool, deploy_merkle, deploy_nullifier_set, initialize, setup_account,
+        MERKLE_HEIGHT,
     },
 };
 
@@ -34,52 +32,20 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
 
     match contract {
         Contract::Darkpool => {
-            let darkpool_class_hash_felt = get_or_declare(
+            let (
+                darkpool_address,
+                darkpool_class_hash_felt,
+                merkle_class_hash_felt,
+                nullifier_set_class_hash_felt,
+                transaction_hash,
+            ) = deploy_darkpool(
                 darkpool_class_hash,
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    DARKPOOL_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-                )),
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    DARKPOOL_CONTRACT_NAME, CASM_FILE_EXTENSION
-                )),
-                &account,
-            )
-            .await?;
-
-            let merkle_class_hash_felt = get_or_declare(
                 merkle_class_hash,
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    MERKLE_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-                )),
-                Path::new(&artifacts_path)
-                    .join(format!("{}.{}", MERKLE_CONTRACT_NAME, CASM_FILE_EXTENSION)),
-                &account,
-            )
-            .await?;
-
-            let nullifier_set_class_hash_felt = get_or_declare(
                 nullifier_set_class_hash,
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    NULLIFIER_SET_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-                )),
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    NULLIFIER_SET_CONTRACT_NAME, CASM_FILE_EXTENSION
-                )),
+                artifacts_path,
                 &account,
             )
             .await?;
-
-            // Deploy darkpool
-            debug!("Deploying darkpool contract...");
-            let calldata = vec![address_felt];
-            let deploy_result = deploy(&account, darkpool_class_hash_felt, &calldata).await?;
-
-            let darkpool_address = calculate_contract_address(darkpool_class_hash_felt, &calldata);
 
             info!(
                 "Darkpool contract successfully deployed & initialized!\nDarkpool contract address: {:#64x}\nDarkpool class hash: {:#64x}\nMerkle class hash: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
@@ -87,7 +53,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 darkpool_class_hash_felt,
                 merkle_class_hash_felt,
                 nullifier_set_class_hash_felt,
-                deploy_result.transaction_hash,
+                transaction_hash,
             );
 
             if should_initialize {
@@ -108,29 +74,14 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
             }
         }
         Contract::Merkle => {
-            let merkle_class_hash_felt = get_or_declare(
-                merkle_class_hash,
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    MERKLE_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-                )),
-                Path::new(&artifacts_path)
-                    .join(format!("{}.{}", MERKLE_CONTRACT_NAME, CASM_FILE_EXTENSION)),
-                &account,
-            )
-            .await?;
-
-            // Deploy merkle
-            debug!("Deploying merkle contract...");
-            let deploy_result = deploy(&account, merkle_class_hash_felt, &[]).await?;
-
-            let merkle_address = calculate_contract_address(merkle_class_hash_felt, &[]);
+            let (merkle_address, merkle_class_hash_felt, transaction_hash) =
+                deploy_merkle(merkle_class_hash, artifacts_path, &account).await?;
 
             info!(
                 "Merkle contract successfully deployed!\nMerkle contract address: {:#64x}\nMerkle class hash: {:#64x}\nTransaction hash: {:#64x}\n",
                 merkle_address,
                 merkle_class_hash_felt,
-                deploy_result.transaction_hash,
+                transaction_hash,
             );
 
             if should_initialize {
@@ -146,29 +97,14 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
             }
         }
         Contract::NullifierSet => {
-            let nullifier_set_class_hash_felt = get_or_declare(
-                nullifier_set_class_hash,
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    NULLIFIER_SET_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-                )),
-                Path::new(&artifacts_path).join(format!(
-                    "{}.{}",
-                    NULLIFIER_SET_CONTRACT_NAME, CASM_FILE_EXTENSION
-                )),
-                &account,
-            )
-            .await?;
-
-            // Deploy nullifier set
-            debug!("Deploying nullifier set contract...");
-            let deploy_result = deploy(&account, nullifier_set_class_hash_felt, &[]).await?;
+            let (nullifier_set_address, nullifier_set_class_hash_felt, transaction_hash) =
+                deploy_nullifier_set(nullifier_set_class_hash, artifacts_path, &account).await?;
 
             info!(
                 "nullifier set contract successfully deployed!\nNullifier set contract address: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
-                calculate_contract_address(nullifier_set_class_hash_felt, &[]),
+                nullifier_set_address,
                 nullifier_set_class_hash_felt,
-                deploy_result.transaction_hash,
+                transaction_hash,
             )
         }
     }

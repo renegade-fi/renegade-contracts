@@ -1,7 +1,6 @@
 //! Command line interface for the Starknet scripts
 
 use clap::{Args, ValueEnum};
-use strum::{Display, EnumIter};
 
 // TODO: Move everything except for `CliArgs` and `Commands` into library crate,
 // and the former into the binary crate.
@@ -103,7 +102,7 @@ pub struct UpgradeArgs {
     pub private_key: String,
 }
 
-#[derive(Display, Debug, Clone, ValueEnum, EnumIter)]
+#[derive(Debug, Clone, ValueEnum)]
 pub enum Contract {
     Darkpool,
     Merkle,
