@@ -2,9 +2,9 @@ use std::path::Path;
 
 use eyre::Result;
 use starknet::{
-    accounts::{Account, Call, ConnectedAccount},
+    accounts::{Account, Call},
     core::{
-        types::{BlockId, BlockTag, DeclareTransactionResult, FieldElement},
+        types::{BlockId, BlockTag, FieldElement},
         utils::get_selector_from_name,
     },
 };
@@ -13,7 +13,7 @@ use tracing::{debug, info, trace};
 use crate::{
     cli::{Contract, UpgradeArgs},
     commands::utils::{
-        declare, setup_account, DARKPOOL_CONTRACT_NAME, MERKLE_CONTRACT_NAME,
+        get_or_declare, setup_account, DARKPOOL_CONTRACT_NAME, MERKLE_CONTRACT_NAME,
         NULLIFIER_SET_CONTRACT_NAME,
     },
 };
@@ -24,6 +24,7 @@ const UPGRADE_NULLIFIER_SET_FN_NAME: &str = "upgrade_nullifier_set";
 
 pub async fn upgrade(args: UpgradeArgs) -> Result<()> {
     let UpgradeArgs {
+        class_hash,
         address,
         darkpool_address,
         contract,
@@ -43,17 +44,15 @@ pub async fn upgrade(args: UpgradeArgs) -> Result<()> {
     let address_felt = FieldElement::from_hex_be(&address)?;
     let mut account = setup_account(address_felt, private_key, network)?;
     account.set_block_id(BlockId::Tag(BlockTag::Pending));
-    let mut nonce = account.get_nonce().await?;
 
     // Declare upgraded contract
-    debug!("Declaring upgraded {contract_name} contract...");
-    let contract_sierra_path = Path::new(&artifacts_path).join(format!("{}.json", contract_name));
-    let contract_casm_path = Path::new(&artifacts_path).join(format!("{}.casm", contract_name));
-    let DeclareTransactionResult {
-        class_hash: contract_class_hash,
-        ..
-    } = declare(contract_sierra_path, contract_casm_path, &account, nonce).await?;
-    nonce += FieldElement::ONE;
+    let class_hash_felt = get_or_declare(
+        class_hash,
+        Path::new(&artifacts_path).join(format!("{}.sierra.json", contract_name)),
+        Path::new(&artifacts_path).join(format!("{}.casm", contract_name)),
+        &account,
+    )
+    .await?;
 
     // Upgrade class hash in Darkpool contract
     let darkpool_address_felt = FieldElement::from_hex_be(&darkpool_address)?;
@@ -63,19 +62,18 @@ pub async fn upgrade(args: UpgradeArgs) -> Result<()> {
         Contract::NullifierSet => UPGRADE_NULLIFIER_SET_FN_NAME,
     })?;
 
-    debug!("Upgrading Darkpool contract...");
+    debug!("Upgrading contract...");
     let upgrade_result = account
         .execute(vec![Call {
             to: darkpool_address_felt,
             selector,
-            calldata: vec![contract_class_hash],
+            calldata: vec![class_hash_felt],
         }])
-        .nonce(nonce)
         .send()
         .await?;
     trace!("Upgrade result: {:?}", upgrade_result);
 
-    info!("Successfully upgraded {contract_name} contract implementation to class hash {contract_class_hash:#64x}.");
+    info!("Successfully upgraded {contract_name} contract implementation to class hash {class_hash_felt:#64x}.");
 
     Ok(())
 }

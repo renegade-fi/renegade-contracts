@@ -1,42 +1,60 @@
 //! Command line interface for the Starknet scripts
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, ValueEnum};
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct CliArgs {
-    #[command(subcommand)]
-    pub command: Commands,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-    /// Deploys and initializes the Darkpool contract.
-    /// This includes declaring the Darkpool, as well as Merkle & nullifier set, classes.
-    Deploy(DeployArgs),
-
-    /// Upgrades either the Darkpool, Merkle, or nullifier set contracts.
-    /// This includes declaring the contract being upgraded.
-    Upgrade(UpgradeArgs),
-}
+// TODO: Move everything except for `CliArgs` and `Commands` into library crate,
+// and the former into the binary crate.
 
 #[derive(Args, Debug)]
 pub struct DeployArgs {
     #[arg(short, long, long_help)]
+    /// The contract to deploy
+    pub contract: Contract,
+
+    #[arg(long, long_help)]
+    /// The class hash of the darkpool contract, in hex form.
+    /// {n}
+    /// If the darkpool contract is being deployed and this flag is not set,
+    /// the darkpool contract will be declared.
+    pub darkpool_class_hash: Option<String>,
+
+    #[arg(long, long_help)]
+    /// The class hash of the merkle contract, in hex form.
+    /// {n}
+    /// If the darkpool or merkle contract is being deployed and this flag is not set,
+    /// the merkle contract will be declared.
+    pub merkle_class_hash: Option<String>,
+
+    #[arg(long, long_help)]
+    /// The class hash of the nullifier set contract, in hex form.
+    /// {n}
+    /// If the darkpool or nullifier set contract is being deployed and this flag is not set,
+    /// the nullifier set contract will be declared.
+    pub nullifier_set_class_hash: Option<String>,
+
+    #[arg(short, long, long_help)]
+    /// Whether or not to initialize the contract.
+    pub initialize: bool,
+
+    #[arg(short, long, long_help)]
     /// The account address of the owner of the Darkpool contract,
     /// which will be able to initialize & upgrade the contract.
+    /// {n}
     /// Assumes this is the same address as the one associated with the private key.
     pub address: String,
 
     #[arg(long, long_help)]
     /// The path to a folder containing the Sierra & casm artifacts of the
     /// Darkpool, Merkle, & nullifier set contracts.
+    /// {n}
     /// The files in this folder should be named:
-    /// renegade_contracts_{Darkpool, Merkle, NullifierSet}.{json, casm}
+    /// {n}
+    /// renegade_contracts_{Darkpool, Merkle, NullifierSet}.{sierra.json, casm}
     pub artifacts_path: String,
 
     #[arg(short, long, long_help)]
     /// Which network you'd like to use.
+    /// {n}
     /// If `localhost`, the node is expected to be running on port 5050.
     pub network: Network,
 
@@ -47,6 +65,12 @@ pub struct DeployArgs {
 
 #[derive(Args, Debug)]
 pub struct UpgradeArgs {
+    #[arg(long, long_help)]
+    /// The class hash of the contract being upgraded, in hex form.
+    /// {n}
+    /// If this flag is not set, the contract will be declared.
+    pub class_hash: Option<String>,
+
     #[arg(short, long, long_help)]
     /// The account address associated with the private key.
     pub address: String,
@@ -61,12 +85,15 @@ pub struct UpgradeArgs {
 
     #[arg(long, long_help)]
     /// The path to the Sierra & casm artifacts of the contract being upgraded.
+    /// {n}
     /// This file should be named:
-    /// renegade_contracts_{Darkpool, Merkle, NullifierSet}.{json, casm}
+    /// {n}
+    /// renegade_contracts_{Darkpool, Merkle, NullifierSet}.{sierra.json, casm}
     pub artifacts_path: String,
 
     #[arg(short, long, long_help)]
     /// Which network you'd like to use.
+    /// {n}
     /// If `localhost`, the node is expected to be running on port 5050.
     pub network: Network,
 
