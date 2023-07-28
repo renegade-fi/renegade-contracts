@@ -3,12 +3,10 @@ name = "renegade_contracts"
 version = "0.1.0"
 
 [[target.starknet-contract]]
-allowed-libfuncs-list.name = "experimental"
-
-[tool.nile_rs]
-artifacts_dir = "./target/release/"
-contracts_dir = "./src"
+allowed-libfuncs-list = { name = "experimental" }
+casm = true
+casm-add-pythonic-hints = true
 
 [dependencies]
-starknet = ">=2.0.2"
+starknet = ">=2.0.1"
 alexandria = { git = "https://github.com/keep-starknet-strange/alexandria" }

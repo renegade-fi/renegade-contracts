@@ -1,3 +1,13 @@
 [workspace]
-members = ["scripts/.module", "starknet_scripts"]
-default-members = ["scripts/.module"]
+members = ["starknet_scripts", "tests"]
+default-members = ["starknet_scripts"]
+
+[workspace.dependencies]
+starknet = "0.4.0"
+
+[patch."https://github.com/starkware-libs/blockifier"]
+blockifier = { git = "https://github.com/dojoengine/blockifier", rev = "a31892d" }
+
+[patch.crates-io]
+cairo-felt = { git = "https://github.com/dojoengine/cairo-rs.git", rev = "51a35b2b405f29786e48a94f364d64d373d79eea" }
+cairo-vm = { git = "https://github.com/dojoengine/cairo-rs.git", rev = "51a35b2b405f29786e48a94f364d64d373d79eea" }
