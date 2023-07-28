@@ -1,30 +1,24 @@
 //! Script to deploy the Darkpool & associated contracts (Merkle, NullifierSet)
 
 use eyre::Result;
-use starknet::{
-    accounts::{Account, Call, ConnectedAccount},
-    contract::ContractFactory,
-    core::{
-        types::{DeclareTransactionResult, FieldElement},
-        utils::get_selector_from_name,
-    },
-};
-use std::path::Path;
-use tracing::{debug, info, trace};
+use starknet::core::types::FieldElement;
+use tracing::{debug, info};
 
 use crate::{
-    cli::DeployArgs,
+    cli::{Contract, DeployArgs},
     commands::utils::{
-        calculate_contract_address, declare, setup_account, DARKPOOL_CONTRACT_NAME,
-        MERKLE_CONTRACT_NAME, NULLIFIER_SET_CONTRACT_NAME,
+        deploy_darkpool, deploy_merkle, deploy_nullifier_set, initialize, setup_account,
+        MERKLE_HEIGHT,
     },
 };
-
-const INITIALIZER_FN_NAME: &str = "initializer";
-const MERKLE_HEIGHT: usize = 32;
 
 pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
     let DeployArgs {
+        contract,
+        darkpool_class_hash,
+        merkle_class_hash,
+        nullifier_set_class_hash,
+        initialize: should_initialize,
         address,
         artifacts_path,
         network,
@@ -35,88 +29,85 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
     debug!("Setting up account...");
     let address_felt = FieldElement::from_hex_be(&address)?;
     let account = setup_account(address_felt, private_key, network)?;
-    let mut nonce = account.get_nonce().await?;
 
-    // Declare Darkpool
-    debug!("Declaring Darkpool contract...");
-    let darkpool_sierra_path =
-        Path::new(&artifacts_path).join(format!("{}.json", DARKPOOL_CONTRACT_NAME));
-    let darkpool_casm_path =
-        Path::new(&artifacts_path).join(format!("{}.casm", DARKPOOL_CONTRACT_NAME));
-    let DeclareTransactionResult {
-        class_hash: darkpool_class_hash,
-        ..
-    } = declare(darkpool_sierra_path, darkpool_casm_path, &account, nonce).await?;
-    nonce += FieldElement::ONE;
-
-    // Declare Merkle
-    debug!("Declaring Merkle contract...");
-    let merkle_sierra_path =
-        Path::new(&artifacts_path).join(format!("{}.json", MERKLE_CONTRACT_NAME));
-    let merkle_casm_path =
-        Path::new(&artifacts_path).join(format!("{}.casm", MERKLE_CONTRACT_NAME));
-    let DeclareTransactionResult {
-        class_hash: merkle_class_hash,
-        ..
-    } = declare(merkle_sierra_path, merkle_casm_path, &account, nonce).await?;
-    nonce += FieldElement::ONE;
-
-    // Declare nullifier set
-    debug!("Declaring nullifier set contract...");
-    let nullifier_set_sierra_path =
-        Path::new(&artifacts_path).join(format!("{}.json", NULLIFIER_SET_CONTRACT_NAME));
-    let nullifier_set_casm_path =
-        Path::new(&artifacts_path).join(format!("{}.casm", NULLIFIER_SET_CONTRACT_NAME));
-    let DeclareTransactionResult {
-        class_hash: nullifier_set_class_hash,
-        ..
-    } = declare(
-        nullifier_set_sierra_path,
-        nullifier_set_casm_path,
-        &account,
-        nonce,
-    )
-    .await?;
-    nonce += FieldElement::ONE;
-
-    // Deploy Darkpool
-    debug!("Deploying Darkpool contract...");
-    let calldata = vec![address_felt];
-    let salt = FieldElement::ZERO;
-    let contract_factory = ContractFactory::new(darkpool_class_hash, &account);
-    let deploy_result = contract_factory
-        .deploy(calldata.clone(), salt, false /* unique */)
-        .send()
-        .await?;
-    trace!("Deploy result: {:?}", deploy_result);
-    nonce += FieldElement::ONE;
-
-    // Initialize Darkpool
-    debug!("Initializing Darkpool contract...");
-    let darkpool_address = calculate_contract_address(salt, darkpool_class_hash, &calldata);
-    let initialization_result = account
-        .execute(vec![Call {
-            to: darkpool_address,
-            selector: get_selector_from_name(INITIALIZER_FN_NAME)?,
-            calldata: vec![
+    match contract {
+        Contract::Darkpool => {
+            let (
+                darkpool_address,
+                darkpool_class_hash_felt,
+                merkle_class_hash_felt,
+                nullifier_set_class_hash_felt,
+                transaction_hash,
+            ) = deploy_darkpool(
+                darkpool_class_hash,
                 merkle_class_hash,
                 nullifier_set_class_hash,
-                FieldElement::from(MERKLE_HEIGHT),
-            ],
-        }])
-        .nonce(nonce)
-        .send()
-        .await?;
-    trace!("Initialization result: {:?}", initialization_result);
+                artifacts_path,
+                &account,
+            )
+            .await?;
 
-    info!(
-        "Darkpool contract successfully deployed & initialized!\nDarkpool contract address: {:#64x}\nDarkpool class hash: {:#64x}\nMerkle class hash: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
-        darkpool_address,
-        darkpool_class_hash,
-        merkle_class_hash,
-        nullifier_set_class_hash,
-        initialization_result.transaction_hash,
-    );
+            info!(
+                "Darkpool contract successfully deployed & initialized!\nDarkpool contract address: {:#64x}\nDarkpool class hash: {:#64x}\nMerkle class hash: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
+                darkpool_address,
+                darkpool_class_hash_felt,
+                merkle_class_hash_felt,
+                nullifier_set_class_hash_felt,
+                transaction_hash,
+            );
+
+            if should_initialize {
+                // Initialize darkpool
+                debug!("Initializing darkpool contract...");
+                let calldata = vec![
+                    merkle_class_hash_felt,
+                    nullifier_set_class_hash_felt,
+                    FieldElement::from(MERKLE_HEIGHT),
+                ];
+                let initialization_result =
+                    initialize(&account, darkpool_address, calldata).await?;
+
+                info!(
+                    "Darkpool contract initialized!\nTransaction hash: {:#64x}\n",
+                    initialization_result.transaction_hash,
+                );
+            }
+        }
+        Contract::Merkle => {
+            let (merkle_address, merkle_class_hash_felt, transaction_hash) =
+                deploy_merkle(merkle_class_hash, artifacts_path, &account).await?;
+
+            info!(
+                "Merkle contract successfully deployed!\nMerkle contract address: {:#64x}\nMerkle class hash: {:#64x}\nTransaction hash: {:#64x}\n",
+                merkle_address,
+                merkle_class_hash_felt,
+                transaction_hash,
+            );
+
+            if should_initialize {
+                // Initialize merkle
+                debug!("Initializing merkle contract...");
+                let calldata = vec![FieldElement::from(MERKLE_HEIGHT)];
+                let initialization_result = initialize(&account, merkle_address, calldata).await?;
+
+                info!(
+                    "merkle contract successfully initialized!\nTransaction hash: {:#64x}\n",
+                    initialization_result.transaction_hash,
+                );
+            }
+        }
+        Contract::NullifierSet => {
+            let (nullifier_set_address, nullifier_set_class_hash_felt, transaction_hash) =
+                deploy_nullifier_set(nullifier_set_class_hash, artifacts_path, &account).await?;
+
+            info!(
+                "nullifier set contract successfully deployed!\nNullifier set contract address: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
+                nullifier_set_address,
+                nullifier_set_class_hash_felt,
+                transaction_hash,
+            )
+        }
+    }
 
     Ok(())
 }
