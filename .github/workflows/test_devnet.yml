@@ -20,7 +20,7 @@ jobs:
       - name: Setup Scarb
         uses: software-mansion/setup-scarb@v1.0.1
         with:
-          scarb-version: "0.5.2"
+          scarb-version: "0.5.1"
 
       - name: Build Cairo
         run: scarb -P release build
