@@ -11,7 +11,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.70.0
+        with:
+          components: rustfmt
 
       - uses: Swatinem/rust-cache@v2
         with:
