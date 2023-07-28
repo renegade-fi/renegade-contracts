@@ -1,12 +1,26 @@
-mod cli;
-mod commands;
-
-use clap::Parser;
-use commands::{deploy::deploy_and_initialize, upgrade::upgrade};
+use clap::{Parser, Subcommand};
 use eyre::Result;
+use starknet_scripts::{
+    cli::{DeployArgs, UpgradeArgs},
+    commands::{deploy::deploy_and_initialize, upgrade::upgrade},
+};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-use cli::{CliArgs, Commands};
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+pub struct CliArgs {
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Deploys and initializes one of the contracts (darkpool, merkle, nullifier set).
+    Deploy(DeployArgs),
+
+    /// Upgrades one of the contracts (darkpool, merkle, nullifier set).
+    Upgrade(UpgradeArgs),
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
