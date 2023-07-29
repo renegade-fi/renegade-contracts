@@ -4,7 +4,7 @@ use renegade_contracts::verifier::scalar::Scalar;
 
 #[starknet::interface]
 trait IMerkle<TContractState> {
-    fn initializer(ref self: TContractState, height: u8);
+    fn initialize(ref self: TContractState, height: u8);
     fn get_root(self: @TContractState) -> Scalar;
     fn root_in_history(self: @TContractState, root: Scalar) -> bool;
     fn insert(ref self: TContractState, value: Scalar) -> Scalar;
@@ -103,7 +103,7 @@ mod Merkle {
         /// Set up the Merkle tree
         /// Parameters:
         /// - `height`: The height of the Merkle tree
-        fn initializer(ref self: ContractState, height: u8) {
+        fn initialize(ref self: ContractState, height: u8) {
             self.height.write(height);
 
             // Calculate the capacity
