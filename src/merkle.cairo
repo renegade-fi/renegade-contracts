@@ -1,9 +1,11 @@
+use renegade_contracts::verifier::scalar::Scalar;
+
 #[starknet::interface]
 trait IMerkle<TContractState> {
     fn initializer(ref self: TContractState, height: u8);
-    fn get_root(self: @TContractState) -> felt252;
-    fn root_in_history(self: @TContractState, root: felt252) -> bool;
-    fn insert(ref self: TContractState, value: felt252) -> felt252;
+    fn get_root(self: @TContractState) -> Scalar;
+    fn root_in_history(self: @TContractState, root: Scalar) -> bool;
+    fn insert(ref self: TContractState, value: Scalar) -> Scalar;
 }
 
 
@@ -15,7 +17,7 @@ mod Merkle {
 
     use alexandria::math::fast_power::fast_power;
 
-    use renegade_contracts::utils::constants::MAX_U128;
+    use renegade_contracts::{utils::constants::MAX_U128, verifier::scalar::Scalar};
 
     // -------------
     // | CONSTANTS |
@@ -24,9 +26,9 @@ mod Merkle {
     /// The value of an empty leaf in the Merkle tree:
     /// 306932273398430716639340090025251549301604242969558673011416862133942957551
     /// This value is computed as the keccak256 hash of the string 'renegade'
-    /// taken modulo the Cairo field's prime modulus (see `BASE_FIELD_ORDER` in src/utils/constants.cairo)
-    const EMPTY_LEAF_VAL: felt252 =
-        306932273398430716639340090025251549301604242969558673011416862133942957551;
+    /// taken modulo the STARK scalar field's modulus (see `SCALAR_FIELD_ORDER` in src/utils/constants.cairo)
+    const EMPTY_LEAF_VAL_INNER: felt252 =
+        306932273398430716639340090025251550554329269971178413658580639401611971225;
 
     // -----------
     // | STORAGE |
@@ -38,21 +40,24 @@ mod Merkle {
         height: u8,
         /// Capacity of the Merkle tree, cached in contract storage
         capacity: u128,
-        /// The next index to insert a node at
+        /// The next index to insert a node at. It's worth noting that this
+        /// is different from the history index returned by `root_history`,
+        /// namely it is always one less than the history index.
         next_index: u128,
         /// The most recent Merkle root in the root history
-        current_root: felt252,
+        current_root: Scalar,
         /// A history of roots in the tree, maps roots to the index in
         /// the history that the value was inserted.
         /// We treat index 0 (map default value) to mean that a given value
-        /// is not in the root history.
-        root_history: LegacyMap<felt252, u128>,
+        /// is not in the root history. Because of this, the history index is
+        /// always one greater than the `next_index` to insert into.
+        root_history: LegacyMap<Scalar, u128>,
         /// Stores the siblings of the next inserted value
-        sibling_path: LegacyMap<u8, felt252>,
+        sibling_path: LegacyMap<u8, Scalar>,
         /// Stores a mapping from height to the value of a node in an empty tree
         /// at the given height. Used to set the sibling pathway when a subtree is
         /// filled.
-        zeros: LegacyMap<u8, felt252>,
+        zeros: LegacyMap<u8, Scalar>,
     }
 
     // ----------
@@ -61,21 +66,21 @@ mod Merkle {
 
     #[derive(Drop, PartialEq, starknet::Event)]
     struct MerkleRootChanged {
-        prev_root: felt252,
-        new_root: felt252,
+        prev_root: Scalar,
+        new_root: Scalar,
     }
 
     #[derive(Drop, PartialEq, starknet::Event)]
     struct MerkleValueInserted {
         index: u128,
-        value: felt252,
+        value: Scalar,
     }
 
     #[derive(Drop, PartialEq, starknet::Event)]
     struct MerkleInternalNodeChanged {
         height: u8,
         index: u128,
-        new_value: felt252,
+        new_value: Scalar,
     }
 
     #[event]
@@ -105,7 +110,7 @@ mod Merkle {
             self.next_index.write(0);
 
             // Set the root history to the root of an empty tree with the given height
-            let root = setup_empty_tree(ref self, height, EMPTY_LEAF_VAL);
+            let root = setup_empty_tree(ref self, height, EMPTY_LEAF_VAL_INNER.into());
             self.current_root.write(root);
 
             // We set this at index 1, index 0 is reserved because Cairo maps return 0 by default.
@@ -118,7 +123,7 @@ mod Merkle {
         /// - `value`: The value to insert into the tree
         /// Returns:
         /// - The root computed by hashing the value into the tree
-        fn insert(ref self: ContractState, value: felt252) -> felt252 {
+        fn insert(ref self: ContractState, value: Scalar) -> Scalar {
             let height = self.height.read();
 
             // Increment the index of the next empty leaf
@@ -138,14 +143,14 @@ mod Merkle {
         /// Get the current root of the tree
         /// Returns:
         /// - The root
-        fn get_root(self: @ContractState) -> felt252 {
+        fn get_root(self: @ContractState) -> Scalar {
             self.current_root.read()
         }
 
         /// Check whether the root is in the root history
         /// Returns:
         /// - true if the root is not in the root history, false otherwise
-        fn root_in_history(self: @ContractState, root: felt252) -> bool {
+        fn root_in_history(self: @ContractState, root: Scalar) -> bool {
             let index = self.root_history.read(root);
             index != 0
         }
@@ -163,7 +168,7 @@ mod Merkle {
     ///   evaluated as we make our way up the tree
     /// Returns:
     /// - The root of the empty Merkle tree
-    fn setup_empty_tree(ref self: ContractState, height: u8, current_leaf: felt252) -> felt252 {
+    fn setup_empty_tree(ref self: ContractState, height: u8, current_leaf: Scalar) -> Scalar {
         // Base case (root)
         if height == 0 {
             return current_leaf;
@@ -178,7 +183,9 @@ mod Merkle {
         self.sibling_path.write(height, current_leaf);
 
         // Hash the current leaf with itself and recurse
-        let next_leaf = LegacyHash::hash(current_leaf, current_leaf);
+        // The `.into()` call here reduces the `felt252` output of the Pedersen hash
+        // into the scalar field
+        let next_leaf = LegacyHash::hash(current_leaf.inner, current_leaf).into();
         setup_empty_tree(ref self, height - 1, next_leaf)
     }
 
@@ -207,20 +214,8 @@ mod Merkle {
     /// Returns:
     /// - The root computed by hashing the value into the tree
     fn insert_helper(
-        ref self: ContractState,
-        value: felt252,
-        height: u8,
-        insert_index: u128,
-        subtree_filled: bool
-    ) -> felt252 {
-        // Emit an event indicating that the internal node has changed
-        self
-            .emit(
-                Event::MerkleInternalNodeChanged(
-                    MerkleInternalNodeChanged { height, index: insert_index, new_value: value }
-                )
-            );
-
+        ref self: ContractState, value: Scalar, height: u8, insert_index: u128, subtree_filled: bool
+    ) -> Scalar {
         // Base case
         if height == 0 {
             return value;
@@ -253,14 +248,24 @@ mod Merkle {
 
         // Mux between hashing the current value as the left or right sibling depending on
         // the index being inserted into
-        let mut next_value = 0;
+        let mut next_value = 0.into();
         let mut new_subtree_filled = false;
+        // The `.into()` calls here reduces the `felt252` output of the Pedersen hash
+        // into the scalar field
         if is_left {
-            next_value = LegacyHash::hash(value, current_sibling_value);
+            next_value = LegacyHash::hash(value.inner, current_sibling_value).into();
         } else {
-            next_value = LegacyHash::hash(current_sibling_value, value);
+            next_value = LegacyHash::hash(current_sibling_value.inner, value).into();
             new_subtree_filled = subtree_filled;
         }
+
+        // Emit an event indicating that the internal node has changed
+        self
+            .emit(
+                Event::MerkleInternalNodeChanged(
+                    MerkleInternalNodeChanged { height, index: insert_index, new_value: value }
+                )
+            );
 
         insert_helper(ref self, next_value, height - 1, next_index, new_subtree_filled)
     }
@@ -268,7 +273,7 @@ mod Merkle {
     /// Append a new root to the root history
     /// Parameters:
     /// - `new_root`: The root value to append to the history
-    fn store_new_root(ref self: ContractState, new_root: felt252) {
+    fn store_new_root(ref self: ContractState, new_root: Scalar) {
         // Emit an event describing the update
         let current_root = self.current_root.read();
         self
