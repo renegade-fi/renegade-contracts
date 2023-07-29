@@ -48,7 +48,12 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
             .await?;
 
             info!(
-                "Darkpool contract successfully deployed & initialized!\nDarkpool contract address: {:#64x}\nDarkpool class hash: {:#64x}\nMerkle class hash: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
+                "Darkpool contract successfully deployed & initialized!\n\
+                Darkpool contract address: {:#64x}\n\
+                Darkpool class hash: {:#64x}\n\
+                Merkle class hash: {:#64x}\n\
+                Nullifier set class hash: {:#64x}\n\
+                Transaction hash: {:#64x}\n",
                 darkpool_address,
                 darkpool_class_hash_felt,
                 merkle_class_hash_felt,
@@ -68,7 +73,8 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                     initialize(&account, darkpool_address, calldata).await?;
 
                 info!(
-                    "Darkpool contract initialized!\nTransaction hash: {:#64x}\n",
+                    "Darkpool contract initialized!\n\
+                    Transaction hash: {:#64x}\n",
                     initialization_result.transaction_hash,
                 );
             }
@@ -78,10 +84,11 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 deploy_merkle(merkle_class_hash, artifacts_path, &account).await?;
 
             info!(
-                "Merkle contract successfully deployed!\nMerkle contract address: {:#64x}\nMerkle class hash: {:#64x}\nTransaction hash: {:#64x}\n",
-                merkle_address,
-                merkle_class_hash_felt,
-                transaction_hash,
+                "Merkle contract successfully deployed!\n\
+                Merkle contract address: {:#64x}\n\
+                Merkle class hash: {:#64x}\n\
+                Transaction hash: {:#64x}\n",
+                merkle_address, merkle_class_hash_felt, transaction_hash,
             );
 
             if should_initialize {
@@ -91,7 +98,8 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 let initialization_result = initialize(&account, merkle_address, calldata).await?;
 
                 info!(
-                    "merkle contract successfully initialized!\nTransaction hash: {:#64x}\n",
+                    "Merkle contract successfully initialized!\n\
+                    Transaction hash: {:#64x}\n",
                     initialization_result.transaction_hash,
                 );
             }
@@ -101,10 +109,11 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 deploy_nullifier_set(nullifier_set_class_hash, artifacts_path, &account).await?;
 
             info!(
-                "nullifier set contract successfully deployed!\nNullifier set contract address: {:#64x}\nNullifier set class hash: {:#64x}\nTransaction hash: {:#64x}\n",
-                nullifier_set_address,
-                nullifier_set_class_hash_felt,
-                transaction_hash,
+                "Nullifier set contract successfully deployed!\n\
+                Nullifier set contract address: {:#64x}\n\
+                Nullifier set class hash: {:#64x}\n\
+                Transaction hash: {:#64x}\n",
+                nullifier_set_address, nullifier_set_class_hash_felt, transaction_hash,
             )
         }
     }
