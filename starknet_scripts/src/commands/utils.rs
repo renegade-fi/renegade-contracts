@@ -50,7 +50,7 @@ pub const NULLIFIER_SET_CONTRACT_NAME: &str = "renegade_contracts_NullifierSet";
 pub const SIERRA_FILE_EXTENSION: &str = "sierra.json";
 pub const CASM_FILE_EXTENSION: &str = "casm.json";
 
-pub const INITIALIZER_FN_NAME: &str = "initializer";
+pub const INITIALIZE_FN_NAME: &str = "initialize";
 pub const MERKLE_HEIGHT: usize = 32;
 
 pub type ScriptAccount = SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>;
@@ -160,7 +160,7 @@ pub async fn initialize(
     let initialization_result = account
         .execute(vec![Call {
             to,
-            selector: get_selector_from_name(INITIALIZER_FN_NAME)?,
+            selector: get_selector_from_name(INITIALIZE_FN_NAME)?,
             calldata,
         }])
         .send()
