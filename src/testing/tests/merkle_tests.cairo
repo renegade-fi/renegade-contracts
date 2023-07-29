@@ -50,6 +50,6 @@ fn test_multi_insert_root_history() {
 
 fn setup_merkle() -> ContractState {
     let mut merkle = Merkle::contract_state_for_testing();
-    merkle.initializer(TEST_MERKLE_HEIGHT);
+    merkle.initialize(TEST_MERKLE_HEIGHT);
     merkle
 }
