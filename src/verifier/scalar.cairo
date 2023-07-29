@@ -10,7 +10,7 @@ use alexandria::math::mod_arithmetics::{
 
 use renegade_contracts::utils::constants::SCALAR_FIELD_ORDER;
 
-#[derive(Default, Drop, Copy, PartialEq, PartialOrd, Serde)]
+#[derive(Default, Drop, Copy, PartialEq, PartialOrd, Serde, storage_access::StorageAccess)]
 struct Scalar {
     inner: felt252
 }

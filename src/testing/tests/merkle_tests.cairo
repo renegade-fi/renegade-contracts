@@ -19,7 +19,7 @@ fn test_initialization_root_history() {
 #[available_gas(100000000)]
 fn test_single_insert_root_history() {
     let mut merkle = setup_merkle();
-    merkle.insert(0);
+    merkle.insert(0.into());
     let root = merkle.get_root();
     assert(merkle.root_in_history(root), 'root not in history');
 }
