@@ -85,5 +85,10 @@ pub fn setup_empty_tree(height: usize) -> ScalarMerkleTree {
         .unwrap()
         .to_bytes_be();
     let leaves_digest = vec![empty_leaf; 1 << (height - 1)];
-    ScalarMerkleTree::new_with_leaf_digest(&(), &(), leaves_digest).unwrap()
+    ScalarMerkleTree::new_with_leaf_digest(
+        &(), /* leaf_hash_param */
+        &(), /* two_to_one_hash_param */
+        leaves_digest,
+    )
+    .unwrap()
 }

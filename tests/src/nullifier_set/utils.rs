@@ -2,15 +2,14 @@ use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use once_cell::sync::OnceCell;
 use starknet::{
-    accounts::{Account, Call, ConnectedAccount, SingleOwnerAccount},
+    accounts::{Account, Call, ConnectedAccount},
     core::{
         types::{BlockId, BlockTag, FieldElement, FunctionCall},
         utils::get_selector_from_name,
     },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
-    signers::LocalWallet,
+    providers::Provider,
 };
-use starknet_scripts::commands::utils::deploy_nullifier_set;
+use starknet_scripts::commands::utils::{deploy_nullifier_set, ScriptAccount};
 use std::env;
 use tracing::debug;
 
@@ -50,7 +49,7 @@ pub async fn setup_nullifier_set_test() -> Result<TestSequencer> {
 // --------------------------------
 
 async fn call_nullifier_set_contract(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     entry_point: &str,
     calldata: Vec<FieldElement>,
 ) -> Result<Vec<FieldElement>> {
@@ -70,7 +69,7 @@ async fn call_nullifier_set_contract(
 }
 
 async fn invoke_nullifier_set_contract(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     entry_point: &str,
     calldata: Vec<FieldElement>,
 ) -> Result<()> {
@@ -88,7 +87,7 @@ async fn invoke_nullifier_set_contract(
 }
 
 pub async fn contract_is_nullifier_used(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     nullifier: FieldElement,
 ) -> Result<bool> {
     let calldata = vec![nullifier];
@@ -97,7 +96,7 @@ pub async fn contract_is_nullifier_used(
 }
 
 pub async fn contract_mark_nullifier_used(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     nullifier: FieldElement,
 ) -> Result<()> {
     let calldata = vec![nullifier];

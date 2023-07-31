@@ -53,11 +53,13 @@ pub const CASM_FILE_EXTENSION: &str = "casm.json";
 pub const INITIALIZER_FN_NAME: &str = "initializer";
 pub const MERKLE_HEIGHT: usize = 32;
 
+pub type ScriptAccount = SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>;
+
 pub fn setup_account(
     address: FieldElement,
     private_key: String,
     network: Network,
-) -> Result<SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>> {
+) -> Result<ScriptAccount> {
     let provider = match &network {
         // TODO: Use appropriate RPC endpoints
         Network::AlphaMainnet => JsonRpcClient::new(HttpTransport::new(Url::parse(DEVNET_HOST)?)),
@@ -84,7 +86,7 @@ pub async fn get_or_declare(
     class_hash_hex: Option<String>,
     sierra_path: PathBuf,
     casm_path: PathBuf,
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
 ) -> Result<FieldElement> {
     if let Some(class_hash_hex) = class_hash_hex {
         let class_hash = FieldElement::from_hex_be(&class_hash_hex)?;
@@ -101,7 +103,7 @@ pub async fn get_or_declare(
 pub async fn declare(
     sierra_path: PathBuf,
     casm_path: PathBuf,
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
 ) -> Result<DeclareTransactionResult> {
     let sierra_contract: SierraClass = serde_json::from_reader(File::open(sierra_path)?)?;
     let flattened_class = sierra_contract.flatten()?;
@@ -120,7 +122,7 @@ pub async fn declare(
 }
 
 pub async fn deploy(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     class_hash: FieldElement,
     calldata: &[FieldElement],
 ) -> Result<InvokeTransactionResult> {
@@ -140,7 +142,7 @@ pub async fn deploy(
 }
 
 pub async fn initialize(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     to: FieldElement,
     calldata: Vec<FieldElement>,
 ) -> Result<InvokeTransactionResult> {
@@ -177,7 +179,7 @@ pub async fn deploy_darkpool(
     merkle_class_hash: Option<String>,
     nullifier_set_class_hash: Option<String>,
     artifacts_path: String,
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
 ) -> Result<(
     FieldElement,
     FieldElement,
@@ -246,7 +248,7 @@ pub async fn deploy_darkpool(
 pub async fn deploy_merkle(
     merkle_class_hash: Option<String>,
     artifacts_path: String,
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
     let merkle_class_hash_felt = get_or_declare(
         merkle_class_hash,
@@ -274,7 +276,7 @@ pub async fn deploy_merkle(
 pub async fn deploy_nullifier_set(
     nullifier_set_class_hash: Option<String>,
     artifacts_path: String,
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
     let nullifier_set_class_hash_felt = get_or_declare(
         nullifier_set_class_hash,
