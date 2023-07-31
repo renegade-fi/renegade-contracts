@@ -1,3 +1,5 @@
+mod poseidon;
+
 use renegade_contracts::verifier::scalar::Scalar;
 
 #[starknet::interface]

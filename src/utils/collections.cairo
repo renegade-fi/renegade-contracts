@@ -5,6 +5,8 @@ use dict::Felt252DictTrait;
 use nullable::FromNullableResult;
 use box::BoxTrait;
 
+use alexandria::data_structures::vec::VecTrait;
+
 use renegade_contracts::verifier::scalar::Scalar;
 
 
@@ -71,4 +73,22 @@ fn get_scalar_or_zero(ref dict: Felt252Dict<Nullable<Scalar>>, key: felt252) -> 
 
 fn insert_scalar(ref dict: Felt252Dict<Nullable<Scalar>>, key: felt252, scalar: Scalar) {
     dict.insert(key, nullable_from_box(BoxTrait::new(scalar)));
+}
+
+fn vec_to_arr<V, T, impl VVec: VecTrait<V, T>, impl TDrop: Drop<T>, impl VDestruct: Destruct<V>>(
+    ref vec: V
+) -> Array<T> {
+    let mut arr = ArrayTrait::new();
+    let mut i = 0;
+    loop {
+        if i == vec.len() {
+            break;
+        };
+
+        arr.append(vec.at(i));
+
+        i += 1;
+    };
+
+    arr
 }
