@@ -5,15 +5,14 @@ use eyre::{eyre, Result};
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use starknet::{
-    accounts::{Account, Call, ConnectedAccount, SingleOwnerAccount},
+    accounts::{Account, Call, ConnectedAccount},
     core::{
         types::{BlockId, BlockTag, FieldElement, FunctionCall},
         utils::get_selector_from_name,
     },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
-    signers::LocalWallet,
+    providers::Provider,
 };
-use starknet_scripts::commands::utils::{deploy_merkle, initialize};
+use starknet_scripts::commands::utils::{deploy_merkle, initialize, ScriptAccount};
 use tracing::debug;
 
 use crate::{
@@ -63,7 +62,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
 // --------------------------------
 
 async fn call_merkle_contract(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     entry_point: &str,
     calldata: Vec<FieldElement>,
 ) -> Result<Vec<FieldElement>> {
@@ -83,7 +82,7 @@ async fn call_merkle_contract(
 }
 
 async fn invoke_merkle_contract(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     entry_point: &str,
     calldata: Vec<FieldElement>,
 ) -> Result<()> {
@@ -101,7 +100,7 @@ async fn invoke_merkle_contract(
 }
 
 pub async fn initialize_merkle_contract(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     merkle_address: FieldElement,
     merkle_height: FieldElement,
 ) -> Result<()> {
@@ -111,17 +110,12 @@ pub async fn initialize_merkle_contract(
     Ok(())
 }
 
-pub async fn contract_get_root(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
-) -> Result<Scalar> {
+pub async fn contract_get_root(account: &ScriptAccount) -> Result<Scalar> {
     let result = call_merkle_contract(account, GET_ROOT_FN_NAME, vec![]).await?;
     Ok(Scalar::from_be_bytes_mod_order(&result[0].to_bytes_be()))
 }
 
-pub async fn contract_insert(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
-    value: FieldElement,
-) -> Result<()> {
+pub async fn contract_insert(account: &ScriptAccount, value: FieldElement) -> Result<()> {
     invoke_merkle_contract(account, INSERT_FN_NAME, vec![value]).await
 }
 
@@ -130,7 +124,7 @@ pub async fn contract_insert(
 // ----------------
 
 pub async fn insert_random_val_to_trees(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     ark_merkle_tree: &mut ScalarMerkleTree,
     index: usize,
 ) -> Result<()> {
@@ -147,7 +141,7 @@ pub async fn insert_random_val_to_trees(
 // --------------------------
 
 pub async fn assert_roots_equal(
-    account: &SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>,
+    account: &ScriptAccount,
     ark_merkle_tree: &ScalarMerkleTree,
 ) -> Result<()> {
     let contract_root = contract_get_root(account).await.unwrap();
