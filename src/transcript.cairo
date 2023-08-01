@@ -10,6 +10,8 @@ use zeroable::IsZeroResult;
 use renegade_contracts::{utils::math::hash_to_scalar, verifier::scalar::Scalar};
 
 
+// TODO: Make a unit test w/ a wrapper contract for this
+
 const TRANSCRIPT_SEED: u256 = 'merlin seed';
 
 #[derive(Drop)]

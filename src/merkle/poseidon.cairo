@@ -13,26 +13,21 @@ use renegade_contracts::{
 // -------------
 
 /// Number of full S-box rounds
-const FULL_ROUNDS: usize = 8;
+const FULL_ROUNDS: usize = 2; // DUMMY VALUE
 /// Number of partial S-box rounds
-const PARTIAL_ROUNDS: usize = 56;
+const PARTIAL_ROUNDS: usize = 4; // DUMMY VALUE
 /// Alpha (exponent for S-box)
 const ALPHA: u256 = 5;
 /// Rate
 const RATE: usize = 2;
 /// Capacity
 const CAPACITY: usize = 1;
+/// Permutation size
+const T: usize = 3;
 // TODO: Hardcode all MDS entries (only 9)
 // TODO: Hardcode all round constants
 
-// Functions:
-// - permute
-//   - apply_round_constants
-//   - apply_sbox
-//   - apply_mds
-// - absorb
-// - squeeze
-
+#[derive(Destruct)]
 struct PoseidonSponge {
     state: NullableVec<Scalar>,
     absorb_index: usize,
@@ -42,7 +37,7 @@ struct PoseidonSponge {
 }
 
 #[generate_trait]
-impl PoseidonImpl of Poseidon {
+impl PoseidonImpl of PoseidonTrait {
     fn new() -> PoseidonSponge {
         let mut state = VecTrait::<NullableVec, Scalar>::new();
         let mut i = 0;
@@ -62,7 +57,7 @@ impl PoseidonImpl of Poseidon {
         PoseidonSponge { state, absorb_index: 0, squeeze_index: 0, round_constants, mds,  }
     }
 
-    fn absorb(ref self: PoseidonSponge, input: Array<Scalar>) {
+    fn absorb(ref self: PoseidonSponge, input: Span<Scalar>) {
         let PoseidonSponge{mut state, mut absorb_index, squeeze_index, round_constants, mds } =
             self;
 
@@ -126,14 +121,62 @@ impl PoseidonImpl of Poseidon {
     }
 }
 
+// DUMMY VALUES
 fn round_constants() -> Array<Array<Scalar>> {
-    // TODO
-    ArrayTrait::new()
+    let mut round_constants = ArrayTrait::new();
+    let mut i = 0;
+    loop {
+        if i == 2 * FULL_ROUNDS + PARTIAL_ROUNDS {
+            break;
+        }
+
+        let mut round_constants_i = ArrayTrait::new();
+        let mut j = 0;
+        loop {
+            if j == RATE + CAPACITY {
+                break;
+            }
+
+            round_constants_i.append(1.into());
+
+            j += 1;
+        };
+
+        round_constants.append(round_constants_i);
+
+        i += 1;
+    };
+
+    round_constants
 }
 
+// DUMMY VALUES
 fn mds() -> Array<Array<Scalar>> {
-    // TODO
-    ArrayTrait::new()
+    let mut mds = ArrayTrait::new();
+    let mut i = 0;
+    loop {
+        if i == T {
+            break;
+        }
+
+        let mut mds_i = ArrayTrait::new();
+        let mut j = 0;
+        loop {
+            if j == T {
+                break;
+            }
+
+            mds_i.append(1.into());
+
+            j += 1;
+        };
+
+        mds.append(mds_i);
+
+        i += 1;
+    };
+
+    mds
 }
 
 fn permute(
