@@ -1,6 +1,7 @@
 [workspace]
 members = ["starknet_scripts", "tests"]
 default-members = ["starknet_scripts"]
+resolver = "2"
 
 [workspace.dependencies]
 starknet = "0.4.0"

@@ -82,6 +82,17 @@ pub fn setup_account(
     Ok(SingleOwnerAccount::new(provider, signer, address, chain_id))
 }
 
+pub fn get_artifacts(artifacts_path: &str, contract_name: &str) -> (PathBuf, PathBuf) {
+    let sierra_path = Path::new(artifacts_path)
+        .join(contract_name)
+        .with_extension(SIERRA_FILE_EXTENSION);
+    let casm_path = Path::new(artifacts_path)
+        .join(contract_name)
+        .with_extension(CASM_FILE_EXTENSION);
+
+    (sierra_path, casm_path)
+}
+
 pub async fn get_or_declare(
     class_hash_hex: Option<String>,
     sierra_path: PathBuf,
@@ -187,42 +198,32 @@ pub async fn deploy_darkpool(
     FieldElement,
     FieldElement,
 )> {
+    let (darkpool_sierra_path, darkpool_casm_path) =
+        get_artifacts(&artifacts_path, DARKPOOL_CONTRACT_NAME);
     let darkpool_class_hash_felt = get_or_declare(
         darkpool_class_hash,
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            DARKPOOL_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-        )),
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            DARKPOOL_CONTRACT_NAME, CASM_FILE_EXTENSION
-        )),
+        darkpool_sierra_path,
+        darkpool_casm_path,
         account,
     )
     .await?;
 
+    let (merkle_sierra_path, merkle_casm_path) =
+        get_artifacts(&artifacts_path, MERKLE_CONTRACT_NAME);
     let merkle_class_hash_felt = get_or_declare(
         merkle_class_hash,
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            MERKLE_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-        )),
-        Path::new(&artifacts_path)
-            .join(format!("{}.{}", MERKLE_CONTRACT_NAME, CASM_FILE_EXTENSION)),
+        merkle_sierra_path,
+        merkle_casm_path,
         account,
     )
     .await?;
 
+    let (nullifier_set_sierra_path, nullifier_set_casm_path) =
+        get_artifacts(&artifacts_path, NULLIFIER_SET_CONTRACT_NAME);
     let nullifier_set_class_hash_felt = get_or_declare(
         nullifier_set_class_hash,
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            NULLIFIER_SET_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-        )),
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            NULLIFIER_SET_CONTRACT_NAME, CASM_FILE_EXTENSION
-        )),
+        nullifier_set_sierra_path,
+        nullifier_set_casm_path,
         account,
     )
     .await?;
@@ -250,14 +251,12 @@ pub async fn deploy_merkle(
     artifacts_path: String,
     account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
+    let (merkle_sierra_path, merkle_casm_path) =
+        get_artifacts(&artifacts_path, MERKLE_CONTRACT_NAME);
     let merkle_class_hash_felt = get_or_declare(
         merkle_class_hash,
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            MERKLE_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-        )),
-        Path::new(&artifacts_path)
-            .join(format!("{}.{}", MERKLE_CONTRACT_NAME, CASM_FILE_EXTENSION)),
+        merkle_sierra_path,
+        merkle_casm_path,
         account,
     )
     .await?;
@@ -278,16 +277,12 @@ pub async fn deploy_nullifier_set(
     artifacts_path: String,
     account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
+    let (nullifier_set_sierra_path, nullifier_set_casm_path) =
+        get_artifacts(&artifacts_path, NULLIFIER_SET_CONTRACT_NAME);
     let nullifier_set_class_hash_felt = get_or_declare(
         nullifier_set_class_hash,
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            NULLIFIER_SET_CONTRACT_NAME, SIERRA_FILE_EXTENSION
-        )),
-        Path::new(&artifacts_path).join(format!(
-            "{}.{}",
-            NULLIFIER_SET_CONTRACT_NAME, CASM_FILE_EXTENSION
-        )),
+        nullifier_set_sierra_path,
+        nullifier_set_casm_path,
         account,
     )
     .await?;

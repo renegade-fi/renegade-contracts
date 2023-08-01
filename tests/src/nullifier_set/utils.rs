@@ -1,19 +1,12 @@
 use dojo_test_utils::sequencer::TestSequencer;
-use eyre::{eyre, Result};
+use eyre::Result;
 use once_cell::sync::OnceCell;
-use starknet::{
-    accounts::{Account, Call, ConnectedAccount},
-    core::{
-        types::{BlockId, BlockTag, FieldElement, FunctionCall},
-        utils::get_selector_from_name,
-    },
-    providers::Provider,
-};
+use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_nullifier_set, ScriptAccount};
 use std::env;
 use tracing::debug;
 
-use crate::utils::{global_setup, ARTIFACTS_PATH_ENV_VAR};
+use crate::utils::{call_contract, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR};
 
 pub const FUZZ_ROUNDS: usize = 100;
 
@@ -32,7 +25,7 @@ pub async fn setup_nullifier_set_test() -> Result<TestSequencer> {
     let sequencer = global_setup().await;
     let account = sequencer.account();
 
-    debug!("Declaring & deploying nullifier_set contract...");
+    debug!("Declaring & deploying nullifier set contract...");
     let (nullifier_set_address, _, _) =
         deploy_nullifier_set(None, artifacts_path, &account).await?;
     if NULLIFIER_SET_ADDRESS.get().is_none() {
@@ -48,57 +41,29 @@ pub async fn setup_nullifier_set_test() -> Result<TestSequencer> {
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-async fn call_nullifier_set_contract(
-    account: &ScriptAccount,
-    entry_point: &str,
-    calldata: Vec<FieldElement>,
-) -> Result<Vec<FieldElement>> {
-    debug!("Calling {} on nullifier set contract...", entry_point);
-    account
-        .provider()
-        .call(
-            FunctionCall {
-                contract_address: *NULLIFIER_SET_ADDRESS.get().unwrap(),
-                entry_point_selector: get_selector_from_name(entry_point)?,
-                calldata,
-            },
-            BlockId::Tag(BlockTag::Latest),
-        )
-        .await
-        .map_err(|e| eyre!("Error calling {}: {}", entry_point, e))
-}
-
-async fn invoke_nullifier_set_contract(
-    account: &ScriptAccount,
-    entry_point: &str,
-    calldata: Vec<FieldElement>,
-) -> Result<()> {
-    debug!("Invoking {} on nullifier set contract...", entry_point);
-    account
-        .execute(vec![Call {
-            to: *NULLIFIER_SET_ADDRESS.get().unwrap(),
-            selector: get_selector_from_name(entry_point)?,
-            calldata,
-        }])
-        .send()
-        .await
-        .map(|_| ())
-        .map_err(|e| eyre!("Error invoking {}: {}", entry_point, e))
-}
-
 pub async fn contract_is_nullifier_used(
     account: &ScriptAccount,
     nullifier: FieldElement,
 ) -> Result<bool> {
-    let calldata = vec![nullifier];
-    let result = call_nullifier_set_contract(account, IS_NULLIFIER_USED_FN_NAME, calldata).await?;
-    Ok(result[0] == FieldElement::ONE)
+    call_contract(
+        account,
+        *NULLIFIER_SET_ADDRESS.get().unwrap(),
+        IS_NULLIFIER_USED_FN_NAME,
+        vec![nullifier],
+    )
+    .await
+    .map(|r| r[0] == FieldElement::ONE)
 }
 
 pub async fn contract_mark_nullifier_used(
     account: &ScriptAccount,
     nullifier: FieldElement,
 ) -> Result<()> {
-    let calldata = vec![nullifier];
-    invoke_nullifier_set_contract(account, MARK_NULLIFIER_USED_FN_NAME, calldata).await
+    invoke_contract(
+        account,
+        *NULLIFIER_SET_ADDRESS.get().unwrap(),
+        MARK_NULLIFIER_USED_FN_NAME,
+        vec![nullifier],
+    )
+    .await
 }
