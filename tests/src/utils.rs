@@ -28,8 +28,6 @@ fn get_test_starknet_config() -> StarknetConfig {
     let invoke_max_steps = env::var(CAIRO_STEP_LIMIT_ENV_VAR)
         .map_or(DEFAULT_INVOKE_MAX_STEPS, |s| s.parse::<u32>().unwrap());
 
-    debug!("Running sequencer with {} max steps", invoke_max_steps);
-
     StarknetConfig {
         env: Environment {
             invoke_max_steps,

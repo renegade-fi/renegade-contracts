@@ -27,11 +27,18 @@ const T: usize = 3;
 // TODO: Hardcode all MDS entries (only 9)
 // TODO: Hardcode all round constants
 
+#[derive(Drop)]
+enum SpongeMode {
+    /// Signifies that the sponge is currently absorbing input at the given index
+    Absorbing: usize,
+    /// Signifies that the sponge is currently squeezing output from the given index
+    Squeezing: usize,
+}
+
 #[derive(Destruct)]
 struct PoseidonSponge {
     state: NullableVec<Scalar>,
-    absorb_index: usize,
-    squeeze_index: usize,
+    mode: SpongeMode,
     round_constants: Array<Array<Scalar>>,
     mds: Array<Array<Scalar>>,
 }
@@ -54,20 +61,33 @@ impl PoseidonImpl of PoseidonTrait {
         let round_constants = round_constants();
         let mds = mds();
 
-        PoseidonSponge { state, absorb_index: 0, squeeze_index: 0, round_constants, mds,  }
+        PoseidonSponge { state, mode: SpongeMode::Absorbing(0), round_constants, mds,  }
     }
 
     fn absorb(ref self: PoseidonSponge, input: Span<Scalar>) {
-        let PoseidonSponge{mut state, mut absorb_index, squeeze_index, round_constants, mds } =
-            self;
+        let PoseidonSponge{mut state, mut mode, round_constants, mds } = self;
 
         let round_constants_span = round_constants.deep_span();
         let mds_span = mds.deep_span();
+
+        let mut absorb_index = match mode {
+            SpongeMode::Absorbing(i) => i,
+            SpongeMode::Squeezing(_) => {
+                permute(ref state, round_constants_span, mds_span);
+                0
+            }
+        };
 
         let mut i = 0;
         loop {
             if i == input.len() {
                 break;
+            }
+
+            // Only permute if we're not done absorbing
+            if absorb_index == RATE {
+                permute(ref state, round_constants_span, mds_span);
+                absorb_index = 0;
             }
 
             let mut state_i = state[CAPACITY + absorb_index];
@@ -76,23 +96,27 @@ impl PoseidonImpl of PoseidonTrait {
 
             absorb_index += 1;
 
-            if absorb_index == RATE {
-                permute(ref state, round_constants_span, mds_span);
-                absorb_index = 0;
-            }
-
             i += 1;
         };
 
-        self = PoseidonSponge { state, absorb_index, squeeze_index, round_constants, mds };
+        mode = SpongeMode::Absorbing(absorb_index);
+
+        self = PoseidonSponge { state, mode, round_constants, mds };
     }
 
     fn squeeze(ref self: PoseidonSponge, num_elements: usize) -> Array<Scalar> {
-        let PoseidonSponge{mut state, absorb_index, mut squeeze_index, round_constants, mds } =
-            self;
+        let PoseidonSponge{mut state, mut mode, round_constants, mds } = self;
 
         let round_constants_span = round_constants.deep_span();
         let mds_span = mds.deep_span();
+
+        let mut squeeze_index = match mode {
+            SpongeMode::Absorbing(_) => {
+                permute(ref state, round_constants_span, mds_span);
+                0
+            },
+            SpongeMode::Squeezing(i) => i,
+        };
 
         let mut output = ArrayTrait::new();
 
@@ -108,14 +132,16 @@ impl PoseidonImpl of PoseidonTrait {
                 squeeze_index = 0;
             }
 
-            output.append(state[squeeze_index]);
+            output.append(state[CAPACITY + squeeze_index]);
 
             squeeze_index += 1;
 
             i += 1;
         };
 
-        self = PoseidonSponge { state, absorb_index, squeeze_index, round_constants, mds };
+        mode = SpongeMode::Squeezing(squeeze_index);
+
+        self = PoseidonSponge { state, mode, round_constants, mds };
 
         output
     }

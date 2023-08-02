@@ -16,9 +16,9 @@ use tracing::debug;
 
 use crate::utils::{call_contract, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR};
 
-pub const FUZZ_ROUNDS: usize = 1;
-const MAX_INPUT_SIZE: usize = 10;
-const MAX_OUTPUT_SIZE: usize = 10;
+pub const FUZZ_ROUNDS: usize = 10;
+const MAX_INPUT_SIZE: usize = 16;
+const MAX_OUTPUT_SIZE: usize = 16;
 
 const POSEIDON_FULL_ROUNDS: usize = 2; // DUMMY VALUE
 const POSEIDON_PARTIAL_ROUNDS: usize = 4; // DUMMY VALUE
@@ -126,10 +126,10 @@ pub fn random_input(len: usize) -> Vec<Scalar> {
 pub async fn get_random_input_hashes(
     account: &ScriptAccount,
 ) -> Result<(Vec<Scalar>, Vec<Scalar>)> {
-    let input_len = thread_rng().gen_range(0..MAX_INPUT_SIZE);
+    let input_len = thread_rng().gen_range(1..MAX_INPUT_SIZE);
     let input = random_input(input_len);
     let ark_input: Vec<Scalar::Field> = input.iter().map(|s| s.inner()).collect();
-    let num_elements = thread_rng().gen_range(0..MAX_OUTPUT_SIZE);
+    let num_elements = thread_rng().gen_range(1..MAX_OUTPUT_SIZE);
 
     debug!(
         "Absorbing {} elements, squeezing {} elements",
@@ -181,7 +181,7 @@ fn round_constants() -> Vec<Vec<Scalar::Field>> {
 
 fn ark_poseidon_params() -> PoseidonConfig<Scalar::Field> {
     PoseidonConfig::new(
-        POSEIDON_FULL_ROUNDS,
+        POSEIDON_FULL_ROUNDS * 2,
         POSEIDON_PARTIAL_ROUNDS,
         POSEIDON_ALPHA,
         mds(),
