@@ -128,7 +128,6 @@ pub async fn get_random_input_hashes(
 ) -> Result<(Vec<Scalar>, Vec<Scalar>)> {
     let input_len = thread_rng().gen_range(1..MAX_INPUT_SIZE);
     let input = random_input(input_len);
-    let ark_input: Vec<Scalar::Field> = input.iter().map(|s| s.inner()).collect();
     let num_elements = thread_rng().gen_range(1..MAX_OUTPUT_SIZE);
 
     debug!(
@@ -141,14 +140,7 @@ pub async fn get_random_input_hashes(
     let output = contract_get_hash(account).await?;
 
     debug!("Hashing via arkworks...");
-    let mut ark_poseidon = PoseidonSponge::new(&ark_poseidon_params());
-    ark_poseidon.absorb(&ark_input);
-
-    let ark_output = ark_poseidon
-        .squeeze_native_field_elements(num_elements)
-        .into_iter()
-        .map(Scalar::from)
-        .collect();
+    let ark_output = ark_poseidon_hash(&input, num_elements);
 
     Ok((output, ark_output))
 }
@@ -189,4 +181,14 @@ fn ark_poseidon_params() -> PoseidonConfig<Scalar::Field> {
         POSEIDON_RATE,
         POSEIDON_CAPACITY,
     )
+}
+
+pub fn ark_poseidon_hash(input: &[Scalar], num_elements: usize) -> Vec<Scalar> {
+    let mut ark_poseidon = PoseidonSponge::new(&ark_poseidon_params());
+    ark_poseidon.absorb(&input.iter().map(|s| s.inner()).collect::<Vec<_>>());
+    ark_poseidon
+        .squeeze_native_field_elements(num_elements)
+        .into_iter()
+        .map(Scalar::from)
+        .collect()
 }
