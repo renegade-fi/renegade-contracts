@@ -14,12 +14,13 @@ trait IMerkle<TContractState> {
 #[starknet::contract]
 mod Merkle {
     use traits::{Into, TryInto};
+    use array::ArrayTrait;
     use option::OptionTrait;
-    use hash::LegacyHash;
 
     use alexandria::math::fast_power::fast_power;
 
     use renegade_contracts::{utils::constants::MAX_U128, verifier::scalar::Scalar};
+    use super::poseidon::poseidon_hash;
 
     // -------------
     // | CONSTANTS |
@@ -185,9 +186,12 @@ mod Merkle {
         self.sibling_path.write(height, current_leaf);
 
         // Hash the current leaf with itself and recurse
-        // The `.into()` call here reduces the `felt252` output of the Pedersen hash
-        // into the scalar field
-        let next_leaf = LegacyHash::hash(current_leaf.inner, current_leaf).into();
+
+        let mut hash_input = ArrayTrait::new();
+        hash_input.append(current_leaf);
+        hash_input.append(current_leaf);
+
+        let next_leaf = *poseidon_hash(hash_input.span(), 1)[0];
         setup_empty_tree(ref self, height - 1, next_leaf)
     }
 
@@ -252,14 +256,16 @@ mod Merkle {
         // the index being inserted into
         let mut next_value = 0.into();
         let mut new_subtree_filled = false;
-        // The `.into()` calls here reduces the `felt252` output of the Pedersen hash
-        // into the scalar field
+        let mut hash_input = ArrayTrait::new();
         if is_left {
-            next_value = LegacyHash::hash(value.inner, current_sibling_value).into();
+            hash_input.append(value);
+            hash_input.append(current_sibling_value);
         } else {
-            next_value = LegacyHash::hash(current_sibling_value.inner, value).into();
+            hash_input.append(current_sibling_value);
+            hash_input.append(value);
             new_subtree_filled = subtree_filled;
         }
+        next_value = *poseidon_hash(hash_input.span(), 1)[0];
 
         // Emit an event indicating that the internal node has changed
         self
