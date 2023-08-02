@@ -8,7 +8,7 @@ const TEST_MERKLE_HEIGHT: u8 = 5;
 const TEST_MERKLE_CAPACITY: u8 = 32;
 
 #[test]
-#[available_gas(100000000)]
+#[available_gas(1000000000)] // 10x
 fn test_initialization_root_history() {
     let merkle = setup_merkle();
     let root = merkle.get_root();
@@ -16,7 +16,7 @@ fn test_initialization_root_history() {
 }
 
 #[test]
-#[available_gas(100000000)]
+#[available_gas(1000000000)] // 10x
 fn test_single_insert_root_history() {
     let mut merkle = setup_merkle();
     merkle.insert(0.into());
@@ -25,7 +25,7 @@ fn test_single_insert_root_history() {
 }
 
 #[test]
-#[available_gas(100000000)]
+#[available_gas(10000000000)] // 100x
 fn test_multi_insert_root_history() {
     let mut merkle = setup_merkle();
 

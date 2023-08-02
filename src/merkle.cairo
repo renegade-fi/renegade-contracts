@@ -191,7 +191,8 @@ mod Merkle {
         hash_input.append(current_leaf);
         hash_input.append(current_leaf);
 
-        let next_leaf = *poseidon_hash(hash_input.span(), 1)[0];
+        let next_leaf = *poseidon_hash(hash_input.span(), 1, // num_elements
+         )[0];
         setup_empty_tree(ref self, height - 1, next_leaf)
     }
 
@@ -265,7 +266,8 @@ mod Merkle {
             hash_input.append(value);
             new_subtree_filled = subtree_filled;
         }
-        next_value = *poseidon_hash(hash_input.span(), 1)[0];
+        next_value = *poseidon_hash(hash_input.span(), 1, // num_elements
+         )[0];
 
         // Emit an event indicating that the internal node has changed
         self
