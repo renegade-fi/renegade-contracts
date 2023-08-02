@@ -29,9 +29,8 @@ jobs:
         uses: actions-rs/cargo@v1
         env:
           ARTIFACTS_PATH: ${{ github.workspace }}/target/release
-          RUST_LOG: "tests=trace,katana_core=warn"
+          RUST_LOG: "tests=trace,katana_core=debug"
+          CAIRO_STEP_LIMIT: 10000000
         with:
           command: test
           args: -p tests --all-targets --lib --verbose -- --nocapture
-
-      
