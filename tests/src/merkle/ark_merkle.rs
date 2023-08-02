@@ -1,13 +1,17 @@
 //! Merkle tree utilities using arkworks & starknet-rs.
 //! Provides a minimal implementation that calls out to starknet_crypto::pedersen_hash
 
+use std::str::FromStr;
+
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
     merkle_tree::{Config, IdentityDigestConverter, MerkleTree},
 };
 use ark_std::rand::Rng;
 use mpc_stark::algebra::scalar::Scalar;
-use starknet::core::{crypto::pedersen_hash, types::FieldElement};
+use num_bigint::BigUint;
+
+use crate::poseidon::utils::ark_poseidon_hash;
 
 pub struct FeltCRH {}
 impl CRHScheme for FeltCRH {
@@ -43,12 +47,10 @@ impl TwoToOneCRHScheme for FeltTwoToOneCRH {
         left_input: T,
         right_input: T,
     ) -> Result<Self::Output, ark_crypto_primitives::Error> {
-        let felt_res = pedersen_hash(
-            &FieldElement::from_bytes_be(left_input.borrow()).unwrap(),
-            &FieldElement::from_bytes_be(right_input.borrow()).unwrap(),
-        );
-        let reduced_scalar = Scalar::from_be_bytes_mod_order(&felt_res.to_bytes_be());
-        Ok(reduced_scalar.to_bytes_be().try_into().unwrap())
+        let left_scalar = Scalar::from_be_bytes_mod_order(left_input.borrow());
+        let right_scalar = Scalar::from_be_bytes_mod_order(right_input.borrow());
+        let scalar_res = ark_poseidon_hash(&[left_scalar, right_scalar], 1 /* num_elements */)[0];
+        Ok(scalar_res.to_bytes_be().try_into().unwrap())
     }
 
     fn compress<T: std::borrow::Borrow<Self::Output>>(
@@ -81,9 +83,10 @@ pub const EMPTY_LEAF_VAL: &str =
     "306932273398430716639340090025251550554329269971178413658580639401611971225";
 
 pub fn setup_empty_tree(height: usize) -> ScalarMerkleTree {
-    let empty_leaf = FieldElement::from_dec_str(EMPTY_LEAF_VAL)
-        .unwrap()
-        .to_bytes_be();
+    let empty_leaf = Scalar::from_biguint(&BigUint::from_str(EMPTY_LEAF_VAL).unwrap())
+        .to_bytes_be()
+        .try_into()
+        .unwrap();
     let leaves_digest = vec![empty_leaf; 1 << (height - 1)];
     ScalarMerkleTree::new_with_leaf_digest(
         &(), /* leaf_hash_param */

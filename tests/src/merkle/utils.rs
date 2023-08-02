@@ -8,12 +8,11 @@ use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_merkle, initialize, ScriptAccount};
 use tracing::debug;
 
-use crate::{
-    merkle::ark_merkle::setup_empty_tree,
-    utils::{call_contract, global_setup, invoke_contract, random_felt, ARTIFACTS_PATH_ENV_VAR},
+use crate::utils::{
+    call_contract, global_setup, invoke_contract, random_felt, ARTIFACTS_PATH_ENV_VAR,
 };
 
-use super::ark_merkle::ScalarMerkleTree;
+use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};
 
 pub const TEST_MERKLE_HEIGHT: usize = 5;
 
