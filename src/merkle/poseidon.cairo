@@ -43,6 +43,12 @@ struct PoseidonSponge {
     mds: Array<Array<Scalar>>,
 }
 
+fn poseidon_hash(input: Span<Scalar>, num_elements: usize) -> Array<Scalar> {
+    let mut sponge = PoseidonTrait::new();
+    sponge.absorb(input);
+    sponge.squeeze(num_elements)
+}
+
 #[generate_trait]
 impl PoseidonImpl of PoseidonTrait {
     /// Instantiate a new sponge with the hardcoded round constants & MDS matrix,
