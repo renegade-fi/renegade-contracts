@@ -45,6 +45,8 @@ struct PoseidonSponge {
 
 #[generate_trait]
 impl PoseidonImpl of PoseidonTrait {
+    /// Instantiate a new sponge with the hardcoded round constants & MDS matrix,
+    /// with all state elements initialized to 0, and initially in absorbing mode.
     fn new() -> PoseidonSponge {
         let mut state = VecTrait::<NullableVec, Scalar>::new();
         let mut i = 0;
@@ -64,19 +66,23 @@ impl PoseidonImpl of PoseidonTrait {
         PoseidonSponge { state, mode: SpongeMode::Absorbing(0), round_constants, mds,  }
     }
 
+    /// Absorb the input into the sponge, updating the sponge's state
+    /// & permuting when the rate is exceeded.
+    ///
+    /// The sponge *must* be in absorbing mode - we don't allow going back from
+    /// squeezing to absorbing (duplex operation).
     fn absorb(ref self: PoseidonSponge, input: Span<Scalar>) {
         let PoseidonSponge{mut state, mut mode, round_constants, mds } = self;
-
-        let round_constants_span = round_constants.deep_span();
-        let mds_span = mds.deep_span();
 
         let mut absorb_index = match mode {
             SpongeMode::Absorbing(i) => i,
             SpongeMode::Squeezing(_) => {
-                permute(ref state, round_constants_span, mds_span);
-                0
+                panic_with_felt252('cannot absorb after squeezing')
             }
         };
+
+        let round_constants_span = round_constants.deep_span();
+        let mds_span = mds.deep_span();
 
         let mut i = 0;
         loop {
@@ -104,6 +110,11 @@ impl PoseidonImpl of PoseidonTrait {
         self = PoseidonSponge { state, mode, round_constants, mds };
     }
 
+    /// Squeeze `num_elements` scalars out of the sponge, permuting when
+    /// the rate is exceeded.
+    ///
+    /// This switches the sponge to squeezing mode, meaning no more input
+    /// can be absorbed.
     fn squeeze(ref self: PoseidonSponge, num_elements: usize) -> Array<Scalar> {
         let PoseidonSponge{mut state, mut mode, round_constants, mds } = self;
 
@@ -215,7 +226,8 @@ fn permute(
         }
 
         apply_round_constants(ref state, round_constants, i);
-        apply_sbox(ref state, true);
+        apply_sbox(ref state, true, // full_round
+         );
         apply_mds(ref state, mds);
 
         i += 1;
@@ -227,7 +239,8 @@ fn permute(
         }
 
         apply_round_constants(ref state, round_constants, i);
-        apply_sbox(ref state, false);
+        apply_sbox(ref state, false, // full_round
+         );
         apply_mds(ref state, mds);
 
         i += 1;
@@ -239,7 +252,8 @@ fn permute(
         }
 
         apply_round_constants(ref state, round_constants, i);
-        apply_sbox(ref state, true);
+        apply_sbox(ref state, true, // full_round
+         );
         apply_mds(ref state, mds);
 
         i += 1;
@@ -264,8 +278,8 @@ fn apply_round_constants(
     };
 }
 
-fn apply_sbox(ref state: NullableVec<Scalar>, full: bool) {
-    if !full {
+fn apply_sbox(ref state: NullableVec<Scalar>, full_round: bool) {
+    if !full_round {
         let mut state_0 = state[0];
         state_0 = state_0.pow(ALPHA);
         state.set(0, state_0);
