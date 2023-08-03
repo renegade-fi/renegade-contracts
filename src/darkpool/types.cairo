@@ -11,8 +11,8 @@ struct ExternalTransfer {
     mint: ContractAddress,
     /// The amount of the token transferred
     amount: u256,
-    /// Whether or not the transfer is a deposit (otherwise a withdrawal)
-    is_deposit: bool,
+    /// Whether or not the transfer is a withdrawal (otherwise a deposit)
+    is_withdrawal: bool,
 }
 
 /// Represents the artifacts produced by one of the parties in a match
