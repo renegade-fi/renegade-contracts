@@ -359,11 +359,7 @@ mod Darkpool {
             nullifier_set.mark_nullifier_used(old_shares_nullifier);
 
             // Process the external transfers
-            let contract_address = get_contract_address();
-            let caller_address = get_caller_address();
-            _execute_external_transfers(
-                ref self, contract_address, caller_address, external_transfers
-            );
+            _execute_external_transfers(ref self, external_transfers);
 
             // Mark wallet as updated
             _mark_wallet_updated(ref self, wallet_blinder_share);
@@ -461,15 +457,11 @@ mod Darkpool {
 
     /// Executes a set of external ERC20 transfers
     /// Parameters:
-    /// - `contract_address`: The address of the current contract // TODO: Should we just get this inside the body of this function?
-    /// - `caller_address`: The address triggering the withdrawal / deposit // TODO: Should we just get this inside the body of this function?
     /// - `transfers`: The external transfers to execute
     fn _execute_external_transfers(
-        ref self: ContractState,
-        contract_address: ContractAddress,
-        caller_address: ContractAddress,
-        mut transfers: Array<ExternalTransfer>
+        ref self: ContractState, mut transfers: Array<ExternalTransfer>
     ) {
+        let contract_address = get_contract_address();
         loop {
             if transfers.is_empty() {
                 break;
@@ -484,7 +476,7 @@ mod Darkpool {
             let erc20 = _get_erc20(next_transfer.mint);
 
             // Execute the transfer
-            if next_transfer.is_deposit {
+            if !next_transfer.is_withdrawal {
                 // Deposit
                 erc20
                     .transfer_from(
@@ -496,7 +488,7 @@ mod Darkpool {
                     .emit(
                         Event::Deposit(
                             Deposit {
-                                sender: caller_address,
+                                sender: next_transfer.account_addr,
                                 mint: next_transfer.mint,
                                 amount: next_transfer.amount
                             }
@@ -511,7 +503,7 @@ mod Darkpool {
                     .emit(
                         Event::Withdrawal(
                             Withdrawal {
-                                recipient: caller_address,
+                                recipient: next_transfer.account_addr,
                                 mint: next_transfer.mint,
                                 amount: next_transfer.amount
                             }
@@ -524,7 +516,9 @@ mod Darkpool {
     // -----------
     // | OWNABLE |
     // -----------
+    // Adapted from OpenZeppelin's `Ownable` contract
 
+    /// Asserts that the caller is the owner of the contract
     #[external(v0)]
     fn ownable__assert_only_owner(self: @ContractState) {
         let owner = self._owner.read();
@@ -533,11 +527,13 @@ mod Darkpool {
         assert(caller == owner, 'Caller is not the owner');
     }
 
+    /// Returns the owner of the contract
     #[external(v0)]
     fn ownable__owner(self: @ContractState) -> ContractAddress {
         self._owner.read()
     }
 
+    /// Transfers ownership of the contract to a new address
     #[external(v0)]
     fn ownable__transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
         assert(!new_owner.is_zero(), 'New owner is the zero address');
@@ -545,10 +541,12 @@ mod Darkpool {
         _ownable__transfer_ownership(ref self, new_owner);
     }
 
+    /// Initializes the contract with an owner
     fn _ownable_initialize(ref self: ContractState, owner: ContractAddress) {
         _ownable__transfer_ownership(ref self, owner)
     }
 
+    /// Internal function to transfer ownership of the contract to a new address
     fn _ownable__transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
         let previous_owner: ContractAddress = self._owner.read();
         self._owner.write(new_owner);
@@ -558,13 +556,16 @@ mod Darkpool {
     // -----------------
     // | INITIALIZABLE |
     // -----------------
+    // Adapted from OpenZeppelin's `Initializable` contract
 
+    /// Returns whether the contract has been initialized
     #[external(v0)]
     fn initializable__is_initialized(self: @ContractState) -> bool {
         self._initialized.read()
     }
 
-    #[external(v0)]
+    /// Marks the contract as initialized
+    /// Caller function must handle access control.
     fn initializable__initialize(ref self: ContractState) {
         assert(!initializable__is_initialized(@self), 'Initializable: is initialized');
         self._initialized.write(true);
@@ -573,8 +574,10 @@ mod Darkpool {
     // ---------------
     // | UPGRADEABLE |
     // ---------------
+    // Adapted from OpenZeppelin's `Upgradeable` contract
 
-    #[external(v0)]
+    /// Upgrades the contract to a new implementation class.
+    /// Caller function must handle access control.
     fn upgradeable__upgrade(ref self: ContractState, class_hash: ClassHash) {
         replace_class_syscall(class_hash).unwrap_syscall();
         self.emit(Event::DarkpoolUpgrade(DarkpoolUpgrade { new_class: class_hash }));
