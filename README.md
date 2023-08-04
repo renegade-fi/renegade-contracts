@@ -35,18 +35,14 @@ This repository contains the Starknet Cairo code for Renegade's settlement
 layer. This includes managing the system-global state, verifying bulletproofs,
 and emitting events that are consumed by the p2p network.
 
-Our contracts and tooling stack currently targets the Cairo `v1.0.0-alpha.6` compiler.
+Our contracts and tooling stack currently targets the Cairo `v2.0.1` compiler.
 
 ## Contract Development Setup
 
 We use the following stack to support Starknet development:
-- [`scarb`](https://github.com/software-mansion/scarb): For managing Cairo dependencies
-- [`nile-rs`](https://github.com/OpenZeppelin/nile-rs): For interacting with a devnet node
-- [`starknet-devnet`](https://github.com/0xSpaceShard/starknet-devnet): For running a devnet node (used for integration tests)
-
-This is overwhelmingly likely to change. The Starknet ecosystem, let alone the Cairo 1 ecosystem, is very nascent and the landscape
-of tooling options is shifting quickly. As such, the current utilities around testing (NOT the test cases themselves) are somewhat
-crude, so we don't depend on them anywhere else (e.g. in the deploy/upgrade scripts), but they get the job done.
+- [`scarb`](https://github.com/software-mansion/scarb): For managing Cairo dependencies & builds
+- [`starknet-rs`](https://github.com/xJonathanLEI/starknet-rs): For interacting with Starknet (devnet, testnet, mainnet)
+- [`katana`](https://github.com/dojoengine/dojo/tree/main/crates/katana): For running a devnet node (used for integration tests)
 
 To setup your local machine for Renegade contract development:
 
@@ -59,64 +55,35 @@ git clone https://github.com/renegade-fi/renegade-contracts
 
 Make sure you have Rust installed, using e.g. [`rustup`](https://rustup.rs/)
 
-### Install the Cairo compiler
-
-Parts of our tooling stack (namely, the Cairo test runner and the devnet node) require the compiler to be built locally.
-
-To do this you can follow the instructions [here](https://cairo-book.github.io/ch01-01-installation.html), making sure to target `v1.0.0-alpha.6` of the compiler.
-
-Once you've done this, set the environment variable `CAIRO_COMPILER_MANIFEST` to the path of the `Cargo.toml` manifest file in the compiler package you just built:
-```shell
-export CAIRO_COMPILER_MANIFEST=<PATH TO COMPILER CARGO.TOML>
-```
-
 ### Install Scarb
 
-Install `scarb` version `0.1.0` by following the instructions [here](https://docs.swmansion.com/scarb/docs/install).
-
-Then, install `scarb-eject` (used to run Cairo tests that have Scarb dependencies) by follwoing the instructions [here](https://github.com/software-mansion-labs/scarb-eject#installation).
-
-At this point, if you'd like, you should already be able to run our Cairo tests! You can do so by running:
-```shell
-scarb run test
-```
-from the project root.
-
-### Install Nile-rs
-
-Install `nile-rs` by following the instructions [here](https://github.com/OpenZeppelin/nile-rs#installation).
-
-### Install Starknet Devnet
-
-Install `starknet-devnet` by following the instructions [here](https://0xspaceshard.github.io/starknet-devnet/docs/intro).
-
-This requires a Python version `>= 3.9` and `< 3.10`.
-
-After doing this, set the environment variable `DEVNET_STATE_PATH` to some path where you'd like the devnet node to cache its state when running tests:
-```shell
-export DEVNET_STATE_PATH=<PATH TO DUMP FILE>.pkl
-```
+Install `scarb` version `0.5.1` by following the instructions [here](https://docs.swmansion.com/scarb/docs/install).
 
 ## Running Cairo tests
 
 You can run the Cairo tests for the various contracts by invoking the following command:
 ```shell
-scarb run test
+scarb test
 ```
 from the project root.
 
 ## Running Devnet tests
 
-You can run our devnet tests by invoking the following command:
+In order to run tests that require a devnet, you must first build the contracts:
 ```shell
-nile-rs run test
+scarb -P release build
+```
+
+Then, you can run our devnet tests by invoking the following command:
+```shell
+RUST_LOG="tests=debug,katana_core=warn" ARTIFACTS_PATH=<SCARB BUILD PATH> CAIRO_STEP_LIMIT=10000000 cargo test -p tests --lib --all-targets
 ```
 from the project root.
 
-Make sure the `CAIRO_COMPILER_MANIFEST` and `DEVNET_STATE_PATH` environment variables defined above are set.
+The `ARTIFACTS_PATH` environment variable is **required** to be set, and is a path to folder where Scarb builds the contracts
+(when using the `release` profile as above, this is typically `<PROJECT ROOT>/target/release`).
 
-Additionally, you can set the `NILE_LOG` environment variable to control the logging level from the devnet tests:
-```shell
-export NILE_LOG="nile_rs_scripts_module=debug"
-```
-You probably want to set this environment variable for the `nile_rs_scripts_module` module to avoid seeing logs from dependencies.
+The `CAIRO_STEP_LIMIT` environment variable dictates the execution limits of the devnet node, we recommend setting it to `10000000`
+(currently 10x the mainnet execution limit) as some of our code exceeds the default execution limits.
+
+Finally, you can use the `RUST_LOG` environment variable to configure log output from the tests. We recommend `tests=debug,katana_core=warn` as above.
