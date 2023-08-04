@@ -17,6 +17,7 @@ tokio = "1"
 
 ark-crypto-primitives = { version = "0.4", features = ["crh", "merkle_tree", "sponge"] }
 ark-std = "0.4"
+ark-ff = "0.4"
 rand = "0.8"
 num-bigint = { version = "0.4.3", features = ["rand"] }
 
@@ -24,3 +25,4 @@ starknet = { workspace = true }
 katana-core = { git = "https://github.com/dojoengine/dojo.git" }
 dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git" }
 mpc-stark = { git = "https://github.com/renegade-fi/mpc-stark.git" }
+mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", branch = "stark-curve-refactor", features = ["integration_test"] }

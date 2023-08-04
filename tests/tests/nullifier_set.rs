@@ -1,10 +1,11 @@
 use eyre::Result;
+use mpc_stark::algebra::scalar::Scalar;
+use rand::thread_rng;
 use tests::{
     nullifier_set::utils::{
-        contract_is_nullifier_used, contract_mark_nullifier_used, setup_nullifier_set_test,
-        FUZZ_ROUNDS,
+        contract_mark_nullifier_used, setup_nullifier_set_test, FUZZ_ROUNDS, NULLIFIER_SET_ADDRESS,
     },
-    utils::{global_teardown, random_scalar_as_felt},
+    utils::{contract_is_nullifier_used, global_teardown},
 };
 
 #[tokio::test]
@@ -13,10 +14,16 @@ async fn test_nullifier_set_fuzz() -> Result<()> {
     let account = sequencer.account();
 
     for _ in 0..FUZZ_ROUNDS {
-        let nullifier = random_scalar_as_felt();
-        assert!(!contract_is_nullifier_used(&account, nullifier).await?);
+        let nullifier = Scalar::random(&mut thread_rng());
+        assert!(
+            !contract_is_nullifier_used(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
+                .await?
+        );
         contract_mark_nullifier_used(&account, nullifier).await?;
-        assert!(contract_is_nullifier_used(&account, nullifier).await?);
+        assert!(
+            contract_is_nullifier_used(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
+                .await?
+        );
     }
 
     global_teardown(sequencer);
