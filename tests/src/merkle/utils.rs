@@ -1,7 +1,7 @@
 use std::env;
 
 use dojo_test_utils::sequencer::TestSequencer;
-use eyre::{eyre, Result};
+use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
@@ -9,7 +9,9 @@ use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_merkle, initialize, ScriptAccount};
 use tracing::debug;
 
-use crate::utils::{contract_get_root, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR};
+use crate::utils::{
+    global_setup, insert_scalar_to_ark_merkle_tree, invoke_contract, ARTIFACTS_PATH_ENV_VAR,
+};
 
 use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};
 
@@ -84,26 +86,5 @@ pub async fn insert_random_val_to_trees(
     let scalar = Scalar::random(&mut thread_rng());
     contract_insert(account, scalar).await?;
     debug!("Inserting into arkworks merkle tree...");
-    ark_merkle_tree
-        .update(index, &scalar.to_bytes_be().try_into().unwrap())
-        .map_err(|e| eyre!("Error updating arkworks merkle tree: {}", e))
-}
-
-// --------------------------
-// | TEST ASSERTION HELPERS |
-// --------------------------
-
-pub async fn assert_roots_equal(
-    account: &ScriptAccount,
-    ark_merkle_tree: &ScalarMerkleTree,
-) -> Result<()> {
-    let contract_root = contract_get_root(account, *MERKLE_ADDRESS.get().unwrap())
-        .await
-        .unwrap();
-    let ark_root = Scalar::from_be_bytes_mod_order(&ark_merkle_tree.root());
-
-    debug!("Checking if roots match...");
-    assert!(contract_root == ark_root);
-
-    Ok(())
+    insert_scalar_to_ark_merkle_tree(&scalar, ark_merkle_tree, index).map(|_| ())
 }

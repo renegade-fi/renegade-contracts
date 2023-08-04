@@ -2,8 +2,9 @@ use ark_ff::{BigInteger, PrimeField};
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
 use katana_core::{constants::DEFAULT_INVOKE_MAX_STEPS, sequencer::SequencerConfig};
-use mpc_bulletproof::r1cs::R1CSProof;
+use mpc_bulletproof::{r1cs::R1CSProof, InnerProductProof};
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
+use rand::thread_rng;
 use starknet::{
     accounts::{Account, Call, ConnectedAccount},
     core::{
@@ -17,7 +18,10 @@ use std::{env, iter, sync::Once};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::{merkle::utils::GET_ROOT_FN_NAME, nullifier_set::utils::IS_NULLIFIER_USED_FN_NAME};
+use crate::{
+    merkle::{ark_merkle::ScalarMerkleTree, utils::GET_ROOT_FN_NAME},
+    nullifier_set::utils::IS_NULLIFIER_USED_FN_NAME,
+};
 
 // ---------------------
 // | META TEST HELPERS |
@@ -138,6 +142,61 @@ pub fn scalar_to_felt(scalar: &Scalar) -> Result<FieldElement> {
         .map_err(|e| eyre!("error converting Scalar to FieldElement: {}", e))
 }
 
+pub fn insert_scalar_to_ark_merkle_tree(
+    scalar: &Scalar,
+    ark_merkle_tree: &mut ScalarMerkleTree,
+    index: usize,
+) -> Result<Scalar> {
+    ark_merkle_tree
+        .update(index, &scalar.to_bytes_be().try_into().unwrap())
+        .map_err(|e| eyre!("Error updating arkworks merkle tree: {}", e))?;
+
+    Ok(Scalar::from_be_bytes_mod_order(&ark_merkle_tree.root()))
+}
+
+pub fn get_dummy_proof() -> R1CSProof {
+    R1CSProof {
+        A_I1: StarkPoint::generator(),
+        A_O1: StarkPoint::generator(),
+        S1: StarkPoint::generator(),
+        A_I2: StarkPoint::generator(),
+        A_O2: StarkPoint::generator(),
+        S2: StarkPoint::generator(),
+        T_1: StarkPoint::generator(),
+        T_3: StarkPoint::generator(),
+        T_4: StarkPoint::generator(),
+        T_5: StarkPoint::generator(),
+        T_6: StarkPoint::generator(),
+        t_x: Scalar::random(&mut thread_rng()),
+        t_x_blinding: Scalar::random(&mut thread_rng()),
+        e_blinding: Scalar::random(&mut thread_rng()),
+        ipp_proof: InnerProductProof {
+            L_vec: vec![],
+            R_vec: vec![],
+            a: Scalar::random(&mut thread_rng()),
+            b: Scalar::random(&mut thread_rng()),
+        },
+    }
+}
+
+// --------------------------
+// | TEST ASSERTION HELPERS |
+// --------------------------
+
+pub async fn assert_roots_equal(
+    account: &ScriptAccount,
+    contract_address: FieldElement,
+    ark_merkle_tree: &ScalarMerkleTree,
+) -> Result<()> {
+    let contract_root = contract_get_root(account, contract_address).await.unwrap();
+    let ark_root = Scalar::from_be_bytes_mod_order(&ark_merkle_tree.root());
+
+    debug!("Checking if roots match...");
+    assert!(contract_root == ark_root);
+
+    Ok(())
+}
+
 // TODO: Replace relevant types / traits w/ implementations in `starknet-client` crate once it's ready.
 
 // ---------
@@ -167,15 +226,31 @@ impl ExternalTransfer {
     }
 }
 
+#[derive(Clone)]
 pub struct MatchPayload {
-    wallet_blinder_share: Scalar,
-    old_shares_nullifier: Scalar,
-    wallet_share_commitment: Scalar,
-    public_wallet_shares: Vec<Scalar>,
-    valid_commitments_proof: R1CSProof,
-    valid_commitments_witness_commitments: Vec<StarkPoint>,
-    valid_reblind_proof: R1CSProof,
-    valid_reblind_witness_commitments: Vec<StarkPoint>,
+    pub wallet_blinder_share: Scalar,
+    pub old_shares_nullifier: Scalar,
+    pub wallet_share_commitment: Scalar,
+    pub public_wallet_shares: Vec<Scalar>,
+    pub valid_commitments_proof: R1CSProof,
+    pub valid_commitments_witness_commitments: Vec<StarkPoint>,
+    pub valid_reblind_proof: R1CSProof,
+    pub valid_reblind_witness_commitments: Vec<StarkPoint>,
+}
+
+impl MatchPayload {
+    pub fn dummy() -> Self {
+        Self {
+            wallet_blinder_share: Scalar::random(&mut thread_rng()),
+            old_shares_nullifier: Scalar::random(&mut thread_rng()),
+            wallet_share_commitment: Scalar::random(&mut thread_rng()),
+            public_wallet_shares: vec![],
+            valid_commitments_proof: get_dummy_proof(),
+            valid_commitments_witness_commitments: vec![],
+            valid_reblind_proof: get_dummy_proof(),
+            valid_reblind_witness_commitments: vec![],
+        }
+    }
 }
 
 pub trait CalldataSerializable {

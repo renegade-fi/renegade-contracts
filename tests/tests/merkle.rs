@@ -3,17 +3,22 @@ use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
     merkle::utils::{
-        assert_roots_equal, contract_insert, insert_random_val_to_trees, setup_merkle_test,
+        contract_insert, insert_random_val_to_trees, setup_merkle_test, MERKLE_ADDRESS,
         TEST_MERKLE_HEIGHT,
     },
-    utils::global_teardown,
+    utils::{assert_roots_equal, global_teardown},
 };
 
 #[tokio::test]
 async fn test_initialization_root() -> Result<()> {
     let (sequencer, ark_merkle_tree) = setup_merkle_test().await?;
 
-    assert_roots_equal(&sequencer.account(), &ark_merkle_tree).await?;
+    assert_roots_equal(
+        &sequencer.account(),
+        *MERKLE_ADDRESS.get().unwrap(),
+        &ark_merkle_tree,
+    )
+    .await?;
 
     global_teardown(sequencer);
 
@@ -27,7 +32,7 @@ async fn test_single_insert_root() -> Result<()> {
 
     insert_random_val_to_trees(&account, &mut ark_merkle_tree, 0).await?;
 
-    assert_roots_equal(&account, &ark_merkle_tree).await?;
+    assert_roots_equal(&account, *MERKLE_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
     global_teardown(sequencer);
 
@@ -43,7 +48,7 @@ async fn test_multi_insert_root() -> Result<()> {
         insert_random_val_to_trees(&account, &mut ark_merkle_tree, i).await?;
     }
 
-    assert_roots_equal(&account, &ark_merkle_tree).await?;
+    assert_roots_equal(&account, *MERKLE_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
     global_teardown(sequencer);
 
