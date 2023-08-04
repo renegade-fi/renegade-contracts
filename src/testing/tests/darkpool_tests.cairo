@@ -330,6 +330,8 @@ fn test_upgrade_darkpool() {
     let mut darkpool = setup_darkpool();
 
     darkpool.upgrade(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
+    // The dummy upgrade target has a hardcoded response for the `get_wallet_blinder_transaction`
+    // method, which we assert here.
     assert(
         darkpool.get_wallet_blinder_transaction(0.into()) == DUMMY_WALLET_BLINDER_TX,
         'upgrade target wrong result'
@@ -337,6 +339,44 @@ fn test_upgrade_darkpool() {
 
     darkpool.upgrade(Darkpool::TEST_CLASS_HASH.try_into().unwrap());
     assert(darkpool.get_wallet_blinder_transaction(0.into()) == 0, 'original target wrong result');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_upgrade_darkpool_storage() {
+    let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
+    set_contract_address(test_caller);
+    let mut darkpool = setup_darkpool();
+
+    let (
+        wallet_blinder_share,
+        wallet_share_commitment,
+        old_shares_nullifier,
+        public_wallet_shares,
+        external_transfers,
+        proof,
+        witness_commitments
+    ) =
+        get_dummy_update_wallet_args();
+
+    darkpool
+        .update_wallet(
+            wallet_blinder_share,
+            wallet_share_commitment,
+            old_shares_nullifier,
+            public_wallet_shares,
+            external_transfers,
+            proof,
+            witness_commitments
+        );
+
+    let original_root = darkpool.get_root();
+
+    darkpool.upgrade(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
+    darkpool.upgrade(Darkpool::TEST_CLASS_HASH.try_into().unwrap());
+
+    assert(darkpool.get_root() == original_root, 'root not preserved');
+    assert(darkpool.is_nullifier_used(old_shares_nullifier), 'nullifier not preserved');
 }
 
 #[test]
