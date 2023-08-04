@@ -19,6 +19,7 @@ mod DummyUpgradeTarget {
     use traits::Into;
     use starknet::{ClassHash, replace_class_syscall};
     use renegade_contracts::verifier::scalar::Scalar;
+    use super::super::super::test_utils::{DUMMY_ROOT_INNER, DUMMY_WALLET_BLINDER_TX};
 
     #[storage]
     struct Storage {}
@@ -28,11 +29,11 @@ mod DummyUpgradeTarget {
         fn get_wallet_blinder_transaction(
             self: @ContractState, wallet_blinder_share: Scalar
         ) -> felt252 {
-            'DUMMY'
+            DUMMY_WALLET_BLINDER_TX
         }
 
         fn get_root(self: @ContractState) -> Scalar {
-            'DUMMY'.into()
+            DUMMY_ROOT_INNER.into()
         }
 
         fn is_nullifier_used(self: @ContractState, nullifier: Scalar) -> bool {
