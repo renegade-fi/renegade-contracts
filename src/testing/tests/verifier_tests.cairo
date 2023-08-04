@@ -24,7 +24,7 @@ use renegade_contracts::{
         },
         utils::{get_s_elem, calc_delta, squeeze_challenge_scalars}, scalar::{Scalar, ScalarTrait},
     },
-    testing::test_utils,
+    testing::test_utils::get_dummy_proof,
     utils::{
         eq::{
             OptionTPartialEq, ArrayTPartialEq, SpanTPartialEq, TupleSize2PartialEq, EcPointPartialEq
@@ -669,35 +669,6 @@ fn get_dummy_circuit_params() -> CircuitParams {
     CircuitParams { n, n_plus, k, q, m, B, B_blind, W_L, W_R, W_O, W_V, c }
 }
 
-fn get_dummy_proof() -> Proof {
-    let basepoint = ec_point_from_x(1).unwrap();
-
-    let mut L = ArrayTrait::new();
-    L.append(ec_mul(basepoint, 11));
-    L.append(ec_mul(basepoint, 12));
-
-    let mut R = ArrayTrait::new();
-    R.append(ec_mul(basepoint, 13));
-    R.append(ec_mul(basepoint, 14));
-
-    Proof {
-        A_I1: ec_mul(basepoint, 3),
-        A_O1: ec_mul(basepoint, 4),
-        S1: ec_mul(basepoint, 5),
-        T_1: ec_mul(basepoint, 6),
-        T_3: ec_mul(basepoint, 7),
-        T_4: ec_mul(basepoint, 8),
-        T_5: ec_mul(basepoint, 9),
-        T_6: ec_mul(basepoint, 10),
-        t_hat: 9.into(),
-        t_blind: 10.into(),
-        e_blind: 11.into(),
-        L,
-        R,
-        a: 12.into(),
-        b: 13.into(),
-    }
-}
 
 fn get_dummy_witness_commitments() -> Array<EcPoint> {
     let basepoint = ec_point_from_x(1).unwrap();

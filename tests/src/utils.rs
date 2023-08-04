@@ -153,25 +153,25 @@ pub fn insert_scalar_to_ark_merkle_tree(
 
 pub fn get_dummy_proof() -> R1CSProof {
     R1CSProof {
-        A_I1: StarkPoint::identity(),
-        A_O1: StarkPoint::identity(),
-        S1: StarkPoint::identity(),
-        A_I2: StarkPoint::identity(),
-        A_O2: StarkPoint::identity(),
-        S2: StarkPoint::identity(),
-        T_1: StarkPoint::identity(),
-        T_3: StarkPoint::identity(),
-        T_4: StarkPoint::identity(),
-        T_5: StarkPoint::identity(),
-        T_6: StarkPoint::identity(),
-        t_x: Scalar::zero(),
-        t_x_blinding: Scalar::zero(),
-        e_blinding: Scalar::zero(),
+        A_I1: StarkPoint::generator(),
+        A_O1: StarkPoint::generator(),
+        S1: StarkPoint::generator(),
+        A_I2: StarkPoint::generator(),
+        A_O2: StarkPoint::generator(),
+        S2: StarkPoint::generator(),
+        T_1: StarkPoint::generator(),
+        T_3: StarkPoint::generator(),
+        T_4: StarkPoint::generator(),
+        T_5: StarkPoint::generator(),
+        T_6: StarkPoint::generator(),
+        t_x: Scalar::random(&mut thread_rng()),
+        t_x_blinding: Scalar::random(&mut thread_rng()),
+        e_blinding: Scalar::random(&mut thread_rng()),
         ipp_proof: InnerProductProof {
             L_vec: vec![],
             R_vec: vec![],
-            a: Scalar::zero(),
-            b: Scalar::zero(),
+            a: Scalar::random(&mut thread_rng()),
+            b: Scalar::random(&mut thread_rng()),
         },
     }
 }
@@ -238,9 +238,9 @@ pub struct MatchPayload {
 impl MatchPayload {
     pub fn dummy() -> Self {
         Self {
-            wallet_blinder_share: Scalar::zero(),
-            old_shares_nullifier: Scalar::zero(),
-            wallet_share_commitment: Scalar::zero(),
+            wallet_blinder_share: Scalar::random(&mut thread_rng()),
+            old_shares_nullifier: Scalar::random(&mut thread_rng()),
+            wallet_share_commitment: Scalar::random(&mut thread_rng()),
             public_wallet_shares: vec![],
             valid_commitments_proof: get_dummy_proof(),
             valid_commitments_witness_commitments: vec![],
