@@ -4,23 +4,21 @@ use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
+use rand::thread_rng;
 use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_merkle, initialize, ScriptAccount};
 use tracing::debug;
 
-use crate::utils::{
-    call_contract, global_setup, invoke_contract, random_felt, ARTIFACTS_PATH_ENV_VAR,
-};
+use crate::utils::{contract_get_root, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR};
 
 use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};
 
 pub const TEST_MERKLE_HEIGHT: usize = 5;
 
-const GET_ROOT_FN_NAME: &str = "get_root";
+pub const GET_ROOT_FN_NAME: &str = "get_root";
 const INSERT_FN_NAME: &str = "insert";
 
 pub static MERKLE_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
-// TODO: Shoudl I try to make the Arkworks merkle tree a global static as well?
 
 // ---------------------
 // | META TEST HELPERS |
@@ -41,7 +39,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
     }
 
     debug!("Initializing merkle contract...");
-    initialize_merkle_contract(&account, merkle_address, TEST_MERKLE_HEIGHT.into()).await?;
+    contract_initialize(&account, merkle_address, TEST_MERKLE_HEIGHT.into()).await?;
 
     debug!("Initializing arkworks merkle tree...");
     // arkworks implementation does height inclusive of root,
@@ -53,7 +51,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn initialize_merkle_contract(
+pub async fn contract_initialize(
     account: &ScriptAccount,
     merkle_address: FieldElement,
     merkle_height: FieldElement,
@@ -63,23 +61,13 @@ pub async fn initialize_merkle_contract(
         .map(|_| ())
 }
 
-pub async fn contract_get_root(account: &ScriptAccount) -> Result<Scalar> {
-    call_contract(
-        account,
-        *MERKLE_ADDRESS.get().unwrap(),
-        GET_ROOT_FN_NAME,
-        vec![],
-    )
-    .await
-    .map(|r| Scalar::from_be_bytes_mod_order(&r[0].to_bytes_be()))
-}
-
-pub async fn contract_insert(account: &ScriptAccount, value: FieldElement) -> Result<()> {
+pub async fn contract_insert(account: &ScriptAccount, value: Scalar) -> Result<()> {
+    let value_felt = FieldElement::from_byte_slice_be(&value.to_bytes_be()).unwrap();
     invoke_contract(
         account,
         *MERKLE_ADDRESS.get().unwrap(),
         INSERT_FN_NAME,
-        vec![value],
+        vec![value_felt],
     )
     .await
 }
@@ -93,11 +81,11 @@ pub async fn insert_random_val_to_trees(
     ark_merkle_tree: &mut ScalarMerkleTree,
     index: usize,
 ) -> Result<()> {
-    let value = random_felt();
-    contract_insert(account, value).await?;
+    let scalar = Scalar::random(&mut thread_rng());
+    contract_insert(account, scalar).await?;
     debug!("Inserting into arkworks merkle tree...");
     ark_merkle_tree
-        .update(index, &value.to_bytes_be())
+        .update(index, &scalar.to_bytes_be().try_into().unwrap())
         .map_err(|e| eyre!("Error updating arkworks merkle tree: {}", e))
 }
 
@@ -109,7 +97,9 @@ pub async fn assert_roots_equal(
     account: &ScriptAccount,
     ark_merkle_tree: &ScalarMerkleTree,
 ) -> Result<()> {
-    let contract_root = contract_get_root(account).await.unwrap();
+    let contract_root = contract_get_root(account, *MERKLE_ADDRESS.get().unwrap())
+        .await
+        .unwrap();
     let ark_root = Scalar::from_be_bytes_mod_order(&ark_merkle_tree.root());
 
     debug!("Checking if roots match...");

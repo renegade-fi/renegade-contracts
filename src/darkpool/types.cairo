@@ -1,6 +1,6 @@
 use starknet::ContractAddress;
 
-use renegade_contracts::verifier::{scalar::Scalar, types::Proof};
+use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
 
 /// Represents an external transfer of an ERC20 token
 #[derive(Copy, Drop, Serde)]
@@ -23,7 +23,7 @@ struct MatchPayload {
     wallet_share_commitment: Scalar,
     public_wallet_shares: Array<Scalar>,
     valid_commitments_proof: Proof,
-    valid_commitments_witness_commitments: Array<Scalar>,
+    valid_commitments_witness_commitments: Array<EcPoint>,
     valid_reblind_proof: Proof,
-    valid_reblind_witness_commitments: Array<Scalar>,
+    valid_reblind_witness_commitments: Array<EcPoint>,
 }
