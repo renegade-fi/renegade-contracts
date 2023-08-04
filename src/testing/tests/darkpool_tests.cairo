@@ -6,8 +6,8 @@ use box::BoxTrait;
 use array::ArrayTrait;
 use zeroable::Zeroable;
 use starknet::{
-    ContractAddress, contract_address_try_from_felt252, deploy_syscall, get_tx_info,
-    testing::set_contract_address, contract_address::ContractAddressZeroable,
+    ContractAddress, contract_address_try_from_felt252, contract_address_to_felt252, deploy_syscall,
+    get_tx_info, testing::set_contract_address, contract_address::ContractAddressZeroable,
 };
 
 use renegade_contracts::{
@@ -16,14 +16,28 @@ use renegade_contracts::{
         types::{ExternalTransfer, MatchPayload}
     },
     merkle::Merkle, nullifier_set::NullifierSet, verifier::{scalar::Scalar, types::Proof},
+    oz::erc20::{IERC20Dispatcher, IERC20DispatcherTrait}
 };
 
-use super::{merkle_tests::TEST_MERKLE_HEIGHT, super::test_utils::get_dummy_proof};
+use super::{
+    merkle_tests::TEST_MERKLE_HEIGHT,
+    super::{test_utils::get_dummy_proof, test_contracts::dummy_erc20::DummyERC20}
+};
 
 use debug::PrintTrait;
 
 
 const TEST_CALLER: felt252 = 0x0123456789abcdef;
+const INIT_BALANCE: u256 = 1000;
+const TRANSFER_AMOUNT: u256 = 100;
+
+// ---------
+// | TESTS |
+// ---------
+
+// ------------------------------
+// | WALLET LAST MODIFIED TESTS |
+// ------------------------------
 
 #[test]
 #[available_gas(1000000000)] // 10x
@@ -122,6 +136,10 @@ fn test_process_match_last_modified() {
     assert(last_modified == tx_info.transaction_hash, 'incorrect last modified tx hash');
 }
 
+// ---------------------------
+// | IS NULLIFIER USED TESTS |
+// ---------------------------
+
 #[test]
 #[available_gas(1000000000)] // 10x
 fn test_update_wallet_nullifiers() {
@@ -198,6 +216,89 @@ fn test_process_match_nullifiers() {
     );
 }
 
+// ------------------
+// | TRANSFER TESTS |
+// ------------------
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_update_wallet_deposit() {
+    let mut darkpool = setup_darkpool();
+    let dummy_erc20 = setup_dummy_erc20(darkpool.contract_address);
+
+    let (
+        wallet_blinder_share,
+        wallet_share_commitment,
+        old_shares_nullifier,
+        public_wallet_shares,
+        _,
+        proof,
+        witness_commitments
+    ) =
+        get_dummy_update_wallet_args();
+
+    let mut external_transfers = ArrayTrait::new();
+    external_transfers.append(get_dummy_deposit(dummy_erc20.contract_address));
+
+    darkpool
+        .update_wallet(
+            wallet_blinder_share,
+            wallet_share_commitment,
+            old_shares_nullifier,
+            public_wallet_shares,
+            external_transfers,
+            proof,
+            witness_commitments
+        );
+
+    let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
+    let caller_balance = dummy_erc20.balance_of(test_caller);
+    let darkpool_balance = dummy_erc20.balance_of(darkpool.contract_address);
+
+    assert(caller_balance == INIT_BALANCE - TRANSFER_AMOUNT, 'incorrect caller balance');
+    assert(darkpool_balance == INIT_BALANCE + TRANSFER_AMOUNT, 'incorrect darkpool balance');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_update_wallet_withdrawal() {
+    let mut darkpool = setup_darkpool();
+    let dummy_erc20 = setup_dummy_erc20(darkpool.contract_address);
+
+    let (
+        wallet_blinder_share,
+        wallet_share_commitment,
+        old_shares_nullifier,
+        public_wallet_shares,
+        _,
+        proof,
+        witness_commitments
+    ) =
+        get_dummy_update_wallet_args();
+
+    let mut external_transfers = ArrayTrait::new();
+    external_transfers.append(get_dummy_withdrawal(dummy_erc20.contract_address));
+
+    darkpool
+        .update_wallet(
+            wallet_blinder_share,
+            wallet_share_commitment,
+            old_shares_nullifier,
+            public_wallet_shares,
+            external_transfers,
+            proof,
+            witness_commitments
+        );
+
+    let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
+
+    let caller_balance = dummy_erc20.balance_of(test_caller);
+    let darkpool_balance = dummy_erc20.balance_of(darkpool.contract_address);
+
+    assert(caller_balance == INIT_BALANCE + TRANSFER_AMOUNT, 'incorrect caller balance');
+    assert(darkpool_balance == INIT_BALANCE - TRANSFER_AMOUNT, 'incorrect darkpool balance');
+}
+
 // -----------
 // | HELPERS |
 // -----------
@@ -222,6 +323,27 @@ fn setup_darkpool() -> IDarkpoolDispatcher {
         );
 
     darkpool
+}
+
+fn setup_dummy_erc20(darkpool_contract_address: ContractAddress) -> IERC20Dispatcher {
+    let mut calldata = ArrayTrait::new();
+    calldata.append('DummyToken');
+    calldata.append('DUMMY');
+    calldata.append(INIT_BALANCE.low.into());
+    calldata.append(INIT_BALANCE.high.into());
+    calldata.append(2);
+    calldata.append(TEST_CALLER);
+    calldata.append(contract_address_to_felt252(darkpool_contract_address));
+
+    let (dummy_erc20_address, _) = deploy_syscall(
+        DummyERC20::TEST_CLASS_HASH.try_into().unwrap(), 0, calldata.span(), false, 
+    )
+        .unwrap();
+
+    let mut dummy_erc20 = IERC20Dispatcher { contract_address: dummy_erc20_address };
+    dummy_erc20.approve(darkpool_contract_address, INIT_BALANCE);
+
+    dummy_erc20
 }
 
 fn get_dummy_new_wallet_args() -> (Scalar, Scalar, Array<Scalar>, Proof, Array<EcPoint>) {
@@ -266,4 +388,22 @@ fn get_dummy_process_match_args() -> (
         get_dummy_proof(),
         ArrayTrait::new(),
     )
+}
+
+fn get_dummy_deposit(dummy_erc20_address: ContractAddress) -> ExternalTransfer {
+    ExternalTransfer {
+        account_addr: contract_address_try_from_felt252(TEST_CALLER).unwrap(),
+        mint: dummy_erc20_address,
+        amount: TRANSFER_AMOUNT,
+        is_withdrawal: false,
+    }
+}
+
+fn get_dummy_withdrawal(dummy_erc20_address: ContractAddress) -> ExternalTransfer {
+    ExternalTransfer {
+        account_addr: contract_address_try_from_felt252(TEST_CALLER).unwrap(),
+        mint: dummy_erc20_address,
+        amount: TRANSFER_AMOUNT,
+        is_withdrawal: true,
+    }
 }
