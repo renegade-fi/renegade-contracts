@@ -6,6 +6,9 @@ use ec::{ec_point_from_x, ec_mul};
 
 use renegade_contracts::verifier::types::Proof;
 
+const DUMMY_ROOT_INNER: felt252 = 'DUMMY_ROOT';
+const DUMMY_WALLET_BLINDER_TX: felt252 = 'DUMMY_WALLET_BLINDER_TX';
+
 fn serialized_element<T, impl TSerde: Serde<T>, impl TDestruct: Destruct<T>>(
     value: T
 ) -> Span<felt252> {
