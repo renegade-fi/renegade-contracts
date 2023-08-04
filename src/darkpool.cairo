@@ -15,6 +15,9 @@ use types::{ExternalTransfer, MatchPayload};
 
 #[starknet::interface]
 trait IDarkpool<TContractState> {
+    // OWNERSHIP
+    fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
+    fn owner(self: @TContractState) -> ContractAddress;
     // INITIALIZATION
     fn initialize(
         ref self: TContractState,
@@ -185,6 +188,22 @@ mod Darkpool {
 
     #[external(v0)]
     impl IDarkpoolImpl of super::IDarkpool<ContractState> {
+        // -------------
+        // | OWNERSHIP |
+        // -------------
+
+        /// Transfers ownership of the contract to a new address
+        fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            assert(!new_owner.is_zero(), 'New owner is the zero address');
+            ownable__assert_only_owner(@self);
+            _ownable__transfer_ownership(ref self, new_owner);
+        }
+
+        /// Returns the owner of the contract
+        fn owner(self: @ContractState) -> ContractAddress {
+            self._owner.read()
+        }
+
         // ------------------
         // | INITIALIZATION |
         // ------------------
@@ -532,20 +551,6 @@ mod Darkpool {
         let caller = get_caller_address();
         assert(!caller.is_zero(), 'Caller is the zero address');
         assert(caller == owner, 'Caller is not the owner');
-    }
-
-    /// Returns the owner of the contract
-    #[external(v0)]
-    fn ownable__owner(self: @ContractState) -> ContractAddress {
-        self._owner.read()
-    }
-
-    /// Transfers ownership of the contract to a new address
-    #[external(v0)]
-    fn ownable__transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
-        assert(!new_owner.is_zero(), 'New owner is the zero address');
-        ownable__assert_only_owner(@self);
-        _ownable__transfer_ownership(ref self, new_owner);
     }
 
     /// Initializes the contract with an owner

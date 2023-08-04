@@ -369,6 +369,23 @@ fn test_upgrade_nullifier_set() {
     assert(!darkpool.is_nullifier_used(0.into()), 'original target wrong result');
 }
 
+// ----------------------------
+// | OWNERSHIP TRANSFER TESTS |
+// ----------------------------
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_transfer_ownership() {
+    let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
+    set_contract_address(test_caller);
+    let mut darkpool = setup_darkpool();
+
+    let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
+    darkpool.transfer_ownership(dummy_caller);
+
+    assert(darkpool.owner() == dummy_caller, 'ownership transfer failed');
+}
+
 // ------------------------
 // | ACCESS CONTROL TESTS |
 // ------------------------
@@ -422,6 +439,19 @@ fn test_upgrade_nullifier_set_access() {
     set_contract_address(dummy_caller);
 
     darkpool.upgrade_nullifier_set(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
+}
+
+#[test]
+#[should_panic]
+#[available_gas(1000000000)] // 10x
+fn test_transfer_ownership_access() {
+    let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
+    set_contract_address(test_caller);
+    let mut darkpool = setup_darkpool();
+
+    let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
+    set_contract_address(dummy_caller);
+    darkpool.transfer_ownership(dummy_caller);
 }
 
 // ------------------------
