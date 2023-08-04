@@ -6,7 +6,7 @@ mod types;
 // | INTERFACE |
 // -------------
 
-use starknet::ClassHash;
+use starknet::{ClassHash, ContractAddress};
 
 use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
 
@@ -15,6 +15,17 @@ use types::{ExternalTransfer, MatchPayload};
 
 #[starknet::interface]
 trait IDarkpool<TContractState> {
+    // INITIALIZATION
+    fn initialize(
+        ref self: TContractState,
+        merkle_class_hash: ClassHash,
+        nullifier_set_class_hash: ClassHash,
+        height: u8
+    );
+    // OZ
+    fn upgrade(ref self: TContractState, darkpool_class_hash: ClassHash);
+    fn upgrade_merkle(ref self: TContractState, merkle_class_hash: ClassHash);
+    fn upgrade_nullifier_set(ref self: TContractState, nullifier_set_class_hash: ClassHash);
     // GETTERS
     fn get_wallet_blinder_transaction(
         self: @TContractState, wallet_blinder_share: Scalar
@@ -168,91 +179,87 @@ mod Darkpool {
         _ownable_initialize(ref self, owner);
     }
 
-    // -----------
-    // | UPGRADE |
-    // -----------
-
-    /// Upgrades the Darkpool implementation class
-    /// Parameters:
-    /// - `darkpool_class_hash`: The hash of the new implementation class
-    #[external(v0)]
-    fn upgrade(ref self: ContractState, darkpool_class_hash: ClassHash) {
-        ownable__assert_only_owner(@self);
-        upgradeable__upgrade(ref self, darkpool_class_hash);
-    }
-
-    // ---------
-    // | PROXY |
-    // ---------
-
-    /// Initializes the contract state
-    /// Parameters:
-    /// - `merkle_class`: The declared contract class of the Merkle tree implementation
-    /// - `nullifier_class`: The declared contract class of the nullifier set implementation
-    #[external(v0)]
-    fn initialize(
-        ref self: ContractState,
-        merkle_class_hash: ClassHash,
-        nullifier_set_class_hash: ClassHash,
-        height: u8
-    ) {
-        ownable__assert_only_owner(@self);
-        initializable__initialize(ref self);
-
-        // Save Merkle tree & nullifier set class hashes to storage
-        self.merkle_class_hash.write(merkle_class_hash);
-        self.nullifier_set_class_hash.write(nullifier_set_class_hash);
-
-        // Initialize the Merkle tree
-        _get_merkle_tree(@self).initialize(height);
-    }
-
-    /// Upgrades the Merkle implementation class
-    /// Parameters:
-    /// - `merkle_class_hash`: The hash of the implementation class used for Merkle operations
-    #[external(v0)]
-    fn upgrade_merkle(ref self: ContractState, merkle_class_hash: ClassHash) {
-        ownable__assert_only_owner(@self);
-
-        // Get existing class hash to emit event
-        let old_class_hash = self.merkle_class_hash.read();
-        self.merkle_class_hash.write(merkle_class_hash);
-        // Emit event
-        self
-            .emit(
-                Event::MerkleUpgrade(
-                    MerkleUpgrade { old_class: old_class_hash, new_class: merkle_class_hash }
-                )
-            );
-    }
-
-    /// Upgrades the nullifier set implementation class
-    /// Parameters:
-    /// - `nullifier_set_class_hash`: The hash of the implementation class used for nullifier set operations
-    #[external(v0)]
-    fn upgrade_nullifier_set(ref self: ContractState, nullifier_set_class_hash: ClassHash) {
-        ownable__assert_only_owner(@self);
-
-        // Get existing class hash to emit event
-        let old_class_hash = self.nullifier_set_class_hash.read();
-        self.nullifier_set_class_hash.write(nullifier_set_class_hash);
-        // Emit event
-        self
-            .emit(
-                Event::NullifierSetUpgrade(
-                    NullifierSetUpgrade {
-                        old_class: old_class_hash, new_class: nullifier_set_class_hash
-                    }
-                )
-            );
-    }
-
     // -------------
     // | INTERFACE |
     // -------------
 
     #[external(v0)]
     impl IDarkpoolImpl of super::IDarkpool<ContractState> {
+        // ------------------
+        // | INITIALIZATION |
+        // ------------------
+
+        /// Initializes the contract state
+        /// Parameters:
+        /// - `merkle_class`: The declared contract class of the Merkle tree implementation
+        /// - `nullifier_class`: The declared contract class of the nullifier set implementation
+        fn initialize(
+            ref self: ContractState,
+            merkle_class_hash: ClassHash,
+            nullifier_set_class_hash: ClassHash,
+            height: u8
+        ) {
+            ownable__assert_only_owner(@self);
+            initializable__initialize(ref self);
+
+            // Save Merkle tree & nullifier set class hashes to storage
+            self.merkle_class_hash.write(merkle_class_hash);
+            self.nullifier_set_class_hash.write(nullifier_set_class_hash);
+
+            // Initialize the Merkle tree
+            _get_merkle_tree(@self).initialize(height);
+        }
+
+        // -----------
+        // | UPGRADE |
+        // -----------
+
+        /// Upgrades the Darkpool implementation class
+        /// Parameters:
+        /// - `darkpool_class_hash`: The hash of the new implementation class
+        fn upgrade(ref self: ContractState, darkpool_class_hash: ClassHash) {
+            ownable__assert_only_owner(@self);
+            upgradeable__upgrade(ref self, darkpool_class_hash);
+        }
+
+        /// Upgrades the Merkle implementation class
+        /// Parameters:
+        /// - `merkle_class_hash`: The hash of the implementation class used for Merkle operations
+        fn upgrade_merkle(ref self: ContractState, merkle_class_hash: ClassHash) {
+            ownable__assert_only_owner(@self);
+
+            // Get existing class hash to emit event
+            let old_class_hash = self.merkle_class_hash.read();
+            self.merkle_class_hash.write(merkle_class_hash);
+            // Emit event
+            self
+                .emit(
+                    Event::MerkleUpgrade(
+                        MerkleUpgrade { old_class: old_class_hash, new_class: merkle_class_hash }
+                    )
+                );
+        }
+
+        /// Upgrades the nullifier set implementation class
+        /// Parameters:
+        /// - `nullifier_set_class_hash`: The hash of the implementation class used for nullifier set operations
+        fn upgrade_nullifier_set(ref self: ContractState, nullifier_set_class_hash: ClassHash) {
+            ownable__assert_only_owner(@self);
+
+            // Get existing class hash to emit event
+            let old_class_hash = self.nullifier_set_class_hash.read();
+            self.nullifier_set_class_hash.write(nullifier_set_class_hash);
+            // Emit event
+            self
+                .emit(
+                    Event::NullifierSetUpgrade(
+                        NullifierSetUpgrade {
+                            old_class: old_class_hash, new_class: nullifier_set_class_hash
+                        }
+                    )
+                );
+        }
+
         // -----------
         // | GETTERS |
         // -----------
