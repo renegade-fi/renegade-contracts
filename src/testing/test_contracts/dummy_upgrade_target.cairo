@@ -1,44 +1,46 @@
 //! Used to test upgrading the darkpool, or its Merkle tree / nullifier set implementations.
 
-#[contract]
+use starknet::ClassHash;
+use renegade_contracts::verifier::scalar::Scalar;
+
+#[starknet::interface]
+trait IUpgradeTarget<TContractState> {
+    fn get_wallet_blinder_transaction(
+        self: @TContractState, wallet_blinder_share: Scalar
+    ) -> felt252;
+    fn get_root(self: @TContractState) -> Scalar;
+    fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
+    fn upgrade(ref self: TContractState, impl_hash: ClassHash);
+}
+
+
+#[starknet::contract]
 mod DummyUpgradeTarget {
-    use starknet::ClassHash;
-    use renegade_contracts::oz::upgradeable::library::UpgradeableLib;
+    use traits::Into;
+    use starknet::{ClassHash, replace_class_syscall};
+    use renegade_contracts::verifier::scalar::Scalar;
 
-    const MOCK_FELT: felt252 = 'MOCK';
+    #[storage]
+    struct Storage {}
 
-    struct Storage {
-        value: felt252, 
-    }
+    #[external(v0)]
+    impl DummyUpgradeTargetImpl of super::IUpgradeTarget<ContractState> {
+        fn get_wallet_blinder_transaction(
+            self: @ContractState, wallet_blinder_share: Scalar
+        ) -> felt252 {
+            'DUMMY'
+        }
 
-    #[external]
-    fn set_value(new_value: felt252) {
-        value::write(new_value);
-    }
+        fn get_root(self: @ContractState) -> Scalar {
+            'DUMMY'.into()
+        }
 
-    #[view]
-    fn get_value() -> felt252 {
-        value::read()
-    }
+        fn is_nullifier_used(self: @ContractState, nullifier: Scalar) -> bool {
+            true
+        }
 
-    /// Used to mock the interface of the Merkle tree contract
-    #[view]
-    fn get_root() -> felt252 {
-        MOCK_FELT
-    }
-
-    /// Used to mock the interface of the nullifier set contract
-    #[view]
-    fn is_nullifier_used(nullifier: felt252) -> bool {
-        true
-    }
-
-    // -----------
-    // | UPGRADE |
-    // -----------
-
-    #[external]
-    fn upgrade(impl_hash: ClassHash) {
-        UpgradeableLib::upgrade(impl_hash)
+        fn upgrade(ref self: ContractState, impl_hash: ClassHash) {
+            replace_class_syscall(impl_hash).unwrap_syscall();
+        }
     }
 }
