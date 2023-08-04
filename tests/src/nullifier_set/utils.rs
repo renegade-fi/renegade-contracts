@@ -1,16 +1,17 @@
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
+use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_nullifier_set, ScriptAccount};
 use std::env;
 use tracing::debug;
 
-use crate::utils::{call_contract, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR};
+use crate::utils::{global_setup, invoke_contract, scalar_to_felt, ARTIFACTS_PATH_ENV_VAR};
 
 pub const FUZZ_ROUNDS: usize = 100;
 
-const IS_NULLIFIER_USED_FN_NAME: &str = "is_nullifier_used";
+pub const IS_NULLIFIER_USED_FN_NAME: &str = "is_nullifier_used";
 const MARK_NULLIFIER_USED_FN_NAME: &str = "mark_nullifier_used";
 
 pub static NULLIFIER_SET_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
@@ -41,29 +42,16 @@ pub async fn setup_nullifier_set_test() -> Result<TestSequencer> {
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn contract_is_nullifier_used(
-    account: &ScriptAccount,
-    nullifier: FieldElement,
-) -> Result<bool> {
-    call_contract(
-        account,
-        *NULLIFIER_SET_ADDRESS.get().unwrap(),
-        IS_NULLIFIER_USED_FN_NAME,
-        vec![nullifier],
-    )
-    .await
-    .map(|r| r[0] == FieldElement::ONE)
-}
-
 pub async fn contract_mark_nullifier_used(
     account: &ScriptAccount,
-    nullifier: FieldElement,
+    nullifier: Scalar,
 ) -> Result<()> {
+    let nullifier_felt = scalar_to_felt(&nullifier).unwrap();
     invoke_contract(
         account,
         *NULLIFIER_SET_ADDRESS.get().unwrap(),
         MARK_NULLIFIER_USED_FN_NAME,
-        vec![nullifier],
+        vec![nullifier_felt],
     )
     .await
 }

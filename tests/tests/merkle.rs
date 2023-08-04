@@ -1,10 +1,12 @@
 use eyre::Result;
+use mpc_stark::algebra::scalar::Scalar;
+use rand::thread_rng;
 use tests::{
     merkle::utils::{
         assert_roots_equal, contract_insert, insert_random_val_to_trees, setup_merkle_test,
         TEST_MERKLE_HEIGHT,
     },
-    utils::{global_teardown, random_felt},
+    utils::global_teardown,
 };
 
 #[tokio::test]
@@ -54,10 +56,12 @@ async fn test_full_insert() -> Result<()> {
     let account = sequencer.account();
 
     for _ in 0..2_usize.pow(TEST_MERKLE_HEIGHT.try_into()?) {
-        contract_insert(&account, random_felt()).await?;
+        contract_insert(&account, Scalar::random(&mut thread_rng())).await?;
     }
 
-    assert!(contract_insert(&account, random_felt()).await.is_err());
+    assert!(contract_insert(&account, Scalar::random(&mut thread_rng()))
+        .await
+        .is_err());
 
     global_teardown(sequencer);
 

@@ -190,7 +190,7 @@ mod Darkpool {
     /// - `merkle_class`: The declared contract class of the Merkle tree implementation
     /// - `nullifier_class`: The declared contract class of the nullifier set implementation
     #[external(v0)]
-    fn initializer(
+    fn initialize(
         ref self: ContractState,
         merkle_class_hash: ClassHash,
         nullifier_set_class_hash: ClassHash,
