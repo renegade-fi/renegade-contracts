@@ -1,8 +1,9 @@
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
-use mpc_bulletproof::{r1cs::R1CSProof, InnerProductProof};
+use mpc_bulletproof::r1cs::R1CSProof;
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use once_cell::sync::OnceCell;
+use rand::thread_rng;
 use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_darkpool, initialize, ScriptAccount};
 use std::{env, iter};
@@ -14,8 +15,8 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, global_setup, invoke_contract, scalar_to_felt, CalldataSerializable,
-        ExternalTransfer, MatchPayload, ARTIFACTS_PATH_ENV_VAR,
+        call_contract, get_dummy_proof, global_setup, invoke_contract, scalar_to_felt,
+        CalldataSerializable, ExternalTransfer, MatchPayload, ARTIFACTS_PATH_ENV_VAR,
     },
 };
 
@@ -217,27 +218,71 @@ pub async fn contract_process_match(
 // | MISC HELPERS |
 // ----------------
 
-pub fn get_dummy_proof() -> R1CSProof {
-    R1CSProof {
-        A_I1: StarkPoint::identity(),
-        A_O1: StarkPoint::identity(),
-        S1: StarkPoint::identity(),
-        A_I2: StarkPoint::identity(),
-        A_O2: StarkPoint::identity(),
-        S2: StarkPoint::identity(),
-        T_1: StarkPoint::identity(),
-        T_3: StarkPoint::identity(),
-        T_4: StarkPoint::identity(),
-        T_5: StarkPoint::identity(),
-        T_6: StarkPoint::identity(),
-        t_x: Scalar::zero(),
-        t_x_blinding: Scalar::zero(),
-        e_blinding: Scalar::zero(),
-        ipp_proof: InnerProductProof {
-            L_vec: vec![],
-            R_vec: vec![],
-            a: Scalar::zero(),
-            b: Scalar::zero(),
-        },
-    }
+pub fn get_dummy_new_wallet_args() -> (Scalar, Scalar, Vec<Scalar>, R1CSProof, Vec<StarkPoint>) {
+    let wallet_blinder_share = Scalar::random(&mut thread_rng());
+    let wallet_share_commitment = Scalar::random(&mut thread_rng());
+    let public_wallet_shares = vec![];
+    let proof = get_dummy_proof();
+    let witness_commitments = vec![];
+
+    (
+        wallet_blinder_share,
+        wallet_share_commitment,
+        public_wallet_shares,
+        proof,
+        witness_commitments,
+    )
+}
+
+pub fn get_dummy_update_wallet_args() -> (
+    Scalar,
+    Scalar,
+    Scalar,
+    Vec<Scalar>,
+    Vec<ExternalTransfer>,
+    R1CSProof,
+    Vec<StarkPoint>,
+) {
+    let wallet_blinder_share = Scalar::random(&mut thread_rng());
+    let wallet_share_commitment = Scalar::random(&mut thread_rng());
+    let old_shares_nullifier = Scalar::random(&mut thread_rng());
+    let public_wallet_shares = vec![];
+    let external_transfers = vec![];
+    let proof = get_dummy_proof();
+    let witness_commitments = vec![];
+
+    (
+        wallet_blinder_share,
+        wallet_share_commitment,
+        old_shares_nullifier,
+        public_wallet_shares,
+        external_transfers,
+        proof,
+        witness_commitments,
+    )
+}
+
+pub fn get_dummy_process_match_args() -> (
+    MatchPayload,
+    MatchPayload,
+    R1CSProof,
+    Vec<StarkPoint>,
+    R1CSProof,
+    Vec<StarkPoint>,
+) {
+    let party_0_match_payload = MatchPayload::dummy();
+    let party_1_match_payload = MatchPayload::dummy();
+    let match_proof = get_dummy_proof();
+    let match_witness_commitments = vec![];
+    let settle_proof = get_dummy_proof();
+    let settle_witness_commitments = vec![];
+
+    (
+        party_0_match_payload,
+        party_1_match_payload,
+        match_proof,
+        match_witness_commitments,
+        settle_proof,
+        settle_witness_commitments,
+    )
 }
