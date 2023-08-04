@@ -21,7 +21,10 @@ use renegade_contracts::{
 
 use super::{
     merkle_tests::TEST_MERKLE_HEIGHT,
-    super::{test_utils::get_dummy_proof, test_contracts::dummy_erc20::DummyERC20}
+    super::{
+        test_utils::get_dummy_proof,
+        test_contracts::{dummy_erc20::DummyERC20, dummy_upgrade_target::DummyUpgradeTarget}
+    }
 };
 
 use debug::PrintTrait;
@@ -298,6 +301,58 @@ fn test_update_wallet_withdrawal() {
     assert(caller_balance == INIT_BALANCE + TRANSFER_AMOUNT, 'incorrect caller balance');
     assert(darkpool_balance == INIT_BALANCE - TRANSFER_AMOUNT, 'incorrect darkpool balance');
 }
+
+// -----------------
+// | UPGRADE TESTS |
+// -----------------
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_upgrade_darkpool() {
+    let mut darkpool = setup_darkpool();
+
+    darkpool.upgrade(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
+    assert(
+        darkpool.get_wallet_blinder_transaction(0.into()) == 'DUMMY', 'upgrade target wrong result'
+    );
+
+    darkpool.upgrade(Darkpool::TEST_CLASS_HASH.try_into().unwrap());
+    assert(darkpool.get_wallet_blinder_transaction(0.into()) == 0, 'original target wrong result');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_upgrade_merkle() {
+    let mut darkpool = setup_darkpool();
+
+    let original_root = darkpool.get_root();
+
+    darkpool.upgrade_merkle(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
+    assert(
+        darkpool.get_root() == 'DUMMY'.into(), 'upgrade target wrong result'
+    );
+
+    darkpool.upgrade_merkle(Merkle::TEST_CLASS_HASH.try_into().unwrap());
+    assert(darkpool.get_root() == original_root, 'original target wrong result');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_upgrade_nullifier_set() {
+    let mut darkpool = setup_darkpool();
+
+    darkpool.upgrade_nullifier_set(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
+    assert(
+        darkpool.is_nullifier_used(0.into()), 'upgrade target wrong result'
+    );
+
+    darkpool.upgrade_nullifier_set(NullifierSet::TEST_CLASS_HASH.try_into().unwrap());
+    assert(!darkpool.is_nullifier_used(0.into()), 'original target wrong result');
+}
+
+// ------------------------
+// | ACCESS CONTROL TESTS |
+// ------------------------
 
 // -----------
 // | HELPERS |
