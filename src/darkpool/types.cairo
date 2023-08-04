@@ -1,3 +1,4 @@
+use clone::Clone;
 use starknet::ContractAddress;
 
 use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
@@ -16,7 +17,7 @@ struct ExternalTransfer {
 }
 
 /// Represents the artifacts produced by one of the parties in a match
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, Clone)]
 struct MatchPayload {
     wallet_blinder_share: Scalar,
     old_shares_nullifier: Scalar,

@@ -299,7 +299,7 @@ impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
 }
 
 /// A Bulletproofs proof object (excluding public inputs)
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, Clone)]
 struct Proof {
     A_I1: EcPoint,
     A_O1: EcPoint,
