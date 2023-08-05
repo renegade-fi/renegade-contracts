@@ -14,7 +14,7 @@ use renegade_contracts::{utils::math::hash_to_scalar, verifier::scalar::Scalar};
 
 const TRANSCRIPT_SEED: u256 = 'merlin seed';
 
-#[derive(Drop)]
+#[derive(Drop, Serde)]
 struct Transcript {
     /// The current state of the hash chain.
     state: u256,
