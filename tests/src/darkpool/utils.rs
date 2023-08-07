@@ -6,7 +6,7 @@ use once_cell::sync::OnceCell;
 use rand::thread_rng;
 use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_darkpool, initialize, ScriptAccount};
-use std::{env, iter};
+use std::env;
 use tracing::debug;
 
 use crate::{
@@ -86,13 +86,11 @@ pub async fn get_wallet_blinder_transaction(
     account: &ScriptAccount,
     wallet_blinder_share: Scalar,
 ) -> Result<FieldElement> {
-    let wallet_blinder_share_felt =
-        FieldElement::from_byte_slice_be(&wallet_blinder_share.to_bytes_be()).unwrap();
     call_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
         GET_WALLET_BLINDER_TRANSACTION_FN_NAME,
-        vec![wallet_blinder_share_felt],
+        vec![scalar_to_felt(&wallet_blinder_share)],
     )
     .await
     .map(|r| r[0])
@@ -108,12 +106,10 @@ pub async fn new_wallet(
 ) -> Result<()> {
     let calldata: Vec<FieldElement> = [wallet_blinder_share, wallet_share_commitment]
         .iter()
-        .map(scalar_to_felt)
-        .chain(iter::once(FieldElement::from(public_wallet_shares.len())))
-        .chain(public_wallet_shares.iter().map(scalar_to_felt))
+        .flat_map(|s| s.to_calldata())
+        .chain(public_wallet_shares.to_calldata().into_iter())
         .chain(proof.to_calldata().into_iter())
-        .chain(iter::once(FieldElement::from(witness_commitments.len())))
-        .chain(witness_commitments.iter().flat_map(|s| s.to_calldata()))
+        .chain(witness_commitments.to_calldata().into_iter())
         .collect();
 
     invoke_contract(
@@ -143,14 +139,11 @@ pub async fn update_wallet(
         old_shares_nullifier,
     ]
     .iter()
-    .map(scalar_to_felt)
-    .chain(iter::once(FieldElement::from(public_wallet_shares.len())))
-    .chain(public_wallet_shares.iter().map(scalar_to_felt))
-    .chain(iter::once(FieldElement::from(external_transfers.len())))
-    .chain(external_transfers.iter().flat_map(|t| t.to_calldata()))
+    .flat_map(|s| s.to_calldata())
+    .chain(public_wallet_shares.to_calldata().into_iter())
+    .chain(external_transfers.to_calldata().into_iter())
     .chain(proof.to_calldata().into_iter())
-    .chain(iter::once(FieldElement::from(witness_commitments.len())))
-    .chain(witness_commitments.iter().flat_map(|s| s.to_calldata()))
+    .chain(witness_commitments.to_calldata().into_iter())
     .collect();
 
     invoke_contract(
@@ -177,23 +170,9 @@ pub async fn process_match(
         .into_iter()
         .chain(party_1_payload.to_calldata().into_iter())
         .chain(match_proof.to_calldata().into_iter())
-        .chain(iter::once(FieldElement::from(
-            match_witness_commitments.len(),
-        )))
-        .chain(
-            match_witness_commitments
-                .iter()
-                .flat_map(|s| s.to_calldata()),
-        )
+        .chain(match_witness_commitments.to_calldata().into_iter())
         .chain(settle_proof.to_calldata().into_iter())
-        .chain(iter::once(FieldElement::from(
-            settle_witness_commitments.len(),
-        )))
-        .chain(
-            settle_witness_commitments
-                .iter()
-                .flat_map(|s| s.to_calldata()),
-        )
+        .chain(settle_witness_commitments.to_calldata().into_iter())
         .collect();
 
     invoke_contract(

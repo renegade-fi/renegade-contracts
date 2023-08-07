@@ -24,14 +24,14 @@ mod TranscriptWrapper {
     #[storage]
     struct Storage {
         transcript: StorageAccessSerdeWrapper<Transcript>,
-        challenge_scalar: Option<Scalar>,
+        challenge_scalar: StorageAccessSerdeWrapper<Option<Scalar>>,
     }
 
     #[constructor]
     fn constructor(ref self: ContractState, label: u256) {
         let transcript = TranscriptTrait::new(label);
         self.transcript.write(StorageAccessSerdeWrapper { inner: transcript });
-        self.challenge_scalar.write(Option::None(()));
+        self.challenge_scalar.write(StorageAccessSerdeWrapper { inner: Option::None(()) });
     }
 
     #[external(v0)]
@@ -82,11 +82,13 @@ mod TranscriptWrapper {
             let mut transcript = self.transcript.read().inner;
             let challenge_scalar = transcript.challenge_scalar(label);
             self.transcript.write(StorageAccessSerdeWrapper { inner: transcript });
-            self.challenge_scalar.write(Option::Some(challenge_scalar));
+            self
+                .challenge_scalar
+                .write(StorageAccessSerdeWrapper { inner: Option::Some(challenge_scalar) });
         }
 
         fn get_challenge_scalar(self: @ContractState) -> Scalar {
-            self.challenge_scalar.read().unwrap()
+            self.challenge_scalar.read().inner.unwrap()
         }
     }
 }

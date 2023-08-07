@@ -26,3 +26,4 @@ katana-core = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d4d" 
 dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d4d" }
 mpc-stark = { git = "https://github.com/renegade-fi/mpc-stark.git" }
 mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", branch = "stark-curve-refactor", features = ["integration_test"] }
+merlin = { git = "https://github.com/renegade-fi/merlin.git" }
