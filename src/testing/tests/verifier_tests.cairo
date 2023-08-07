@@ -31,7 +31,6 @@ use renegade_contracts::{
         },
         collections::tile_arr, constants::{G_LABEL, H_LABEL},
     },
-    transcript::{Transcript, TranscriptTrait, TranscriptProtocol, TRANSCRIPT_SEED},
 };
 
 // ---------
@@ -219,30 +218,6 @@ fn test_squeeze_challenge_scalars_basic() {
 
     assert(challenge_scalars.len() == 6, 'wrong # of challenge scalars');
     assert(u.len() == k, 'wrong # of u challenge scalars');
-}
-
-#[test]
-#[available_gas(100000000)]
-fn test_transcript_basic() {
-    // Obtained by processing the below transcript in the prover-side implementation
-    // https://github.com/renegade-fi/mpc-bulletproof/blob/main/src/transcript.rs
-    let expected_challenge: Scalar =
-        20218297303968297499310910532919921921595889040879854140591046408794752210
-        .into();
-
-    let mut transcript = TranscriptTrait::new(TRANSCRIPT_SEED);
-
-    transcript.rangeproof_domain_sep(1, 2);
-    transcript.innerproduct_domain_sep(3);
-    transcript.r1cs_domain_sep();
-    transcript.r1cs_1phase_domain_sep();
-    transcript.append_scalar('scalar', 4.into());
-    transcript.validate_and_append_point('gen', ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y));
-    transcript.append_point('ident', ec_point_zero());
-
-    let challenge = transcript.challenge_scalar('challenge');
-    challenge.print();
-    assert(challenge == expected_challenge, 'wrong challenge');
 }
 
 // ------------------

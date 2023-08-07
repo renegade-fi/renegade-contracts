@@ -254,9 +254,23 @@ pub trait CalldataSerializable {
     fn to_calldata(&self) -> Vec<FieldElement>;
 }
 
+impl<T: CalldataSerializable> CalldataSerializable for Vec<T> {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        iter::once(FieldElement::from(self.len()))
+            .chain(self.iter().flat_map(|t| t.to_calldata()))
+            .collect()
+    }
+}
+
 impl CalldataSerializable for StarknetU256 {
     fn to_calldata(&self) -> Vec<FieldElement> {
         vec![FieldElement::from(self.low), FieldElement::from(self.high)]
+    }
+}
+
+impl CalldataSerializable for Scalar {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![scalar_to_felt(self)]
     }
 }
 
@@ -286,16 +300,14 @@ impl CalldataSerializable for R1CSProof {
         .chain(
             [self.t_x, self.t_x_blinding, self.e_blinding]
                 .iter()
-                .map(scalar_to_felt),
+                .flat_map(|s| s.to_calldata()),
         )
-        .chain(iter::once(FieldElement::from(self.ipp_proof.L_vec.len())))
-        .chain(self.ipp_proof.L_vec.iter().flat_map(|p| p.to_calldata()))
-        .chain(iter::once(FieldElement::from(self.ipp_proof.R_vec.len())))
-        .chain(self.ipp_proof.R_vec.iter().flat_map(|p| p.to_calldata()))
+        .chain(self.ipp_proof.L_vec.to_calldata().into_iter())
+        .chain(self.ipp_proof.R_vec.to_calldata().into_iter())
         .chain(
             [self.ipp_proof.a, self.ipp_proof.b]
                 .iter()
-                .map(scalar_to_felt),
+                .flat_map(|s| s.to_calldata()),
         )
         .collect()
     }
@@ -318,28 +330,19 @@ impl CalldataSerializable for MatchPayload {
             self.wallet_share_commitment,
         ]
         .iter()
-        .map(scalar_to_felt)
-        .chain(iter::once(FieldElement::from(
-            self.public_wallet_shares.len(),
-        )))
-        .chain(self.public_wallet_shares.iter().map(scalar_to_felt))
+        .flat_map(|s| s.to_calldata())
+        .chain(self.public_wallet_shares.to_calldata().into_iter())
         .chain(self.valid_commitments_proof.to_calldata().into_iter())
-        .chain(iter::once(FieldElement::from(
-            self.valid_commitments_witness_commitments.len(),
-        )))
         .chain(
             self.valid_commitments_witness_commitments
-                .iter()
-                .flat_map(|p| p.to_calldata()),
+                .to_calldata()
+                .into_iter(),
         )
         .chain(self.valid_reblind_proof.to_calldata().into_iter())
-        .chain(iter::once(FieldElement::from(
-            self.valid_reblind_witness_commitments.len(),
-        )))
         .chain(
             self.valid_reblind_witness_commitments
-                .iter()
-                .flat_map(|p| p.to_calldata()),
+                .to_calldata()
+                .into_iter(),
         )
         .collect()
     }

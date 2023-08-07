@@ -3712,7 +3712,7 @@ dependencies = [
 [[package]]
 name = "merlin"
 version = "2.0.0"
-source = "git+https://github.com/renegade-fi/merlin#a161f0bbb31963b38910488d7d6cc4badd540881"
+source = "git+https://github.com/renegade-fi/merlin.git#a161f0bbb31963b38910488d7d6cc4badd540881"
 dependencies = [
  "byteorder",
  "keccak",
@@ -5699,6 +5699,7 @@ dependencies = [
  "dojo-test-utils",
  "eyre",
  "katana-core",
+ "merlin",
  "mpc-bulletproof",
  "mpc-stark",
  "num-bigint",
