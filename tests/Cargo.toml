@@ -22,7 +22,7 @@ rand = "0.8"
 num-bigint = { version = "0.4.3", features = ["rand"] }
 
 starknet = { workspace = true }
-katana-core = { git = "https://github.com/dojoengine/dojo.git" }
-dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git" }
+katana-core = { git = "https://github.com/dojoengine/dojo.git", rev = "2f5c06dc3adfe999a791b18b73824c800eec4669" }
+dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git", rev = "2f5c06dc3adfe999a791b18b73824c800eec4669" }
 mpc-stark = { git = "https://github.com/renegade-fi/mpc-stark.git" }
 mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", branch = "stark-curve-refactor", features = ["integration_test"] }
