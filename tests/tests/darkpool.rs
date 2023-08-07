@@ -1,9 +1,8 @@
 use eyre::Result;
 use tests::{
     darkpool::utils::{
-        contract_new_wallet, contract_process_match, contract_update_wallet,
         get_dummy_new_wallet_args, get_dummy_process_match_args, get_dummy_update_wallet_args,
-        setup_darkpool_test, DARKPOOL_ADDRESS,
+        new_wallet, process_match, setup_darkpool_test, update_wallet, DARKPOOL_ADDRESS,
     },
     utils::{assert_roots_equal, global_teardown, insert_scalar_to_ark_merkle_tree},
 };
@@ -36,7 +35,7 @@ async fn test_new_wallet_root() -> Result<()> {
         proof,
         witness_commitments,
     ) = get_dummy_new_wallet_args();
-    contract_new_wallet(
+    new_wallet(
         &account,
         wallet_blinder_share,
         wallet_share_commitment,
@@ -69,7 +68,7 @@ async fn test_update_wallet_root() -> Result<()> {
         proof,
         witness_commitments,
     ) = get_dummy_update_wallet_args();
-    contract_update_wallet(
+    update_wallet(
         &account,
         wallet_blinder_share,
         wallet_share_commitment,
@@ -103,7 +102,7 @@ async fn test_process_match_root() -> Result<()> {
         settle_proof,
         settle_witness_commitments,
     ) = get_dummy_process_match_args();
-    contract_process_match(
+    process_match(
         &account,
         party_0_match_payload.clone(),
         party_1_match_payload.clone(),

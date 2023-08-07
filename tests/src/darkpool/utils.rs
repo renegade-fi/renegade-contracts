@@ -47,7 +47,7 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
     }
 
     debug!("Initializing darkpool contract...");
-    contract_initialize(
+    initialize_darkpool(
         &account,
         darkpool_address,
         merkle_class_hash,
@@ -66,7 +66,7 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn contract_initialize(
+pub async fn initialize_darkpool(
     account: &ScriptAccount,
     darkpool_address: FieldElement,
     merkle_class_hash: FieldElement,
@@ -82,7 +82,7 @@ pub async fn contract_initialize(
     .map(|_| ())
 }
 
-pub async fn contract_get_wallet_blinder_transaction(
+pub async fn get_wallet_blinder_transaction(
     account: &ScriptAccount,
     wallet_blinder_share: Scalar,
 ) -> Result<FieldElement> {
@@ -98,7 +98,7 @@ pub async fn contract_get_wallet_blinder_transaction(
     .map(|r| r[0])
 }
 
-pub async fn contract_new_wallet(
+pub async fn new_wallet(
     account: &ScriptAccount,
     wallet_blinder_share: Scalar,
     wallet_share_commitment: Scalar,
@@ -108,13 +108,9 @@ pub async fn contract_new_wallet(
 ) -> Result<()> {
     let calldata: Vec<FieldElement> = [wallet_blinder_share, wallet_share_commitment]
         .iter()
-        .map(|s| scalar_to_felt(s).unwrap())
+        .map(scalar_to_felt)
         .chain(iter::once(FieldElement::from(public_wallet_shares.len())))
-        .chain(
-            public_wallet_shares
-                .iter()
-                .map(|s| scalar_to_felt(s).unwrap()),
-        )
+        .chain(public_wallet_shares.iter().map(scalar_to_felt))
         .chain(proof.to_calldata().into_iter())
         .chain(iter::once(FieldElement::from(witness_commitments.len())))
         .chain(witness_commitments.iter().flat_map(|s| s.to_calldata()))
@@ -131,7 +127,7 @@ pub async fn contract_new_wallet(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn contract_update_wallet(
+pub async fn update_wallet(
     account: &ScriptAccount,
     wallet_blinder_share: Scalar,
     wallet_share_commitment: Scalar,
@@ -147,13 +143,9 @@ pub async fn contract_update_wallet(
         old_shares_nullifier,
     ]
     .iter()
-    .map(|s| scalar_to_felt(s).unwrap())
+    .map(scalar_to_felt)
     .chain(iter::once(FieldElement::from(public_wallet_shares.len())))
-    .chain(
-        public_wallet_shares
-            .iter()
-            .map(|s| scalar_to_felt(s).unwrap()),
-    )
+    .chain(public_wallet_shares.iter().map(scalar_to_felt))
     .chain(iter::once(FieldElement::from(external_transfers.len())))
     .chain(external_transfers.iter().flat_map(|t| t.to_calldata()))
     .chain(proof.to_calldata().into_iter())
@@ -171,7 +163,7 @@ pub async fn contract_update_wallet(
     .map(|_| ())
 }
 
-pub async fn contract_process_match(
+pub async fn process_match(
     account: &ScriptAccount,
     party_0_payload: MatchPayload,
     party_1_payload: MatchPayload,
