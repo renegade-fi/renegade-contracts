@@ -3,8 +3,7 @@ use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
     merkle::utils::{
-        contract_insert, insert_random_val_to_trees, setup_merkle_test, MERKLE_ADDRESS,
-        TEST_MERKLE_HEIGHT,
+        insert, insert_random_val_to_trees, setup_merkle_test, MERKLE_ADDRESS, TEST_MERKLE_HEIGHT,
     },
     utils::{assert_roots_equal, global_teardown},
 };
@@ -61,10 +60,10 @@ async fn test_full_insert() -> Result<()> {
     let account = sequencer.account();
 
     for _ in 0..2_usize.pow(TEST_MERKLE_HEIGHT.try_into()?) {
-        contract_insert(&account, Scalar::random(&mut thread_rng())).await?;
+        insert(&account, Scalar::random(&mut thread_rng())).await?;
     }
 
-    assert!(contract_insert(&account, Scalar::random(&mut thread_rng()))
+    assert!(insert(&account, Scalar::random(&mut thread_rng()))
         .await
         .is_err());
 

@@ -73,7 +73,7 @@ pub async fn deploy_poseidon_wrapper(
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn contract_store_hash(
+pub async fn store_hash(
     account: &ScriptAccount,
     input: &[Scalar],
     num_elements: usize,
@@ -96,7 +96,7 @@ pub async fn contract_store_hash(
     .await
 }
 
-pub async fn contract_get_hash(account: &ScriptAccount) -> Result<Vec<Scalar>> {
+pub async fn get_hash(account: &ScriptAccount) -> Result<Vec<Scalar>> {
     call_contract(
         account,
         *POSEIDON_WRAPPER_ADDRESS.get().unwrap(),
@@ -136,8 +136,8 @@ pub async fn get_random_input_hashes(
     );
 
     debug!("Hashing via contract...");
-    contract_store_hash(account, &input, num_elements).await?;
-    let output = contract_get_hash(account).await?;
+    store_hash(account, &input, num_elements).await?;
+    let output = get_hash(account).await?;
 
     debug!("Hashing via arkworks...");
     let ark_output = ark_poseidon_hash(&input, num_elements);

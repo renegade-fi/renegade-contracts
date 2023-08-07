@@ -3,9 +3,9 @@ use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
     nullifier_set::utils::{
-        contract_mark_nullifier_used, setup_nullifier_set_test, FUZZ_ROUNDS, NULLIFIER_SET_ADDRESS,
+        mark_nullifier_used, setup_nullifier_set_test, FUZZ_ROUNDS, NULLIFIER_SET_ADDRESS,
     },
-    utils::{contract_is_nullifier_used, global_teardown},
+    utils::{global_teardown, is_nullifier_used},
 };
 
 #[tokio::test]
@@ -16,13 +16,11 @@ async fn test_nullifier_set_fuzz() -> Result<()> {
     for _ in 0..FUZZ_ROUNDS {
         let nullifier = Scalar::random(&mut thread_rng());
         assert!(
-            !contract_is_nullifier_used(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
-                .await?
+            !is_nullifier_used(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier).await?
         );
-        contract_mark_nullifier_used(&account, nullifier).await?;
+        mark_nullifier_used(&account, nullifier).await?;
         assert!(
-            contract_is_nullifier_used(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
-                .await?
+            is_nullifier_used(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier).await?
         );
     }
 

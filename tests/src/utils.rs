@@ -108,21 +108,18 @@ pub async fn invoke_contract(
         .map_err(|e| eyre!("Error invoking {}: {}", entry_point, e))
 }
 
-pub async fn contract_get_root(
-    account: &ScriptAccount,
-    contract_address: FieldElement,
-) -> Result<Scalar> {
+pub async fn get_root(account: &ScriptAccount, contract_address: FieldElement) -> Result<Scalar> {
     call_contract(account, contract_address, GET_ROOT_FN_NAME, vec![])
         .await
         .map(|r| Scalar::from_be_bytes_mod_order(&r[0].to_bytes_be()))
 }
 
-pub async fn contract_is_nullifier_used(
+pub async fn is_nullifier_used(
     account: &ScriptAccount,
     contract_address: FieldElement,
     nullifier: Scalar,
 ) -> Result<bool> {
-    let nullifier_felt = scalar_to_felt(&nullifier).unwrap();
+    let nullifier_felt = scalar_to_felt(&nullifier);
     call_contract(
         account,
         contract_address,
@@ -137,9 +134,9 @@ pub async fn contract_is_nullifier_used(
 // | MISC HELPERS |
 // ----------------
 
-pub fn scalar_to_felt(scalar: &Scalar) -> Result<FieldElement> {
+pub fn scalar_to_felt(scalar: &Scalar) -> FieldElement {
     FieldElement::from_byte_slice_be(&scalar.to_bytes_be())
-        .map_err(|e| eyre!("error converting Scalar to FieldElement: {}", e))
+        .expect("failed to convert Scalar to FieldElement")
 }
 
 pub fn insert_scalar_to_ark_merkle_tree(
@@ -188,7 +185,7 @@ pub async fn assert_roots_equal(
     contract_address: FieldElement,
     ark_merkle_tree: &ScalarMerkleTree,
 ) -> Result<()> {
-    let contract_root = contract_get_root(account, contract_address).await.unwrap();
+    let contract_root = get_root(account, contract_address).await.unwrap();
     let ark_root = Scalar::from_be_bytes_mod_order(&ark_merkle_tree.root());
 
     debug!("Checking if roots match...");
@@ -289,7 +286,7 @@ impl CalldataSerializable for R1CSProof {
         .chain(
             [self.t_x, self.t_x_blinding, self.e_blinding]
                 .iter()
-                .map(|s| scalar_to_felt(s).unwrap()),
+                .map(scalar_to_felt),
         )
         .chain(iter::once(FieldElement::from(self.ipp_proof.L_vec.len())))
         .chain(self.ipp_proof.L_vec.iter().flat_map(|p| p.to_calldata()))
@@ -298,7 +295,7 @@ impl CalldataSerializable for R1CSProof {
         .chain(
             [self.ipp_proof.a, self.ipp_proof.b]
                 .iter()
-                .map(|s| scalar_to_felt(s).unwrap()),
+                .map(scalar_to_felt),
         )
         .collect()
     }
@@ -321,15 +318,11 @@ impl CalldataSerializable for MatchPayload {
             self.wallet_share_commitment,
         ]
         .iter()
-        .map(|s| scalar_to_felt(s).unwrap())
+        .map(scalar_to_felt)
         .chain(iter::once(FieldElement::from(
             self.public_wallet_shares.len(),
         )))
-        .chain(
-            self.public_wallet_shares
-                .iter()
-                .map(|s| scalar_to_felt(s).unwrap()),
-        )
+        .chain(self.public_wallet_shares.iter().map(scalar_to_felt))
         .chain(self.valid_commitments_proof.to_calldata().into_iter())
         .chain(iter::once(FieldElement::from(
             self.valid_commitments_witness_commitments.len(),

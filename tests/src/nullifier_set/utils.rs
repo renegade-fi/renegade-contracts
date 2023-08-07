@@ -42,11 +42,8 @@ pub async fn setup_nullifier_set_test() -> Result<TestSequencer> {
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn contract_mark_nullifier_used(
-    account: &ScriptAccount,
-    nullifier: Scalar,
-) -> Result<()> {
-    let nullifier_felt = scalar_to_felt(&nullifier).unwrap();
+pub async fn mark_nullifier_used(account: &ScriptAccount, nullifier: Scalar) -> Result<()> {
+    let nullifier_felt = scalar_to_felt(&nullifier);
     invoke_contract(
         account,
         *NULLIFIER_SET_ADDRESS.get().unwrap(),

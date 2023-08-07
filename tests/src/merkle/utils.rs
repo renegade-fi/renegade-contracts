@@ -41,7 +41,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
     }
 
     debug!("Initializing merkle contract...");
-    contract_initialize(&account, merkle_address, TEST_MERKLE_HEIGHT.into()).await?;
+    initialize_merkle(&account, merkle_address, TEST_MERKLE_HEIGHT.into()).await?;
 
     debug!("Initializing arkworks merkle tree...");
     // arkworks implementation does height inclusive of root,
@@ -53,7 +53,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn contract_initialize(
+pub async fn initialize_merkle(
     account: &ScriptAccount,
     merkle_address: FieldElement,
     merkle_height: FieldElement,
@@ -63,7 +63,7 @@ pub async fn contract_initialize(
         .map(|_| ())
 }
 
-pub async fn contract_insert(account: &ScriptAccount, value: Scalar) -> Result<()> {
+pub async fn insert(account: &ScriptAccount, value: Scalar) -> Result<()> {
     let value_felt = FieldElement::from_byte_slice_be(&value.to_bytes_be()).unwrap();
     invoke_contract(
         account,
@@ -84,7 +84,7 @@ pub async fn insert_random_val_to_trees(
     index: usize,
 ) -> Result<()> {
     let scalar = Scalar::random(&mut thread_rng());
-    contract_insert(account, scalar).await?;
+    insert(account, scalar).await?;
     debug!("Inserting into arkworks merkle tree...");
     insert_scalar_to_ark_merkle_tree(&scalar, ark_merkle_tree, index).map(|_| ())
 }
