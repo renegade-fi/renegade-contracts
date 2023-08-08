@@ -1,7 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
-use mpc_bulletproof::r1cs::{R1CSProof, SparseReducedMatrix, Verifier};
+use merlin::HashChainTranscript;
+use mpc_bulletproof::{
+    r1cs::{R1CSProof, SparseReducedMatrix, Verifier},
+    TranscriptProtocol,
+};
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use once_cell::sync::OnceCell;
 use starknet::core::types::{DeclareTransactionResult, FieldElement};
@@ -17,8 +21,8 @@ use crate::{
         ARTIFACTS_PATH_ENV_VAR,
     },
     verifier::utils::{
-        prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit, DUMMY_CIRCUIT_M,
-        DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
+        prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit, DUMMY_CIRCUIT_K,
+        DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
     },
 };
 
@@ -107,7 +111,7 @@ pub async fn calc_delta(
     .map(|r| felt_to_scalar(&r[0]))
 }
 
-pub async fn get_s_elem(account: &ScriptAccount, u: Vec<Scalar>, i: usize) -> Result<Scalar> {
+pub async fn get_s_elem(account: &ScriptAccount, u: &Vec<Scalar>, i: usize) -> Result<Scalar> {
     let calldata = u
         .to_calldata()
         .into_iter()
@@ -173,4 +177,105 @@ pub async fn squeeze_challenge_scalars(
 
         (challenge_scalars, u)
     })
+}
+
+// -------------------------
+// | DUMMY CIRCUIT HELPERS |
+// -------------------------
+
+/// Squeezes the expected challenge scalars for a given proof and witness commitments,
+/// copying the implementation in `mpc-bulletproof`.
+/// Assumes the transcript has absorbed nothing other than the seed it was initialized with.
+pub fn squeeze_expected_dummy_circuit_challenge_scalars(
+    transcript: &mut HashChainTranscript,
+    proof: &R1CSProof,
+    witness_commitments: &[StarkPoint],
+) -> Result<(Vec<Scalar>, Vec<Scalar>)> {
+    debug!("Squeezing expected challenge scalars for dummy circuit...");
+
+    let mut challenge_scalars = Vec::with_capacity(6);
+    let mut u = Vec::with_capacity(DUMMY_CIRCUIT_K);
+
+    transcript.r1cs_domain_sep();
+
+    witness_commitments
+        .iter()
+        .try_for_each(|w| transcript.validate_and_append_point(b"V", w))?;
+
+    transcript.append_u64(b"m", DUMMY_CIRCUIT_M as u64);
+
+    transcript.validate_and_append_point(b"A_I1", &proof.A_I1)?;
+    transcript.validate_and_append_point(b"A_O1", &proof.A_O1)?;
+    transcript.validate_and_append_point(b"S1", &proof.S1)?;
+
+    transcript.r1cs_1phase_domain_sep();
+
+    let identity = StarkPoint::identity();
+
+    transcript.append_point(b"A_I2", &identity);
+    transcript.append_point(b"A_O2", &identity);
+    transcript.append_point(b"S2", &identity);
+
+    challenge_scalars.push(transcript.challenge_scalar(b"y"));
+    challenge_scalars.push(transcript.challenge_scalar(b"z"));
+
+    transcript.validate_and_append_point(b"T_1", &proof.T_1)?;
+    transcript.validate_and_append_point(b"T_3", &proof.T_3)?;
+    transcript.validate_and_append_point(b"T_4", &proof.T_4)?;
+    transcript.validate_and_append_point(b"T_5", &proof.T_5)?;
+    transcript.validate_and_append_point(b"T_6", &proof.T_6)?;
+
+    challenge_scalars.push(transcript.challenge_scalar(b"u"));
+    challenge_scalars.push(transcript.challenge_scalar(b"x"));
+
+    transcript.append_scalar(b"t_x", &proof.t_x);
+    transcript.append_scalar(b"t_x_blinding", &proof.t_x_blinding);
+    transcript.append_scalar(b"e_blinding", &proof.e_blinding);
+
+    challenge_scalars.push(transcript.challenge_scalar(b"w"));
+
+    transcript.innerproduct_domain_sep(DUMMY_CIRCUIT_N_PLUS as u64);
+
+    for (l, r) in proof
+        .ipp_proof
+        .L_vec
+        .iter()
+        .zip(proof.ipp_proof.R_vec.iter())
+    {
+        transcript.validate_and_append_point(b"L", l)?;
+        transcript.validate_and_append_point(b"R", r)?;
+        u.push(transcript.challenge_scalar(b"u"));
+    }
+
+    challenge_scalars.push(transcript.challenge_scalar(b"r"));
+
+    Ok((challenge_scalars, u))
+}
+
+// Pared-down version of the `verification_scalars` method on `InnerProductProof` in `mpc-bulletproof`.
+pub fn get_expected_dummy_circuit_s(u: &[Scalar]) -> Vec<Scalar> {
+    // Compute 1/(u_k...u_1) and 1/u_k, ..., 1/u_1
+
+    let mut u_inv: Vec<Scalar> = u.to_vec();
+    Scalar::batch_inverse(&mut u_inv);
+    let allinv = u_inv.iter().copied().product();
+
+    // Compute u_i^2 and (1/u_i)^2
+
+    let u_sq: Vec<Scalar> = u.iter().map(|u_i| u_i * u_i).collect();
+
+    // Compute s values inductively.
+
+    let mut s = Vec::with_capacity(DUMMY_CIRCUIT_N_PLUS);
+    s.push(allinv);
+    for i in 1..DUMMY_CIRCUIT_N_PLUS {
+        let lg_i = (32 - 1 - (i as u32).leading_zeros()) as usize;
+        let k = 1 << lg_i;
+        // The challenges are stored in "creation order" as [u_k,...,u_1],
+        // so u_{lg(i)+1} = is indexed by (lg_n-1) - lg_i
+        let u_lg_i_sq = u_sq[(DUMMY_CIRCUIT_K - 1) - lg_i];
+        s.push(s[i - k] * u_lg_i_sq);
+    }
+
+    s
 }
