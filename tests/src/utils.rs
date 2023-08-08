@@ -7,6 +7,7 @@ use mpc_bulletproof::{
     InnerProductProof,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
+use num_bigint::{BigUint, RandBigInt};
 use rand::thread_rng;
 use starknet::{
     accounts::{Account, Call, ConnectedAccount},
@@ -138,6 +139,12 @@ pub async fn is_nullifier_used(
 // ----------------
 // | MISC HELPERS |
 // ----------------
+
+pub fn random_felt() -> FieldElement {
+    let modulus = BigUint::from_bytes_be(&FieldElement::MAX.to_bytes_be()) + 1_u8;
+    let rand_biguint = thread_rng().gen_biguint_below(&modulus);
+    FieldElement::from_bytes_be(&rand_biguint.to_bytes_be().try_into().unwrap()).unwrap()
+}
 
 pub fn scalar_to_felt(scalar: &Scalar) -> FieldElement {
     FieldElement::from_byte_slice_be(&scalar.to_bytes_be())

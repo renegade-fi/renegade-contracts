@@ -2,7 +2,7 @@ use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
-    r1cs::{ConstraintSystem, Prover, R1CSProof, Variable, Verifier},
+    r1cs::{CircuitWeights, ConstraintSystem, Prover, R1CSProof, Variable, Verifier},
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
@@ -20,6 +20,8 @@ use crate::utils::{
     ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
 };
 
+pub const FUZZ_ROUNDS: usize = 1;
+
 const VERIFIER_CONTRACT_NAME: &str = "renegade_contracts_Verifier";
 
 const QUEUE_VERIFICATION_JOB_FN_NAME: &str = "queue_verification_job";
@@ -32,10 +34,7 @@ static VERIFIER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 // | META TEST HELPERS |
 // ---------------------
 
-pub async fn setup_verifier_test<'t, 'g>(
-    verifier: &mut Verifier<'t, 'g>,
-    pc_gens: PedersenGens,
-) -> Result<TestSequencer> {
+pub async fn setup_verifier_test() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let sequencer = global_setup().await;
@@ -50,7 +49,7 @@ pub async fn setup_verifier_test<'t, 'g>(
     }
 
     debug!("Initializing verifier contract...");
-    initialize_verifier(&account, verifier_address, verifier, pc_gens).await?;
+    initialize_verifier(&account, verifier_address).await?;
 
     Ok(sequencer)
 }
@@ -75,10 +74,9 @@ pub async fn deploy_verifier(
 pub async fn initialize_verifier<'t, 'g>(
     account: &ScriptAccount,
     verifier_address: FieldElement,
-    verifier: &Verifier<'t, 'g>,
-    pc_gens: PedersenGens,
 ) -> Result<()> {
-    let circuit_weights = verifier.get_weights();
+    let circuit_weights = get_dummy_circuit_weights();
+    let pc_gens = PedersenGens::default();
     let circuit_params = CircuitParams {
         n: DUMMY_CIRCUIT_N,
         n_plus: DUMMY_CIRCUIT_N_PLUS,
@@ -194,6 +192,7 @@ pub const DUMMY_CIRCUIT_M: usize = 4;
 pub const DUMMY_CIRCUIT_Q: usize = 8;
 
 pub fn singleprover_prove_dummy_circuit() -> Result<(R1CSProof, Vec<StarkPoint>)> {
+    debug!("Generating proof for dummy circuit...");
     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
     let pc_gens = PedersenGens::default();
     let prover = Prover::new(&pc_gens, &mut transcript);
@@ -260,4 +259,21 @@ pub fn prep_dummy_circuit_verifier(verifier: &mut Verifier, witness_commitments:
 
     debug!("Applying dummy circuit constraints on verifier...");
     apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, verifier);
+}
+
+pub fn get_dummy_circuit_weights() -> CircuitWeights {
+    let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
+    let pc_gens = PedersenGens::default();
+    let mut prover = Prover::new(&pc_gens, &mut transcript);
+
+    let mut rng = thread_rng();
+
+    let (_, a_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+    let (_, b_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+    let (_, x_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+    let (_, y_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+
+    apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, &mut prover);
+
+    prover.get_weights()
 }
