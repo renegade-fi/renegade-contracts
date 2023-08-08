@@ -1246,9 +1246,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.3.19"
+version = "4.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fd304a20bff958a57f04c4e96a2e7594cc4490a0e809cbd48bb6437edaa452d"
+checksum = "c27cdf28c0f604ba3f512b0c9a409f8de8513e4816705deb0498b627e7c3a3fd"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1267,9 +1267,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.3.19"
+version = "4.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01c6a3f08f1fe5662a35cfe393aec09c4df95f60ee93b7556505260f75eee9e1"
+checksum = "08a9f1ab5e9f01a9b81f202e8562eb9a10de70abf9eaeac1be465c28b75aa4aa"
 dependencies = [
  "anstream",
  "anstyle",
@@ -3791,7 +3791,7 @@ checksum = "4519a88847ba2d5ead3dc53f1060ec6a571de93f325d9c5c4968147382b1cbc3"
 [[package]]
 name = "mpc-bulletproof"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/mpc-bulletproof.git?branch=stark-curve-refactor#a388223e2c2716e963c3897fe6b1e2ee7bda35a3"
+source = "git+https://github.com/renegade-fi/mpc-bulletproof.git?branch=stark-curve-refactor#1c3225a008996f56033991a18624f976acf00df2"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3800,6 +3800,7 @@ dependencies = [
  "clear_on_drop",
  "digest 0.8.1",
  "futures",
+ "futures-util",
  "itertools 0.10.5",
  "merlin",
  "mpc-stark",
@@ -4811,9 +4812,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.101.2"
+version = "0.101.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "513722fd73ad80a71f72b61009ea1b584bcfa1483ca93949c8f290298837fa59"
+checksum = "261e9e0888cba427c3316e6322805653c9425240b6fd96cee7cb671ab70ab8d0"
 dependencies = [
  "ring",
  "untrusted",
