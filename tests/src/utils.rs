@@ -2,7 +2,10 @@ use ark_ff::{BigInteger, PrimeField};
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
 use katana_core::{constants::DEFAULT_INVOKE_MAX_STEPS, sequencer::SequencerConfig};
-use mpc_bulletproof::{r1cs::R1CSProof, InnerProductProof};
+use mpc_bulletproof::{
+    r1cs::{R1CSProof, SparseReducedMatrix, SparseWeightRow},
+    InnerProductProof,
+};
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use rand::thread_rng;
 use starknet::{
@@ -31,6 +34,8 @@ use crate::{
 pub const ARTIFACTS_PATH_ENV_VAR: &str = "ARTIFACTS_PATH";
 /// Name of env var representing the transaction Cairo step limit to run the sequencer with
 pub const CAIRO_STEP_LIMIT_ENV_VAR: &str = "CAIRO_STEP_LIMIT";
+/// Label with which to seed the Fiat-Shamir transcript
+pub const TRANSCRIPT_SEED: &str = "merlin seed";
 
 static TRACING_INIT: Once = Once::new();
 
@@ -111,7 +116,7 @@ pub async fn invoke_contract(
 pub async fn get_root(account: &ScriptAccount, contract_address: FieldElement) -> Result<Scalar> {
     call_contract(account, contract_address, GET_ROOT_FN_NAME, vec![])
         .await
-        .map(|r| Scalar::from_be_bytes_mod_order(&r[0].to_bytes_be()))
+        .map(|r| felt_to_scalar(&r[0]))
 }
 
 pub async fn is_nullifier_used(
@@ -137,6 +142,10 @@ pub async fn is_nullifier_used(
 pub fn scalar_to_felt(scalar: &Scalar) -> FieldElement {
     FieldElement::from_byte_slice_be(&scalar.to_bytes_be())
         .expect("failed to convert Scalar to FieldElement")
+}
+
+pub fn felt_to_scalar(felt: &FieldElement) -> Scalar {
+    Scalar::from_be_bytes_mod_order(&felt.to_bytes_be())
 }
 
 pub fn insert_scalar_to_ark_merkle_tree(
@@ -259,6 +268,27 @@ impl<T: CalldataSerializable> CalldataSerializable for Vec<T> {
         iter::once(FieldElement::from(self.len()))
             .chain(self.iter().flat_map(|t| t.to_calldata()))
             .collect()
+    }
+}
+
+// `(usize, Scalar)` represents an entry in a `SparseWeightRow`
+impl CalldataSerializable for (usize, Scalar) {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        iter::once(FieldElement::from(self.0))
+            .chain(self.1.to_calldata().into_iter())
+            .collect()
+    }
+}
+
+impl CalldataSerializable for SparseWeightRow {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        self.0.to_calldata()
+    }
+}
+
+impl CalldataSerializable for SparseReducedMatrix {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        self.0.to_calldata()
     }
 }
 

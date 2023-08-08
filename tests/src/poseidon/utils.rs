@@ -14,7 +14,9 @@ use starknet_scripts::commands::utils::{
 use std::{env, iter};
 use tracing::debug;
 
-use crate::utils::{call_contract, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR};
+use crate::utils::{
+    call_contract, felt_to_scalar, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR,
+};
 
 pub const FUZZ_ROUNDS: usize = 10;
 const MAX_INPUT_SIZE: usize = 16;
@@ -105,10 +107,10 @@ pub async fn get_hash(account: &ScriptAccount) -> Result<Vec<Scalar>> {
     )
     .await
     .map(|r| {
-        r.into_iter()
+        r.iter()
             // First element is the length of the output
             .skip(1)
-            .map(|felt| Scalar::from_be_bytes_mod_order(&felt.to_bytes_be()))
+            .map(felt_to_scalar)
             .collect()
     })
 }

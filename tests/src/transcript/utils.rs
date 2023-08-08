@@ -19,12 +19,10 @@ use tracing::debug;
 
 use crate::utils::{
     call_contract, global_setup, invoke_contract, scalar_to_felt, CalldataSerializable,
-    ARTIFACTS_PATH_ENV_VAR,
+    ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
 };
 
 pub const FUZZ_ROUNDS: usize = 10;
-
-const TRANSCRIPT_SEED: &str = "merlin seed";
 
 const TRANSCRIPT_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_TranscriptWrapper";
 
