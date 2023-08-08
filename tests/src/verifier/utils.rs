@@ -124,7 +124,9 @@ pub fn squeeze_expected_challenge_scalars(
     proof: &R1CSProof,
     witness_commitments: &[StarkPoint],
 ) -> Result<(Vec<Scalar>, Vec<Scalar>)> {
-    let mut challenge_scalars = Vec::with_capacity(5);
+    debug!("Squeezing expected challenge scalars for dummy circuit...");
+
+    let mut challenge_scalars = Vec::with_capacity(6);
     let mut u = Vec::with_capacity(DUMMY_CIRCUIT_K);
 
     transcript.r1cs_domain_sep();
@@ -138,6 +140,8 @@ pub fn squeeze_expected_challenge_scalars(
     transcript.validate_and_append_point(b"A_I1", &proof.A_I1)?;
     transcript.validate_and_append_point(b"A_O1", &proof.A_O1)?;
     transcript.validate_and_append_point(b"S1", &proof.S1)?;
+
+    transcript.r1cs_1phase_domain_sep();
 
     let identity = StarkPoint::identity();
 

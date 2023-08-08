@@ -30,25 +30,27 @@ mod VerifierUtilsWrapper {
     #[storage]
     struct Storage {}
 
+    #[external(v0)]
+    impl IVerifierUtilsImpl of super::IVerifierUtils<ContractState> {
+        fn calc_delta(
+            self: @ContractState,
+            n: usize,
+            y_inv_powers_to_n: Array<Scalar>,
+            z: Scalar,
+            W_L: SparseWeightMatrix,
+            W_R: SparseWeightMatrix
+        ) -> Scalar {
+            utils::calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R)
+        }
 
-    fn calc_delta(
-        self: @ContractState,
-        n: usize,
-        y_inv_powers_to_n: Array<Scalar>,
-        z: Scalar,
-        W_L: SparseWeightMatrix,
-        W_R: SparseWeightMatrix
-    ) -> Scalar {
-        utils::calc_delta(n, y_inv_powers_to_n.span(), z, @W_L, @W_R)
-    }
+        fn get_s_elem(self: @ContractState, u: Array<Scalar>, i: usize) -> Scalar {
+            utils::get_s_elem(u.span(), i)
+        }
 
-    fn get_s_elem(self: @ContractState, u: Array<Scalar>, i: usize) -> Scalar {
-        utils::get_s_elem(u.span(), i)
-    }
-
-    fn squeeze_challenge_scalars(
-        self: @ContractState, proof: Proof, witness: Array<EcPoint>, m: usize, n_plus: usize
-    ) -> (Array<Scalar>, Array<Scalar>) {
-        utils::squeeze_challenge_scalars(@proof, witness.span(), m, n_plus)
+        fn squeeze_challenge_scalars(
+            self: @ContractState, proof: Proof, witness: Array<EcPoint>, m: usize, n_plus: usize
+        ) -> (Array<Scalar>, Array<Scalar>) {
+            utils::squeeze_challenge_scalars(@proof, witness.span(), m, n_plus)
+        }
     }
 }
