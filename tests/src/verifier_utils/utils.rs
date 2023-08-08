@@ -8,7 +8,7 @@ use starknet::core::types::{DeclareTransactionResult, FieldElement};
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::{env, iter};
+use std::{env, io::Cursor, iter};
 use tracing::debug;
 
 use crate::{
@@ -34,8 +34,8 @@ static VERIFIER_UTILS_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 // | META TEST HELPERS |
 // ---------------------
 
-pub async fn setup_verifier_utils_test(
-    verifier: &mut Verifier<'static, 'static>,
+pub async fn setup_verifier_utils_test<'t, 'g>(
+    verifier: &mut Verifier<'t, 'g>,
 ) -> Result<(TestSequencer, R1CSProof, Vec<StarkPoint>)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
@@ -149,11 +149,11 @@ pub async fn squeeze_challenge_scalars(
 
         let mut r_iter = r.iter();
 
-        let challenge_scalars_len = r_iter
-            .next()
-            .unwrap()
-            .to_bytes_be()
-            .as_slice()
+        let mut challenge_scalars_len_cursor = Cursor::new(r_iter.next().unwrap().to_bytes_be());
+        // Grab the least signifcant 4 bytes for the len u32
+        challenge_scalars_len_cursor.set_position(28);
+
+        let challenge_scalars_len = challenge_scalars_len_cursor
             .read_u32::<BigEndian>()
             .unwrap() as usize;
 
@@ -163,13 +163,11 @@ pub async fn squeeze_challenge_scalars(
             .map(felt_to_scalar)
             .collect();
 
-        let u_len = r_iter
-            .next()
-            .unwrap()
-            .to_bytes_be()
-            .as_slice()
-            .read_u32::<BigEndian>()
-            .unwrap() as usize;
+        let mut u_len_cursor = Cursor::new(r_iter.next().unwrap().to_bytes_be());
+        // Grab the least signifcant 4 bytes for the len u32
+        u_len_cursor.set_position(28);
+
+        let u_len = u_len_cursor.read_u32::<BigEndian>().unwrap() as usize;
 
         let u = r_iter.take(u_len).map(felt_to_scalar).collect();
 
