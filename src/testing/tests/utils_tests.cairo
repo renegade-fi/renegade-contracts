@@ -62,6 +62,8 @@ fn test_flatten_sparse_weight_matrix_basic() {
     let z = 2.into();
     let width = 4;
 
+    // For z := [2, 2^2, 2^4, ...] we have expected := zW
+    // ("flattening" W matrix via left-multiplication by z)
     let mut expected = ArrayTrait::new();
     // 2*1 + 4*2 + 8*4 = 42
     expected.append(42.into());

@@ -5696,6 +5696,7 @@ dependencies = [
  "ark-crypto-primitives",
  "ark-ff",
  "ark-std 0.4.0",
+ "byteorder",
  "dojo-test-utils",
  "eyre",
  "katana-core",
