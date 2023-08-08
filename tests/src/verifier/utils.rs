@@ -1,3 +1,4 @@
+use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
@@ -5,10 +6,155 @@ use mpc_bulletproof::{
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
+use once_cell::sync::OnceCell;
 use rand::thread_rng;
+use starknet::core::types::{DeclareTransactionResult, FieldElement};
+use starknet_scripts::commands::utils::{
+    calculate_contract_address, declare, deploy, get_artifacts, initialize, ScriptAccount,
+};
+use std::{env, iter};
 use tracing::debug;
 
-use crate::utils::TRANSCRIPT_SEED;
+use crate::utils::{
+    call_contract, global_setup, invoke_contract, CalldataSerializable, CircuitParams,
+    ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+};
+
+const VERIFIER_CONTRACT_NAME: &str = "renegade_contracts_Verifier";
+
+const QUEUE_VERIFICATION_JOB_FN_NAME: &str = "queue_verification_job";
+const STEP_VERIFICATION_FN_NAME: &str = "step_verification";
+const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
+
+static VERIFIER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
+
+// ---------------------
+// | META TEST HELPERS |
+// ---------------------
+
+pub async fn setup_verifier_test<'t, 'g>(
+    verifier: &mut Verifier<'t, 'g>,
+    pc_gens: PedersenGens,
+) -> Result<TestSequencer> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
+
+    let sequencer = global_setup().await;
+    let account = sequencer.account();
+
+    debug!("Declaring & deploying verifier contract...");
+    let verifier_address = deploy_verifier(artifacts_path, &account).await?;
+    if VERIFIER_ADDRESS.get().is_none() {
+        // When running multiple tests, it's possible for the OnceCell to already be set.
+        // However, we still want to deploy the contract, since each test gets its own sequencer.
+        VERIFIER_ADDRESS.set(verifier_address).unwrap();
+    }
+
+    debug!("Initializing verifier contract...");
+    initialize_verifier(&account, verifier_address, verifier, pc_gens).await?;
+
+    Ok(sequencer)
+}
+
+pub async fn deploy_verifier(
+    artifacts_path: String,
+    account: &ScriptAccount,
+) -> Result<FieldElement> {
+    let (verifier_sierra_path, verifier_casm_path) =
+        get_artifacts(&artifacts_path, VERIFIER_CONTRACT_NAME);
+    let DeclareTransactionResult { class_hash, .. } =
+        declare(verifier_sierra_path, verifier_casm_path, account).await?;
+
+    deploy(account, class_hash, &[]).await?;
+    Ok(calculate_contract_address(class_hash, &[]))
+}
+
+// --------------------------------
+// | CONTRACT INTERACTION HELPERS |
+// --------------------------------
+
+pub async fn initialize_verifier<'t, 'g>(
+    account: &ScriptAccount,
+    verifier_address: FieldElement,
+    verifier: &Verifier<'t, 'g>,
+    pc_gens: PedersenGens,
+) -> Result<()> {
+    let circuit_weights = verifier.get_weights();
+    let circuit_params = CircuitParams {
+        n: DUMMY_CIRCUIT_N,
+        n_plus: DUMMY_CIRCUIT_N_PLUS,
+        k: DUMMY_CIRCUIT_K,
+        q: DUMMY_CIRCUIT_Q,
+        m: DUMMY_CIRCUIT_M,
+        b: pc_gens.B,
+        b_blind: pc_gens.B_blinding,
+        w_l: circuit_weights.w_l,
+        w_o: circuit_weights.w_o,
+        w_r: circuit_weights.w_r,
+        w_v: circuit_weights.w_v,
+        c: circuit_weights.c,
+    };
+    let calldata = circuit_params.to_calldata();
+
+    initialize(account, verifier_address, calldata)
+        .await
+        .map(|_| ())
+}
+
+pub async fn queue_verification_job(
+    account: &ScriptAccount,
+    proof: &R1CSProof,
+    witness_commitments: &Vec<StarkPoint>,
+    verification_job_id: FieldElement,
+) -> Result<()> {
+    let calldata = proof
+        .to_calldata()
+        .into_iter()
+        .chain(witness_commitments.to_calldata().into_iter())
+        .chain(iter::once(verification_job_id))
+        .collect();
+
+    invoke_contract(
+        account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        QUEUE_VERIFICATION_JOB_FN_NAME,
+        calldata,
+    )
+    .await
+}
+
+pub async fn step_verification(
+    account: &ScriptAccount,
+    verification_job_id: FieldElement,
+) -> Result<()> {
+    invoke_contract(
+        account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        STEP_VERIFICATION_FN_NAME,
+        vec![verification_job_id],
+    )
+    .await
+}
+
+pub async fn check_verification_job_status(
+    account: &ScriptAccount,
+    verification_job_id: FieldElement,
+) -> Result<Option<bool>> {
+    call_contract(
+        account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
+        vec![verification_job_id],
+    )
+    .await
+    .map(|r| {
+        if r[0] == FieldElement::ONE {
+            // This is how Cairo serializes an Option::None
+            None
+        } else {
+            Some(r[1] == FieldElement::ONE)
+        }
+    })
+}
 
 // -------------------------
 // | DUMMY CIRCUIT HELPERS |
