@@ -92,8 +92,8 @@ fn test_full_verification_ex_proof() {
     'executing verification job'.print();
     verifier.step_verification(11);
 
-    let verification_job = verifier.get_verification_job(11);
-    assert(verification_job.verified == Option::Some(true), 'verification failed');
+    let verified = verifier.check_verification_job_status(11);
+    assert(verified == Option::Some(true), 'verification failed');
     'proof verified!'.print();
 }
 
@@ -119,8 +119,8 @@ fn test_full_verification_modified_proof() {
     'executing verification job'.print();
     verifier.step_verification(11);
 
-    let verification_job = verifier.get_verification_job(11);
-    assert(verification_job.verified == Option::Some(true), 'verification failed');
+    let verified = verifier.check_verification_job_status(11);
+    assert(verified == Option::Some(true), 'verification failed');
 }
 
 // 10x more gas for this test so that verification definitely completes,

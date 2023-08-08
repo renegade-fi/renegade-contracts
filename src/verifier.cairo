@@ -22,7 +22,9 @@ trait IVerifier<TContractState> {
     );
     fn step_verification(ref self: TContractState, verification_job_id: felt252);
     fn get_circuit_params(self: @TContractState) -> CircuitParams;
-    fn get_verification_job(self: @TContractState, verification_job_id: felt252) -> VerificationJob;
+    fn check_verification_job_status(
+        self: @TContractState, verification_job_id: felt252
+    ) -> Option<bool>;
 }
 
 #[starknet::contract]
@@ -295,10 +297,10 @@ mod Verifier {
             }
         }
 
-        fn get_verification_job(
+        fn check_verification_job_status(
             self: @ContractState, verification_job_id: felt252
-        ) -> VerificationJob {
-            self.verification_queue.read(verification_job_id).inner
+        ) -> Option<bool> {
+            self.verification_queue.read(verification_job_id).inner.verified
         }
     }
 

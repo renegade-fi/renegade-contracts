@@ -17,7 +17,7 @@ use starknet::{
     providers::Provider,
 };
 use starknet_scripts::commands::utils::ScriptAccount;
-use std::{env, iter, sync::Once};
+use std::{env, sync::Once};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -259,13 +259,36 @@ impl MatchPayload {
     }
 }
 
+pub struct CircuitParams {
+    pub n: usize,
+    pub n_plus: usize,
+    pub k: usize,
+    pub q: usize,
+    pub m: usize,
+    pub b: StarkPoint,
+    pub b_blind: StarkPoint,
+    pub w_l: SparseReducedMatrix,
+    pub w_r: SparseReducedMatrix,
+    pub w_o: SparseReducedMatrix,
+    pub w_v: SparseReducedMatrix,
+    pub c: SparseWeightRow,
+}
+
 pub trait CalldataSerializable {
     fn to_calldata(&self) -> Vec<FieldElement>;
 }
 
+impl CalldataSerializable for usize {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![FieldElement::from(*self)]
+    }
+}
+
 impl<T: CalldataSerializable> CalldataSerializable for Vec<T> {
     fn to_calldata(&self) -> Vec<FieldElement> {
-        iter::once(FieldElement::from(self.len()))
+        self.len()
+            .to_calldata()
+            .into_iter()
             .chain(self.iter().flat_map(|t| t.to_calldata()))
             .collect()
     }
@@ -274,7 +297,9 @@ impl<T: CalldataSerializable> CalldataSerializable for Vec<T> {
 // `(usize, Scalar)` represents an entry in a `SparseWeightRow`
 impl CalldataSerializable for (usize, Scalar) {
     fn to_calldata(&self) -> Vec<FieldElement> {
-        iter::once(FieldElement::from(self.0))
+        self.0
+            .to_calldata()
+            .into_iter()
             .chain(self.1.to_calldata().into_iter())
             .collect()
     }
@@ -375,5 +400,21 @@ impl CalldataSerializable for MatchPayload {
                 .into_iter(),
         )
         .collect()
+    }
+}
+
+impl CalldataSerializable for CircuitParams {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        [self.n, self.n_plus, self.k, self.q, self.m]
+            .iter()
+            .flat_map(|s| s.to_calldata())
+            .chain([self.b, self.b_blind].iter().flat_map(|s| s.to_calldata()))
+            .chain(
+                [&self.w_l, &self.w_r, &self.w_o, &self.w_v]
+                    .iter()
+                    .flat_map(|s| s.to_calldata()),
+            )
+            .chain(self.c.to_calldata().into_iter())
+            .collect()
     }
 }
