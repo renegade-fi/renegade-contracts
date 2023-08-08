@@ -1,10 +1,11 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use dojo_test_utils::sequencer::TestSequencer;
-use eyre::Result;
+use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
+    inner_product,
     r1cs::{R1CSProof, SparseReducedMatrix, Verifier},
-    TranscriptProtocol,
+    InnerProductProof, TranscriptProtocol,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use once_cell::sync::OnceCell;
@@ -89,7 +90,7 @@ pub async fn deploy_verifier_utils_wrapper(
 
 pub async fn calc_delta(
     account: &ScriptAccount,
-    y_inv_powers_to_n: Vec<Scalar>,
+    y_inv_powers_to_n: &Vec<Scalar>,
     z: Scalar,
     w_l: SparseReducedMatrix,
     w_r: SparseReducedMatrix,
@@ -193,8 +194,22 @@ pub fn squeeze_expected_dummy_circuit_challenge_scalars(
 ) -> Result<(Vec<Scalar>, Vec<Scalar>)> {
     debug!("Squeezing expected challenge scalars for dummy circuit...");
 
-    let mut challenge_scalars = Vec::with_capacity(6);
-    let mut u = Vec::with_capacity(DUMMY_CIRCUIT_K);
+    let mut challenge_scalars =
+        replay_transcript_r1cs_protocol(transcript, proof, witness_commitments)?;
+
+    let u = replay_transcript_ipp_protocol(transcript, &proof.ipp_proof)?;
+
+    challenge_scalars.push(transcript.challenge_scalar(b"r"));
+
+    Ok((challenge_scalars, u))
+}
+
+fn replay_transcript_r1cs_protocol(
+    transcript: &mut HashChainTranscript,
+    proof: &R1CSProof,
+    witness_commitments: &[StarkPoint],
+) -> Result<Vec<Scalar>> {
+    let mut challenge_scalars = Vec::with_capacity(5);
 
     transcript.r1cs_domain_sep();
 
@@ -234,48 +249,59 @@ pub fn squeeze_expected_dummy_circuit_challenge_scalars(
 
     challenge_scalars.push(transcript.challenge_scalar(b"w"));
 
+    Ok(challenge_scalars)
+}
+
+fn replay_transcript_ipp_protocol(
+    transcript: &mut HashChainTranscript,
+    ipp_proof: &InnerProductProof,
+) -> Result<Vec<Scalar>> {
+    let mut u = Vec::with_capacity(DUMMY_CIRCUIT_K);
+
     transcript.innerproduct_domain_sep(DUMMY_CIRCUIT_N_PLUS as u64);
 
-    for (l, r) in proof
-        .ipp_proof
-        .L_vec
-        .iter()
-        .zip(proof.ipp_proof.R_vec.iter())
-    {
+    for (l, r) in ipp_proof.L_vec.iter().zip(ipp_proof.R_vec.iter()) {
         transcript.validate_and_append_point(b"L", l)?;
         transcript.validate_and_append_point(b"R", r)?;
         u.push(transcript.challenge_scalar(b"u"));
     }
 
-    challenge_scalars.push(transcript.challenge_scalar(b"r"));
-
-    Ok((challenge_scalars, u))
+    Ok(u)
 }
 
-// Pared-down version of the `verification_scalars` method on `InnerProductProof` in `mpc-bulletproof`.
-pub fn get_expected_dummy_circuit_s(u: &[Scalar]) -> Vec<Scalar> {
-    // Compute 1/(u_k...u_1) and 1/u_k, ..., 1/u_1
+/// Calculates \vec{s} for the given proof & witness commitments, using `verification_scalars`
+/// from `mpc-bulletproof`.
+///
+/// Assumes the transcript has absorbed nothing other than the seed it was initialized with.
+pub fn get_expected_dummy_circuit_s(
+    proof: &R1CSProof,
+    witness_commitments: &[StarkPoint],
+    transcript: &mut HashChainTranscript,
+) -> Result<Vec<Scalar>> {
+    // Catch up the transcript to the expected point
+    replay_transcript_r1cs_protocol(transcript, proof, witness_commitments)?;
 
-    let mut u_inv: Vec<Scalar> = u.to_vec();
-    Scalar::batch_inverse(&mut u_inv);
-    let allinv = u_inv.iter().copied().product();
+    proof
+        .ipp_proof
+        .verification_scalars(DUMMY_CIRCUIT_N_PLUS, transcript)
+        .map(|(_, _, s)| s)
+        .map_err(|e| eyre!("error obtainining s: {e}"))
+}
 
-    // Compute u_i^2 and (1/u_i)^2
+/// Calculates delta given the powers of y^{-1} and z (and, via the verifier, the circuit weights),
+/// copying `mpc-bulletproof`'s implementation.
+pub fn get_expected_dummy_circuit_delta(
+    verifier: &mut Verifier,
+    y_inv_powers_to_n: &[Scalar],
+    z: &Scalar,
+) -> Scalar {
+    let (w_l_flat, w_r_flat, _, _, _) = verifier.flattened_constraints(z);
+    let yneg_w_r_flat = w_r_flat
+        .into_iter()
+        .zip(y_inv_powers_to_n.iter())
+        .map(|(w_r_flat_i, exp_y_inv)| w_r_flat_i * exp_y_inv)
+        .chain(iter::repeat(Scalar::zero()).take(DUMMY_CIRCUIT_N_PLUS - DUMMY_CIRCUIT_N))
+        .collect::<Vec<Scalar>>();
 
-    let u_sq: Vec<Scalar> = u.iter().map(|u_i| u_i * u_i).collect();
-
-    // Compute s values inductively.
-
-    let mut s = Vec::with_capacity(DUMMY_CIRCUIT_N_PLUS);
-    s.push(allinv);
-    for i in 1..DUMMY_CIRCUIT_N_PLUS {
-        let lg_i = (32 - 1 - (i as u32).leading_zeros()) as usize;
-        let k = 1 << lg_i;
-        // The challenges are stored in "creation order" as [u_k,...,u_1],
-        // so u_{lg(i)+1} = is indexed by (lg_n-1) - lg_i
-        let u_lg_i_sq = u_sq[(DUMMY_CIRCUIT_K - 1) - lg_i];
-        s.push(s[i - k] * u_lg_i_sq);
-    }
-
-    s
+    inner_product(&yneg_w_r_flat[0..DUMMY_CIRCUIT_N], &w_l_flat)
 }
