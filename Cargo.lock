@@ -3791,7 +3791,7 @@ checksum = "4519a88847ba2d5ead3dc53f1060ec6a571de93f325d9c5c4968147382b1cbc3"
 [[package]]
 name = "mpc-bulletproof"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/mpc-bulletproof.git?branch=stark-curve-refactor#1c3225a008996f56033991a18624f976acf00df2"
+source = "git+https://github.com/renegade-fi/mpc-bulletproof.git?branch=stark-curve-refactor#7c6655a03a182372fae11f2b43678c4c06d630c6"
 dependencies = [
  "ark-ec",
  "ark-ff",
