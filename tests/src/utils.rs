@@ -260,17 +260,29 @@ impl MatchPayload {
 }
 
 pub struct CircuitParams {
+    /// Number of multiplication gates in the circuit
     pub n: usize,
+    /// Number of multiplication gates in the circuit, padded to the next power of 2
     pub n_plus: usize,
+    /// log2(n_plus)
     pub k: usize,
+    /// Number of linear constraints in the circuit
     pub q: usize,
+    /// Number of witness elements for the circuit
     pub m: usize,
+    /// Generator for Pedersen commitments
     pub b: StarkPoint,
+    /// Generator for blinding in Pedersen commitments
     pub b_blind: StarkPoint,
+    /// Sparse-reduced matrix of left input weights in the circuit
     pub w_l: SparseReducedMatrix,
+    /// Sparse-reduced matrix of right input weights in the circuit
     pub w_r: SparseReducedMatrix,
+    /// Sparse-reduced matrix of output weights in the circuit
     pub w_o: SparseReducedMatrix,
+    /// Sparse-reduced matrix of witness weights in the circuit
     pub w_v: SparseReducedMatrix,
+    /// Sparse-reduced vector of constants in the circuit
     pub c: SparseWeightRow,
 }
 
