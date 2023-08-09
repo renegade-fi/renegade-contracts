@@ -141,8 +141,8 @@ pub async fn is_nullifier_used(
 // ----------------
 
 pub fn random_felt() -> FieldElement {
-    let modulus = BigUint::from_bytes_be(&FieldElement::MAX.to_bytes_be()) + 1_u8;
-    let rand_biguint = thread_rng().gen_biguint_below(&modulus);
+    let max = BigUint::from_bytes_be(&FieldElement::MAX.to_bytes_be());
+    let rand_biguint = thread_rng().gen_biguint_below(&max);
     FieldElement::from_bytes_be(&rand_biguint.to_bytes_be().try_into().unwrap()).unwrap()
 }
 
