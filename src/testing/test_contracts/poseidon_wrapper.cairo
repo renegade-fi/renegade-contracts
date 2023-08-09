@@ -13,7 +13,8 @@ mod PoseidonWrapper {
 
     use renegade_contracts::{
         merkle::poseidon::{PoseidonSponge, PoseidonTrait},
-        utils::storage::StorageAccessSerdeWrapper, verifier::scalar::Scalar,
+        utils::storage::{StorageAccessSerdeWrapper, StorageAccessSerdeTrait},
+        verifier::scalar::Scalar,
     };
 
     #[storage]
@@ -27,11 +28,11 @@ mod PoseidonWrapper {
             let mut sponge = PoseidonTrait::new();
             sponge.absorb(input.span());
             let hash = sponge.squeeze(num_elements);
-            self.hash.write(StorageAccessSerdeWrapper { inner: hash });
+            self.hash.write(self.hash.read().rewrap(hash));
         }
 
         fn get_hash(self: @ContractState) -> Array<Scalar> {
-            self.hash.read().inner
+            self.hash.read().unwrap()
         }
     }
 }
