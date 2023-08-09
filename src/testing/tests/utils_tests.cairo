@@ -1,3 +1,4 @@
+use clone::Clone;
 use traits::Into;
 use array::ArrayTrait;
 
@@ -6,7 +7,10 @@ use renegade_contracts::{
     verifier::{scalar::Scalar, types::{SparseWeightMatrixTrait, SparseWeightVecTrait}},
 };
 
-use super::super::test_utils::get_test_matrix;
+use super::super::{
+    test_utils::get_test_matrix,
+    test_contracts::storage_serde_wrapper::{StorageSerdeTestWrapper, IStorageSerde, ComplexType}
+};
 
 // --------------------
 // | MATH UTILS TESTS |
@@ -119,4 +123,169 @@ fn test_get_sparse_weight_column_basic() {
     assert(col_1 == expected_col_1, 'wrong column 1');
     assert(col_2 == expected_col_2, 'wrong column 1');
     assert(col_3 == expected_col_3, 'wrong column 1');
+}
+// -----------------------
+// | STORAGE UTILS TESTS |
+// -----------------------
+
+#[test]
+#[available_gas(100000000)]
+fn test_storage_serde_wrapper_single_elem_arr() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+    let mut arr = ArrayTrait::new();
+    arr.append(1);
+
+    contract.store_arr(arr.clone());
+    let stored_arr = contract.get_arr();
+
+    assert(stored_arr == arr, 'wrong stored array');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_storage_serde_wrapper_multi_elem_arr() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+    let mut arr = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 11 {
+            break;
+        };
+        arr.append(i);
+        i += 1;
+    };
+
+    contract.store_arr(arr.clone());
+    let stored_arr = contract.get_arr();
+
+    assert(stored_arr == arr, 'wrong stored array');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_storage_serde_wrapper_large_arr() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+    let mut arr = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 1025 {
+            break;
+        };
+        arr.append(i);
+        i += 1;
+    };
+
+    contract.store_arr(arr.clone());
+    let stored_arr = contract.get_arr();
+
+    assert(stored_arr == arr, 'wrong stored array');
+}
+
+#[test]
+#[available_gas(100000000)]
+fn test_storage_serde_wrapper_overwrite_to_smaller_arr() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+
+    let mut arr_1 = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 11 {
+            break;
+        };
+        arr_1.append(i);
+        i += 1;
+    };
+    contract.store_arr(arr_1);
+
+    let mut arr_2 = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 6 {
+            break;
+        };
+        arr_2.append(i);
+        i += 1;
+    };
+    contract.store_arr(arr_2.clone());
+
+    let stored_arr = contract.get_arr();
+
+    assert(stored_arr == arr_2, 'wrong stored array');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_storage_serde_wrapper__overwrite_large_to_smaller_arr() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+
+    let mut arr_1 = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 1025 {
+            break;
+        };
+        arr_1.append(i);
+        i += 1;
+    };
+    contract.store_arr(arr_1);
+
+    let mut arr_2 = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 513 {
+            break;
+        };
+        arr_2.append(i);
+        i += 1;
+    };
+    contract.store_arr(arr_2.clone());
+
+    let stored_arr = contract.get_arr();
+
+    assert(stored_arr == arr_2, 'wrong stored array');
+}
+
+
+#[test]
+#[available_gas(100000000)]
+fn test_storage_serde_wrapper_complex_type() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+
+    let mut val_arr = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 11 {
+            break;
+        };
+        val_arr.append(i);
+        i += 1;
+    };
+    let s = ComplexType { val_arr, a: 1, b: 2, c: 3 };
+
+    contract.store_struct(s.clone());
+    let stored_s = contract.get_struct();
+
+    assert(stored_s == s, 'wrong stored struct');
+}
+
+#[test]
+#[available_gas(1000000000)] // 10x
+fn test_storage_serde_wrapper_large_complex_type() {
+    let mut contract = StorageSerdeTestWrapper::contract_state_for_testing();
+
+    let mut val_arr = ArrayTrait::new();
+    let mut i = 1;
+    loop {
+        if i == 1025 {
+            break;
+        };
+        val_arr.append(i);
+        i += 1;
+    };
+    let s = ComplexType { val_arr, a: 1, b: 2, c: 3 };
+
+    contract.store_struct(s.clone());
+    let stored_s = contract.get_struct();
+
+    assert(stored_s == s, 'wrong stored struct');
 }
