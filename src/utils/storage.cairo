@@ -8,12 +8,13 @@ use ec::EcPoint;
 use starknet::{
     StorageAccess, SyscallResult, SyscallResultTrait,
     storage_access::{
-        StorageBaseAddress, storage_address_from_base, storage_address_from_base_and_offset,
+        StorageAddress, StorageBaseAddress, storage_address_from_base,
+        storage_address_from_base_and_offset,
     },
     syscalls::{storage_read_syscall, storage_write_syscall}
 };
 
-use alexandria::data_structures::array_ext::ArrayTraitExt;
+use alexandria::{data_structures::array_ext::ArrayTraitExt, storage::list::{List, ListTrait}};
 
 use super::serde::EcPointSerde;
 
@@ -23,72 +24,33 @@ use super::serde::EcPointSerde;
 // StorageAccess implementations for some types.
 #[derive(Drop)]
 struct StorageAccessSerdeWrapper<T> {
-    inner: T
+    inner: List<felt252>, 
 }
 
-impl StorageAccessSerdeImpl<T, impl TSerde: Serde<T>> of Serde<StorageAccessSerdeWrapper<T>> {
-    fn serialize(self: @StorageAccessSerdeWrapper<T>, ref output: Array<felt252>) {
-        let mut inner_output = ArrayTrait::new();
-        self.inner.serialize(ref inner_output);
-        output.append(inner_output.len().into());
-        output.append_all(ref inner_output);
-    }
-
-    fn deserialize(ref serialized: Span<felt252>) -> Option<StorageAccessSerdeWrapper<T>> {
-        serialized.pop_front()?;
-        let inner = Serde::<T>::deserialize(ref serialized)?;
-        Option::Some(StorageAccessSerdeWrapper { inner })
-    }
-}
-
-impl StorageSerdeImpl<
-    T, impl Tserde: Serde<T>, impl TDrop: Drop<T>
-> of StorageAccess<StorageAccessSerdeWrapper<T>> {
+// Would love to #[derive(storage_access::StorageAccess)] on `StorageAccessSerdeWrapper<T>`,
+// but the compiler doesn't properly derive the `StorageAccess` trait for generic types.
+// So, we manually call out to the `StorageAccess` impl of the underlying `List` type.
+impl WrapperStorageAccessImpl<T> of StorageAccess<StorageAccessSerdeWrapper<T>> {
     fn read(
         address_domain: u32, base: StorageBaseAddress
     ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
-        StorageSerdeImpl::<T>::read_at_offset_internal(address_domain, base, 0)
-    }
-
-    fn read_at_offset_internal(
-        address_domain: u32, base: StorageBaseAddress, offset: u8
-    ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
-        // Read serialization len, add 1 to account for the len slot
-        let num_slots: u8 = storage_read_syscall(address_domain, storage_address_from_base(base))?
-            .try_into()
-            .expect('Storage - value too large')
-            + 1_u8;
-
-        let mut serialized = ArrayTrait::new();
-        let mut slots_read: u8 = 0;
-        loop {
-            if slots_read == num_slots {
-                break;
-            }
-
-            let address = storage_address_from_base_and_offset(base, offset + slots_read);
-            // Unwrapping here for now since you can't return / use `?` in a loop
-            let felt = storage_read_syscall(address_domain, address).unwrap_syscall();
-            serialized.append(felt);
-            slots_read += 1;
-        };
-        let mut serialized_span = serialized.span();
-
-        // This deserialize expects to pop off the len slot
-        match Serde::<StorageAccessSerdeWrapper<T>>::deserialize(ref serialized_span) {
-            Option::Some(val) => Result::Ok(val),
-            Option::None(_) => {
-                let mut data = ArrayTrait::new();
-                data.append('Storage - deser failed');
-                Result::Err(data)
-            },
-        }
+        let inner = StorageAccess::<List<felt252>>::read(address_domain, base)?;
+        Result::Ok(StorageAccessSerdeWrapper { inner })
     }
 
     fn write(
         address_domain: u32, base: StorageBaseAddress, value: StorageAccessSerdeWrapper<T>
     ) -> SyscallResult<()> {
-        StorageSerdeImpl::<T>::write_at_offset_internal(address_domain, base, 0, value)
+        StorageAccess::<List<felt252>>::write(address_domain, base, value.inner)
+    }
+
+    fn read_at_offset_internal(
+        address_domain: u32, base: StorageBaseAddress, offset: u8
+    ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
+        let inner = StorageAccess::<List<felt252>>::read_at_offset_internal(
+            address_domain, base, offset
+        )?;
+        Result::Ok(StorageAccessSerdeWrapper { inner })
     }
 
     fn write_at_offset_internal(
@@ -97,35 +59,70 @@ impl StorageSerdeImpl<
         offset: u8,
         value: StorageAccessSerdeWrapper<T>
     ) -> SyscallResult<()> {
-        // Acts as an assertion that serialization len <= 255
-        let mut serialized = ArrayTrait::new();
-        value.serialize(ref serialized);
-        let _len: u8 = (*(@serialized).at(0_usize)).try_into().expect('Storage - value too large');
-
-        let mut slots_written: u8 = 0;
-        loop {
-            match serialized.pop_front() {
-                Option::Some(felt) => {
-                    let address = storage_address_from_base_and_offset(
-                        base, offset + slots_written
-                    );
-                    // Unwrapping here for now since you can't return / use `?` in a loop
-                    storage_write_syscall(address_domain, address, felt).unwrap_syscall();
-                    slots_written += 1;
-                },
-                Option::None(_) => {
-                    break;
-                }
-            };
-        };
-
-        Result::Ok(())
+        StorageAccess::<List<felt252>>::write_at_offset_internal(
+            address_domain, base, offset, value.inner
+        )
     }
 
     fn size_internal(value: StorageAccessSerdeWrapper<T>) -> u8 {
-        // Acts as an assertion that serialization len <= 255
+        StorageAccess::<List<felt252>>::size_internal(value.inner)
+    }
+}
+
+#[generate_trait]
+impl StorageAccessSerdeImpl<
+    T, impl TSerde: Serde<T>, impl TDrop: Drop<T>
+> of StorageAccessSerdeTrait<T> {
+    /// This "unwraps" the value being stored by reading its serialization from storage & deserializing it.
+    fn unwrap(self: StorageAccessSerdeWrapper<T>) -> T {
+        let mut serialized_span = self.inner.array().span();
+        let inner: T = Serde::deserialize(ref serialized_span).unwrap();
+        inner
+    }
+
+    /// This "rewraps" the value being stored by overwriting its serialization in storage.
+    /// IMPORTANT: THIS ASSUMES THAT `.write` IS CALLED ON THE `StorageAccessSerdeWrapper` AFTER THIS FUNCTION IS CALLED.
+    /// See the doc comments below on why this is necessary.
+    fn rewrap(mut self: StorageAccessSerdeWrapper<T>, value: T) -> StorageAccessSerdeWrapper<T> {
         let mut serialized = ArrayTrait::new();
         value.serialize(ref serialized);
-        (*(@serialized).at(0_usize)).try_into().expect('Storage - value too large')
+
+        let mut list = self.inner;
+        let init_len = list.len();
+        let ser_len = serialized.len();
+        // Even though the (potential) calls to `append` below will update the list length
+        // in storage, the assumed subsequent call to `write` will overwrite it with the `.len` field as
+        // we set it here.
+        // TODO: This is inefficient due to redundant writes of the list len, optimize w/ a forked impl of `List`
+        list.len = ser_len;
+
+        let mut i = 0;
+        loop {
+            if i == ser_len || i == init_len {
+                break;
+            };
+
+            let felt = serialized.pop_front().unwrap();
+            list.set(i, felt);
+            i += 1;
+        };
+
+        // If ser_len <= init_len, this loop will immediately break, and as mentioned
+        // above, ser_len will be written to storage as the list len regardless.
+        // Thus, the previous elements beyond ser_len will be left unchanged, but will never be read.
+        // If ser_len > init_len, this loop will append the remaining elements of `serialized`
+        // to the list.
+        loop {
+            if i == ser_len {
+                break;
+            };
+
+            let felt = serialized.pop_front().unwrap();
+            list.append(felt);
+            i += 1;
+        };
+
+        self.inner = list;
+        self
     }
 }

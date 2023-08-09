@@ -37,8 +37,8 @@ mod Verifier {
 
     use alexandria::{data_structures::array_ext::ArrayTraitExt, math::fast_power::fast_power};
     use renegade_contracts::utils::{
-        math::get_consecutive_powers, storage::StorageAccessSerdeWrapper, eq::EcPointPartialEq,
-        serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
+        math::get_consecutive_powers, storage::{StorageAccessSerdeWrapper, StorageAccessSerdeTrait},
+        eq::EcPointPartialEq, serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
     };
 
     use super::{
@@ -160,13 +160,14 @@ mod Verifier {
             self.k.write(circuit_params.k);
             self.q.write(circuit_params.q);
             self.m.write(circuit_params.m);
-            self.B.write(StorageAccessSerdeWrapper { inner: circuit_params.B });
-            self.B_blind.write(StorageAccessSerdeWrapper { inner: circuit_params.B_blind });
-            self.W_L.write(StorageAccessSerdeWrapper { inner: circuit_params.W_L });
-            self.W_R.write(StorageAccessSerdeWrapper { inner: circuit_params.W_R });
-            self.W_O.write(StorageAccessSerdeWrapper { inner: circuit_params.W_O });
-            self.W_V.write(StorageAccessSerdeWrapper { inner: circuit_params.W_V });
-            self.c.write(StorageAccessSerdeWrapper { inner: circuit_params.c });
+
+            self.B.write(self.B.read().rewrap(circuit_params.B));
+            self.B_blind.write(self.B_blind.read().rewrap(circuit_params.B_blind));
+            self.W_L.write(self.W_L.read().rewrap(circuit_params.W_L));
+            self.W_R.write(self.W_R.read().rewrap(circuit_params.W_R));
+            self.W_O.write(self.W_O.read().rewrap(circuit_params.W_O));
+            self.W_V.write(self.W_V.read().rewrap(circuit_params.W_V));
+            self.c.write(self.c.read().rewrap(circuit_params.c));
 
             self.emit(Event::Initialized(Initialized {}));
         }
@@ -194,13 +195,13 @@ mod Verifier {
             let n_plus = self.n_plus.read();
             let k = self.k.read();
             let q = self.q.read();
-            let B = self.B.read().inner;
-            let B_blind = self.B_blind.read().inner;
-            let W_L = self.W_L.read().inner;
-            let W_R = self.W_R.read().inner;
-            let W_O = self.W_O.read().inner;
-            let W_V = self.W_V.read().inner;
-            let c = self.c.read().inner;
+            let B = self.B.read().unwrap();
+            let B_blind = self.B_blind.read().unwrap();
+            let W_L = self.W_L.read().unwrap();
+            let W_R = self.W_R.read().unwrap();
+            let W_O = self.W_O.read().unwrap();
+            let W_V = self.W_V.read().unwrap();
+            let c = self.c.read().unwrap();
 
             // Prep `RemainingGenerators` structs for G and H generators
             let (G_rem, H_rem) = prep_rem_gens(n_plus);
@@ -250,13 +251,16 @@ mod Verifier {
             // Enqueue verification job
             self
                 .verification_queue
-                .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+                .write(
+                    verification_job_id,
+                    self.verification_queue.read(verification_job_id).rewrap(verification_job),
+                );
 
             self.emit(Event::VerificationJobQueued(VerificationJobQueued { verification_job_id }));
         }
 
         fn step_verification(ref self: ContractState, verification_job_id: felt252) {
-            let mut verification_job = self.verification_queue.read(verification_job_id).inner;
+            let mut verification_job = self.verification_queue.read(verification_job_id).unwrap();
             step_verification_inner(ref self, ref verification_job);
 
             match verification_job.verified {
@@ -273,7 +277,10 @@ mod Verifier {
 
             self
                 .verification_queue
-                .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+                .write(
+                    verification_job_id,
+                    self.verification_queue.read(verification_job_id).rewrap(verification_job),
+                );
         }
 
         // -----------
@@ -287,20 +294,20 @@ mod Verifier {
                 k: self.k.read(),
                 q: self.q.read(),
                 m: self.m.read(),
-                B: self.B.read().inner,
-                B_blind: self.B_blind.read().inner,
-                W_L: self.W_L.read().inner,
-                W_R: self.W_R.read().inner,
-                W_O: self.W_O.read().inner,
-                W_V: self.W_V.read().inner,
-                c: self.c.read().inner,
+                B: self.B.read().unwrap(),
+                B_blind: self.B_blind.read().unwrap(),
+                W_L: self.W_L.read().unwrap(),
+                W_R: self.W_R.read().unwrap(),
+                W_O: self.W_O.read().unwrap(),
+                W_V: self.W_V.read().unwrap(),
+                c: self.c.read().unwrap(),
             }
         }
 
         fn check_verification_job_status(
             self: @ContractState, verification_job_id: felt252
         ) -> Option<bool> {
-            self.verification_queue.read(verification_job_id).inner.verified
+            self.verification_queue.read(verification_job_id).unwrap().verified
         }
     }
 
@@ -704,16 +711,16 @@ mod Verifier {
         ) -> Scalar {
             match self {
                 VecSubterm::W_L_flat(()) => {
-                    contract.W_L.read().inner.get_flattened_elem(*vec_indices.w_L_flat_index, z)
+                    contract.W_L.read().unwrap().get_flattened_elem(*vec_indices.w_L_flat_index, z)
                 },
                 VecSubterm::W_R_flat(()) => {
-                    contract.W_R.read().inner.get_flattened_elem(*vec_indices.w_R_flat_index, z)
+                    contract.W_R.read().unwrap().get_flattened_elem(*vec_indices.w_R_flat_index, z)
                 },
                 VecSubterm::W_O_flat(()) => {
-                    contract.W_O.read().inner.get_flattened_elem(*vec_indices.w_O_flat_index, z)
+                    contract.W_O.read().unwrap().get_flattened_elem(*vec_indices.w_O_flat_index, z)
                 },
                 VecSubterm::W_V_flat(()) => {
-                    contract.W_V.read().inner.get_flattened_elem(*vec_indices.w_V_flat_index, z)
+                    contract.W_V.read().unwrap().get_flattened_elem(*vec_indices.w_V_flat_index, z)
                 },
                 VecSubterm::S(()) => {
                     get_s_elem(u, *vec_indices.s_index)
