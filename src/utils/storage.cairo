@@ -82,7 +82,9 @@ impl StorageAccessSerdeImpl<
 
     /// This "rewraps" the value being stored by overwriting its serialization in storage.
     /// IMPORTANT: THIS ASSUMES THAT `.write` IS CALLED WITH THE `StorageAccessSerdeWrapper` AFTER THIS FUNCTION IS CALLED.
-    /// See the doc comments below on why this is necessary.
+    /// This is because, in the case that the rewrapped value's serialization is shorter than the original value,
+    /// the length of the `List` will remain unchanged unless `.write` is called, and thus extra garbage elements will be 
+    /// read in from storage on the subsequent call of `unwrap`.
     fn rewrap(mut self: StorageAccessSerdeWrapper<T>, value: T) -> StorageAccessSerdeWrapper<T> {
         let mut serialized = ArrayTrait::new();
         value.serialize(ref serialized);
@@ -117,9 +119,12 @@ impl StorageAccessSerdeImpl<
             i += 1;
         };
 
-        // Even though the (potential) calls to `append` above will update the list length
-        // in storage, the assumed subsequent call to `write` will overwrite it with the `.len` field as
-        // we set it here.
+        // We set the length here to ensure that it is correctly updated in the case that the new
+        // serialization is shorter than the previous one (this means only `set` was called
+        // in the first loop above, which does not update the list length).
+        // The assumed subsequent call to `write` will overwrite it with the `.len` field as we set it here.
+        // Note that the (potential) calls to `append` above will update the list length properly, meaning the
+        // assumed subsequent call to `write` will be redundant.
         // TODO: This is inefficient due to redundant writes of the list len, optimize w/ a forked impl of `List`
         list.len = ser_len;
         self.inner = list;
