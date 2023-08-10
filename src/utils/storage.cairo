@@ -1,22 +1,19 @@
-use traits::{Into, TryInto};
-use option::{OptionTrait, OptionSerde};
-use result::ResultTrait;
-use clone::Clone;
-use array::{ArrayTrait, ArrayTCloneImpl, SpanTrait};
+use traits::TryInto;
+use option::OptionTrait;
+use integer::U32DivRem;
+use array::ArrayTrait;
+use hash::LegacyHash;
 use serde::Serde;
-use ec::EcPoint;
 use starknet::{
     StorageAccess, SyscallResult, SyscallResultTrait,
     storage_access::{
-        StorageBaseAddress, storage_address_from_base, storage_address_from_base_and_offset,
+        StorageBaseAddress, storage_address_from_base, storage_base_address_from_felt252,
+        storage_address_to_felt252,
     },
-    syscalls::{storage_read_syscall, storage_write_syscall}
 };
 
-use alexandria::{data_structures::array_ext::ArrayTraitExt, storage::list::{List, ListTrait}};
 
-use super::serde::EcPointSerde;
-
+const MAX_STORAGE_SEGMENT_ELEMS: u32 = 256;
 
 // We use this wrapper struct so that we can do a blanket implementation of StorageAccess for types that impl Serde.
 // If we were to do a blanket implementation directly on types that impl Serde, we'd have conflicting
@@ -32,26 +29,21 @@ impl WrapperStorageAccessImpl<
     fn read(
         address_domain: u32, base: StorageBaseAddress
     ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
-        let ser = StorageAccess::<List<felt252>>::read(address_domain, base)?;
-        let inner = read_inner(@ser);
+        let inner = read_inner(address_domain, base, 0);
         Result::Ok(StorageAccessSerdeWrapper { inner })
     }
 
     fn write(
         address_domain: u32, base: StorageBaseAddress, value: StorageAccessSerdeWrapper<T>
     ) -> SyscallResult<()> {
-        let mut ser = StorageAccess::<List<felt252>>::read(address_domain, base)?;
-        write_inner(value, ref ser);
-        StorageAccess::<List<felt252>>::write(address_domain, base, ser)
+        write_inner(address_domain, base, 0, value);
+        Result::Ok(())
     }
 
     fn read_at_offset_internal(
         address_domain: u32, base: StorageBaseAddress, offset: u8
     ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
-        let ser = StorageAccess::<List<felt252>>::read_at_offset_internal(
-            address_domain, base, offset
-        )?;
-        let inner = read_inner(@ser);
+        let inner = read_inner(address_domain, base, offset);
         Result::Ok(StorageAccessSerdeWrapper { inner })
     }
 
@@ -61,11 +53,8 @@ impl WrapperStorageAccessImpl<
         offset: u8,
         value: StorageAccessSerdeWrapper<T>
     ) -> SyscallResult<()> {
-        let mut ser = StorageAccess::<List<felt252>>::read_at_offset_internal(
-            address_domain, base, offset
-        )?;
-        write_inner(value, ref ser);
-        StorageAccess::<List<felt252>>::write_at_offset_internal(address_domain, base, offset, ser)
+        write_inner(address_domain, base, offset, value);
+        Result::Ok(())
     }
 
     fn size_internal(value: StorageAccessSerdeWrapper<T>) -> u8 {
@@ -75,59 +64,104 @@ impl WrapperStorageAccessImpl<
     }
 }
 
-/// This reads in the associated `List<felt252>` from storage, and deserializes the inner value.
-fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(ser: @List<felt252>) -> T {
-    let mut serialized_span = ser.array().span();
-    let inner: T = Serde::deserialize(ref serialized_span).unwrap();
-    inner
+// Implementation (and documentation) taken from: https://github.com/keep-starknet-strange/alexandria/blob/cairo-v2.0.1/src/storage/list.cairo
+// This function finds the StorageBaseAddress of a "storage segment" (a continuous space of 256 storage slots)
+// and an offset into that segment where a value at `index` is stored
+// each segment can hold up to 256 felts
+//
+// the way how the address is calculated is very similar to how a LegacyHash map works:
+//
+// first we take the `list_base` address which is derived from the name of the storage variable
+// then we hash it with a `key` which is the number of the segment where the element at `index` belongs (from 0 upwards)
+// we hash these two values: H(list_base, key) to the the `segment_base` address
+// finally, we calculate the offset into this segment, taking into account the size of the elements held in the array
+//
+// by way of example:
+//
+// say we have an List<Foo> and Foo's storage_size is 8
+// struct storage: {
+//    bar: List<Foo>
+// }
+//
+// the storage layout would look like this:
+//
+// segment0: [0..31] - elements at indexes 0 to 31
+// segment1: [32..63] - elements at indexes 32 to 63
+// segment2: [64..95] - elements at indexes 64 to 95
+// etc.
+//
+// where addresses of each segment are:
+//
+// segment0 = hash(bar.address(), 0)
+// segment1 = hash(bar.address(), 1)
+// segment2 = hash(bar.address(), 2)
+//
+// so for getting a Foo at index 90 this function would return address of segment2 and offset of 26
+fn calculate_base_and_offset_for_index(
+    list_base: StorageBaseAddress, index: u32
+) -> (StorageBaseAddress, u8) {
+    let (key, offset) = U32DivRem::div_rem(index, MAX_STORAGE_SEGMENT_ELEMS.try_into().unwrap());
+
+    let segment_base = storage_base_address_from_felt252(
+        LegacyHash::hash(storage_address_to_felt252(storage_address_from_base(list_base)), key)
+    );
+
+    (segment_base, offset.try_into().unwrap())
 }
 
-/// This serializes the inner value, and writes the associated `List<felt252>` to storage.
-/// IMPORTANT: THIS ASSUMES THAT `StorageAccess::{write, write_at_offset_internal}` IS CALLED WITH THE `List<felt252>` AFTER THIS FUNCTION IS CALLED.
-/// This is because, in the case that the rewrapped value's serialization is shorter than the original value,
-/// the length of the `List` will remain unchanged unless `.write` is called, and thus extra garbage elements will be 
-/// included in subsequent reads from storage.
-fn write_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
-    value: StorageAccessSerdeWrapper<T>, ref ser: List<felt252>
-) {
-    let mut serialized = ArrayTrait::new();
-    value.inner.serialize(ref serialized);
-
-    let init_len = ser.len();
-    let ser_len = serialized.len();
+/// This reads in the associated `List<felt252>` from storage, and deserializes the inner value.
+fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
+    address_domain: u32, base: StorageBaseAddress, offset: u8, 
+) -> T {
+    let ser_len: u32 = StorageAccess::read_at_offset_internal(address_domain, base, offset)
+        .unwrap_syscall();
+    let mut serialized: Array<felt252> = ArrayTrait::new();
 
     let mut i = 0;
-    loop {
-        if i == ser_len || i == init_len {
-            break;
-        };
-
-        let felt = serialized.pop_front().unwrap();
-        ser.set(i, felt);
-        i += 1;
-    };
-
-    // If ser_len <= init_len, this loop will immediately break, and as mentioned
-    // above, ser_len will be written to storage as the list len regardless.
-    // Thus, the previous elements beyond ser_len will be left unchanged, but will never be read.
-    // If ser_len > init_len, this loop will append the remaining elements of `serialized`
-    // to the list.
     loop {
         if i == ser_len {
             break;
         };
 
-        let felt = serialized.pop_front().unwrap();
-        ser.append(felt);
+        let (seg_base, seg_offset) = calculate_base_and_offset_for_index(base, i);
+        serialized
+            .append(
+                StorageAccess::read_at_offset_internal(address_domain, seg_base, seg_offset)
+                    .unwrap_syscall()
+            );
+
         i += 1;
     };
 
-    // We set the length here to ensure that it is correctly updated in the case that the new
-    // serialization is shorter than the previous one (this means only `set` was called
-    // in the first loop above, which does not update the list length).
-    // The assumed subsequent call to `write` will overwrite it with the `.len` field as we set it here.
-    // Note that the (potential) calls to `append` above will update the list length properly, meaning the
-    // assumed subsequent call to `write` will be redundant.
-    // TODO: This is inefficient due to redundant writes of the list len, optimize w/ a forked impl of `List`
-    ser.len = ser_len;
+    let mut serialized_span = serialized.span();
+    let inner: T = Serde::deserialize(ref serialized_span).unwrap();
+    inner
+}
+
+/// This serializes the inner value and writes the serialization to storage.
+/// Also writes the serialization length to the base storage segment.
+fn write_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
+    address_domain: u32, base: StorageBaseAddress, offset: u8, value: StorageAccessSerdeWrapper<T>, 
+) {
+    let mut serialized = ArrayTrait::new();
+    value.inner.serialize(ref serialized);
+
+    let ser_len = serialized.len();
+
+    let mut i = 0;
+    loop {
+        if i == ser_len {
+            break;
+        };
+
+        let (seg_base, seg_offset) = calculate_base_and_offset_for_index(base, i);
+        StorageAccess::write_at_offset_internal(
+            address_domain, seg_base, seg_offset, *serialized[i]
+        )
+            .unwrap_syscall();
+
+        i += 1;
+    };
+
+    StorageAccess::write_at_offset_internal(address_domain, base, offset, ser_len);
 }
