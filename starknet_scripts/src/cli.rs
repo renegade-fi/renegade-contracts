@@ -32,6 +32,13 @@ pub struct DeployArgs {
     /// the nullifier set contract will be declared.
     pub nullifier_set_class_hash: Option<String>,
 
+    #[arg(long, long_help)]
+    /// The class hash of the verifier contract, in hex form.
+    /// {n}
+    /// If the darkpool or verifier contract is being deployed and this flag is not set,
+    /// the verifier contract will be declared.
+    pub verifier_class_hash: Option<String>,
+
     #[arg(short, long, long_help)]
     /// Whether or not to initialize the contract.
     pub initialize: bool,
@@ -107,6 +114,7 @@ pub enum Contract {
     Darkpool,
     Merkle,
     NullifierSet,
+    // TODO: Add verifier contract
 }
 
 #[derive(Debug, Clone, ValueEnum)]

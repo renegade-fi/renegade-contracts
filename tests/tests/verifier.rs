@@ -2,10 +2,10 @@ use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
-    utils::{global_teardown, random_felt},
+    utils::{global_teardown, random_felt, singleprover_prove_dummy_circuit},
     verifier::utils::{
         check_verification_job_status, queue_verification_job, setup_verifier_test,
-        singleprover_prove_dummy_circuit, step_verification, FUZZ_ROUNDS,
+        step_verification, FUZZ_ROUNDS,
     },
 };
 

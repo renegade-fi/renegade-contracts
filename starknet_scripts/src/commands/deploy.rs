@@ -7,8 +7,8 @@ use tracing::{debug, info};
 use crate::{
     cli::{Contract, DeployArgs},
     commands::utils::{
-        deploy_darkpool, deploy_merkle, deploy_nullifier_set, initialize, setup_account,
-        MERKLE_HEIGHT,
+        deploy_darkpool, deploy_merkle, deploy_nullifier_set, deploy_verifier, initialize,
+        setup_account, MERKLE_HEIGHT,
     },
 };
 
@@ -18,6 +18,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
         darkpool_class_hash,
         merkle_class_hash,
         nullifier_set_class_hash,
+        verifier_class_hash,
         initialize: should_initialize,
         address,
         artifacts_path,
@@ -37,12 +38,14 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 darkpool_class_hash_felt,
                 merkle_class_hash_felt,
                 nullifier_set_class_hash_felt,
+                verifier_class_hash_felt,
                 transaction_hash,
             ) = deploy_darkpool(
                 darkpool_class_hash,
                 merkle_class_hash,
                 nullifier_set_class_hash,
-                artifacts_path,
+                verifier_class_hash.clone(),
+                artifacts_path.clone(),
                 &account,
             )
             .await?;
@@ -62,12 +65,25 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
             );
 
             if should_initialize {
+                // Deploy verifier
+                let verifier_class_hash_hex = if let Some(verifier_class_hash) = verifier_class_hash
+                {
+                    verifier_class_hash
+                } else {
+                    format!("{verifier_class_hash_felt:#64x}")
+                };
+                let (verifier_address, _, _) =
+                    deploy_verifier(Some(verifier_class_hash_hex), artifacts_path, &account)
+                        .await?;
+
                 // Initialize darkpool
                 debug!("Initializing darkpool contract...");
                 let calldata = vec![
                     merkle_class_hash_felt,
                     nullifier_set_class_hash_felt,
+                    verifier_address,
                     FieldElement::from(MERKLE_HEIGHT),
+                    // TODO: Need to get circuit params! Prob best to read them in from file.
                 ];
                 let initialization_result =
                     initialize(&account, darkpool_address, calldata).await?;

@@ -5,7 +5,9 @@ use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
 use starknet::core::types::FieldElement;
-use starknet_scripts::commands::utils::{deploy_darkpool, initialize, ScriptAccount};
+use starknet_scripts::commands::utils::{
+    deploy_darkpool, deploy_verifier, initialize, ScriptAccount,
+};
 use std::env;
 use tracing::debug;
 
@@ -15,8 +17,9 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, get_dummy_proof, global_setup, invoke_contract, scalar_to_felt,
-        CalldataSerializable, ExternalTransfer, MatchPayload, ARTIFACTS_PATH_ENV_VAR,
+        call_contract, get_dummy_circuit_params, get_dummy_proof, global_setup, invoke_contract,
+        scalar_to_felt, CalldataSerializable, CircuitParams, ExternalTransfer, MatchPayload,
+        ARTIFACTS_PATH_ENV_VAR,
     },
 };
 
@@ -38,13 +41,18 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
     let account = sequencer.account();
 
     debug!("Declaring & deploying darkpool contract...");
-    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _) =
-        deploy_darkpool(None, None, None, artifacts_path, &account).await?;
+    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
+        deploy_darkpool(None, None, None, None, artifacts_path.clone(), &account).await?;
     if DARKPOOL_ADDRESS.get().is_none() {
         // When running multiple tests, it's possible for the OnceCell to already be set.
         // However, we still want to deploy the contract, since each test gets its own sequencer.
         DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
     }
+
+    debug!("Deploying verifier contract...");
+    let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
+    let (verifier_address, _, _) =
+        deploy_verifier(verifier_class_hash_hex, artifacts_path, &account).await?;
 
     debug!("Initializing darkpool contract...");
     initialize_darkpool(
@@ -52,7 +60,9 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
         darkpool_address,
         merkle_class_hash,
         nullifier_set_class_hash,
+        verifier_address,
         TEST_MERKLE_HEIGHT.into(),
+        get_dummy_circuit_params(),
     )
     .await?;
 
@@ -71,15 +81,23 @@ pub async fn initialize_darkpool(
     darkpool_address: FieldElement,
     merkle_class_hash: FieldElement,
     nullifier_set_class_hash: FieldElement,
+    verifier_contract_address: FieldElement,
     merkle_height: FieldElement,
+    circuit_params: CircuitParams,
 ) -> Result<()> {
-    initialize(
-        account,
-        darkpool_address,
-        vec![merkle_class_hash, nullifier_set_class_hash, merkle_height],
-    )
-    .await
-    .map(|_| ())
+    let calldata = [
+        merkle_class_hash,
+        nullifier_set_class_hash,
+        verifier_contract_address,
+        merkle_height,
+    ]
+    .into_iter()
+    .chain(circuit_params.to_calldata().into_iter())
+    .collect();
+
+    initialize(account, darkpool_address, calldata)
+        .await
+        .map(|_| ())
 }
 
 pub async fn get_wallet_blinder_transaction(
