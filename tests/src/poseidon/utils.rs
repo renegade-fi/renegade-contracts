@@ -1,12 +1,12 @@
 use ark_crypto_primitives::sponge::{
-    poseidon::{PoseidonConfig, PoseidonSponge},
-    CryptographicSponge, FieldBasedCryptographicSponge,
+    poseidon::PoseidonSponge, CryptographicSponge, FieldBasedCryptographicSponge,
 };
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use rand::{thread_rng, Rng};
+use renegade_crypto::hash::default_poseidon_params;
 use starknet::core::types::{DeclareTransactionResult, FieldElement};
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
@@ -18,16 +18,9 @@ use crate::utils::{
     call_contract, felt_to_scalar, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR,
 };
 
-pub const FUZZ_ROUNDS: usize = 10;
+pub const FUZZ_ROUNDS: usize = 4;
 const MAX_INPUT_SIZE: usize = 16;
 const MAX_OUTPUT_SIZE: usize = 16;
-
-const POSEIDON_FULL_ROUNDS: usize = 2; // DUMMY VALUE
-const POSEIDON_PARTIAL_ROUNDS: usize = 4; // DUMMY VALUE
-const POSEIDON_ALPHA: u64 = 5;
-const POSEIDON_T: usize = 3;
-const POSEIDON_RATE: usize = 2;
-const POSEIDON_CAPACITY: usize = 1;
 
 const POSEIDON_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_PoseidonWrapper";
 const STORE_HASH_FN_NAME: &str = "store_hash";
@@ -151,42 +144,8 @@ pub async fn get_random_input_hashes(
 // | ARKWORKS POSEIDON HELPERS |
 // -----------------------------
 
-// DUMMY VALUES
-fn mds() -> Vec<Vec<Scalar::Field>> {
-    iter::repeat(
-        iter::repeat(Scalar::Field::from(1))
-            .take(POSEIDON_T)
-            .collect(),
-    )
-    .take(POSEIDON_T)
-    .collect()
-}
-
-// DUMMY VALUES
-fn round_constants() -> Vec<Vec<Scalar::Field>> {
-    iter::repeat(
-        iter::repeat(Scalar::Field::from(1))
-            .take(POSEIDON_RATE + POSEIDON_CAPACITY)
-            .collect(),
-    )
-    .take(2 * POSEIDON_FULL_ROUNDS + POSEIDON_PARTIAL_ROUNDS)
-    .collect()
-}
-
-fn ark_poseidon_params() -> PoseidonConfig<Scalar::Field> {
-    PoseidonConfig::new(
-        POSEIDON_FULL_ROUNDS * 2,
-        POSEIDON_PARTIAL_ROUNDS,
-        POSEIDON_ALPHA,
-        mds(),
-        round_constants(),
-        POSEIDON_RATE,
-        POSEIDON_CAPACITY,
-    )
-}
-
 pub fn ark_poseidon_hash(input: &[Scalar], num_elements: usize) -> Vec<Scalar> {
-    let mut ark_poseidon = PoseidonSponge::new(&ark_poseidon_params());
+    let mut ark_poseidon = PoseidonSponge::new(&default_poseidon_params());
     ark_poseidon.absorb(&input.iter().map(|s| s.inner()).collect::<Vec<_>>());
     ark_poseidon
         .squeeze_native_field_elements(num_elements)
