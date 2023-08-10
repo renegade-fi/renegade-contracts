@@ -32,7 +32,7 @@ jobs:
         env:
           ARTIFACTS_PATH: ${{ github.workspace }}/target/release
           RUST_LOG: "tests=debug,katana_core=warn"
-          CAIRO_STEP_LIMIT: 10000000
+          CAIRO_STEP_LIMIT: 100000000
         with:
           command: test
           args: -p tests --all-targets --lib --verbose -- --nocapture

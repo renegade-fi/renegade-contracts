@@ -28,3 +28,4 @@ dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d
 mpc-stark = { git = "https://github.com/renegade-fi/mpc-stark.git" }
 mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", branch = "stark-curve-refactor", features = ["integration_test"] }
 merlin = { git = "https://github.com/renegade-fi/merlin.git" }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/crate-refactor" }
