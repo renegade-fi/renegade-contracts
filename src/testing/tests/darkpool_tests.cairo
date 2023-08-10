@@ -15,14 +15,16 @@ use renegade_contracts::{
         Darkpool, Darkpool::ContractState, IDarkpool, IDarkpoolDispatcher, IDarkpoolDispatcherTrait,
         types::{ExternalTransfer, MatchPayload}
     },
-    merkle::Merkle, nullifier_set::NullifierSet, verifier::{scalar::Scalar, types::Proof},
+    merkle::Merkle, nullifier_set::NullifierSet, verifier::{scalar::Scalar, types::Proof, Verifier},
     oz::erc20::{IERC20Dispatcher, IERC20DispatcherTrait}
 };
 
 use super::{
     merkle_tests::TEST_MERKLE_HEIGHT,
     super::{
-        test_utils::{get_dummy_proof, DUMMY_ROOT_INNER, DUMMY_WALLET_BLINDER_TX},
+        test_utils::{
+            get_dummy_proof, get_dummy_circuit_params, DUMMY_ROOT_INNER, DUMMY_WALLET_BLINDER_TX
+        },
         test_contracts::{dummy_erc20::DummyERC20, dummy_upgrade_target::DummyUpgradeTarget}
     }
 };
@@ -513,21 +515,15 @@ fn test_initialize_twice() {
     )
         .unwrap();
 
+    let (verifier_address, _) = deploy_syscall(
+        Verifier::TEST_CLASS_HASH.try_into().unwrap(), 0, ArrayTrait::new().span(), false, 
+    )
+        .unwrap();
+
     let mut darkpool = IDarkpoolDispatcher { contract_address: darkpool_address };
 
-    darkpool
-        .initialize(
-            Merkle::TEST_CLASS_HASH.try_into().unwrap(),
-            NullifierSet::TEST_CLASS_HASH.try_into().unwrap(),
-            TEST_MERKLE_HEIGHT
-        );
-
-    darkpool
-        .initialize(
-            Merkle::TEST_CLASS_HASH.try_into().unwrap(),
-            NullifierSet::TEST_CLASS_HASH.try_into().unwrap(),
-            TEST_MERKLE_HEIGHT
-        );
+    initialize_darkpool(ref darkpool, verifier_address);
+    initialize_darkpool(ref darkpool, verifier_address);
 }
 
 // -----------
@@ -543,15 +539,26 @@ fn setup_darkpool() -> IDarkpoolDispatcher {
     )
         .unwrap();
 
+    let (verifier_address, _) = deploy_syscall(
+        Verifier::TEST_CLASS_HASH.try_into().unwrap(), 0, ArrayTrait::new().span(), false, 
+    )
+        .unwrap();
+
     let mut darkpool = IDarkpoolDispatcher { contract_address: darkpool_address };
+    initialize_darkpool(ref darkpool, verifier_address);
+
+    darkpool
+}
+
+fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher, verifier_address: ContractAddress) {
     darkpool
         .initialize(
             Merkle::TEST_CLASS_HASH.try_into().unwrap(),
             NullifierSet::TEST_CLASS_HASH.try_into().unwrap(),
-            TEST_MERKLE_HEIGHT
+            verifier_address,
+            TEST_MERKLE_HEIGHT,
+            get_dummy_circuit_params(),
         );
-
-    darkpool
 }
 
 fn setup_dummy_erc20(darkpool_contract_address: ContractAddress) -> IERC20Dispatcher {
