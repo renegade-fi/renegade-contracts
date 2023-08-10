@@ -16,15 +16,10 @@ use starknet_scripts::commands::utils::{
 use std::{env, io::Cursor, iter};
 use tracing::debug;
 
-use crate::{
-    utils::{
-        call_contract, felt_to_scalar, global_setup, scalar_to_felt, CalldataSerializable,
-        ARTIFACTS_PATH_ENV_VAR,
-    },
-    verifier::utils::{
-        prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit, DUMMY_CIRCUIT_K,
-        DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
-    },
+use crate::utils::{
+    call_contract, felt_to_scalar, global_setup, prep_dummy_circuit_verifier, scalar_to_felt,
+    singleprover_prove_dummy_circuit, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
+    DUMMY_CIRCUIT_K, DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
 };
 
 const VERIFIER_UTILS_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_VerifierUtilsWrapper";

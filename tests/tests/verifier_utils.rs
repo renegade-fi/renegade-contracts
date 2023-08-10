@@ -6,8 +6,7 @@ use mpc_bulletproof::{
     PedersenGens,
 };
 use tests::{
-    utils::{global_teardown, TRANSCRIPT_SEED},
-    verifier::utils::DUMMY_CIRCUIT_N,
+    utils::{global_teardown, DUMMY_CIRCUIT_N, TRANSCRIPT_SEED},
     verifier_utils::utils::{
         calc_delta, get_expected_dummy_circuit_delta, get_expected_dummy_circuit_s, get_s_elem,
         setup_verifier_utils_test, squeeze_challenge_scalars,
