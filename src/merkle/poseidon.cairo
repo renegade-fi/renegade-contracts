@@ -1,3 +1,5 @@
+mod constants;
+
 use traits::Into;
 use array::{ArrayTrait, SpanTrait};
 
@@ -7,25 +9,8 @@ use renegade_contracts::{
     verifier::scalar::{Scalar, ScalarTrait}, utils::collections::{DeepSpan, vec_to_arr}
 };
 
+use constants::{FULL_ROUNDS, PARTIAL_ROUNDS, ALPHA, RATE, CAPACITY, mds, round_constants};
 
-// -------------
-// | CONSTANTS |
-// -------------
-
-/// Number of full S-box rounds
-const FULL_ROUNDS: usize = 2; // DUMMY VALUE
-/// Number of partial S-box rounds
-const PARTIAL_ROUNDS: usize = 4; // DUMMY VALUE
-/// Alpha (exponent for S-box)
-const ALPHA: u256 = 5;
-/// Rate
-const RATE: usize = 2;
-/// Capacity
-const CAPACITY: usize = 1;
-/// Permutation size
-const T: usize = 3;
-// TODO: Hardcode all MDS entries (only 9)
-// TODO: Hardcode all round constants
 
 #[derive(Drop)]
 enum SpongeMode {
@@ -69,7 +54,7 @@ impl PoseidonImpl of PoseidonTrait {
         let round_constants = round_constants();
         let mds = mds();
 
-        PoseidonSponge { state, mode: SpongeMode::Absorbing(0), round_constants, mds,  }
+        PoseidonSponge { state, mode: SpongeMode::Absorbing(0), round_constants, mds }
     }
 
     /// Absorb the input into the sponge, updating the sponge's state
@@ -162,64 +147,6 @@ impl PoseidonImpl of PoseidonTrait {
 
         output
     }
-}
-
-// DUMMY VALUES
-fn round_constants() -> Array<Array<Scalar>> {
-    let mut round_constants = ArrayTrait::new();
-    let mut i = 0;
-    loop {
-        if i == 2 * FULL_ROUNDS + PARTIAL_ROUNDS {
-            break;
-        }
-
-        let mut round_constants_i = ArrayTrait::new();
-        let mut j = 0;
-        loop {
-            if j == RATE + CAPACITY {
-                break;
-            }
-
-            round_constants_i.append(1.into());
-
-            j += 1;
-        };
-
-        round_constants.append(round_constants_i);
-
-        i += 1;
-    };
-
-    round_constants
-}
-
-// DUMMY VALUES
-fn mds() -> Array<Array<Scalar>> {
-    let mut mds = ArrayTrait::new();
-    let mut i = 0;
-    loop {
-        if i == T {
-            break;
-        }
-
-        let mut mds_i = ArrayTrait::new();
-        let mut j = 0;
-        loop {
-            if j == T {
-                break;
-            }
-
-            mds_i.append(1.into());
-
-            j += 1;
-        };
-
-        mds.append(mds_i);
-
-        i += 1;
-    };
-
-    mds
 }
 
 fn permute(
