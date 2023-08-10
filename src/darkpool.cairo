@@ -8,7 +8,9 @@ mod types;
 
 use starknet::{ClassHash, ContractAddress};
 
-use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
+use renegade_contracts::{
+    verifier::{scalar::Scalar, types::{Proof, CircuitParams}}, utils::serde::EcPointSerde
+};
 
 use types::{ExternalTransfer, MatchPayload};
 
@@ -23,12 +25,15 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         merkle_class_hash: ClassHash,
         nullifier_set_class_hash: ClassHash,
-        height: u8
+        verifier_contract_address: ContractAddress,
+        height: u8,
+        circuit_params: CircuitParams,
     );
     // OZ
     fn upgrade(ref self: TContractState, darkpool_class_hash: ClassHash);
     fn upgrade_merkle(ref self: TContractState, merkle_class_hash: ClassHash);
     fn upgrade_nullifier_set(ref self: TContractState, nullifier_set_class_hash: ClassHash);
+    fn upgrade_verifier(ref self: TContractState, verifier_contract_address: ContractAddress);
     // GETTERS
     fn get_wallet_blinder_transaction(
         self: @TContractState, wallet_blinder_share: Scalar
@@ -78,7 +83,10 @@ mod Darkpool {
     };
 
     use renegade_contracts::{
-        verifier::{scalar::Scalar, types::Proof},
+        verifier::{
+            scalar::Scalar, types::{Proof, CircuitParams}, IVerifierDispatcher,
+            IVerifierDispatcherTrait
+        },
         merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::serde::EcPointSerde, oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
@@ -103,6 +111,8 @@ mod Darkpool {
         merkle_class_hash: ClassHash,
         /// Stores the implementation class hash for the nullifier set interface
         nullifier_set_class_hash: ClassHash,
+        /// Stores the contract address of the deployed verifier
+        verifier_contract_address: ContractAddress,
         /// Stores a mapping from the wallet identity to the hash of the last transaction
         /// in which it was changed
         wallet_last_modified: LegacyMap<Scalar, felt252>
@@ -139,6 +149,13 @@ mod Darkpool {
         new_class: ClassHash,
     }
 
+    /// Emitted when there's a change to the verifier contract address
+    #[derive(Drop, PartialEq, starknet::Event)]
+    struct VerifierUpgrade {
+        old_address: ContractAddress,
+        new_address: ContractAddress,
+    }
+
     /// Emitted when there's an update to the encrypted wallet identified by `wallet_blinder_share`
     #[derive(Drop, PartialEq, starknet::Event)]
     struct WalletUpdate {
@@ -168,6 +185,7 @@ mod Darkpool {
         DarkpoolUpgrade: DarkpoolUpgrade,
         MerkleUpgrade: MerkleUpgrade,
         NullifierSetUpgrade: NullifierSetUpgrade,
+        VerifierUpgrade: VerifierUpgrade,
         WalletUpdate: WalletUpdate,
         Deposit: Deposit,
         Withdrawal: Withdrawal,
@@ -210,13 +228,18 @@ mod Darkpool {
 
         /// Initializes the contract state
         /// Parameters:
-        /// - `merkle_class`: The declared contract class of the Merkle tree implementation
-        /// - `nullifier_class`: The declared contract class of the nullifier set implementation
+        /// - `merkle_class_hash`: The declared contract class hash of the Merkle tree implementation
+        /// - `nullifier_class_hash`: The declared contract class hash of the nullifier set implementation
+        /// - `verifier_contract_address`: The deployed contract address of the verifier contract
+        /// - `height`: The height of the Merkle tree
+        /// - `circuit_params`: The circuit parameters
         fn initialize(
             ref self: ContractState,
             merkle_class_hash: ClassHash,
             nullifier_set_class_hash: ClassHash,
-            height: u8
+            verifier_contract_address: ContractAddress,
+            height: u8,
+            circuit_params: CircuitParams,
         ) {
             ownable__assert_only_owner(@self);
             initializable__initialize(ref self);
@@ -224,9 +247,12 @@ mod Darkpool {
             // Save Merkle tree & nullifier set class hashes to storage
             self.merkle_class_hash.write(merkle_class_hash);
             self.nullifier_set_class_hash.write(nullifier_set_class_hash);
+            // Save verifier contract address to storage
+            self.verifier_contract_address.write(verifier_contract_address);
 
-            // Initialize the Merkle tree
+            // Initialize the Merkle tree & verifier
             _get_merkle_tree(@self).initialize(height);
+            _get_verifier(@self).initialize(circuit_params);
         }
 
         // -----------
@@ -274,6 +300,27 @@ mod Darkpool {
                     Event::NullifierSetUpgrade(
                         NullifierSetUpgrade {
                             old_class: old_class_hash, new_class: nullifier_set_class_hash
+                        }
+                    )
+                );
+        }
+
+        /// Upgrades the verifier contract address
+        /// Parameters:
+        /// - `verifier_contract_address`: The address of the deployed verifier contract
+        fn upgrade_verifier(ref self: ContractState, verifier_contract_address: ContractAddress) {
+            ownable__assert_only_owner(@self);
+
+            // Get existing contract_address to emit event
+            let old_contract_address = self.verifier_contract_address.read();
+            self.verifier_contract_address.write(verifier_contract_address);
+            // Emit event
+            self
+                .emit(
+                    Event::VerifierUpgrade(
+                        VerifierUpgrade {
+                            old_address: old_contract_address,
+                            new_address: verifier_contract_address
                         }
                     )
                 );
@@ -450,6 +497,14 @@ mod Darkpool {
     /// - Library dispatcher instance
     fn _get_nullifier_set(self: @ContractState) -> INullifierSetLibraryDispatcher {
         INullifierSetLibraryDispatcher { class_hash: self.nullifier_set_class_hash.read() }
+    }
+
+    /// Returns the contract dispatcher struct for the verifier interface,
+    /// using the currently stored verifier contract address
+    /// Returns:
+    /// - Contract dispatcher instance
+    fn _get_verifier(self: @ContractState) -> IVerifierDispatcher {
+        IVerifierDispatcher { contract_address: self.verifier_contract_address.read() }
     }
 
     /// Returns the contract dispatcher struct for the ERC20 interface,
