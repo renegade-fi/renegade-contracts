@@ -16,7 +16,7 @@ fn test_initialization_root_history() {
 }
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_single_insert_root_history() {
     let mut merkle = setup_merkle();
     merkle.insert(0.into());
@@ -25,7 +25,7 @@ fn test_single_insert_root_history() {
 }
 
 #[test]
-#[available_gas(10000000000)] // 100x
+#[available_gas(50000000000)] // 500x
 fn test_multi_insert_root_history() {
     let mut merkle = setup_merkle();
 

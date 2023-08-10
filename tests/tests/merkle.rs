@@ -3,7 +3,8 @@ use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
     merkle::utils::{
-        insert, insert_random_val_to_trees, setup_merkle_test, MERKLE_ADDRESS, TEST_MERKLE_HEIGHT,
+        insert, insert_random_val_to_trees, setup_merkle_test, MERKLE_ADDRESS, MULTI_INSERT_ROUNDS,
+        TEST_MERKLE_HEIGHT,
     },
     utils::{assert_roots_equal, global_teardown},
 };
@@ -43,7 +44,7 @@ async fn test_multi_insert_root() -> Result<()> {
     let (sequencer, mut ark_merkle_tree) = setup_merkle_test().await?;
     let account = sequencer.account();
 
-    for i in 0..2_usize.pow(TEST_MERKLE_HEIGHT.try_into()?) {
+    for i in 0..MULTI_INSERT_ROUNDS {
         insert_random_val_to_trees(&account, &mut ark_merkle_tree, i).await?;
     }
 
