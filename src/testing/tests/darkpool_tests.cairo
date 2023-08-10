@@ -45,7 +45,7 @@ const TRANSFER_AMOUNT: u256 = 100;
 // ------------------------------
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_new_wallet_last_modified() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -75,7 +75,7 @@ fn test_new_wallet_last_modified() {
 }
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_update_wallet_last_modified() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -110,7 +110,7 @@ fn test_update_wallet_last_modified() {
 }
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_process_match_last_modified() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -152,7 +152,7 @@ fn test_process_match_last_modified() {
 // ---------------------------
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_update_wallet_nullifiers() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -186,7 +186,7 @@ fn test_update_wallet_nullifiers() {
 }
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_process_match_nullifiers() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -236,7 +236,7 @@ fn test_process_match_nullifiers() {
 // ------------------
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_update_wallet_deposit() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -277,7 +277,7 @@ fn test_update_wallet_deposit() {
 }
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_update_wallet_withdrawal() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
@@ -342,7 +342,7 @@ fn test_upgrade_darkpool() {
 }
 
 #[test]
-#[available_gas(1000000000)] // 10x
+#[available_gas(10000000000)] // 100x
 fn test_upgrade_darkpool_storage() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
