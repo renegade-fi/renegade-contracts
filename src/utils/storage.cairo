@@ -1,3 +1,10 @@
+//! We ported the `calculate_base_and_offset_for_index` function and the core read / write functionality (used in `read_inner` and `write_inner`)
+//! from Alexandria's `List` type (https://github.com/keep-starknet-strange/alexandria/blob/cairo-v2.0.1/src/storage/list.cairo)
+//! rather than instantiating a `List` because our needs don't quite line up to the `ListTrait` interface.
+//! We only ever need to read and write an entire array of felts at once, we never need to get-in-place, set-in-place, or append.
+//! But these are the functions exposed in `ListTrait`, using a `List` directly would result in a hairy and inefficient implementation on our end
+//! (e.g., using `append` will cause redundant writes of the array length to storage).
+
 use traits::TryInto;
 use option::OptionTrait;
 use integer::U32DivRem;
@@ -64,49 +71,57 @@ impl WrapperStorageAccessImpl<
     }
 }
 
-// Implementation (and documentation) taken from: https://github.com/keep-starknet-strange/alexandria/blob/cairo-v2.0.1/src/storage/list.cairo
-// This function finds the StorageBaseAddress of a "storage segment" (a continuous space of 256 storage slots)
-// and an offset into that segment where a value at `index` is stored
-// each segment can hold up to 256 felts
-//
-// the way how the address is calculated is very similar to how a LegacyHash map works:
-//
-// first we take the `list_base` address which is derived from the name of the storage variable
-// then we hash it with a `key` which is the number of the segment where the element at `index` belongs (from 0 upwards)
-// we hash these two values: H(list_base, key) to the the `segment_base` address
-// finally, we calculate the offset into this segment, taking into account the size of the elements held in the array
-//
-// by way of example:
-//
-// say we have an List<Foo> and Foo's storage_size is 8
-// struct storage: {
-//    bar: List<Foo>
-// }
-//
-// the storage layout would look like this:
-//
-// segment0: [0..31] - elements at indexes 0 to 31
-// segment1: [32..63] - elements at indexes 32 to 63
-// segment2: [64..95] - elements at indexes 64 to 95
-// etc.
-//
-// where addresses of each segment are:
-//
-// segment0 = hash(bar.address(), 0)
-// segment1 = hash(bar.address(), 1)
-// segment2 = hash(bar.address(), 2)
-//
-// so for getting a Foo at index 90 this function would return address of segment2 and offset of 26
+/// Implementation (and documentation) adapted from: https://github.com/keep-starknet-strange/alexandria/blob/cairo-v2.0.1/src/storage/list.cairo
+/// This function finds the StorageBaseAddress of a "storage segment" (a continuous space of 256 storage slots)
+/// and an offset into that segment where a felt at `index` is stored.
+///
+/// The way the address is calculated is very similar to how a LegacyHash map works:
+///
+/// First, we take the `list_base` address, which is where the `StorageAccessSerdeWrapper` is rooted in storage
+/// (provided in the `StorageAccess` trait method arguments).
+///
+/// Then, we hash it with a `seg_index`, which is the number of the segment where the felt at `index` belongs.
+/// We hash these two values: H(list_base, seg_index) to obtain the `segment_base` address.
+///
+/// Finally, we calculate the offset into this segment.
+///
+/// As an example:
+///
+/// Say we have an object which serializes to an array of 1000 felts:
+///
+/// struct storage: {
+///    bar: StorageAccessSerdeWrapper<ObjectOf1000Felts>
+/// }
+///
+/// The storage layout would look like this:
+///
+/// segment0: [0..255] - felts at indices 0 to 255
+/// segment1: [256..511] - felts at indices 256 to 511
+/// segment2: [512..767] - felts at indices 512 to 767
+/// segment3: [768..1023] - felts at indices 768 to 1023
+///
+/// Where addresses of each segment are:
+///
+/// segment0 = hash(bar.address(), 0)
+/// segment1 = hash(bar.address(), 1)
+/// segment2 = hash(bar.address(), 2)
+/// segment3 = hash(bar.address(), 3)
+///
+/// So getting the 313th felt in the serialization of `bar` would bear segment index 1, and offset 57.
 fn calculate_base_and_offset_for_index(
     list_base: StorageBaseAddress, index: u32
 ) -> (StorageBaseAddress, u8) {
-    let (key, offset) = U32DivRem::div_rem(index, MAX_STORAGE_SEGMENT_ELEMS.try_into().unwrap());
-
-    let segment_base = storage_base_address_from_felt252(
-        LegacyHash::hash(storage_address_to_felt252(storage_address_from_base(list_base)), key)
+    let (seg_index, seg_offset) = U32DivRem::div_rem(
+        index, MAX_STORAGE_SEGMENT_ELEMS.try_into().unwrap()
     );
 
-    (segment_base, offset.try_into().unwrap())
+    let seg_base = storage_base_address_from_felt252(
+        LegacyHash::hash(
+            storage_address_to_felt252(storage_address_from_base(list_base)), seg_index
+        )
+    );
+
+    (seg_base, seg_offset.try_into().unwrap())
 }
 
 /// This reads in the associated `List<felt252>` from storage, and deserializes the inner value.
