@@ -2,9 +2,11 @@ use array::ArrayTrait;
 use serde::Serde;
 use option::OptionTrait;
 use traits::Into;
-use ec::{ec_point_from_x, ec_mul};
+use ec::{ec_point_from_x, ec_mul, ec_point_new, StarkCurve};
 
-use renegade_contracts::verifier::types::{Proof, SparseWeightMatrix};
+use renegade_contracts::verifier::types::{
+    Proof, SparseWeightMatrix, SparseWeightVec, CircuitParams
+};
 
 const DUMMY_ROOT_INNER: felt252 = 'DUMMY_ROOT';
 const DUMMY_WALLET_BLINDER_TX: felt252 = 'DUMMY_WALLET_BLINDER_TX';
@@ -84,4 +86,106 @@ fn get_test_matrix() -> SparseWeightMatrix {
     matrix.append(row_2);
 
     matrix
+}
+
+fn get_dummy_circuit_weights() -> (
+    SparseWeightMatrix, SparseWeightMatrix, SparseWeightMatrix, SparseWeightMatrix, SparseWeightVec, 
+) {
+    let mut W_L = ArrayTrait::new();
+    let mut W_L_0 = ArrayTrait::new();
+    W_L_0.append((0_usize, -(1.into())));
+    W_L.append(W_L_0);
+    W_L.append(ArrayTrait::new());
+    let mut W_L_2 = ArrayTrait::new();
+    W_L_2.append((1_usize, -(1.into())));
+    W_L.append(W_L_2);
+    W_L.append(ArrayTrait::new());
+    let mut W_L_4 = ArrayTrait::new();
+    W_L_4.append((2_usize, -(1.into())));
+    W_L.append(W_L_4);
+    W_L.append(ArrayTrait::new());
+    W_L.append(ArrayTrait::new());
+    W_L.append(ArrayTrait::new());
+
+    let mut W_R = ArrayTrait::new();
+    W_R.append(ArrayTrait::new());
+    let mut W_R_1 = ArrayTrait::new();
+    W_R_1.append((0_usize, -(1.into())));
+    W_R.append(W_R_1);
+    W_R.append(ArrayTrait::new());
+    let mut W_R_3 = ArrayTrait::new();
+    W_R_3.append((1_usize, -(1.into())));
+    W_R.append(W_R_3);
+    W_R.append(ArrayTrait::new());
+    let mut W_R_5 = ArrayTrait::new();
+    W_R_5.append((2_usize, -(1.into())));
+    W_R.append(W_R_5);
+    W_R.append(ArrayTrait::new());
+    W_R.append(ArrayTrait::new());
+
+    let mut W_O = ArrayTrait::new();
+    W_O.append(ArrayTrait::new());
+    W_O.append(ArrayTrait::new());
+    W_O.append(ArrayTrait::new());
+    W_O.append(ArrayTrait::new());
+    let mut W_O_4 = ArrayTrait::new();
+    W_O_4.append((0_usize, 1.into()));
+    W_O.append(W_O_4);
+    let mut W_O_5 = ArrayTrait::new();
+    W_O_5.append((1_usize, 1.into()));
+    W_O.append(W_O_5);
+    W_O.append(ArrayTrait::new());
+    let mut W_O_7 = ArrayTrait::new();
+    W_O_7.append((2_usize, 1.into()));
+    W_O.append(W_O_7);
+
+    let mut W_V = ArrayTrait::new();
+    let mut W_V_0 = ArrayTrait::new();
+    W_V_0.append((0_usize, -(1.into())));
+    W_V.append(W_V_0);
+    let mut W_V_1 = ArrayTrait::new();
+    W_V_1.append((1_usize, -(1.into())));
+    W_V.append(W_V_1);
+    let mut W_V_2 = ArrayTrait::new();
+    W_V_2.append((2_usize, -(1.into())));
+    W_V.append(W_V_2);
+    let mut W_V_3 = ArrayTrait::new();
+    W_V_3.append((3_usize, -(1.into())));
+    W_V.append(W_V_3);
+    W_V.append(ArrayTrait::new());
+    W_V.append(ArrayTrait::new());
+    let mut W_V_6 = ArrayTrait::new();
+    W_V_6.append((0_usize, -(1.into())));
+    W_V.append(W_V_6);
+    W_V.append(ArrayTrait::new());
+
+    let mut c = ArrayTrait::new();
+    c.append((6_usize, 69.into()));
+    c.append((7_usize, 420.into()));
+
+    (W_L, W_R, W_O, W_V, c)
+}
+
+fn get_dummy_circuit_size_params() -> (usize, usize, usize, usize, usize) {
+    let n = 3;
+    let n_plus = 4;
+    let k = 2;
+    let q = 8;
+    let m = 4;
+
+    (n, n_plus, k, q, m)
+}
+
+fn get_dummy_circuit_pc_gens() -> (EcPoint, EcPoint) {
+    let gen = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
+
+    (gen, gen)
+}
+
+fn get_dummy_circuit_params() -> CircuitParams {
+    let (n, n_plus, k, q, m) = get_dummy_circuit_size_params();
+    let (B, B_blind) = get_dummy_circuit_pc_gens();
+    let (W_L, W_R, W_O, W_V, c) = get_dummy_circuit_weights();
+
+    CircuitParams { n, n_plus, k, q, m, B, B_blind, W_L, W_R, W_O, W_V, c }
 }
