@@ -9,7 +9,8 @@ mod types;
 use starknet::{ClassHash, ContractAddress};
 
 use renegade_contracts::{
-    verifier::{scalar::Scalar, types::{Proof, CircuitParams}}, utils::serde::EcPointSerde
+    verifier::{scalar::Scalar, types::{Proof, CircuitParams}},
+    utils::serde::{EcPointSerde, ResultSerde}
 };
 
 use types::{ExternalTransfer, MatchPayload};
@@ -41,6 +42,9 @@ trait IDarkpool<TContractState> {
     fn get_root(self: @TContractState) -> Scalar;
     fn root_in_history(self: @TContractState, root: Scalar) -> bool;
     fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
+    fn check_verification_job_status(
+        self: @TContractState, verification_job_id: felt252
+    ) -> Option<bool>;
     // SETTERS
     fn new_wallet(
         ref self: TContractState,
@@ -49,7 +53,14 @@ trait IDarkpool<TContractState> {
         public_wallet_shares: Array<Scalar>,
         proof: Proof,
         witness_commitments: Array<EcPoint>,
-    ) -> Scalar;
+        verification_job_id: felt252,
+    ) -> Option<Result<Scalar, felt252>>;
+    fn poll_new_wallet(
+        ref self: TContractState,
+        wallet_blinder_share: Scalar,
+        wallet_share_commitment: Scalar,
+        verification_job_id: felt252,
+    ) -> Option<Result<Scalar, felt252>>;
     fn update_wallet(
         ref self: TContractState,
         wallet_blinder_share: Scalar,
@@ -59,7 +70,16 @@ trait IDarkpool<TContractState> {
         external_transfers: Array<ExternalTransfer>,
         proof: Proof,
         witness_commitments: Array<EcPoint>,
-    ) -> Scalar;
+        verification_job_id: felt252,
+    ) -> Option<Result<Scalar, felt252>>;
+    fn poll_update_wallet(
+        ref self: TContractState,
+        wallet_blinder_share: Scalar,
+        wallet_share_commitment: Scalar,
+        old_shares_nullifier: Scalar,
+        external_transfers: Array<ExternalTransfer>,
+        verification_job_id: felt252,
+    ) -> Option<Result<Scalar, felt252>>;
     fn process_match(
         ref self: TContractState,
         party_0_payload: MatchPayload,
@@ -68,7 +88,18 @@ trait IDarkpool<TContractState> {
         match_witness_commitments: Array<EcPoint>,
         settle_proof: Proof,
         settle_witness_commitments: Array<EcPoint>,
-    ) -> Scalar;
+        verification_job_ids: Array<felt252>,
+    ) -> Option<Result<Scalar, felt252>>;
+    fn poll_process_match(
+        ref self: TContractState,
+        party_0_wallet_blinder_share: Scalar,
+        party_0_wallet_share_commitment: Scalar,
+        party_0_old_shares_nullifier: Scalar,
+        party_1_wallet_blinder_share: Scalar,
+        party_1_wallet_share_commitment: Scalar,
+        party_1_old_shares_nullifier: Scalar,
+        verification_job_ids: Array<felt252>,
+    ) -> Option<Result<Scalar, felt252>>;
 }
 
 #[starknet::contract]
@@ -89,7 +120,8 @@ mod Darkpool {
         },
         merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
-        utils::serde::EcPointSerde, oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
+        utils::serde::{EcPointSerde, ResultSerde},
+        oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
 
     use super::types::{ExternalTransfer, MatchPayload};
@@ -367,6 +399,18 @@ mod Darkpool {
             _get_nullifier_set(self).is_nullifier_used(nullifier)
         }
 
+        /// Returns the status of the given verification job
+        /// Parameters:
+        /// - `verification_job_id`: The ID of the verification job to check
+        /// Returns:
+        /// - An optional boolean, which, if is `None`, means the job is still in progress,
+        ///   and otherwise indicates whether or not the verification succeeded
+        fn check_verification_job_status(
+            self: @ContractState, verification_job_id: felt252
+        ) -> Option<bool> {
+            _get_verifier(self).check_verification_job_status(verification_job_id)
+        }
+
         // -----------
         // | SETTERS |
         // -----------
@@ -378,8 +422,9 @@ mod Darkpool {
         /// - `public_wallet_shares`: The public shares of the new wallet
         /// - `proof`: The proof of `VALID_WALLET_CREATE`
         /// - `witness_commitments`: The Pedersen commitments to the witness elements
+        /// - `verification_job_id`: The ID of the verification job to enqueue
         /// Returns:
-        /// - The new root after the wallet is inserted into the tree
+        /// - The new root after the wallet is inserted into the tree, if the proof verifies
         fn new_wallet(
             ref self: ContractState,
             wallet_blinder_share: Scalar,
@@ -387,17 +432,35 @@ mod Darkpool {
             public_wallet_shares: Array<Scalar>,
             proof: Proof,
             witness_commitments: Array<EcPoint>,
-        ) -> Scalar {
-            // TODO: Add verification of `VALID_WALLET_CREATE`
+            verification_job_id: felt252,
+        ) -> Option<Result<Scalar, felt252>> {
+            // Queue verification
+            let verifier = _get_verifier(@self);
+            verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
-            // Insert the new wallet's commitment into the Merkle tree
-            let merkle_tree = _get_merkle_tree(@self);
-            let new_root = merkle_tree.insert(wallet_share_commitment);
+            // Kick off verification
+            _poll_new_wallet_inner(
+                ref self, wallet_blinder_share, wallet_share_commitment, verification_job_id
+            )
+        }
 
-            // Mark wallet as updated
-            _mark_wallet_updated(ref self, wallet_blinder_share);
-
-            new_root
+        /// Poll the new wallet verification job, and if it verifies, insert the new wallet into the
+        /// merkle tree
+        /// Parameters:
+        /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
+        /// - `wallet_share_commitment`: The commitment to the new wallet's shares
+        /// - `verification_job_id`: The ID of the verification job to step through
+        /// Returns:
+        /// - The new root after the wallet is inserted into the tree, if the proof verifies
+        fn poll_new_wallet(
+            ref self: ContractState,
+            wallet_blinder_share: Scalar,
+            wallet_share_commitment: Scalar,
+            verification_job_id: felt252,
+        ) -> Option<Result<Scalar, felt252>> {
+            _poll_new_wallet_inner(
+                ref self, wallet_blinder_share, wallet_share_commitment, verification_job_id
+            )
         }
 
         /// Update a wallet in the commitment tree
@@ -409,35 +472,62 @@ mod Darkpool {
         /// - `external_transfers`: The external transfers (ERC20 deposit/withdrawal)
         /// - `proof`: The proof of `VALID_WALLET_UPDATE`
         /// - `witness_commitments`: The Pedersen commitments to the witness elements
+        /// - `verification_job_id`: The ID of the verification job to enqueue
         /// Returns:
-        /// - The root of the tree after the new commitment is inserted
+        /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn update_wallet(
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             wallet_share_commitment: Scalar,
             old_shares_nullifier: Scalar,
             public_wallet_shares: Array<Scalar>,
-            mut external_transfers: Array<ExternalTransfer>,
+            external_transfers: Array<ExternalTransfer>,
             proof: Proof,
             witness_commitments: Array<EcPoint>,
-        ) -> Scalar {
-            // TODO: Add verification of `VALID_WALLET_UPDATE`
+            verification_job_id: felt252,
+        ) -> Option<Result<Scalar, felt252>> {
+            // Queue verification
+            let verifier = _get_verifier(@self);
+            verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
-            // Insert the updated wallet's commitment into the Merkle tree
-            let merkle_tree = _get_merkle_tree(@self);
-            let new_root = merkle_tree.insert(wallet_share_commitment);
+            // Kick off verification
+            _poll_update_wallet_inner(
+                ref self,
+                wallet_blinder_share,
+                wallet_share_commitment,
+                old_shares_nullifier,
+                external_transfers,
+                verification_job_id
+            )
+        }
 
-            // Add the old shares nullifier to the spent nullifier set
-            let nullifier_set = _get_nullifier_set(@self);
-            nullifier_set.mark_nullifier_used(old_shares_nullifier);
-
-            // Process the external transfers
-            _execute_external_transfers(ref self, external_transfers);
-
-            // Mark wallet as updated
-            _mark_wallet_updated(ref self, wallet_blinder_share);
-
-            new_root
+        /// Poll the update wallet verification job, and if it verifies, insert the new wallet into the
+        /// merkle tree
+        /// Parameters:
+        /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
+        /// - `wallet_share_commitment`: The commitment to the updated wallet's shares
+        /// - `old_shares_nullifier`: The nullifier for the public shares of the wallet before it was updated
+        /// - `public_wallet_shares`: The public shares of the wallet after it was updated
+        /// - `external_transfers`: The external transfers (ERC20 deposit/withdrawal)
+        /// - `verification_job_id`: The ID of the verification job to step through
+        /// Returns:
+        /// - The root of the tree after the new commitment is inserted, if the proof verifies
+        fn poll_update_wallet(
+            ref self: ContractState,
+            wallet_blinder_share: Scalar,
+            wallet_share_commitment: Scalar,
+            old_shares_nullifier: Scalar,
+            external_transfers: Array<ExternalTransfer>,
+            verification_job_id: felt252,
+        ) -> Option<Result<Scalar, felt252>> {
+            _poll_update_wallet_inner(
+                ref self,
+                wallet_blinder_share,
+                wallet_share_commitment,
+                old_shares_nullifier,
+                external_transfers,
+                verification_job_id
+            )
         }
 
         /// Settles a matched order between two parties
@@ -448,6 +538,8 @@ mod Darkpool {
         /// - `match_witness_commitments`: The Pedersen commitments to the match proof witness elements
         /// - `settle_proof`: The proof of `VALID_SETTLE`
         /// - `settle_witness_commitments`: The Pedersen commitments to the settle proof witness elements
+        /// Returns:
+        /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn process_match(
             ref self: ContractState,
             party_0_payload: MatchPayload,
@@ -456,22 +548,83 @@ mod Darkpool {
             match_witness_commitments: Array<EcPoint>,
             settle_proof: Proof,
             settle_witness_commitments: Array<EcPoint>,
-        ) -> Scalar {
-            // TODO: Add verification of `VALID_MATCH_MPC` and `VALID_SETTLE`
+            verification_job_ids: Array<felt252>,
+        ) -> Option<Result<Scalar, felt252>> {
+            // Queue verifications
+            // TODO: This probably won't fit in a transaction... think about how to handle this
+            let verifier = _get_verifier(@self);
+            // Queue party 0 VALID COMMITMENTS
+            verifier
+                .queue_verification_job(
+                    party_0_payload.valid_commitments_proof,
+                    party_0_payload.valid_commitments_witness_commitments,
+                    *verification_job_ids[0]
+                );
+            // Queue party 0 VALID REBLIND
+            verifier
+                .queue_verification_job(
+                    party_0_payload.valid_reblind_proof,
+                    party_0_payload.valid_reblind_witness_commitments,
+                    *verification_job_ids[1]
+                );
+            // Queue party 1 VALID COMMITMENTS
+            verifier
+                .queue_verification_job(
+                    party_1_payload.valid_commitments_proof,
+                    party_1_payload.valid_commitments_witness_commitments,
+                    *verification_job_ids[2]
+                );
+            // Queue party 1 VALID REBLIND
+            verifier
+                .queue_verification_job(
+                    party_1_payload.valid_reblind_proof,
+                    party_1_payload.valid_reblind_witness_commitments,
+                    *verification_job_ids[3]
+                );
+            // Queue VALID MATCH MPC
+            verifier
+                .queue_verification_job(
+                    match_proof, match_witness_commitments, *verification_job_ids[4]
+                );
+            // Queue VALID SETTLE
+            verifier
+                .queue_verification_job(
+                    settle_proof, settle_witness_commitments, *verification_job_ids[5]
+                );
 
-            let nullifier_set = _get_nullifier_set(@self);
-            nullifier_set.mark_nullifier_used(party_0_payload.old_shares_nullifier);
-            nullifier_set.mark_nullifier_used(party_1_payload.old_shares_nullifier);
+            // Kick off verification
+            _poll_process_match_inner(
+                ref self,
+                party_0_payload.wallet_blinder_share,
+                party_0_payload.wallet_share_commitment,
+                party_0_payload.old_shares_nullifier,
+                party_1_payload.wallet_blinder_share,
+                party_1_payload.wallet_share_commitment,
+                party_1_payload.old_shares_nullifier,
+                verification_job_ids,
+            )
+        }
 
-            let merkle_tree = _get_merkle_tree(@self);
-            merkle_tree.insert(party_0_payload.wallet_share_commitment);
-            let new_root = merkle_tree.insert(party_1_payload.wallet_share_commitment);
-
-            // Mark wallet as updated
-            _mark_wallet_updated(ref self, party_0_payload.wallet_blinder_share);
-            _mark_wallet_updated(ref self, party_1_payload.wallet_blinder_share);
-
-            new_root
+        fn poll_process_match(
+            ref self: ContractState,
+            party_0_wallet_blinder_share: Scalar,
+            party_0_wallet_share_commitment: Scalar,
+            party_0_old_shares_nullifier: Scalar,
+            party_1_wallet_blinder_share: Scalar,
+            party_1_wallet_share_commitment: Scalar,
+            party_1_old_shares_nullifier: Scalar,
+            verification_job_ids: Array<felt252>,
+        ) -> Option<Result<Scalar, felt252>> {
+            _poll_process_match_inner(
+                ref self,
+                party_0_wallet_blinder_share,
+                party_0_wallet_share_commitment,
+                party_0_old_shares_nullifier,
+                party_1_wallet_blinder_share,
+                party_1_wallet_share_commitment,
+                party_1_old_shares_nullifier,
+                verification_job_ids,
+            )
         }
     }
 
@@ -592,6 +745,144 @@ mod Darkpool {
                     );
             };
         };
+    }
+
+    fn _poll_new_wallet_inner(
+        ref self: ContractState,
+        wallet_blinder_share: Scalar,
+        wallet_share_commitment: Scalar,
+        verification_job_id: felt252,
+    ) -> Option<Result<Scalar, felt252>> {
+        let verifier = _get_verifier(@self);
+        let verified = verifier.step_verification(verification_job_id);
+
+        match verified {
+            Option::Some(success) => {
+                if success {
+                    // Insert the new wallet's commitment into the Merkle tree
+                    let merkle_tree = _get_merkle_tree(@self);
+                    let new_root = merkle_tree.insert(wallet_share_commitment);
+
+                    // Mark wallet as updated
+                    _mark_wallet_updated(ref self, wallet_blinder_share);
+
+                    Option::Some(Result::Ok(new_root))
+                } else {
+                    // Verification failed
+                    Option::Some(Result::Err('verification failed'))
+                }
+            },
+            Option::None(()) => Option::None(())
+        }
+    }
+
+    fn _poll_update_wallet_inner(
+        ref self: ContractState,
+        wallet_blinder_share: Scalar,
+        wallet_share_commitment: Scalar,
+        old_shares_nullifier: Scalar,
+        external_transfers: Array<ExternalTransfer>,
+        verification_job_id: felt252,
+    ) -> Option<Result<Scalar, felt252>> {
+        let verifier = _get_verifier(@self);
+        let verified = verifier.step_verification(verification_job_id);
+
+        match verified {
+            Option::Some(success) => {
+                if success {
+                    // Insert the updated wallet's commitment into the Merkle tree
+                    let merkle_tree = _get_merkle_tree(@self);
+                    let new_root = merkle_tree.insert(wallet_share_commitment);
+
+                    // Add the old shares nullifier to the spent nullifier set
+                    let nullifier_set = _get_nullifier_set(@self);
+                    nullifier_set.mark_nullifier_used(old_shares_nullifier);
+
+                    // Process the external transfers
+                    _execute_external_transfers(ref self, external_transfers);
+
+                    // Mark wallet as updated
+                    _mark_wallet_updated(ref self, wallet_blinder_share);
+
+                    Option::Some(Result::Ok(new_root))
+                } else {
+                    // Verification failed
+                    Option::Some(Result::Err('verification failed'))
+                }
+            },
+            Option::None(()) => Option::None(())
+        }
+    }
+
+    fn _poll_process_match_inner(
+        ref self: ContractState,
+        party_0_wallet_blinder_share: Scalar,
+        party_0_wallet_share_commitment: Scalar,
+        party_0_old_shares_nullifier: Scalar,
+        party_1_wallet_blinder_share: Scalar,
+        party_1_wallet_share_commitment: Scalar,
+        party_1_old_shares_nullifier: Scalar,
+        verification_job_ids: Array<felt252>,
+    ) -> Option<Result<Scalar, felt252>> {
+        let verifier = _get_verifier(@self);
+
+        // TODO: Make sure `step_verification` is idempotent, i.e. still returns
+        // `verified` properly for an already verified proof.
+        // Else, have to start with a call to `check_verification_job_status`...
+
+        // Step through party 0 VALID COMMITMENTS
+        let party_0_valid_commitments_verified = verifier
+            .step_verification(*verification_job_ids[0]);
+        if party_0_valid_commitments_verified.is_none() {
+            return Option::None(());
+        }
+        // Step through party 0 VALID REBLIND
+        let party_0_valid_reblind_verified = verifier.step_verification(*verification_job_ids[1]);
+        if party_0_valid_reblind_verified.is_none() {
+            return Option::None(());
+        }
+        // Step through party 1 VALID COMMITMENTS
+        let party_1_valid_commitments_verified = verifier
+            .step_verification(*verification_job_ids[2]);
+        if party_1_valid_commitments_verified.is_none() {
+            return Option::None(());
+        }
+        // Step through party 1 VALID REBLIND
+        let party_1_valid_reblind_verified = verifier.step_verification(*verification_job_ids[3]);
+        if party_0_valid_reblind_verified.is_none() {
+            return Option::None(());
+        }
+        // Step through VALID MATCH MPC
+        let valid_match_verified = verifier.step_verification(*verification_job_ids[4]);
+        if valid_match_verified.is_none() {
+            return Option::None(());
+        }
+        // Step through VALID SETTLE
+        let valid_settle_verified = verifier.step_verification(*verification_job_ids[5]);
+
+        match valid_settle_verified {
+            Option::Some(success) => {
+                if success {
+                    let nullifier_set = _get_nullifier_set(@self);
+                    nullifier_set.mark_nullifier_used(party_0_old_shares_nullifier);
+                    nullifier_set.mark_nullifier_used(party_1_old_shares_nullifier);
+
+                    let merkle_tree = _get_merkle_tree(@self);
+                    merkle_tree.insert(party_0_wallet_share_commitment);
+                    let new_root = merkle_tree.insert(party_1_wallet_share_commitment);
+
+                    // Mark wallet as updated
+                    _mark_wallet_updated(ref self, party_0_wallet_blinder_share);
+                    _mark_wallet_updated(ref self, party_1_wallet_blinder_share);
+
+                    Option::Some(Result::Ok(new_root))
+                } else {
+                    // Verification failed
+                    Option::Some(Result::Err('verification failed'))
+                }
+            },
+            Option::None(()) => Option::None(())
+        }
     }
 
     // -----------

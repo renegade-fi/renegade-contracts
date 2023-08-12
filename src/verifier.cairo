@@ -20,7 +20,7 @@ trait IVerifier<TContractState> {
         witness_commitments: Array<EcPoint>,
         verification_job_id: felt252
     );
-    fn step_verification(ref self: TContractState, verification_job_id: felt252);
+    fn step_verification(ref self: TContractState, verification_job_id: felt252) -> Option<bool>;
     fn get_circuit_params(self: @TContractState) -> CircuitParams;
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
@@ -255,11 +255,15 @@ mod Verifier {
             self.emit(Event::VerificationJobQueued(VerificationJobQueued { verification_job_id }));
         }
 
-        fn step_verification(ref self: ContractState, verification_job_id: felt252) {
+        fn step_verification(
+            ref self: ContractState, verification_job_id: felt252
+        ) -> Option<bool> {
             let mut verification_job = self.verification_queue.read(verification_job_id).inner;
             step_verification_inner(ref self, ref verification_job);
 
-            match verification_job.verified {
+            let verified = verification_job.verified;
+
+            match verified {
                 Option::Some(result) => {
                     self
                         .emit(
@@ -274,6 +278,8 @@ mod Verifier {
             self
                 .verification_queue
                 .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+
+            verified
         }
 
         // -----------
