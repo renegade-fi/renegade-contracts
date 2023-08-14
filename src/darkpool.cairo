@@ -13,7 +13,10 @@ use renegade_contracts::{
     utils::serde::{EcPointSerde, ResultSerde}
 };
 
-use types::{ExternalTransfer, MatchPayload};
+use types::{
+    ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
+    ProcessMatchCallbackElems
+};
 
 
 #[starknet::interface]
@@ -56,10 +59,7 @@ trait IDarkpool<TContractState> {
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>>;
     fn poll_new_wallet(
-        ref self: TContractState,
-        wallet_blinder_share: Scalar,
-        wallet_share_commitment: Scalar,
-        verification_job_id: felt252,
+        ref self: TContractState, verification_job_id: felt252, 
     ) -> Option<Result<Scalar, felt252>>;
     fn update_wallet(
         ref self: TContractState,
@@ -73,12 +73,7 @@ trait IDarkpool<TContractState> {
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>>;
     fn poll_update_wallet(
-        ref self: TContractState,
-        wallet_blinder_share: Scalar,
-        wallet_share_commitment: Scalar,
-        old_shares_nullifier: Scalar,
-        external_transfers: Array<ExternalTransfer>,
-        verification_job_id: felt252,
+        ref self: TContractState, verification_job_id: felt252, 
     ) -> Option<Result<Scalar, felt252>>;
     fn process_match(
         ref self: TContractState,
@@ -91,20 +86,14 @@ trait IDarkpool<TContractState> {
         verification_job_ids: Array<felt252>,
     ) -> Option<Result<Scalar, felt252>>;
     fn poll_process_match(
-        ref self: TContractState,
-        party_0_wallet_blinder_share: Scalar,
-        party_0_wallet_share_commitment: Scalar,
-        party_0_old_shares_nullifier: Scalar,
-        party_1_wallet_blinder_share: Scalar,
-        party_1_wallet_share_commitment: Scalar,
-        party_1_old_shares_nullifier: Scalar,
-        verification_job_ids: Array<felt252>,
+        ref self: TContractState, verification_job_ids: Array<felt252>, 
     ) -> Option<Result<Scalar, felt252>>;
 }
 
 #[starknet::contract]
 mod Darkpool {
     use option::OptionTrait;
+    use clone::Clone;
     use array::ArrayTrait;
     use box::BoxTrait;
     use zeroable::Zeroable;
@@ -120,11 +109,14 @@ mod Darkpool {
         },
         merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
-        utils::serde::{EcPointSerde, ResultSerde},
+        utils::{serde::{EcPointSerde, ResultSerde}, storage::StorageAccessSerdeWrapper},
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
 
-    use super::types::{ExternalTransfer, MatchPayload};
+    use super::types::{
+        ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
+        ProcessMatchCallbackElems
+    };
 
     // -----------
     // | STORAGE |
@@ -145,6 +137,17 @@ mod Darkpool {
         nullifier_set_class_hash: ClassHash,
         /// Stores the contract address of the deployed verifier
         verifier_contract_address: ContractAddress,
+        /// Mapping of callback elements for in-progress `new_wallet` verification jobs
+        new_wallet_callback_elems: LegacyMap<felt252,
+        StorageAccessSerdeWrapper<NewWalletCallbackElems>>,
+        /// Mapping of callback elements for in-progress `update_wallet` verification jobs
+        update_wallet_callback_elems: LegacyMap<felt252,
+        StorageAccessSerdeWrapper<UpdateWalletCallbackElems>>,
+        /// Mapping of callback elements for in-progress `process_match` verification jobs
+        /// Uses the first verification job id in the list of ids for the process_match proofs
+        /// as the mapping key.
+        process_match_callback_elems: LegacyMap<felt252,
+        StorageAccessSerdeWrapper<ProcessMatchCallbackElems>>,
         /// Stores a mapping from the wallet identity to the hash of the last transaction
         /// in which it was changed
         wallet_last_modified: LegacyMap<Scalar, felt252>
@@ -438,10 +441,16 @@ mod Darkpool {
             let verifier = _get_verifier(@self);
             verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
+            // Store callback elements
+            let callback_elems = NewWalletCallbackElems {
+                wallet_blinder_share, wallet_share_commitment, 
+            };
+            self
+                .new_wallet_callback_elems
+                .write(verification_job_id, StorageAccessSerdeWrapper { inner: callback_elems });
+
             // Kick off verification
-            _poll_new_wallet_inner(
-                ref self, wallet_blinder_share, wallet_share_commitment, verification_job_id
-            )
+            _poll_new_wallet_inner(ref self, callback_elems, verification_job_id)
         }
 
         /// Poll the new wallet verification job, and if it verifies, insert the new wallet into the
@@ -453,14 +462,10 @@ mod Darkpool {
         /// Returns:
         /// - The new root after the wallet is inserted into the tree, if the proof verifies
         fn poll_new_wallet(
-            ref self: ContractState,
-            wallet_blinder_share: Scalar,
-            wallet_share_commitment: Scalar,
-            verification_job_id: felt252,
+            ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            _poll_new_wallet_inner(
-                ref self, wallet_blinder_share, wallet_share_commitment, verification_job_id
-            )
+            let callback_elems = self.new_wallet_callback_elems.read(verification_job_id).inner;
+            _poll_new_wallet_inner(ref self, callback_elems, verification_job_id)
         }
 
         /// Update a wallet in the commitment tree
@@ -490,15 +495,21 @@ mod Darkpool {
             let verifier = _get_verifier(@self);
             verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
-            // Kick off verification
-            _poll_update_wallet_inner(
-                ref self,
+            // Store callback elements
+            let callback_elems = UpdateWalletCallbackElems {
                 wallet_blinder_share,
                 wallet_share_commitment,
                 old_shares_nullifier,
                 external_transfers,
-                verification_job_id
-            )
+            };
+            self
+                .update_wallet_callback_elems
+                .write(
+                    verification_job_id, StorageAccessSerdeWrapper { inner: callback_elems.clone() }
+                );
+
+            // Kick off verification
+            _poll_update_wallet_inner(ref self, callback_elems, verification_job_id)
         }
 
         /// Poll the update wallet verification job, and if it verifies, insert the new wallet into the
@@ -513,21 +524,10 @@ mod Darkpool {
         /// Returns:
         /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn poll_update_wallet(
-            ref self: ContractState,
-            wallet_blinder_share: Scalar,
-            wallet_share_commitment: Scalar,
-            old_shares_nullifier: Scalar,
-            external_transfers: Array<ExternalTransfer>,
-            verification_job_id: felt252,
+            ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            _poll_update_wallet_inner(
-                ref self,
-                wallet_blinder_share,
-                wallet_share_commitment,
-                old_shares_nullifier,
-                external_transfers,
-                verification_job_id
-            )
+            let callback_elems = self.update_wallet_callback_elems.read(verification_job_id).inner;
+            _poll_update_wallet_inner(ref self, callback_elems, verification_job_id)
         }
 
         /// Settles a matched order between two parties
@@ -592,39 +592,34 @@ mod Darkpool {
                     settle_proof, settle_witness_commitments, *verification_job_ids[5]
                 );
 
+            // Store callback elements
+            let callback_elems = ProcessMatchCallbackElems {
+                party_0_wallet_blinder_share: party_0_payload.wallet_blinder_share,
+                party_0_wallet_share_commitment: party_0_payload.wallet_share_commitment,
+                party_0_old_shares_nullifier: party_0_payload.old_shares_nullifier,
+                party_1_wallet_blinder_share: party_1_payload.wallet_blinder_share,
+                party_1_wallet_share_commitment: party_1_payload.wallet_share_commitment,
+                party_1_old_shares_nullifier: party_1_payload.old_shares_nullifier,
+            };
+            self
+                .process_match_callback_elems
+                .write(
+                    // Use the first verification job id as the mapping key for the callback elements
+                    *verification_job_ids[0], StorageAccessSerdeWrapper { inner: callback_elems }
+                );
+
             // Kick off verification
-            _poll_process_match_inner(
-                ref self,
-                party_0_payload.wallet_blinder_share,
-                party_0_payload.wallet_share_commitment,
-                party_0_payload.old_shares_nullifier,
-                party_1_payload.wallet_blinder_share,
-                party_1_payload.wallet_share_commitment,
-                party_1_payload.old_shares_nullifier,
-                verification_job_ids,
-            )
+            _poll_process_match_inner(ref self, callback_elems, verification_job_ids, )
         }
 
         fn poll_process_match(
-            ref self: ContractState,
-            party_0_wallet_blinder_share: Scalar,
-            party_0_wallet_share_commitment: Scalar,
-            party_0_old_shares_nullifier: Scalar,
-            party_1_wallet_blinder_share: Scalar,
-            party_1_wallet_share_commitment: Scalar,
-            party_1_old_shares_nullifier: Scalar,
-            verification_job_ids: Array<felt252>,
+            ref self: ContractState, verification_job_ids: Array<felt252>, 
         ) -> Option<Result<Scalar, felt252>> {
-            _poll_process_match_inner(
-                ref self,
-                party_0_wallet_blinder_share,
-                party_0_wallet_share_commitment,
-                party_0_old_shares_nullifier,
-                party_1_wallet_blinder_share,
-                party_1_wallet_share_commitment,
-                party_1_old_shares_nullifier,
-                verification_job_ids,
-            )
+            let callback_elems = self
+                .process_match_callback_elems
+                .read(*verification_job_ids[0])
+                .inner;
+            _poll_process_match_inner(ref self, callback_elems, verification_job_ids)
         }
     }
 
@@ -749,8 +744,7 @@ mod Darkpool {
 
     fn _poll_new_wallet_inner(
         ref self: ContractState,
-        wallet_blinder_share: Scalar,
-        wallet_share_commitment: Scalar,
+        callback_elems: NewWalletCallbackElems,
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>> {
         let verifier = _get_verifier(@self);
@@ -761,10 +755,10 @@ mod Darkpool {
                 if success {
                     // Insert the new wallet's commitment into the Merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
-                    let new_root = merkle_tree.insert(wallet_share_commitment);
+                    let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
 
                     // Mark wallet as updated
-                    _mark_wallet_updated(ref self, wallet_blinder_share);
+                    _mark_wallet_updated(ref self, callback_elems.wallet_blinder_share);
 
                     Option::Some(Result::Ok(new_root))
                 } else {
@@ -778,10 +772,7 @@ mod Darkpool {
 
     fn _poll_update_wallet_inner(
         ref self: ContractState,
-        wallet_blinder_share: Scalar,
-        wallet_share_commitment: Scalar,
-        old_shares_nullifier: Scalar,
-        external_transfers: Array<ExternalTransfer>,
+        callback_elems: UpdateWalletCallbackElems,
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>> {
         let verifier = _get_verifier(@self);
@@ -792,17 +783,17 @@ mod Darkpool {
                 if success {
                     // Insert the updated wallet's commitment into the Merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
-                    let new_root = merkle_tree.insert(wallet_share_commitment);
+                    let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
 
                     // Add the old shares nullifier to the spent nullifier set
                     let nullifier_set = _get_nullifier_set(@self);
-                    nullifier_set.mark_nullifier_used(old_shares_nullifier);
+                    nullifier_set.mark_nullifier_used(callback_elems.old_shares_nullifier);
 
                     // Process the external transfers
-                    _execute_external_transfers(ref self, external_transfers);
+                    _execute_external_transfers(ref self, callback_elems.external_transfers);
 
                     // Mark wallet as updated
-                    _mark_wallet_updated(ref self, wallet_blinder_share);
+                    _mark_wallet_updated(ref self, callback_elems.wallet_blinder_share);
 
                     Option::Some(Result::Ok(new_root))
                 } else {
@@ -816,12 +807,7 @@ mod Darkpool {
 
     fn _poll_process_match_inner(
         ref self: ContractState,
-        party_0_wallet_blinder_share: Scalar,
-        party_0_wallet_share_commitment: Scalar,
-        party_0_old_shares_nullifier: Scalar,
-        party_1_wallet_blinder_share: Scalar,
-        party_1_wallet_share_commitment: Scalar,
-        party_1_old_shares_nullifier: Scalar,
+        callback_elems: ProcessMatchCallbackElems,
         verification_job_ids: Array<felt252>,
     ) -> Option<Result<Scalar, felt252>> {
         let verifier = _get_verifier(@self);
@@ -864,16 +850,17 @@ mod Darkpool {
             Option::Some(success) => {
                 if success {
                     let nullifier_set = _get_nullifier_set(@self);
-                    nullifier_set.mark_nullifier_used(party_0_old_shares_nullifier);
-                    nullifier_set.mark_nullifier_used(party_1_old_shares_nullifier);
+                    nullifier_set.mark_nullifier_used(callback_elems.party_0_old_shares_nullifier);
+                    nullifier_set.mark_nullifier_used(callback_elems.party_1_old_shares_nullifier);
 
                     let merkle_tree = _get_merkle_tree(@self);
-                    merkle_tree.insert(party_0_wallet_share_commitment);
-                    let new_root = merkle_tree.insert(party_1_wallet_share_commitment);
+                    merkle_tree.insert(callback_elems.party_0_wallet_share_commitment);
+                    let new_root = merkle_tree
+                        .insert(callback_elems.party_1_wallet_share_commitment);
 
                     // Mark wallet as updated
-                    _mark_wallet_updated(ref self, party_0_wallet_blinder_share);
-                    _mark_wallet_updated(ref self, party_1_wallet_blinder_share);
+                    _mark_wallet_updated(ref self, callback_elems.party_0_wallet_blinder_share);
+                    _mark_wallet_updated(ref self, callback_elems.party_1_wallet_blinder_share);
 
                     Option::Some(Result::Ok(new_root))
                 } else {

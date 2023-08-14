@@ -28,3 +28,27 @@ struct MatchPayload {
     valid_reblind_proof: Proof,
     valid_reblind_witness_commitments: Array<EcPoint>,
 }
+
+#[derive(Drop, Serde, Copy)]
+struct NewWalletCallbackElems {
+    wallet_blinder_share: Scalar,
+    wallet_share_commitment: Scalar,
+}
+
+#[derive(Drop, Serde, Clone)]
+struct UpdateWalletCallbackElems {
+    wallet_blinder_share: Scalar,
+    wallet_share_commitment: Scalar,
+    old_shares_nullifier: Scalar,
+    external_transfers: Array<ExternalTransfer>,
+}
+
+#[derive(Drop, Serde, Copy)]
+struct ProcessMatchCallbackElems {
+    party_0_wallet_blinder_share: Scalar,
+    party_0_wallet_share_commitment: Scalar,
+    party_0_old_shares_nullifier: Scalar,
+    party_1_wallet_blinder_share: Scalar,
+    party_1_wallet_share_commitment: Scalar,
+    party_1_old_shares_nullifier: Scalar,
+}
