@@ -2,10 +2,13 @@ use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
-    utils::{global_teardown, random_felt, singleprover_prove_dummy_circuit},
+    utils::{
+        check_verification_job_status, global_teardown, random_felt,
+        singleprover_prove_dummy_circuit,
+    },
     verifier::utils::{
-        check_verification_job_status, queue_verification_job, setup_verifier_test,
-        step_verification, FUZZ_ROUNDS,
+        queue_verification_job, setup_verifier_test, step_verification, FUZZ_ROUNDS,
+        VERIFIER_ADDRESS,
     },
 };
 
@@ -19,16 +22,24 @@ async fn test_full_verification_fuzz() -> Result<()> {
         let verification_job_id = random_felt();
         queue_verification_job(&account, &proof, &witness_commitments, verification_job_id).await?;
 
-        while check_verification_job_status(&account, verification_job_id)
-            .await?
-            .is_none()
+        while check_verification_job_status(
+            &account,
+            *VERIFIER_ADDRESS.get().unwrap(),
+            verification_job_id,
+        )
+        .await?
+        .is_none()
         {
             step_verification(&account, verification_job_id).await?;
         }
 
-        assert!(check_verification_job_status(&account, verification_job_id)
-            .await?
-            .unwrap());
+        assert!(check_verification_job_status(
+            &account,
+            *VERIFIER_ADDRESS.get().unwrap(),
+            verification_job_id
+        )
+        .await?
+        .unwrap());
     }
 
     global_teardown(sequencer);
@@ -46,18 +57,24 @@ async fn test_full_verification_invalid_proof() -> Result<()> {
     let verification_job_id = random_felt();
     queue_verification_job(&account, &proof, &witness_commitments, verification_job_id).await?;
 
-    while check_verification_job_status(&account, verification_job_id)
-        .await?
-        .is_none()
+    while check_verification_job_status(
+        &account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        verification_job_id,
+    )
+    .await?
+    .is_none()
     {
         step_verification(&account, verification_job_id).await?;
     }
 
-    assert!(
-        !check_verification_job_status(&account, verification_job_id)
-            .await?
-            .unwrap()
-    );
+    assert!(!check_verification_job_status(
+        &account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        verification_job_id
+    )
+    .await?
+    .unwrap());
 
     global_teardown(sequencer);
     Ok(())

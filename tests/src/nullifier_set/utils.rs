@@ -11,7 +11,6 @@ use crate::utils::{global_setup, invoke_contract, scalar_to_felt, ARTIFACTS_PATH
 
 pub const FUZZ_ROUNDS: usize = 100;
 
-pub const IS_NULLIFIER_USED_FN_NAME: &str = "is_nullifier_used";
 const MARK_NULLIFIER_USED_FN_NAME: &str = "mark_nullifier_used";
 
 pub static NULLIFIER_SET_ADDRESS: OnceCell<FieldElement> = OnceCell::new();

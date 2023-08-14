@@ -10,7 +10,7 @@ use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, get_dummy_circuit_params, global_setup, invoke_contract, CalldataSerializable,
+    get_dummy_circuit_params, global_setup, invoke_contract, CalldataSerializable,
     ARTIFACTS_PATH_ENV_VAR,
 };
 
@@ -18,9 +18,8 @@ pub const FUZZ_ROUNDS: usize = 1;
 
 const QUEUE_VERIFICATION_JOB_FN_NAME: &str = "queue_verification_job";
 const STEP_VERIFICATION_FN_NAME: &str = "step_verification";
-const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 
-static VERIFIER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
+pub static VERIFIER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
 // | META TEST HELPERS |
@@ -96,25 +95,4 @@ pub async fn step_verification(
         vec![verification_job_id],
     )
     .await
-}
-
-pub async fn check_verification_job_status(
-    account: &ScriptAccount,
-    verification_job_id: FieldElement,
-) -> Result<Option<bool>> {
-    call_contract(
-        account,
-        *VERIFIER_ADDRESS.get().unwrap(),
-        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
-        vec![verification_job_id],
-    )
-    .await
-    .map(|r| {
-        if r[0] == FieldElement::ONE {
-            // This is how Cairo serializes an Option::None
-            None
-        } else {
-            Some(r[1] == FieldElement::ONE)
-        }
-    })
 }

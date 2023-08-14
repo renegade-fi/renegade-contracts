@@ -1,7 +1,6 @@
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
-use mpc_bulletproof::r1cs::R1CSProof;
-use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
+use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
 use starknet::core::types::FieldElement;
@@ -17,16 +16,22 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, get_dummy_circuit_params, get_dummy_proof, global_setup, invoke_contract,
-        scalar_to_felt, CalldataSerializable, CircuitParams, ExternalTransfer, MatchPayload,
-        ARTIFACTS_PATH_ENV_VAR,
+        call_contract, check_verification_job_status, get_dummy_circuit_params, global_setup,
+        invoke_contract, random_felt, scalar_to_felt, singleprover_prove_dummy_circuit,
+        CalldataSerializable, CircuitParams, MatchPayload, NewWalletArgs, ProcessMatchArgs,
+        UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
     },
 };
 
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
+const POLL_NEW_WALLET_FN_NAME: &str = "poll_new_wallet";
 const UPDATE_WALLET_FN_NAME: &str = "update_wallet";
+const POLL_UPDATE_WALLET_FN_NAME: &str = "poll_update_wallet";
 const PROCESS_MATCH_FN_NAME: &str = "process_match";
+const POLL_PROCESS_MATCH_FN_NAME: &str = "poll_process_match";
+
+const PROCESS_MATCH_NUM_PROOFS: usize = 6;
 
 pub static DARKPOOL_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -114,21 +119,8 @@ pub async fn get_wallet_blinder_transaction(
     .map(|r| r[0])
 }
 
-pub async fn new_wallet(
-    account: &ScriptAccount,
-    wallet_blinder_share: Scalar,
-    wallet_share_commitment: Scalar,
-    public_wallet_shares: Vec<Scalar>,
-    proof: R1CSProof,
-    witness_commitments: Vec<StarkPoint>,
-) -> Result<()> {
-    let calldata: Vec<FieldElement> = [wallet_blinder_share, wallet_share_commitment]
-        .iter()
-        .flat_map(|s| s.to_calldata())
-        .chain(public_wallet_shares.to_calldata().into_iter())
-        .chain(proof.to_calldata().into_iter())
-        .chain(witness_commitments.to_calldata().into_iter())
-        .collect();
+pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result<()> {
+    let calldata = args.to_calldata();
 
     invoke_contract(
         account,
@@ -140,29 +132,22 @@ pub async fn new_wallet(
     .map(|_| ())
 }
 
-#[allow(clippy::too_many_arguments)]
-pub async fn update_wallet(
+pub async fn poll_new_wallet(
     account: &ScriptAccount,
-    wallet_blinder_share: Scalar,
-    wallet_share_commitment: Scalar,
-    old_shares_nullifier: Scalar,
-    public_wallet_shares: Vec<Scalar>,
-    external_transfers: Vec<ExternalTransfer>,
-    proof: R1CSProof,
-    witness_commitments: Vec<StarkPoint>,
+    verification_job_id: FieldElement,
 ) -> Result<()> {
-    let calldata = [
-        wallet_blinder_share,
-        wallet_share_commitment,
-        old_shares_nullifier,
-    ]
-    .iter()
-    .flat_map(|s| s.to_calldata())
-    .chain(public_wallet_shares.to_calldata().into_iter())
-    .chain(external_transfers.to_calldata().into_iter())
-    .chain(proof.to_calldata().into_iter())
-    .chain(witness_commitments.to_calldata().into_iter())
-    .collect();
+    invoke_contract(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        POLL_NEW_WALLET_FN_NAME,
+        vec![verification_job_id],
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn update_wallet(account: &ScriptAccount, args: &UpdateWalletArgs) -> Result<()> {
+    let calldata = args.to_calldata();
 
     invoke_contract(
         account,
@@ -174,24 +159,22 @@ pub async fn update_wallet(
     .map(|_| ())
 }
 
-pub async fn process_match(
+pub async fn poll_update_wallet(
     account: &ScriptAccount,
-    party_0_payload: MatchPayload,
-    party_1_payload: MatchPayload,
-    match_proof: R1CSProof,
-    match_witness_commitments: Vec<StarkPoint>,
-    settle_proof: R1CSProof,
-    settle_witness_commitments: Vec<StarkPoint>,
+    verification_job_id: FieldElement,
 ) -> Result<()> {
-    let calldata = party_0_payload
-        .to_calldata()
-        .into_iter()
-        .chain(party_1_payload.to_calldata().into_iter())
-        .chain(match_proof.to_calldata().into_iter())
-        .chain(match_witness_commitments.to_calldata().into_iter())
-        .chain(settle_proof.to_calldata().into_iter())
-        .chain(settle_witness_commitments.to_calldata().into_iter())
-        .collect();
+    invoke_contract(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        POLL_UPDATE_WALLET_FN_NAME,
+        vec![verification_job_id],
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn process_match(account: &ScriptAccount, args: &ProcessMatchArgs) -> Result<()> {
+    let calldata = args.to_calldata();
 
     invoke_contract(
         account,
@@ -203,44 +186,51 @@ pub async fn process_match(
     .map(|_| ())
 }
 
+pub async fn poll_process_match(
+    account: &ScriptAccount,
+    verification_job_ids: Vec<FieldElement>,
+) -> Result<()> {
+    invoke_contract(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        POLL_PROCESS_MATCH_FN_NAME,
+        verification_job_ids,
+    )
+    .await
+    .map(|_| ())
+}
+
 // ----------------
 // | MISC HELPERS |
 // ----------------
 
-pub fn get_dummy_new_wallet_args() -> (Scalar, Scalar, Vec<Scalar>, R1CSProof, Vec<StarkPoint>) {
+pub fn get_dummy_new_wallet_args() -> Result<NewWalletArgs> {
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
     let wallet_share_commitment = Scalar::random(&mut thread_rng());
     let public_wallet_shares = vec![];
-    let proof = get_dummy_proof();
-    let witness_commitments = vec![];
+    let (proof, witness_commitments) = singleprover_prove_dummy_circuit()?;
+    let verification_job_id = random_felt();
 
-    (
+    Ok(NewWalletArgs {
         wallet_blinder_share,
         wallet_share_commitment,
         public_wallet_shares,
         proof,
         witness_commitments,
-    )
+        verification_job_id,
+    })
 }
 
-pub fn get_dummy_update_wallet_args() -> (
-    Scalar,
-    Scalar,
-    Scalar,
-    Vec<Scalar>,
-    Vec<ExternalTransfer>,
-    R1CSProof,
-    Vec<StarkPoint>,
-) {
+pub fn get_dummy_update_wallet_args() -> Result<UpdateWalletArgs> {
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
     let wallet_share_commitment = Scalar::random(&mut thread_rng());
     let old_shares_nullifier = Scalar::random(&mut thread_rng());
     let public_wallet_shares = vec![];
     let external_transfers = vec![];
-    let proof = get_dummy_proof();
-    let witness_commitments = vec![];
+    let (proof, witness_commitments) = singleprover_prove_dummy_circuit()?;
+    let verification_job_id = random_felt();
 
-    (
+    Ok(UpdateWalletArgs {
         wallet_blinder_share,
         wallet_share_commitment,
         old_shares_nullifier,
@@ -248,30 +238,46 @@ pub fn get_dummy_update_wallet_args() -> (
         external_transfers,
         proof,
         witness_commitments,
-    )
+        verification_job_id,
+    })
 }
 
-pub fn get_dummy_process_match_args() -> (
-    MatchPayload,
-    MatchPayload,
-    R1CSProof,
-    Vec<StarkPoint>,
-    R1CSProof,
-    Vec<StarkPoint>,
-) {
-    let party_0_match_payload = MatchPayload::dummy();
-    let party_1_match_payload = MatchPayload::dummy();
-    let match_proof = get_dummy_proof();
-    let match_witness_commitments = vec![];
-    let settle_proof = get_dummy_proof();
-    let settle_witness_commitments = vec![];
+pub fn get_dummy_process_match_args() -> Result<ProcessMatchArgs> {
+    let party_0_match_payload = MatchPayload::dummy()?;
+    let party_1_match_payload = MatchPayload::dummy()?;
+    let (match_proof, match_witness_commitments) = singleprover_prove_dummy_circuit()?;
+    let (settle_proof, settle_witness_commitments) = singleprover_prove_dummy_circuit()?;
+    let verification_job_ids = (0..PROCESS_MATCH_NUM_PROOFS)
+        .map(|_| random_felt())
+        .collect();
 
-    (
+    Ok(ProcessMatchArgs {
         party_0_match_payload,
         party_1_match_payload,
         match_proof,
         match_witness_commitments,
         settle_proof,
         settle_witness_commitments,
-    )
+        verification_job_ids,
+    })
+}
+
+pub async fn process_match_verification_jobs_are_done(
+    account: &ScriptAccount,
+    verification_job_ids: &[FieldElement],
+) -> Result<bool> {
+    for verification_job_id in verification_job_ids {
+        if check_verification_job_status(
+            account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            *verification_job_id,
+        )
+        .await?
+        .is_none()
+        {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
 }

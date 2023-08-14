@@ -18,7 +18,6 @@ use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};
 pub const TEST_MERKLE_HEIGHT: usize = 5;
 pub const MULTI_INSERT_ROUNDS: usize = 10;
 
-pub const GET_ROOT_FN_NAME: &str = "get_root";
 const INSERT_FN_NAME: &str = "insert";
 
 pub static MERKLE_ADDRESS: OnceCell<FieldElement> = OnceCell::new();

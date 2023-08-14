@@ -24,7 +24,7 @@ cairo-lang-lowering = { git = "https://github.com/starkware-libs/cairo.git", tag
 cairo-lang-parser = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }
 cairo-lang-plugins = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }
 cairo-lang-project = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }
-cairo-lang-semantic = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1", features = [ "testing" ] }
+cairo-lang-semantic = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }
 cairo-lang-sierra = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }
 cairo-lang-sierra-ap-change = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }
 cairo-lang-sierra-gas = { git = "https://github.com/starkware-libs/cairo.git", tag = "v2.0.1" }

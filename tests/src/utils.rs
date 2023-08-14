@@ -8,7 +8,7 @@ use mpc_bulletproof::{
         CircuitWeights, ConstraintSystem, Prover, R1CSProof, SparseReducedMatrix, SparseWeightRow,
         Variable, Verifier,
     },
-    BulletproofGens, InnerProductProof, PedersenGens,
+    BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use num_bigint::{BigUint, RandBigInt};
@@ -26,10 +26,7 @@ use std::{env, sync::Once};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::{
-    merkle::{ark_merkle::ScalarMerkleTree, utils::GET_ROOT_FN_NAME},
-    nullifier_set::utils::IS_NULLIFIER_USED_FN_NAME,
-};
+use crate::merkle::ark_merkle::ScalarMerkleTree;
 
 // ---------------------
 // | META TEST HELPERS |
@@ -77,6 +74,10 @@ pub fn global_teardown(sequencer: TestSequencer) {
 // --------------------------------
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
+
+pub const IS_NULLIFIER_USED_FN_NAME: &str = "is_nullifier_used";
+pub const GET_ROOT_FN_NAME: &str = "get_root";
+pub const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 
 pub async fn call_contract(
     account: &ScriptAccount,
@@ -140,14 +141,41 @@ pub async fn is_nullifier_used(
     .map(|r| r[0] == FieldElement::ONE)
 }
 
+pub async fn check_verification_job_status(
+    account: &ScriptAccount,
+    contract_address: FieldElement,
+    verification_job_id: FieldElement,
+) -> Result<Option<bool>> {
+    call_contract(
+        account,
+        contract_address,
+        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
+        vec![verification_job_id],
+    )
+    .await
+    .map(|r| {
+        // The Cairo corelib serializes an Option::None(()) as 1,
+        // and an Option::Some(x) as [0, ..serialize(x)].
+        // In our case, x is a bool => serializes as a true = 1, false = 0.
+        if r[0] == FieldElement::ONE {
+            None
+        } else {
+            Some(r[1] == FieldElement::ONE)
+        }
+    })
+}
+
 // ----------------
 // | MISC HELPERS |
 // ----------------
 
 pub fn random_felt() -> FieldElement {
-    let max = BigUint::from_bytes_be(&FieldElement::MAX.to_bytes_be());
-    let rand_biguint = thread_rng().gen_biguint_below(&max);
-    FieldElement::from_bytes_be(&rand_biguint.to_bytes_be().try_into().unwrap()).unwrap()
+    let modulus = BigUint::from_bytes_be(&FieldElement::MAX.to_bytes_be()) + 1_u8;
+    let rand_biguint = thread_rng().gen_biguint_below(&modulus);
+    let mut felt_bytes = [0_u8; 32];
+    let rand_biguint_bytes = rand_biguint.to_bytes_be();
+    felt_bytes[32 - rand_biguint_bytes.len()..].copy_from_slice(&rand_biguint_bytes);
+    FieldElement::from_bytes_be(&felt_bytes).unwrap()
 }
 
 pub fn scalar_to_felt(scalar: &Scalar) -> FieldElement {
@@ -231,17 +259,22 @@ pub struct MatchPayload {
 }
 
 impl MatchPayload {
-    pub fn dummy() -> Self {
-        Self {
+    pub fn dummy() -> Result<Self> {
+        let (valid_commitments_proof, valid_commitments_witness_commitments) =
+            singleprover_prove_dummy_circuit()?;
+        let (valid_reblind_proof, valid_reblind_witness_commitments) =
+            singleprover_prove_dummy_circuit()?;
+
+        Ok(Self {
             wallet_blinder_share: Scalar::random(&mut thread_rng()),
             old_shares_nullifier: Scalar::random(&mut thread_rng()),
             wallet_share_commitment: Scalar::random(&mut thread_rng()),
             public_wallet_shares: vec![],
-            valid_commitments_proof: get_dummy_proof(),
-            valid_commitments_witness_commitments: vec![],
-            valid_reblind_proof: get_dummy_proof(),
-            valid_reblind_witness_commitments: vec![],
-        }
+            valid_commitments_proof,
+            valid_commitments_witness_commitments,
+            valid_reblind_proof,
+            valid_reblind_witness_commitments,
+        })
     }
 }
 
@@ -270,6 +303,36 @@ pub struct CircuitParams {
     pub w_v: SparseReducedMatrix,
     /// Sparse-reduced vector of constants in the circuit
     pub c: SparseWeightRow,
+}
+
+pub struct NewWalletArgs {
+    pub wallet_blinder_share: Scalar,
+    pub wallet_share_commitment: Scalar,
+    pub public_wallet_shares: Vec<Scalar>,
+    pub proof: R1CSProof,
+    pub witness_commitments: Vec<StarkPoint>,
+    pub verification_job_id: FieldElement,
+}
+
+pub struct UpdateWalletArgs {
+    pub wallet_blinder_share: Scalar,
+    pub wallet_share_commitment: Scalar,
+    pub old_shares_nullifier: Scalar,
+    pub public_wallet_shares: Vec<Scalar>,
+    pub external_transfers: Vec<ExternalTransfer>,
+    pub proof: R1CSProof,
+    pub witness_commitments: Vec<StarkPoint>,
+    pub verification_job_id: FieldElement,
+}
+
+pub struct ProcessMatchArgs {
+    pub party_0_match_payload: MatchPayload,
+    pub party_1_match_payload: MatchPayload,
+    pub match_proof: R1CSProof,
+    pub match_witness_commitments: Vec<StarkPoint>,
+    pub settle_proof: R1CSProof,
+    pub settle_witness_commitments: Vec<StarkPoint>,
+    pub verification_job_ids: Vec<FieldElement>,
 }
 
 pub trait CalldataSerializable {
@@ -324,6 +387,12 @@ impl CalldataSerializable for StarknetU256 {
 impl CalldataSerializable for Scalar {
     fn to_calldata(&self) -> Vec<FieldElement> {
         vec![scalar_to_felt(self)]
+    }
+}
+
+impl CalldataSerializable for FieldElement {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![*self]
     }
 }
 
@@ -413,6 +482,52 @@ impl CalldataSerializable for CircuitParams {
                     .flat_map(|s| s.to_calldata()),
             )
             .chain(self.c.to_calldata().into_iter())
+            .collect()
+    }
+}
+
+impl CalldataSerializable for NewWalletArgs {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        [self.wallet_blinder_share, self.wallet_share_commitment]
+            .iter()
+            .flat_map(|s| s.to_calldata())
+            .chain(self.public_wallet_shares.to_calldata().into_iter())
+            .chain(self.proof.to_calldata().into_iter())
+            .chain(self.witness_commitments.to_calldata().into_iter())
+            .chain(self.verification_job_id.to_calldata())
+            .collect()
+    }
+}
+
+impl CalldataSerializable for UpdateWalletArgs {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        [
+            self.wallet_blinder_share,
+            self.wallet_share_commitment,
+            self.old_shares_nullifier,
+        ]
+        .iter()
+        .flat_map(|s| s.to_calldata())
+        .chain(self.public_wallet_shares.to_calldata().into_iter())
+        .chain(self.external_transfers.to_calldata().into_iter())
+        .chain(self.proof.to_calldata().into_iter())
+        .chain(self.witness_commitments.to_calldata().into_iter())
+        .chain(self.verification_job_id.to_calldata())
+        .collect()
+    }
+}
+
+impl CalldataSerializable for ProcessMatchArgs {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        self.party_0_match_payload
+            .to_calldata()
+            .into_iter()
+            .chain(self.party_1_match_payload.to_calldata())
+            .chain(self.match_proof.to_calldata())
+            .chain(self.match_witness_commitments.to_calldata())
+            .chain(self.settle_proof.to_calldata())
+            .chain(self.settle_witness_commitments.to_calldata())
+            .chain(self.verification_job_ids.to_calldata())
             .collect()
     }
 }
@@ -522,31 +637,6 @@ pub fn prep_dummy_circuit_verifier(verifier: &mut Verifier, witness_commitments:
 
     debug!("Applying dummy circuit constraints on verifier...");
     apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, verifier);
-}
-
-pub fn get_dummy_proof() -> R1CSProof {
-    R1CSProof {
-        A_I1: StarkPoint::generator(),
-        A_O1: StarkPoint::generator(),
-        S1: StarkPoint::generator(),
-        A_I2: StarkPoint::generator(),
-        A_O2: StarkPoint::generator(),
-        S2: StarkPoint::generator(),
-        T_1: StarkPoint::generator(),
-        T_3: StarkPoint::generator(),
-        T_4: StarkPoint::generator(),
-        T_5: StarkPoint::generator(),
-        T_6: StarkPoint::generator(),
-        t_x: Scalar::random(&mut thread_rng()),
-        t_x_blinding: Scalar::random(&mut thread_rng()),
-        e_blinding: Scalar::random(&mut thread_rng()),
-        ipp_proof: InnerProductProof {
-            L_vec: vec![],
-            R_vec: vec![],
-            a: Scalar::random(&mut thread_rng()),
-            b: Scalar::random(&mut thread_rng()),
-        },
-    }
 }
 
 pub fn get_dummy_circuit_weights() -> CircuitWeights {
