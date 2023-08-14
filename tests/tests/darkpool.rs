@@ -8,7 +8,7 @@ use tests::{
     },
     utils::{
         assert_roots_equal, check_verification_job_status, global_teardown,
-        insert_scalar_to_ark_merkle_tree,
+        insert_scalar_to_ark_merkle_tree, is_nullifier_used,
     },
 };
 
@@ -197,6 +197,103 @@ async fn test_process_match_last_modified() -> Result<()> {
 
     assert_eq!(tx_hash, party_0_last_modified_tx);
     assert_eq!(tx_hash, party_1_last_modified_tx);
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+// -----------------------
+// | NULLIFIER SET TESTS |
+// -----------------------
+
+#[tokio::test]
+async fn test_update_wallet_nullifiers() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test().await?;
+    let account = sequencer.account();
+
+    let args = get_dummy_update_wallet_args()?;
+
+    assert!(
+        !is_nullifier_used(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            args.old_shares_nullifier
+        )
+        .await?
+    );
+
+    update_wallet(&account, &args).await?;
+    while check_verification_job_status(
+        &account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        args.verification_job_id,
+    )
+    .await?
+    .is_none()
+    {
+        poll_update_wallet(&account, args.verification_job_id).await?;
+    }
+
+    assert!(
+        is_nullifier_used(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            args.old_shares_nullifier
+        )
+        .await?
+    );
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_process_match_nullifiers() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test().await?;
+    let account = sequencer.account();
+
+    let args = get_dummy_process_match_args()?;
+
+    assert!(
+        !is_nullifier_used(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            args.party_0_match_payload.old_shares_nullifier
+        )
+        .await?
+    );
+    assert!(
+        !is_nullifier_used(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            args.party_1_match_payload.old_shares_nullifier
+        )
+        .await?
+    );
+
+    process_match(&account, &args).await?;
+    while !process_match_verification_jobs_are_done(&account, &args.verification_job_ids).await? {
+        poll_process_match(&account, args.verification_job_ids.clone()).await?;
+    }
+
+    assert!(
+        is_nullifier_used(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            args.party_0_match_payload.old_shares_nullifier
+        )
+        .await?
+    );
+    assert!(
+        is_nullifier_used(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            args.party_1_match_payload.old_shares_nullifier
+        )
+        .await?
+    );
 
     global_teardown(sequencer);
 
