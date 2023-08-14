@@ -137,13 +137,16 @@ mod Darkpool {
         nullifier_set_class_hash: ClassHash,
         /// Stores the contract address of the deployed verifier
         verifier_contract_address: ContractAddress,
-        /// Mapping of callback elements for in-progress `new_wallet` verification jobs
+        /// Mapping of elements to be used in the post-polling merkle & nullifier set
+        /// callback logic for in-progress `new_wallet` verification jobs
         new_wallet_callback_elems: LegacyMap<felt252,
         StorageAccessSerdeWrapper<NewWalletCallbackElems>>,
-        /// Mapping of callback elements for in-progress `update_wallet` verification jobs
+        /// Mapping of elements to be used in the post-polling merkle & nullifier set
+        /// callback logic for in-progress `update_wallet` verification jobs
         update_wallet_callback_elems: LegacyMap<felt252,
         StorageAccessSerdeWrapper<UpdateWalletCallbackElems>>,
-        /// Mapping of callback elements for in-progress `process_match` verification jobs
+        /// Mapping of elements to be used in the post-polling merkle & nullifier set
+        /// callback logic for in-progress `process_match` verification jobs.
         /// Uses the first verification job id in the list of ids for the process_match proofs
         /// as the mapping key.
         process_match_callback_elems: LegacyMap<felt252,
@@ -456,8 +459,6 @@ mod Darkpool {
         /// Poll the new wallet verification job, and if it verifies, insert the new wallet into the
         /// merkle tree
         /// Parameters:
-        /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
-        /// - `wallet_share_commitment`: The commitment to the new wallet's shares
         /// - `verification_job_id`: The ID of the verification job to step through
         /// Returns:
         /// - The new root after the wallet is inserted into the tree, if the proof verifies
@@ -512,14 +513,9 @@ mod Darkpool {
             _poll_update_wallet_inner(ref self, callback_elems, verification_job_id)
         }
 
-        /// Poll the update wallet verification job, and if it verifies, insert the new wallet into the
+        /// Poll the update wallet verification job, and if it verifies, insert the updated wallet into the
         /// merkle tree
         /// Parameters:
-        /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
-        /// - `wallet_share_commitment`: The commitment to the updated wallet's shares
-        /// - `old_shares_nullifier`: The nullifier for the public shares of the wallet before it was updated
-        /// - `public_wallet_shares`: The public shares of the wallet after it was updated
-        /// - `external_transfers`: The external transfers (ERC20 deposit/withdrawal)
         /// - `verification_job_id`: The ID of the verification job to step through
         /// Returns:
         /// - The root of the tree after the new commitment is inserted, if the proof verifies
@@ -612,6 +608,12 @@ mod Darkpool {
             _poll_process_match_inner(ref self, callback_elems, verification_job_ids, )
         }
 
+        /// Poll the process match verification job, and if it verifies, insert the updated wallet into the
+        /// merkle tree
+        /// Parameters:
+        /// - `verification_job_id`: The ID of the verification job to step through
+        /// Returns:
+        /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn poll_process_match(
             ref self: ContractState, verification_job_ids: Array<felt252>, 
         ) -> Option<Result<Scalar, felt252>> {
@@ -753,6 +755,8 @@ mod Darkpool {
         match verified {
             Option::Some(success) => {
                 if success {
+                    // Callback logic
+
                     // Insert the new wallet's commitment into the Merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
                     let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
@@ -781,6 +785,8 @@ mod Darkpool {
         match verified {
             Option::Some(success) => {
                 if success {
+                    // Callback logic
+
                     // Insert the updated wallet's commitment into the Merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
                     let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
@@ -811,10 +817,6 @@ mod Darkpool {
         verification_job_ids: Array<felt252>,
     ) -> Option<Result<Scalar, felt252>> {
         let verifier = _get_verifier(@self);
-
-        // TODO: Make sure `step_verification` is idempotent, i.e. still returns
-        // `verified` properly for an already verified proof.
-        // Else, have to start with a call to `check_verification_job_status`...
 
         // Step through party 0 VALID COMMITMENTS
         let party_0_valid_commitments_verified = verifier
@@ -849,10 +851,14 @@ mod Darkpool {
         match valid_settle_verified {
             Option::Some(success) => {
                 if success {
+                    // Callback logic
+
+                    // Insert both parties' old shares nullifiers to the spent nullifier set
                     let nullifier_set = _get_nullifier_set(@self);
                     nullifier_set.mark_nullifier_used(callback_elems.party_0_old_shares_nullifier);
                     nullifier_set.mark_nullifier_used(callback_elems.party_1_old_shares_nullifier);
 
+                    // Insert both partes' updated wallet commitments to the merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
                     merkle_tree.insert(callback_elems.party_0_wallet_share_commitment);
                     let new_root = merkle_tree
