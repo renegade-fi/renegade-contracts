@@ -16,7 +16,7 @@ use rand::thread_rng;
 use starknet::{
     accounts::{Account, Call, ConnectedAccount},
     core::{
-        types::{BlockId, BlockTag, FieldElement, FunctionCall},
+        types::{BlockId, BlockTag, FieldElement, FunctionCall, InvokeTransactionResult},
         utils::get_selector_from_name,
     },
     providers::Provider,
@@ -105,7 +105,7 @@ pub async fn invoke_contract(
     contract_address: FieldElement,
     entry_point: &str,
     calldata: Vec<FieldElement>,
-) -> Result<()> {
+) -> Result<InvokeTransactionResult> {
     debug!("Invoking {} on contract...", entry_point);
     account
         .execute(vec![Call {
@@ -115,7 +115,6 @@ pub async fn invoke_contract(
         }])
         .send()
         .await
-        .map(|_| ())
         .map_err(|e| eyre!("Error invoking {}: {}", entry_point, e))
 }
 

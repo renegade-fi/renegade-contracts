@@ -94,6 +94,7 @@ pub async fn rangeproof_domain_sep(account: &ScriptAccount, n: u64, m: u64) -> R
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn innerproduct_domain_sep(account: &ScriptAccount, n: u64) -> Result<()> {
@@ -105,6 +106,7 @@ pub async fn innerproduct_domain_sep(account: &ScriptAccount, n: u64) -> Result<
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn r1cs_domain_sep(account: &ScriptAccount) -> Result<()> {
@@ -115,6 +117,7 @@ pub async fn r1cs_domain_sep(account: &ScriptAccount) -> Result<()> {
         vec![],
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn r1cs_1phase_domain_sep(account: &ScriptAccount) -> Result<()> {
@@ -125,6 +128,7 @@ pub async fn r1cs_1phase_domain_sep(account: &ScriptAccount) -> Result<()> {
         vec![],
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn append_scalar(account: &ScriptAccount, label: &str, scalar: &Scalar) -> Result<()> {
@@ -140,6 +144,7 @@ pub async fn append_scalar(account: &ScriptAccount, label: &str, scalar: &Scalar
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn append_point(account: &ScriptAccount, label: &str, point: &StarkPoint) -> Result<()> {
@@ -153,6 +158,7 @@ pub async fn append_point(account: &ScriptAccount, label: &str, point: &StarkPoi
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn validate_and_append_point(
@@ -170,6 +176,7 @@ pub async fn validate_and_append_point(
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn challenge_scalar(account: &ScriptAccount, label: &str) -> Result<()> {
@@ -181,6 +188,7 @@ pub async fn challenge_scalar(account: &ScriptAccount, label: &str) -> Result<()
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn get_challenge_scalar(account: &ScriptAccount) -> Result<Scalar> {

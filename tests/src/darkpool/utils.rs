@@ -119,7 +119,7 @@ pub async fn get_wallet_blinder_transaction(
     .map(|r| r[0])
 }
 
-pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result<()> {
+pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result<FieldElement> {
     let calldata = args.to_calldata();
 
     invoke_contract(
@@ -129,13 +129,13 @@ pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result
         calldata,
     )
     .await
-    .map(|_| ())
+    .map(|r| r.transaction_hash)
 }
 
 pub async fn poll_new_wallet(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
-) -> Result<()> {
+) -> Result<FieldElement> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -143,10 +143,13 @@ pub async fn poll_new_wallet(
         vec![verification_job_id],
     )
     .await
-    .map(|_| ())
+    .map(|r| r.transaction_hash)
 }
 
-pub async fn update_wallet(account: &ScriptAccount, args: &UpdateWalletArgs) -> Result<()> {
+pub async fn update_wallet(
+    account: &ScriptAccount,
+    args: &UpdateWalletArgs,
+) -> Result<FieldElement> {
     let calldata = args.to_calldata();
 
     invoke_contract(
@@ -156,13 +159,13 @@ pub async fn update_wallet(account: &ScriptAccount, args: &UpdateWalletArgs) -> 
         calldata,
     )
     .await
-    .map(|_| ())
+    .map(|r| r.transaction_hash)
 }
 
 pub async fn poll_update_wallet(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
-) -> Result<()> {
+) -> Result<FieldElement> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -170,10 +173,13 @@ pub async fn poll_update_wallet(
         vec![verification_job_id],
     )
     .await
-    .map(|_| ())
+    .map(|r| r.transaction_hash)
 }
 
-pub async fn process_match(account: &ScriptAccount, args: &ProcessMatchArgs) -> Result<()> {
+pub async fn process_match(
+    account: &ScriptAccount,
+    args: &ProcessMatchArgs,
+) -> Result<FieldElement> {
     let calldata = args.to_calldata();
 
     invoke_contract(
@@ -183,13 +189,13 @@ pub async fn process_match(account: &ScriptAccount, args: &ProcessMatchArgs) -> 
         calldata,
     )
     .await
-    .map(|_| ())
+    .map(|r| r.transaction_hash)
 }
 
 pub async fn poll_process_match(
     account: &ScriptAccount,
     verification_job_ids: Vec<FieldElement>,
-) -> Result<()> {
+) -> Result<FieldElement> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -197,7 +203,27 @@ pub async fn poll_process_match(
         verification_job_ids,
     )
     .await
-    .map(|_| ())
+    .map(|r| r.transaction_hash)
+}
+
+pub async fn process_match_verification_jobs_are_done(
+    account: &ScriptAccount,
+    verification_job_ids: &[FieldElement],
+) -> Result<bool> {
+    for verification_job_id in verification_job_ids {
+        if check_verification_job_status(
+            account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            *verification_job_id,
+        )
+        .await?
+        .is_none()
+        {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
 }
 
 // ----------------
@@ -260,24 +286,4 @@ pub fn get_dummy_process_match_args() -> Result<ProcessMatchArgs> {
         settle_witness_commitments,
         verification_job_ids,
     })
-}
-
-pub async fn process_match_verification_jobs_are_done(
-    account: &ScriptAccount,
-    verification_job_ids: &[FieldElement],
-) -> Result<bool> {
-    for verification_job_id in verification_job_ids {
-        if check_verification_job_status(
-            account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
-            *verification_job_id,
-        )
-        .await?
-        .is_none()
-        {
-            return Ok(false);
-        }
-    }
-
-    Ok(true)
 }
