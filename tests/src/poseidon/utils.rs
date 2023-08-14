@@ -15,7 +15,8 @@ use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, felt_to_scalar, global_setup, invoke_contract, ARTIFACTS_PATH_ENV_VAR,
+    call_contract, felt_to_scalar, global_setup, invoke_contract, CalldataSerializable,
+    ARTIFACTS_PATH_ENV_VAR,
 };
 
 pub const FUZZ_ROUNDS: usize = 4;
@@ -70,18 +71,16 @@ pub async fn deploy_poseidon_wrapper(
 
 pub async fn store_hash(
     account: &ScriptAccount,
-    input: &[Scalar],
+    input: &Vec<Scalar>,
     num_elements: usize,
 ) -> Result<()> {
     // First element is the length of the input
-    let calldata = iter::once(Ok(FieldElement::from(input.len())))
-        .chain(
-            input
-                .iter()
-                .map(|s| FieldElement::from_byte_slice_be(&s.to_bytes_be())),
-        )
-        .chain(iter::once(Ok(FieldElement::from(num_elements))))
-        .collect::<Result<Vec<FieldElement>, _>>()?;
+    let calldata = input
+        .to_calldata()
+        .into_iter()
+        .chain(iter::once(FieldElement::from(num_elements)))
+        .collect();
+
     invoke_contract(
         account,
         *POSEIDON_WRAPPER_ADDRESS.get().unwrap(),
@@ -89,6 +88,7 @@ pub async fn store_hash(
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn get_hash(account: &ScriptAccount) -> Result<Vec<Scalar>> {

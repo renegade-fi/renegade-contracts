@@ -72,6 +72,7 @@ pub async fn insert(account: &ScriptAccount, value: Scalar) -> Result<()> {
         vec![value_felt],
     )
     .await
+    .map(|_| ())
 }
 
 // ----------------

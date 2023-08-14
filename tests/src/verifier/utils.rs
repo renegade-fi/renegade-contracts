@@ -82,6 +82,7 @@ pub async fn queue_verification_job(
         calldata,
     )
     .await
+    .map(|_| ())
 }
 
 pub async fn step_verification(
@@ -95,4 +96,5 @@ pub async fn step_verification(
         vec![verification_job_id],
     )
     .await
+    .map(|_| ())
 }

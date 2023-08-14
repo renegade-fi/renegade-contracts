@@ -50,4 +50,5 @@ pub async fn mark_nullifier_used(account: &ScriptAccount, nullifier: Scalar) -> 
         vec![nullifier_felt],
     )
     .await
+    .map(|_| ())
 }
