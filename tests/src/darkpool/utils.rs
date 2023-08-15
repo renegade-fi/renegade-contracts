@@ -31,6 +31,7 @@ use crate::{
 };
 
 const DUMMY_ERC20_CONTRACT_NAME: &str = "renegade_contracts_DummyERC20";
+const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgradeTarget";
 
 pub const INIT_BALANCE: u128 = 1000;
 pub const TRANSFER_AMOUNT: u128 = 100;
@@ -44,32 +45,44 @@ const PROCESS_MATCH_FN_NAME: &str = "process_match";
 const POLL_PROCESS_MATCH_FN_NAME: &str = "poll_process_match";
 const BALANCE_OF_FN_NAME: &str = "balance_of";
 const APPROVE_FN_NAME: &str = "approve";
+const UPGRADE_FN_NAME: &str = "upgrade";
 
 const PROCESS_MATCH_NUM_PROOFS: usize = 6;
 
 pub static DARKPOOL_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
+pub static DARKPOOL_CLASS_HASH: OnceCell<FieldElement> = OnceCell::new();
 pub static ERC20_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
+pub static UPGRADE_TARGET_CLASS_HASH: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
 // | META TEST HELPERS |
 // ---------------------
 
-pub async fn setup_darkpool_test(init_erc20: bool) -> Result<(TestSequencer, ScalarMerkleTree)> {
+pub async fn setup_darkpool_test(
+    init_erc20: bool,
+    init_upgrade_target: bool,
+) -> Result<(TestSequencer, ScalarMerkleTree)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let sequencer = global_setup().await;
     let account = sequencer.account();
 
     debug!("Declaring & deploying darkpool contract...");
-    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
-        deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
+    let (
+        darkpool_address,
+        darkpool_class_hash,
+        merkle_class_hash,
+        nullifier_set_class_hash,
+        verifier_class_hash,
+        _,
+    ) = deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
     if DARKPOOL_ADDRESS.get().is_none() {
         // When running multiple tests, it's possible for the OnceCell to already be set.
         // However, we still want to deploy the contract, since each test gets its own sequencer.
         DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
     }
 
-    debug!("Deploying verifier contract...");
+    debug!("Declaring & deploying verifier contract...");
     let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
     let (verifier_address, _, _) =
         deploy_verifier(verifier_class_hash_hex, &artifacts_path, &account).await?;
@@ -87,7 +100,7 @@ pub async fn setup_darkpool_test(init_erc20: bool) -> Result<(TestSequencer, Sca
     .await?;
 
     if init_erc20 {
-        debug!("Deploying dummy ERC20 contract...");
+        debug!("Declaring & deploying dummy ERC20 contract...");
         let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
         if ERC20_ADDRESS.get().is_none() {
             // When running multiple tests, it's possible for the OnceCell to already be set.
@@ -103,6 +116,26 @@ pub async fn setup_darkpool_test(init_erc20: bool) -> Result<(TestSequencer, Sca
             },
         )
         .await?;
+    }
+
+    if init_upgrade_target {
+        debug!("Declaring dummy upgrade target contract...");
+        let upgrade_target_class_hash =
+            declare_dummy_upgrade_target(&artifacts_path, &account).await?;
+        if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
+            // When running multiple tests, it's possible for the OnceCell to already be set.
+            // However, we still want to deploy the contract, since each test gets its own sequencer.
+            UPGRADE_TARGET_CLASS_HASH
+                .set(upgrade_target_class_hash)
+                .unwrap();
+        }
+
+        // Only need darkpool class hash when doing upgrade tests
+        if DARKPOOL_CLASS_HASH.get().is_none() {
+            // When running multiple tests, it's possible for the OnceCell to already be set.
+            // However, we still want to deploy the contract, since each test gets its own sequencer.
+            DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
+        }
     }
 
     debug!("Initializing arkworks merkle tree...");
@@ -137,6 +170,22 @@ async fn deploy_dummy_erc20(
 
     deploy(account, class_hash, &calldata).await?;
     Ok(calculate_contract_address(class_hash, &calldata))
+}
+
+async fn declare_dummy_upgrade_target(
+    artifacts_path: &str,
+    account: &ScriptAccount,
+) -> Result<FieldElement> {
+    let (upgrade_target_sierra_path, upgrade_target_casm_path) =
+        get_artifacts(artifacts_path, DUMMY_UPGRADE_TARGET_CONTRACT_NAME);
+    let DeclareTransactionResult { class_hash, .. } = declare(
+        upgrade_target_sierra_path,
+        upgrade_target_casm_path,
+        account,
+    )
+    .await?;
+
+    Ok(class_hash)
 }
 
 // --------------------------------
@@ -366,6 +415,17 @@ pub async fn approve(
         *ERC20_ADDRESS.get().unwrap(),
         APPROVE_FN_NAME,
         calldata,
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn upgrade(account: &ScriptAccount, class_hash: FieldElement) -> Result<()> {
+    invoke_contract(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        UPGRADE_FN_NAME,
+        vec![class_hash],
     )
     .await
     .map(|_| ())

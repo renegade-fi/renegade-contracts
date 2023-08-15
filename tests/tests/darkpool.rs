@@ -3,14 +3,14 @@ use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
         balance_of, get_dummy_new_wallet_args, get_dummy_process_match_args,
-        get_dummy_update_wallet_args, get_wallet_blinder_transaction,
-        poll_new_wallet_to_completion, poll_process_match_to_completion,
-        poll_update_wallet_to_completion, setup_darkpool_test, DARKPOOL_ADDRESS, ERC20_ADDRESS,
-        INIT_BALANCE, TRANSFER_AMOUNT,
+        get_dummy_update_wallet_args, get_wallet_blinder_transaction, new_wallet_and_poll,
+        process_match_and_poll, setup_darkpool_test, update_wallet_and_poll, upgrade,
+        DARKPOOL_ADDRESS, DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
+        UPGRADE_TARGET_CLASS_HASH,
     },
     utils::{
-        assert_roots_equal, global_teardown, insert_scalar_to_ark_merkle_tree, is_nullifier_used,
-        ExternalTransfer, StarknetU256,
+        assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree,
+        is_nullifier_used, ExternalTransfer, StarknetU256,
     },
 };
 
@@ -20,7 +20,11 @@ use tests::{
 
 #[tokio::test]
 async fn test_initialization_root() -> Result<()> {
-    let (sequencer, ark_merkle_tree) = setup_darkpool_test(false).await?;
+    let (sequencer, ark_merkle_tree) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
 
     assert_roots_equal(
         &sequencer.account(),
@@ -36,7 +40,11 @@ async fn test_initialization_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_new_wallet_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(false).await?;
+    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
@@ -53,7 +61,11 @@ async fn test_new_wallet_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(false).await?;
+    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
@@ -70,7 +82,11 @@ async fn test_update_wallet_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(false).await?;
+    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
@@ -100,7 +116,11 @@ async fn test_process_match_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_new_wallet_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(false).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
@@ -118,7 +138,11 @@ async fn test_new_wallet_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(false).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
@@ -136,7 +160,11 @@ async fn test_update_wallet_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(false).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
@@ -163,7 +191,11 @@ async fn test_process_match_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_nullifiers() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(false).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
@@ -195,7 +227,11 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_nullifiers() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(false).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        false, /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
@@ -247,7 +283,11 @@ async fn test_process_match_nullifiers() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_deposit() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(true).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        true,  /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let mut args = get_dummy_update_wallet_args()?;
@@ -277,7 +317,11 @@ async fn test_update_wallet_deposit() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_withdrawal() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(true).await?;
+    let (sequencer, _) = setup_darkpool_test(
+        true,  /* init_erc20 */
+        false, /* init_upgrade_target */
+    )
+    .await?;
     let account = sequencer.account();
 
     let mut args = get_dummy_update_wallet_args()?;
@@ -299,6 +343,44 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
     // Assumes that INIT_BALANCE +/- TRANSFER_AMOUNT fits within the lower 128 bits of a u256 for simplicity
     assert_eq!(account_balance.low, INIT_BALANCE + TRANSFER_AMOUNT);
     assert_eq!(darkpool_balance.low, INIT_BALANCE - TRANSFER_AMOUNT);
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_darkpool_storage() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(
+        false, /* init_erc20 */
+        true,  /* init_upgrade_target */
+    )
+    .await?;
+    let account = sequencer.account();
+
+    let args = get_dummy_update_wallet_args()?;
+
+    update_wallet_and_poll(&account, &args).await?;
+
+    // Get pre-upgrade root
+    let pre_upgrade_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+
+    // Upgrade to dummy target
+    upgrade(&account, *UPGRADE_TARGET_CLASS_HASH.get().unwrap()).await?;
+    // Upgrade back to original impl
+    upgrade(&account, *DARKPOOL_CLASS_HASH.get().unwrap()).await?;
+
+    // Get storage elements (root, nullifier_used) after upgrade
+    let post_upgrade_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let old_shares_nullifier_used = is_nullifier_used(
+        &account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        args.old_shares_nullifier,
+    )
+    .await?;
+
+    assert_eq!(pre_upgrade_root, post_upgrade_root);
+    assert!(old_shares_nullifier_used);
 
     global_teardown(sequencer);
 
