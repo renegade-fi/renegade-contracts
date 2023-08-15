@@ -1,4 +1,3 @@
-use byteorder::{BigEndian, ReadBytesExt};
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
@@ -15,7 +14,7 @@ use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
     initialize, ScriptAccount,
 };
-use std::{env, io::Cursor, iter};
+use std::{env, iter};
 use tracing::debug;
 
 use crate::{
@@ -24,10 +23,10 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, check_verification_job_status, get_dummy_circuit_params, global_setup,
-        invoke_contract, random_felt, scalar_to_felt, singleprover_prove_dummy_circuit,
-        CalldataSerializable, CircuitParams, MatchPayload, NewWalletArgs, ProcessMatchArgs,
-        StarknetU256, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
+        call_contract, check_verification_job_status, felt_to_u128, get_dummy_circuit_params,
+        global_setup, invoke_contract, random_felt, scalar_to_felt,
+        singleprover_prove_dummy_circuit, CalldataSerializable, CircuitParams, MatchPayload,
+        NewWalletArgs, ProcessMatchArgs, StarknetU256, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
     },
 };
 
@@ -209,7 +208,7 @@ pub async fn poll_new_wallet(
     .map(|r| r.transaction_hash)
 }
 
-pub async fn new_wallet_and_poll(
+pub async fn poll_new_wallet_to_completion(
     account: &ScriptAccount,
     args: &NewWalletArgs,
 ) -> Result<FieldElement> {
@@ -258,7 +257,7 @@ pub async fn poll_update_wallet(
     .map(|r| r.transaction_hash)
 }
 
-pub async fn update_wallet_and_poll(
+pub async fn poll_update_wallet_to_completion(
     account: &ScriptAccount,
     args: &UpdateWalletArgs,
 ) -> Result<FieldElement> {
@@ -327,7 +326,7 @@ pub async fn process_match_verification_jobs_are_done(
     Ok(true)
 }
 
-pub async fn process_match_and_poll(
+pub async fn poll_process_match_to_completion(
     account: &ScriptAccount,
     args: &ProcessMatchArgs,
 ) -> Result<FieldElement> {
@@ -349,15 +348,8 @@ pub async fn balance_of(account: &ScriptAccount, address: FieldElement) -> Resul
     )
     .await
     .map(|r| {
-        let mut low_cursor = Cursor::new(r[0].to_bytes_be());
-        // Grab the least significant 128 bits for the u128
-        low_cursor.set_position(16);
-        let low = low_cursor.read_u128::<BigEndian>().unwrap();
-
-        let mut high_cursor = Cursor::new(r[1].to_bytes_be());
-        // Grab the least significant 128 bits for the u128
-        high_cursor.set_position(16);
-        let high = high_cursor.read_u128::<BigEndian>().unwrap();
+        let low = felt_to_u128(&r[0]);
+        let high = felt_to_u128(&r[1]);
 
         StarknetU256 { low, high }
     })

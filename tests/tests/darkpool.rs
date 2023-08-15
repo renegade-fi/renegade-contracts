@@ -3,9 +3,10 @@ use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
         balance_of, get_dummy_new_wallet_args, get_dummy_process_match_args,
-        get_dummy_update_wallet_args, get_wallet_blinder_transaction, new_wallet_and_poll,
-        process_match_and_poll, setup_darkpool_test, update_wallet_and_poll, DARKPOOL_ADDRESS,
-        ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
+        get_dummy_update_wallet_args, get_wallet_blinder_transaction,
+        poll_new_wallet_to_completion, poll_process_match_to_completion,
+        poll_update_wallet_to_completion, setup_darkpool_test, DARKPOOL_ADDRESS, ERC20_ADDRESS,
+        INIT_BALANCE, TRANSFER_AMOUNT,
     },
     utils::{
         assert_roots_equal, global_teardown, insert_scalar_to_ark_merkle_tree, is_nullifier_used,
@@ -39,7 +40,7 @@ async fn test_new_wallet_root() -> Result<()> {
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
-    new_wallet_and_poll(&account, &args).await?;
+    poll_new_wallet_to_completion(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(&args.wallet_share_commitment, &mut ark_merkle_tree, 0)?;
 
@@ -56,7 +57,7 @@ async fn test_update_wallet_root() -> Result<()> {
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
-    update_wallet_and_poll(&account, &args).await?;
+    poll_update_wallet_to_completion(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(&args.wallet_share_commitment, &mut ark_merkle_tree, 0)?;
 
@@ -73,7 +74,7 @@ async fn test_process_match_root() -> Result<()> {
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
-    process_match_and_poll(&account, &args).await?;
+    poll_process_match_to_completion(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(
         &args.party_0_match_payload.wallet_share_commitment,
@@ -103,7 +104,7 @@ async fn test_new_wallet_last_modified() -> Result<()> {
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
-    let tx_hash = new_wallet_and_poll(&account, &args).await?;
+    let tx_hash = poll_new_wallet_to_completion(&account, &args).await?;
 
     let last_modified_tx =
         get_wallet_blinder_transaction(&account, args.wallet_blinder_share).await?;
@@ -121,7 +122,7 @@ async fn test_update_wallet_last_modified() -> Result<()> {
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
-    let tx_hash = update_wallet_and_poll(&account, &args).await?;
+    let tx_hash = poll_update_wallet_to_completion(&account, &args).await?;
 
     let last_modified_tx =
         get_wallet_blinder_transaction(&account, args.wallet_blinder_share).await?;
@@ -139,7 +140,7 @@ async fn test_process_match_last_modified() -> Result<()> {
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
-    let tx_hash = process_match_and_poll(&account, &args).await?;
+    let tx_hash = poll_process_match_to_completion(&account, &args).await?;
 
     let party_0_last_modified_tx =
         get_wallet_blinder_transaction(&account, args.party_0_match_payload.wallet_blinder_share)
@@ -176,7 +177,7 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
         .await?
     );
 
-    update_wallet_and_poll(&account, &args).await?;
+    poll_update_wallet_to_completion(&account, &args).await?;
 
     assert!(
         is_nullifier_used(
@@ -216,7 +217,7 @@ async fn test_process_match_nullifiers() -> Result<()> {
         .await?
     );
 
-    process_match_and_poll(&account, &args).await?;
+    poll_process_match_to_completion(&account, &args).await?;
 
     assert!(
         is_nullifier_used(
@@ -260,7 +261,7 @@ async fn test_update_wallet_deposit() -> Result<()> {
         is_withdrawal: false,
     }];
 
-    update_wallet_and_poll(&account, &args).await?;
+    poll_update_wallet_to_completion(&account, &args).await?;
 
     let account_balance = balance_of(&account, account.address()).await?;
     let darkpool_balance = balance_of(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
@@ -290,7 +291,7 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
         is_withdrawal: true,
     }];
 
-    update_wallet_and_poll(&account, &args).await?;
+    poll_update_wallet_to_completion(&account, &args).await?;
 
     let account_balance = balance_of(&account, account.address()).await?;
     let darkpool_balance = balance_of(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
