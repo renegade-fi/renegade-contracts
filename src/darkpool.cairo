@@ -15,7 +15,7 @@ use renegade_contracts::{
 
 use types::{
     ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-    ProcessMatchCallbackElems
+    ProcessMatchCallbackElems, ValidWalletCreateStatement,
 };
 
 
@@ -52,8 +52,7 @@ trait IDarkpool<TContractState> {
     fn new_wallet(
         ref self: TContractState,
         wallet_blinder_share: Scalar,
-        wallet_share_commitment: Scalar,
-        public_wallet_shares: Array<Scalar>,
+        statement: ValidWalletCreateStatement,
         proof: Proof,
         witness_commitments: Array<EcPoint>,
         verification_job_id: felt252,
@@ -115,7 +114,7 @@ mod Darkpool {
 
     use super::types::{
         ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-        ProcessMatchCallbackElems
+        ProcessMatchCallbackElems, ValidWalletCreateStatement,
     };
 
     // -----------
@@ -424,8 +423,7 @@ mod Darkpool {
         /// Adds a new wallet to the commitment tree
         /// Parameters:
         /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
-        /// - `wallet_share_commitment`: The commitment to the new wallet's shares
-        /// - `public_wallet_shares`: The public shares of the new wallet
+        /// - `statement`: Public inputs to the `VALID_WALLET_CREATE` circuit
         /// - `proof`: The proof of `VALID_WALLET_CREATE`
         /// - `witness_commitments`: The Pedersen commitments to the witness elements
         /// - `verification_job_id`: The ID of the verification job to enqueue
@@ -434,8 +432,7 @@ mod Darkpool {
         fn new_wallet(
             ref self: ContractState,
             wallet_blinder_share: Scalar,
-            wallet_share_commitment: Scalar,
-            public_wallet_shares: Array<Scalar>,
+            statement: ValidWalletCreateStatement,
             proof: Proof,
             witness_commitments: Array<EcPoint>,
             verification_job_id: felt252,
@@ -447,7 +444,8 @@ mod Darkpool {
             // Store callback elements
             let callback_elems = NewWalletCallbackElems {
                 wallet_blinder_share,
-                wallet_share_commitment,
+                // The first element of the statement is the commitment to the private shares
+                private_shares_commitment: statement.private_shares_commitment,
                 tx_hash: get_tx_info().unbox().transaction_hash
             };
             self
@@ -763,7 +761,7 @@ mod Darkpool {
 
                     // Insert the new wallet's commitment into the Merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
-                    let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
+                    let new_root = merkle_tree.insert(callback_elems.private_shares_commitment);
 
                     // Mark wallet as updated
                     _mark_wallet_updated(

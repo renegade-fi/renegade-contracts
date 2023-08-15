@@ -17,7 +17,7 @@ use tracing::debug;
 
 use crate::utils::{
     call_contract, felt_to_scalar, felt_to_u32, global_setup, prep_dummy_circuit_verifier,
-    scalar_to_felt, singleprover_prove_dummy_circuit, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
+    singleprover_prove_dummy_circuit, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
     DUMMY_CIRCUIT_K, DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
 };
 
@@ -90,10 +90,10 @@ pub async fn calc_delta(
     w_r: SparseReducedMatrix,
 ) -> Result<Scalar> {
     let calldata = iter::once(FieldElement::from(DUMMY_CIRCUIT_N))
-        .chain(y_inv_powers_to_n.to_calldata().into_iter())
-        .chain(iter::once(scalar_to_felt(&z)))
-        .chain(w_l.to_calldata().into_iter())
-        .chain(w_r.to_calldata().into_iter())
+        .chain(y_inv_powers_to_n.to_calldata())
+        .chain(z.to_calldata())
+        .chain(w_l.to_calldata())
+        .chain(w_r.to_calldata())
         .collect();
 
     call_contract(
@@ -131,7 +131,7 @@ pub async fn squeeze_challenge_scalars(
     let calldata = proof
         .to_calldata()
         .into_iter()
-        .chain(witness_commitments.to_calldata().into_iter())
+        .chain(witness_commitments.to_calldata())
         .chain(iter::once(FieldElement::from(DUMMY_CIRCUIT_M)))
         .chain(iter::once(FieldElement::from(DUMMY_CIRCUIT_N_PLUS)))
         .collect();

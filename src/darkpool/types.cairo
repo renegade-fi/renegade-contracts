@@ -3,6 +3,10 @@ use starknet::ContractAddress;
 
 use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
 
+// --------------
+// | MISC TYPES |
+// --------------
+
 /// Represents an external transfer of an ERC20 token
 #[derive(Copy, Drop, Serde)]
 struct ExternalTransfer {
@@ -29,10 +33,14 @@ struct MatchPayload {
     valid_reblind_witness_commitments: Array<EcPoint>,
 }
 
+// --------------------------
+// | CALLBACK ELEMENT TYPES |
+// --------------------------
+
 #[derive(Drop, Serde, Copy)]
 struct NewWalletCallbackElems {
     wallet_blinder_share: Scalar,
-    wallet_share_commitment: Scalar,
+    private_shares_commitment: Scalar,
     tx_hash: felt252,
 }
 
@@ -54,4 +62,19 @@ struct ProcessMatchCallbackElems {
     party_1_wallet_share_commitment: Scalar,
     party_1_old_shares_nullifier: Scalar,
     tx_hash: felt252,
+}
+
+// -------------------
+// | STATEMENT TYPES |
+// -------------------
+
+/// Statement for the VALID_WALLET_CREATE proof.
+/// Assumed to have the same serialization to/from Scalars
+/// as the relayer-side implementation
+#[derive(Drop, Serde, Clone)]
+struct ValidWalletCreateStatement {
+    /// The commitment to the private secret shares of the wallet
+    private_shares_commitment: Scalar,
+    /// The public secret shares of the wallet
+    public_wallet_shares: Array<Scalar>,
 }

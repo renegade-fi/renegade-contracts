@@ -25,7 +25,9 @@ byteorder = "1.4.3"
 starknet = { workspace = true }
 katana-core = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d4d" }
 dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d4d" }
-mpc-stark = { git = "https://github.com/renegade-fi/mpc-stark.git" }
-mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", branch = "stark-curve-refactor", features = ["integration_test"] }
+mpc-stark = { workspace = true }
+mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", features = ["integration_test"] }
 merlin = { git = "https://github.com/renegade-fi/merlin.git" }
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/crate-refactor" }
+renegade-crypto = { path = "../../renegade/renegade-crypto" }
+circuits = { path = "../../renegade/circuits", features = ["test_helpers"] }
+circuit-types = { path = "../../renegade/circuit-types" }
