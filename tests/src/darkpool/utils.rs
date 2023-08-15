@@ -1,13 +1,21 @@
+use byteorder::{BigEndian, ReadBytesExt};
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
-use starknet::core::types::FieldElement;
-use starknet_scripts::commands::utils::{
-    deploy_darkpool, deploy_verifier, initialize, ScriptAccount,
+use starknet::{
+    accounts::Account,
+    core::{
+        types::{DeclareTransactionResult, FieldElement},
+        utils::cairo_short_string_to_felt,
+    },
 };
-use std::env;
+use starknet_scripts::commands::utils::{
+    calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
+    initialize, ScriptAccount,
+};
+use std::{env, io::Cursor, iter};
 use tracing::debug;
 
 use crate::{
@@ -19,9 +27,14 @@ use crate::{
         call_contract, check_verification_job_status, get_dummy_circuit_params, global_setup,
         invoke_contract, random_felt, scalar_to_felt, singleprover_prove_dummy_circuit,
         CalldataSerializable, CircuitParams, MatchPayload, NewWalletArgs, ProcessMatchArgs,
-        UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
+        StarknetU256, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
     },
 };
+
+const DUMMY_ERC20_CONTRACT_NAME: &str = "renegade_contracts_DummyERC20";
+
+pub const INIT_BALANCE: u128 = 1000;
+pub const TRANSFER_AMOUNT: u128 = 100;
 
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
@@ -30,16 +43,19 @@ const UPDATE_WALLET_FN_NAME: &str = "update_wallet";
 const POLL_UPDATE_WALLET_FN_NAME: &str = "poll_update_wallet";
 const PROCESS_MATCH_FN_NAME: &str = "process_match";
 const POLL_PROCESS_MATCH_FN_NAME: &str = "poll_process_match";
+const BALANCE_OF_FN_NAME: &str = "balance_of";
+const APPROVE_FN_NAME: &str = "approve";
 
 const PROCESS_MATCH_NUM_PROOFS: usize = 6;
 
 pub static DARKPOOL_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
+pub static ERC20_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
 // | META TEST HELPERS |
 // ---------------------
 
-pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
+pub async fn setup_darkpool_test(init_erc20: bool) -> Result<(TestSequencer, ScalarMerkleTree)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let sequencer = global_setup().await;
@@ -47,7 +63,7 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
 
     debug!("Declaring & deploying darkpool contract...");
     let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
-        deploy_darkpool(None, None, None, None, artifacts_path.clone(), &account).await?;
+        deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
     if DARKPOOL_ADDRESS.get().is_none() {
         // When running multiple tests, it's possible for the OnceCell to already be set.
         // However, we still want to deploy the contract, since each test gets its own sequencer.
@@ -57,7 +73,7 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
     debug!("Deploying verifier contract...");
     let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
     let (verifier_address, _, _) =
-        deploy_verifier(verifier_class_hash_hex, artifacts_path, &account).await?;
+        deploy_verifier(verifier_class_hash_hex, &artifacts_path, &account).await?;
 
     debug!("Initializing darkpool contract...");
     initialize_darkpool(
@@ -71,10 +87,57 @@ pub async fn setup_darkpool_test() -> Result<(TestSequencer, ScalarMerkleTree)> 
     )
     .await?;
 
+    if init_erc20 {
+        debug!("Deploying dummy ERC20 contract...");
+        let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
+        if ERC20_ADDRESS.get().is_none() {
+            // When running multiple tests, it's possible for the OnceCell to already be set.
+            // However, we still want to deploy the contract, since each test gets its own sequencer.
+            ERC20_ADDRESS.set(erc20_address).unwrap();
+        }
+        approve(
+            &account,
+            darkpool_address,
+            StarknetU256 {
+                low: INIT_BALANCE,
+                high: 0,
+            },
+        )
+        .await?;
+    }
+
     debug!("Initializing arkworks merkle tree...");
     // arkworks implementation does height inclusive of root,
     // so "height" here is one more than what's passed to the contract
     Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
+}
+
+async fn deploy_dummy_erc20(
+    artifacts_path: &str,
+    account: &ScriptAccount,
+    darkpool_address: FieldElement,
+) -> Result<FieldElement> {
+    let (erc20_sierra_path, erc20_casm_path) =
+        get_artifacts(artifacts_path, DUMMY_ERC20_CONTRACT_NAME);
+    let DeclareTransactionResult { class_hash, .. } =
+        declare(erc20_sierra_path, erc20_casm_path, account).await?;
+
+    let mut calldata = vec![
+        // Name
+        cairo_short_string_to_felt("DummyToken")?,
+        // Symbol
+        cairo_short_string_to_felt("DUMMY")?,
+        // Initial supply (lower 128 bits)
+        FieldElement::from(INIT_BALANCE),
+        // Initial supply (upper 128 bits)
+        FieldElement::ZERO,
+    ];
+
+    // Recipients of initial supply
+    calldata.extend(vec![account.address(), darkpool_address].to_calldata());
+
+    deploy(account, class_hash, &calldata).await?;
+    Ok(calculate_contract_address(class_hash, &calldata))
 }
 
 // --------------------------------
@@ -146,6 +209,25 @@ pub async fn poll_new_wallet(
     .map(|r| r.transaction_hash)
 }
 
+pub async fn new_wallet_and_poll(
+    account: &ScriptAccount,
+    args: &NewWalletArgs,
+) -> Result<FieldElement> {
+    let mut tx_hash = new_wallet(account, args).await?;
+    while check_verification_job_status(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        args.verification_job_id,
+    )
+    .await?
+    .is_none()
+    {
+        tx_hash = poll_new_wallet(account, args.verification_job_id).await?;
+    }
+
+    Ok(tx_hash)
+}
+
 pub async fn update_wallet(
     account: &ScriptAccount,
     args: &UpdateWalletArgs,
@@ -174,6 +256,25 @@ pub async fn poll_update_wallet(
     )
     .await
     .map(|r| r.transaction_hash)
+}
+
+pub async fn update_wallet_and_poll(
+    account: &ScriptAccount,
+    args: &UpdateWalletArgs,
+) -> Result<FieldElement> {
+    let mut tx_hash = update_wallet(account, args).await?;
+    while check_verification_job_status(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        args.verification_job_id,
+    )
+    .await?
+    .is_none()
+    {
+        tx_hash = poll_update_wallet(account, args.verification_job_id).await?;
+    }
+
+    Ok(tx_hash)
 }
 
 pub async fn process_match(
@@ -224,6 +325,58 @@ pub async fn process_match_verification_jobs_are_done(
     }
 
     Ok(true)
+}
+
+pub async fn process_match_and_poll(
+    account: &ScriptAccount,
+    args: &ProcessMatchArgs,
+) -> Result<FieldElement> {
+    let mut tx_hash = process_match(account, args).await?;
+
+    while !process_match_verification_jobs_are_done(account, &args.verification_job_ids).await? {
+        tx_hash = poll_process_match(account, args.verification_job_ids.clone()).await?;
+    }
+
+    Ok(tx_hash)
+}
+
+pub async fn balance_of(account: &ScriptAccount, address: FieldElement) -> Result<StarknetU256> {
+    call_contract(
+        account,
+        *ERC20_ADDRESS.get().unwrap(),
+        BALANCE_OF_FN_NAME,
+        vec![address],
+    )
+    .await
+    .map(|r| {
+        let mut low_cursor = Cursor::new(r[0].to_bytes_be());
+        // Grab the least significant 128 bits for the u128
+        low_cursor.set_position(16);
+        let low = low_cursor.read_u128::<BigEndian>().unwrap();
+
+        let mut high_cursor = Cursor::new(r[1].to_bytes_be());
+        // Grab the least significant 128 bits for the u128
+        high_cursor.set_position(16);
+        let high = high_cursor.read_u128::<BigEndian>().unwrap();
+
+        StarknetU256 { low, high }
+    })
+}
+
+pub async fn approve(
+    account: &ScriptAccount,
+    address: FieldElement,
+    amount: StarknetU256,
+) -> Result<()> {
+    let calldata = iter::once(address).chain(amount.to_calldata()).collect();
+    invoke_contract(
+        account,
+        *ERC20_ADDRESS.get().unwrap(),
+        APPROVE_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|_| ())
 }
 
 // ----------------

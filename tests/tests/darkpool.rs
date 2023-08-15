@@ -1,14 +1,15 @@
 use eyre::Result;
+use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
-        get_dummy_new_wallet_args, get_dummy_process_match_args, get_dummy_update_wallet_args,
-        get_wallet_blinder_transaction, new_wallet, poll_new_wallet, poll_process_match,
-        poll_update_wallet, process_match, process_match_verification_jobs_are_done,
-        setup_darkpool_test, update_wallet, DARKPOOL_ADDRESS,
+        balance_of, get_dummy_new_wallet_args, get_dummy_process_match_args,
+        get_dummy_update_wallet_args, get_wallet_blinder_transaction, new_wallet_and_poll,
+        process_match_and_poll, setup_darkpool_test, update_wallet_and_poll, DARKPOOL_ADDRESS,
+        ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
     },
     utils::{
-        assert_roots_equal, check_verification_job_status, global_teardown,
-        insert_scalar_to_ark_merkle_tree, is_nullifier_used,
+        assert_roots_equal, global_teardown, insert_scalar_to_ark_merkle_tree, is_nullifier_used,
+        ExternalTransfer, StarknetU256,
     },
 };
 
@@ -18,7 +19,7 @@ use tests::{
 
 #[tokio::test]
 async fn test_initialization_root() -> Result<()> {
-    let (sequencer, ark_merkle_tree) = setup_darkpool_test().await?;
+    let (sequencer, ark_merkle_tree) = setup_darkpool_test(false).await?;
 
     assert_roots_equal(
         &sequencer.account(),
@@ -34,21 +35,11 @@ async fn test_initialization_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_new_wallet_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test().await?;
+    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
-    new_wallet(&account, &args).await?;
-    while check_verification_job_status(
-        &account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        args.verification_job_id,
-    )
-    .await?
-    .is_none()
-    {
-        poll_new_wallet(&account, args.verification_job_id).await?;
-    }
+    new_wallet_and_poll(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(&args.wallet_share_commitment, &mut ark_merkle_tree, 0)?;
 
@@ -61,21 +52,11 @@ async fn test_new_wallet_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test().await?;
+    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
-    update_wallet(&account, &args).await?;
-    while check_verification_job_status(
-        &account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        args.verification_job_id,
-    )
-    .await?
-    .is_none()
-    {
-        poll_update_wallet(&account, args.verification_job_id).await?;
-    }
+    update_wallet_and_poll(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(&args.wallet_share_commitment, &mut ark_merkle_tree, 0)?;
 
@@ -88,15 +69,11 @@ async fn test_update_wallet_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test().await?;
+    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
-    process_match(&account, &args).await?;
-
-    while !process_match_verification_jobs_are_done(&account, &args.verification_job_ids).await? {
-        poll_process_match(&account, args.verification_job_ids.clone()).await?;
-    }
+    process_match_and_poll(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(
         &args.party_0_match_payload.wallet_share_commitment,
@@ -122,21 +99,11 @@ async fn test_process_match_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_new_wallet_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test().await?;
+    let (sequencer, _) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
-    let mut tx_hash = new_wallet(&account, &args).await?;
-    while check_verification_job_status(
-        &account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        args.verification_job_id,
-    )
-    .await?
-    .is_none()
-    {
-        tx_hash = poll_new_wallet(&account, args.verification_job_id).await?;
-    }
+    let tx_hash = new_wallet_and_poll(&account, &args).await?;
 
     let last_modified_tx =
         get_wallet_blinder_transaction(&account, args.wallet_blinder_share).await?;
@@ -150,21 +117,11 @@ async fn test_new_wallet_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test().await?;
+    let (sequencer, _) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
-    let mut tx_hash = update_wallet(&account, &args).await?;
-    while check_verification_job_status(
-        &account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        args.verification_job_id,
-    )
-    .await?
-    .is_none()
-    {
-        tx_hash = poll_update_wallet(&account, args.verification_job_id).await?;
-    }
+    let tx_hash = update_wallet_and_poll(&account, &args).await?;
 
     let last_modified_tx =
         get_wallet_blinder_transaction(&account, args.wallet_blinder_share).await?;
@@ -178,15 +135,11 @@ async fn test_update_wallet_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test().await?;
+    let (sequencer, _) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
-    let mut tx_hash = process_match(&account, &args).await?;
-
-    while !process_match_verification_jobs_are_done(&account, &args.verification_job_ids).await? {
-        tx_hash = poll_process_match(&account, args.verification_job_ids.clone()).await?;
-    }
+    let tx_hash = process_match_and_poll(&account, &args).await?;
 
     let party_0_last_modified_tx =
         get_wallet_blinder_transaction(&account, args.party_0_match_payload.wallet_blinder_share)
@@ -209,7 +162,7 @@ async fn test_process_match_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_nullifiers() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test().await?;
+    let (sequencer, _) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_update_wallet_args()?;
@@ -223,17 +176,7 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
         .await?
     );
 
-    update_wallet(&account, &args).await?;
-    while check_verification_job_status(
-        &account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        args.verification_job_id,
-    )
-    .await?
-    .is_none()
-    {
-        poll_update_wallet(&account, args.verification_job_id).await?;
-    }
+    update_wallet_and_poll(&account, &args).await?;
 
     assert!(
         is_nullifier_used(
@@ -251,7 +194,7 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_nullifiers() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test().await?;
+    let (sequencer, _) = setup_darkpool_test(false).await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args()?;
@@ -273,10 +216,7 @@ async fn test_process_match_nullifiers() -> Result<()> {
         .await?
     );
 
-    process_match(&account, &args).await?;
-    while !process_match_verification_jobs_are_done(&account, &args.verification_job_ids).await? {
-        poll_process_match(&account, args.verification_job_ids.clone()).await?;
-    }
+    process_match_and_poll(&account, &args).await?;
 
     assert!(
         is_nullifier_used(
@@ -294,6 +234,70 @@ async fn test_process_match_nullifiers() -> Result<()> {
         )
         .await?
     );
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+// ------------------
+// | TRANSFER TESTS |
+// ------------------
+
+#[tokio::test]
+async fn test_update_wallet_deposit() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(true).await?;
+    let account = sequencer.account();
+
+    let mut args = get_dummy_update_wallet_args()?;
+    args.external_transfers = vec![ExternalTransfer {
+        account_address: account.address(),
+        mint: *ERC20_ADDRESS.get().unwrap(),
+        amount: StarknetU256 {
+            low: TRANSFER_AMOUNT,
+            high: 0,
+        },
+        is_withdrawal: false,
+    }];
+
+    update_wallet_and_poll(&account, &args).await?;
+
+    let account_balance = balance_of(&account, account.address()).await?;
+    let darkpool_balance = balance_of(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+
+    // Assumes that INIT_BALANCE +/- TRANSFER_AMOUNT fits within the lower 128 bits of a u256 for simplicity
+    assert_eq!(account_balance.low, INIT_BALANCE - TRANSFER_AMOUNT);
+    assert_eq!(darkpool_balance.low, INIT_BALANCE + TRANSFER_AMOUNT);
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_update_wallet_withdrawal() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(true).await?;
+    let account = sequencer.account();
+
+    let mut args = get_dummy_update_wallet_args()?;
+    args.external_transfers = vec![ExternalTransfer {
+        account_address: account.address(),
+        mint: *ERC20_ADDRESS.get().unwrap(),
+        amount: StarknetU256 {
+            low: TRANSFER_AMOUNT,
+            high: 0,
+        },
+        is_withdrawal: true,
+    }];
+
+    update_wallet_and_poll(&account, &args).await?;
+
+    let account_balance = balance_of(&account, account.address()).await?;
+    let darkpool_balance = balance_of(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+
+    // Assumes that INIT_BALANCE +/- TRANSFER_AMOUNT fits within the lower 128 bits of a u256 for simplicity
+    assert_eq!(account_balance.low, INIT_BALANCE + TRANSFER_AMOUNT);
+    assert_eq!(darkpool_balance.low, INIT_BALANCE - TRANSFER_AMOUNT);
 
     global_teardown(sequencer);
 

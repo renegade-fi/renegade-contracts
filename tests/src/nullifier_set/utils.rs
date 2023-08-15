@@ -27,7 +27,7 @@ pub async fn setup_nullifier_set_test() -> Result<TestSequencer> {
 
     debug!("Declaring & deploying nullifier set contract...");
     let (nullifier_set_address, _, _) =
-        deploy_nullifier_set(None, artifacts_path, &account).await?;
+        deploy_nullifier_set(None, &artifacts_path, &account).await?;
     if NULLIFIER_SET_ADDRESS.get().is_none() {
         // When running multiple tests, it's possible for the OnceCell to already be set.
         // However, we still want to deploy the contract, since each test gets its own sequencer.

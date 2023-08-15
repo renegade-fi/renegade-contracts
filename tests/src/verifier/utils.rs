@@ -32,7 +32,7 @@ pub async fn setup_verifier_test() -> Result<TestSequencer> {
     let account = sequencer.account();
 
     debug!("Declaring & deploying verifier contract...");
-    let (verifier_address, _, _) = deploy_verifier(None, artifacts_path, &account).await?;
+    let (verifier_address, _, _) = deploy_verifier(None, &artifacts_path, &account).await?;
     if VERIFIER_ADDRESS.get().is_none() {
         // When running multiple tests, it's possible for the OnceCell to already be set.
         // However, we still want to deploy the contract, since each test gets its own sequencer.
