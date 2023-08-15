@@ -6,7 +6,7 @@ use mpc_stark::algebra::stark_curve::StarkPoint;
 use once_cell::sync::OnceCell;
 use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{deploy_verifier, initialize, ScriptAccount};
-use std::{env, iter};
+use std::env;
 use tracing::debug;
 
 use crate::utils::{
@@ -71,8 +71,8 @@ pub async fn queue_verification_job(
     let calldata = proof
         .to_calldata()
         .into_iter()
-        .chain(witness_commitments.to_calldata().into_iter())
-        .chain(iter::once(verification_job_id))
+        .chain(witness_commitments.to_calldata())
+        .chain(verification_job_id.to_calldata())
         .collect();
 
     invoke_contract(

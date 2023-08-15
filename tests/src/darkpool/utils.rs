@@ -1,3 +1,4 @@
+use circuits::zk_circuits::valid_wallet_create::test_helpers::create_default_witness_statement;
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
@@ -208,7 +209,7 @@ pub async fn initialize_darkpool(
         merkle_height,
     ]
     .into_iter()
-    .chain(circuit_params.to_calldata().into_iter())
+    .chain(circuit_params.to_calldata())
     .collect();
 
     initialize(account, darkpool_address, calldata)
@@ -437,15 +438,13 @@ pub async fn upgrade(account: &ScriptAccount, class_hash: FieldElement) -> Resul
 
 pub fn get_dummy_new_wallet_args() -> Result<NewWalletArgs> {
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
-    let wallet_share_commitment = Scalar::random(&mut thread_rng());
-    let public_wallet_shares = vec![];
+    let (_, statement) = create_default_witness_statement();
     let (proof, witness_commitments) = singleprover_prove_dummy_circuit()?;
     let verification_job_id = random_felt();
 
     Ok(NewWalletArgs {
         wallet_blinder_share,
-        wallet_share_commitment,
-        public_wallet_shares,
+        statement,
         proof,
         witness_commitments,
         verification_job_id,

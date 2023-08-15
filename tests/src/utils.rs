@@ -1,5 +1,7 @@
 use ark_ff::{BigInteger, PrimeField};
 use byteorder::{BigEndian, ReadBytesExt};
+use circuit_types::traits::BaseType;
+use circuits::zk_circuits::valid_wallet_create::test_helpers::SizedStatement as SizedValidWalletCreateStatement;
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
 use katana_core::{constants::DEFAULT_INVOKE_MAX_STEPS, sequencer::SequencerConfig};
@@ -326,8 +328,7 @@ pub struct CircuitParams {
 
 pub struct NewWalletArgs {
     pub wallet_blinder_share: Scalar,
-    pub wallet_share_commitment: Scalar,
-    pub public_wallet_shares: Vec<Scalar>,
+    pub statement: SizedValidWalletCreateStatement,
     pub proof: R1CSProof,
     pub witness_commitments: Vec<StarkPoint>,
     pub verification_job_id: FieldElement,
@@ -380,7 +381,7 @@ impl CalldataSerializable for (usize, Scalar) {
         self.0
             .to_calldata()
             .into_iter()
-            .chain(self.1.to_calldata().into_iter())
+            .chain(self.1.to_calldata())
             .collect()
     }
 }
@@ -443,8 +444,8 @@ impl CalldataSerializable for R1CSProof {
                 .iter()
                 .flat_map(|s| s.to_calldata()),
         )
-        .chain(self.ipp_proof.L_vec.to_calldata().into_iter())
-        .chain(self.ipp_proof.R_vec.to_calldata().into_iter())
+        .chain(self.ipp_proof.L_vec.to_calldata())
+        .chain(self.ipp_proof.R_vec.to_calldata())
         .chain(
             [self.ipp_proof.a, self.ipp_proof.b]
                 .iter()
@@ -472,14 +473,14 @@ impl CalldataSerializable for MatchPayload {
         ]
         .iter()
         .flat_map(|s| s.to_calldata())
-        .chain(self.public_wallet_shares.to_calldata().into_iter())
-        .chain(self.valid_commitments_proof.to_calldata().into_iter())
+        .chain(self.public_wallet_shares.to_calldata())
+        .chain(self.valid_commitments_proof.to_calldata())
         .chain(
             self.valid_commitments_witness_commitments
                 .to_calldata()
                 .into_iter(),
         )
-        .chain(self.valid_reblind_proof.to_calldata().into_iter())
+        .chain(self.valid_reblind_proof.to_calldata())
         .chain(
             self.valid_reblind_witness_commitments
                 .to_calldata()
@@ -500,19 +501,26 @@ impl CalldataSerializable for CircuitParams {
                     .iter()
                     .flat_map(|s| s.to_calldata()),
             )
-            .chain(self.c.to_calldata().into_iter())
+            .chain(self.c.to_calldata())
             .collect()
     }
 }
 
 impl CalldataSerializable for NewWalletArgs {
     fn to_calldata(&self) -> Vec<FieldElement> {
-        [self.wallet_blinder_share, self.wallet_share_commitment]
-            .iter()
-            .flat_map(|s| s.to_calldata())
-            .chain(self.public_wallet_shares.to_calldata().into_iter())
-            .chain(self.proof.to_calldata().into_iter())
-            .chain(self.witness_commitments.to_calldata().into_iter())
+        self.wallet_blinder_share
+            .to_calldata()
+            .into_iter()
+            // Matches serialization expected by derived Serde impl in Cairo
+            .chain(self.statement.private_shares_commitment.to_calldata())
+            .chain(
+                self.statement
+                    .public_wallet_shares
+                    .to_scalars()
+                    .to_calldata(),
+            )
+            .chain(self.proof.to_calldata())
+            .chain(self.witness_commitments.to_calldata())
             .chain(self.verification_job_id.to_calldata())
             .collect()
     }
@@ -527,10 +535,10 @@ impl CalldataSerializable for UpdateWalletArgs {
         ]
         .iter()
         .flat_map(|s| s.to_calldata())
-        .chain(self.public_wallet_shares.to_calldata().into_iter())
-        .chain(self.external_transfers.to_calldata().into_iter())
-        .chain(self.proof.to_calldata().into_iter())
-        .chain(self.witness_commitments.to_calldata().into_iter())
+        .chain(self.public_wallet_shares.to_calldata())
+        .chain(self.external_transfers.to_calldata())
+        .chain(self.proof.to_calldata())
+        .chain(self.witness_commitments.to_calldata())
         .chain(self.verification_job_id.to_calldata())
         .collect()
     }

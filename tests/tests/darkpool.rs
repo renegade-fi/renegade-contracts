@@ -51,7 +51,11 @@ async fn test_new_wallet_root() -> Result<()> {
     let args = get_dummy_new_wallet_args()?;
     poll_new_wallet_to_completion(&account, &args).await?;
 
-    insert_scalar_to_ark_merkle_tree(&args.wallet_share_commitment, &mut ark_merkle_tree, 0)?;
+    insert_scalar_to_ark_merkle_tree(
+        &args.statement.private_shares_commitment,
+        &mut ark_merkle_tree,
+        0,
+    )?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 

@@ -5,6 +5,7 @@ resolver = "2"
 
 [workspace.dependencies]
 starknet = "0.4.0"
+mpc-stark = "0.2"
 
 [patch."https://github.com/starkware-libs/blockifier"]
 blockifier = { git = "https://github.com/dojoengine/blockifier", rev = "a31892d" }
