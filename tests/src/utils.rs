@@ -1,4 +1,5 @@
 use ark_ff::{BigInteger, PrimeField};
+use byteorder::{BigEndian, ReadBytesExt};
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
 use katana_core::{constants::DEFAULT_INVOKE_MAX_STEPS, sequencer::SequencerConfig};
@@ -22,7 +23,7 @@ use starknet::{
     providers::Provider,
 };
 use starknet_scripts::commands::utils::ScriptAccount;
-use std::{env, sync::Once};
+use std::{env, io::Cursor, sync::Once};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -38,6 +39,13 @@ pub const ARTIFACTS_PATH_ENV_VAR: &str = "ARTIFACTS_PATH";
 pub const CAIRO_STEP_LIMIT_ENV_VAR: &str = "CAIRO_STEP_LIMIT";
 /// Label with which to seed the Fiat-Shamir transcript
 pub const TRANSCRIPT_SEED: &str = "merlin seed";
+
+/// Number of bytes to represent a FieldElement
+const N_BYTES_FELT: usize = 32;
+/// Number of bytes to represent a u128
+const N_BYTES_U128: usize = 16;
+/// Number of bytes to represent a u32
+const N_BYTES_U32: usize = 4;
 
 static TRACING_INIT: Once = Once::new();
 
@@ -184,6 +192,18 @@ pub fn scalar_to_felt(scalar: &Scalar) -> FieldElement {
 
 pub fn felt_to_scalar(felt: &FieldElement) -> Scalar {
     Scalar::from_be_bytes_mod_order(&felt.to_bytes_be())
+}
+
+pub fn felt_to_u128(felt: &FieldElement) -> u128 {
+    let mut felt_bytes_cursor = Cursor::new(felt.to_bytes_be());
+    felt_bytes_cursor.set_position((N_BYTES_FELT - N_BYTES_U128) as u64);
+    felt_bytes_cursor.read_u128::<BigEndian>().unwrap()
+}
+
+pub fn felt_to_u32(felt: &FieldElement) -> u32 {
+    let mut felt_bytes_cursor = Cursor::new(felt.to_bytes_be());
+    felt_bytes_cursor.set_position((N_BYTES_FELT - N_BYTES_U32) as u64);
+    felt_bytes_cursor.read_u32::<BigEndian>().unwrap()
 }
 
 pub fn insert_scalar_to_ark_merkle_tree(

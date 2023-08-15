@@ -1,4 +1,3 @@
-use byteorder::{BigEndian, ReadBytesExt};
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
@@ -13,12 +12,12 @@ use starknet::core::types::{DeclareTransactionResult, FieldElement};
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::{env, io::Cursor, iter};
+use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, felt_to_scalar, global_setup, prep_dummy_circuit_verifier, scalar_to_felt,
-    singleprover_prove_dummy_circuit, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
+    call_contract, felt_to_scalar, felt_to_u32, global_setup, prep_dummy_circuit_verifier,
+    scalar_to_felt, singleprover_prove_dummy_circuit, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
     DUMMY_CIRCUIT_K, DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
 };
 
@@ -149,13 +148,7 @@ pub async fn squeeze_challenge_scalars(
 
         let mut r_iter = r.iter();
 
-        let mut challenge_scalars_len_cursor = Cursor::new(r_iter.next().unwrap().to_bytes_be());
-        // Grab the least signifcant 4 bytes for the len u32
-        challenge_scalars_len_cursor.set_position(28);
-
-        let challenge_scalars_len = challenge_scalars_len_cursor
-            .read_u32::<BigEndian>()
-            .unwrap() as usize;
+        let challenge_scalars_len = felt_to_u32(r_iter.next().unwrap()) as usize;
 
         let challenge_scalars = r_iter
             .by_ref()
@@ -163,11 +156,7 @@ pub async fn squeeze_challenge_scalars(
             .map(felt_to_scalar)
             .collect();
 
-        let mut u_len_cursor = Cursor::new(r_iter.next().unwrap().to_bytes_be());
-        // Grab the least signifcant 4 bytes for the len u32
-        u_len_cursor.set_position(28);
-
-        let u_len = u_len_cursor.read_u32::<BigEndian>().unwrap() as usize;
+        let u_len = felt_to_u32(r_iter.next().unwrap()) as usize;
 
         let u = r_iter.take(u_len).map(felt_to_scalar).collect();
 
