@@ -191,7 +191,7 @@ pub async fn deploy_darkpool(
     merkle_class_hash: Option<String>,
     nullifier_set_class_hash: Option<String>,
     verifier_class_hash: Option<String>,
-    artifacts_path: String,
+    artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<(
     FieldElement,
@@ -202,7 +202,7 @@ pub async fn deploy_darkpool(
     FieldElement,
 )> {
     let (darkpool_sierra_path, darkpool_casm_path) =
-        get_artifacts(&artifacts_path, DARKPOOL_CONTRACT_NAME);
+        get_artifacts(artifacts_path, DARKPOOL_CONTRACT_NAME);
     let darkpool_class_hash_felt = get_or_declare(
         darkpool_class_hash,
         darkpool_sierra_path,
@@ -212,7 +212,7 @@ pub async fn deploy_darkpool(
     .await?;
 
     let (merkle_sierra_path, merkle_casm_path) =
-        get_artifacts(&artifacts_path, MERKLE_CONTRACT_NAME);
+        get_artifacts(artifacts_path, MERKLE_CONTRACT_NAME);
     let merkle_class_hash_felt = get_or_declare(
         merkle_class_hash,
         merkle_sierra_path,
@@ -222,7 +222,7 @@ pub async fn deploy_darkpool(
     .await?;
 
     let (nullifier_set_sierra_path, nullifier_set_casm_path) =
-        get_artifacts(&artifacts_path, NULLIFIER_SET_CONTRACT_NAME);
+        get_artifacts(artifacts_path, NULLIFIER_SET_CONTRACT_NAME);
     let nullifier_set_class_hash_felt = get_or_declare(
         nullifier_set_class_hash,
         nullifier_set_sierra_path,
@@ -232,7 +232,7 @@ pub async fn deploy_darkpool(
     .await?;
 
     let (verifier_sierra_path, verifier_casm_path) =
-        get_artifacts(&artifacts_path, VERIFIER_CONTRACT_NAME);
+        get_artifacts(artifacts_path, VERIFIER_CONTRACT_NAME);
     let verifier_class_hash_felt = get_or_declare(
         verifier_class_hash,
         verifier_sierra_path,
@@ -262,11 +262,11 @@ pub async fn deploy_darkpool(
 
 pub async fn deploy_merkle(
     merkle_class_hash: Option<String>,
-    artifacts_path: String,
+    artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
     let (merkle_sierra_path, merkle_casm_path) =
-        get_artifacts(&artifacts_path, MERKLE_CONTRACT_NAME);
+        get_artifacts(artifacts_path, MERKLE_CONTRACT_NAME);
     let merkle_class_hash_felt = get_or_declare(
         merkle_class_hash,
         merkle_sierra_path,
@@ -288,11 +288,11 @@ pub async fn deploy_merkle(
 
 pub async fn deploy_nullifier_set(
     nullifier_set_class_hash: Option<String>,
-    artifacts_path: String,
+    artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
     let (nullifier_set_sierra_path, nullifier_set_casm_path) =
-        get_artifacts(&artifacts_path, NULLIFIER_SET_CONTRACT_NAME);
+        get_artifacts(artifacts_path, NULLIFIER_SET_CONTRACT_NAME);
     let nullifier_set_class_hash_felt = get_or_declare(
         nullifier_set_class_hash,
         nullifier_set_sierra_path,
@@ -318,11 +318,11 @@ pub async fn deploy_nullifier_set(
 
 pub async fn deploy_verifier(
     verifier_class_hash: Option<String>,
-    artifacts_path: String,
+    artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
     let (verifier_sierra_path, verifier_casm_path) =
-        get_artifacts(&artifacts_path, VERIFIER_CONTRACT_NAME);
+        get_artifacts(artifacts_path, VERIFIER_CONTRACT_NAME);
     let verifier_class_hash_felt = get_or_declare(
         verifier_class_hash,
         verifier_sierra_path,

@@ -45,7 +45,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 merkle_class_hash,
                 nullifier_set_class_hash,
                 verifier_class_hash.clone(),
-                artifacts_path.clone(),
+                &artifacts_path,
                 &account,
             )
             .await?;
@@ -73,7 +73,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                     format!("{verifier_class_hash_felt:#64x}")
                 };
                 let (verifier_address, _, _) =
-                    deploy_verifier(Some(verifier_class_hash_hex), artifacts_path, &account)
+                    deploy_verifier(Some(verifier_class_hash_hex), &artifacts_path, &account)
                         .await?;
 
                 // Initialize darkpool
@@ -97,7 +97,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
         }
         Contract::Merkle => {
             let (merkle_address, merkle_class_hash_felt, transaction_hash) =
-                deploy_merkle(merkle_class_hash, artifacts_path, &account).await?;
+                deploy_merkle(merkle_class_hash, &artifacts_path, &account).await?;
 
             info!(
                 "Merkle contract successfully deployed!\n\
@@ -122,7 +122,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
         }
         Contract::NullifierSet => {
             let (nullifier_set_address, nullifier_set_class_hash_felt, transaction_hash) =
-                deploy_nullifier_set(nullifier_set_class_hash, artifacts_path, &account).await?;
+                deploy_nullifier_set(nullifier_set_class_hash, &artifacts_path, &account).await?;
 
             info!(
                 "Nullifier set contract successfully deployed!\n\

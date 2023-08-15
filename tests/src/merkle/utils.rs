@@ -33,7 +33,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
     let account = sequencer.account();
 
     debug!("Declaring & deploying merkle contract...");
-    let (merkle_address, _, _) = deploy_merkle(None, artifacts_path, &account).await?;
+    let (merkle_address, _, _) = deploy_merkle(None, &artifacts_path, &account).await?;
     if MERKLE_ADDRESS.get().is_none() {
         // When running multiple tests, it's possible for the OnceCell to already be set.
         // However, we still want to deploy the contract, since each test gets its own sequencer.
