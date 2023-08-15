@@ -246,7 +246,7 @@ pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result
 pub async fn poll_new_wallet(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
-) -> Result<FieldElement> {
+) -> Result<()> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -254,14 +254,14 @@ pub async fn poll_new_wallet(
         vec![verification_job_id],
     )
     .await
-    .map(|r| r.transaction_hash)
+    .map(|_| ())
 }
 
 pub async fn poll_new_wallet_to_completion(
     account: &ScriptAccount,
     args: &NewWalletArgs,
 ) -> Result<FieldElement> {
-    let mut tx_hash = new_wallet(account, args).await?;
+    let tx_hash = new_wallet(account, args).await?;
     while check_verification_job_status(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -270,7 +270,7 @@ pub async fn poll_new_wallet_to_completion(
     .await?
     .is_none()
     {
-        tx_hash = poll_new_wallet(account, args.verification_job_id).await?;
+        poll_new_wallet(account, args.verification_job_id).await?;
     }
 
     Ok(tx_hash)
@@ -295,7 +295,7 @@ pub async fn update_wallet(
 pub async fn poll_update_wallet(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
-) -> Result<FieldElement> {
+) -> Result<()> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -303,14 +303,14 @@ pub async fn poll_update_wallet(
         vec![verification_job_id],
     )
     .await
-    .map(|r| r.transaction_hash)
+    .map(|_| ())
 }
 
 pub async fn poll_update_wallet_to_completion(
     account: &ScriptAccount,
     args: &UpdateWalletArgs,
 ) -> Result<FieldElement> {
-    let mut tx_hash = update_wallet(account, args).await?;
+    let tx_hash = update_wallet(account, args).await?;
     while check_verification_job_status(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -319,7 +319,7 @@ pub async fn poll_update_wallet_to_completion(
     .await?
     .is_none()
     {
-        tx_hash = poll_update_wallet(account, args.verification_job_id).await?;
+        poll_update_wallet(account, args.verification_job_id).await?;
     }
 
     Ok(tx_hash)
@@ -344,7 +344,7 @@ pub async fn process_match(
 pub async fn poll_process_match(
     account: &ScriptAccount,
     verification_job_ids: Vec<FieldElement>,
-) -> Result<FieldElement> {
+) -> Result<()> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
@@ -352,7 +352,7 @@ pub async fn poll_process_match(
         verification_job_ids,
     )
     .await
-    .map(|r| r.transaction_hash)
+    .map(|_| ())
 }
 
 pub async fn process_match_verification_jobs_are_done(
@@ -379,10 +379,10 @@ pub async fn poll_process_match_to_completion(
     account: &ScriptAccount,
     args: &ProcessMatchArgs,
 ) -> Result<FieldElement> {
-    let mut tx_hash = process_match(account, args).await?;
+    let tx_hash = process_match(account, args).await?;
 
     while !process_match_verification_jobs_are_done(account, &args.verification_job_ids).await? {
-        tx_hash = poll_process_match(account, args.verification_job_ids.clone()).await?;
+        poll_process_match(account, args.verification_job_ids.clone()).await?;
     }
 
     Ok(tx_hash)

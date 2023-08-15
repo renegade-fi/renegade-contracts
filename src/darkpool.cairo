@@ -446,7 +446,9 @@ mod Darkpool {
 
             // Store callback elements
             let callback_elems = NewWalletCallbackElems {
-                wallet_blinder_share, wallet_share_commitment, 
+                wallet_blinder_share,
+                wallet_share_commitment,
+                tx_hash: get_tx_info().unbox().transaction_hash
             };
             self
                 .new_wallet_callback_elems
@@ -502,6 +504,7 @@ mod Darkpool {
                 wallet_share_commitment,
                 old_shares_nullifier,
                 external_transfers,
+                tx_hash: get_tx_info().unbox().transaction_hash
             };
             self
                 .update_wallet_callback_elems
@@ -596,6 +599,7 @@ mod Darkpool {
                 party_1_wallet_blinder_share: party_1_payload.wallet_blinder_share,
                 party_1_wallet_share_commitment: party_1_payload.wallet_share_commitment,
                 party_1_old_shares_nullifier: party_1_payload.old_shares_nullifier,
+                tx_hash: get_tx_info().unbox().transaction_hash
             };
             self
                 .process_match_callback_elems
@@ -675,11 +679,11 @@ mod Darkpool {
     /// indicating that the wallet has been modified at this transaction
     /// Parameters:
     /// - `wallet_blinder_share`: The identifier of the wallet
-    fn _mark_wallet_updated(ref self: ContractState, wallet_blinder_share: Scalar) {
+    fn _mark_wallet_updated(
+        ref self: ContractState, wallet_blinder_share: Scalar, tx_hash: felt252
+    ) {
         // Check that wallet blinder share isn't already indexed
         assert(self.wallet_last_modified.read(wallet_blinder_share) == 0, 'wallet already indexed');
-        // Get the current tx hash
-        let tx_hash = get_tx_info().unbox().transaction_hash;
         // Update storage mapping
         self.wallet_last_modified.write(wallet_blinder_share, tx_hash);
         // Emit event
@@ -762,7 +766,9 @@ mod Darkpool {
                     let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
 
                     // Mark wallet as updated
-                    _mark_wallet_updated(ref self, callback_elems.wallet_blinder_share);
+                    _mark_wallet_updated(
+                        ref self, callback_elems.wallet_blinder_share, callback_elems.tx_hash
+                    );
 
                     Option::Some(Result::Ok(new_root))
                 } else {
@@ -799,7 +805,9 @@ mod Darkpool {
                     _execute_external_transfers(ref self, callback_elems.external_transfers);
 
                     // Mark wallet as updated
-                    _mark_wallet_updated(ref self, callback_elems.wallet_blinder_share);
+                    _mark_wallet_updated(
+                        ref self, callback_elems.wallet_blinder_share, callback_elems.tx_hash
+                    );
 
                     Option::Some(Result::Ok(new_root))
                 } else {
@@ -865,8 +873,16 @@ mod Darkpool {
                         .insert(callback_elems.party_1_wallet_share_commitment);
 
                     // Mark wallet as updated
-                    _mark_wallet_updated(ref self, callback_elems.party_0_wallet_blinder_share);
-                    _mark_wallet_updated(ref self, callback_elems.party_1_wallet_blinder_share);
+                    _mark_wallet_updated(
+                        ref self,
+                        callback_elems.party_0_wallet_blinder_share,
+                        callback_elems.tx_hash
+                    );
+                    _mark_wallet_updated(
+                        ref self,
+                        callback_elems.party_1_wallet_blinder_share,
+                        callback_elems.tx_hash
+                    );
 
                     Option::Some(Result::Ok(new_root))
                 } else {
