@@ -33,6 +33,7 @@ struct MatchPayload {
 struct NewWalletCallbackElems {
     wallet_blinder_share: Scalar,
     wallet_share_commitment: Scalar,
+    tx_hash: felt252,
 }
 
 #[derive(Drop, Serde, Clone)]
@@ -41,6 +42,7 @@ struct UpdateWalletCallbackElems {
     wallet_share_commitment: Scalar,
     old_shares_nullifier: Scalar,
     external_transfers: Array<ExternalTransfer>,
+    tx_hash: felt252,
 }
 
 #[derive(Drop, Serde, Copy)]
@@ -51,4 +53,5 @@ struct ProcessMatchCallbackElems {
     party_1_wallet_blinder_share: Scalar,
     party_1_wallet_share_commitment: Scalar,
     party_1_old_shares_nullifier: Scalar,
+    tx_hash: felt252,
 }

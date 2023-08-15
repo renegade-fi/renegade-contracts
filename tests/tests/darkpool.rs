@@ -3,9 +3,10 @@ use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
         balance_of, get_dummy_new_wallet_args, get_dummy_process_match_args,
-        get_dummy_update_wallet_args, get_wallet_blinder_transaction, new_wallet_and_poll,
-        process_match_and_poll, setup_darkpool_test, update_wallet_and_poll, upgrade,
-        DARKPOOL_ADDRESS, DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
+        get_dummy_update_wallet_args, get_wallet_blinder_transaction,
+        poll_new_wallet_to_completion, poll_process_match_to_completion,
+        poll_update_wallet_to_completion, setup_darkpool_test, upgrade, DARKPOOL_ADDRESS,
+        DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
         UPGRADE_TARGET_CLASS_HASH,
     },
     utils::{
@@ -360,7 +361,7 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
 
     let args = get_dummy_update_wallet_args()?;
 
-    update_wallet_and_poll(&account, &args).await?;
+    poll_update_wallet_to_completion(&account, &args).await?;
 
     // Get pre-upgrade root
     let pre_upgrade_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
