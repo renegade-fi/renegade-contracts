@@ -30,13 +30,31 @@ trait IStatementSerde<TContractState> {
         self: @TContractState, statement: ValidCommitmentsStatement
     );
     fn assert_valid_settle_statement(self: @TContractState, statement: ValidSettleStatement);
+    fn assert_valid_wallet_create_statement_to_scalars(
+        self: @TContractState, statement_scalars: Array<Scalar>
+    );
+    fn assert_valid_wallet_update_statement_to_scalars(
+        self: @TContractState, statement_scalars: Array<Scalar>
+    );
+    fn assert_valid_reblind_statement_to_scalars(
+        self: @TContractState, statement_scalars: Array<Scalar>
+    );
+    fn assert_valid_commitments_statement_to_scalars(
+        self: @TContractState, statement_scalars: Array<Scalar>
+    );
+    fn assert_valid_settle_statement_to_scalars(
+        self: @TContractState, statement_scalars: Array<Scalar>
+    );
 }
 
 #[starknet::contract]
 mod StatementSerdeWrapper {
-    use renegade_contracts::darkpool::statements::{
-        ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidReblindStatement,
-        ValidCommitmentsStatement, ValidSettleStatement
+    use renegade_contracts::{
+        darkpool::statements::{
+            ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidReblindStatement,
+            ValidCommitmentsStatement, ValidSettleStatement
+        },
+        verifier::scalar::{Scalar, ScalarSerializable}, utils::eq::ArrayTPartialEq
     };
 
     use super::{
@@ -54,7 +72,7 @@ mod StatementSerdeWrapper {
             self: @ContractState, statement: ValidWalletCreateStatement
         ) {
             assert(
-                statement == dummy_valid_wallet_create_statement(), 'VALID_WALLET_CREATE: bad stmt'
+                statement == dummy_valid_wallet_create_statement(), 'VALID_WALLET_CREATE: statement'
             )
         }
 
@@ -62,22 +80,67 @@ mod StatementSerdeWrapper {
             self: @ContractState, statement: ValidWalletUpdateStatement
         ) {
             assert(
-                statement == dummy_valid_wallet_update_statement(), 'VALID_WALLET_UPDATE: bad stmt'
+                statement == dummy_valid_wallet_update_statement(), 'VALID_WALLET_UPDATE: statement'
             )
         }
 
         fn assert_valid_reblind_statement(self: @ContractState, statement: ValidReblindStatement) {
-            assert(statement == dummy_valid_reblind_statement(), 'VALID_REBLIND: bad stmt')
+            assert(statement == dummy_valid_reblind_statement(), 'VALID_REBLIND: statement')
         }
 
         fn assert_valid_commitments_statement(
             self: @ContractState, statement: ValidCommitmentsStatement
         ) {
-            assert(statement == dummy_valid_commitments_statement(), 'VALID_COMMITMENTS: bad stmt')
+            assert(statement == dummy_valid_commitments_statement(), 'VALID_COMMITMENTS: statement')
         }
 
         fn assert_valid_settle_statement(self: @ContractState, statement: ValidSettleStatement) {
-            assert(statement == dummy_valid_settle_statement(), 'VALID_SETTLE: bad stmt')
+            assert(statement == dummy_valid_settle_statement(), 'VALID_SETTLE: statement')
+        }
+
+        fn assert_valid_wallet_create_statement_to_scalars(
+            self: @ContractState, statement_scalars: Array<Scalar>
+        ) {
+            assert(
+                statement_scalars == dummy_valid_wallet_create_statement().to_scalars(),
+                'VALID_WALLET_CREATE: scalar ser'
+            )
+        }
+
+        fn assert_valid_wallet_update_statement_to_scalars(
+            self: @ContractState, statement_scalars: Array<Scalar>
+        ) {
+            assert(
+                statement_scalars == dummy_valid_wallet_update_statement().to_scalars(),
+                'VALID_WALLET_UPDATE: scalar ser'
+            )
+        }
+
+        fn assert_valid_reblind_statement_to_scalars(
+            self: @ContractState, statement_scalars: Array<Scalar>
+        ) {
+            assert(
+                statement_scalars == dummy_valid_reblind_statement().to_scalars(),
+                'VALID_REBLIND: scalar ser'
+            )
+        }
+
+        fn assert_valid_commitments_statement_to_scalars(
+            self: @ContractState, statement_scalars: Array<Scalar>
+        ) {
+            assert(
+                statement_scalars == dummy_valid_commitments_statement().to_scalars(),
+                'VALID_COMMITMENTS: scalar ser'
+            )
+        }
+
+        fn assert_valid_settle_statement_to_scalars(
+            self: @ContractState, statement_scalars: Array<Scalar>
+        ) {
+            assert(
+                statement_scalars == dummy_valid_settle_statement().to_scalars(),
+                'VALID_SETTLE: scalar ser'
+            )
         }
     }
 }

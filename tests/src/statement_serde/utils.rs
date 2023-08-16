@@ -34,6 +34,16 @@ const ASSERT_VALID_WALLET_UPDATE_STATEMENT_FN_NAME: &str = "assert_valid_wallet_
 const ASSERT_VALID_REBLIND_STATEMENT_FN_NAME: &str = "assert_valid_reblind_statement";
 const ASSERT_VALID_COMMITMENTS_STATEMENT_FN_NAME: &str = "assert_valid_commitments_statement";
 const ASSERT_VALID_SETTLE_STATEMENT_FN_NAME: &str = "assert_valid_settle_statement";
+const ASSERT_VALID_WALLET_CREATE_STATEMENT_TO_SCALARS_FN_NAME: &str =
+    "assert_valid_wallet_create_statement_to_scalars";
+const ASSERT_VALID_WALLET_UPDATE_STATEMENT_TO_SCALARS_FN_NAME: &str =
+    "assert_valid_wallet_update_statement_to_scalars";
+const ASSERT_VALID_REBLIND_STATEMENT_TO_SCALARS_FN_NAME: &str =
+    "assert_valid_reblind_statement_to_scalars";
+const ASSERT_VALID_COMMITMENTS_STATEMENT_TO_SCALARS_FN_NAME: &str =
+    "assert_valid_commitments_statement_to_scalars";
+const ASSERT_VALID_SETTLE_STATEMENT_TO_SCALARS_FN_NAME: &str =
+    "assert_valid_settle_statement_to_scalars";
 
 pub static STATEMENT_SERDE_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -174,6 +184,85 @@ pub async fn assert_valid_settle_statement(account: &ScriptAccount) -> Result<()
         *STATEMENT_SERDE_WRAPPER_ADDRESS.get().unwrap(),
         ASSERT_VALID_SETTLE_STATEMENT_FN_NAME,
         DUMMY_VALID_SETTLE_STATEMENT.get().unwrap().to_calldata(),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn assert_valid_wallet_create_statement_to_scalars(
+    account: &ScriptAccount,
+) -> Result<()> {
+    call_contract(
+        account,
+        *STATEMENT_SERDE_WRAPPER_ADDRESS.get().unwrap(),
+        ASSERT_VALID_WALLET_CREATE_STATEMENT_TO_SCALARS_FN_NAME,
+        DUMMY_VALID_WALLET_CREATE_STATEMENT
+            .get()
+            .unwrap()
+            .to_scalars()
+            .to_calldata(),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn assert_valid_wallet_update_statement_to_scalars(
+    account: &ScriptAccount,
+) -> Result<()> {
+    call_contract(
+        account,
+        *STATEMENT_SERDE_WRAPPER_ADDRESS.get().unwrap(),
+        ASSERT_VALID_WALLET_UPDATE_STATEMENT_TO_SCALARS_FN_NAME,
+        DUMMY_VALID_WALLET_UPDATE_STATEMENT
+            .get()
+            .unwrap()
+            .to_scalars()
+            .to_calldata(),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn assert_valid_reblind_statement_to_scalars(account: &ScriptAccount) -> Result<()> {
+    call_contract(
+        account,
+        *STATEMENT_SERDE_WRAPPER_ADDRESS.get().unwrap(),
+        ASSERT_VALID_REBLIND_STATEMENT_TO_SCALARS_FN_NAME,
+        DUMMY_VALID_REBLIND_STATEMENT
+            .get()
+            .unwrap()
+            .to_scalars()
+            .to_calldata(),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn assert_valid_commitments_statement_to_scalars(account: &ScriptAccount) -> Result<()> {
+    call_contract(
+        account,
+        *STATEMENT_SERDE_WRAPPER_ADDRESS.get().unwrap(),
+        ASSERT_VALID_COMMITMENTS_STATEMENT_TO_SCALARS_FN_NAME,
+        DUMMY_VALID_COMMITMENTS_STATEMENT
+            .get()
+            .unwrap()
+            .to_scalars()
+            .to_calldata(),
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn assert_valid_settle_statement_to_scalars(account: &ScriptAccount) -> Result<()> {
+    call_contract(
+        account,
+        *STATEMENT_SERDE_WRAPPER_ADDRESS.get().unwrap(),
+        ASSERT_VALID_SETTLE_STATEMENT_TO_SCALARS_FN_NAME,
+        DUMMY_VALID_SETTLE_STATEMENT
+            .get()
+            .unwrap()
+            .to_scalars()
+            .to_calldata(),
     )
     .await
     .map(|_| ())
