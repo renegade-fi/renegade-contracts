@@ -1,3 +1,6 @@
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 pub mod darkpool;
 pub mod merkle;
 pub mod nullifier_set;

@@ -3,7 +3,10 @@ use circuit_types::{
     order::Order,
     transfers::{ExternalTransfer, ExternalTransferDirection},
 };
-use circuits::zk_circuits::test_helpers::INITIAL_WALLET;
+use circuits::zk_circuits::{
+    test_helpers::INITIAL_WALLET,
+    valid_settle::test_helpers::{MATCH_RES, WALLET1, WALLET2},
+};
 use eyre::Result;
 use num_bigint::BigUint;
 use starknet::accounts::Account;
@@ -109,16 +112,22 @@ async fn test_process_match_root() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_process_match_args()?;
+    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
     poll_process_match_to_completion(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(
-        &args.party_0_match_payload.wallet_share_commitment,
+        &args
+            .party_0_match_payload
+            .valid_reblind_statement
+            .reblinded_private_share_commitment,
         &mut ark_merkle_tree,
         0,
     )?;
     insert_scalar_to_ark_merkle_tree(
-        &args.party_1_match_payload.wallet_share_commitment,
+        &args
+            .party_1_match_payload
+            .valid_reblind_statement
+            .reblinded_private_share_commitment,
         &mut ark_merkle_tree,
         1,
     )?;
@@ -191,7 +200,7 @@ async fn test_process_match_last_modified() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_process_match_args()?;
+    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
     let tx_hash = poll_process_match_to_completion(&account, &args).await?;
 
     let party_0_last_modified_tx =
@@ -262,13 +271,15 @@ async fn test_process_match_nullifiers() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_process_match_args()?;
+    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
 
     assert!(
         !is_nullifier_used(
             &account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            args.party_0_match_payload.old_shares_nullifier
+            args.party_0_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier
         )
         .await?
     );
@@ -276,7 +287,9 @@ async fn test_process_match_nullifiers() -> Result<()> {
         !is_nullifier_used(
             &account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            args.party_1_match_payload.old_shares_nullifier
+            args.party_1_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier
         )
         .await?
     );
@@ -287,7 +300,9 @@ async fn test_process_match_nullifiers() -> Result<()> {
         is_nullifier_used(
             &account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            args.party_0_match_payload.old_shares_nullifier
+            args.party_0_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier
         )
         .await?
     );
@@ -295,7 +310,9 @@ async fn test_process_match_nullifiers() -> Result<()> {
         is_nullifier_used(
             &account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            args.party_1_match_payload.old_shares_nullifier
+            args.party_1_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier
         )
         .await?
     );
