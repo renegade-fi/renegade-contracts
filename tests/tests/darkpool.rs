@@ -1,4 +1,11 @@
+use circuit_types::{
+    balance::Balance,
+    order::Order,
+    transfers::{ExternalTransfer, ExternalTransferDirection},
+};
+use circuits::zk_circuits::test_helpers::INITIAL_WALLET;
 use eyre::Result;
+use num_bigint::BigUint;
 use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
@@ -11,7 +18,7 @@ use tests::{
     },
     utils::{
         assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree,
-        is_nullifier_used, ExternalTransfer, StarknetU256,
+        is_nullifier_used,
     },
 };
 
@@ -73,10 +80,18 @@ async fn test_update_wallet_root() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_update_wallet_args()?;
+    let old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+    new_wallet.orders[0] = Order::default();
+    let external_transfer = ExternalTransfer::default();
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
-    insert_scalar_to_ark_merkle_tree(&args.wallet_share_commitment, &mut ark_merkle_tree, 0)?;
+    insert_scalar_to_ark_merkle_tree(
+        &args.statement.new_private_shares_commitment,
+        &mut ark_merkle_tree,
+        0,
+    )?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
@@ -150,7 +165,11 @@ async fn test_update_wallet_last_modified() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_update_wallet_args()?;
+    let old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+    new_wallet.orders[0] = Order::default();
+    let external_transfer = ExternalTransfer::default();
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
     let tx_hash = poll_update_wallet_to_completion(&account, &args).await?;
 
     let last_modified_tx =
@@ -203,13 +222,17 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_update_wallet_args()?;
+    let old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+    new_wallet.orders[0] = Order::default();
+    let external_transfer = ExternalTransfer::default();
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
 
     assert!(
         !is_nullifier_used(
             &account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            args.old_shares_nullifier
+            args.statement.old_shares_nullifier
         )
         .await?
     );
@@ -220,7 +243,7 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
         is_nullifier_used(
             &account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            args.old_shares_nullifier
+            args.statement.old_shares_nullifier
         )
         .await?
     );
@@ -295,25 +318,45 @@ async fn test_update_wallet_deposit() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let mut args = get_dummy_update_wallet_args()?;
-    args.external_transfers = vec![ExternalTransfer {
-        account_address: account.address(),
-        mint: *ERC20_ADDRESS.get().unwrap(),
-        amount: StarknetU256 {
-            low: TRANSFER_AMOUNT,
-            high: 0,
-        },
-        is_withdrawal: false,
-    }];
+    // Adapted from `test_external_transfer__valid_deposit_new_balance` in https://github.com/renegade-fi/renegade/blob/main/circuits/src/zk_circuits/valid_wallet_update.rs
 
+    let mut old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+
+    // Remove the first balance from the old wallet
+    old_wallet.balances[0] = Balance::default();
+
+    // Set the first new wallet balance to reflect the initial supply of dummy ERC20 tokens
+    new_wallet.balances[0].mint =
+        BigUint::from_bytes_be(&ERC20_ADDRESS.get().unwrap().to_bytes_be());
+    new_wallet.balances[0].amount = TRANSFER_AMOUNT;
+
+    // Transfer a brand new mint into the new wallet
+    let deposit_mint = new_wallet.balances[0].mint.clone();
+    let deposit_amount = new_wallet.balances[0].amount;
+
+    let transfer = ExternalTransfer {
+        mint: deposit_mint,
+        amount: BigUint::from(deposit_amount),
+        direction: ExternalTransferDirection::Deposit,
+        account_addr: BigUint::from_bytes_be(&account.address().to_bytes_be()),
+    };
+
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, transfer)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
     let account_balance = balance_of(&account, account.address()).await?;
     let darkpool_balance = balance_of(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
 
     // Assumes that INIT_BALANCE +/- TRANSFER_AMOUNT fits within the lower 128 bits of a u256 for simplicity
-    assert_eq!(account_balance.low, INIT_BALANCE - TRANSFER_AMOUNT);
-    assert_eq!(darkpool_balance.low, INIT_BALANCE + TRANSFER_AMOUNT);
+    assert_eq!(
+        account_balance.low,
+        (INIT_BALANCE - TRANSFER_AMOUNT) as u128
+    );
+    assert_eq!(
+        darkpool_balance.low,
+        (INIT_BALANCE + TRANSFER_AMOUNT) as u128
+    );
 
     global_teardown(sequencer);
 
@@ -329,25 +372,40 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let mut args = get_dummy_update_wallet_args()?;
-    args.external_transfers = vec![ExternalTransfer {
-        account_address: account.address(),
-        mint: *ERC20_ADDRESS.get().unwrap(),
-        amount: StarknetU256 {
-            low: TRANSFER_AMOUNT,
-            high: 0,
-        },
-        is_withdrawal: true,
-    }];
+    // Adapted from `test_external_transfer__valid_withdrawal` in https://github.com/renegade-fi/renegade/blob/main/circuits/src/zk_circuits/valid_wallet_update.rs
 
+    let mut old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+
+    // Set the first old wallet balance to reflect the initial supply of dummy ERC20 tokens
+    old_wallet.balances[0].mint =
+        BigUint::from_bytes_be(&ERC20_ADDRESS.get().unwrap().to_bytes_be());
+    old_wallet.balances[0].amount = INIT_BALANCE;
+
+    // Withdraw TRANSFER_AMOUNT of the first balance from the old wallet
+    new_wallet.balances[0] = Balance::default();
+    let transfer = ExternalTransfer {
+        mint: old_wallet.balances[0].mint.clone(),
+        amount: BigUint::from(TRANSFER_AMOUNT),
+        direction: ExternalTransferDirection::Withdrawal,
+        account_addr: BigUint::from_bytes_be(&account.address().to_bytes_be()),
+    };
+
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, transfer)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
     let account_balance = balance_of(&account, account.address()).await?;
     let darkpool_balance = balance_of(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
 
     // Assumes that INIT_BALANCE +/- TRANSFER_AMOUNT fits within the lower 128 bits of a u256 for simplicity
-    assert_eq!(account_balance.low, INIT_BALANCE + TRANSFER_AMOUNT);
-    assert_eq!(darkpool_balance.low, INIT_BALANCE - TRANSFER_AMOUNT);
+    assert_eq!(
+        account_balance.low,
+        (INIT_BALANCE + TRANSFER_AMOUNT) as u128
+    );
+    assert_eq!(
+        darkpool_balance.low,
+        (INIT_BALANCE - TRANSFER_AMOUNT) as u128
+    );
 
     global_teardown(sequencer);
 
@@ -363,7 +421,11 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
     .await?;
     let account = sequencer.account();
 
-    let args = get_dummy_update_wallet_args()?;
+    let old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+    new_wallet.orders[0] = Order::default();
+    let external_transfer = ExternalTransfer::default();
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
 
     poll_update_wallet_to_completion(&account, &args).await?;
 
@@ -380,7 +442,7 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
     let old_shares_nullifier_used = is_nullifier_used(
         &account,
         *DARKPOOL_ADDRESS.get().unwrap(),
-        args.old_shares_nullifier,
+        args.statement.old_shares_nullifier,
     )
     .await?;
 

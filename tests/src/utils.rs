@@ -1,7 +1,13 @@
 use ark_ff::{BigInteger, PrimeField};
 use byteorder::{BigEndian, ReadBytesExt};
-use circuit_types::traits::BaseType;
-use circuits::zk_circuits::valid_wallet_create::test_helpers::SizedStatement as SizedValidWalletCreateStatement;
+use circuit_types::{
+    traits::BaseType,
+    transfers::{ExternalTransfer, ExternalTransferDirection},
+};
+use circuits::zk_circuits::{
+    valid_wallet_create::test_helpers::SizedStatement as SizedValidWalletCreateStatement,
+    valid_wallet_update::test_helpers::SizedStatement as SizedValidWalletUpdateStatement,
+};
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
 use katana_core::{constants::DEFAULT_INVOKE_MAX_STEPS, sequencer::SequencerConfig};
@@ -24,8 +30,9 @@ use starknet::{
     },
     providers::Provider,
 };
+use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::ScriptAccount;
-use std::{env, io::Cursor, sync::Once};
+use std::{env, io::Cursor, iter, sync::Once};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -192,6 +199,10 @@ pub fn scalar_to_felt(scalar: &Scalar) -> FieldElement {
         .expect("failed to convert Scalar to FieldElement")
 }
 
+pub fn biguint_to_felt(biguint: &BigUint) -> FieldElement {
+    FieldElement::from_byte_slice_be(biguint.to_bytes_be().as_slice()).unwrap()
+}
+
 pub fn felt_to_scalar(felt: &FieldElement) -> Scalar {
     Scalar::from_be_bytes_mod_order(&felt.to_bytes_be())
 }
@@ -243,29 +254,6 @@ pub async fn assert_roots_equal(
 // ---------
 // | TYPES |
 // ---------
-
-pub struct StarknetU256 {
-    pub low: u128,
-    pub high: u128,
-}
-
-pub struct ExternalTransfer {
-    pub account_address: FieldElement,
-    pub mint: FieldElement,
-    pub amount: StarknetU256,
-    pub is_withdrawal: bool,
-}
-
-impl ExternalTransfer {
-    pub fn dummy() -> Self {
-        Self {
-            account_address: FieldElement::ZERO,
-            mint: FieldElement::ZERO,
-            amount: StarknetU256 { low: 0, high: 0 },
-            is_withdrawal: false,
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct MatchPayload {
@@ -336,10 +324,7 @@ pub struct NewWalletArgs {
 
 pub struct UpdateWalletArgs {
     pub wallet_blinder_share: Scalar,
-    pub wallet_share_commitment: Scalar,
-    pub old_shares_nullifier: Scalar,
-    pub public_wallet_shares: Vec<Scalar>,
-    pub external_transfers: Vec<ExternalTransfer>,
+    pub statement: SizedValidWalletUpdateStatement,
     pub proof: R1CSProof,
     pub witness_commitments: Vec<StarkPoint>,
     pub verification_job_id: FieldElement,
@@ -360,6 +345,12 @@ pub trait CalldataSerializable {
 }
 
 impl CalldataSerializable for usize {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![FieldElement::from(*self)]
+    }
+}
+
+impl CalldataSerializable for u64 {
     fn to_calldata(&self) -> Vec<FieldElement> {
         vec![FieldElement::from(*self)]
     }
@@ -457,10 +448,15 @@ impl CalldataSerializable for R1CSProof {
 
 impl CalldataSerializable for ExternalTransfer {
     fn to_calldata(&self) -> Vec<FieldElement> {
-        let mut calldata = vec![self.account_address, self.mint];
-        calldata.extend(self.amount.to_calldata());
-        calldata.push(FieldElement::from(self.is_withdrawal as u8));
-        calldata
+        [&self.account_addr, &self.mint]
+            .into_iter()
+            .map(biguint_to_felt)
+            .chain(<BigUint as Into<StarknetU256>>::into(self.amount.clone()).to_calldata())
+            .chain(iter::once(FieldElement::from(matches!(
+                self.direction,
+                ExternalTransferDirection::Withdrawal
+            ) as u8)))
+            .collect()
     }
 }
 
@@ -528,19 +524,21 @@ impl CalldataSerializable for NewWalletArgs {
 
 impl CalldataSerializable for UpdateWalletArgs {
     fn to_calldata(&self) -> Vec<FieldElement> {
-        [
-            self.wallet_blinder_share,
-            self.wallet_share_commitment,
-            self.old_shares_nullifier,
-        ]
-        .iter()
-        .flat_map(|s| s.to_calldata())
-        .chain(self.public_wallet_shares.to_calldata())
-        .chain(self.external_transfers.to_calldata())
-        .chain(self.proof.to_calldata())
-        .chain(self.witness_commitments.to_calldata())
-        .chain(self.verification_job_id.to_calldata())
-        .collect()
+        self.wallet_blinder_share
+            .to_calldata()
+            .into_iter()
+            // Matches serialization expected by derived Serde impl in Cairo
+            .chain(self.statement.old_shares_nullifier.to_calldata())
+            .chain(self.statement.new_private_shares_commitment.to_calldata())
+            .chain(self.statement.new_public_shares.to_scalars().to_calldata())
+            .chain(self.statement.merkle_root.to_calldata())
+            .chain(self.statement.external_transfer.to_calldata())
+            .chain(self.statement.old_pk_root.to_scalars().to_calldata())
+            .chain(self.statement.timestamp.to_calldata())
+            .chain(self.proof.to_calldata())
+            .chain(self.witness_commitments.to_calldata())
+            .chain(self.verification_job_id.to_calldata())
+            .collect()
     }
 }
 
