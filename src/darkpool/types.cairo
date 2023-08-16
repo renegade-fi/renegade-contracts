@@ -5,6 +5,8 @@ use starknet::ContractAddress;
 
 use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
 
+use super::statements::{ValidReblindStatement, ValidCommitmentsStatement};
+
 // --------------
 // | MISC TYPES |
 // --------------
@@ -37,13 +39,12 @@ impl ExternalTransferDefault of Default<ExternalTransfer> {
 #[derive(Drop, Serde, Clone)]
 struct MatchPayload {
     wallet_blinder_share: Scalar,
-    old_shares_nullifier: Scalar,
-    wallet_share_commitment: Scalar,
-    public_wallet_shares: Array<Scalar>,
-    valid_commitments_proof: Proof,
+    valid_commitments_statement: ValidCommitmentsStatement,
     valid_commitments_witness_commitments: Array<EcPoint>,
-    valid_reblind_proof: Proof,
+    valid_commitments_proof: Proof,
+    valid_reblind_statement: ValidReblindStatement,
     valid_reblind_witness_commitments: Array<EcPoint>,
+    valid_reblind_proof: Proof,
 }
 
 // --------------------------
@@ -69,10 +70,10 @@ struct UpdateWalletCallbackElems {
 #[derive(Drop, Serde, Copy)]
 struct ProcessMatchCallbackElems {
     party_0_wallet_blinder_share: Scalar,
-    party_0_wallet_share_commitment: Scalar,
-    party_0_old_shares_nullifier: Scalar,
+    party_0_reblinded_private_shares_commitment: Scalar,
+    party_0_original_shares_nullifier: Scalar,
     party_1_wallet_blinder_share: Scalar,
-    party_1_wallet_share_commitment: Scalar,
-    party_1_old_shares_nullifier: Scalar,
+    party_1_reblinded_private_shares_commitment: Scalar,
+    party_1_original_shares_nullifier: Scalar,
     tx_hash: felt252,
 }
