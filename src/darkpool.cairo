@@ -1,4 +1,5 @@
 mod types;
+mod statements;
 
 // TODO: Fit to the contract extensibility framework once it is implemented
 
@@ -15,8 +16,9 @@ use renegade_contracts::{
 
 use types::{
     ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-    ProcessMatchCallbackElems, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+    ProcessMatchCallbackElems,
 };
+use statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement};
 
 
 #[starknet::interface]
@@ -111,8 +113,9 @@ mod Darkpool {
 
     use super::types::{
         ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-        ProcessMatchCallbackElems, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        ProcessMatchCallbackElems,
     };
+    use super::statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement};
 
     // -----------
     // | STORAGE |
@@ -695,22 +698,7 @@ mod Darkpool {
         let erc20 = _get_erc20(transfer.mint);
 
         // Execute the transfer
-        if !transfer.is_withdrawal {
-            // Deposit
-            erc20.transfer_from(transfer.account_addr, contract_address, transfer.amount);
-
-            // Emit event
-            self
-                .emit(
-                    Event::Deposit(
-                        Deposit {
-                            sender: transfer.account_addr,
-                            mint: transfer.mint,
-                            amount: transfer.amount
-                        }
-                    )
-                );
-        } else {
+        if transfer.is_withdrawal {
             // Withdraw
             erc20.transfer(transfer.account_addr, transfer.amount);
 
@@ -720,6 +708,21 @@ mod Darkpool {
                     Event::Withdrawal(
                         Withdrawal {
                             recipient: transfer.account_addr,
+                            mint: transfer.mint,
+                            amount: transfer.amount
+                        }
+                    )
+                );
+        } else {
+            // Deposit
+            erc20.transfer_from(transfer.account_addr, contract_address, transfer.amount);
+
+            // Emit event
+            self
+                .emit(
+                    Event::Deposit(
+                        Deposit {
+                            sender: transfer.account_addr,
                             mint: transfer.mint,
                             amount: transfer.amount
                         }
