@@ -18,7 +18,7 @@ use types::{
     ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
     ProcessMatchCallbackElems,
 };
-use statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement};
+use statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement};
 
 
 #[starknet::interface]
@@ -55,8 +55,8 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         wallet_blinder_share: Scalar,
         statement: ValidWalletCreateStatement,
-        proof: Proof,
         witness_commitments: Array<EcPoint>,
+        proof: Proof,
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>>;
     fn poll_new_wallet(
@@ -66,8 +66,8 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         wallet_blinder_share: Scalar,
         statement: ValidWalletUpdateStatement,
-        proof: Proof,
         witness_commitments: Array<EcPoint>,
+        proof: Proof,
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>>;
     fn poll_update_wallet(
@@ -77,10 +77,11 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         party_0_payload: MatchPayload,
         party_1_payload: MatchPayload,
-        match_proof: Proof,
-        match_witness_commitments: Array<EcPoint>,
-        settle_proof: Proof,
-        settle_witness_commitments: Array<EcPoint>,
+        valid_match_mpc_witness_commitments: Array<EcPoint>,
+        valid_match_mpc_proof: Proof,
+        valid_settle_statement: ValidSettleStatement,
+        valid_settle_witness_commitments: Array<EcPoint>,
+        valid_settle_proof: Proof,
         verification_job_ids: Array<felt252>,
     ) -> Option<Result<Scalar, felt252>>;
     fn poll_process_match(
@@ -115,7 +116,9 @@ mod Darkpool {
         ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
         ProcessMatchCallbackElems,
     };
-    use super::statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement};
+    use super::statements::{
+        ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement
+    };
 
     // -----------
     // | STORAGE |
@@ -433,8 +436,8 @@ mod Darkpool {
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             statement: ValidWalletCreateStatement,
-            proof: Proof,
             witness_commitments: Array<EcPoint>,
+            proof: Proof,
             verification_job_id: felt252,
         ) -> Option<Result<Scalar, felt252>> {
             // Queue verification
@@ -482,8 +485,8 @@ mod Darkpool {
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             statement: ValidWalletUpdateStatement,
-            proof: Proof,
             witness_commitments: Array<EcPoint>,
+            proof: Proof,
             verification_job_id: felt252,
         ) -> Option<Result<Scalar, felt252>> {
             // Queue verification
@@ -541,10 +544,11 @@ mod Darkpool {
             ref self: ContractState,
             party_0_payload: MatchPayload,
             party_1_payload: MatchPayload,
-            match_proof: Proof,
-            match_witness_commitments: Array<EcPoint>,
-            settle_proof: Proof,
-            settle_witness_commitments: Array<EcPoint>,
+            valid_match_mpc_witness_commitments: Array<EcPoint>,
+            valid_match_mpc_proof: Proof,
+            valid_settle_statement: ValidSettleStatement,
+            valid_settle_witness_commitments: Array<EcPoint>,
+            valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) -> Option<Result<Scalar, felt252>> {
             // Queue verifications
@@ -581,22 +585,32 @@ mod Darkpool {
             // Queue VALID MATCH MPC
             verifier
                 .queue_verification_job(
-                    match_proof, match_witness_commitments, *verification_job_ids[4]
+                    valid_match_mpc_proof,
+                    valid_match_mpc_witness_commitments,
+                    *verification_job_ids[4]
                 );
             // Queue VALID SETTLE
             verifier
                 .queue_verification_job(
-                    settle_proof, settle_witness_commitments, *verification_job_ids[5]
+                    valid_settle_proof, valid_settle_witness_commitments, *verification_job_ids[5]
                 );
 
             // Store callback elements
             let callback_elems = ProcessMatchCallbackElems {
                 party_0_wallet_blinder_share: party_0_payload.wallet_blinder_share,
-                party_0_wallet_share_commitment: party_0_payload.wallet_share_commitment,
-                party_0_old_shares_nullifier: party_0_payload.old_shares_nullifier,
+                party_0_reblinded_private_shares_commitment: party_0_payload
+                    .valid_reblind_statement
+                    .reblinded_private_shares_commitment,
+                party_0_original_shares_nullifier: party_0_payload
+                    .valid_reblind_statement
+                    .original_shares_nullifier,
                 party_1_wallet_blinder_share: party_1_payload.wallet_blinder_share,
-                party_1_wallet_share_commitment: party_1_payload.wallet_share_commitment,
-                party_1_old_shares_nullifier: party_1_payload.old_shares_nullifier,
+                party_1_reblinded_private_shares_commitment: party_1_payload
+                    .valid_reblind_statement
+                    .reblinded_private_shares_commitment,
+                party_1_original_shares_nullifier: party_1_payload
+                    .valid_reblind_statement
+                    .original_shares_nullifier,
                 tx_hash: get_tx_info().unbox().transaction_hash
             };
             self
@@ -849,14 +863,16 @@ mod Darkpool {
 
                     // Insert both parties' old shares nullifiers to the spent nullifier set
                     let nullifier_set = _get_nullifier_set(@self);
-                    nullifier_set.mark_nullifier_used(callback_elems.party_0_old_shares_nullifier);
-                    nullifier_set.mark_nullifier_used(callback_elems.party_1_old_shares_nullifier);
+                    nullifier_set
+                        .mark_nullifier_used(callback_elems.party_0_original_shares_nullifier);
+                    nullifier_set
+                        .mark_nullifier_used(callback_elems.party_1_original_shares_nullifier);
 
                     // Insert both partes' updated wallet commitments to the merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
-                    merkle_tree.insert(callback_elems.party_0_wallet_share_commitment);
+                    merkle_tree.insert(callback_elems.party_0_reblinded_private_shares_commitment);
                     let new_root = merkle_tree
-                        .insert(callback_elems.party_1_wallet_share_commitment);
+                        .insert(callback_elems.party_1_reblinded_private_shares_commitment);
 
                     // Mark wallet as updated
                     _mark_wallet_updated(
