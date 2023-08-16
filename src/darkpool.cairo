@@ -15,7 +15,7 @@ use renegade_contracts::{
 
 use types::{
     ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-    ProcessMatchCallbackElems, ValidWalletCreateStatement,
+    ProcessMatchCallbackElems, ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 
 
@@ -63,10 +63,7 @@ trait IDarkpool<TContractState> {
     fn update_wallet(
         ref self: TContractState,
         wallet_blinder_share: Scalar,
-        wallet_share_commitment: Scalar,
-        old_shares_nullifier: Scalar,
-        public_wallet_shares: Array<Scalar>,
-        external_transfers: Array<ExternalTransfer>,
+        statement: ValidWalletUpdateStatement,
         proof: Proof,
         witness_commitments: Array<EcPoint>,
         verification_job_id: felt252,
@@ -114,7 +111,7 @@ mod Darkpool {
 
     use super::types::{
         ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-        ProcessMatchCallbackElems, ValidWalletCreateStatement,
+        ProcessMatchCallbackElems, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     };
 
     // -----------
@@ -472,10 +469,7 @@ mod Darkpool {
         /// Update a wallet in the commitment tree
         /// Parameters:
         /// - `wallet_blinder_share`: The public share of the wallet blinder, used for indexing
-        /// - `wallet_share_commitment`: The commitment to the updated wallet's shares
-        /// - `old_shares_nullifier`: The nullifier for the public shares of the wallet before it was updated
-        /// - `public_wallet_shares`: The public shares of the wallet after it was updated
-        /// - `external_transfers`: The external transfers (ERC20 deposit/withdrawal)
+        /// - `statement`: Public inputs to the `VALID_WALLET_UPDATE` circuit
         /// - `proof`: The proof of `VALID_WALLET_UPDATE`
         /// - `witness_commitments`: The Pedersen commitments to the witness elements
         /// - `verification_job_id`: The ID of the verification job to enqueue
@@ -484,10 +478,7 @@ mod Darkpool {
         fn update_wallet(
             ref self: ContractState,
             wallet_blinder_share: Scalar,
-            wallet_share_commitment: Scalar,
-            old_shares_nullifier: Scalar,
-            public_wallet_shares: Array<Scalar>,
-            external_transfers: Array<ExternalTransfer>,
+            statement: ValidWalletUpdateStatement,
             proof: Proof,
             witness_commitments: Array<EcPoint>,
             verification_job_id: felt252,
@@ -497,11 +488,17 @@ mod Darkpool {
             verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
             // Store callback elements
+            let external_transfer = if statement.external_transfer == Default::default() {
+                Option::None(())
+            } else {
+                Option::Some(statement.external_transfer)
+            };
+
             let callback_elems = UpdateWalletCallbackElems {
                 wallet_blinder_share,
-                wallet_share_commitment,
-                old_shares_nullifier,
-                external_transfers,
+                old_shares_nullifier: statement.old_shares_nullifier,
+                new_private_shares_commitment: statement.new_private_shares_commitment,
+                external_transfer,
                 tx_hash: get_tx_info().unbox().transaction_hash
             };
             self
@@ -688,61 +685,46 @@ mod Darkpool {
         self.emit(Event::WalletUpdate(WalletUpdate { wallet_blinder_share }));
     }
 
-    /// Executes a set of external ERC20 transfers
+    /// Executes an external ERC20 transfer
     /// Parameters:
-    /// - `transfers`: The external transfers to execute
-    fn _execute_external_transfers(
-        ref self: ContractState, mut transfers: Array<ExternalTransfer>
-    ) {
+    /// - `transfer`: The external transfer to execute
+    fn _execute_external_transfer(ref self: ContractState, mut transfer: ExternalTransfer) {
         let contract_address = get_contract_address();
-        loop {
-            if transfers.is_empty() {
-                break;
-            };
 
-            // Get the first transfer in the list
-            // It's safe to unwrap here since we only enter this branch if
-            // the list is not empty
-            let next_transfer = transfers.pop_front().unwrap();
+        // Get contract dispatcher instance for transfer mint
+        let erc20 = _get_erc20(transfer.mint);
 
-            // Get contract dispatcher instance for transfer mint
-            let erc20 = _get_erc20(next_transfer.mint);
+        // Execute the transfer
+        if !transfer.is_withdrawal {
+            // Deposit
+            erc20.transfer_from(transfer.account_addr, contract_address, transfer.amount);
 
-            // Execute the transfer
-            if !next_transfer.is_withdrawal {
-                // Deposit
-                erc20
-                    .transfer_from(
-                        next_transfer.account_addr, contract_address, next_transfer.amount
-                    );
+            // Emit event
+            self
+                .emit(
+                    Event::Deposit(
+                        Deposit {
+                            sender: transfer.account_addr,
+                            mint: transfer.mint,
+                            amount: transfer.amount
+                        }
+                    )
+                );
+        } else {
+            // Withdraw
+            erc20.transfer(transfer.account_addr, transfer.amount);
 
-                // Emit event
-                self
-                    .emit(
-                        Event::Deposit(
-                            Deposit {
-                                sender: next_transfer.account_addr,
-                                mint: next_transfer.mint,
-                                amount: next_transfer.amount
-                            }
-                        )
-                    );
-            } else {
-                // Withdraw
-                erc20.transfer(next_transfer.account_addr, next_transfer.amount);
-
-                // Emit event
-                self
-                    .emit(
-                        Event::Withdrawal(
-                            Withdrawal {
-                                recipient: next_transfer.account_addr,
-                                mint: next_transfer.mint,
-                                amount: next_transfer.amount
-                            }
-                        )
-                    );
-            };
+            // Emit event
+            self
+                .emit(
+                    Event::Withdrawal(
+                        Withdrawal {
+                            recipient: transfer.account_addr,
+                            mint: transfer.mint,
+                            amount: transfer.amount
+                        }
+                    )
+                );
         };
     }
 
@@ -793,14 +775,17 @@ mod Darkpool {
 
                     // Insert the updated wallet's commitment into the Merkle tree
                     let merkle_tree = _get_merkle_tree(@self);
-                    let new_root = merkle_tree.insert(callback_elems.wallet_share_commitment);
+                    let new_root = merkle_tree.insert(callback_elems.new_private_shares_commitment);
 
                     // Add the old shares nullifier to the spent nullifier set
                     let nullifier_set = _get_nullifier_set(@self);
                     nullifier_set.mark_nullifier_used(callback_elems.old_shares_nullifier);
 
-                    // Process the external transfers
-                    _execute_external_transfers(ref self, callback_elems.external_transfers);
+                    // Process the external transfer
+                    match callback_elems.external_transfer {
+                        Option::Some(transfer) => _execute_external_transfer(ref self, transfer),
+                        Option::None(()) => {}
+                    };
 
                     // Mark wallet as updated
                     _mark_wallet_updated(

@@ -1,4 +1,9 @@
-use circuits::zk_circuits::valid_wallet_create::test_helpers::create_default_witness_statement;
+use circuit_types::transfers::ExternalTransfer;
+use circuits::zk_circuits::{
+    test_helpers::{SizedWallet, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
+    valid_wallet_create::test_helpers::create_default_witness_statement,
+    valid_wallet_update::test_helpers::construct_witness_statement,
+};
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
@@ -11,6 +16,7 @@ use starknet::{
         utils::cairo_short_string_to_felt,
     },
 };
+use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
     initialize, ScriptAccount,
@@ -27,15 +33,15 @@ use crate::{
         call_contract, check_verification_job_status, felt_to_u128, get_dummy_circuit_params,
         global_setup, invoke_contract, random_felt, scalar_to_felt,
         singleprover_prove_dummy_circuit, CalldataSerializable, CircuitParams, MatchPayload,
-        NewWalletArgs, ProcessMatchArgs, StarknetU256, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
+        NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
     },
 };
 
 const DUMMY_ERC20_CONTRACT_NAME: &str = "renegade_contracts_DummyERC20";
 const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgradeTarget";
 
-pub const INIT_BALANCE: u128 = 1000;
-pub const TRANSFER_AMOUNT: u128 = 100;
+pub const INIT_BALANCE: u64 = 1000;
+pub const TRANSFER_AMOUNT: u64 = 100;
 
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
@@ -112,7 +118,7 @@ pub async fn setup_darkpool_test(
             &account,
             darkpool_address,
             StarknetU256 {
-                low: INIT_BALANCE,
+                low: INIT_BALANCE as u128,
                 high: 0,
             },
         )
@@ -451,21 +457,26 @@ pub fn get_dummy_new_wallet_args() -> Result<NewWalletArgs> {
     })
 }
 
-pub fn get_dummy_update_wallet_args() -> Result<UpdateWalletArgs> {
+pub fn get_dummy_update_wallet_args(
+    old_wallet: SizedWallet,
+    new_wallet: SizedWallet,
+    external_transfer: ExternalTransfer,
+) -> Result<UpdateWalletArgs> {
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
-    let wallet_share_commitment = Scalar::random(&mut thread_rng());
-    let old_shares_nullifier = Scalar::random(&mut thread_rng());
-    let public_wallet_shares = vec![];
-    let external_transfers = vec![];
+
+    let (_, statement) = construct_witness_statement::<
+        MAX_BALANCES,
+        MAX_ORDERS,
+        MAX_FEES,
+        TEST_MERKLE_HEIGHT,
+    >(old_wallet, new_wallet, external_transfer);
+
     let (proof, witness_commitments) = singleprover_prove_dummy_circuit()?;
     let verification_job_id = random_felt();
 
     Ok(UpdateWalletArgs {
         wallet_blinder_share,
-        wallet_share_commitment,
-        old_shares_nullifier,
-        public_wallet_shares,
-        external_transfers,
+        statement,
         proof,
         witness_commitments,
         verification_job_id,

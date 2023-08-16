@@ -1,3 +1,5 @@
+use traits::TryInto;
+use option::OptionTrait;
 use clone::Clone;
 use starknet::ContractAddress;
 
@@ -8,7 +10,7 @@ use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde:
 // --------------
 
 /// Represents an external transfer of an ERC20 token
-#[derive(Copy, Drop, Serde)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 struct ExternalTransfer {
     /// The address of the account contract to deposit from or withdraw to
     account_addr: ContractAddress,
@@ -18,6 +20,17 @@ struct ExternalTransfer {
     amount: u256,
     /// Whether or not the transfer is a withdrawal (otherwise a deposit)
     is_withdrawal: bool,
+}
+
+impl ExternalTransferDefault of Default<ExternalTransfer> {
+    fn default() -> ExternalTransfer {
+        ExternalTransfer {
+            account_addr: 0.try_into().unwrap(),
+            mint: 0.try_into().unwrap(),
+            amount: Default::default(),
+            is_withdrawal: false,
+        }
+    }
 }
 
 /// Represents the artifacts produced by one of the parties in a match
@@ -47,9 +60,9 @@ struct NewWalletCallbackElems {
 #[derive(Drop, Serde, Clone)]
 struct UpdateWalletCallbackElems {
     wallet_blinder_share: Scalar,
-    wallet_share_commitment: Scalar,
     old_shares_nullifier: Scalar,
-    external_transfers: Array<ExternalTransfer>,
+    new_private_shares_commitment: Scalar,
+    external_transfer: Option<ExternalTransfer>,
     tx_hash: felt252,
 }
 
@@ -67,14 +80,33 @@ struct ProcessMatchCallbackElems {
 // -------------------
 // | STATEMENT TYPES |
 // -------------------
+/// All statement types are assumed to have the same serialization
+/// to/from Scalars as the relayer-side implementation.
 
-/// Statement for the VALID_WALLET_CREATE proof.
-/// Assumed to have the same serialization to/from Scalars
-/// as the relayer-side implementation
+/// Statement for the VALID_WALLET_CREATE proof
 #[derive(Drop, Serde, Clone)]
 struct ValidWalletCreateStatement {
     /// The commitment to the private secret shares of the wallet
     private_shares_commitment: Scalar,
     /// The public secret shares of the wallet
     public_wallet_shares: Array<Scalar>,
+}
+
+/// Statement for the VALID_WALLET_UPDATE proof
+#[derive(Drop, Serde, Clone)]
+struct ValidWalletUpdateStatement {
+    /// The nullifier of the old wallet's secret shares
+    old_shares_nullifier: Scalar,
+    /// A commitment to the new wallet's private secret shares
+    new_private_shares_commitment: Scalar,
+    /// The public secret shares of the new wallet
+    new_public_shares: Array<Scalar>,
+    /// The global Merkle root that the wallet share proofs open to
+    merkle_root: Scalar,
+    /// The external transfer tuple
+    external_transfer: ExternalTransfer,
+    /// The public root key of the old wallet, rotated out after update
+    old_pk_root: Array<Scalar>,
+    /// The timestamp this update is at
+    timestamp: u64,
 }
