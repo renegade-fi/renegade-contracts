@@ -1,9 +1,12 @@
-use traits::TryInto;
+use traits::{TryInto, Into};
 use option::OptionTrait;
 use clone::Clone;
+use array::ArrayTrait;
 use starknet::ContractAddress;
 
-use renegade_contracts::{verifier::{scalar::Scalar, types::Proof}, utils::serde::EcPointSerde};
+use renegade_contracts::{
+    verifier::{scalar::{Scalar, ScalarSerializable}, types::Proof}, utils::serde::EcPointSerde
+};
 
 use super::statements::{ValidReblindStatement, ValidCommitmentsStatement};
 
@@ -32,6 +35,23 @@ impl ExternalTransferDefault of Default<ExternalTransfer> {
             amount: Default::default(),
             is_withdrawal: false,
         }
+    }
+}
+
+impl ExternalTransferToScalarsImpl of ScalarSerializable<ExternalTransfer> {
+    fn to_scalars(self: @ExternalTransfer) -> Array<Scalar> {
+        let mut scalars: Array<Scalar> = ArrayTrait::new();
+
+        scalars.append((*self.account_addr).into());
+        scalars.append((*self.mint).into());
+        scalars.append((*self.amount).into());
+        scalars.append((if *self.is_withdrawal {
+            1
+        } else {
+            0
+        }).into());
+
+        scalars
     }
 }
 

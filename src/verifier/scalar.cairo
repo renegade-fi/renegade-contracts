@@ -139,11 +139,19 @@ impl ScalarNeg of Neg<Scalar> {
 // | CONVERSION |
 // --------------
 
-impl IntoScalar<T, impl TIntoU256: Into<T, u256>> of Into<T, Scalar> {
-    fn into(self: T) -> Scalar {
-        let inner_u256 = self.into() % SCALAR_FIELD_ORDER;
+impl U256IntoScalar of Into<u256, Scalar> {
+    fn into(self: u256) -> Scalar {
+        let inner_u256 = self % SCALAR_FIELD_ORDER;
         // Safe to unwrap b/c scalar field is smaller than base field
         Scalar { inner: inner_u256.try_into().unwrap() }
+    }
+}
+
+impl FeltIntoScalar<T, impl TIntoFelt: Into<T, felt252>> of Into<T, Scalar> {
+    fn into(self: T) -> Scalar {
+        let inner_felt: felt252 = self.into();
+        let inner_u256: u256 = inner_felt.into();
+        inner_u256.into()
     }
 }
 
@@ -195,4 +203,12 @@ impl ScalarLegacyHash of LegacyHash<Scalar> {
     fn hash(state: felt252, value: Scalar) -> felt252 {
         LegacyHash::hash(state, value.inner)
     }
+}
+
+// --------------------------
+// | EXTERNAL SERIALIZATION |
+// --------------------------
+
+trait ScalarSerializable<T> {
+    fn to_scalars(self: @T) -> Array<Scalar>;
 }
