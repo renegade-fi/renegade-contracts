@@ -1,6 +1,7 @@
-use circuit_types::transfers::ExternalTransfer;
+use circuit_types::{r#match::MatchResult, transfers::ExternalTransfer};
 use circuits::zk_circuits::{
     test_helpers::{SizedWallet, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
+    valid_settle::test_helpers::create_witness_statement,
     valid_wallet_create::test_helpers::create_default_witness_statement,
     valid_wallet_update::test_helpers::construct_witness_statement,
 };
@@ -483,22 +484,31 @@ pub fn get_dummy_update_wallet_args(
     })
 }
 
-pub fn get_dummy_process_match_args() -> Result<ProcessMatchArgs> {
-    let party_0_match_payload = MatchPayload::dummy()?;
-    let party_1_match_payload = MatchPayload::dummy()?;
-    let (match_proof, match_witness_commitments) = singleprover_prove_dummy_circuit()?;
-    let (settle_proof, settle_witness_commitments) = singleprover_prove_dummy_circuit()?;
+pub fn get_dummy_process_match_args(
+    party0_wallet: SizedWallet,
+    party1_wallet: SizedWallet,
+    match_res: MatchResult,
+) -> Result<ProcessMatchArgs> {
+    let party_0_match_payload = MatchPayload::dummy(&party0_wallet)?;
+    let party_1_match_payload = MatchPayload::dummy(&party1_wallet)?;
+    let (valid_match_mpc_proof, valid_match_mpc_witness_commitments) =
+        singleprover_prove_dummy_circuit()?;
+    let (valid_settle_proof, valid_settle_witness_commitments) =
+        singleprover_prove_dummy_circuit()?;
     let verification_job_ids = (0..PROCESS_MATCH_NUM_PROOFS)
         .map(|_| random_felt())
         .collect();
+    let (_, valid_settle_statement) =
+        create_witness_statement(party0_wallet, party1_wallet, match_res);
 
     Ok(ProcessMatchArgs {
         party_0_match_payload,
         party_1_match_payload,
-        match_proof,
-        match_witness_commitments,
-        settle_proof,
-        settle_witness_commitments,
+        valid_match_mpc_witness_commitments,
+        valid_match_mpc_proof,
+        valid_settle_statement,
+        valid_settle_witness_commitments,
+        valid_settle_proof,
         verification_job_ids,
     })
 }

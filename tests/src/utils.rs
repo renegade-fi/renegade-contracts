@@ -5,8 +5,18 @@ use circuit_types::{
     transfers::{ExternalTransfer, ExternalTransferDirection},
 };
 use circuits::zk_circuits::{
-    valid_wallet_create::test_helpers::SizedStatement as SizedValidWalletCreateStatement,
-    valid_wallet_update::test_helpers::SizedStatement as SizedValidWalletUpdateStatement,
+    test_helpers::{SizedWallet, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
+    valid_commitments::{test_helpers::create_witness_and_statement, ValidCommitmentsStatement},
+    valid_reblind::{test_helpers::construct_witness_statement, ValidReblindStatement},
+    valid_settle::{
+        test_helpers::SizedStatement as SizedValidSettleStatement, ValidSettleStatement,
+    },
+    valid_wallet_create::{
+        test_helpers::SizedStatement as SizedValidWalletCreateStatement, ValidWalletCreateStatement,
+    },
+    valid_wallet_update::{
+        test_helpers::SizedStatement as SizedValidWalletUpdateStatement, ValidWalletUpdateStatement,
+    },
 };
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
@@ -36,7 +46,7 @@ use std::{env, io::Cursor, iter, sync::Once};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::merkle::ark_merkle::ScalarMerkleTree;
+use crate::merkle::{ark_merkle::ScalarMerkleTree, utils::TEST_MERKLE_HEIGHT};
 
 // ---------------------
 // | META TEST HELPERS |
@@ -258,31 +268,34 @@ pub async fn assert_roots_equal(
 #[derive(Clone)]
 pub struct MatchPayload {
     pub wallet_blinder_share: Scalar,
-    pub old_shares_nullifier: Scalar,
-    pub wallet_share_commitment: Scalar,
-    pub public_wallet_shares: Vec<Scalar>,
-    pub valid_commitments_proof: R1CSProof,
+    pub valid_commitments_statement: ValidCommitmentsStatement,
     pub valid_commitments_witness_commitments: Vec<StarkPoint>,
-    pub valid_reblind_proof: R1CSProof,
+    pub valid_commitments_proof: R1CSProof,
+    pub valid_reblind_statement: ValidReblindStatement,
     pub valid_reblind_witness_commitments: Vec<StarkPoint>,
+    pub valid_reblind_proof: R1CSProof,
 }
 
 impl MatchPayload {
-    pub fn dummy() -> Result<Self> {
+    pub fn dummy(wallet: &SizedWallet) -> Result<Self> {
         let (valid_commitments_proof, valid_commitments_witness_commitments) =
             singleprover_prove_dummy_circuit()?;
         let (valid_reblind_proof, valid_reblind_witness_commitments) =
             singleprover_prove_dummy_circuit()?;
+        let (_, valid_commitments_statement) = create_witness_and_statement(wallet);
+        let (_, valid_reblind_statement) =
+            construct_witness_statement::<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>(
+                wallet,
+            );
 
         Ok(Self {
             wallet_blinder_share: Scalar::random(&mut thread_rng()),
-            old_shares_nullifier: Scalar::random(&mut thread_rng()),
-            wallet_share_commitment: Scalar::random(&mut thread_rng()),
-            public_wallet_shares: vec![],
-            valid_commitments_proof,
+            valid_commitments_statement,
             valid_commitments_witness_commitments,
-            valid_reblind_proof,
+            valid_commitments_proof,
+            valid_reblind_statement,
             valid_reblind_witness_commitments,
+            valid_reblind_proof,
         })
     }
 }
@@ -333,10 +346,11 @@ pub struct UpdateWalletArgs {
 pub struct ProcessMatchArgs {
     pub party_0_match_payload: MatchPayload,
     pub party_1_match_payload: MatchPayload,
-    pub match_proof: R1CSProof,
-    pub match_witness_commitments: Vec<StarkPoint>,
-    pub settle_proof: R1CSProof,
-    pub settle_witness_commitments: Vec<StarkPoint>,
+    pub valid_match_mpc_witness_commitments: Vec<StarkPoint>,
+    pub valid_match_mpc_proof: R1CSProof,
+    pub valid_settle_statement: SizedValidSettleStatement,
+    pub valid_settle_witness_commitments: Vec<StarkPoint>,
+    pub valid_settle_proof: R1CSProof,
     pub verification_job_ids: Vec<FieldElement>,
 }
 
@@ -446,46 +460,6 @@ impl CalldataSerializable for R1CSProof {
     }
 }
 
-impl CalldataSerializable for ExternalTransfer {
-    fn to_calldata(&self) -> Vec<FieldElement> {
-        [&self.account_addr, &self.mint]
-            .into_iter()
-            .map(biguint_to_felt)
-            .chain(<BigUint as Into<StarknetU256>>::into(self.amount.clone()).to_calldata())
-            .chain(iter::once(FieldElement::from(matches!(
-                self.direction,
-                ExternalTransferDirection::Withdrawal
-            ) as u8)))
-            .collect()
-    }
-}
-
-impl CalldataSerializable for MatchPayload {
-    fn to_calldata(&self) -> Vec<FieldElement> {
-        [
-            self.wallet_blinder_share,
-            self.old_shares_nullifier,
-            self.wallet_share_commitment,
-        ]
-        .iter()
-        .flat_map(|s| s.to_calldata())
-        .chain(self.public_wallet_shares.to_calldata())
-        .chain(self.valid_commitments_proof.to_calldata())
-        .chain(
-            self.valid_commitments_witness_commitments
-                .to_calldata()
-                .into_iter(),
-        )
-        .chain(self.valid_reblind_proof.to_calldata())
-        .chain(
-            self.valid_reblind_witness_commitments
-                .to_calldata()
-                .into_iter(),
-        )
-        .collect()
-    }
-}
-
 impl CalldataSerializable for CircuitParams {
     fn to_calldata(&self) -> Vec<FieldElement> {
         [self.n, self.n_plus, self.k, self.q, self.m]
@@ -502,21 +476,134 @@ impl CalldataSerializable for CircuitParams {
     }
 }
 
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize, const MAX_FEES: usize> CalldataSerializable
+    for ValidWalletCreateStatement<MAX_BALANCES, MAX_ORDERS, MAX_FEES>
+where
+    [(); MAX_BALANCES + MAX_ORDERS + MAX_FEES]: Sized,
+{
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        // Matches serialization expected by derived Serde impl in Cairo
+        self.private_shares_commitment
+            .to_calldata()
+            .into_iter()
+            .chain(self.public_wallet_shares.to_scalars().to_calldata())
+            .collect()
+    }
+}
+
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize, const MAX_FEES: usize> CalldataSerializable
+    for ValidWalletUpdateStatement<MAX_BALANCES, MAX_ORDERS, MAX_FEES>
+where
+    [(); MAX_BALANCES + MAX_ORDERS + MAX_FEES]: Sized,
+{
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        // Matches serialization expected by derived Serde impl in Cairo
+        self.old_shares_nullifier
+            .to_calldata()
+            .into_iter()
+            .chain(self.new_private_shares_commitment.to_calldata())
+            .chain(self.new_public_shares.to_scalars().to_calldata())
+            .chain(self.merkle_root.to_calldata())
+            .chain(self.external_transfer.to_calldata())
+            .chain(self.old_pk_root.to_scalars().to_calldata())
+            .chain(self.timestamp.to_calldata())
+            .collect()
+    }
+}
+
+impl CalldataSerializable for ValidCommitmentsStatement {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        // Matches serialization expected by derived Serde impl in Cairo
+        [
+            self.balance_send_index,
+            self.balance_receive_index,
+            self.order_index,
+        ]
+        .into_iter()
+        .map(FieldElement::from)
+        .collect()
+    }
+}
+
+impl CalldataSerializable for ValidReblindStatement {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        // Matches serialization expected by derived Serde impl in Cairo
+        [
+            self.original_shares_nullifier,
+            self.reblinded_private_share_commitment,
+            self.merkle_root,
+        ]
+        .into_iter()
+        .flat_map(|s| s.to_calldata())
+        .collect()
+    }
+}
+
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize, const MAX_FEES: usize> CalldataSerializable
+    for ValidSettleStatement<MAX_BALANCES, MAX_ORDERS, MAX_FEES>
+where
+    [(); MAX_BALANCES + MAX_ORDERS + MAX_FEES]: Sized,
+{
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        // Matches serialization expected by derived Serde impl in Cairo
+        self.party0_modified_shares
+            .to_scalars()
+            .to_calldata()
+            .into_iter()
+            .chain(self.party1_modified_shares.to_scalars().to_calldata())
+            .chain(
+                [
+                    self.party0_send_balance_index,
+                    self.party0_receive_balance_index,
+                    self.party0_order_index,
+                    self.party1_send_balance_index,
+                    self.party1_receive_balance_index,
+                    self.party1_order_index,
+                ]
+                .into_iter()
+                .map(FieldElement::from),
+            )
+            .collect()
+    }
+}
+
+impl CalldataSerializable for ExternalTransfer {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        [&self.account_addr, &self.mint]
+            .into_iter()
+            .map(biguint_to_felt)
+            .chain(<BigUint as Into<StarknetU256>>::into(self.amount.clone()).to_calldata())
+            .chain(iter::once(FieldElement::from(matches!(
+                self.direction,
+                ExternalTransferDirection::Withdrawal
+            ) as u8)))
+            .collect()
+    }
+}
+
+impl CalldataSerializable for MatchPayload {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        self.wallet_blinder_share
+            .to_calldata()
+            .into_iter()
+            .chain(self.valid_commitments_statement.to_calldata())
+            .chain(self.valid_commitments_witness_commitments.to_calldata())
+            .chain(self.valid_commitments_proof.to_calldata())
+            .chain(self.valid_reblind_statement.to_calldata())
+            .chain(self.valid_reblind_witness_commitments.to_calldata())
+            .chain(self.valid_reblind_proof.to_calldata())
+            .collect()
+    }
+}
+
 impl CalldataSerializable for NewWalletArgs {
     fn to_calldata(&self) -> Vec<FieldElement> {
         self.wallet_blinder_share
             .to_calldata()
             .into_iter()
-            // Matches serialization expected by derived Serde impl in Cairo
-            .chain(self.statement.private_shares_commitment.to_calldata())
-            .chain(
-                self.statement
-                    .public_wallet_shares
-                    .to_scalars()
-                    .to_calldata(),
-            )
-            .chain(self.proof.to_calldata())
+            .chain(self.statement.to_calldata())
             .chain(self.witness_commitments.to_calldata())
+            .chain(self.proof.to_calldata())
             .chain(self.verification_job_id.to_calldata())
             .collect()
     }
@@ -527,16 +614,9 @@ impl CalldataSerializable for UpdateWalletArgs {
         self.wallet_blinder_share
             .to_calldata()
             .into_iter()
-            // Matches serialization expected by derived Serde impl in Cairo
-            .chain(self.statement.old_shares_nullifier.to_calldata())
-            .chain(self.statement.new_private_shares_commitment.to_calldata())
-            .chain(self.statement.new_public_shares.to_scalars().to_calldata())
-            .chain(self.statement.merkle_root.to_calldata())
-            .chain(self.statement.external_transfer.to_calldata())
-            .chain(self.statement.old_pk_root.to_scalars().to_calldata())
-            .chain(self.statement.timestamp.to_calldata())
-            .chain(self.proof.to_calldata())
+            .chain(self.statement.to_calldata())
             .chain(self.witness_commitments.to_calldata())
+            .chain(self.proof.to_calldata())
             .chain(self.verification_job_id.to_calldata())
             .collect()
     }
@@ -548,10 +628,11 @@ impl CalldataSerializable for ProcessMatchArgs {
             .to_calldata()
             .into_iter()
             .chain(self.party_1_match_payload.to_calldata())
-            .chain(self.match_proof.to_calldata())
-            .chain(self.match_witness_commitments.to_calldata())
-            .chain(self.settle_proof.to_calldata())
-            .chain(self.settle_witness_commitments.to_calldata())
+            .chain(self.valid_match_mpc_witness_commitments.to_calldata())
+            .chain(self.valid_match_mpc_proof.to_calldata())
+            .chain(self.valid_settle_statement.to_calldata())
+            .chain(self.valid_settle_witness_commitments.to_calldata())
+            .chain(self.valid_settle_proof.to_calldata())
             .chain(self.verification_job_ids.to_calldata())
             .collect()
     }
