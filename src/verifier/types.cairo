@@ -10,8 +10,8 @@ use starknet::StorageAccess;
 use renegade_contracts::utils::{
     serde::{EcPointSerde},
     eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq},
-    math::{binary_exp, hash_to_scalar}, collections::{DeepSpan, get_scalar_or_zero, insert_scalar},
-    constants::MAX_USIZE,
+    math::binary_exp, crypto::hash_to_scalar,
+    collections::{DeepSpan, get_scalar_or_zero, insert_scalar}, constants::MAX_USIZE,
 };
 
 use super::scalar::{Scalar, ScalarTrait};

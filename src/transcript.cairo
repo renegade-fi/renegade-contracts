@@ -7,7 +7,7 @@ use keccak::keccak_u256s_le_inputs;
 use ec::{ec_point_unwrap, ec_point_non_zero, ec_point_is_zero};
 use zeroable::IsZeroResult;
 
-use renegade_contracts::{utils::math::hash_to_scalar, verifier::scalar::Scalar};
+use renegade_contracts::{utils::crypto::hash_to_scalar, verifier::scalar::Scalar};
 
 
 // TODO: Make a unit test w/ a wrapper contract for this
