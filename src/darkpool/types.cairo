@@ -97,3 +97,17 @@ struct ProcessMatchCallbackElems {
     party_1_original_shares_nullifier: Scalar,
     tx_hash: felt252,
 }
+
+// ------------
+// | CIRCUITS |
+// ------------
+
+#[derive(Drop, Serde, Copy, PartialEq)]
+enum Circuit {
+    ValidWalletCreate: (),
+    ValidWalletUpdate: (),
+    ValidCommitments: (),
+    ValidReblind: (),
+    ValidMatchMpc: (),
+    ValidSettle: (),
+}

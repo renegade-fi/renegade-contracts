@@ -16,7 +16,7 @@ use renegade_contracts::{
 
 use types::{
     ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-    ProcessMatchCallbackElems,
+    ProcessMatchCallbackElems, Circuit,
 };
 use statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement};
 
@@ -31,15 +31,21 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         merkle_class_hash: ClassHash,
         nullifier_set_class_hash: ClassHash,
-        verifier_contract_address: ContractAddress,
         height: u8,
+    );
+    fn initialize_verifier(
+        ref self: TContractState,
+        circuit: Circuit,
+        verifier_contract_address: ContractAddress,
         circuit_params: CircuitParams,
     );
     // OZ
     fn upgrade(ref self: TContractState, darkpool_class_hash: ClassHash);
     fn upgrade_merkle(ref self: TContractState, merkle_class_hash: ClassHash);
     fn upgrade_nullifier_set(ref self: TContractState, nullifier_set_class_hash: ClassHash);
-    fn upgrade_verifier(ref self: TContractState, verifier_contract_address: ContractAddress);
+    fn upgrade_verifier(
+        ref self: TContractState, circuit: Circuit, verifier_contract_address: ContractAddress
+    );
     // GETTERS
     fn get_wallet_blinder_transaction(
         self: @TContractState, wallet_blinder_share: Scalar
@@ -48,7 +54,7 @@ trait IDarkpool<TContractState> {
     fn root_in_history(self: @TContractState, root: Scalar) -> bool;
     fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
     fn check_verification_job_status(
-        self: @TContractState, verification_job_id: felt252
+        self: @TContractState, circuit: Circuit, verification_job_id: felt252
     ) -> Option<bool>;
     // SETTERS
     fn new_wallet(
@@ -117,7 +123,7 @@ mod Darkpool {
 
     use super::types::{
         ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-        ProcessMatchCallbackElems,
+        ProcessMatchCallbackElems, Circuit,
     };
     use super::statements::{
         ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement
@@ -140,8 +146,18 @@ mod Darkpool {
         merkle_class_hash: ClassHash,
         /// Stores the implementation class hash for the nullifier set interface
         nullifier_set_class_hash: ClassHash,
-        /// Stores the contract address of the deployed verifier
-        verifier_contract_address: ContractAddress,
+        /// Stores the contract address of the deployed verifier for the VALID WALLET CREATE circuit
+        valid_wallet_create_verifier_address: ContractAddress,
+        /// Stores the contract address of the deployed verifier for the VALID WALLET UPDATE circuit
+        valid_wallet_update_verifier_address: ContractAddress,
+        /// Stores the contract address of the deployed verifier for the VALID COMMITMENTS circuit
+        valid_commitments_verifier_address: ContractAddress,
+        /// Stores the contract address of the deployed verifier for the VALID REBLIND circuit
+        valid_reblind_verifier_address: ContractAddress,
+        /// Stores the contract address of the deployed verifier for the VALID MATCH MPC circuit
+        valid_match_mpc_verifier_address: ContractAddress,
+        /// Stores the contract address of the deployed verifier for the VALID SETTLE circuit
+        valid_settle_verifier_address: ContractAddress,
         /// Mapping of elements to be used in the post-polling merkle & nullifier set
         /// callback logic for in-progress `new_wallet` verification jobs
         new_wallet_callback_elems: LegacyMap<felt252,
@@ -195,6 +211,7 @@ mod Darkpool {
     /// Emitted when there's a change to the verifier contract address
     #[derive(Drop, PartialEq, starknet::Event)]
     struct VerifierUpgrade {
+        circuit: Circuit,
         old_address: ContractAddress,
         new_address: ContractAddress,
     }
@@ -273,16 +290,12 @@ mod Darkpool {
         /// Parameters:
         /// - `merkle_class_hash`: The declared contract class hash of the Merkle tree implementation
         /// - `nullifier_class_hash`: The declared contract class hash of the nullifier set implementation
-        /// - `verifier_contract_address`: The deployed contract address of the verifier contract
         /// - `height`: The height of the Merkle tree
-        /// - `circuit_params`: The circuit parameters
         fn initialize(
             ref self: ContractState,
             merkle_class_hash: ClassHash,
             nullifier_set_class_hash: ClassHash,
-            verifier_contract_address: ContractAddress,
             height: u8,
-            circuit_params: CircuitParams,
         ) {
             ownable__assert_only_owner(@self);
             initializable__initialize(ref self);
@@ -290,12 +303,29 @@ mod Darkpool {
             // Save Merkle tree & nullifier set class hashes to storage
             self.merkle_class_hash.write(merkle_class_hash);
             self.nullifier_set_class_hash.write(nullifier_set_class_hash);
-            // Save verifier contract address to storage
-            self.verifier_contract_address.write(verifier_contract_address);
 
             // Initialize the Merkle tree & verifier
             _get_merkle_tree(@self).initialize(height);
-            _get_verifier(@self).initialize(circuit_params);
+        }
+
+        /// Initializes a verifier contract
+        /// Parameters:
+        /// - `verifier_contract_address`: The address of the deployed verifier contract
+        /// - `circuit`: The circuit for which to initialize the verifier contract
+        /// - `circuit_params`: The parameters of the circuit
+        fn initialize_verifier(
+            ref self: ContractState,
+            circuit: Circuit,
+            verifier_contract_address: ContractAddress,
+            circuit_params: CircuitParams
+        ) {
+            ownable__assert_only_owner(@self);
+            let verifier = _get_verifier(@self, circuit);
+
+            // Save verifier contract address to storage
+            _write_verifier_address(ref self, circuit, verifier_contract_address);
+            // Initialize the verifier
+            verifier.initialize(circuit_params);
         }
 
         // -----------
@@ -351,19 +381,22 @@ mod Darkpool {
         /// Upgrades the verifier contract address
         /// Parameters:
         /// - `verifier_contract_address`: The address of the deployed verifier contract
-        fn upgrade_verifier(ref self: ContractState, verifier_contract_address: ContractAddress) {
+        /// - `circuit`: The circuit for which to upgrade the verifier
+        fn upgrade_verifier(
+            ref self: ContractState, circuit: Circuit, verifier_contract_address: ContractAddress
+        ) {
             ownable__assert_only_owner(@self);
 
             // Get existing contract_address to emit event
-            let old_contract_address = self.verifier_contract_address.read();
-            self.verifier_contract_address.write(verifier_contract_address);
+            let old_address = _read_verifier_address(@self, circuit);
+            _write_verifier_address(ref self, circuit, verifier_contract_address);
+
             // Emit event
             self
                 .emit(
                     Event::VerifierUpgrade(
                         VerifierUpgrade {
-                            old_address: old_contract_address,
-                            new_address: verifier_contract_address
+                            circuit, old_address, new_address: verifier_contract_address
                         }
                     )
                 );
@@ -417,9 +450,9 @@ mod Darkpool {
         /// - An optional boolean, which, if is `None`, means the job is still in progress,
         ///   and otherwise indicates whether or not the verification succeeded
         fn check_verification_job_status(
-            self: @ContractState, verification_job_id: felt252
+            self: @ContractState, circuit: Circuit, verification_job_id: felt252
         ) -> Option<bool> {
-            _get_verifier(self).check_verification_job_status(verification_job_id)
+            _get_verifier(self, circuit).check_verification_job_status(verification_job_id)
         }
 
         // -----------
@@ -443,7 +476,7 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) -> Option<Result<Scalar, felt252>> {
-            let verifier = _get_verifier(@self);
+            let verifier = _get_verifier(@self, Circuit::ValidWalletCreate(()));
 
             // Inject witness
             let (B, B_blind) = verifier.get_pc_gens();
@@ -497,7 +530,7 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) -> Option<Result<Scalar, felt252>> {
-            let verifier = _get_verifier(@self);
+            let verifier = _get_verifier(@self, Circuit::ValidWalletUpdate(()));
 
             // Inject witness
             let (B, B_blind) = verifier.get_pc_gens();
@@ -564,77 +597,90 @@ mod Darkpool {
             valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) -> Option<Result<Scalar, felt252>> {
-            let verifier = _get_verifier(@self);
-            let (B, B_blind) = verifier.get_pc_gens();
-
             // Inject witnesses & queue verifications
             // TODO: This probably won't fit in a transaction... think about how to handle this
 
             // Party 0 VALID COMMITMENTS
+            let valid_commitments_verifier = _get_verifier(@self, Circuit::ValidCommitments(()));
+            let (valid_commitments_B, valid_commitments_B_blind) = valid_commitments_verifier
+                .get_pc_gens();
             append_statement_commitments(
-                B,
-                B_blind,
+                valid_commitments_B,
+                valid_commitments_B_blind,
                 @party_0_payload.valid_commitments_statement,
                 ref party_0_payload.valid_commitments_witness_commitments
             );
-            verifier
+            valid_commitments_verifier
                 .queue_verification_job(
                     party_0_payload.valid_commitments_proof,
                     party_0_payload.valid_commitments_witness_commitments,
                     *verification_job_ids[0]
                 );
+
             // Party 0 VALID REBLIND
+            let valid_reblind_verifier = _get_verifier(@self, Circuit::ValidReblind(()));
+            let (valid_reblind_B, valid_reblind_B_blind) = valid_reblind_verifier.get_pc_gens();
             append_statement_commitments(
-                B,
-                B_blind,
+                valid_reblind_B,
+                valid_reblind_B_blind,
                 @party_0_payload.valid_reblind_statement,
                 ref party_0_payload.valid_reblind_witness_commitments
             );
-            verifier
+            valid_reblind_verifier
                 .queue_verification_job(
                     party_0_payload.valid_reblind_proof,
                     party_0_payload.valid_reblind_witness_commitments,
                     *verification_job_ids[1]
                 );
+
             // Party 1 VALID COMMITMENTS
             append_statement_commitments(
-                B,
-                B_blind,
+                valid_commitments_B,
+                valid_commitments_B_blind,
                 @party_1_payload.valid_commitments_statement,
                 ref party_1_payload.valid_commitments_witness_commitments
             );
-            verifier
+            valid_commitments_verifier
                 .queue_verification_job(
                     party_1_payload.valid_commitments_proof,
                     party_1_payload.valid_commitments_witness_commitments,
                     *verification_job_ids[2]
                 );
+
             // Party 1 VALID REBLIND
             append_statement_commitments(
-                B,
-                B_blind,
+                valid_reblind_B,
+                valid_reblind_B_blind,
                 @party_1_payload.valid_reblind_statement,
                 ref party_1_payload.valid_reblind_witness_commitments
             );
-            verifier
+            valid_reblind_verifier
                 .queue_verification_job(
                     party_1_payload.valid_reblind_proof,
                     party_1_payload.valid_reblind_witness_commitments,
                     *verification_job_ids[3]
                 );
+
             // VALID MATCH MPC
             // No statement to inject into witness
-            verifier
+            let valid_match_mpc_verifier = _get_verifier(@self, Circuit::ValidMatchMpc(()));
+            valid_match_mpc_verifier
                 .queue_verification_job(
                     valid_match_mpc_proof,
                     valid_match_mpc_witness_commitments,
                     *verification_job_ids[4]
                 );
+
             // VALID SETTLE
+            let valid_settle_verifier = _get_verifier(@self, Circuit::ValidSettle(()));
+            let (valid_settle_B, valid_settle_B_blind) = valid_settle_verifier.get_pc_gens();
             append_statement_commitments(
-                B, B_blind, @valid_settle_statement, ref valid_settle_witness_commitments
+                valid_settle_B,
+                valid_settle_B_blind,
+                @valid_settle_statement,
+                ref valid_settle_witness_commitments
             );
-            verifier
+            valid_settle_verifier
                 .queue_verification_job(
                     valid_settle_proof, valid_settle_witness_commitments, *verification_job_ids[5]
                 );
@@ -710,11 +756,22 @@ mod Darkpool {
     }
 
     /// Returns the contract dispatcher struct for the verifier interface,
-    /// using the currently stored verifier contract address
+    /// using the currently stored verifier contract address for the given circuit
+    /// Parameters:
+    /// - `circuit`: The circuit for which to get the verifier contract
     /// Returns:
     /// - Contract dispatcher instance
-    fn _get_verifier(self: @ContractState) -> IVerifierDispatcher {
-        IVerifierDispatcher { contract_address: self.verifier_contract_address.read() }
+    fn _get_verifier(self: @ContractState, circuit: Circuit) -> IVerifierDispatcher {
+        let contract_address = match circuit {
+            Circuit::ValidWalletCreate(()) => self.valid_wallet_create_verifier_address.read(),
+            Circuit::ValidWalletUpdate(()) => self.valid_wallet_update_verifier_address.read(),
+            Circuit::ValidCommitments(()) => self.valid_commitments_verifier_address.read(),
+            Circuit::ValidReblind(()) => self.valid_reblind_verifier_address.read(),
+            Circuit::ValidMatchMpc(()) => self.valid_match_mpc_verifier_address.read(),
+            Circuit::ValidSettle(()) => self.valid_settle_verifier_address.read(),
+        };
+
+        IVerifierDispatcher { contract_address }
     }
 
     /// Returns the contract dispatcher struct for the ERC20 interface,
@@ -727,9 +784,52 @@ mod Darkpool {
         IERC20Dispatcher { contract_address }
     }
 
+    /// Returns the currently stored contract address of the verifier contract for the given circuit
+    /// Parameters:
+    /// - `circuit`: The circuit for which to get the verifier contract address
+    fn _read_verifier_address(self: @ContractState, circuit: Circuit) -> ContractAddress {
+        match circuit {
+            Circuit::ValidWalletCreate(()) => self.valid_wallet_create_verifier_address.read(),
+            Circuit::ValidWalletUpdate(()) => self.valid_wallet_update_verifier_address.read(),
+            Circuit::ValidCommitments(()) => self.valid_commitments_verifier_address.read(),
+            Circuit::ValidReblind(()) => self.valid_reblind_verifier_address.read(),
+            Circuit::ValidMatchMpc(()) => self.valid_match_mpc_verifier_address.read(),
+            Circuit::ValidSettle(()) => self.valid_settle_verifier_address.read(),
+        }
+    }
+
     // -----------
     // | SETTERS |
     // -----------
+
+    /// Stores a new verifier contract address for the given circuit
+    /// Parameters:
+    /// - `circuit`: The circuit for which to store the verifier contract address
+    /// - `verifier_contract_address`: The address of the deployed verifier contract
+    fn _write_verifier_address(
+        ref self: ContractState, circuit: Circuit, verifier_contract_address: ContractAddress
+    ) {
+        match circuit {
+            Circuit::ValidWalletCreate(()) => self
+                .valid_wallet_create_verifier_address
+                .write(verifier_contract_address),
+            Circuit::ValidWalletUpdate(()) => self
+                .valid_wallet_update_verifier_address
+                .write(verifier_contract_address),
+            Circuit::ValidCommitments(()) => self
+                .valid_commitments_verifier_address
+                .write(verifier_contract_address),
+            Circuit::ValidReblind(()) => self
+                .valid_reblind_verifier_address
+                .write(verifier_contract_address),
+            Circuit::ValidMatchMpc(()) => self
+                .valid_match_mpc_verifier_address
+                .write(verifier_contract_address),
+            Circuit::ValidSettle(()) => self
+                .valid_settle_verifier_address
+                .write(verifier_contract_address),
+        }
+    }
 
     /// Sets the wallet update storage variable to the current transaction hash,
     /// indicating that the wallet has been modified at this transaction
@@ -794,7 +894,7 @@ mod Darkpool {
         callback_elems: NewWalletCallbackElems,
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>> {
-        let verifier = _get_verifier(@self);
+        let verifier = _get_verifier(@self, Circuit::ValidWalletCreate(()));
         let verified = verifier.step_verification(verification_job_id);
 
         match verified {
@@ -826,7 +926,7 @@ mod Darkpool {
         callback_elems: UpdateWalletCallbackElems,
         verification_job_id: felt252,
     ) -> Option<Result<Scalar, felt252>> {
-        let verifier = _get_verifier(@self);
+        let verifier = _get_verifier(@self, Circuit::ValidWalletUpdate(()));
         let verified = verifier.step_verification(verification_job_id);
 
         match verified {
@@ -868,38 +968,48 @@ mod Darkpool {
         callback_elems: ProcessMatchCallbackElems,
         verification_job_ids: Array<felt252>,
     ) -> Option<Result<Scalar, felt252>> {
-        let verifier = _get_verifier(@self);
-
         // Step through party 0 VALID COMMITMENTS
-        let party_0_valid_commitments_verified = verifier
+        let valid_commitments_verifier = _get_verifier(@self, Circuit::ValidCommitments(()));
+        let party_0_valid_commitments_verified = valid_commitments_verifier
             .step_verification(*verification_job_ids[0]);
         if party_0_valid_commitments_verified.is_none() {
             return Option::None(());
         }
+
         // Step through party 0 VALID REBLIND
-        let party_0_valid_reblind_verified = verifier.step_verification(*verification_job_ids[1]);
+        let valid_reblind_verifier = _get_verifier(@self, Circuit::ValidReblind(()));
+        let party_0_valid_reblind_verified = valid_reblind_verifier
+            .step_verification(*verification_job_ids[1]);
         if party_0_valid_reblind_verified.is_none() {
             return Option::None(());
         }
+
         // Step through party 1 VALID COMMITMENTS
-        let party_1_valid_commitments_verified = verifier
+        let party_1_valid_commitments_verified = valid_commitments_verifier
             .step_verification(*verification_job_ids[2]);
         if party_1_valid_commitments_verified.is_none() {
             return Option::None(());
         }
+
         // Step through party 1 VALID REBLIND
-        let party_1_valid_reblind_verified = verifier.step_verification(*verification_job_ids[3]);
+        let party_1_valid_reblind_verified = valid_reblind_verifier
+            .step_verification(*verification_job_ids[3]);
         if party_0_valid_reblind_verified.is_none() {
             return Option::None(());
         }
+
         // Step through VALID MATCH MPC
-        let valid_match_verified = verifier.step_verification(*verification_job_ids[4]);
-        if valid_match_verified.is_none() {
+        let valid_match_mpc_verifier = _get_verifier(@self, Circuit::ValidMatchMpc(()));
+        let valid_match_mpc_verified = valid_match_mpc_verifier
+            .step_verification(*verification_job_ids[4]);
+        if valid_match_mpc_verified.is_none() {
             return Option::None(());
         }
-        // Step through VALID SETTLE
-        let valid_settle_verified = verifier.step_verification(*verification_job_ids[5]);
 
+        // Step through VALID SETTLE
+        let valid_settle_verifier = _get_verifier(@self, Circuit::ValidSettle(()));
+        let valid_settle_verified = valid_settle_verifier
+            .step_verification(*verification_job_ids[5]);
         match valid_settle_verified {
             Option::Some(success) => {
                 if success {
