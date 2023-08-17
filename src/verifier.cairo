@@ -21,7 +21,7 @@ trait IVerifier<TContractState> {
         verification_job_id: felt252
     );
     fn step_verification(ref self: TContractState, verification_job_id: felt252) -> Option<bool>;
-    fn get_circuit_params(self: @TContractState) -> CircuitParams;
+    fn get_pc_gens(self: @TContractState) -> (EcPoint, EcPoint);
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
     ) -> Option<bool>;
@@ -286,21 +286,8 @@ mod Verifier {
         // | GETTERS |
         // -----------
 
-        fn get_circuit_params(self: @ContractState) -> CircuitParams {
-            CircuitParams {
-                n: self.n.read(),
-                n_plus: self.n_plus.read(),
-                k: self.k.read(),
-                q: self.q.read(),
-                m: self.m.read(),
-                B: self.B.read().inner,
-                B_blind: self.B_blind.read().inner,
-                W_L: self.W_L.read().inner,
-                W_R: self.W_R.read().inner,
-                W_O: self.W_O.read().inner,
-                W_V: self.W_V.read().inner,
-                c: self.c.read().inner,
-            }
+        fn get_pc_gens(self: @ContractState) -> (EcPoint, EcPoint) {
+            (self.B.read().inner, self.B_blind.read().inner)
         }
 
         fn check_verification_job_status(

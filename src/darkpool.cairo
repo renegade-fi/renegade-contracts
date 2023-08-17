@@ -108,7 +108,10 @@ mod Darkpool {
         },
         merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
-        utils::{serde::{EcPointSerde, ResultSerde}, storage::StorageAccessSerdeWrapper},
+        utils::{
+            serde::{EcPointSerde, ResultSerde}, storage::StorageAccessSerdeWrapper,
+            crypto::append_statement_commitments
+        },
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
 
@@ -436,12 +439,17 @@ mod Darkpool {
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             statement: ValidWalletCreateStatement,
-            witness_commitments: Array<EcPoint>,
+            mut witness_commitments: Array<EcPoint>,
             proof: Proof,
             verification_job_id: felt252,
         ) -> Option<Result<Scalar, felt252>> {
-            // Queue verification
             let verifier = _get_verifier(@self);
+
+            // Inject witness
+            let (B, B_blind) = verifier.get_pc_gens();
+            append_statement_commitments(B, B_blind, @statement, ref witness_commitments);
+
+            // Queue verification
             verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
             // Store callback elements
@@ -485,12 +493,17 @@ mod Darkpool {
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             statement: ValidWalletUpdateStatement,
-            witness_commitments: Array<EcPoint>,
+            mut witness_commitments: Array<EcPoint>,
             proof: Proof,
             verification_job_id: felt252,
         ) -> Option<Result<Scalar, felt252>> {
-            // Queue verification
             let verifier = _get_verifier(@self);
+
+            // Inject witness
+            let (B, B_blind) = verifier.get_pc_gens();
+            append_statement_commitments(B, B_blind, @statement, ref witness_commitments);
+
+            // Queue verification
             verifier.queue_verification_job(proof, witness_commitments, verification_job_id);
 
             // Store callback elements
@@ -542,54 +555,85 @@ mod Darkpool {
         /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn process_match(
             ref self: ContractState,
-            party_0_payload: MatchPayload,
-            party_1_payload: MatchPayload,
+            mut party_0_payload: MatchPayload,
+            mut party_1_payload: MatchPayload,
             valid_match_mpc_witness_commitments: Array<EcPoint>,
             valid_match_mpc_proof: Proof,
             valid_settle_statement: ValidSettleStatement,
-            valid_settle_witness_commitments: Array<EcPoint>,
+            mut valid_settle_witness_commitments: Array<EcPoint>,
             valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) -> Option<Result<Scalar, felt252>> {
-            // Queue verifications
-            // TODO: This probably won't fit in a transaction... think about how to handle this
             let verifier = _get_verifier(@self);
-            // Queue party 0 VALID COMMITMENTS
+            let (B, B_blind) = verifier.get_pc_gens();
+
+            // Inject witnesses & queue verifications
+            // TODO: This probably won't fit in a transaction... think about how to handle this
+
+            // Party 0 VALID COMMITMENTS
+            append_statement_commitments(
+                B,
+                B_blind,
+                @party_0_payload.valid_commitments_statement,
+                ref party_0_payload.valid_commitments_witness_commitments
+            );
             verifier
                 .queue_verification_job(
                     party_0_payload.valid_commitments_proof,
                     party_0_payload.valid_commitments_witness_commitments,
                     *verification_job_ids[0]
                 );
-            // Queue party 0 VALID REBLIND
+            // Party 0 VALID REBLIND
+            append_statement_commitments(
+                B,
+                B_blind,
+                @party_0_payload.valid_reblind_statement,
+                ref party_0_payload.valid_reblind_witness_commitments
+            );
             verifier
                 .queue_verification_job(
                     party_0_payload.valid_reblind_proof,
                     party_0_payload.valid_reblind_witness_commitments,
                     *verification_job_ids[1]
                 );
-            // Queue party 1 VALID COMMITMENTS
+            // Party 1 VALID COMMITMENTS
+            append_statement_commitments(
+                B,
+                B_blind,
+                @party_1_payload.valid_commitments_statement,
+                ref party_1_payload.valid_commitments_witness_commitments
+            );
             verifier
                 .queue_verification_job(
                     party_1_payload.valid_commitments_proof,
                     party_1_payload.valid_commitments_witness_commitments,
                     *verification_job_ids[2]
                 );
-            // Queue party 1 VALID REBLIND
+            // Party 1 VALID REBLIND
+            append_statement_commitments(
+                B,
+                B_blind,
+                @party_1_payload.valid_reblind_statement,
+                ref party_1_payload.valid_reblind_witness_commitments
+            );
             verifier
                 .queue_verification_job(
                     party_1_payload.valid_reblind_proof,
                     party_1_payload.valid_reblind_witness_commitments,
                     *verification_job_ids[3]
                 );
-            // Queue VALID MATCH MPC
+            // VALID MATCH MPC
+            // No statement to inject into witness
             verifier
                 .queue_verification_job(
                     valid_match_mpc_proof,
                     valid_match_mpc_witness_commitments,
                     *verification_job_ids[4]
                 );
-            // Queue VALID SETTLE
+            // VALID SETTLE
+            append_statement_commitments(
+                B, B_blind, @valid_settle_statement, ref valid_settle_witness_commitments
+            );
             verifier
                 .queue_verification_job(
                     valid_settle_proof, valid_settle_witness_commitments, *verification_job_ids[5]
