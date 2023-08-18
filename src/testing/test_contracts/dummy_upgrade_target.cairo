@@ -10,6 +10,9 @@ trait IUpgradeTarget<TContractState> {
     ) -> felt252;
     fn get_root(self: @TContractState) -> Scalar;
     fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
+    fn check_verification_job_status(
+        self: @TContractState, verification_job_id: felt252
+    ) -> Option<bool>;
     fn upgrade(ref self: TContractState, impl_hash: ClassHash);
 }
 
@@ -38,6 +41,12 @@ mod DummyUpgradeTarget {
 
         fn is_nullifier_used(self: @ContractState, nullifier: Scalar) -> bool {
             true
+        }
+
+        fn check_verification_job_status(
+            self: @ContractState, verification_job_id: felt252
+        ) -> Option<bool> {
+            Option::Some(true)
         }
 
         fn upgrade(ref self: ContractState, impl_hash: ClassHash) {

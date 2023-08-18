@@ -36,8 +36,14 @@ impl WrapperStorageAccessImpl<
     fn read(
         address_domain: u32, base: StorageBaseAddress
     ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
-        let inner = read_inner(address_domain, base, 0);
-        Result::Ok(StorageAccessSerdeWrapper { inner })
+        match read_inner(address_domain, base, 0) {
+            Option::Some(inner) => Result::Ok(StorageAccessSerdeWrapper { inner }),
+            Option::None(()) => {
+                let mut err = ArrayTrait::new();
+                err.append('failed to read from storage');
+                Result::Err(err)
+            }
+        }
     }
 
     fn write(
@@ -50,8 +56,14 @@ impl WrapperStorageAccessImpl<
     fn read_at_offset_internal(
         address_domain: u32, base: StorageBaseAddress, offset: u8
     ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
-        let inner = read_inner(address_domain, base, offset);
-        Result::Ok(StorageAccessSerdeWrapper { inner })
+        match read_inner(address_domain, base, offset) {
+            Option::Some(inner) => Result::Ok(StorageAccessSerdeWrapper { inner }),
+            Option::None(()) => {
+                let mut err = ArrayTrait::new();
+                err.append('failed to read from storage');
+                Result::Err(err)
+            }
+        }
     }
 
     fn write_at_offset_internal(
@@ -127,7 +139,7 @@ fn calculate_base_and_offset_for_index(
 /// This reads in the associated `List<felt252>` from storage, and deserializes the inner value.
 fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
     address_domain: u32, base: StorageBaseAddress, offset: u8, 
-) -> T {
+) -> Option<T> {
     let ser_len: u32 = StorageAccess::read_at_offset_internal(address_domain, base, offset)
         .unwrap_syscall();
     let mut serialized: Array<felt252> = ArrayTrait::new();
@@ -149,8 +161,7 @@ fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
     };
 
     let mut serialized_span = serialized.span();
-    let inner: T = Serde::deserialize(ref serialized_span).unwrap();
-    inner
+    Serde::deserialize(ref serialized_span)
 }
 
 /// This serializes the inner value and writes the serialization to storage.
