@@ -53,6 +53,18 @@ fn get_dummy_proof() -> Proof {
     }
 }
 
+fn get_dummy_witness_commitments() -> Array<EcPoint> {
+    let mut commitments = ArrayTrait::new();
+
+    let basepoint = ec_point_from_x(1).unwrap();
+    commitments.append(basepoint);
+    commitments.append(ec_mul(basepoint, 2));
+    commitments.append(ec_mul(basepoint, 3));
+    commitments.append(ec_mul(basepoint, 4));
+
+    commitments
+}
+
 fn get_test_matrix() -> SparseWeightMatrix {
     // Matrix (full):
     // [

@@ -320,12 +320,11 @@ mod Darkpool {
             circuit_params: CircuitParams
         ) {
             ownable__assert_only_owner(@self);
-            let verifier = _get_verifier(@self, circuit);
 
             // Save verifier contract address to storage
             _write_verifier_address(ref self, circuit, verifier_contract_address);
             // Initialize the verifier
-            verifier.initialize(circuit_params);
+            _get_verifier(@self, circuit).initialize(circuit_params);
         }
 
         // -----------
@@ -762,14 +761,7 @@ mod Darkpool {
     /// Returns:
     /// - Contract dispatcher instance
     fn _get_verifier(self: @ContractState, circuit: Circuit) -> IVerifierDispatcher {
-        let contract_address = match circuit {
-            Circuit::ValidWalletCreate(()) => self.valid_wallet_create_verifier_address.read(),
-            Circuit::ValidWalletUpdate(()) => self.valid_wallet_update_verifier_address.read(),
-            Circuit::ValidCommitments(()) => self.valid_commitments_verifier_address.read(),
-            Circuit::ValidReblind(()) => self.valid_reblind_verifier_address.read(),
-            Circuit::ValidMatchMpc(()) => self.valid_match_mpc_verifier_address.read(),
-            Circuit::ValidSettle(()) => self.valid_settle_verifier_address.read(),
-        };
+        let contract_address = _read_verifier_address(self, circuit);
 
         IVerifierDispatcher { contract_address }
     }

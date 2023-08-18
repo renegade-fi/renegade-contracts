@@ -79,6 +79,7 @@ impl EcPointPartialEq of PartialEq<EcPoint> {
         !(lhs == rhs)
     }
 }
+
 impl OptionTPartialEq<
     T, impl TPartialEq: PartialEq<T>, impl TCopy: Copy<T>, impl TDrop: Drop<T>
 > of PartialEq<Option<T>> {
