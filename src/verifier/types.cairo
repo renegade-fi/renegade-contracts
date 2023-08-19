@@ -3,13 +3,12 @@ use clone::Clone;
 use option::{OptionTrait, OptionSerde};
 use array::{ArrayTrait, SpanTrait};
 use dict::Felt252DictTrait;
-use ec::{StarkCurve, EcPoint, ec_point_new, ec_mul};
+use ec::{stark_curve, EcPoint, ec_point_new, ec_mul};
 use keccak::keccak_u256s_le_inputs;
-use starknet::StorageAccess;
 
 use renegade_contracts::utils::{
     serde::{EcPointSerde},
-    eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq, TupleSize2PartialEq},
+    eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq},
     math::binary_exp, crypto::hash_to_scalar,
     collections::{DeepSpan, get_scalar_or_zero, insert_scalar}, constants::MAX_USIZE,
 };
@@ -289,7 +288,7 @@ impl RemainingGeneratorsImpl of RemainingGeneratorsTrait {
         input.append(self.hash_state);
         let hash_state = keccak_u256s_le_inputs(input.span());
         self = RemainingGenerators { hash_state, num_gens_rem: self.num_gens_rem - 1 };
-        let basepoint = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
+        let basepoint = ec_point_new(stark_curve::GEN_X, stark_curve::GEN_Y);
         // It is important to sample a scalar field element here rather than
         // a base field element, since this has a one-to-one mapping with
         // curve points.

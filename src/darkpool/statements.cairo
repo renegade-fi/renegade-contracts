@@ -2,7 +2,7 @@ use traits::Into;
 use clone::Clone;
 use array::ArrayTrait;
 
-use alexandria::data_structures::array_ext::ArrayTraitExt;
+use alexandria_data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::{
     verifier::scalar::{Scalar, ScalarSerializable}, utils::eq::ArrayTPartialEq
 };

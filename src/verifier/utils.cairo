@@ -3,7 +3,7 @@ use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
 use ec::{ec_point_unwrap, ec_point_non_zero, ec_point_zero};
 
-use alexandria::linalg::dot::dot;
+use alexandria_linalg::dot::dot;
 use renegade_contracts::{
     transcript::{Transcript, TranscriptTrait, TranscriptProtocol, TRANSCRIPT_SEED},
     utils::math::elt_wise_mul

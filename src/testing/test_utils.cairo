@@ -2,7 +2,7 @@ use array::ArrayTrait;
 use serde::Serde;
 use option::OptionTrait;
 use traits::Into;
-use ec::{ec_point_from_x, ec_mul, ec_point_new, StarkCurve};
+use ec::{ec_point_from_x, ec_mul, ec_point_new, stark_curve};
 
 use renegade_contracts::verifier::types::{
     Proof, SparseWeightMatrix, SparseWeightVec, CircuitParams
@@ -189,7 +189,7 @@ fn get_dummy_circuit_size_params() -> (usize, usize, usize, usize, usize) {
 }
 
 fn get_dummy_circuit_pc_gens() -> (EcPoint, EcPoint) {
-    let gen = ec_point_new(StarkCurve::GEN_X, StarkCurve::GEN_Y);
+    let gen = ec_point_new(stark_curve::GEN_X, stark_curve::GEN_Y);
 
     (gen, gen)
 }

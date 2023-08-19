@@ -23,8 +23,8 @@ num-bigint = { version = "0.4.3", features = ["rand"] }
 byteorder = "1.4.3"
 
 starknet = { workspace = true }
-katana-core = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d4d" }
-dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git", rev = "e305d4d" }
+katana-core = { git = "https://github.com/dojoengine/dojo.git", rev = "954dbb3" }
+dojo-test-utils = { git = "https://github.com/dojoengine/dojo.git", rev = "954dbb3" }
 mpc-stark = { workspace = true }
 mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", features = ["integration_test"] }
 merlin = { git = "https://github.com/renegade-fi/merlin.git" }

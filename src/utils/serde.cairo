@@ -30,30 +30,3 @@ impl EcPointSerde of Serde<EcPoint> {
         Option::Some(ec_point_new(x, y))
     }
 }
-
-// Follows the same pattern as OptionSerde in the corelib
-impl ResultSerde<T, E, impl TSerde: Serde<T>, impl ESerde: Serde<E>> of Serde<Result<T, E>> {
-    fn serialize(self: @Result<T, E>, ref output: Array<felt252>) {
-        match self {
-            Result::Ok(t) => {
-                0.serialize(ref output);
-                t.serialize(ref output)
-            },
-            Result::Err(e) => {
-                1.serialize(ref output);
-                e.serialize(ref output)
-            },
-        }
-    }
-
-    fn deserialize(ref serialized: Span<felt252>) -> Option<Result<T, E>> {
-        let variant = *serialized.pop_front()?;
-        if variant == 0 {
-            Option::Some(Result::Ok(Serde::<T>::deserialize(ref serialized)?))
-        } else if variant == 1 {
-            Option::Some(Result::Err(Serde::<E>::deserialize(ref serialized)?))
-        } else {
-            Option::None(())
-        }
-    }
-}

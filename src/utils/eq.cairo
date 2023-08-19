@@ -7,20 +7,6 @@ use zeroable::{IsZeroResult};
 
 use super::serde::EcPointSerde;
 
-
-impl TupleSize2PartialEq<
-    E0, E1, impl E0PartialEq: PartialEq<E0>, impl E1PartialEq: PartialEq<E1>
-> of PartialEq<(E0, E1)> {
-    fn eq(lhs: @(E0, E1), rhs: @(E0, E1)) -> bool {
-        let (lhs1, lhs2) = lhs;
-        let (rhs1, rhs2) = rhs;
-        lhs1 == rhs1 && lhs2 == rhs2
-    }
-    fn ne(lhs: @(E0, E1), rhs: @(E0, E1)) -> bool {
-        !(rhs == lhs)
-    }
-}
-
 impl ArrayTPartialEq<T, impl TPartialEq: PartialEq<T>, impl TDrop: Drop<T>> of PartialEq<Array<T>> {
     fn eq(lhs: @Array<T>, rhs: @Array<T>) -> bool {
         let mut lhs_span = Span { snapshot: lhs };

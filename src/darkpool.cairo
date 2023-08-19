@@ -10,8 +10,7 @@ mod statements;
 use starknet::{ClassHash, ContractAddress};
 
 use renegade_contracts::{
-    verifier::{scalar::Scalar, types::{Proof, CircuitParams}},
-    utils::serde::{EcPointSerde, ResultSerde}
+    verifier::{scalar::Scalar, types::{Proof, CircuitParams}}, utils::serde::EcPointSerde,
 };
 
 use types::{
@@ -115,8 +114,7 @@ mod Darkpool {
         merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::{
-            serde::{EcPointSerde, ResultSerde}, storage::StorageAccessSerdeWrapper,
-            crypto::append_statement_commitments
+            serde::EcPointSerde, storage::StoreSerdeWrapper, crypto::append_statement_commitments
         },
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
@@ -160,18 +158,17 @@ mod Darkpool {
         valid_settle_verifier_address: ContractAddress,
         /// Mapping of elements to be used in the post-polling merkle & nullifier set
         /// callback logic for in-progress `new_wallet` verification jobs
-        new_wallet_callback_elems: LegacyMap<felt252,
-        StorageAccessSerdeWrapper<NewWalletCallbackElems>>,
+        new_wallet_callback_elems: LegacyMap<felt252, StoreSerdeWrapper<NewWalletCallbackElems>>,
         /// Mapping of elements to be used in the post-polling merkle & nullifier set
         /// callback logic for in-progress `update_wallet` verification jobs
         update_wallet_callback_elems: LegacyMap<felt252,
-        StorageAccessSerdeWrapper<UpdateWalletCallbackElems>>,
+        StoreSerdeWrapper<UpdateWalletCallbackElems>>,
         /// Mapping of elements to be used in the post-polling merkle & nullifier set
         /// callback logic for in-progress `process_match` verification jobs.
         /// Uses the first verification job id in the list of ids for the process_match proofs
         /// as the mapping key.
         process_match_callback_elems: LegacyMap<felt252,
-        StorageAccessSerdeWrapper<ProcessMatchCallbackElems>>,
+        StoreSerdeWrapper<ProcessMatchCallbackElems>>,
         /// Stores a mapping from the wallet identity to the hash of the last transaction
         /// in which it was changed
         wallet_last_modified: LegacyMap<Scalar, felt252>
@@ -493,7 +490,7 @@ mod Darkpool {
             };
             self
                 .new_wallet_callback_elems
-                .write(verification_job_id, StorageAccessSerdeWrapper { inner: callback_elems });
+                .write(verification_job_id, StoreSerdeWrapper { inner: callback_elems });
 
             // Kick off verification
             _poll_new_wallet_inner(ref self, callback_elems, verification_job_id)
@@ -554,9 +551,7 @@ mod Darkpool {
             };
             self
                 .update_wallet_callback_elems
-                .write(
-                    verification_job_id, StorageAccessSerdeWrapper { inner: callback_elems.clone() }
-                );
+                .write(verification_job_id, StoreSerdeWrapper { inner: callback_elems.clone() });
 
             // Kick off verification
             _poll_update_wallet_inner(ref self, callback_elems, verification_job_id)
@@ -704,9 +699,8 @@ mod Darkpool {
             };
             self
                 .process_match_callback_elems
-                .write(
-                    // Use the first verification job id as the mapping key for the callback elements
-                    *verification_job_ids[0], StorageAccessSerdeWrapper { inner: callback_elems }
+                .write( // Use the first verification job id as the mapping key for the callback elements
+                    *verification_job_ids[0], StoreSerdeWrapper { inner: callback_elems }
                 );
 
             // Kick off verification

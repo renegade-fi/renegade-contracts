@@ -35,9 +35,10 @@ mod Verifier {
     use array::{ArrayTrait, SpanTrait};
     use ec::{EcPoint, ec_point_zero, ec_mul, ec_point_unwrap, ec_point_non_zero};
 
-    use alexandria::{data_structures::array_ext::ArrayTraitExt, math::fast_power::fast_power};
+    use alexandria_data_structures::array_ext::ArrayTraitExt;
+    use alexandria_math::fast_power::fast_power;
     use renegade_contracts::utils::{
-        math::get_consecutive_powers, storage::StorageAccessSerdeWrapper, eq::EcPointPartialEq,
+        math::get_consecutive_powers, storage::StoreSerdeWrapper, eq::EcPointPartialEq,
         serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
     };
 
@@ -63,13 +64,13 @@ mod Verifier {
     #[storage]
     struct Storage {
         /// Queue of in-progress verification jobs
-        verification_queue: LegacyMap<felt252, StorageAccessSerdeWrapper<VerificationJob>>,
+        verification_queue: LegacyMap<felt252, StoreSerdeWrapper<VerificationJob>>,
         /// Map of in-use verification job IDs
         job_id_in_use: LegacyMap<felt252, bool>,
         /// Generator used for Pedersen commitments
-        B: StorageAccessSerdeWrapper<EcPoint>,
+        B: StoreSerdeWrapper<EcPoint>,
         /// Generator used for blinding in Pedersen commitments
-        B_blind: StorageAccessSerdeWrapper<EcPoint>,
+        B_blind: StoreSerdeWrapper<EcPoint>,
         /// Number of multiplication gates in the circuit
         n: usize,
         /// Number of multiplication gates in the circuit,
@@ -83,15 +84,15 @@ mod Verifier {
         m: usize,
         // TODO: These may just have to be lists of pointers (StorageBaseAddress) to the matrices
         /// Sparse-reduced matrix of left input weights for the circuit
-        W_L: StorageAccessSerdeWrapper<SparseWeightMatrix>,
+        W_L: StoreSerdeWrapper<SparseWeightMatrix>,
         /// Sparse-reduced matrix of right input weights for the circuit
-        W_R: StorageAccessSerdeWrapper<SparseWeightMatrix>,
+        W_R: StoreSerdeWrapper<SparseWeightMatrix>,
         /// Sparse-reduced matrix of output weights for the circuit
-        W_O: StorageAccessSerdeWrapper<SparseWeightMatrix>,
+        W_O: StoreSerdeWrapper<SparseWeightMatrix>,
         /// Sparse-reduced matrix of witness weights for the circuit
-        W_V: StorageAccessSerdeWrapper<SparseWeightMatrix>,
+        W_V: StoreSerdeWrapper<SparseWeightMatrix>,
         /// Sparse-reduced vector of constants for the circuit
-        c: StorageAccessSerdeWrapper<SparseWeightVec>,
+        c: StoreSerdeWrapper<SparseWeightVec>,
     }
 
     // ----------
@@ -160,13 +161,13 @@ mod Verifier {
             self.k.write(circuit_params.k);
             self.q.write(circuit_params.q);
             self.m.write(circuit_params.m);
-            self.B.write(StorageAccessSerdeWrapper { inner: circuit_params.B });
-            self.B_blind.write(StorageAccessSerdeWrapper { inner: circuit_params.B_blind });
-            self.W_L.write(StorageAccessSerdeWrapper { inner: circuit_params.W_L });
-            self.W_R.write(StorageAccessSerdeWrapper { inner: circuit_params.W_R });
-            self.W_O.write(StorageAccessSerdeWrapper { inner: circuit_params.W_O });
-            self.W_V.write(StorageAccessSerdeWrapper { inner: circuit_params.W_V });
-            self.c.write(StorageAccessSerdeWrapper { inner: circuit_params.c });
+            self.B.write(StoreSerdeWrapper { inner: circuit_params.B });
+            self.B_blind.write(StoreSerdeWrapper { inner: circuit_params.B_blind });
+            self.W_L.write(StoreSerdeWrapper { inner: circuit_params.W_L });
+            self.W_R.write(StoreSerdeWrapper { inner: circuit_params.W_R });
+            self.W_O.write(StoreSerdeWrapper { inner: circuit_params.W_O });
+            self.W_V.write(StoreSerdeWrapper { inner: circuit_params.W_V });
+            self.c.write(StoreSerdeWrapper { inner: circuit_params.c });
 
             self.emit(Event::Initialized(Initialized {}));
         }
@@ -250,7 +251,7 @@ mod Verifier {
             // Enqueue verification job
             self
                 .verification_queue
-                .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+                .write(verification_job_id, StoreSerdeWrapper { inner: verification_job });
 
             self.emit(Event::VerificationJobQueued(VerificationJobQueued { verification_job_id }));
         }
@@ -277,7 +278,7 @@ mod Verifier {
 
             self
                 .verification_queue
-                .write(verification_job_id, StorageAccessSerdeWrapper { inner: verification_job });
+                .write(verification_job_id, StoreSerdeWrapper { inner: verification_job });
 
             verified
         }
