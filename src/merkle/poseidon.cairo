@@ -3,7 +3,8 @@ mod constants;
 use traits::Into;
 use array::{ArrayTrait, SpanTrait};
 
-use alexandria::{data_structures::vec::{NullableVec, VecTrait}, linalg::dot::dot};
+use alexandria_data_structures::vec::{NullableVec, VecTrait};
+use alexandria_linalg::dot::dot;
 
 use renegade_contracts::{
     verifier::scalar::{Scalar, ScalarTrait}, utils::collections::{DeepSpan, vec_to_arr}

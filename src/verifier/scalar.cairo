@@ -4,7 +4,7 @@ use integer::NumericLiteral;
 use debug::PrintTrait;
 use hash::LegacyHash;
 
-use alexandria::math::mod_arithmetics::{
+use alexandria_math::mod_arithmetics::{
     mult_inverse, pow_mod, add_mod, sub_mod, mult_mod, div_mod, add_inverse_mod
 };
 
@@ -13,7 +13,7 @@ use renegade_contracts::utils::constants::SCALAR_FIELD_ORDER;
 // TODO: When deserializing Scalars from calldata / storage, we need to assert that they are
 // within the scalar field order.
 // Best way to do this is probably to accept felts for calldata, and call .into() then.
-#[derive(Default, Drop, Copy, PartialEq, PartialOrd, Serde, storage_access::StorageAccess)]
+#[derive(Default, Drop, Copy, PartialEq, PartialOrd, Serde, starknet::Store)]
 struct Scalar {
     inner: felt252
 }

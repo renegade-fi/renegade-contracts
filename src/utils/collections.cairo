@@ -5,7 +5,7 @@ use dict::Felt252DictTrait;
 use nullable::FromNullableResult;
 use box::BoxTrait;
 
-use alexandria::data_structures::vec::VecTrait;
+use alexandria_data_structures::vec::VecTrait;
 
 use renegade_contracts::verifier::scalar::Scalar;
 

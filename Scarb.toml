@@ -8,5 +8,7 @@ casm = true
 casm-add-pythonic-hints = true
 
 [dependencies]
-starknet = "=2.0.1"
-alexandria = { git = "https://github.com/keep-starknet-strange/alexandria", branch = "cairo-v2.0.1" }
+starknet = "=2.1.1"
+alexandria_math = { git = "https://github.com/keep-starknet-strange/alexandria", rev = "b519245" }
+alexandria_data_structures = { git = "https://github.com/keep-starknet-strange/alexandria", rev = "b519245" }
+alexandria_linalg = { git = "https://github.com/keep-starknet-strange/alexandria", rev = "b519245" }

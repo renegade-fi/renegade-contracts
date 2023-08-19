@@ -17,7 +17,7 @@ mod Merkle {
     use array::ArrayTrait;
     use option::OptionTrait;
 
-    use alexandria::math::fast_power::fast_power;
+    use alexandria_math::fast_power::fast_power;
 
     use renegade_contracts::{utils::constants::MAX_U128, verifier::scalar::Scalar};
     use super::poseidon::poseidon_hash;

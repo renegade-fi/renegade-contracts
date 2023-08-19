@@ -21,20 +21,20 @@ trait IStorageSerde<TContractState> {
 mod StorageSerdeTestWrapper {
     use array::ArrayTrait;
 
-    use renegade_contracts::utils::storage::StorageAccessSerdeWrapper;
+    use renegade_contracts::utils::storage::StoreSerdeWrapper;
 
     use super::ComplexType;
 
     #[storage]
     struct Storage {
-        arr: StorageAccessSerdeWrapper<Array<felt252>>,
-        s: StorageAccessSerdeWrapper<ComplexType>,
+        arr: StoreSerdeWrapper<Array<felt252>>,
+        s: StoreSerdeWrapper<ComplexType>,
     }
 
     #[external(v0)]
     impl StorageSerdeTestWrapperImpl of super::IStorageSerde<ContractState> {
         fn store_arr(ref self: ContractState, arr: Array<felt252>) {
-            self.arr.write(StorageAccessSerdeWrapper { inner: arr });
+            self.arr.write(StoreSerdeWrapper { inner: arr });
         }
 
         fn get_arr(self: @ContractState) -> Array<felt252> {
@@ -42,7 +42,7 @@ mod StorageSerdeTestWrapper {
         }
 
         fn store_struct(ref self: ContractState, s: ComplexType) {
-            self.s.write(StorageAccessSerdeWrapper { inner: s });
+            self.s.write(StoreSerdeWrapper { inner: s });
         }
 
         fn get_struct(self: @ContractState) -> ComplexType {

@@ -12,7 +12,7 @@ use array::ArrayTrait;
 use hash::LegacyHash;
 use serde::Serde;
 use starknet::{
-    StorageAccess, SyscallResult, SyscallResultTrait,
+    Store, SyscallResult, SyscallResultTrait,
     storage_access::{
         StorageBaseAddress, storage_address_from_base, storage_base_address_from_felt252,
         storage_address_to_felt252,
@@ -22,22 +22,20 @@ use starknet::{
 
 const MAX_STORAGE_SEGMENT_ELEMS: u32 = 256;
 
-// We use this wrapper struct so that we can do a blanket implementation of StorageAccess for types that impl Serde.
+// We use this wrapper struct so that we can do a blanket implementation of Store for types that impl Serde.
 // If we were to do a blanket implementation directly on types that impl Serde, we'd have conflicting
-// StorageAccess implementations for some types.
+// Store implementations for some types.
 #[derive(Drop)]
-struct StorageAccessSerdeWrapper<T> {
+struct StoreSerdeWrapper<T> {
     inner: T
 }
 
-impl WrapperStorageAccessImpl<
+impl WrapperStoreImpl<
     T, impl TSerde: Serde<T>, impl TDrop: Drop<T>
-> of StorageAccess<StorageAccessSerdeWrapper<T>> {
-    fn read(
-        address_domain: u32, base: StorageBaseAddress
-    ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
+> of Store<StoreSerdeWrapper<T>> {
+    fn read(address_domain: u32, base: StorageBaseAddress) -> SyscallResult<StoreSerdeWrapper<T>> {
         match read_inner(address_domain, base, 0) {
-            Option::Some(inner) => Result::Ok(StorageAccessSerdeWrapper { inner }),
+            Option::Some(inner) => Result::Ok(StoreSerdeWrapper { inner }),
             Option::None(()) => {
                 let mut err = ArrayTrait::new();
                 err.append('failed to read from storage');
@@ -47,17 +45,17 @@ impl WrapperStorageAccessImpl<
     }
 
     fn write(
-        address_domain: u32, base: StorageBaseAddress, value: StorageAccessSerdeWrapper<T>
+        address_domain: u32, base: StorageBaseAddress, value: StoreSerdeWrapper<T>
     ) -> SyscallResult<()> {
         write_inner(address_domain, base, 0, value);
         Result::Ok(())
     }
 
-    fn read_at_offset_internal(
+    fn read_at_offset(
         address_domain: u32, base: StorageBaseAddress, offset: u8
-    ) -> SyscallResult<StorageAccessSerdeWrapper<T>> {
+    ) -> SyscallResult<StoreSerdeWrapper<T>> {
         match read_inner(address_domain, base, offset) {
-            Option::Some(inner) => Result::Ok(StorageAccessSerdeWrapper { inner }),
+            Option::Some(inner) => Result::Ok(StoreSerdeWrapper { inner }),
             Option::None(()) => {
                 let mut err = ArrayTrait::new();
                 err.append('failed to read from storage');
@@ -66,17 +64,14 @@ impl WrapperStorageAccessImpl<
         }
     }
 
-    fn write_at_offset_internal(
-        address_domain: u32,
-        base: StorageBaseAddress,
-        offset: u8,
-        value: StorageAccessSerdeWrapper<T>
+    fn write_at_offset(
+        address_domain: u32, base: StorageBaseAddress, offset: u8, value: StoreSerdeWrapper<T>
     ) -> SyscallResult<()> {
         write_inner(address_domain, base, offset, value);
         Result::Ok(())
     }
 
-    fn size_internal(value: StorageAccessSerdeWrapper<T>) -> u8 {
+    fn size() -> u8 {
         // The actual value being stored within the base 256-slot chunk
         // is just the length of the serialization, which takes one slot
         1
@@ -89,8 +84,8 @@ impl WrapperStorageAccessImpl<
 ///
 /// The way the address is calculated is very similar to how a LegacyHash map works:
 ///
-/// First, we take the `list_base` address, which is where the `StorageAccessSerdeWrapper` is rooted in storage
-/// (provided in the `StorageAccess` trait method arguments).
+/// First, we take the `list_base` address, which is where the `StoreSerdeWrapper` is rooted in storage
+/// (provided in the `Store` trait method arguments).
 ///
 /// Then, we hash it with a `seg_index`, which is the number of the segment where the felt at `index` belongs.
 /// We hash these two values: H(list_base, seg_index) to obtain the `segment_base` address.
@@ -102,7 +97,7 @@ impl WrapperStorageAccessImpl<
 /// Say we have an object which serializes to an array of 1000 felts:
 ///
 /// struct storage: {
-///    bar: StorageAccessSerdeWrapper<ObjectOf1000Felts>
+///    bar: StoreSerdeWrapper<ObjectOf1000Felts>
 /// }
 ///
 /// The storage layout would look like this:
@@ -140,8 +135,7 @@ fn calculate_base_and_offset_for_index(
 fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
     address_domain: u32, base: StorageBaseAddress, offset: u8, 
 ) -> Option<T> {
-    let ser_len: u32 = StorageAccess::read_at_offset_internal(address_domain, base, offset)
-        .unwrap_syscall();
+    let ser_len: u32 = Store::read_at_offset(address_domain, base, offset).unwrap_syscall();
     let mut serialized: Array<felt252> = ArrayTrait::new();
 
     let mut i = 0;
@@ -152,10 +146,7 @@ fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
 
         let (seg_base, seg_offset) = calculate_base_and_offset_for_index(base, i);
         serialized
-            .append(
-                StorageAccess::read_at_offset_internal(address_domain, seg_base, seg_offset)
-                    .unwrap_syscall()
-            );
+            .append(Store::read_at_offset(address_domain, seg_base, seg_offset).unwrap_syscall());
 
         i += 1;
     };
@@ -167,7 +158,7 @@ fn read_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
 /// This serializes the inner value and writes the serialization to storage.
 /// Also writes the serialization length to the base storage segment.
 fn write_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
-    address_domain: u32, base: StorageBaseAddress, offset: u8, value: StorageAccessSerdeWrapper<T>, 
+    address_domain: u32, base: StorageBaseAddress, offset: u8, value: StoreSerdeWrapper<T>, 
 ) {
     let mut serialized = ArrayTrait::new();
     value.inner.serialize(ref serialized);
@@ -181,13 +172,11 @@ fn write_inner<T, impl TSerde: Serde<T>, impl TDrop: Drop<T>>(
         };
 
         let (seg_base, seg_offset) = calculate_base_and_offset_for_index(base, i);
-        StorageAccess::write_at_offset_internal(
-            address_domain, seg_base, seg_offset, *serialized[i]
-        )
+        Store::write_at_offset(address_domain, seg_base, seg_offset, *serialized[i])
             .unwrap_syscall();
 
         i += 1;
     };
 
-    StorageAccess::write_at_offset_internal(address_domain, base, offset, ser_len);
+    Store::write_at_offset(address_domain, base, offset, ser_len);
 }

@@ -4,7 +4,7 @@ use array::{ArrayTrait, SpanTrait};
 use keccak::keccak_u256s_le_inputs;
 use ec::ec_mul;
 
-use alexandria::data_structures::array_ext::ArrayTraitExt;
+use alexandria_data_structures::array_ext::ArrayTraitExt;
 use renegade_contracts::verifier::scalar::{Scalar, ScalarSerializable};
 
 use super::constants::{BASE_FIELD_ORDER, SCALAR_FIELD_ORDER, SHIFT_256_FELT, SHIFT_256_SCALAR};
