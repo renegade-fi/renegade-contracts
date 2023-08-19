@@ -7,8 +7,7 @@ use ec::{stark_curve, EcPoint, ec_point_new, ec_mul};
 use keccak::keccak_u256s_le_inputs;
 
 use renegade_contracts::utils::{
-    serde::{EcPointSerde},
-    eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq},
+    serde::EcPointSerde, eq::{EcPointPartialEq, ArrayTPartialEq, OptionTPartialEq},
     math::binary_exp, crypto::hash_to_scalar,
     collections::{DeepSpan, get_scalar_or_zero, insert_scalar}, constants::MAX_USIZE,
 };

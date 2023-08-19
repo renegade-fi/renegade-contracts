@@ -29,7 +29,7 @@ This repository contains the Starknet Cairo code for Renegade's settlement
 layer. This includes managing the system-global state, verifying bulletproofs,
 and emitting events that are consumed by the p2p network.
 
-Our contracts and tooling stack currently targets the Cairo `v2.0.1` compiler.
+Our contracts and tooling stack currently targets the Cairo `v2.1.1` compiler.
 
 ## Contract Development Setup
 
@@ -51,7 +51,7 @@ Make sure you have Rust installed, using e.g. [`rustup`](https://rustup.rs/)
 
 ### Install Scarb
 
-Install `scarb` version `0.5.1` by following the instructions [here](https://docs.swmansion.com/scarb/docs/install).
+Install `scarb` version `0.6.2` by following the instructions [here](https://docs.swmansion.com/scarb/docs/install).
 
 ## Running Cairo tests
 
