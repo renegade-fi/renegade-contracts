@@ -1,4 +1,5 @@
-use eyre::Result;
+use eyre::{Context, Result};
+use json::JsonValue;
 use starknet::{
     accounts::{Account, Call, SingleOwnerAccount},
     contract::ContractFactory,
@@ -16,13 +17,14 @@ use starknet::{
 };
 use std::{
     fs::File,
+    io::Read,
     path::{Path, PathBuf},
     sync::Arc,
 };
 use tracing::{debug, trace};
 use url::Url;
 
-use crate::cli::Network;
+use crate::cli::{Contract, Network};
 
 /// URL at which devnet is running
 pub const DEVNET_HOST: &str = "http://localhost:5050";
@@ -53,6 +55,9 @@ pub const CASM_FILE_EXTENSION: &str = "casm.json";
 
 pub const INITIALIZE_FN_NAME: &str = "initialize";
 pub const MERKLE_HEIGHT: usize = 32;
+
+/// The name of the file to dump deployments info to in the current working directory
+pub const DEPLOYMENTS_FILE_NAME: &str = "deployments.json";
 
 pub type ScriptAccount = SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>;
 
@@ -92,6 +97,35 @@ pub fn get_artifacts(artifacts_path: &str, contract_name: &str) -> (PathBuf, Pat
         .with_extension(CASM_FILE_EXTENSION);
 
     (sierra_path, casm_path)
+}
+
+/// Dumps a JSON file containing the contract address in the format:
+///     {
+///         deployments: {
+///             <contract_name>: <contract_address>
+///         }
+///    }
+pub fn dump_deployment(addr: FieldElement, contract: Contract) -> Result<()> {
+    // Load an existing deployments file if it exists
+    let mut deployments = if let Ok(mut file) = File::open(DEPLOYMENTS_FILE_NAME) {
+        let mut file_contents = String::new();
+        file.read_to_string(&mut file_contents)?;
+        json::parse(&file_contents)?
+    } else {
+        json::object! {
+            deployments: {}
+        }
+    };
+
+    // Add a new deployment to the file contents
+    deployments["deployments"][contract.to_string().to_lowercase()] =
+        JsonValue::String(format!("0x{addr:x}"));
+
+    // Write the new deployments file
+    let mut file =
+        File::create(DEPLOYMENTS_FILE_NAME).wrap_err("Failed to create deployments file")?;
+    deployments.write(&mut file)?;
+    Ok(())
 }
 
 pub async fn get_or_declare(

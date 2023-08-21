@@ -1,5 +1,7 @@
 //! Command line interface for the Starknet scripts
 
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use clap::{Args, ValueEnum};
 
 // TODO: Move everything except for `CliArgs` and `Commands` into library crate,
@@ -42,6 +44,11 @@ pub struct DeployArgs {
     #[arg(short, long, long_help)]
     /// Whether or not to initialize the contract.
     pub initialize: bool,
+
+    #[arg(long, long_help)]
+    /// Whether or not to dump the deployed addresses to a `deployments.txt` file in the
+    /// working directory
+    pub dump_deployments: bool,
 
     #[arg(short, long, long_help)]
     /// The account address of the owner of the Darkpool contract,
@@ -115,6 +122,17 @@ pub enum Contract {
     Merkle,
     NullifierSet,
     // TODO: Add verifier contract
+}
+
+impl Display for Contract {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let s = match self {
+            Contract::Darkpool => "darkpool",
+            Contract::Merkle => "merkle",
+            Contract::NullifierSet => "nullifier_set",
+        };
+        write!(f, "{s}")
+    }
 }
 
 #[derive(Debug, Clone, ValueEnum)]
