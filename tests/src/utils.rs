@@ -21,8 +21,7 @@ use circuits::zk_circuits::{
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
 use katana_core::{
-    constants::DEFAULT_INVOKE_MAX_STEPS,
-    db::{serde::state::SerializableState, Db},
+    constants::DEFAULT_INVOKE_MAX_STEPS, db::serde::state::SerializableState,
     sequencer::SequencerConfig,
 };
 use merlin::HashChainTranscript;
@@ -84,7 +83,7 @@ const N_BYTES_U32: usize = 4;
 
 static TRACING_INIT: Once = Once::new();
 
-fn get_test_starknet_config() -> StarknetConfig {
+fn get_test_starknet_config(init_state: Option<SerializableState>) -> StarknetConfig {
     let invoke_max_steps = env::var(CAIRO_STEP_LIMIT_ENV_VAR)
         .map_or(DEFAULT_INVOKE_MAX_STEPS, |s| s.parse::<u32>().unwrap());
 
@@ -94,11 +93,12 @@ fn get_test_starknet_config() -> StarknetConfig {
             chain_id: "SN_GOERLI".into(),
             ..Default::default()
         },
+        init_state,
         ..Default::default()
     }
 }
 
-pub async fn global_setup() -> TestSequencer {
+pub async fn global_setup(init_state: Option<SerializableState>) -> TestSequencer {
     // Set up logging
     TRACING_INIT.call_once(|| {
         fmt().with_env_filter(EnvFilter::from_default_env()).init();
@@ -106,7 +106,11 @@ pub async fn global_setup() -> TestSequencer {
 
     // Start test sequencer
     debug!("Starting test sequencer...");
-    TestSequencer::start(SequencerConfig::default(), get_test_starknet_config()).await
+    TestSequencer::start(
+        SequencerConfig::default(),
+        get_test_starknet_config(init_state),
+    )
+    .await
 }
 
 pub fn global_teardown(sequencer: TestSequencer) {
@@ -124,18 +128,29 @@ pub async fn dump_state(sequencer: &TestSequencer, separator: &str) -> Result<()
     fs::write(state_path, state).map_err(|e| eyre!("Error dumping state: {e}"))
 }
 
-pub async fn load_state(sequencer: &mut TestSequencer, separator: &str) -> Result<()> {
+pub async fn load_state(
+    // sequencer: &mut TestSequencer,
+    separator: &str,
+) -> Result<SerializableState> {
     let state_path = get_state_path(separator);
-    let state = SerializableState::parse(state_path.to_str().unwrap())
-        .map_err(|e| eyre!("Error parsing state: {e}"))?;
-    sequencer
-        .sequencer
-        .backend
-        .state
-        .write()
-        .await
-        .load_state(state)
-        .map_err(|e| eyre!("Error loading state: {e}"))
+    SerializableState::parse(state_path.to_str().unwrap())
+        .map_err(|e| eyre!("Error parsing state: {e}"))
+
+    // // Reset account nonce (for some reason this is expected by the test sequencer)
+    // state
+    //     .storage
+    //     .get_mut(&sequencer.account().address())
+    //     .unwrap()
+    //     .nonce = FieldElement::ONE;
+
+    // sequencer
+    //     .sequencer
+    //     .backend
+    //     .state
+    //     .write()
+    //     .await
+    //     .load_state(state)
+    //     .map_err(|e| eyre!("Error loading state: {e}"))
 }
 
 pub fn get_sierra_class_hash_from_artifact(
@@ -155,7 +170,6 @@ pub fn get_contract_address_from_artifact(
     constructor_calldata: &[FieldElement],
 ) -> Result<FieldElement> {
     let class_hash = get_sierra_class_hash_from_artifact(artifacts_path, contract_name)?;
-    debug!("Class hash: {}", class_hash);
     Ok(calculate_contract_address(class_hash, constructor_calldata))
 }
 

@@ -14,13 +14,19 @@ use starknet::core::{
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::env;
+use std::{
+    env,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, global_setup, invoke_contract, scalar_to_felt, CalldataSerializable,
-    ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+    call_contract, dump_state, get_contract_address_from_artifact, global_setup, invoke_contract,
+    load_state, scalar_to_felt, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR,
+    TRANSCRIPT_SEED,
 };
+
+const DEVNET_STATE_PATH_SEPARATOR: &str = "transcript_state";
 
 pub const FUZZ_ROUNDS: usize = 10;
 
@@ -36,6 +42,8 @@ const VALIDATE_AND_APPEND_POINT_FN_NAME: &str = "validate_and_append_point";
 const CHALLENGE_SCALAR_FN_NAME: &str = "challenge_scalar";
 const GET_CHALLENGE_SCALAR_FN_NAME: &str = "get_challenge_scalar";
 
+static TRANSCRIPT_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+
 pub static TRANSCRIPT_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
@@ -45,23 +53,57 @@ pub static TRANSCRIPT_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub async fn setup_transcript_test() -> Result<(TestSequencer, HashChainTranscript)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = global_setup().await;
-    let account = sequencer.account();
+    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
+        || TRANSCRIPT_STATE_INITIALIZED.load(Ordering::Relaxed)
+    {
+        debug!("Loading merkle state...");
+        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
+        let calldata = get_transcript_wrapper_constructor_calldata()?;
+        let transcript_wrapper_address = get_contract_address_from_artifact(
+            &artifacts_path,
+            TRANSCRIPT_WRAPPER_CONTRACT_NAME,
+            &calldata,
+        )?;
 
-    debug!("Declaring & deploying transcript wrapper contract...");
-    let transcript_wrapper_address = deploy_transcript_wrapper(artifacts_path, &account).await?;
-    if TRANSCRIPT_WRAPPER_ADDRESS.get().is_none() {
-        // When running multiple tests, it's possible for the OnceCell to already be set.
-        // However, we still want to deploy the contract, since each test gets its own sequencer.
+        if TRANSCRIPT_WRAPPER_ADDRESS.get().is_none() {
+            TRANSCRIPT_WRAPPER_ADDRESS
+                .set(transcript_wrapper_address)
+                .unwrap();
+        }
 
-        TRANSCRIPT_WRAPPER_ADDRESS
-            .set(transcript_wrapper_address)
-            .unwrap();
-    }
+        sequencer
+    } else {
+        let sequencer = global_setup(None).await;
+        let account = sequencer.account();
+
+        debug!("Declaring & deploying transcript wrapper contract...");
+        let transcript_wrapper_address =
+            deploy_transcript_wrapper(artifacts_path, &account).await?;
+        if TRANSCRIPT_WRAPPER_ADDRESS.get().is_none() {
+            TRANSCRIPT_WRAPPER_ADDRESS
+                .set(transcript_wrapper_address)
+                .unwrap();
+        }
+
+        // Dump the state
+        debug!("Dumping transcript state...");
+        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
+        // Mark the state as initialized
+        TRANSCRIPT_STATE_INITIALIZED.store(true, Ordering::Relaxed);
+
+        sequencer
+    };
 
     let hash_chain_transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
 
     Ok((sequencer, hash_chain_transcript))
+}
+
+fn get_transcript_wrapper_constructor_calldata() -> Result<Vec<FieldElement>> {
+    Ok(vec![
+        cairo_short_string_to_felt(TRANSCRIPT_SEED)?,
+        FieldElement::ZERO,
+    ])
 }
 
 pub async fn deploy_transcript_wrapper(
@@ -73,10 +115,7 @@ pub async fn deploy_transcript_wrapper(
     let DeclareTransactionResult { class_hash, .. } =
         declare(transcript_sierra_path, transcript_casm_path, account).await?;
 
-    let calldata = vec![
-        cairo_short_string_to_felt(TRANSCRIPT_SEED)?,
-        FieldElement::ZERO,
-    ];
+    let calldata = get_transcript_wrapper_constructor_calldata()?;
     deploy(account, class_hash, &calldata).await?;
     Ok(calculate_contract_address(class_hash, &calldata))
 }
