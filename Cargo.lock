@@ -6866,6 +6866,7 @@ dependencies = [
  "once_cell",
  "rand 0.8.5",
  "renegade-crypto",
+ "serde_json",
  "starknet 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "starknet-client",
  "starknet_scripts",

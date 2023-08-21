@@ -19,10 +19,14 @@ use starknet::{
 };
 use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::{
-    calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
-    initialize, ScriptAccount,
+    calculate_contract_address, declare, deploy, deploy_darkpool, get_artifacts, initialize,
+    ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
-use std::{env, iter};
+use std::{
+    env, iter,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
 use tracing::debug;
 
 use crate::{
@@ -31,12 +35,15 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, check_verification_job_status, felt_to_u128, get_dummy_circuit_params,
-        global_setup, invoke_contract, random_felt, scalar_to_felt,
-        singleprover_prove_dummy_circuit, CalldataSerializable, CircuitParams, MatchPayload,
-        NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
+        call_contract, check_verification_job_status, dump_state, felt_to_u128,
+        get_contract_address_from_artifact, get_sierra_class_hash_from_artifact, global_setup,
+        invoke_contract, load_state, random_felt, scalar_to_felt, singleprover_prove_dummy_circuit,
+        CalldataSerializable, MatchPayload, NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs,
+        ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR,
     },
 };
+
+const DEVNET_STATE_PATH_SEPARATOR: &str = "darkpool_state";
 
 const DUMMY_ERC20_CONTRACT_NAME: &str = "renegade_contracts_DummyERC20";
 const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgradeTarget";
@@ -57,6 +64,8 @@ const UPGRADE_FN_NAME: &str = "upgrade";
 
 const PROCESS_MATCH_NUM_PROOFS: usize = 6;
 
+static DARKPOOL_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+
 pub static DARKPOOL_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub static DARKPOOL_CLASS_HASH: OnceCell<FieldElement> = OnceCell::new();
 pub static ERC20_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
@@ -72,78 +81,123 @@ pub async fn setup_darkpool_test(
 ) -> Result<(TestSequencer, ScalarMerkleTree)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = global_setup().await;
+    let mut sequencer = global_setup().await;
     let account = sequencer.account();
 
-    debug!("Declaring & deploying darkpool contract...");
-    let (
-        darkpool_address,
-        darkpool_class_hash,
-        merkle_class_hash,
-        nullifier_set_class_hash,
-        verifier_class_hash,
-        _,
-    ) = deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
-    if DARKPOOL_ADDRESS.get().is_none() {
-        // When running multiple tests, it's possible for the OnceCell to already be set.
-        // However, we still want to deploy the contract, since each test gets its own sequencer.
-        DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
-    }
+    // If the LOAD_STATE env var is set, or another test thread has dumped,
+    // we load the state, assuming that it contains all the necessary setup.
+    if env::var(LOAD_STATE_ENV_VAR).is_ok() || DARKPOOL_STATE_INITIALIZED.load(Ordering::Relaxed) {
+        debug!("Loading darkpool state...");
+        load_state(&mut sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
 
-    debug!("Declaring & deploying verifier contract...");
-    let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
-    let (verifier_address, _, _) =
-        deploy_verifier(verifier_class_hash_hex, &artifacts_path, &account).await?;
+        let darkpool_address = get_contract_address_from_artifact(
+            &artifacts_path,
+            DARKPOOL_CONTRACT_NAME,
+            &[account.address()],
+        )?;
+        if DARKPOOL_ADDRESS.get().is_none() {
+            DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
+        }
 
-    debug!("Initializing darkpool contract...");
-    initialize_darkpool(
-        &account,
-        darkpool_address,
-        merkle_class_hash,
-        nullifier_set_class_hash,
-        verifier_address,
-        TEST_MERKLE_HEIGHT.into(),
-        get_dummy_circuit_params(),
-    )
-    .await?;
+        if init_erc20 {
+            let erc20_address = get_contract_address_from_artifact(
+                &artifacts_path,
+                DUMMY_ERC20_CONTRACT_NAME,
+                &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
+            )?;
+            if ERC20_ADDRESS.get().is_none() {
+                ERC20_ADDRESS.set(erc20_address).unwrap();
+            }
+        }
 
-    if init_erc20 {
-        debug!("Declaring & deploying dummy ERC20 contract...");
-        let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
-        if ERC20_ADDRESS.get().is_none() {
+        if init_upgrade_target {
+            let upgrade_target_class_hash = get_sierra_class_hash_from_artifact(
+                &artifacts_path,
+                DUMMY_UPGRADE_TARGET_CONTRACT_NAME,
+            )?;
+            if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
+                UPGRADE_TARGET_CLASS_HASH
+                    .set(upgrade_target_class_hash)
+                    .unwrap();
+            }
+
+            let darkpool_class_hash =
+                get_sierra_class_hash_from_artifact(&artifacts_path, DARKPOOL_CONTRACT_NAME)?;
+            if DARKPOOL_CLASS_HASH.get().is_none() {
+                DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
+            }
+        }
+    } else {
+        debug!("Declaring & deploying darkpool contract...");
+        let (
+            darkpool_address,
+            darkpool_class_hash,
+            merkle_class_hash,
+            nullifier_set_class_hash,
+            _,
+            _,
+        ) = deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
+        if DARKPOOL_ADDRESS.get().is_none() {
             // When running multiple tests, it's possible for the OnceCell to already be set.
             // However, we still want to deploy the contract, since each test gets its own sequencer.
-            ERC20_ADDRESS.set(erc20_address).unwrap();
+            DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
         }
-        approve(
+
+        debug!("Initializing darkpool contract...");
+        initialize_darkpool(
             &account,
             darkpool_address,
-            StarknetU256 {
-                low: INIT_BALANCE as u128,
-                high: 0,
-            },
+            merkle_class_hash,
+            nullifier_set_class_hash,
+            TEST_MERKLE_HEIGHT.into(),
         )
         .await?;
-    }
 
-    if init_upgrade_target {
-        debug!("Declaring dummy upgrade target contract...");
-        let upgrade_target_class_hash =
-            declare_dummy_upgrade_target(&artifacts_path, &account).await?;
-        if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
-            // When running multiple tests, it's possible for the OnceCell to already be set.
-            // However, we still want to deploy the contract, since each test gets its own sequencer.
-            UPGRADE_TARGET_CLASS_HASH
-                .set(upgrade_target_class_hash)
-                .unwrap();
+        if init_erc20 {
+            debug!("Declaring & deploying dummy ERC20 contract...");
+            let erc20_address =
+                deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
+            if ERC20_ADDRESS.get().is_none() {
+                // When running multiple tests, it's possible for the OnceCell to already be set.
+                // However, we still want to deploy the contract, since each test gets its own sequencer.
+                ERC20_ADDRESS.set(erc20_address).unwrap();
+            }
+            approve(
+                &account,
+                darkpool_address,
+                StarknetU256 {
+                    low: INIT_BALANCE as u128,
+                    high: 0,
+                },
+            )
+            .await?;
         }
 
-        // Only need darkpool class hash when doing upgrade tests
-        if DARKPOOL_CLASS_HASH.get().is_none() {
-            // When running multiple tests, it's possible for the OnceCell to already be set.
-            // However, we still want to deploy the contract, since each test gets its own sequencer.
-            DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
+        if init_upgrade_target {
+            debug!("Declaring dummy upgrade target contract...");
+            let upgrade_target_class_hash =
+                declare_dummy_upgrade_target(&artifacts_path, &account).await?;
+            if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
+                // When running multiple tests, it's possible for the OnceCell to already be set.
+                // However, we still want to deploy the contract, since each test gets its own sequencer.
+                UPGRADE_TARGET_CLASS_HASH
+                    .set(upgrade_target_class_hash)
+                    .unwrap();
+            }
+
+            // Only need darkpool class hash when doing upgrade tests
+            if DARKPOOL_CLASS_HASH.get().is_none() {
+                // When running multiple tests, it's possible for the OnceCell to already be set.
+                // However, we still want to deploy the contract, since each test gets its own sequencer.
+                DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
+            }
         }
+
+        // Dump the state
+        debug!("Dumping darkpool state...");
+        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
+        // Mark the state as initialized
+        DARKPOOL_STATE_INITIALIZED.store(true, Ordering::Relaxed);
     }
 
     debug!("Initializing arkworks merkle tree...");
@@ -152,16 +206,10 @@ pub async fn setup_darkpool_test(
     Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
 }
 
-async fn deploy_dummy_erc20(
-    artifacts_path: &str,
-    account: &ScriptAccount,
+fn get_dummy_erc20_calldata(
+    account_address: FieldElement,
     darkpool_address: FieldElement,
-) -> Result<FieldElement> {
-    let (erc20_sierra_path, erc20_casm_path) =
-        get_artifacts(artifacts_path, DUMMY_ERC20_CONTRACT_NAME);
-    let DeclareTransactionResult { class_hash, .. } =
-        declare(erc20_sierra_path, erc20_casm_path, account).await?;
-
+) -> Result<Vec<FieldElement>> {
     let mut calldata = vec![
         // Name
         cairo_short_string_to_felt("DummyToken")?,
@@ -174,7 +222,22 @@ async fn deploy_dummy_erc20(
     ];
 
     // Recipients of initial supply
-    calldata.extend(vec![account.address(), darkpool_address].to_calldata());
+    calldata.extend(vec![account_address, darkpool_address].to_calldata());
+
+    Ok(calldata)
+}
+
+async fn deploy_dummy_erc20(
+    artifacts_path: &str,
+    account: &ScriptAccount,
+    darkpool_address: FieldElement,
+) -> Result<FieldElement> {
+    let (erc20_sierra_path, erc20_casm_path) =
+        get_artifacts(artifacts_path, DUMMY_ERC20_CONTRACT_NAME);
+    let DeclareTransactionResult { class_hash, .. } =
+        declare(erc20_sierra_path, erc20_casm_path, account).await?;
+
+    let calldata = get_dummy_erc20_calldata(account.address(), darkpool_address)?;
 
     deploy(account, class_hash, &calldata).await?;
     Ok(calculate_contract_address(class_hash, &calldata))
@@ -205,19 +268,9 @@ pub async fn initialize_darkpool(
     darkpool_address: FieldElement,
     merkle_class_hash: FieldElement,
     nullifier_set_class_hash: FieldElement,
-    verifier_contract_address: FieldElement,
     merkle_height: FieldElement,
-    circuit_params: CircuitParams,
 ) -> Result<()> {
-    let calldata = [
-        merkle_class_hash,
-        nullifier_set_class_hash,
-        verifier_contract_address,
-        merkle_height,
-    ]
-    .into_iter()
-    .chain(circuit_params.to_calldata())
-    .collect();
+    let calldata = vec![merkle_class_hash, nullifier_set_class_hash, merkle_height];
 
     initialize(account, darkpool_address, calldata)
         .await
