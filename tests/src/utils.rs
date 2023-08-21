@@ -20,7 +20,11 @@ use circuits::zk_circuits::{
 };
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
 use eyre::{eyre, Result};
-use katana_core::{constants::DEFAULT_INVOKE_MAX_STEPS, sequencer::SequencerConfig};
+use katana_core::{
+    constants::DEFAULT_INVOKE_MAX_STEPS,
+    db::{serde::state::SerializableState, Db},
+    sequencer::SequencerConfig,
+};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
     r1cs::{
@@ -35,14 +39,24 @@ use rand::thread_rng;
 use starknet::{
     accounts::{Account, Call, ConnectedAccount},
     core::{
-        types::{BlockId, BlockTag, FieldElement, FunctionCall, InvokeTransactionResult},
+        types::{
+            contract::SierraClass, BlockId, BlockTag, FieldElement, FunctionCall,
+            InvokeTransactionResult,
+        },
         utils::get_selector_from_name,
     },
     providers::Provider,
 };
 use starknet_client::types::StarknetU256;
-use starknet_scripts::commands::utils::ScriptAccount;
-use std::{env, io::Cursor, iter, sync::Once};
+use starknet_scripts::commands::utils::{calculate_contract_address, get_artifacts, ScriptAccount};
+use std::{
+    env,
+    fs::{self, File},
+    io::Cursor,
+    iter,
+    path::{Path, PathBuf},
+    sync::Once,
+};
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -52,6 +66,8 @@ use crate::merkle::{ark_merkle::ScalarMerkleTree, utils::TEST_MERKLE_HEIGHT};
 // | META TEST HELPERS |
 // ---------------------
 
+/// Name of env var representing whether or not to load state
+pub const LOAD_STATE_ENV_VAR: &str = "LOAD_STATE";
 /// Name of env var representing path at which compiled contract artifacts are kept
 pub const ARTIFACTS_PATH_ENV_VAR: &str = "ARTIFACTS_PATH";
 /// Name of env var representing the transaction Cairo step limit to run the sequencer with
@@ -96,6 +112,51 @@ pub async fn global_setup() -> TestSequencer {
 pub fn global_teardown(sequencer: TestSequencer) {
     debug!("Stopping test sequencer...");
     sequencer.stop().unwrap();
+}
+
+pub fn get_state_path(separator: &str) -> PathBuf {
+    Path::new(&env::var(ARTIFACTS_PATH_ENV_VAR).unwrap()).join(separator)
+}
+
+pub async fn dump_state(sequencer: &TestSequencer, separator: &str) -> Result<()> {
+    let state_path = get_state_path(separator);
+    let state = sequencer.sequencer.backend.dump_state().await?;
+    fs::write(state_path, state).map_err(|e| eyre!("Error dumping state: {e}"))
+}
+
+pub async fn load_state(sequencer: &mut TestSequencer, separator: &str) -> Result<()> {
+    let state_path = get_state_path(separator);
+    let state = SerializableState::parse(state_path.to_str().unwrap())
+        .map_err(|e| eyre!("Error parsing state: {e}"))?;
+    sequencer
+        .sequencer
+        .backend
+        .state
+        .write()
+        .await
+        .load_state(state)
+        .map_err(|e| eyre!("Error loading state: {e}"))
+}
+
+pub fn get_sierra_class_hash_from_artifact(
+    artifacts_path: &str,
+    contract_name: &str,
+) -> Result<FieldElement> {
+    let (sierra_path, _) = get_artifacts(artifacts_path, contract_name);
+    let sierra_contract: SierraClass = serde_json::from_reader(File::open(sierra_path)?)?;
+    sierra_contract
+        .class_hash()
+        .map_err(|e| eyre!("Error getting class hash: {}", e))
+}
+
+pub fn get_contract_address_from_artifact(
+    artifacts_path: &str,
+    contract_name: &str,
+    constructor_calldata: &[FieldElement],
+) -> Result<FieldElement> {
+    let class_hash = get_sierra_class_hash_from_artifact(artifacts_path, contract_name)?;
+    debug!("Class hash: {}", class_hash);
+    Ok(calculate_contract_address(class_hash, constructor_calldata))
 }
 
 // --------------------------------

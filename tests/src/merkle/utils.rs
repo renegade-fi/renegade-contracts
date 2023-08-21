@@ -15,7 +15,7 @@ use crate::utils::{
 
 use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};
 
-pub const TEST_MERKLE_HEIGHT: usize = 5;
+pub const TEST_MERKLE_HEIGHT: usize = 3;
 pub const MULTI_INSERT_ROUNDS: usize = 10;
 
 const INSERT_FN_NAME: &str = "insert";
