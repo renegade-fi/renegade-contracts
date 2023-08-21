@@ -81,14 +81,14 @@ pub async fn setup_darkpool_test(
 ) -> Result<(TestSequencer, ScalarMerkleTree)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let mut sequencer = global_setup().await;
-    let account = sequencer.account();
-
     // If the LOAD_STATE env var is set, or another test thread has dumped,
     // we load the state, assuming that it contains all the necessary setup.
-    if env::var(LOAD_STATE_ENV_VAR).is_ok() || DARKPOOL_STATE_INITIALIZED.load(Ordering::Relaxed) {
+    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
+        || DARKPOOL_STATE_INITIALIZED.load(Ordering::Relaxed)
+    {
         debug!("Loading darkpool state...");
-        load_state(&mut sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
+        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
+        let account = sequencer.account();
 
         let darkpool_address = get_contract_address_from_artifact(
             &artifacts_path,
@@ -127,7 +127,11 @@ pub async fn setup_darkpool_test(
                 DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
             }
         }
+
+        sequencer
     } else {
+        let sequencer = global_setup(None).await;
+        let account = sequencer.account();
         debug!("Declaring & deploying darkpool contract...");
         let (
             darkpool_address,
@@ -138,8 +142,6 @@ pub async fn setup_darkpool_test(
             _,
         ) = deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
         if DARKPOOL_ADDRESS.get().is_none() {
-            // When running multiple tests, it's possible for the OnceCell to already be set.
-            // However, we still want to deploy the contract, since each test gets its own sequencer.
             DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
         }
 
@@ -158,8 +160,6 @@ pub async fn setup_darkpool_test(
             let erc20_address =
                 deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
             if ERC20_ADDRESS.get().is_none() {
-                // When running multiple tests, it's possible for the OnceCell to already be set.
-                // However, we still want to deploy the contract, since each test gets its own sequencer.
                 ERC20_ADDRESS.set(erc20_address).unwrap();
             }
             approve(
@@ -178,8 +178,6 @@ pub async fn setup_darkpool_test(
             let upgrade_target_class_hash =
                 declare_dummy_upgrade_target(&artifacts_path, &account).await?;
             if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
-                // When running multiple tests, it's possible for the OnceCell to already be set.
-                // However, we still want to deploy the contract, since each test gets its own sequencer.
                 UPGRADE_TARGET_CLASS_HASH
                     .set(upgrade_target_class_hash)
                     .unwrap();
@@ -187,8 +185,6 @@ pub async fn setup_darkpool_test(
 
             // Only need darkpool class hash when doing upgrade tests
             if DARKPOOL_CLASS_HASH.get().is_none() {
-                // When running multiple tests, it's possible for the OnceCell to already be set.
-                // However, we still want to deploy the contract, since each test gets its own sequencer.
                 DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
             }
         }
@@ -198,7 +194,9 @@ pub async fn setup_darkpool_test(
         dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
         // Mark the state as initialized
         DARKPOOL_STATE_INITIALIZED.store(true, Ordering::Relaxed);
-    }
+
+        sequencer
+    };
 
     debug!("Initializing arkworks merkle tree...");
     // arkworks implementation does height inclusive of root,

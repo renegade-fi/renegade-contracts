@@ -12,20 +12,28 @@ use starknet::core::types::{DeclareTransactionResult, FieldElement};
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::{env, iter};
+use std::{
+    env, iter,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, felt_to_scalar, felt_to_u32, global_setup, prep_dummy_circuit_verifier,
-    singleprover_prove_dummy_circuit, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
-    DUMMY_CIRCUIT_K, DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
+    call_contract, dump_state, felt_to_scalar, felt_to_u32, get_contract_address_from_artifact,
+    global_setup, load_state, prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit,
+    CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, DUMMY_CIRCUIT_K, DUMMY_CIRCUIT_M,
+    DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS, LOAD_STATE_ENV_VAR,
 };
+
+const DEVNET_STATE_PATH_SEPARATOR: &str = "verifier_utils_state";
 
 const VERIFIER_UTILS_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_VerifierUtilsWrapper";
 
 const CALC_DELTA_FN_NAME: &str = "calc_delta";
 const GET_S_ELEM_FN_NAME: &str = "get_s_elem";
 const SQUEEZE_CHALLENGE_SCALARS_FN_NAME: &str = "squeeze_challenge_scalars";
+
+static VERIFIER_UTILS_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 static VERIFIER_UTILS_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -38,19 +46,45 @@ pub async fn setup_verifier_utils_test<'t, 'g>(
 ) -> Result<(TestSequencer, R1CSProof, Vec<StarkPoint>)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = global_setup().await;
-    let account = sequencer.account();
+    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
+        || VERIFIER_UTILS_STATE_INITIALIZED.load(Ordering::Relaxed)
+    {
+        debug!("Loading verifier utils state...");
+        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
+        let verifier_utils_wrapper_address = get_contract_address_from_artifact(
+            &artifacts_path,
+            VERIFIER_UTILS_WRAPPER_CONTRACT_NAME,
+            &[],
+        )?;
 
-    debug!("Declaring & deploying verifier utils wrapper contract...");
-    let verifier_utils_wrapper_address =
-        deploy_verifier_utils_wrapper(artifacts_path, &account).await?;
-    if VERIFIER_UTILS_WRAPPER_ADDRESS.get().is_none() {
-        // When running multiple tests, it's possible for the OnceCell to already be set.
-        // However, we still want to deploy the contract, since each test gets its own sequencer.
-        VERIFIER_UTILS_WRAPPER_ADDRESS
-            .set(verifier_utils_wrapper_address)
-            .unwrap();
-    }
+        if VERIFIER_UTILS_WRAPPER_ADDRESS.get().is_none() {
+            VERIFIER_UTILS_WRAPPER_ADDRESS
+                .set(verifier_utils_wrapper_address)
+                .unwrap();
+        }
+
+        sequencer
+    } else {
+        let sequencer = global_setup(None).await;
+        let account = sequencer.account();
+
+        debug!("Declaring & deploying verifier utils wrapper contract...");
+        let verifier_utils_wrapper_address =
+            deploy_verifier_utils_wrapper(artifacts_path, &account).await?;
+        if VERIFIER_UTILS_WRAPPER_ADDRESS.get().is_none() {
+            VERIFIER_UTILS_WRAPPER_ADDRESS
+                .set(verifier_utils_wrapper_address)
+                .unwrap();
+        }
+
+        // Dump the state
+        debug!("Dumping verifier utils state...");
+        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
+        // Mark the state as initialized
+        VERIFIER_UTILS_STATE_INITIALIZED.store(true, Ordering::Relaxed);
+
+        sequencer
+    };
 
     debug!("Getting example proof & witness commitments...");
     let (proof, witness_commitments) = singleprover_prove_dummy_circuit().unwrap();

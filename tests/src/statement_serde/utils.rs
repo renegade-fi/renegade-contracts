@@ -20,10 +20,18 @@ use starknet::core::types::{DeclareTransactionResult, FieldElement};
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::env;
+use std::{
+    env,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use tracing::debug;
 
-use crate::utils::{call_contract, global_setup, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR};
+use crate::utils::{
+    call_contract, dump_state, get_contract_address_from_artifact, global_setup, load_state,
+    CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR,
+};
+
+const DEVNET_STATE_PATH_SEPARATOR: &str = "statement_serde_state";
 
 const DUMMY_VALUE: u64 = 42;
 
@@ -45,6 +53,8 @@ const ASSERT_VALID_COMMITMENTS_STATEMENT_TO_SCALARS_FN_NAME: &str =
 const ASSERT_VALID_SETTLE_STATEMENT_TO_SCALARS_FN_NAME: &str =
     "assert_valid_settle_statement_to_scalars";
 
+static STATEMENT_SERDE_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+
 pub static STATEMENT_SERDE_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 pub static DUMMY_VALID_WALLET_CREATE_STATEMENT: OnceCell<SizedValidWalletCreateStatement> =
@@ -62,18 +72,46 @@ pub static DUMMY_VALID_SETTLE_STATEMENT: OnceCell<SizedValidSettleStatement> = O
 pub async fn setup_statement_serde_test() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = global_setup().await;
-    let account = sequencer.account();
+    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
+        || STATEMENT_SERDE_STATE_INITIALIZED.load(Ordering::Relaxed)
+    {
+        debug!("Loading statement serde state...");
+        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
+        let statement_serde_wrapper_address = get_contract_address_from_artifact(
+            &artifacts_path,
+            STATEMENT_SERDE_WRAPPER_CONTRACT_NAME,
+            &[],
+        )?;
 
-    debug!("Declaring & deploying statement serde wrapper contract...");
-    let statement_serde_wrapper_address =
-        deploy_statement_serde_wrapper(&account, &artifacts_path).await?;
+        if STATEMENT_SERDE_WRAPPER_ADDRESS.get().is_none() {
+            STATEMENT_SERDE_WRAPPER_ADDRESS
+                .set(statement_serde_wrapper_address)
+                .unwrap();
+        }
 
-    if STATEMENT_SERDE_WRAPPER_ADDRESS.get().is_none() {
-        STATEMENT_SERDE_WRAPPER_ADDRESS
-            .set(statement_serde_wrapper_address)
-            .unwrap();
-    }
+        sequencer
+    } else {
+        let sequencer = global_setup(None).await;
+        let account = sequencer.account();
+
+        debug!("Declaring & deploying statement serde wrapper contract...");
+        let statement_serde_wrapper_address =
+            deploy_statement_serde_wrapper(&account, &artifacts_path).await?;
+
+        if STATEMENT_SERDE_WRAPPER_ADDRESS.get().is_none() {
+            STATEMENT_SERDE_WRAPPER_ADDRESS
+                .set(statement_serde_wrapper_address)
+                .unwrap();
+        }
+
+        // Dump the state
+        debug!("Dumping statement serde state...");
+        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
+        // Mark the state as initialized
+        STATEMENT_SERDE_STATE_INITIALIZED.store(true, Ordering::Relaxed);
+
+        sequencer
+    };
 
     if DUMMY_VALID_WALLET_CREATE_STATEMENT.get().is_none() {
         DUMMY_VALID_WALLET_CREATE_STATEMENT
