@@ -51,11 +51,13 @@ use starknet_scripts::commands::utils::{calculate_contract_address, get_artifact
 use std::{
     env,
     fs::{self, File},
+    future::Future,
     io::Cursor,
     iter,
     path::{Path, PathBuf},
     sync::Once,
 };
+use tokio::sync::Mutex;
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -135,22 +137,6 @@ pub async fn load_state(
     let state_path = get_state_path(separator);
     SerializableState::parse(state_path.to_str().unwrap())
         .map_err(|e| eyre!("Error parsing state: {e}"))
-
-    // // Reset account nonce (for some reason this is expected by the test sequencer)
-    // state
-    //     .storage
-    //     .get_mut(&sequencer.account().address())
-    //     .unwrap()
-    //     .nonce = FieldElement::ONE;
-
-    // sequencer
-    //     .sequencer
-    //     .backend
-    //     .state
-    //     .write()
-    //     .await
-    //     .load_state(state)
-    //     .map_err(|e| eyre!("Error loading state: {e}"))
 }
 
 pub fn get_sierra_class_hash_from_artifact(
@@ -171,6 +157,49 @@ pub fn get_contract_address_from_artifact(
 ) -> Result<FieldElement> {
     let class_hash = get_sierra_class_hash_from_artifact(artifacts_path, contract_name)?;
     Ok(calculate_contract_address(class_hash, constructor_calldata))
+}
+
+pub async fn setup_sequencer<Fut: Future<Output = Result<TestSequencer>>>(
+    state_dumped_lock: &'static Mutex<bool>,
+    state_separator: &str,
+    state_init_fut: Fut,
+) -> Result<TestSequencer> {
+    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok() {
+        let sequencer = global_setup(Some(load_state(state_separator).await?)).await;
+        debug!("Loaded state");
+        sequencer
+    } else {
+        let sequencer = {
+            let mut state_dumped = state_dumped_lock.lock().await;
+            if *state_dumped {
+                // Sequencer must be loaded from state
+                // (this doesn't need to be in the critical section)
+                None
+            } else {
+                // Initialize state
+                // (this must be in the critical section)
+                let sequencer = state_init_fut.await?;
+
+                // Dump the state
+                debug!("Dumping state...");
+                dump_state(&sequencer, state_separator).await?;
+                // Mark the state as dumped
+                *state_dumped = true;
+                Some(sequencer)
+            }
+            // Drop the lock
+        };
+
+        if sequencer.is_some() {
+            sequencer.unwrap()
+        } else {
+            let sequencer = global_setup(Some(load_state(state_separator).await?)).await;
+            debug!("Loaded state");
+            sequencer
+        }
+    };
+
+    Ok(sequencer)
 }
 
 // --------------------------------

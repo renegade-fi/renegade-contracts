@@ -11,28 +11,26 @@ use starknet::core::types::{DeclareTransactionResult, FieldElement};
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::{
-    env, iter,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::{env, iter};
+use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, dump_state, felt_to_scalar, get_contract_address_from_artifact, global_setup,
-    invoke_contract, load_state, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR,
+    call_contract, felt_to_scalar, get_contract_address_from_artifact, global_setup,
+    invoke_contract, setup_sequencer, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
 };
 
 const DEVNET_STATE_PATH_SEPARATOR: &str = "poseidon_state";
 
 pub const FUZZ_ROUNDS: usize = 4;
-const MAX_INPUT_SIZE: usize = 16;
-const MAX_OUTPUT_SIZE: usize = 16;
+const MAX_INPUT_SIZE: usize = 4;
+const MAX_OUTPUT_SIZE: usize = 4;
 
 const POSEIDON_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_PoseidonWrapper";
 const STORE_HASH_FN_NAME: &str = "store_hash";
 const GET_HASH_FN_NAME: &str = "get_hash";
 
-static POSEIDON_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+static POSEIDON_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 
 pub static POSEIDON_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -43,52 +41,33 @@ pub static POSEIDON_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub async fn setup_poseidon_test() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
-        || POSEIDON_STATE_INITIALIZED.load(Ordering::Relaxed)
-    {
-        debug!("Loading poseidon state...");
-        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
-        let poseidon_wrapper_address = get_contract_address_from_artifact(
-            &artifacts_path,
-            POSEIDON_WRAPPER_CONTRACT_NAME,
-            &[],
-        )?;
-        if POSEIDON_WRAPPER_ADDRESS.get().is_none() {
-            POSEIDON_WRAPPER_ADDRESS
-                .set(poseidon_wrapper_address)
-                .unwrap();
-        }
-
-        sequencer
-    } else {
+    let sequencer = setup_sequencer(&POSEIDON_STATE_DUMPED, DEVNET_STATE_PATH_SEPARATOR, async {
         let sequencer = global_setup(None).await;
         let account = sequencer.account();
         debug!("Declaring & deploying poseidon wrapper contract...");
-        let poseidon_wrapper_address = deploy_poseidon_wrapper(artifacts_path, &account).await?;
-        if POSEIDON_WRAPPER_ADDRESS.get().is_none() {
-            POSEIDON_WRAPPER_ADDRESS
-                .set(poseidon_wrapper_address)
-                .unwrap();
-        }
+        deploy_poseidon_wrapper(&artifacts_path, &account).await?;
 
-        // Dump the state
-        debug!("Dumping poseidon state...");
-        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
-        // Mark the state as initialized
-        POSEIDON_STATE_INITIALIZED.store(true, Ordering::Relaxed);
+        Ok(sequencer)
+    })
+    .await?;
 
-        sequencer
-    };
+    let poseidon_wrapper_address =
+        get_contract_address_from_artifact(&artifacts_path, POSEIDON_WRAPPER_CONTRACT_NAME, &[])?;
+    if POSEIDON_WRAPPER_ADDRESS.get().is_none() {
+        POSEIDON_WRAPPER_ADDRESS
+            .set(poseidon_wrapper_address)
+            .unwrap();
+    }
 
     Ok(sequencer)
 }
 
 pub async fn deploy_poseidon_wrapper(
-    artifacts_path: String,
+    artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<FieldElement> {
     let (poseidon_sierra_path, poseidon_casm_path) =
-        get_artifacts(&artifacts_path, POSEIDON_WRAPPER_CONTRACT_NAME);
+        get_artifacts(artifacts_path, POSEIDON_WRAPPER_CONTRACT_NAME);
     let DeclareTransactionResult { class_hash, .. } =
         declare(poseidon_sierra_path, poseidon_casm_path, account).await?;
     deploy(account, class_hash, &[]).await?;
@@ -151,16 +130,15 @@ pub fn random_input(len: usize) -> Vec<Scalar> {
 pub async fn get_random_input_hashes(
     account: &ScriptAccount,
 ) -> Result<(Vec<Scalar>, Vec<Scalar>)> {
-    let input_len = thread_rng().gen_range(1..MAX_INPUT_SIZE);
+    let input_len = thread_rng().gen_range(1..=MAX_INPUT_SIZE);
     let input = random_input(input_len);
-    let num_elements = thread_rng().gen_range(1..MAX_OUTPUT_SIZE);
+    let num_elements = thread_rng().gen_range(1..=MAX_OUTPUT_SIZE);
 
     debug!(
         "Absorbing {} elements, squeezing {} elements",
         input_len, num_elements
     );
 
-    debug!("Hashing via contract...");
     store_hash(account, &input, num_elements).await?;
     let output = get_hash(account).await?;
 
