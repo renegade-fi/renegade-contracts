@@ -8,24 +8,19 @@ use starknet_scripts::commands::utils::{
     deploy_merkle, initialize, ScriptAccount, MERKLE_CONTRACT_NAME,
 };
 use std::env;
-use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
     get_contract_address_from_artifact, global_setup, insert_scalar_to_ark_merkle_tree,
-    invoke_contract, setup_sequencer, ARTIFACTS_PATH_ENV_VAR,
+    invoke_contract, setup_sequencer, TestConfig, ARTIFACTS_PATH_ENV_VAR,
 };
 
 use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};
-
-const DEVNET_STATE_PATH_SEPARATOR: &str = "merkle_state";
 
 pub const TEST_MERKLE_HEIGHT: usize = 3;
 pub const MULTI_INSERT_ROUNDS: usize = 5;
 
 const INSERT_FN_NAME: &str = "insert";
-
-static MERKLE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 
 pub static MERKLE_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -34,20 +29,30 @@ pub static MERKLE_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 // ---------------------
 
 pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
+    let sequencer = setup_sequencer(TestConfig::Merkle).await?;
+
+    debug!("Initializing arkworks merkle tree...");
+    // arkworks implementation does height inclusive of root,
+    // so "height" here is one more than what's passed to the contract
+    Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
+}
+
+pub async fn init_merkle_test_state() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = setup_sequencer(&MERKLE_STATE_DUMPED, DEVNET_STATE_PATH_SEPARATOR, async {
-        let sequencer = global_setup(None).await;
-        let account = sequencer.account();
-        debug!("Declaring & deploying merkle contract...");
-        let (merkle_address, _, _) = deploy_merkle(None, &artifacts_path, &account).await?;
+    let sequencer = global_setup(None).await;
+    let account = sequencer.account();
+    debug!("Declaring & deploying merkle contract...");
+    let (merkle_address, _, _) = deploy_merkle(None, &artifacts_path, &account).await?;
 
-        debug!("Initializing merkle contract...");
-        initialize_merkle(&account, merkle_address, TEST_MERKLE_HEIGHT.into()).await?;
+    debug!("Initializing merkle contract...");
+    initialize_merkle(&account, merkle_address, TEST_MERKLE_HEIGHT.into()).await?;
 
-        Ok(sequencer)
-    })
-    .await?;
+    Ok(sequencer)
+}
+
+pub fn init_merkle_test_statics() -> Result<()> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let merkle_address =
         get_contract_address_from_artifact(&artifacts_path, MERKLE_CONTRACT_NAME, &[])?;
@@ -55,10 +60,7 @@ pub async fn setup_merkle_test() -> Result<(TestSequencer, ScalarMerkleTree)> {
         MERKLE_ADDRESS.set(merkle_address).unwrap();
     }
 
-    debug!("Initializing arkworks merkle tree...");
-    // arkworks implementation does height inclusive of root,
-    // so "height" here is one more than what's passed to the contract
-    Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
+    Ok(())
 }
 
 // --------------------------------

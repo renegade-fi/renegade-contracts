@@ -51,7 +51,6 @@ use starknet_scripts::commands::utils::{calculate_contract_address, get_artifact
 use std::{
     env,
     fs::{self, File},
-    future::Future,
     io::Cursor,
     iter,
     path::{Path, PathBuf},
@@ -61,7 +60,19 @@ use tokio::sync::Mutex;
 use tracing::debug;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::merkle::{ark_merkle::ScalarMerkleTree, utils::TEST_MERKLE_HEIGHT};
+use crate::{
+    darkpool::utils::{init_darkpool_test_state, init_darkpool_test_statics},
+    merkle::{
+        ark_merkle::ScalarMerkleTree,
+        utils::{init_merkle_test_state, init_merkle_test_statics, TEST_MERKLE_HEIGHT},
+    },
+    nullifier_set::utils::{init_nullifier_set_test_state, init_nullifier_set_test_statics},
+    poseidon::utils::{init_poseidon_test_state, init_poseidon_test_statics},
+    statement_serde::utils::{init_statement_serde_test_state, init_statement_serde_test_statics},
+    transcript::utils::{init_transcript_test_state, init_transcript_test_statics},
+    verifier::utils::{init_verifier_test_state, init_verifier_test_statics},
+    verifier_utils::utils::{init_verifier_utils_test_state, init_verifier_utils_test_statics},
+};
 
 // ---------------------
 // | META TEST HELPERS |
@@ -73,6 +84,25 @@ pub const LOAD_STATE_ENV_VAR: &str = "LOAD_STATE";
 pub const ARTIFACTS_PATH_ENV_VAR: &str = "ARTIFACTS_PATH";
 /// Name of env var representing the transaction Cairo step limit to run the sequencer with
 pub const CAIRO_STEP_LIMIT_ENV_VAR: &str = "CAIRO_STEP_LIMIT";
+
+const DARKPOOL_STATE_SEPARATOR: &str = "darkpool_state";
+const MERKLE_STATE_SEPARATOR: &str = "merkle_state";
+const NULLIFIER_SET_STATE_SEPARATOR: &str = "nullifier_set_state";
+const VERIFIER_STATE_SEPARATOR: &str = "verifier_state";
+const VERIFIER_UTILS_STATE_SEPARATOR: &str = "verifier_utils_state";
+const TRANSCRIPT_STATE_SEPARATOR: &str = "transcript_state";
+const POSEIDON_STATE_SEPARATOR: &str = "poseidon_state";
+const STATEMENT_SERDE_STATE_SEPARATOR: &str = "statement_serde_state";
+
+static DARKPOOL_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static MERKLE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static NULLIFIER_SET_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static VERIFIER_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static VERIFIER_UTILS_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static TRANSCRIPT_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static POSEIDON_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static STATEMENT_SERDE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+
 /// Label with which to seed the Fiat-Shamir transcript
 pub const TRANSCRIPT_SEED: &str = "merlin seed";
 
@@ -84,6 +114,20 @@ const N_BYTES_U128: usize = 16;
 const N_BYTES_U32: usize = 4;
 
 static TRACING_INIT: Once = Once::new();
+
+pub enum TestConfig {
+    Darkpool {
+        init_erc20: bool,
+        init_upgrade_target: bool,
+    },
+    Merkle,
+    NullifierSet,
+    Verifier,
+    VerifierUtils,
+    Transcript,
+    Poseidon,
+    StatementSerde,
+}
 
 fn get_test_starknet_config(init_state: Option<SerializableState>) -> StarknetConfig {
     let invoke_max_steps = env::var(CAIRO_STEP_LIMIT_ENV_VAR)
@@ -130,10 +174,7 @@ pub async fn dump_state(sequencer: &TestSequencer, separator: &str) -> Result<()
     fs::write(state_path, state).map_err(|e| eyre!("Error dumping state: {e}"))
 }
 
-pub async fn load_state(
-    // sequencer: &mut TestSequencer,
-    separator: &str,
-) -> Result<SerializableState> {
+pub async fn load_state(separator: &str) -> Result<SerializableState> {
     let state_path = get_state_path(separator);
     SerializableState::parse(state_path.to_str().unwrap())
         .map_err(|e| eyre!("Error parsing state: {e}"))
@@ -159,47 +200,82 @@ pub fn get_contract_address_from_artifact(
     Ok(calculate_contract_address(class_hash, constructor_calldata))
 }
 
-pub async fn setup_sequencer<Fut: Future<Output = Result<TestSequencer>>>(
-    state_dumped_lock: &'static Mutex<bool>,
-    state_separator: &str,
-    state_init_fut: Fut,
-) -> Result<TestSequencer> {
-    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok() {
+pub async fn setup_sequencer(test_config: TestConfig) -> Result<TestSequencer> {
+    let should_load = env::var(LOAD_STATE_ENV_VAR).is_ok();
+    let (state_dumped_lock, state_separator) = get_state_lock_and_separator(&test_config);
+    let mut state_dumped = state_dumped_lock.lock().await;
+
+    let sequencer = if should_load || *state_dumped {
+        // If the state is already dumped, load it
+        drop(state_dumped);
         let sequencer = global_setup(Some(load_state(state_separator).await?)).await;
         debug!("Loaded state");
         sequencer
     } else {
-        let sequencer = {
-            let mut state_dumped = state_dumped_lock.lock().await;
-            if *state_dumped {
-                // Sequencer must be loaded from state
-                // (this doesn't need to be in the critical section)
-                None
-            } else {
-                // Initialize state
-                // (this must be in the critical section)
-                let sequencer = state_init_fut.await?;
+        // Otherwise, invoke the appropriate state initialization logic
+        let sequencer = init_test_state(&test_config).await?;
 
-                // Dump the state
-                debug!("Dumping state...");
-                dump_state(&sequencer, state_separator).await?;
-                // Mark the state as dumped
-                *state_dumped = true;
-                Some(sequencer)
-            }
-            // Drop the lock
-        };
+        // Dump the state
+        debug!("Dumping state...");
+        dump_state(&sequencer, state_separator).await?;
+        // Mark the state as dumped
+        *state_dumped = true;
 
-        if sequencer.is_some() {
-            sequencer.unwrap()
-        } else {
-            let sequencer = global_setup(Some(load_state(state_separator).await?)).await;
-            debug!("Loaded state");
-            sequencer
-        }
+        sequencer
     };
 
+    // Need to initialize statics regardless of whether or not state is loaded
+    init_test_statics(&test_config, &sequencer)?;
+
     Ok(sequencer)
+}
+
+fn get_state_lock_and_separator(test_config: &TestConfig) -> (&'static Mutex<bool>, &'static str) {
+    match test_config {
+        TestConfig::Darkpool { .. } => (&DARKPOOL_STATE_DUMPED, DARKPOOL_STATE_SEPARATOR),
+        TestConfig::Merkle => (&MERKLE_STATE_DUMPED, MERKLE_STATE_SEPARATOR),
+        TestConfig::NullifierSet => (&NULLIFIER_SET_STATE_DUMPED, NULLIFIER_SET_STATE_SEPARATOR),
+        TestConfig::Verifier => (&VERIFIER_STATE_DUMPED, VERIFIER_STATE_SEPARATOR),
+        TestConfig::VerifierUtils => (&VERIFIER_UTILS_STATE_DUMPED, VERIFIER_UTILS_STATE_SEPARATOR),
+        TestConfig::Transcript => (&TRANSCRIPT_STATE_DUMPED, TRANSCRIPT_STATE_SEPARATOR),
+        TestConfig::Poseidon => (&POSEIDON_STATE_DUMPED, POSEIDON_STATE_SEPARATOR),
+        TestConfig::StatementSerde => (
+            &STATEMENT_SERDE_STATE_DUMPED,
+            STATEMENT_SERDE_STATE_SEPARATOR,
+        ),
+    }
+}
+
+async fn init_test_state(test_config: &TestConfig) -> Result<TestSequencer> {
+    match test_config {
+        TestConfig::Darkpool {
+            init_erc20,
+            init_upgrade_target,
+        } => init_darkpool_test_state(*init_erc20, *init_upgrade_target).await,
+        TestConfig::Merkle => init_merkle_test_state().await,
+        TestConfig::NullifierSet => init_nullifier_set_test_state().await,
+        TestConfig::Verifier => init_verifier_test_state().await,
+        TestConfig::VerifierUtils => init_verifier_utils_test_state().await,
+        TestConfig::Transcript => init_transcript_test_state().await,
+        TestConfig::Poseidon => init_poseidon_test_state().await,
+        TestConfig::StatementSerde => init_statement_serde_test_state().await,
+    }
+}
+
+fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Result<()> {
+    match test_config {
+        TestConfig::Darkpool {
+            init_erc20,
+            init_upgrade_target,
+        } => init_darkpool_test_statics(&sequencer.account(), *init_erc20, *init_upgrade_target),
+        TestConfig::Merkle => init_merkle_test_statics(),
+        TestConfig::NullifierSet => init_nullifier_set_test_statics(),
+        TestConfig::Verifier => init_verifier_test_statics(),
+        TestConfig::VerifierUtils => init_verifier_utils_test_statics(),
+        TestConfig::Transcript => init_transcript_test_statics(),
+        TestConfig::Poseidon => init_poseidon_test_statics(),
+        TestConfig::StatementSerde => init_statement_serde_test_statics(),
+    }
 }
 
 // --------------------------------

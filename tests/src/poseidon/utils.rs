@@ -12,15 +12,12 @@ use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
 use std::{env, iter};
-use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
     call_contract, felt_to_scalar, get_contract_address_from_artifact, global_setup,
-    invoke_contract, setup_sequencer, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
+    invoke_contract, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
 };
-
-const DEVNET_STATE_PATH_SEPARATOR: &str = "poseidon_state";
 
 pub const FUZZ_ROUNDS: usize = 4;
 const MAX_INPUT_SIZE: usize = 4;
@@ -30,26 +27,25 @@ const POSEIDON_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_PoseidonWrapper
 const STORE_HASH_FN_NAME: &str = "store_hash";
 const GET_HASH_FN_NAME: &str = "get_hash";
 
-static POSEIDON_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
-
 pub static POSEIDON_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
 // | META TEST HELPERS |
 // ---------------------
 
-pub async fn setup_poseidon_test() -> Result<TestSequencer> {
+pub async fn init_poseidon_test_state() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = setup_sequencer(&POSEIDON_STATE_DUMPED, DEVNET_STATE_PATH_SEPARATOR, async {
-        let sequencer = global_setup(None).await;
-        let account = sequencer.account();
-        debug!("Declaring & deploying poseidon wrapper contract...");
-        deploy_poseidon_wrapper(&artifacts_path, &account).await?;
+    let sequencer = global_setup(None).await;
+    let account = sequencer.account();
+    debug!("Declaring & deploying poseidon wrapper contract...");
+    deploy_poseidon_wrapper(&artifacts_path, &account).await?;
 
-        Ok(sequencer)
-    })
-    .await?;
+    Ok(sequencer)
+}
+
+pub fn init_poseidon_test_statics() -> Result<()> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let poseidon_wrapper_address =
         get_contract_address_from_artifact(&artifacts_path, POSEIDON_WRAPPER_CONTRACT_NAME, &[])?;
@@ -59,7 +55,7 @@ pub async fn setup_poseidon_test() -> Result<TestSequencer> {
             .unwrap();
     }
 
-    Ok(sequencer)
+    Ok(())
 }
 
 pub async fn deploy_poseidon_wrapper(
