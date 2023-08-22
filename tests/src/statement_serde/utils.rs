@@ -21,15 +21,12 @@ use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
 use std::env;
-use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, get_contract_address_from_artifact, global_setup, setup_sequencer,
-    CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
+    call_contract, get_contract_address_from_artifact, global_setup, CalldataSerializable,
+    ARTIFACTS_PATH_ENV_VAR,
 };
-
-const DEVNET_STATE_PATH_SEPARATOR: &str = "statement_serde_state";
 
 const DUMMY_VALUE: u64 = 42;
 
@@ -51,8 +48,6 @@ const ASSERT_VALID_COMMITMENTS_STATEMENT_TO_SCALARS_FN_NAME: &str =
 const ASSERT_VALID_SETTLE_STATEMENT_TO_SCALARS_FN_NAME: &str =
     "assert_valid_settle_statement_to_scalars";
 
-static STATEMENT_SERDE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
-
 pub static STATEMENT_SERDE_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 pub static DUMMY_VALID_WALLET_CREATE_STATEMENT: OnceCell<SizedValidWalletCreateStatement> =
@@ -67,30 +62,26 @@ pub static DUMMY_VALID_SETTLE_STATEMENT: OnceCell<SizedValidSettleStatement> = O
 // | META TEST HELPERS |
 // ---------------------
 
-pub async fn setup_statement_serde_test() -> Result<TestSequencer> {
+pub async fn init_statement_serde_test_state() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = setup_sequencer(
-        &STATEMENT_SERDE_STATE_DUMPED,
-        DEVNET_STATE_PATH_SEPARATOR,
-        async {
-            let sequencer = global_setup(None).await;
-            let account = sequencer.account();
+    let sequencer = global_setup(None).await;
+    let account = sequencer.account();
 
-            debug!("Declaring & deploying statement serde wrapper contract...");
-            deploy_statement_serde_wrapper(&account, &artifacts_path).await?;
+    debug!("Declaring & deploying statement serde wrapper contract...");
+    deploy_statement_serde_wrapper(&account, &artifacts_path).await?;
 
-            Ok(sequencer)
-        },
-    )
-    .await?;
+    Ok(sequencer)
+}
+
+pub fn init_statement_serde_test_statics() -> Result<()> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let statement_serde_wrapper_address = get_contract_address_from_artifact(
         &artifacts_path,
         STATEMENT_SERDE_WRAPPER_CONTRACT_NAME,
         &[],
     )?;
-
     if STATEMENT_SERDE_WRAPPER_ADDRESS.get().is_none() {
         STATEMENT_SERDE_WRAPPER_ADDRESS
             .set(statement_serde_wrapper_address)
@@ -123,7 +114,7 @@ pub async fn setup_statement_serde_test() -> Result<TestSequencer> {
             .unwrap();
     }
 
-    Ok(sequencer)
+    Ok(())
 }
 
 async fn deploy_statement_serde_wrapper(

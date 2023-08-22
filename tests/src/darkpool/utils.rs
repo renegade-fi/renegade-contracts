@@ -23,7 +23,6 @@ use starknet_scripts::commands::utils::{
     ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
 use std::{env, iter};
-use tokio::sync::Mutex;
 
 use tracing::debug;
 
@@ -37,11 +36,9 @@ use crate::{
         get_contract_address_from_artifact, get_sierra_class_hash_from_artifact, global_setup,
         invoke_contract, random_felt, scalar_to_felt, setup_sequencer,
         singleprover_prove_dummy_circuit, CalldataSerializable, MatchPayload, NewWalletArgs,
-        ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
+        ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
     },
 };
-
-const DEVNET_STATE_PATH_SEPARATOR: &str = "darkpool_state";
 
 const DUMMY_ERC20_CONTRACT_NAME: &str = "renegade_contracts_DummyERC20";
 const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgradeTarget";
@@ -62,8 +59,6 @@ const UPGRADE_FN_NAME: &str = "upgrade";
 
 const PROCESS_MATCH_NUM_PROOFS: usize = 6;
 
-static DARKPOOL_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
-
 pub static DARKPOOL_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub static DARKPOOL_CLASS_HASH: OnceCell<FieldElement> = OnceCell::new();
 pub static ERC20_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
@@ -77,51 +72,69 @@ pub async fn setup_darkpool_test(
     init_erc20: bool,
     init_upgrade_target: bool,
 ) -> Result<(TestSequencer, ScalarMerkleTree)> {
-    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
-
-    let sequencer = setup_sequencer(&DARKPOOL_STATE_DUMPED, DEVNET_STATE_PATH_SEPARATOR, async {
-        let sequencer = global_setup(None).await;
-        let account = sequencer.account();
-        debug!("Declaring & deploying darkpool contract...");
-        let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _, _) =
-            deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
-
-        debug!("Initializing darkpool contract...");
-        initialize_darkpool(
-            &account,
-            darkpool_address,
-            merkle_class_hash,
-            nullifier_set_class_hash,
-            TEST_MERKLE_HEIGHT.into(),
-        )
-        .await?;
-
-        if init_erc20 {
-            debug!("Declaring & deploying dummy ERC20 contract...");
-            let erc20_address =
-                deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
-            approve(
-                &account,
-                erc20_address,
-                darkpool_address,
-                StarknetU256 {
-                    low: INIT_BALANCE as u128,
-                    high: 0,
-                },
-            )
-            .await?;
-        }
-
-        if init_upgrade_target {
-            debug!("Declaring dummy upgrade target contract...");
-            declare_dummy_upgrade_target(&artifacts_path, &account).await?;
-        }
-
-        Ok(sequencer)
+    let sequencer = setup_sequencer(TestConfig::Darkpool {
+        init_erc20,
+        init_upgrade_target,
     })
     .await?;
 
+    debug!("Initializing arkworks merkle tree...");
+    // arkworks implementation does height inclusive of root,
+    // so "height" here is one more than what's passed to the contract
+    Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
+}
+
+pub async fn init_darkpool_test_state(
+    init_erc20: bool,
+    init_upgrade_target: bool,
+) -> Result<TestSequencer> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
+
+    let sequencer = global_setup(None).await;
     let account = sequencer.account();
+    debug!("Declaring & deploying darkpool contract...");
+    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _, _) =
+        deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
+
+    debug!("Initializing darkpool contract...");
+    initialize_darkpool(
+        &account,
+        darkpool_address,
+        merkle_class_hash,
+        nullifier_set_class_hash,
+        TEST_MERKLE_HEIGHT.into(),
+    )
+    .await?;
+
+    if init_erc20 {
+        debug!("Declaring & deploying dummy ERC20 contract...");
+        let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
+        approve(
+            &account,
+            erc20_address,
+            darkpool_address,
+            StarknetU256 {
+                low: INIT_BALANCE as u128,
+                high: 0,
+            },
+        )
+        .await?;
+    }
+
+    if init_upgrade_target {
+        debug!("Declaring dummy upgrade target contract...");
+        declare_dummy_upgrade_target(&artifacts_path, &account).await?;
+    }
+
+    Ok(sequencer)
+}
+
+pub fn init_darkpool_test_statics(
+    account: &ScriptAccount,
+    init_erc20: bool,
+    init_upgrade_target: bool,
+) -> Result<()> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let darkpool_address = get_contract_address_from_artifact(
         &artifacts_path,
@@ -136,7 +149,7 @@ pub async fn setup_darkpool_test(
         let erc20_address = get_contract_address_from_artifact(
             &artifacts_path,
             DUMMY_ERC20_CONTRACT_NAME,
-            &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
+            &[account.address(), darkpool_address],
         )?;
         if ERC20_ADDRESS.get().is_none() {
             ERC20_ADDRESS.set(erc20_address).unwrap();
@@ -161,10 +174,7 @@ pub async fn setup_darkpool_test(
         }
     }
 
-    debug!("Initializing arkworks merkle tree...");
-    // arkworks implementation does height inclusive of root,
-    // so "height" here is one more than what's passed to the contract
-    Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
+    Ok(())
 }
 
 fn get_dummy_erc20_calldata(

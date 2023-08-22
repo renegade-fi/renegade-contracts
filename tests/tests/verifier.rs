@@ -3,18 +3,15 @@ use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
     utils::{
-        check_verification_job_status, global_teardown, random_felt,
-        singleprover_prove_dummy_circuit,
+        check_verification_job_status, global_teardown, random_felt, setup_sequencer,
+        singleprover_prove_dummy_circuit, TestConfig,
     },
-    verifier::utils::{
-        queue_verification_job, setup_verifier_test, step_verification, FUZZ_ROUNDS,
-        VERIFIER_ADDRESS,
-    },
+    verifier::utils::{queue_verification_job, step_verification, FUZZ_ROUNDS, VERIFIER_ADDRESS},
 };
 
 #[tokio::test]
 async fn test_full_verification_fuzz() -> Result<()> {
-    let sequencer = setup_verifier_test().await?;
+    let sequencer = setup_sequencer(TestConfig::Verifier).await?;
     let account = sequencer.account();
 
     for _ in 0..FUZZ_ROUNDS {
@@ -48,7 +45,7 @@ async fn test_full_verification_fuzz() -> Result<()> {
 
 #[tokio::test]
 async fn test_full_verification_invalid_proof() -> Result<()> {
-    let sequencer = setup_verifier_test().await?;
+    let sequencer = setup_sequencer(TestConfig::Verifier).await?;
     let account = sequencer.account();
 
     let (mut proof, witness_commitments) = singleprover_prove_dummy_circuit()?;

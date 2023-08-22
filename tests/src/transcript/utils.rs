@@ -15,15 +15,13 @@ use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
 use std::env;
-use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
     call_contract, get_contract_address_from_artifact, global_setup, invoke_contract,
-    scalar_to_felt, setup_sequencer, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+    scalar_to_felt, setup_sequencer, CalldataSerializable, TestConfig, ARTIFACTS_PATH_ENV_VAR,
+    TRANSCRIPT_SEED,
 };
-
-const DEVNET_STATE_PATH_SEPARATOR: &str = "transcript_state";
 
 pub const FUZZ_ROUNDS: usize = 10;
 
@@ -39,8 +37,6 @@ const VALIDATE_AND_APPEND_POINT_FN_NAME: &str = "validate_and_append_point";
 const CHALLENGE_SCALAR_FN_NAME: &str = "challenge_scalar";
 const GET_CHALLENGE_SCALAR_FN_NAME: &str = "get_challenge_scalar";
 
-static TRANSCRIPT_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
-
 pub static TRANSCRIPT_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
@@ -48,22 +44,27 @@ pub static TRANSCRIPT_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 // ---------------------
 
 pub async fn setup_transcript_test() -> Result<(TestSequencer, HashChainTranscript)> {
+    let sequencer = setup_sequencer(TestConfig::Transcript).await?;
+
+    let hash_chain_transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
+
+    Ok((sequencer, hash_chain_transcript))
+}
+
+pub async fn init_transcript_test_state() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = setup_sequencer(
-        &TRANSCRIPT_STATE_DUMPED,
-        DEVNET_STATE_PATH_SEPARATOR,
-        async {
-            let sequencer = global_setup(None).await;
-            let account = sequencer.account();
+    let sequencer = global_setup(None).await;
+    let account = sequencer.account();
 
-            debug!("Declaring & deploying transcript wrapper contract...");
-            deploy_transcript_wrapper(&artifacts_path, &account).await?;
+    debug!("Declaring & deploying transcript wrapper contract...");
+    deploy_transcript_wrapper(&artifacts_path, &account).await?;
 
-            Ok(sequencer)
-        },
-    )
-    .await?;
+    Ok(sequencer)
+}
+
+pub fn init_transcript_test_statics() -> Result<()> {
+    let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let calldata = get_transcript_wrapper_constructor_calldata()?;
     let transcript_wrapper_address = get_contract_address_from_artifact(
@@ -78,9 +79,7 @@ pub async fn setup_transcript_test() -> Result<(TestSequencer, HashChainTranscri
             .unwrap();
     }
 
-    let hash_chain_transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
-
-    Ok((sequencer, hash_chain_transcript))
+    Ok(())
 }
 
 fn get_transcript_wrapper_constructor_calldata() -> Result<Vec<FieldElement>> {
