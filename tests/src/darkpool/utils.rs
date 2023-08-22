@@ -22,10 +22,8 @@ use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, deploy_darkpool, get_artifacts, initialize,
     ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
-use std::{
-    env, iter,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::{env, iter};
+use tokio::sync::Mutex;
 
 use tracing::debug;
 
@@ -35,11 +33,11 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, check_verification_job_status, dump_state, felt_to_u128,
+        call_contract, check_verification_job_status, felt_to_u128,
         get_contract_address_from_artifact, get_sierra_class_hash_from_artifact, global_setup,
-        invoke_contract, load_state, random_felt, scalar_to_felt, singleprover_prove_dummy_circuit,
-        CalldataSerializable, MatchPayload, NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs,
-        ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR,
+        invoke_contract, random_felt, scalar_to_felt, setup_sequencer,
+        singleprover_prove_dummy_circuit, CalldataSerializable, MatchPayload, NewWalletArgs,
+        ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
     },
 };
 
@@ -64,7 +62,7 @@ const UPGRADE_FN_NAME: &str = "upgrade";
 
 const PROCESS_MATCH_NUM_PROOFS: usize = 6;
 
-static DARKPOOL_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+static DARKPOOL_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 
 pub static DARKPOOL_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub static DARKPOOL_CLASS_HASH: OnceCell<FieldElement> = OnceCell::new();
@@ -81,69 +79,12 @@ pub async fn setup_darkpool_test(
 ) -> Result<(TestSequencer, ScalarMerkleTree)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    // If the LOAD_STATE env var is set, or another test thread has dumped,
-    // we load the state, assuming that it contains all the necessary setup.
-    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
-        || DARKPOOL_STATE_INITIALIZED.load(Ordering::Relaxed)
-    {
-        debug!("Loading darkpool state...");
-        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
-        let account = sequencer.account();
-
-        let darkpool_address = get_contract_address_from_artifact(
-            &artifacts_path,
-            DARKPOOL_CONTRACT_NAME,
-            &[account.address()],
-        )?;
-        if DARKPOOL_ADDRESS.get().is_none() {
-            DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
-        }
-
-        if init_erc20 {
-            let erc20_address = get_contract_address_from_artifact(
-                &artifacts_path,
-                DUMMY_ERC20_CONTRACT_NAME,
-                &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
-            )?;
-            if ERC20_ADDRESS.get().is_none() {
-                ERC20_ADDRESS.set(erc20_address).unwrap();
-            }
-        }
-
-        if init_upgrade_target {
-            let upgrade_target_class_hash = get_sierra_class_hash_from_artifact(
-                &artifacts_path,
-                DUMMY_UPGRADE_TARGET_CONTRACT_NAME,
-            )?;
-            if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
-                UPGRADE_TARGET_CLASS_HASH
-                    .set(upgrade_target_class_hash)
-                    .unwrap();
-            }
-
-            let darkpool_class_hash =
-                get_sierra_class_hash_from_artifact(&artifacts_path, DARKPOOL_CONTRACT_NAME)?;
-            if DARKPOOL_CLASS_HASH.get().is_none() {
-                DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
-            }
-        }
-
-        sequencer
-    } else {
+    let sequencer = setup_sequencer(&DARKPOOL_STATE_DUMPED, DEVNET_STATE_PATH_SEPARATOR, async {
         let sequencer = global_setup(None).await;
         let account = sequencer.account();
         debug!("Declaring & deploying darkpool contract...");
-        let (
-            darkpool_address,
-            darkpool_class_hash,
-            merkle_class_hash,
-            nullifier_set_class_hash,
-            _,
-            _,
-        ) = deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
-        if DARKPOOL_ADDRESS.get().is_none() {
-            DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
-        }
+        let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _, _) =
+            deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
 
         debug!("Initializing darkpool contract...");
         initialize_darkpool(
@@ -159,11 +100,9 @@ pub async fn setup_darkpool_test(
             debug!("Declaring & deploying dummy ERC20 contract...");
             let erc20_address =
                 deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
-            if ERC20_ADDRESS.get().is_none() {
-                ERC20_ADDRESS.set(erc20_address).unwrap();
-            }
             approve(
                 &account,
+                erc20_address,
                 darkpool_address,
                 StarknetU256 {
                     low: INIT_BALANCE as u128,
@@ -175,28 +114,52 @@ pub async fn setup_darkpool_test(
 
         if init_upgrade_target {
             debug!("Declaring dummy upgrade target contract...");
-            let upgrade_target_class_hash =
-                declare_dummy_upgrade_target(&artifacts_path, &account).await?;
-            if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
-                UPGRADE_TARGET_CLASS_HASH
-                    .set(upgrade_target_class_hash)
-                    .unwrap();
-            }
-
-            // Only need darkpool class hash when doing upgrade tests
-            if DARKPOOL_CLASS_HASH.get().is_none() {
-                DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
-            }
+            declare_dummy_upgrade_target(&artifacts_path, &account).await?;
         }
 
-        // Dump the state
-        debug!("Dumping darkpool state...");
-        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
-        // Mark the state as initialized
-        DARKPOOL_STATE_INITIALIZED.store(true, Ordering::Relaxed);
+        Ok(sequencer)
+    })
+    .await?;
 
-        sequencer
-    };
+    let account = sequencer.account();
+
+    let darkpool_address = get_contract_address_from_artifact(
+        &artifacts_path,
+        DARKPOOL_CONTRACT_NAME,
+        &[account.address()],
+    )?;
+    if DARKPOOL_ADDRESS.get().is_none() {
+        DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
+    }
+
+    if init_erc20 {
+        let erc20_address = get_contract_address_from_artifact(
+            &artifacts_path,
+            DUMMY_ERC20_CONTRACT_NAME,
+            &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
+        )?;
+        if ERC20_ADDRESS.get().is_none() {
+            ERC20_ADDRESS.set(erc20_address).unwrap();
+        }
+    }
+
+    if init_upgrade_target {
+        let upgrade_target_class_hash = get_sierra_class_hash_from_artifact(
+            &artifacts_path,
+            DUMMY_UPGRADE_TARGET_CONTRACT_NAME,
+        )?;
+        if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
+            UPGRADE_TARGET_CLASS_HASH
+                .set(upgrade_target_class_hash)
+                .unwrap();
+        }
+
+        let darkpool_class_hash =
+            get_sierra_class_hash_from_artifact(&artifacts_path, DARKPOOL_CONTRACT_NAME)?;
+        if DARKPOOL_CLASS_HASH.get().is_none() {
+            DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
+        }
+    }
 
     debug!("Initializing arkworks merkle tree...");
     // arkworks implementation does height inclusive of root,
@@ -465,18 +428,16 @@ pub async fn balance_of(account: &ScriptAccount, address: FieldElement) -> Resul
 
 pub async fn approve(
     account: &ScriptAccount,
-    address: FieldElement,
+    erc20_address: FieldElement,
+    darkpool_address: FieldElement,
     amount: StarknetU256,
 ) -> Result<()> {
-    let calldata = iter::once(address).chain(amount.to_calldata()).collect();
-    invoke_contract(
-        account,
-        *ERC20_ADDRESS.get().unwrap(),
-        APPROVE_FN_NAME,
-        calldata,
-    )
-    .await
-    .map(|_| ())
+    let calldata = iter::once(darkpool_address)
+        .chain(amount.to_calldata())
+        .collect();
+    invoke_contract(account, erc20_address, APPROVE_FN_NAME, calldata)
+        .await
+        .map(|_| ())
 }
 
 pub async fn upgrade(account: &ScriptAccount, class_hash: FieldElement) -> Result<()> {

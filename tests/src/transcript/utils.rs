@@ -14,16 +14,13 @@ use starknet::core::{
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
 };
-use std::{
-    env,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::env;
+use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, dump_state, get_contract_address_from_artifact, global_setup, invoke_contract,
-    load_state, scalar_to_felt, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR,
-    TRANSCRIPT_SEED,
+    call_contract, get_contract_address_from_artifact, global_setup, invoke_contract,
+    scalar_to_felt, setup_sequencer, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
 };
 
 const DEVNET_STATE_PATH_SEPARATOR: &str = "transcript_state";
@@ -42,7 +39,7 @@ const VALIDATE_AND_APPEND_POINT_FN_NAME: &str = "validate_and_append_point";
 const CHALLENGE_SCALAR_FN_NAME: &str = "challenge_scalar";
 const GET_CHALLENGE_SCALAR_FN_NAME: &str = "get_challenge_scalar";
 
-static TRANSCRIPT_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+static TRANSCRIPT_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 
 pub static TRANSCRIPT_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -53,46 +50,33 @@ pub static TRANSCRIPT_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub async fn setup_transcript_test() -> Result<(TestSequencer, HashChainTranscript)> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
-        || TRANSCRIPT_STATE_INITIALIZED.load(Ordering::Relaxed)
-    {
-        debug!("Loading merkle state...");
-        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
-        let calldata = get_transcript_wrapper_constructor_calldata()?;
-        let transcript_wrapper_address = get_contract_address_from_artifact(
-            &artifacts_path,
-            TRANSCRIPT_WRAPPER_CONTRACT_NAME,
-            &calldata,
-        )?;
+    let sequencer = setup_sequencer(
+        &TRANSCRIPT_STATE_DUMPED,
+        DEVNET_STATE_PATH_SEPARATOR,
+        async {
+            let sequencer = global_setup(None).await;
+            let account = sequencer.account();
 
-        if TRANSCRIPT_WRAPPER_ADDRESS.get().is_none() {
-            TRANSCRIPT_WRAPPER_ADDRESS
-                .set(transcript_wrapper_address)
-                .unwrap();
-        }
+            debug!("Declaring & deploying transcript wrapper contract...");
+            deploy_transcript_wrapper(&artifacts_path, &account).await?;
 
-        sequencer
-    } else {
-        let sequencer = global_setup(None).await;
-        let account = sequencer.account();
+            Ok(sequencer)
+        },
+    )
+    .await?;
 
-        debug!("Declaring & deploying transcript wrapper contract...");
-        let transcript_wrapper_address =
-            deploy_transcript_wrapper(artifacts_path, &account).await?;
-        if TRANSCRIPT_WRAPPER_ADDRESS.get().is_none() {
-            TRANSCRIPT_WRAPPER_ADDRESS
-                .set(transcript_wrapper_address)
-                .unwrap();
-        }
+    let calldata = get_transcript_wrapper_constructor_calldata()?;
+    let transcript_wrapper_address = get_contract_address_from_artifact(
+        &artifacts_path,
+        TRANSCRIPT_WRAPPER_CONTRACT_NAME,
+        &calldata,
+    )?;
 
-        // Dump the state
-        debug!("Dumping transcript state...");
-        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
-        // Mark the state as initialized
-        TRANSCRIPT_STATE_INITIALIZED.store(true, Ordering::Relaxed);
-
-        sequencer
-    };
+    if TRANSCRIPT_WRAPPER_ADDRESS.get().is_none() {
+        TRANSCRIPT_WRAPPER_ADDRESS
+            .set(transcript_wrapper_address)
+            .unwrap();
+    }
 
     let hash_chain_transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
 
@@ -107,11 +91,11 @@ fn get_transcript_wrapper_constructor_calldata() -> Result<Vec<FieldElement>> {
 }
 
 pub async fn deploy_transcript_wrapper(
-    artifacts_path: String,
+    artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<FieldElement> {
     let (transcript_sierra_path, transcript_casm_path) =
-        get_artifacts(&artifacts_path, TRANSCRIPT_WRAPPER_CONTRACT_NAME);
+        get_artifacts(artifacts_path, TRANSCRIPT_WRAPPER_CONTRACT_NAME);
     let DeclareTransactionResult { class_hash, .. } =
         declare(transcript_sierra_path, transcript_casm_path, account).await?;
 

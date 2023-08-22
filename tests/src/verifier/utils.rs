@@ -5,15 +5,17 @@ use mpc_bulletproof::r1cs::R1CSProof;
 use mpc_stark::algebra::stark_curve::StarkPoint;
 use once_cell::sync::OnceCell;
 use starknet::core::types::FieldElement;
-use starknet_scripts::commands::utils::{deploy_verifier, initialize, ScriptAccount, VERIFIER_CONTRACT_NAME};
-use std::{env, sync::atomic::{AtomicBool, Ordering}};
+use starknet_scripts::commands::utils::{
+    deploy_verifier, initialize, ScriptAccount, VERIFIER_CONTRACT_NAME,
+};
+use std::env;
+use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::utils::{
-    get_dummy_circuit_params, global_setup, invoke_contract, CalldataSerializable,
-    ARTIFACTS_PATH_ENV_VAR, LOAD_STATE_ENV_VAR, dump_state, load_state, get_contract_address_from_artifact,
+    get_contract_address_from_artifact, get_dummy_circuit_params, global_setup, invoke_contract,
+    setup_sequencer, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
 };
-
 
 const DEVNET_STATE_PATH_SEPARATOR: &str = "verifier_state";
 
@@ -22,7 +24,7 @@ pub const FUZZ_ROUNDS: usize = 1;
 const QUEUE_VERIFICATION_JOB_FN_NAME: &str = "queue_verification_job";
 const STEP_VERIFICATION_FN_NAME: &str = "step_verification";
 
-static VERIFIER_STATE_INITIALIZED: AtomicBool = AtomicBool::new(false);
+static VERIFIER_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 
 pub static VERIFIER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -33,37 +35,26 @@ pub static VERIFIER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 pub async fn setup_verifier_test() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let sequencer = if env::var(LOAD_STATE_ENV_VAR).is_ok()
-    || VERIFIER_STATE_INITIALIZED.load(Ordering::Relaxed) {
-        let sequencer = global_setup(Some(load_state(DEVNET_STATE_PATH_SEPARATOR).await?)).await;
-        let verifier_address = get_contract_address_from_artifact(&artifacts_path, VERIFIER_CONTRACT_NAME, &get_dummy_circuit_params().to_calldata())?;
-        if VERIFIER_ADDRESS.get().is_none() {
-            VERIFIER_ADDRESS.set(verifier_address).unwrap();
-        }
-
-        sequencer
-    } else  {
+    let sequencer = setup_sequencer(&VERIFIER_STATE_DUMPED, DEVNET_STATE_PATH_SEPARATOR, async {
         let sequencer = global_setup(None).await;
         let account = sequencer.account();
 
         debug!("Declaring & deploying verifier contract...");
         let (verifier_address, _, _) = deploy_verifier(None, &artifacts_path, &account).await?;
-        if VERIFIER_ADDRESS.get().is_none() {
-            VERIFIER_ADDRESS.set(verifier_address).unwrap();
-        }
-    
+
         debug!("Initializing verifier contract...");
         initialize_verifier(&account, verifier_address).await?;
 
-        // Dump the state
-        debug!("Dumping verifier state...");
-        dump_state(&sequencer, DEVNET_STATE_PATH_SEPARATOR).await?;
-        // Mark the state as initialized
-        VERIFIER_STATE_INITIALIZED.store(true, Ordering::Relaxed);
+        Ok(sequencer)
+    })
+    .await?;
 
-        sequencer
-    };
+    let verifier_address =
+        get_contract_address_from_artifact(&artifacts_path, VERIFIER_CONTRACT_NAME, &[])?;
 
+    if VERIFIER_ADDRESS.get().is_none() {
+        VERIFIER_ADDRESS.set(verifier_address).unwrap();
+    }
 
     Ok(sequencer)
 }
