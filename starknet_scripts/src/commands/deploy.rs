@@ -73,9 +73,13 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 } else {
                     format!("{verifier_class_hash_felt:#64x}")
                 };
-                let (verifier_address, _, _) =
-                    deploy_verifier(Some(verifier_class_hash_hex), &artifacts_path, &account)
-                        .await?;
+                let (verifier_address, _, _) = deploy_verifier(
+                    Some(verifier_class_hash_hex),
+                    FieldElement::ZERO, /* salt */
+                    &artifacts_path,
+                    &account,
+                )
+                .await?;
 
                 // Initialize darkpool
                 debug!("Initializing darkpool contract...");

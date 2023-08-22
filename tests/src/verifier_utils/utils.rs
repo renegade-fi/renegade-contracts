@@ -15,11 +15,15 @@ use starknet_scripts::commands::utils::{
 use std::{env, iter};
 use tracing::debug;
 
-use crate::utils::{
-    call_contract, felt_to_scalar, felt_to_u32, get_contract_address_from_artifact, global_setup,
-    prep_dummy_circuit_verifier, setup_sequencer, singleprover_prove_dummy_circuit,
-    CalldataSerializable, TestConfig, ARTIFACTS_PATH_ENV_VAR, DUMMY_CIRCUIT_K, DUMMY_CIRCUIT_M,
-    DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
+use crate::{
+    utils::{
+        call_contract, felt_to_scalar, felt_to_u32, get_contract_address_from_artifact,
+        global_setup, setup_sequencer, CalldataSerializable, TestConfig, ARTIFACTS_PATH_ENV_VAR,
+    },
+    verifier::utils::{
+        prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit, DUMMY_CIRCUIT_K,
+        DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
+    },
 };
 
 const VERIFIER_UTILS_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_VerifierUtilsWrapper";
@@ -66,6 +70,7 @@ pub fn init_verifier_utils_test_statics() -> Result<()> {
     let verifier_utils_wrapper_address = get_contract_address_from_artifact(
         &artifacts_path,
         VERIFIER_UTILS_WRAPPER_CONTRACT_NAME,
+        FieldElement::ZERO, /* salt */
         &[],
     )?;
     if VERIFIER_UTILS_WRAPPER_ADDRESS.get().is_none() {
@@ -90,8 +95,12 @@ pub async fn deploy_verifier_utils_wrapper(
     )
     .await?;
 
-    deploy(account, class_hash, &[]).await?;
-    Ok(calculate_contract_address(class_hash, &[]))
+    deploy(account, class_hash, &[], FieldElement::ZERO /* salt */).await?;
+    Ok(calculate_contract_address(
+        class_hash,
+        FieldElement::ZERO, /* salt */
+        &[],
+    ))
 }
 
 // --------------------------------

@@ -55,7 +55,11 @@ mod Verifier {
     // | CONSTANTS |
     // -------------
 
-    const STEP_UNIT_GAS: u128 = 1000000;
+    /// Determines how many MSM points are processed in each invocation
+    /// of `step_verification`.
+    // TODO: The current value (50) was chosen arbitrarily, we should benchmark
+    // the optimal amount given Starknet parameters.
+    const MSM_CHUNK_SIZE: usize = 50;
 
     // -----------
     // | STORAGE |
@@ -302,11 +306,6 @@ mod Verifier {
     // | HELPERS |
     // -----------
 
-    fn step_cost_bound(self: @ContractState) -> u128 {
-        let multiplier = self.q.read().into() * self.n.read().into();
-        multiplier * STEP_UNIT_GAS
-    }
-
     fn prep_rem_gens(n_plus: usize) -> (RemainingGenerators, RemainingGenerators) {
         (
             RemainingGeneratorsTrait::new(G_LABEL, n_plus),
@@ -499,9 +498,9 @@ mod Verifier {
 
     fn step_verification_inner(ref self: ContractState, ref verification_job: VerificationJob) {
         let mut verified = Option::None(());
+        let mut i = 0;
         loop {
-            // Loop until we run out of gas or finish the job
-            if testing::get_available_gas() < step_cost_bound(@self) {
+            if i == MSM_CHUNK_SIZE {
                 break;
             }
 
@@ -512,6 +511,8 @@ mod Verifier {
                 verified = Option::Some(verification_job.msm_result.unwrap() == ec_point_zero());
                 break;
             };
+
+            i += 1;
         };
         verification_job.verified = verified;
     }

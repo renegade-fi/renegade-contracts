@@ -25,10 +25,8 @@ use tracing::debug;
 
 use crate::utils::{
     call_contract, get_contract_address_from_artifact, global_setup, CalldataSerializable,
-    ARTIFACTS_PATH_ENV_VAR,
+    ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
 };
-
-const DUMMY_VALUE: u64 = 42;
 
 const STATEMENT_SERDE_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_StatementSerdeWrapper";
 
@@ -80,6 +78,7 @@ pub fn init_statement_serde_test_statics() -> Result<()> {
     let statement_serde_wrapper_address = get_contract_address_from_artifact(
         &artifacts_path,
         STATEMENT_SERDE_WRAPPER_CONTRACT_NAME,
+        FieldElement::ZERO, /* salt */
         &[],
     )?;
     if STATEMENT_SERDE_WRAPPER_ADDRESS.get().is_none() {
@@ -130,8 +129,12 @@ async fn deploy_statement_serde_wrapper(
     )
     .await?;
 
-    deploy(account, class_hash, &[]).await?;
-    Ok(calculate_contract_address(class_hash, &[]))
+    deploy(account, class_hash, &[], FieldElement::ZERO /* salt */).await?;
+    Ok(calculate_contract_address(
+        class_hash,
+        FieldElement::ZERO, /* salt */
+        &[],
+    ))
 }
 
 // --------------------------------

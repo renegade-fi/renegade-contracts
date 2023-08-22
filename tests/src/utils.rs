@@ -1,21 +1,34 @@
 use ark_ff::{BigInteger, PrimeField};
 use byteorder::{BigEndian, ReadBytesExt};
 use circuit_types::{
-    traits::BaseType,
+    traits::{BaseType, CircuitBaseType, SingleProverCircuit},
     transfers::{ExternalTransfer, ExternalTransferDirection},
 };
 use circuits::zk_circuits::{
-    test_helpers::{SizedWallet, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
+    test_helpers::{SizedWallet, INITIAL_WALLET, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
     valid_commitments::{test_helpers::create_witness_and_statement, ValidCommitmentsStatement},
-    valid_reblind::{test_helpers::construct_witness_statement, ValidReblindStatement},
+    valid_reblind::{
+        test_helpers::construct_witness_statement as construct_valid_reblind_witness_statement,
+        ValidReblindStatement,
+    },
     valid_settle::{
-        test_helpers::SizedStatement as SizedValidSettleStatement, ValidSettleStatement,
+        test_helpers::{
+            create_witness_statement, SizedStatement as SizedValidSettleStatement, MATCH_RES,
+        },
+        ValidSettleStatement,
     },
     valid_wallet_create::{
-        test_helpers::SizedStatement as SizedValidWalletCreateStatement, ValidWalletCreateStatement,
+        test_helpers::{
+            create_default_witness_statement, SizedStatement as SizedValidWalletCreateStatement,
+        },
+        ValidWalletCreateStatement,
     },
     valid_wallet_update::{
-        test_helpers::SizedStatement as SizedValidWalletUpdateStatement, ValidWalletUpdateStatement,
+        test_helpers::{
+            construct_witness_statement as construct_valid_wallet_update_witness_statement,
+            SizedStatement as SizedValidWalletUpdateStatement,
+        },
+        ValidWalletUpdateStatement,
     },
 };
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
@@ -27,9 +40,10 @@ use katana_core::{
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
     r1cs::{
-        CircuitWeights, ConstraintSystem, Prover, R1CSProof, SparseReducedMatrix, SparseWeightRow,
-        Variable, Verifier,
+        CircuitWeights, ConstraintSystem, LinearCombination, Prover, R1CSProof,
+        RandomizableConstraintSystem, SparseReducedMatrix, SparseWeightRow, Variable,
     },
+    r1cs_mpc::R1CSError,
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
@@ -113,13 +127,15 @@ const N_BYTES_U128: usize = 16;
 /// Number of bytes to represent a u32
 const N_BYTES_U32: usize = 4;
 
+/// Used throughout tests as a dummy value
+pub const DUMMY_VALUE: u64 = 42;
+
+const DUMMY_BP_GENS_CAPACITY: usize = 8;
+
 static TRACING_INIT: Once = Once::new();
 
 pub enum TestConfig {
-    Darkpool {
-        init_erc20: bool,
-        init_upgrade_target: bool,
-    },
+    Darkpool,
     Merkle,
     NullifierSet,
     Verifier,
@@ -139,6 +155,7 @@ fn get_test_starknet_config(init_state: Option<SerializableState>) -> StarknetCo
             chain_id: "SN_GOERLI".into(),
             ..Default::default()
         },
+        disable_fee: true,
         init_state,
         ..Default::default()
     }
@@ -194,10 +211,15 @@ pub fn get_sierra_class_hash_from_artifact(
 pub fn get_contract_address_from_artifact(
     artifacts_path: &str,
     contract_name: &str,
+    salt: FieldElement,
     constructor_calldata: &[FieldElement],
 ) -> Result<FieldElement> {
     let class_hash = get_sierra_class_hash_from_artifact(artifacts_path, contract_name)?;
-    Ok(calculate_contract_address(class_hash, constructor_calldata))
+    Ok(calculate_contract_address(
+        class_hash,
+        salt,
+        constructor_calldata,
+    ))
 }
 
 pub async fn setup_sequencer(test_config: TestConfig) -> Result<TestSequencer> {
@@ -248,10 +270,7 @@ fn get_state_lock_and_separator(test_config: &TestConfig) -> (&'static Mutex<boo
 
 async fn init_test_state(test_config: &TestConfig) -> Result<TestSequencer> {
     match test_config {
-        TestConfig::Darkpool {
-            init_erc20,
-            init_upgrade_target,
-        } => init_darkpool_test_state(*init_erc20, *init_upgrade_target).await,
+        TestConfig::Darkpool => init_darkpool_test_state().await,
         TestConfig::Merkle => init_merkle_test_state().await,
         TestConfig::NullifierSet => init_nullifier_set_test_state().await,
         TestConfig::Verifier => init_verifier_test_state().await,
@@ -264,10 +283,7 @@ async fn init_test_state(test_config: &TestConfig) -> Result<TestSequencer> {
 
 fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Result<()> {
     match test_config {
-        TestConfig::Darkpool {
-            init_erc20,
-            init_upgrade_target,
-        } => init_darkpool_test_statics(&sequencer.account(), *init_erc20, *init_upgrade_target),
+        TestConfig::Darkpool => init_darkpool_test_statics(&sequencer.account()),
         TestConfig::Merkle => init_merkle_test_statics(),
         TestConfig::NullifierSet => init_nullifier_set_test_statics(),
         TestConfig::Verifier => init_verifier_test_statics(),
@@ -284,7 +300,6 @@ fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Res
 
 pub const IS_NULLIFIER_USED_FN_NAME: &str = "is_nullifier_used";
 pub const GET_ROOT_FN_NAME: &str = "get_root";
-pub const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 
 pub async fn call_contract(
     account: &ScriptAccount,
@@ -345,30 +360,6 @@ pub async fn is_nullifier_used(
     )
     .await
     .map(|r| r[0] == FieldElement::ONE)
-}
-
-pub async fn check_verification_job_status(
-    account: &ScriptAccount,
-    contract_address: FieldElement,
-    verification_job_id: FieldElement,
-) -> Result<Option<bool>> {
-    call_contract(
-        account,
-        contract_address,
-        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
-        vec![verification_job_id],
-    )
-    .await
-    .map(|r| {
-        // The Cairo corelib serializes an Option::None(()) as 1,
-        // and an Option::Some(x) as [0, ..serialize(x)].
-        // In our case, x is a bool => serializes as a true = 1, false = 0.
-        if r[0] == FieldElement::ONE {
-            None
-        } else {
-            Some(r[1] == FieldElement::ONE)
-        }
-    })
 }
 
 // ----------------
@@ -458,26 +449,38 @@ pub struct MatchPayload {
 
 impl MatchPayload {
     pub fn dummy(wallet: &SizedWallet) -> Result<Self> {
-        let (valid_commitments_proof, valid_commitments_witness_commitments) =
-            singleprover_prove_dummy_circuit()?;
-        let (valid_reblind_proof, valid_reblind_witness_commitments) =
-            singleprover_prove_dummy_circuit()?;
         let (_, valid_commitments_statement) = create_witness_and_statement(wallet);
-        let (_, valid_reblind_statement) =
-            construct_witness_statement::<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>(
-                wallet,
-            );
+        let (_, valid_reblind_statement) = construct_valid_reblind_witness_statement::<
+            MAX_BALANCES,
+            MAX_ORDERS,
+            MAX_FEES,
+            TEST_MERKLE_HEIGHT,
+        >(wallet);
+        let (_, valid_commitments_proof) =
+            singleprover_prove::<DummyValidCommitments>((), valid_commitments_statement.clone())?;
+        let (_, valid_reblind_proof) =
+            singleprover_prove::<DummyValidReblind>((), valid_reblind_statement.clone())?;
 
         Ok(Self {
             wallet_blinder_share: Scalar::random(&mut thread_rng()),
             valid_commitments_statement,
-            valid_commitments_witness_commitments,
+            valid_commitments_witness_commitments: vec![],
             valid_commitments_proof,
             valid_reblind_statement,
-            valid_reblind_witness_commitments,
+            valid_reblind_witness_commitments: vec![],
             valid_reblind_proof,
         })
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Circuit {
+    ValidWalletCreate(DummyValidWalletCreate),
+    ValidWalletUpdate(DummyValidWalletUpdate),
+    ValidCommitments(DummyValidCommitments),
+    ValidReblind(DummyValidReblind),
+    ValidMatchMpc(DummyValidMatchMpc),
+    ValidSettle(DummyValidSettle),
 }
 
 pub struct CircuitParams {
@@ -656,6 +659,19 @@ impl CalldataSerializable for CircuitParams {
     }
 }
 
+impl CalldataSerializable for Circuit {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![match self {
+            Circuit::ValidWalletCreate(_) => FieldElement::from(0_u8),
+            Circuit::ValidWalletUpdate(_) => FieldElement::from(1_u8),
+            Circuit::ValidCommitments(_) => FieldElement::from(2_u8),
+            Circuit::ValidReblind(_) => FieldElement::from(3_u8),
+            Circuit::ValidMatchMpc(_) => FieldElement::from(4_u8),
+            Circuit::ValidSettle(_) => FieldElement::from(5_u8),
+        }]
+    }
+}
+
 impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize, const MAX_FEES: usize> CalldataSerializable
     for ValidWalletCreateStatement<MAX_BALANCES, MAX_ORDERS, MAX_FEES>
 where
@@ -818,145 +834,256 @@ impl CalldataSerializable for ProcessMatchArgs {
     }
 }
 
-// -------------------------
-// | DUMMY CIRCUIT HELPERS |
-// -------------------------
+// ------------------
+// | DUMMY CIRCUITS |
+// ------------------
 
-// The dummy circuit we're using is a very simple circuit with 4 witness elements,
-// 3 multiplication gates, and 2 linear constraints. In total, it is parameterized as follows:
-// n = 3
-// n_plus = 4
-// k = log2(n_plus) = 2
-// m = 4
-// q = 8 (The total number of linear constraints is 8 because there are 3 multiplication gates, and 2 linear constraints per multiplication gate)
-
-// The circuit is defined as follows:
-//
-// Witness:
-// a, b, x, y (all scalars)
-//
-// Circuit:
-// m_1 = multiply(a, b)
-// m_2 = multiply(x, y)
-// m_3 = multiply(m_1, m_2)
-// constrain(a - 69)
-// constrain(m_3 - 420)
-
-// Bearing the following weights:
-// W_L = [[(0, -1)], [], [(1, -1)], [], [(2, -1)], [], [], []]
-// W_R = [[], [(0, -1)], [], [(1, -1)], [], [(2, -1)], [], []]
-// W_O = [[], [], [], [], [(0, 1)], [(1, 1)], [], [(2, 1)]]
-// W_V = [[(0, -1)], [(1, -1)], [(2, -1)], [(3, -1)], [], [], [(0, -1)], []]
-// c = [(6, 69), (7, 420)]
-
-pub const DUMMY_CIRCUIT_N: usize = 3;
-pub const DUMMY_CIRCUIT_N_PLUS: usize = 4;
-pub const DUMMY_CIRCUIT_K: usize = 2;
-pub const DUMMY_CIRCUIT_M: usize = 4;
-pub const DUMMY_CIRCUIT_Q: usize = 8;
-
-pub fn singleprover_prove_dummy_circuit() -> Result<(R1CSProof, Vec<StarkPoint>)> {
-    debug!("Generating proof for dummy circuit...");
+/// Mirrors `singleprover_prove` from the relayer repo, but doesn't use pre-allocated BP gens
+pub fn singleprover_prove<C: SingleProverCircuit>(
+    witness: C::Witness,
+    statement: C::Statement,
+) -> Result<(<C::Witness as CircuitBaseType>::CommitmentType, R1CSProof)> {
     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
     let pc_gens = PedersenGens::default();
     let prover = Prover::new(&pc_gens, &mut transcript);
 
-    let witness = get_dummy_circuit_witness();
+    let bp_gens = BulletproofGens::new(C::BP_GENS_CAPACITY, 1);
 
-    prove(prover, witness)
+    C::prove(witness, statement, &bp_gens, prover)
+        .map_err(|e| eyre!("Error proving circuit: {}", e))
 }
 
-fn get_dummy_circuit_witness() -> Vec<Scalar> {
-    let a = Scalar::from(69);
-    let b = Scalar::from(420) * a.inverse();
-    let x = Scalar::one();
-    let y = Scalar::one();
-    vec![a, b, x, y]
-}
-
-fn prove(mut prover: Prover, witness: Vec<Scalar>) -> Result<(R1CSProof, Vec<StarkPoint>)> {
-    let mut rng = thread_rng();
-
-    // Commit to the witness
-    let a_blind = Scalar::random(&mut rng);
-    let b_blind = Scalar::random(&mut rng);
-    let x_blind = Scalar::random(&mut rng);
-    let y_blind = Scalar::random(&mut rng);
-
-    let (a_comm, a_var) = prover.commit(witness[0], a_blind);
-    let (b_comm, b_var) = prover.commit(witness[1], b_blind);
-    let (x_comm, x_var) = prover.commit(witness[2], x_blind);
-    let (y_comm, y_var) = prover.commit(witness[3], y_blind);
-
-    // Apply the constraints
-    apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, &mut prover);
-
-    // Generate the proof
-    let bp_gens = BulletproofGens::new(8 /* gens_capacity */, 1 /* party_capacity */);
-    let proof = prover
-        .prove(&bp_gens)
-        .map_err(|e| eyre!("error generating proof: {e}"))?;
-
-    Ok((proof, vec![a_comm, b_comm, x_comm, y_comm]))
-}
-
-fn apply_dummy_circuit_constraints<CS: ConstraintSystem>(
-    a: Variable,
-    b: Variable,
-    x: Variable,
-    y: Variable,
-    cs: &mut CS,
-) {
-    let (_, _, m_1) = cs.multiply(a.into(), b.into());
-    let (_, _, m_2) = cs.multiply(x.into(), y.into());
-    let (_, _, m_3) = cs.multiply(m_1.into(), m_2.into());
-    cs.constrain(a - Scalar::from(69));
-    cs.constrain(m_3 - Scalar::from(420));
-}
-
-pub fn prep_dummy_circuit_verifier(verifier: &mut Verifier, witness_commitments: Vec<StarkPoint>) {
-    // Allocate witness commitments into circuit
-    let a_var = verifier.commit(witness_commitments[0]);
-    let b_var = verifier.commit(witness_commitments[1]);
-    let x_var = verifier.commit(witness_commitments[2]);
-    let y_var = verifier.commit(witness_commitments[3]);
-
-    debug!("Applying dummy circuit constraints on verifier...");
-    apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, verifier);
-}
-
-pub fn get_dummy_circuit_weights() -> CircuitWeights {
+/// Generates circuit parameters for the given circuit
+// TODO: Upstream this into `SingleProverCircuit` trait?
+pub fn get_circuit_params<C: SingleProverCircuit>(
+    witness: C::Witness,
+    statement: C::Statement,
+) -> CircuitParams {
     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
     let pc_gens = PedersenGens::default();
     let mut prover = Prover::new(&pc_gens, &mut transcript);
 
+    // Commit to the witness and statement
     let mut rng = thread_rng();
+    let (witness_var, _) = witness.commit_witness(&mut rng, &mut prover);
+    let statement_var = statement.commit_public(&mut prover);
 
-    let (_, a_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-    let (_, b_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-    let (_, x_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-    let (_, y_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+    // Apply the constraints
+    C::apply_constraints(witness_var, statement_var, &mut prover).unwrap();
 
-    apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, &mut prover);
+    let n = prover.num_multipliers();
+    let n_plus = n.next_power_of_two();
+    let k = n_plus.ilog2() as usize;
+    let q = prover.num_constraints();
+    let m = witness.to_scalars().len() + statement.to_scalars().len();
+    let b = pc_gens.B;
+    let b_blind = pc_gens.B_blinding;
+    let CircuitWeights {
+        w_l,
+        w_r,
+        w_o,
+        w_v,
+        c,
+    } = prover.get_weights();
 
-    prover.get_weights()
+    CircuitParams {
+        n,
+        n_plus,
+        k,
+        q,
+        m,
+        b,
+        b_blind,
+        w_l,
+        w_o,
+        w_r,
+        w_v,
+        c,
+    }
 }
 
-pub fn get_dummy_circuit_params() -> CircuitParams {
-    let circuit_weights = get_dummy_circuit_weights();
-    let pc_gens = PedersenGens::default();
-    CircuitParams {
-        n: DUMMY_CIRCUIT_N,
-        n_plus: DUMMY_CIRCUIT_N_PLUS,
-        k: DUMMY_CIRCUIT_K,
-        q: DUMMY_CIRCUIT_Q,
-        m: DUMMY_CIRCUIT_M,
-        b: pc_gens.B,
-        b_blind: pc_gens.B_blinding,
-        w_l: circuit_weights.w_l,
-        w_o: circuit_weights.w_o,
-        w_r: circuit_weights.w_r,
-        w_v: circuit_weights.w_v,
-        c: circuit_weights.c,
+/// Defines the constraints of the dummy circuits below, which takes in a single
+/// allocated variable, uses it in 3 multiplication gates, and 1 linear constraint.
+fn mul_and_constrain<CS: RandomizableConstraintSystem>(
+    var: LinearCombination,
+    cs: &mut CS,
+) -> std::result::Result<(), R1CSError> {
+    let (var, _, _) = cs.multiply(var, Scalar::one().into());
+    let (var, _, _) = cs.multiply(var.into(), Scalar::one().into());
+    let (var, _, m) = cs.multiply(var.into(), Scalar::one().into());
+    cs.constrain(m - var);
+    Ok(())
+}
+
+/// Returns a (scalar-serialized) dummy statement for the given circuit, to be used for
+/// creating circuit params from a constraint system.
+pub fn get_dummy_statement_scalars(circuit: Circuit) -> Vec<Scalar> {
+    match circuit {
+        Circuit::ValidWalletCreate(_) => create_default_witness_statement().1.to_scalars(),
+        Circuit::ValidWalletUpdate(_) => construct_valid_wallet_update_witness_statement::<
+            MAX_BALANCES,
+            MAX_ORDERS,
+            MAX_FEES,
+            TEST_MERKLE_HEIGHT,
+        >(
+            INITIAL_WALLET.clone(),
+            INITIAL_WALLET.clone(),
+            ExternalTransfer::default(),
+        )
+        .1
+        .to_scalars(),
+        Circuit::ValidCommitments(_) => create_witness_and_statement(&INITIAL_WALLET.clone())
+            .1
+            .to_scalars(),
+        Circuit::ValidReblind(_) => construct_valid_reblind_witness_statement::<
+            MAX_BALANCES,
+            MAX_ORDERS,
+            MAX_FEES,
+            TEST_MERKLE_HEIGHT,
+        >(&INITIAL_WALLET.clone())
+        .1
+        .to_scalars(),
+        Circuit::ValidMatchMpc(_) => vec![],
+        Circuit::ValidSettle(_) => create_witness_statement(
+            INITIAL_WALLET.clone(),
+            INITIAL_WALLET.clone(),
+            MATCH_RES.clone(),
+        )
+        .1
+        .to_scalars(),
+    }
+}
+
+// -------------------------------------
+// | DUMMY VALID_WALLET_CREATE CIRCUIT |
+// -------------------------------------
+
+#[derive(Copy, Clone, Debug)]
+pub struct DummyValidWalletCreate {}
+
+impl SingleProverCircuit for DummyValidWalletCreate {
+    type Statement = SizedValidWalletCreateStatement;
+    type Witness = ();
+
+    const BP_GENS_CAPACITY: usize = DUMMY_BP_GENS_CAPACITY;
+
+    fn apply_constraints<CS: RandomizableConstraintSystem>(
+        _witness_var: <Self::Witness as CircuitBaseType>::VarType<Variable>,
+        statement_var: <Self::Statement as CircuitBaseType>::VarType<Variable>,
+        cs: &mut CS,
+    ) -> std::result::Result<(), R1CSError> {
+        mul_and_constrain(statement_var.private_shares_commitment.into(), cs)
+    }
+}
+
+// -------------------------------------
+// | DUMMY VALID_WALLET_UPDATE CIRCUIT |
+// -------------------------------------
+
+#[derive(Copy, Clone, Debug)]
+pub struct DummyValidWalletUpdate {}
+
+impl SingleProverCircuit for DummyValidWalletUpdate {
+    type Statement = SizedValidWalletUpdateStatement;
+    type Witness = ();
+
+    const BP_GENS_CAPACITY: usize = DUMMY_BP_GENS_CAPACITY;
+
+    fn apply_constraints<CS: RandomizableConstraintSystem>(
+        _witness_var: <Self::Witness as CircuitBaseType>::VarType<Variable>,
+        statement_var: <Self::Statement as CircuitBaseType>::VarType<Variable>,
+        cs: &mut CS,
+    ) -> std::result::Result<(), R1CSError> {
+        mul_and_constrain(statement_var.new_private_shares_commitment.into(), cs)
+    }
+}
+
+// -----------------------------------
+// | DUMMY VALID_COMMITMENTS CIRCUIT |
+// -----------------------------------
+
+#[derive(Copy, Clone, Debug)]
+pub struct DummyValidCommitments {}
+
+impl SingleProverCircuit for DummyValidCommitments {
+    type Statement = ValidCommitmentsStatement;
+    type Witness = ();
+
+    const BP_GENS_CAPACITY: usize = DUMMY_BP_GENS_CAPACITY;
+
+    fn apply_constraints<CS: RandomizableConstraintSystem>(
+        _witness_var: <Self::Witness as CircuitBaseType>::VarType<Variable>,
+        statement_var: <Self::Statement as CircuitBaseType>::VarType<Variable>,
+        cs: &mut CS,
+    ) -> std::result::Result<(), R1CSError> {
+        mul_and_constrain(statement_var.balance_send_index.into(), cs)
+    }
+}
+
+// -------------------------------
+// | DUMMY VALID_REBLIND CIRCUIT |
+// -------------------------------
+
+#[derive(Copy, Clone, Debug)]
+pub struct DummyValidReblind {}
+
+impl SingleProverCircuit for DummyValidReblind {
+    type Statement = ValidReblindStatement;
+    type Witness = ();
+
+    const BP_GENS_CAPACITY: usize = DUMMY_BP_GENS_CAPACITY;
+
+    fn apply_constraints<CS: RandomizableConstraintSystem>(
+        _witness_var: <Self::Witness as CircuitBaseType>::VarType<Variable>,
+        statement_var: <Self::Statement as CircuitBaseType>::VarType<Variable>,
+        cs: &mut CS,
+    ) -> std::result::Result<(), R1CSError> {
+        mul_and_constrain(statement_var.reblinded_private_share_commitment.into(), cs)
+    }
+}
+
+// ---------------------------------
+// | DUMMY VALID_MATCH_MPC CIRCUIT |
+// ---------------------------------
+
+#[derive(Copy, Clone, Debug)]
+pub struct DummyValidMatchMpc {}
+
+impl SingleProverCircuit for DummyValidMatchMpc {
+    type Statement = ();
+    // Using a non-empty witness for VALID MATCH MPC
+    // because the verifier has undefined behavior for empty witnesses
+    type Witness = Scalar;
+
+    const BP_GENS_CAPACITY: usize = DUMMY_BP_GENS_CAPACITY;
+
+    fn apply_constraints<CS: RandomizableConstraintSystem>(
+        witness_var: <Self::Witness as CircuitBaseType>::VarType<Variable>,
+        _statement_var: <Self::Statement as CircuitBaseType>::VarType<Variable>,
+        cs: &mut CS,
+    ) -> std::result::Result<(), R1CSError> {
+        mul_and_constrain(witness_var.into(), cs)
+    }
+}
+
+// ---------------------------------
+// | DUMMY VALID_SETTLE CIRCUIT |
+// ---------------------------------
+
+#[derive(Copy, Clone, Debug)]
+pub struct DummyValidSettle {}
+
+impl SingleProverCircuit for DummyValidSettle {
+    type Statement = SizedValidSettleStatement;
+    type Witness = ();
+
+    const BP_GENS_CAPACITY: usize = DUMMY_BP_GENS_CAPACITY;
+
+    fn apply_constraints<CS: RandomizableConstraintSystem>(
+        _witness_var: <Self::Witness as CircuitBaseType>::VarType<Variable>,
+        statement_var: <Self::Statement as CircuitBaseType>::VarType<Variable>,
+        cs: &mut CS,
+    ) -> std::result::Result<(), R1CSError> {
+        mul_and_constrain(statement_var.party0_receive_balance_index.into(), cs)
     }
 }

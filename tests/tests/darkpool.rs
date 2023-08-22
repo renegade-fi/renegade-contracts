@@ -31,11 +31,8 @@ use tests::{
 
 #[tokio::test]
 async fn test_initialization_root() -> Result<()> {
-    let (sequencer, ark_merkle_tree) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, ark_merkle_tree) = setup_darkpool_test(true /* init_arkworks_tree */).await?;
+    let ark_merkle_tree = ark_merkle_tree.unwrap();
 
     assert_roots_equal(
         &sequencer.account(),
@@ -51,12 +48,9 @@ async fn test_initialization_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_new_wallet_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, ark_merkle_tree) = setup_darkpool_test(true /* init_arkworks_tree */).await?;
     let account = sequencer.account();
+    let mut ark_merkle_tree = ark_merkle_tree.unwrap();
 
     let args = get_dummy_new_wallet_args()?;
     poll_new_wallet_to_completion(&account, &args).await?;
@@ -76,12 +70,9 @@ async fn test_new_wallet_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, ark_merkle_tree) = setup_darkpool_test(true /* init_arkworks_tree */).await?;
     let account = sequencer.account();
+    let mut ark_merkle_tree = ark_merkle_tree.unwrap();
 
     let old_wallet = INITIAL_WALLET.clone();
     let mut new_wallet = INITIAL_WALLET.clone();
@@ -105,12 +96,9 @@ async fn test_update_wallet_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_root() -> Result<()> {
-    let (sequencer, mut ark_merkle_tree) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, ark_merkle_tree) = setup_darkpool_test(true /* init_arkworks_tree */).await?;
     let account = sequencer.account();
+    let mut ark_merkle_tree = ark_merkle_tree.unwrap();
 
     let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
     poll_process_match_to_completion(&account, &args).await?;
@@ -145,11 +133,7 @@ async fn test_process_match_root() -> Result<()> {
 
 #[tokio::test]
 async fn test_new_wallet_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let args = get_dummy_new_wallet_args()?;
@@ -167,11 +151,7 @@ async fn test_new_wallet_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let old_wallet = INITIAL_WALLET.clone();
@@ -193,11 +173,7 @@ async fn test_update_wallet_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_last_modified() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
@@ -224,11 +200,7 @@ async fn test_process_match_last_modified() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_nullifiers() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let old_wallet = INITIAL_WALLET.clone();
@@ -264,11 +236,7 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
 
 #[tokio::test]
 async fn test_process_match_nullifiers() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        false, /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
@@ -328,11 +296,7 @@ async fn test_process_match_nullifiers() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_deposit() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        true,  /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     // Adapted from `test_external_transfer__valid_deposit_new_balance` in https://github.com/renegade-fi/renegade/blob/main/circuits/src/zk_circuits/valid_wallet_update.rs
@@ -382,11 +346,7 @@ async fn test_update_wallet_deposit() -> Result<()> {
 
 #[tokio::test]
 async fn test_update_wallet_withdrawal() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        true,  /* init_erc20 */
-        false, /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     // Adapted from `test_external_transfer__valid_withdrawal` in https://github.com/renegade-fi/renegade/blob/main/circuits/src/zk_circuits/valid_wallet_update.rs
@@ -431,11 +391,7 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
 
 #[tokio::test]
 async fn test_upgrade_darkpool_storage() -> Result<()> {
-    let (sequencer, _) = setup_darkpool_test(
-        false, /* init_erc20 */
-        true,  /* init_upgrade_target */
-    )
-    .await?;
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let old_wallet = INITIAL_WALLET.clone();
