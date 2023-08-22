@@ -1,12 +1,20 @@
-use circuit_types::{r#match::MatchResult, transfers::ExternalTransfer};
+use circuit_types::{r#match::MatchResult, traits::BaseType, transfers::ExternalTransfer};
 use circuits::zk_circuits::{
     test_helpers::{SizedWallet, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
-    valid_settle::test_helpers::create_witness_statement,
-    valid_wallet_create::test_helpers::create_default_witness_statement,
-    valid_wallet_update::test_helpers::construct_witness_statement,
+    valid_commitments::ValidCommitmentsStatement,
+    valid_reblind::ValidReblindStatement,
+    valid_settle::test_helpers::{
+        create_witness_statement, SizedStatement as SizedValidSettleStatement,
+    },
+    valid_wallet_create::test_helpers::{
+        create_default_witness_statement, SizedStatement as SizedValidWalletCreateStatement,
+    },
+    valid_wallet_update::test_helpers::{
+        construct_witness_statement, SizedStatement as SizedValidWalletUpdateStatement,
+    },
 };
 use dojo_test_utils::sequencer::TestSequencer;
-use eyre::Result;
+use eyre::{eyre, Result};
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
@@ -19,8 +27,8 @@ use starknet::{
 };
 use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::{
-    calculate_contract_address, declare, deploy, deploy_darkpool, get_artifacts, initialize,
-    ScriptAccount, DARKPOOL_CONTRACT_NAME,
+    calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
+    initialize, ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
 use std::{env, iter};
 
@@ -32,11 +40,13 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, check_verification_job_status, felt_to_u128,
-        get_contract_address_from_artifact, get_sierra_class_hash_from_artifact, global_setup,
-        invoke_contract, random_felt, scalar_to_felt, setup_sequencer,
-        singleprover_prove_dummy_circuit, CalldataSerializable, MatchPayload, NewWalletArgs,
-        ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR,
+        call_contract, felt_to_u128, get_circuit_params, get_contract_address_from_artifact,
+        get_dummy_statement_scalars, get_sierra_class_hash_from_artifact, global_setup,
+        invoke_contract, random_felt, scalar_to_felt, setup_sequencer, singleprover_prove,
+        CalldataSerializable, Circuit, DummyValidCommitments, DummyValidMatchMpc,
+        DummyValidReblind, DummyValidSettle, DummyValidWalletCreate, DummyValidWalletUpdate,
+        MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig, UpdateWalletArgs,
+        ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
     },
 };
 
@@ -46,7 +56,9 @@ const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgrad
 pub const INIT_BALANCE: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 100;
 
+const INITIALIZE_VERIFIER_FN_NAME: &str = "initialize_verifier";
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
+const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
 const POLL_NEW_WALLET_FN_NAME: &str = "poll_new_wallet";
 const UPDATE_WALLET_FN_NAME: &str = "update_wallet";
@@ -69,31 +81,29 @@ pub static UPGRADE_TARGET_CLASS_HASH: OnceCell<FieldElement> = OnceCell::new();
 // ---------------------
 
 pub async fn setup_darkpool_test(
-    init_erc20: bool,
-    init_upgrade_target: bool,
-) -> Result<(TestSequencer, ScalarMerkleTree)> {
-    let sequencer = setup_sequencer(TestConfig::Darkpool {
-        init_erc20,
-        init_upgrade_target,
-    })
-    .await?;
+    init_arkworks_tree: bool,
+) -> Result<(TestSequencer, Option<ScalarMerkleTree>)> {
+    let sequencer = setup_sequencer(TestConfig::Darkpool).await?;
 
-    debug!("Initializing arkworks merkle tree...");
-    // arkworks implementation does height inclusive of root,
-    // so "height" here is one more than what's passed to the contract
-    Ok((sequencer, setup_empty_tree(TEST_MERKLE_HEIGHT + 1)))
+    let arkworks_tree = if init_arkworks_tree {
+        debug!("Initializing arkworks merkle tree...");
+        // arkworks implementation does height inclusive of root,
+        // so "height" here is one more than what's passed to the contract
+        Some(setup_empty_tree(TEST_MERKLE_HEIGHT + 1))
+    } else {
+        None
+    };
+
+    Ok((sequencer, arkworks_tree))
 }
 
-pub async fn init_darkpool_test_state(
-    init_erc20: bool,
-    init_upgrade_target: bool,
-) -> Result<TestSequencer> {
+pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let sequencer = global_setup(None).await;
     let account = sequencer.account();
     debug!("Declaring & deploying darkpool contract...");
-    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _, _) =
+    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
         deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
 
     debug!("Initializing darkpool contract...");
@@ -106,72 +116,84 @@ pub async fn init_darkpool_test_state(
     )
     .await?;
 
-    if init_erc20 {
-        debug!("Declaring & deploying dummy ERC20 contract...");
-        let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
-        approve(
+    let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
+
+    for (i, circuit) in [
+        Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
+        Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
+        Circuit::ValidCommitments(DummyValidCommitments {}),
+        Circuit::ValidReblind(DummyValidReblind {}),
+        Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
+        Circuit::ValidSettle(DummyValidSettle {}),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        deploy_and_initialize_verifier(
             &account,
-            erc20_address,
+            &artifacts_path,
+            circuit,
             darkpool_address,
-            StarknetU256 {
-                low: INIT_BALANCE as u128,
-                high: 0,
-            },
+            verifier_class_hash_hex.clone(),
+            FieldElement::from(i), /* salt */
         )
         .await?;
     }
 
-    if init_upgrade_target {
-        debug!("Declaring dummy upgrade target contract...");
-        declare_dummy_upgrade_target(&artifacts_path, &account).await?;
-    }
+    debug!("Declaring & deploying dummy ERC20 contract...");
+    let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
+    approve(
+        &account,
+        erc20_address,
+        darkpool_address,
+        StarknetU256 {
+            low: INIT_BALANCE as u128,
+            high: 0,
+        },
+    )
+    .await?;
+
+    debug!("Declaring dummy upgrade target contract...");
+    declare_dummy_upgrade_target(&artifacts_path, &account).await?;
 
     Ok(sequencer)
 }
 
-pub fn init_darkpool_test_statics(
-    account: &ScriptAccount,
-    init_erc20: bool,
-    init_upgrade_target: bool,
-) -> Result<()> {
+pub fn init_darkpool_test_statics(account: &ScriptAccount) -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let darkpool_address = get_contract_address_from_artifact(
         &artifacts_path,
         DARKPOOL_CONTRACT_NAME,
+        FieldElement::ZERO, /* salt */
         &[account.address()],
     )?;
     if DARKPOOL_ADDRESS.get().is_none() {
         DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
     }
 
-    if init_erc20 {
-        let erc20_address = get_contract_address_from_artifact(
-            &artifacts_path,
-            DUMMY_ERC20_CONTRACT_NAME,
-            &[account.address(), darkpool_address],
-        )?;
-        if ERC20_ADDRESS.get().is_none() {
-            ERC20_ADDRESS.set(erc20_address).unwrap();
-        }
+    let erc20_address = get_contract_address_from_artifact(
+        &artifacts_path,
+        DUMMY_ERC20_CONTRACT_NAME,
+        FieldElement::ZERO, /* salt */
+        &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
+    )?;
+    if ERC20_ADDRESS.get().is_none() {
+        ERC20_ADDRESS.set(erc20_address).unwrap();
     }
 
-    if init_upgrade_target {
-        let upgrade_target_class_hash = get_sierra_class_hash_from_artifact(
-            &artifacts_path,
-            DUMMY_UPGRADE_TARGET_CONTRACT_NAME,
-        )?;
-        if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
-            UPGRADE_TARGET_CLASS_HASH
-                .set(upgrade_target_class_hash)
-                .unwrap();
-        }
+    let upgrade_target_class_hash =
+        get_sierra_class_hash_from_artifact(&artifacts_path, DUMMY_UPGRADE_TARGET_CONTRACT_NAME)?;
+    if UPGRADE_TARGET_CLASS_HASH.get().is_none() {
+        UPGRADE_TARGET_CLASS_HASH
+            .set(upgrade_target_class_hash)
+            .unwrap();
+    }
 
-        let darkpool_class_hash =
-            get_sierra_class_hash_from_artifact(&artifacts_path, DARKPOOL_CONTRACT_NAME)?;
-        if DARKPOOL_CLASS_HASH.get().is_none() {
-            DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
-        }
+    let darkpool_class_hash =
+        get_sierra_class_hash_from_artifact(&artifacts_path, DARKPOOL_CONTRACT_NAME)?;
+    if DARKPOOL_CLASS_HASH.get().is_none() {
+        DARKPOOL_CLASS_HASH.set(darkpool_class_hash).unwrap();
     }
 
     Ok(())
@@ -210,8 +232,18 @@ async fn deploy_dummy_erc20(
 
     let calldata = get_dummy_erc20_calldata(account.address(), darkpool_address)?;
 
-    deploy(account, class_hash, &calldata).await?;
-    Ok(calculate_contract_address(class_hash, &calldata))
+    deploy(
+        account,
+        class_hash,
+        &calldata,
+        FieldElement::ZERO, /* salt */
+    )
+    .await?;
+    Ok(calculate_contract_address(
+        class_hash,
+        FieldElement::ZERO, /* salt */
+        &calldata,
+    ))
 }
 
 async fn declare_dummy_upgrade_target(
@@ -248,6 +280,80 @@ pub async fn initialize_darkpool(
         .map(|_| ())
 }
 
+pub async fn initialize_verifier(
+    account: &ScriptAccount,
+    circuit: Circuit,
+    darkpool_address: FieldElement,
+    verifier_address: FieldElement,
+) -> Result<()> {
+    let mut statement_scalars = get_dummy_statement_scalars(circuit).into_iter();
+
+    let circuit_params = match circuit {
+        Circuit::ValidWalletCreate(_) => get_circuit_params::<DummyValidWalletCreate>(
+            (),
+            SizedValidWalletCreateStatement::from_scalars(&mut statement_scalars),
+        ),
+        Circuit::ValidWalletUpdate(_) => get_circuit_params::<DummyValidWalletUpdate>(
+            (),
+            SizedValidWalletUpdateStatement::from_scalars(&mut statement_scalars),
+        ),
+        Circuit::ValidCommitments(_) => get_circuit_params::<DummyValidCommitments>(
+            (),
+            ValidCommitmentsStatement::from_scalars(&mut statement_scalars),
+        ),
+        Circuit::ValidReblind(_) => get_circuit_params::<DummyValidReblind>(
+            (),
+            ValidReblindStatement::from_scalars(&mut statement_scalars),
+        ),
+        Circuit::ValidMatchMpc(_) => {
+            get_circuit_params::<DummyValidMatchMpc>(Scalar::from(DUMMY_VALUE), ())
+        }
+        Circuit::ValidSettle(_) => get_circuit_params::<DummyValidSettle>(
+            (),
+            SizedValidSettleStatement::from_scalars(&mut statement_scalars),
+        ),
+    };
+
+    let calldata = circuit
+        .to_calldata()
+        .into_iter()
+        .chain(iter::once(verifier_address))
+        .chain(circuit_params.to_calldata())
+        .collect();
+
+    invoke_contract(
+        account,
+        darkpool_address,
+        INITIALIZE_VERIFIER_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn deploy_and_initialize_verifier(
+    account: &ScriptAccount,
+    artifacts_path: &str,
+    circuit: Circuit,
+    darkpool_address: FieldElement,
+    verifier_class_hash_hex: Option<String>,
+    salt: FieldElement,
+) -> Result<()> {
+    debug!("Declaring & deploying {circuit:?} verifier contract...");
+    let (verifier_address, _, _) = deploy_verifier(
+        verifier_class_hash_hex.clone(),
+        salt,
+        artifacts_path,
+        account,
+    )
+    .await?;
+
+    debug!("Initializing {circuit:?} verifier contract...");
+    initialize_verifier(account, circuit, darkpool_address, verifier_address)
+        .await
+        .map(|_| ())
+}
+
 pub async fn get_wallet_blinder_transaction(
     account: &ScriptAccount,
     wallet_blinder_share: Scalar,
@@ -260,6 +366,36 @@ pub async fn get_wallet_blinder_transaction(
     )
     .await
     .map(|r| r[0])
+}
+
+pub async fn check_verification_job_status(
+    account: &ScriptAccount,
+    circuit: Circuit,
+    verification_job_id: FieldElement,
+) -> Result<Option<bool>> {
+    let calldata = circuit
+        .to_calldata()
+        .into_iter()
+        .chain(iter::once(verification_job_id))
+        .collect();
+
+    call_contract(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|r| {
+        // The Cairo corelib serializes an Option::None(()) as 1,
+        // and an Option::Some(x) as [0, ..serialize(x)].
+        // In our case, x is a bool => serializes as a true = 1, false = 0.
+        if r[0] == FieldElement::ONE {
+            None
+        } else {
+            Some(r[1] == FieldElement::ONE)
+        }
+    })
 }
 
 pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result<FieldElement> {
@@ -294,18 +430,29 @@ pub async fn poll_new_wallet_to_completion(
     args: &NewWalletArgs,
 ) -> Result<FieldElement> {
     let tx_hash = new_wallet(account, args).await?;
-    while check_verification_job_status(
+    let mut verification_job_status = check_verification_job_status(
         account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
+        Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
         args.verification_job_id,
     )
-    .await?
-    .is_none()
-    {
+    .await?;
+
+    while verification_job_status.is_none() {
         poll_new_wallet(account, args.verification_job_id).await?;
+
+        verification_job_status = check_verification_job_status(
+            account,
+            Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
+            args.verification_job_id,
+        )
+        .await?;
     }
 
-    Ok(tx_hash)
+    if !verification_job_status.unwrap() {
+        Err(eyre!("Verification job failed"))
+    } else {
+        Ok(tx_hash)
+    }
 }
 
 pub async fn update_wallet(
@@ -343,18 +490,28 @@ pub async fn poll_update_wallet_to_completion(
     args: &UpdateWalletArgs,
 ) -> Result<FieldElement> {
     let tx_hash = update_wallet(account, args).await?;
-    while check_verification_job_status(
+    let mut verification_job_status = check_verification_job_status(
         account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
+        Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
         args.verification_job_id,
     )
-    .await?
-    .is_none()
-    {
+    .await?;
+
+    while verification_job_status.is_none() {
         poll_update_wallet(account, args.verification_job_id).await?;
+        verification_job_status = check_verification_job_status(
+            account,
+            Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
+            args.verification_job_id,
+        )
+        .await?;
     }
 
-    Ok(tx_hash)
+    if !verification_job_status.unwrap() {
+        Err(eyre!("Verification job failed"))
+    } else {
+        Ok(tx_hash)
+    }
 }
 
 pub async fn process_match(
@@ -381,7 +538,7 @@ pub async fn poll_process_match(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
         POLL_PROCESS_MATCH_FN_NAME,
-        verification_job_ids,
+        verification_job_ids.to_calldata(),
     )
     .await
     .map(|_| ())
@@ -391,16 +548,24 @@ pub async fn process_match_verification_jobs_are_done(
     account: &ScriptAccount,
     verification_job_ids: &[FieldElement],
 ) -> Result<bool> {
-    for verification_job_id in verification_job_ids {
-        if check_verification_job_status(
-            account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
-            *verification_job_id,
-        )
-        .await?
-        .is_none()
-        {
+    for (verification_job_id, circuit) in verification_job_ids.iter().zip(
+        // Matches expected order of verification job IDs
+        [
+            Circuit::ValidCommitments(DummyValidCommitments {}),
+            Circuit::ValidReblind(DummyValidReblind {}),
+            Circuit::ValidCommitments(DummyValidCommitments {}),
+            Circuit::ValidReblind(DummyValidReblind {}),
+            Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
+            Circuit::ValidSettle(DummyValidSettle {}),
+        ]
+        .into_iter(),
+    ) {
+        let verification_job_status =
+            check_verification_job_status(account, circuit, *verification_job_id).await?;
+        if verification_job_status.is_none() {
             return Ok(false);
+        } else if let Some(false) = verification_job_status {
+            return Err(eyre!("Verification job failed"));
         }
     }
 
@@ -466,16 +631,17 @@ pub async fn upgrade(account: &ScriptAccount, class_hash: FieldElement) -> Resul
 // ----------------
 
 pub fn get_dummy_new_wallet_args() -> Result<NewWalletArgs> {
+    debug!("Generating dummy new_wallet args...");
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
     let (_, statement) = create_default_witness_statement();
-    let (proof, witness_commitments) = singleprover_prove_dummy_circuit()?;
+    let (_, proof) = singleprover_prove::<DummyValidWalletCreate>((), statement.clone())?;
     let verification_job_id = random_felt();
 
     Ok(NewWalletArgs {
         wallet_blinder_share,
         statement,
         proof,
-        witness_commitments,
+        witness_commitments: vec![],
         verification_job_id,
     })
 }
@@ -485,6 +651,7 @@ pub fn get_dummy_update_wallet_args(
     new_wallet: SizedWallet,
     external_transfer: ExternalTransfer,
 ) -> Result<UpdateWalletArgs> {
+    debug!("Generating dummy update_wallet args...");
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
 
     let (_, statement) = construct_witness_statement::<
@@ -494,14 +661,15 @@ pub fn get_dummy_update_wallet_args(
         TEST_MERKLE_HEIGHT,
     >(old_wallet, new_wallet, external_transfer);
 
-    let (proof, witness_commitments) = singleprover_prove_dummy_circuit()?;
+    let (_, proof) = singleprover_prove::<DummyValidWalletUpdate>((), statement.clone())?;
+
     let verification_job_id = random_felt();
 
     Ok(UpdateWalletArgs {
         wallet_blinder_share,
         statement,
         proof,
-        witness_commitments,
+        witness_commitments: vec![],
         verification_job_id,
     })
 }
@@ -511,25 +679,26 @@ pub fn get_dummy_process_match_args(
     party1_wallet: SizedWallet,
     match_res: MatchResult,
 ) -> Result<ProcessMatchArgs> {
+    debug!("Generating dummy process_match args...");
     let party_0_match_payload = MatchPayload::dummy(&party0_wallet)?;
     let party_1_match_payload = MatchPayload::dummy(&party1_wallet)?;
-    let (valid_match_mpc_proof, valid_match_mpc_witness_commitments) =
-        singleprover_prove_dummy_circuit()?;
-    let (valid_settle_proof, valid_settle_witness_commitments) =
-        singleprover_prove_dummy_circuit()?;
+    let (valid_match_mpc_witness, valid_match_mpc_proof) =
+        singleprover_prove::<DummyValidMatchMpc>(Scalar::from(DUMMY_VALUE), ())?;
+    let (_, valid_settle_statement) =
+        create_witness_statement(party0_wallet, party1_wallet, match_res);
+    let (_, valid_settle_proof) =
+        singleprover_prove::<DummyValidSettle>((), valid_settle_statement.clone())?;
     let verification_job_ids = (0..PROCESS_MATCH_NUM_PROOFS)
         .map(|_| random_felt())
         .collect();
-    let (_, valid_settle_statement) =
-        create_witness_statement(party0_wallet, party1_wallet, match_res);
 
     Ok(ProcessMatchArgs {
         party_0_match_payload,
         party_1_match_payload,
-        valid_match_mpc_witness_commitments,
+        valid_match_mpc_witness_commitments: vec![valid_match_mpc_witness],
         valid_match_mpc_proof,
         valid_settle_statement,
-        valid_settle_witness_commitments,
+        valid_settle_witness_commitments: vec![],
         valid_settle_proof,
         verification_job_ids,
     })

@@ -171,14 +171,11 @@ pub async fn deploy(
     account: &ScriptAccount,
     class_hash: FieldElement,
     calldata: &[FieldElement],
+    salt: FieldElement,
 ) -> Result<InvokeTransactionResult> {
     let contract_factory = ContractFactory::new(class_hash, account);
     let deploy_result = contract_factory
-        .deploy(
-            calldata,
-            FieldElement::ZERO, /* salt */
-            false,              /* unique */
-        )
+        .deploy(calldata, salt, false /* unique */)
         .send()
         .await?;
 
@@ -209,12 +206,13 @@ pub async fn initialize(
 // Taken from https://github.com/xJonathanLEI/starknet-rs/blob/master/starknet-accounts/src/factory/mod.rs
 pub fn calculate_contract_address(
     class_hash: FieldElement,
+    salt: FieldElement,
     constructor_calldata: &[FieldElement],
 ) -> FieldElement {
     compute_hash_on_elements(&[
         PREFIX_CONTRACT_ADDRESS,
         FieldElement::ZERO, /* deployer address */
-        FieldElement::ZERO, /* salt */
+        salt,
         class_hash,
         compute_hash_on_elements(constructor_calldata),
     ]) % ADDR_BOUND
@@ -280,9 +278,19 @@ pub async fn deploy_darkpool(
     let calldata = vec![account.address()];
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(account, darkpool_class_hash_felt, &calldata).await?;
+    } = deploy(
+        account,
+        darkpool_class_hash_felt,
+        &calldata,
+        FieldElement::ZERO, /* salt */
+    )
+    .await?;
 
-    let darkpool_address = calculate_contract_address(darkpool_class_hash_felt, &calldata);
+    let darkpool_address = calculate_contract_address(
+        darkpool_class_hash_felt,
+        FieldElement::ZERO, /* salt */
+        &calldata,
+    );
 
     Ok((
         darkpool_address,
@@ -313,9 +321,19 @@ pub async fn deploy_merkle(
     debug!("Deploying merkle contract...");
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(account, merkle_class_hash_felt, &[]).await?;
+    } = deploy(
+        account,
+        merkle_class_hash_felt,
+        &[],
+        FieldElement::ZERO, /* salt */
+    )
+    .await?;
 
-    let merkle_address = calculate_contract_address(merkle_class_hash_felt, &[]);
+    let merkle_address = calculate_contract_address(
+        merkle_class_hash_felt,
+        FieldElement::ZERO, /* salt */
+        &[],
+    );
 
     Ok((merkle_address, merkle_class_hash_felt, transaction_hash))
 }
@@ -339,9 +357,19 @@ pub async fn deploy_nullifier_set(
     debug!("Deploying nullifier set contract...");
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(account, nullifier_set_class_hash_felt, &[]).await?;
+    } = deploy(
+        account,
+        nullifier_set_class_hash_felt,
+        &[],
+        FieldElement::ZERO, /* salt */
+    )
+    .await?;
 
-    let nullifier_set_address = calculate_contract_address(nullifier_set_class_hash_felt, &[]);
+    let nullifier_set_address = calculate_contract_address(
+        nullifier_set_class_hash_felt,
+        FieldElement::ZERO, /* salt */
+        &[],
+    );
 
     Ok((
         nullifier_set_address,
@@ -352,6 +380,7 @@ pub async fn deploy_nullifier_set(
 
 pub async fn deploy_verifier(
     verifier_class_hash: Option<String>,
+    salt: FieldElement,
     artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<(FieldElement, FieldElement, FieldElement)> {
@@ -369,9 +398,9 @@ pub async fn deploy_verifier(
     debug!("Deploying verifier contract...");
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(account, verifier_class_hash_felt, &[]).await?;
+    } = deploy(account, verifier_class_hash_felt, &[], salt).await?;
 
-    let verifier_address = calculate_contract_address(verifier_class_hash_felt, &[]);
+    let verifier_address = calculate_contract_address(verifier_class_hash_felt, salt, &[]);
 
     Ok((verifier_address, verifier_class_hash_felt, transaction_hash))
 }

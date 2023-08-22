@@ -54,8 +54,12 @@ pub async fn init_merkle_test_state() -> Result<TestSequencer> {
 pub fn init_merkle_test_statics() -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let merkle_address =
-        get_contract_address_from_artifact(&artifacts_path, MERKLE_CONTRACT_NAME, &[])?;
+    let merkle_address = get_contract_address_from_artifact(
+        &artifacts_path,
+        MERKLE_CONTRACT_NAME,
+        FieldElement::ZERO, /* salt */
+        &[],
+    )?;
     if MERKLE_ADDRESS.get().is_none() {
         MERKLE_ADDRESS.set(merkle_address).unwrap();
     }

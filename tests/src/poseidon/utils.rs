@@ -47,8 +47,12 @@ pub async fn init_poseidon_test_state() -> Result<TestSequencer> {
 pub fn init_poseidon_test_statics() -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let poseidon_wrapper_address =
-        get_contract_address_from_artifact(&artifacts_path, POSEIDON_WRAPPER_CONTRACT_NAME, &[])?;
+    let poseidon_wrapper_address = get_contract_address_from_artifact(
+        &artifacts_path,
+        POSEIDON_WRAPPER_CONTRACT_NAME,
+        FieldElement::ZERO, /* salt */
+        &[],
+    )?;
     if POSEIDON_WRAPPER_ADDRESS.get().is_none() {
         POSEIDON_WRAPPER_ADDRESS
             .set(poseidon_wrapper_address)
@@ -66,8 +70,12 @@ pub async fn deploy_poseidon_wrapper(
         get_artifacts(artifacts_path, POSEIDON_WRAPPER_CONTRACT_NAME);
     let DeclareTransactionResult { class_hash, .. } =
         declare(poseidon_sierra_path, poseidon_casm_path, account).await?;
-    deploy(account, class_hash, &[]).await?;
-    Ok(calculate_contract_address(class_hash, &[]))
+    deploy(account, class_hash, &[], FieldElement::ZERO /* salt */).await?;
+    Ok(calculate_contract_address(
+        class_hash,
+        FieldElement::ZERO, /* salt */
+        &[],
+    ))
 }
 
 // --------------------------------
