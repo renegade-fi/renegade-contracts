@@ -552,6 +552,15 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
+            // Assert that the `old_shares_nullifier` is not already spent
+            let nullifier_set = _get_nullifier_set(@self);
+            assert(
+                !nullifier_set.is_nullifier_used(statement.old_shares_nullifier),
+                'nullifier already used'
+            );
+            // Insert the `old_shares_nullifier` into the in-progress nullifier set
+            nullifier_set.mark_nullifier_in_progress(statement.old_shares_nullifier);
+
             let verifier = _get_verifier(@self, Circuit::ValidWalletUpdate(()));
 
             // Inject witness
@@ -658,6 +667,32 @@ mod Darkpool {
             valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) {
+            // Assert that the `original_shares_nullifier`s are not already spent
+            let nullifier_set = _get_nullifier_set(@self);
+            assert(
+                !nullifier_set
+                    .is_nullifier_used(
+                        party_0_payload.valid_reblind_statement.original_shares_nullifier
+                    ),
+                'nullifier already used'
+            );
+            assert(
+                !nullifier_set
+                    .is_nullifier_used(
+                        party_1_payload.valid_reblind_statement.original_shares_nullifier
+                    ),
+                'nullifier already used'
+            );
+            // Insert the `original_shares_nullifier`s into the in-progress nullifier set
+            nullifier_set
+                .mark_nullifier_in_progress(
+                    party_0_payload.valid_reblind_statement.original_shares_nullifier
+                );
+            nullifier_set
+                .mark_nullifier_in_progress(
+                    party_1_payload.valid_reblind_statement.original_shares_nullifier
+                );
+
             // Inject witnesses & queue verifications
             // TODO: This probably won't fit in a transaction... think about how to handle this
 
