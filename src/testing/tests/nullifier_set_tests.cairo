@@ -32,10 +32,10 @@ fn test_valid_nullifier_in_progress_basic() {
     // Check that nullifier is initially not in progress
     assert(!nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier already in progress');
 
-    // Mark nullifier as used
+    // Mark nullifier as in progress
     nullifier_set.mark_nullifier_in_progress(nullifier);
 
-    // Check that nullifier is now used
+    // Check that nullifier is now in progress
     assert(nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier not in progress');
 }
 
@@ -62,9 +62,35 @@ fn test_invalid_nullifier_in_progress_basic() {
 
     let nullifier = 1.into();
 
-    // Mark nullifier as used
+    // Mark nullifier as in progress
     nullifier_set.mark_nullifier_in_progress(nullifier);
 
-    // Try marking nullifier as used (again)
+    // Try marking nullifier as in progress (again)
     nullifier_set.mark_nullifier_in_progress(nullifier);
+}
+
+#[test]
+#[available_gas(3000000)]
+fn test_valid_nullifier_in_progress_to_spent_basic() {
+    let mut nullifier_set = NullifierSet::contract_state_for_testing();
+
+    let nullifier = 1.into();
+
+    // Check that nullifier is initially not spent or in progress
+    assert(!nullifier_set.is_nullifier_used(nullifier), 'nullifier already spent');
+    assert(!nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier already in progress');
+
+    // Mark nullifier as in progress
+    nullifier_set.mark_nullifier_in_progress(nullifier);
+
+    // Check that nullifier is in progress, and not spent
+    assert(nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier not in progress');
+    assert(!nullifier_set.is_nullifier_used(nullifier), 'nullifier already spent');
+
+    // Mark nullifier as spent
+    nullifier_set.mark_nullifier_used(nullifier);
+
+    // Check that nullifier is spent, and not in progress
+    assert(nullifier_set.is_nullifier_used(nullifier), 'nullifier not spent');
+    assert(!nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier still in progress');
 }
