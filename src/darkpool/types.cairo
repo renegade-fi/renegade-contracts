@@ -71,9 +71,10 @@ struct MatchPayload {
 // | CALLBACK ELEMENT TYPES |
 // --------------------------
 
-#[derive(Drop, Serde, Copy)]
+#[derive(Drop, Serde, Clone)]
 struct NewWalletCallbackElems {
     wallet_blinder_share: Scalar,
+    public_wallet_shares: Array<Scalar>,
     private_shares_commitment: Scalar,
     tx_hash: felt252,
 }

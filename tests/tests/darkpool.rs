@@ -1,5 +1,6 @@
 use circuit_types::{
     balance::Balance,
+    native_helpers::compute_wallet_commitment_from_private,
     order::Order,
     transfers::{ExternalTransfer, ExternalTransferDirection},
 };
@@ -52,11 +53,11 @@ async fn test_new_wallet_root() -> Result<()> {
     let args = get_dummy_new_wallet_args()?;
     poll_new_wallet_to_completion(&account, &args).await?;
 
-    insert_scalar_to_ark_merkle_tree(
-        &args.statement.private_shares_commitment,
-        &mut ark_merkle_tree,
-        0,
-    )?;
+    let wallet_commitment = compute_wallet_commitment_from_private(
+        args.statement.public_wallet_shares,
+        args.statement.private_shares_commitment,
+    );
+    insert_scalar_to_ark_merkle_tree(&wallet_commitment, &mut ark_merkle_tree, 0)?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
