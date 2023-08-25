@@ -11,18 +11,6 @@ use renegade_contracts::verifier::types::{
 const DUMMY_ROOT_INNER: felt252 = 'DUMMY_ROOT';
 const DUMMY_WALLET_BLINDER_TX: felt252 = 'DUMMY_WALLET_BLINDER_TX';
 
-fn serialized_element<T, impl TSerde: Serde<T>, impl TDestruct: Destruct<T>>(
-    value: T
-) -> Span<felt252> {
-    let mut arr = Default::default();
-    value.serialize(ref arr);
-    arr.span()
-}
-
-fn single_deserialize<T, impl TSerde: Serde<T>>(ref data: Span<felt252>) -> T {
-    Serde::deserialize(ref data).expect('missing data')
-}
-
 fn get_dummy_proof() -> Proof {
     let basepoint = ec_point_from_x(1).unwrap();
 
