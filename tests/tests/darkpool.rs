@@ -15,9 +15,9 @@ use tests::{
         balance_of, get_dummy_new_wallet_args, get_dummy_process_match_args,
         get_dummy_update_wallet_args, get_wallet_blinder_transaction, is_nullifier_available,
         poll_new_wallet_to_completion, poll_process_match_to_completion,
-        poll_update_wallet_to_completion, setup_darkpool_test, upgrade, DARKPOOL_ADDRESS,
-        DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
-        UPGRADE_TARGET_CLASS_HASH,
+        poll_update_wallet_to_completion, process_match, setup_darkpool_test, update_wallet,
+        upgrade, DARKPOOL_ADDRESS, DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE,
+        TRANSFER_AMOUNT, UPGRADE_TARGET_CLASS_HASH,
     },
     utils::{assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree},
 };
@@ -263,6 +263,44 @@ async fn test_process_match_nullifiers() -> Result<()> {
         )
         .await?
     );
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_double_update_wallet() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
+    let account = sequencer.account();
+
+    let old_wallet = INITIAL_WALLET.clone();
+    let mut new_wallet = INITIAL_WALLET.clone();
+    new_wallet.orders[0] = Order::default();
+    let external_transfer = ExternalTransfer::default();
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
+
+    update_wallet(&account, &args).await?;
+    // Second call to update_wallet should fail because the `old_shares_nullifier`
+    // should already be marked as in progress
+    assert!(update_wallet(&account, &args).await.is_err());
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_double_process_match() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
+    let account = sequencer.account();
+
+    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
+
+    process_match(&account, &args).await?;
+    // Second call to update_wallet should fail because the `original_shares_nullifier`s
+    // should already be marked as in progress
+    assert!(process_match(&account, &args).await.is_err());
 
     global_teardown(sequencer);
 

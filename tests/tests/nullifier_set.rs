@@ -3,11 +3,10 @@ use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;
 use tests::{
     nullifier_set::utils::{
-        mark_nullifier_in_progress, mark_nullifier_used, FUZZ_ROUNDS, NULLIFIER_SET_ADDRESS,
+        is_nullifier_in_use, is_nullifier_spent, mark_nullifier_in_use, mark_nullifier_spent,
+        FUZZ_ROUNDS, NULLIFIER_SET_ADDRESS,
     },
-    utils::{
-        global_teardown, is_nullifier_in_progress, is_nullifier_used, setup_sequencer, TestConfig,
-    },
+    utils::{global_teardown, setup_sequencer, TestConfig},
 };
 
 #[tokio::test]
@@ -32,20 +31,19 @@ async fn test_nullifier_set_fuzz() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_in_progress_nullifier_set_fuzz() -> Result<()> {
+async fn test_in_use_nullifier_set_fuzz() -> Result<()> {
     let sequencer = setup_sequencer(TestConfig::NullifierSet).await?;
     let account = sequencer.account();
 
     for _ in 0..FUZZ_ROUNDS {
         let nullifier = Scalar::random(&mut thread_rng());
         assert!(
-            !is_nullifier_in_progress(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
+            !is_nullifier_in_use(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
                 .await?
         );
-        mark_nullifier_in_progress(&account, nullifier).await?;
+        mark_nullifier_in_use(&account, nullifier).await?;
         assert!(
-            is_nullifier_in_progress(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier)
-                .await?
+            is_nullifier_in_use(&account, *NULLIFIER_SET_ADDRESS.get().unwrap(), nullifier).await?
         );
     }
 
