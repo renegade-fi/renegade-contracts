@@ -106,12 +106,14 @@ mod Darkpool {
         replace_class_syscall, contract_address::ContractAddressZeroable,
     };
 
+    use alexandria_data_structures::array_ext::ArrayTraitExt;
+
     use renegade_contracts::{
         verifier::{
             scalar::Scalar, types::{Proof, CircuitParams}, IVerifierDispatcher,
             IVerifierDispatcherTrait
         },
-        merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
+        merkle::{poseidon::poseidon_hash, IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::{
             serde::EcPointSerde, storage::StoreSerdeWrapper, crypto::append_statement_commitments,
@@ -484,7 +486,7 @@ mod Darkpool {
             // Store callback elements
             let callback_elems = NewWalletCallbackElems {
                 wallet_blinder_share,
-                // The first element of the statement is the commitment to the private shares
+                public_wallet_shares: statement.public_wallet_shares,
                 private_shares_commitment: statement.private_shares_commitment,
                 tx_hash: get_tx_info().unbox().transaction_hash
             };
@@ -515,14 +517,21 @@ mod Darkpool {
                 Option::Some(success) => {
                     if success {
                         // Callback logic
-                        let callback_elems = self
+                        let mut callback_elems = self
                             .new_wallet_callback_elems
                             .read(verification_job_id)
                             .inner;
 
                         // Insert the new wallet's commitment into the Merkle tree
+                        let mut hash_input = ArrayTrait::new();
+                        hash_input.append(callback_elems.private_shares_commitment);
+                        hash_input.append_all(ref callback_elems.public_wallet_shares);
+                        let total_shares_commitment = *poseidon_hash(
+                            hash_input.span(), 1 // num_elements
+                        )[0];
+
                         let merkle_tree = _get_merkle_tree(@self);
-                        let new_root = merkle_tree.insert(callback_elems.private_shares_commitment);
+                        let new_root = merkle_tree.insert(total_shares_commitment);
 
                         // Mark wallet as updated
                         _mark_wallet_updated(
