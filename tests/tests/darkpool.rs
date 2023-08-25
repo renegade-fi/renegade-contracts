@@ -79,11 +79,11 @@ async fn test_update_wallet_root() -> Result<()> {
     let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
-    insert_scalar_to_ark_merkle_tree(
-        &args.statement.new_private_shares_commitment,
-        &mut ark_merkle_tree,
-        0,
-    )?;
+    let wallet_commitment = compute_wallet_commitment_from_private(
+        args.statement.new_public_shares,
+        args.statement.new_private_shares_commitment,
+    );
+    insert_scalar_to_ark_merkle_tree(&wallet_commitment, &mut ark_merkle_tree, 0)?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 

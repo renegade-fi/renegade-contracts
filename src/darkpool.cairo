@@ -585,6 +585,7 @@ mod Darkpool {
             let callback_elems = UpdateWalletCallbackElems {
                 wallet_blinder_share,
                 old_shares_nullifier: statement.old_shares_nullifier,
+                new_public_shares: statement.new_public_shares,
                 new_private_shares_commitment: statement.new_private_shares_commitment,
                 external_transfer,
                 tx_hash: get_tx_info().unbox().transaction_hash
@@ -615,7 +616,7 @@ mod Darkpool {
             match verified {
                 Option::Some(success) => {
                     let nullifier_set = _get_nullifier_set(@self);
-                    let callback_elems = self
+                    let mut callback_elems = self
                         .update_wallet_callback_elems
                         .read(verification_job_id)
                         .inner;
@@ -624,9 +625,15 @@ mod Darkpool {
                         // Callback logic
 
                         // Insert the updated wallet's commitment into the Merkle tree
+                        let mut hash_input = ArrayTrait::new();
+                        hash_input.append(callback_elems.new_private_shares_commitment);
+                        hash_input.append_all(ref callback_elems.new_public_shares);
+                        let total_shares_commitment = *poseidon_hash(
+                            hash_input.span(), 1 // num_elements
+                        )[0];
+
                         let merkle_tree = _get_merkle_tree(@self);
-                        let new_root = merkle_tree
-                            .insert(callback_elems.new_private_shares_commitment);
+                        let new_root = merkle_tree.insert(total_shares_commitment);
 
                         // Add the old shares nullifier to the spent nullifier set
                         nullifier_set.mark_nullifier_spent(callback_elems.old_shares_nullifier);

@@ -83,6 +83,7 @@ struct NewWalletCallbackElems {
 struct UpdateWalletCallbackElems {
     wallet_blinder_share: Scalar,
     old_shares_nullifier: Scalar,
+    new_public_shares: Array<Scalar>,
     new_private_shares_commitment: Scalar,
     external_transfer: Option<ExternalTransfer>,
     tx_hash: felt252,
