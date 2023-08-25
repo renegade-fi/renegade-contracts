@@ -80,10 +80,10 @@ fn test_upgrade_nullifier_set() {
     let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
 
     darkpool.upgrade_nullifier_set(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
-    assert(darkpool.is_nullifier_used(0.into()), 'upgrade target wrong result');
+    assert(!darkpool.is_nullifier_available(0.into()), 'upgrade target wrong result');
 
     darkpool.upgrade_nullifier_set(NullifierSet::TEST_CLASS_HASH.try_into().unwrap());
-    assert(!darkpool.is_nullifier_used(0.into()), 'original target wrong result');
+    assert(darkpool.is_nullifier_available(0.into()), 'original target wrong result');
 }
 
 #[test]

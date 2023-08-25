@@ -51,8 +51,7 @@ trait IDarkpool<TContractState> {
     ) -> felt252;
     fn get_root(self: @TContractState) -> Scalar;
     fn root_in_history(self: @TContractState, root: Scalar) -> bool;
-    fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
-    fn is_nullifier_in_progress(self: @TContractState, nullifier: Scalar) -> bool;
+    fn is_nullifier_available(self: @TContractState, nullifier: Scalar) -> bool;
     fn check_verification_job_status(
         self: @TContractState, circuit: Circuit, verification_job_id: felt252
     ) -> Option<bool>;
@@ -431,23 +430,15 @@ mod Darkpool {
             _get_merkle_tree(self).root_in_history(root)
         }
 
-        /// Returns whether a given nullifier has already been used
+        /// Returns whether a given nullifier has already been spent or is in use
         /// Parameters:
         /// - `nullifier`: The nullifier to check the set for
         /// Returns:
-        /// - A boolean indicating whether or not the nullifier is used
-        fn is_nullifier_used(self: @ContractState, nullifier: Scalar) -> bool {
-            _get_nullifier_set(self).is_nullifier_used(nullifier)
-        }
-
-        /// Returns whether a given nullifier is currently being used in an
-        /// in-progress verification job
-        /// Parameters:
-        /// - `nullifier`: The nullifier to check the set for
-        /// Returns:
-        /// - A boolean indicating whether or not the nullifier is in progress
-        fn is_nullifier_in_progress(self: @ContractState, nullifier: Scalar) -> bool {
-            _get_nullifier_set(self).is_nullifier_in_progress(nullifier)
+        /// - `true` if the nullifier is neither spent, nor in use, `false` otherwise`
+        fn is_nullifier_available(self: @ContractState, nullifier: Scalar) -> bool {
+            let nullifier_set = _get_nullifier_set(self);
+            !(nullifier_set.is_nullifier_spent(nullifier)
+                || nullifier_set.is_nullifier_in_use(nullifier))
         }
 
         /// Returns the status of the given verification job
@@ -563,14 +554,8 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
-            // Assert that the `old_shares_nullifier` is not already spent
-            let nullifier_set = _get_nullifier_set(@self);
-            assert(
-                !nullifier_set.is_nullifier_used(statement.old_shares_nullifier),
-                'nullifier already used'
-            );
-            // Insert the `old_shares_nullifier` into the in-progress nullifier set
-            nullifier_set.mark_nullifier_in_progress(statement.old_shares_nullifier);
+            // Mark the `old_shares_nullifier` as in use
+            _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
 
             let verifier = _get_verifier(@self, Circuit::ValidWalletUpdate(()));
 
@@ -635,7 +620,7 @@ mod Darkpool {
                             .insert(callback_elems.new_private_shares_commitment);
 
                         // Add the old shares nullifier to the spent nullifier set
-                        nullifier_set.mark_nullifier_used(callback_elems.old_shares_nullifier);
+                        nullifier_set.mark_nullifier_spent(callback_elems.old_shares_nullifier);
 
                         // Process the external transfer
                         match callback_elems.external_transfer {
@@ -653,8 +638,7 @@ mod Darkpool {
                         Option::Some(Result::Ok(new_root))
                     } else {
                         // Verification failed
-                        nullifier_set
-                            .mark_nullifier_not_in_progress(callback_elems.old_shares_nullifier);
+                        nullifier_set.mark_nullifier_unused(callback_elems.old_shares_nullifier);
                         Option::Some(Result::Err('verification failed'))
                     }
                 },
@@ -681,29 +665,14 @@ mod Darkpool {
             valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) {
-            // Assert that the `original_shares_nullifier`s are not already spent
+            // Mark the `original_shares_nullifier`s as in use
             let nullifier_set = _get_nullifier_set(@self);
-            assert(
-                !nullifier_set
-                    .is_nullifier_used(
-                        party_0_payload.valid_reblind_statement.original_shares_nullifier
-                    ),
-                'nullifier already used'
-            );
-            assert(
-                !nullifier_set
-                    .is_nullifier_used(
-                        party_1_payload.valid_reblind_statement.original_shares_nullifier
-                    ),
-                'nullifier already used'
-            );
-            // Insert the `original_shares_nullifier`s into the in-progress nullifier set
             nullifier_set
-                .mark_nullifier_in_progress(
+                .mark_nullifier_in_use(
                     party_0_payload.valid_reblind_statement.original_shares_nullifier
                 );
             nullifier_set
-                .mark_nullifier_in_progress(
+                .mark_nullifier_in_use(
                     party_1_payload.valid_reblind_statement.original_shares_nullifier
                 );
 
@@ -913,9 +882,9 @@ mod Darkpool {
 
                         // Insert both parties' old shares nullifiers to the spent nullifier set
                         nullifier_set
-                            .mark_nullifier_used(callback_elems.party_0_original_shares_nullifier);
+                            .mark_nullifier_spent(callback_elems.party_0_original_shares_nullifier);
                         nullifier_set
-                            .mark_nullifier_used(callback_elems.party_1_original_shares_nullifier);
+                            .mark_nullifier_spent(callback_elems.party_1_original_shares_nullifier);
 
                         // Insert both partes' updated wallet commitments to the merkle tree
                         let merkle_tree = _get_merkle_tree(@self);
@@ -940,11 +909,11 @@ mod Darkpool {
                     } else {
                         // Verification failed
                         nullifier_set
-                            .mark_nullifier_not_in_progress(
+                            .mark_nullifier_unused(
                                 callback_elems.party_0_original_shares_nullifier
                             );
                         nullifier_set
-                            .mark_nullifier_not_in_progress(
+                            .mark_nullifier_unused(
                                 callback_elems.party_1_original_shares_nullifier
                             );
                         Option::Some(Result::Err('verification failed'))

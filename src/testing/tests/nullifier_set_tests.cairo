@@ -12,14 +12,14 @@ fn test_valid_nullifier_basic() {
 
     let nullifier = 1.into();
 
-    // Check that nullifier is initially unused
-    assert(!nullifier_set.is_nullifier_used(nullifier), 'nullifier should be unused');
+    // Check that nullifier is initially unspent
+    assert(!nullifier_set.is_nullifier_spent(nullifier), 'nullifier should be unspent');
 
-    // Mark nullifier as used
-    nullifier_set.mark_nullifier_used(nullifier);
+    // Mark nullifier as spent
+    nullifier_set.mark_nullifier_spent(nullifier);
 
-    // Check that nullifier is now used
-    assert(nullifier_set.is_nullifier_used(nullifier), 'nullifier should be used');
+    // Check that nullifier is now spent
+    assert(nullifier_set.is_nullifier_spent(nullifier), 'nullifier should be spent');
 }
 
 #[test]
@@ -29,14 +29,14 @@ fn test_valid_nullifier_in_progress_basic() {
 
     let nullifier = 1.into();
 
-    // Check that nullifier is initially not in progress
-    assert(!nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier already in progress');
+    // Check that nullifier is initially not in use
+    assert(!nullifier_set.is_nullifier_in_use(nullifier), 'nullifier already in use');
 
-    // Mark nullifier as in progress
-    nullifier_set.mark_nullifier_in_progress(nullifier);
+    // Mark nullifier as in use
+    nullifier_set.mark_nullifier_in_use(nullifier);
 
-    // Check that nullifier is now in progress
-    assert(nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier not in progress');
+    // Check that nullifier is now in use
+    assert(nullifier_set.is_nullifier_in_use(nullifier), 'nullifier not in use');
 }
 
 #[test]
@@ -47,11 +47,11 @@ fn test_invalid_nullifier_basic() {
 
     let nullifier = 1.into();
 
-    // Mark nullifier as used
-    nullifier_set.mark_nullifier_used(nullifier);
+    // Mark nullifier as spent
+    nullifier_set.mark_nullifier_spent(nullifier);
 
-    // Try marking nullifier as used (again)
-    nullifier_set.mark_nullifier_used(nullifier);
+    // Try marking nullifier as spent (again)
+    nullifier_set.mark_nullifier_spent(nullifier);
 }
 
 #[test]
@@ -62,11 +62,11 @@ fn test_invalid_nullifier_in_progress_basic() {
 
     let nullifier = 1.into();
 
-    // Mark nullifier as in progress
-    nullifier_set.mark_nullifier_in_progress(nullifier);
+    // Mark nullifier as in use
+    nullifier_set.mark_nullifier_in_use(nullifier);
 
-    // Try marking nullifier as in progress (again)
-    nullifier_set.mark_nullifier_in_progress(nullifier);
+    // Try marking nullifier as in use (again)
+    nullifier_set.mark_nullifier_in_use(nullifier);
 }
 
 #[test]
@@ -76,21 +76,21 @@ fn test_valid_nullifier_in_progress_to_spent_basic() {
 
     let nullifier = 1.into();
 
-    // Check that nullifier is initially not spent or in progress
-    assert(!nullifier_set.is_nullifier_used(nullifier), 'nullifier already spent');
-    assert(!nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier already in progress');
+    // Check that nullifier is initially not spent or in use
+    assert(!nullifier_set.is_nullifier_spent(nullifier), 'nullifier already spent');
+    assert(!nullifier_set.is_nullifier_in_use(nullifier), 'nullifier already in use');
 
-    // Mark nullifier as in progress
-    nullifier_set.mark_nullifier_in_progress(nullifier);
+    // Mark nullifier as in use
+    nullifier_set.mark_nullifier_in_use(nullifier);
 
-    // Check that nullifier is in progress, and not spent
-    assert(nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier not in progress');
-    assert(!nullifier_set.is_nullifier_used(nullifier), 'nullifier already spent');
+    // Check that nullifier is in use, and not spent
+    assert(nullifier_set.is_nullifier_in_use(nullifier), 'nullifier not in use');
+    assert(!nullifier_set.is_nullifier_spent(nullifier), 'nullifier already spent');
 
     // Mark nullifier as spent
-    nullifier_set.mark_nullifier_used(nullifier);
+    nullifier_set.mark_nullifier_spent(nullifier);
 
-    // Check that nullifier is spent, and not in progress
-    assert(nullifier_set.is_nullifier_used(nullifier), 'nullifier not spent');
-    assert(!nullifier_set.is_nullifier_in_progress(nullifier), 'nullifier still in progress');
+    // Check that nullifier is spent, and not in use
+    assert(nullifier_set.is_nullifier_spent(nullifier), 'nullifier not spent');
+    assert(!nullifier_set.is_nullifier_in_use(nullifier), 'nullifier still in use');
 }
