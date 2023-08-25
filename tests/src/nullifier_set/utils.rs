@@ -16,8 +16,8 @@ use crate::utils::{
 
 pub const FUZZ_ROUNDS: usize = 100;
 
-pub const IS_NULLIFIER_SPENT_FN_NAME: &str = "is_nullifier_spent";
-const MARK_NULLIFIER_SPENT_FN_NAME: &str = "mark_nullifier_spent";
+const MARK_NULLIFIER_USED_FN_NAME: &str = "mark_nullifier_used";
+const MARK_NULLIFIER_IN_PROGRESS_FN_NAME: &str = "mark_nullifier_in_progress";
 
 pub static NULLIFIER_SET_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -78,6 +78,18 @@ pub async fn mark_nullifier_spent(account: &ScriptAccount, nullifier: Scalar) ->
         account,
         *NULLIFIER_SET_ADDRESS.get().unwrap(),
         MARK_NULLIFIER_SPENT_FN_NAME,
+        vec![nullifier_felt],
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn mark_nullifier_in_progress(account: &ScriptAccount, nullifier: Scalar) -> Result<()> {
+    let nullifier_felt = scalar_to_felt(&nullifier);
+    invoke_contract(
+        account,
+        *NULLIFIER_SET_ADDRESS.get().unwrap(),
+        MARK_NULLIFIER_IN_PROGRESS_FN_NAME,
         vec![nullifier_felt],
     )
     .await
