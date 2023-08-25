@@ -24,7 +24,7 @@ fn test_valid_nullifier_basic() {
 
 #[test]
 #[available_gas(300000)]
-fn test_valid_nullifier_in_progress_basic() {
+fn test_valid_nullifier_in_use_basic() {
     let mut nullifier_set = NullifierSet::contract_state_for_testing();
 
     let nullifier = 1.into();
@@ -57,7 +57,7 @@ fn test_invalid_nullifier_basic() {
 #[test]
 #[available_gas(300000)]
 #[should_panic]
-fn test_invalid_nullifier_in_progress_basic() {
+fn test_invalid_nullifier_in_use_basic() {
     let mut nullifier_set = NullifierSet::contract_state_for_testing();
 
     let nullifier = 1.into();

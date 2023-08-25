@@ -16,8 +16,10 @@ use crate::utils::{
 
 pub const FUZZ_ROUNDS: usize = 100;
 
-const MARK_NULLIFIER_USED_FN_NAME: &str = "mark_nullifier_used";
-const MARK_NULLIFIER_IN_PROGRESS_FN_NAME: &str = "mark_nullifier_in_progress";
+const IS_NULLIFIER_SPENT_FN_NAME: &str = "is_nullifier_spent";
+const IS_NULLIFIER_IN_USE_FN_NAME: &str = "is_nullifier_in_use";
+const MARK_NULLIFIER_SPENT_FN_NAME: &str = "mark_nullifier_spent";
+const MARK_NULLIFIER_IN_USE_FN_NAME: &str = "mark_nullifier_in_use";
 
 pub static NULLIFIER_SET_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
@@ -72,6 +74,22 @@ pub async fn is_nullifier_spent(
     .map(|r| r[0] == FieldElement::ONE)
 }
 
+pub async fn is_nullifier_in_use(
+    account: &ScriptAccount,
+    contract_address: FieldElement,
+    nullifier: Scalar,
+) -> Result<bool> {
+    let nullifier_felt = scalar_to_felt(&nullifier);
+    call_contract(
+        account,
+        contract_address,
+        IS_NULLIFIER_IN_USE_FN_NAME,
+        vec![nullifier_felt],
+    )
+    .await
+    .map(|r| r[0] == FieldElement::ONE)
+}
+
 pub async fn mark_nullifier_spent(account: &ScriptAccount, nullifier: Scalar) -> Result<()> {
     let nullifier_felt = scalar_to_felt(&nullifier);
     invoke_contract(
@@ -84,12 +102,12 @@ pub async fn mark_nullifier_spent(account: &ScriptAccount, nullifier: Scalar) ->
     .map(|_| ())
 }
 
-pub async fn mark_nullifier_in_progress(account: &ScriptAccount, nullifier: Scalar) -> Result<()> {
+pub async fn mark_nullifier_in_use(account: &ScriptAccount, nullifier: Scalar) -> Result<()> {
     let nullifier_felt = scalar_to_felt(&nullifier);
     invoke_contract(
         account,
         *NULLIFIER_SET_ADDRESS.get().unwrap(),
-        MARK_NULLIFIER_IN_PROGRESS_FN_NAME,
+        MARK_NULLIFIER_IN_USE_FN_NAME,
         vec![nullifier_felt],
     )
     .await
