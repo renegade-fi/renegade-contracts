@@ -52,6 +52,7 @@ trait IDarkpool<TContractState> {
     fn get_root(self: @TContractState) -> Scalar;
     fn root_in_history(self: @TContractState, root: Scalar) -> bool;
     fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
+    fn is_nullifier_in_progress(self: @TContractState, nullifier: Scalar) -> bool;
     fn check_verification_job_status(
         self: @TContractState, circuit: Circuit, verification_job_id: felt252
     ) -> Option<bool>;
@@ -439,6 +440,16 @@ mod Darkpool {
             _get_nullifier_set(self).is_nullifier_used(nullifier)
         }
 
+        /// Returns whether a given nullifier is currently being used in an
+        /// in-progress verification job
+        /// Parameters:
+        /// - `nullifier`: The nullifier to check the set for
+        /// Returns:
+        /// - A boolean indicating whether or not the nullifier is in progress
+        fn is_nullifier_in_progress(self: @ContractState, nullifier: Scalar) -> bool {
+            _get_nullifier_set(self).is_nullifier_in_progress(nullifier)
+        }
+
         /// Returns the status of the given verification job
         /// Parameters:
         /// - `verification_job_id`: The ID of the verification job to check
@@ -609,12 +620,14 @@ mod Darkpool {
 
             match verified {
                 Option::Some(success) => {
+                    let nullifier_set = _get_nullifier_set(@self);
+                    let callback_elems = self
+                        .update_wallet_callback_elems
+                        .read(verification_job_id)
+                        .inner;
+
                     if success {
                         // Callback logic
-                        let callback_elems = self
-                            .update_wallet_callback_elems
-                            .read(verification_job_id)
-                            .inner;
 
                         // Insert the updated wallet's commitment into the Merkle tree
                         let merkle_tree = _get_merkle_tree(@self);
@@ -622,7 +635,6 @@ mod Darkpool {
                             .insert(callback_elems.new_private_shares_commitment);
 
                         // Add the old shares nullifier to the spent nullifier set
-                        let nullifier_set = _get_nullifier_set(@self);
                         nullifier_set.mark_nullifier_used(callback_elems.old_shares_nullifier);
 
                         // Process the external transfer
@@ -641,6 +653,8 @@ mod Darkpool {
                         Option::Some(Result::Ok(new_root))
                     } else {
                         // Verification failed
+                        nullifier_set
+                            .mark_nullifier_not_in_progress(callback_elems.old_shares_nullifier);
                         Option::Some(Result::Err('verification failed'))
                     }
                 },
@@ -888,17 +902,16 @@ mod Darkpool {
 
             match all_verified {
                 Option::Some(success) => {
-                    if !success {
-                        Option::Some(Result::Err('verification failed'))
-                    } else {
+                    let nullifier_set = _get_nullifier_set(@self);
+                    let callback_elems = self
+                        .process_match_callback_elems
+                        .read(*verification_job_ids[0])
+                        .inner;
+
+                    if success {
                         // Callback logic
-                        let callback_elems = self
-                            .process_match_callback_elems
-                            .read(*verification_job_ids[0])
-                            .inner;
 
                         // Insert both parties' old shares nullifiers to the spent nullifier set
-                        let nullifier_set = _get_nullifier_set(@self);
                         nullifier_set
                             .mark_nullifier_used(callback_elems.party_0_original_shares_nullifier);
                         nullifier_set
@@ -924,6 +937,17 @@ mod Darkpool {
                         );
 
                         Option::Some(Result::Ok(new_root))
+                    } else {
+                        // Verification failed
+                        nullifier_set
+                            .mark_nullifier_not_in_progress(
+                                callback_elems.party_0_original_shares_nullifier
+                            );
+                        nullifier_set
+                            .mark_nullifier_not_in_progress(
+                                callback_elems.party_1_original_shares_nullifier
+                            );
+                        Option::Some(Result::Err('verification failed'))
                     }
                 },
                 Option::None(()) => Option::None(()),

@@ -7,6 +7,7 @@ trait INullifierSet<TContractState> {
     fn is_nullifier_in_progress(self: @TContractState, nullifier: Scalar) -> bool;
     fn mark_nullifier_used(ref self: TContractState, nullifier: Scalar);
     fn mark_nullifier_in_progress(ref self: TContractState, nullifier: Scalar);
+    fn mark_nullifier_not_in_progress(ref self: TContractState, nullifier: Scalar);
 }
 
 #[starknet::contract]
@@ -73,18 +74,18 @@ mod NullifierSet {
             self.nullifier_in_progress_set.read(nullifier)
         }
 
-        /// Marks the given nullifier as used, asserts that it has not already been used
-        /// or is being used in an in-progress verification job
+        /// Marks the given nullifier as used and no longer in progress, asserts that it has not
+        /// already been used or is being used in an in-progress verification job
         /// Parameters:
         /// - `nullifier`: The nullifier value to mark as used
         fn mark_nullifier_used(ref self: ContractState, nullifier: Scalar) {
             // Assert that the nullifier hasn't already been used
             assert(!self.nullifier_spent_set.read(nullifier), 'nullifier already spent');
-            // Assert that the nullifier isn't being used in an in-progress verification job
-            assert(!self.nullifier_in_progress_set.read(nullifier), 'nullifier in progress');
 
-            // Add to set
+            // Add to spent set
             self.nullifier_spent_set.write(nullifier, true);
+            // Remove from in-progress set
+            self.nullifier_in_progress_set.write(nullifier, false);
 
             // Emit event
             self.emit(Event::NullifierSpent(NullifierSpent { nullifier }));
@@ -93,7 +94,7 @@ mod NullifierSet {
         /// Marks the given nullifier as used, asserts that it has not already been used
         /// or is being used in an in-progress verification job
         /// Parameters:
-        /// - `nullifier`: The nullifier value to mark as in-progress
+        /// - `nullifier`: The nullifier value to mark as in progress
         fn mark_nullifier_in_progress(ref self: ContractState, nullifier: Scalar) {
             // Assert that the nullifier hasn't already been used
             assert(!self.nullifier_spent_set.read(nullifier), 'nullifier already spent');
@@ -105,6 +106,17 @@ mod NullifierSet {
 
             // Emit event
             self.emit(Event::NullifierInProgress(NullifierInProgress { nullifier }));
+        }
+
+        /// Marks the given nullifier as no longer in progress.
+        /// Parameters:
+        /// - `nullifier`: The nullifier value to mark as not in progress
+        fn mark_nullifier_not_in_progress(ref self: ContractState, nullifier: Scalar) {
+            // Assert that the nullifier hasn't already been used
+            assert(!self.nullifier_spent_set.read(nullifier), 'nullifier already spent');
+
+            // Remove from set
+            self.nullifier_in_progress_set.write(nullifier, false);
         }
     }
 }
