@@ -298,7 +298,6 @@ fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Res
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub const IS_NULLIFIER_USED_FN_NAME: &str = "is_nullifier_used";
 pub const GET_ROOT_FN_NAME: &str = "get_root";
 
 pub async fn call_contract(
@@ -344,22 +343,6 @@ pub async fn get_root(account: &ScriptAccount, contract_address: FieldElement) -
     call_contract(account, contract_address, GET_ROOT_FN_NAME, vec![])
         .await
         .map(|r| felt_to_scalar(&r[0]))
-}
-
-pub async fn is_nullifier_used(
-    account: &ScriptAccount,
-    contract_address: FieldElement,
-    nullifier: Scalar,
-) -> Result<bool> {
-    let nullifier_felt = scalar_to_felt(&nullifier);
-    call_contract(
-        account,
-        contract_address,
-        IS_NULLIFIER_USED_FN_NAME,
-        vec![nullifier_felt],
-    )
-    .await
-    .map(|r| r[0] == FieldElement::ONE)
 }
 
 // ----------------

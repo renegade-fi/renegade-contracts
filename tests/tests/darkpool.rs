@@ -13,16 +13,13 @@ use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
         balance_of, get_dummy_new_wallet_args, get_dummy_process_match_args,
-        get_dummy_update_wallet_args, get_wallet_blinder_transaction,
+        get_dummy_update_wallet_args, get_wallet_blinder_transaction, is_nullifier_available,
         poll_new_wallet_to_completion, poll_process_match_to_completion,
         poll_update_wallet_to_completion, setup_darkpool_test, upgrade, DARKPOOL_ADDRESS,
         DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE, TRANSFER_AMOUNT,
         UPGRADE_TARGET_CLASS_HASH,
     },
-    utils::{
-        assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree,
-        is_nullifier_used,
-    },
+    utils::{assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree},
 };
 
 // ---------------------
@@ -209,25 +206,11 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
     let external_transfer = ExternalTransfer::default();
     let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
 
-    assert!(
-        !is_nullifier_used(
-            &account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
-            args.statement.old_shares_nullifier
-        )
-        .await?
-    );
+    assert!(is_nullifier_available(&account, args.statement.old_shares_nullifier).await?);
 
     poll_update_wallet_to_completion(&account, &args).await?;
 
-    assert!(
-        is_nullifier_used(
-            &account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
-            args.statement.old_shares_nullifier
-        )
-        .await?
-    );
+    assert!(!is_nullifier_available(&account, args.statement.old_shares_nullifier).await?);
 
     global_teardown(sequencer);
 
@@ -242,9 +225,8 @@ async fn test_process_match_nullifiers() -> Result<()> {
     let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
 
     assert!(
-        !is_nullifier_used(
+        is_nullifier_available(
             &account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
             args.party_0_match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier
@@ -252,9 +234,8 @@ async fn test_process_match_nullifiers() -> Result<()> {
         .await?
     );
     assert!(
-        !is_nullifier_used(
+        is_nullifier_available(
             &account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
             args.party_1_match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier
@@ -265,9 +246,8 @@ async fn test_process_match_nullifiers() -> Result<()> {
     poll_process_match_to_completion(&account, &args).await?;
 
     assert!(
-        is_nullifier_used(
+        !is_nullifier_available(
             &account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
             args.party_0_match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier
@@ -275,9 +255,8 @@ async fn test_process_match_nullifiers() -> Result<()> {
         .await?
     );
     assert!(
-        is_nullifier_used(
+        !is_nullifier_available(
             &account,
-            *DARKPOOL_ADDRESS.get().unwrap(),
             args.party_1_match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier
@@ -412,12 +391,8 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
 
     // Get storage elements (root, nullifier_used) after upgrade
     let post_upgrade_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
-    let old_shares_nullifier_used = is_nullifier_used(
-        &account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        args.statement.old_shares_nullifier,
-    )
-    .await?;
+    let old_shares_nullifier_used =
+        !is_nullifier_available(&account, args.statement.old_shares_nullifier).await?;
 
     assert_eq!(pre_upgrade_root, post_upgrade_root);
     assert!(old_shares_nullifier_used);

@@ -58,6 +58,7 @@ pub const TRANSFER_AMOUNT: u64 = 100;
 
 const INITIALIZE_VERIFIER_FN_NAME: &str = "initialize_verifier";
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
+const IS_NULLIFIER_AVAILABLE_FN_NAME: &str = "is_nullifier_available";
 const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
 const POLL_NEW_WALLET_FN_NAME: &str = "poll_new_wallet";
@@ -366,6 +367,17 @@ pub async fn get_wallet_blinder_transaction(
     )
     .await
     .map(|r| r[0])
+}
+
+pub async fn is_nullifier_available(account: &ScriptAccount, nullifier: Scalar) -> Result<bool> {
+    call_contract(
+        account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        IS_NULLIFIER_AVAILABLE_FN_NAME,
+        vec![scalar_to_felt(&nullifier)],
+    )
+    .await
+    .map(|r| r[0] == FieldElement::ONE)
 }
 
 pub async fn check_verification_job_status(

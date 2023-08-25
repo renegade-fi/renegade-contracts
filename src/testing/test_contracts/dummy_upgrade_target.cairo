@@ -9,7 +9,8 @@ trait IUpgradeTarget<TContractState> {
         self: @TContractState, wallet_blinder_share: Scalar
     ) -> felt252;
     fn get_root(self: @TContractState) -> Scalar;
-    fn is_nullifier_used(self: @TContractState, nullifier: Scalar) -> bool;
+    fn is_nullifier_spent(self: @TContractState, nullifier: Scalar) -> bool;
+    fn is_nullifier_in_use(self: @TContractState, nullifier: Scalar) -> bool;
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
     ) -> Option<bool>;
@@ -39,7 +40,11 @@ mod DummyUpgradeTarget {
             DUMMY_ROOT_INNER.into()
         }
 
-        fn is_nullifier_used(self: @ContractState, nullifier: Scalar) -> bool {
+        fn is_nullifier_spent(self: @ContractState, nullifier: Scalar) -> bool {
+            true
+        }
+
+        fn is_nullifier_in_use(self: @ContractState, nullifier: Scalar) -> bool {
             true
         }
 
