@@ -89,13 +89,15 @@ struct UpdateWalletCallbackElems {
     tx_hash: felt252,
 }
 
-#[derive(Drop, Serde, Copy)]
+#[derive(Drop, Serde, Clone)]
 struct ProcessMatchCallbackElems {
     party_0_wallet_blinder_share: Scalar,
     party_0_reblinded_private_shares_commitment: Scalar,
+    party_0_modified_shares: Array<Scalar>,
     party_0_original_shares_nullifier: Scalar,
     party_1_wallet_blinder_share: Scalar,
     party_1_reblinded_private_shares_commitment: Scalar,
+    party_1_modified_shares: Array<Scalar>,
     party_1_original_shares_nullifier: Scalar,
     tx_hash: felt252,
 }
