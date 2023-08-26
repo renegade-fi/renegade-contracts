@@ -135,22 +135,20 @@ async fn test_process_match_root() -> Result<()> {
     )?;
     poll_process_match_to_completion(&account, &args).await?;
 
-    insert_scalar_to_ark_merkle_tree(
-        &args
-            .party_0_match_payload
+    let party_0_wallet_commitment = compute_wallet_commitment_from_private(
+        args.valid_settle_statement.party0_modified_shares,
+        args.party_0_match_payload
             .valid_reblind_statement
             .reblinded_private_share_commitment,
-        &mut ark_merkle_tree,
-        0,
-    )?;
-    insert_scalar_to_ark_merkle_tree(
-        &args
-            .party_1_match_payload
+    );
+    insert_scalar_to_ark_merkle_tree(&party_0_wallet_commitment, &mut ark_merkle_tree, 0)?;
+    let party_1_wallet_commitment = compute_wallet_commitment_from_private(
+        args.valid_settle_statement.party1_modified_shares,
+        args.party_1_match_payload
             .valid_reblind_statement
             .reblinded_private_share_commitment,
-        &mut ark_merkle_tree,
-        1,
-    )?;
+    );
+    insert_scalar_to_ark_merkle_tree(&party_1_wallet_commitment, &mut ark_merkle_tree, 1)?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 

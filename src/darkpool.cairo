@@ -805,6 +805,7 @@ mod Darkpool {
                 party_0_reblinded_private_shares_commitment: party_0_payload
                     .valid_reblind_statement
                     .reblinded_private_shares_commitment,
+                party_0_modified_shares: valid_settle_statement.party0_modified_shares,
                 party_0_original_shares_nullifier: party_0_payload
                     .valid_reblind_statement
                     .original_shares_nullifier,
@@ -812,6 +813,7 @@ mod Darkpool {
                 party_1_reblinded_private_shares_commitment: party_1_payload
                     .valid_reblind_statement
                     .reblinded_private_shares_commitment,
+                party_1_modified_shares: valid_settle_statement.party1_modified_shares,
                 party_1_original_shares_nullifier: party_1_payload
                     .valid_reblind_statement
                     .original_shares_nullifier,
@@ -907,7 +909,7 @@ mod Darkpool {
             match all_verified {
                 Option::Some(success) => {
                     let nullifier_set = _get_nullifier_set(@self);
-                    let callback_elems = self
+                    let mut callback_elems = self
                         .process_match_callback_elems
                         .read(*verification_job_ids[0])
                         .inner;
@@ -922,11 +924,24 @@ mod Darkpool {
                             .mark_nullifier_spent(callback_elems.party_1_original_shares_nullifier);
 
                         // Insert both partes' updated wallet commitments to the merkle tree
+                        let mut party_0_hash_input = ArrayTrait::new();
+                        party_0_hash_input
+                            .append(callback_elems.party_0_reblinded_private_shares_commitment);
+                        party_0_hash_input.append_all(ref callback_elems.party_0_modified_shares);
+                        let party_0_total_shares_commitment = *poseidon_hash(
+                            party_0_hash_input.span(), 1 // num_elements
+                        )[0];
+                        let mut party_1_hash_input = ArrayTrait::new();
+                        party_1_hash_input
+                            .append(callback_elems.party_1_reblinded_private_shares_commitment);
+                        party_1_hash_input.append_all(ref callback_elems.party_1_modified_shares);
+                        let party_1_total_shares_commitment = *poseidon_hash(
+                            party_1_hash_input.span(), 1 // num_elements
+                        )[0];
+
                         let merkle_tree = _get_merkle_tree(@self);
-                        merkle_tree
-                            .insert(callback_elems.party_0_reblinded_private_shares_commitment);
-                        let new_root = merkle_tree
-                            .insert(callback_elems.party_1_reblinded_private_shares_commitment);
+                        merkle_tree.insert(party_0_total_shares_commitment);
+                        let new_root = merkle_tree.insert(party_1_total_shares_commitment);
 
                         // Mark wallet as updated
                         _mark_wallet_updated(
