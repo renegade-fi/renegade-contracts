@@ -2,9 +2,12 @@ use traits::Into;
 use array::ArrayTrait;
 
 use renegade_contracts::{
-    darkpool::statements::{
-        ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidReblindStatement,
-        ValidCommitmentsStatement, ValidSettleStatement
+    darkpool::{
+        statements::{
+            ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidReblindStatement,
+            ValidCommitmentsStatement, ValidSettleStatement
+        },
+        types::PublicSigningKey
     },
     verifier::scalar::Scalar
 };
@@ -222,12 +225,18 @@ fn dummy_public_wallet_shares() -> Array<Scalar> {
     public_wallet_shares
 }
 
-fn dummy_public_signing_key() -> Array<Scalar> {
-    // Public signing key is represented by 2 scalars
-    let mut public_signing_key = ArrayTrait::new();
+fn dummy_public_signing_key() -> PublicSigningKey {
+    // Public signing key coordinates are represented by 2 scalars
 
-    public_signing_key.append(DUMMY_VALUE.into());
-    public_signing_key.append(DUMMY_VALUE.into());
+    let mut x = ArrayTrait::new();
 
-    public_signing_key
+    x.append(DUMMY_VALUE.into());
+    x.append(DUMMY_VALUE.into());
+
+    let mut y = ArrayTrait::new();
+
+    y.append(DUMMY_VALUE.into());
+    y.append(DUMMY_VALUE.into());
+
+    PublicSigningKey { x, y }
 }
