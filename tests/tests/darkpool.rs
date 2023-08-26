@@ -9,7 +9,9 @@ use circuits::zk_circuits::{
     valid_settle::test_helpers::{MATCH_RES, WALLET1, WALLET2},
 };
 use eyre::Result;
+use mpc_stark::algebra::scalar::Scalar;
 use num_bigint::BigUint;
+use rand::thread_rng;
 use starknet::accounts::Account;
 use tests::{
     darkpool::utils::{
@@ -72,11 +74,13 @@ async fn test_update_wallet_root() -> Result<()> {
     let account = sequencer.account();
     let mut ark_merkle_tree = ark_merkle_tree.unwrap();
 
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
     let old_wallet = INITIAL_WALLET.clone();
     let mut new_wallet = INITIAL_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
+    let args =
+        get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
     let wallet_commitment = compute_wallet_commitment_from_private(
@@ -86,6 +90,30 @@ async fn test_update_wallet_root() -> Result<()> {
     insert_scalar_to_ark_merkle_tree(&wallet_commitment, &mut ark_merkle_tree, 0)?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_update_wallet_invalid_statement_root() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
+    let account = sequencer.account();
+
+    let old_wallet = INITIAL_WALLET.clone();
+    let new_wallet = INITIAL_WALLET.clone();
+    let external_transfer = ExternalTransfer::default();
+    let args = get_dummy_update_wallet_args(
+        old_wallet,
+        new_wallet,
+        external_transfer,
+        Scalar::random(&mut thread_rng()),
+    )?;
+
+    // The random merkle root in the dummy `update_wallet` args should not be
+    // a valid historical root
+    assert!(update_wallet(&account, &args).await.is_err());
 
     global_teardown(sequencer);
 
@@ -152,11 +180,13 @@ async fn test_update_wallet_last_modified() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
     let old_wallet = INITIAL_WALLET.clone();
     let mut new_wallet = INITIAL_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
+    let args =
+        get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
     let tx_hash = poll_update_wallet_to_completion(&account, &args).await?;
 
     let last_modified_tx =
@@ -201,11 +231,13 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
     let old_wallet = INITIAL_WALLET.clone();
     let mut new_wallet = INITIAL_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
+    let args =
+        get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
 
     assert!(is_nullifier_available(&account, args.statement.old_shares_nullifier).await?);
 
@@ -275,11 +307,12 @@ async fn test_double_update_wallet() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
     let old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
-    new_wallet.orders[0] = Order::default();
+    let new_wallet = INITIAL_WALLET.clone();
     let external_transfer = ExternalTransfer::default();
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
+    let args =
+        get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
 
     update_wallet(&account, &args).await?;
     // Second call to update_wallet should fail because the `old_shares_nullifier`
@@ -341,7 +374,8 @@ async fn test_update_wallet_deposit() -> Result<()> {
         account_addr: BigUint::from_bytes_be(&account.address().to_bytes_be()),
     };
 
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, transfer)?;
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, transfer, initial_root)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
     let account_balance = balance_of(&account, account.address()).await?;
@@ -386,7 +420,8 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
         account_addr: BigUint::from_bytes_be(&account.address().to_bytes_be()),
     };
 
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, transfer)?;
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, transfer, initial_root)?;
     poll_update_wallet_to_completion(&account, &args).await?;
 
     let account_balance = balance_of(&account, account.address()).await?;
@@ -412,11 +447,13 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
     let old_wallet = INITIAL_WALLET.clone();
     let mut new_wallet = INITIAL_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
-    let args = get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer)?;
+    let args =
+        get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
 
     poll_update_wallet_to_completion(&account, &args).await?;
 

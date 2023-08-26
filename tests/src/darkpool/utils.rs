@@ -662,16 +662,18 @@ pub fn get_dummy_update_wallet_args(
     old_wallet: SizedWallet,
     new_wallet: SizedWallet,
     external_transfer: ExternalTransfer,
+    merkle_root: Scalar,
 ) -> Result<UpdateWalletArgs> {
     debug!("Generating dummy update_wallet args...");
     let wallet_blinder_share = Scalar::random(&mut thread_rng());
 
-    let (_, statement) = construct_witness_statement::<
+    let (_, mut statement) = construct_witness_statement::<
         MAX_BALANCES,
         MAX_ORDERS,
         MAX_FEES,
         TEST_MERKLE_HEIGHT,
     >(old_wallet, new_wallet, external_transfer);
+    statement.merkle_root = merkle_root;
 
     let (_, proof) = singleprover_prove::<DummyValidWalletUpdate>((), statement.clone())?;
 
