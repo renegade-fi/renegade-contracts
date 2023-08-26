@@ -108,7 +108,7 @@ async fn test_update_wallet_invalid_statement_root() -> Result<()> {
         old_wallet,
         new_wallet,
         external_transfer,
-        Scalar::random(&mut thread_rng()),
+        Scalar::random(&mut thread_rng()), /* merkle_root */
     )?;
 
     // The random merkle root in the dummy `update_wallet` args should not be
@@ -126,7 +126,13 @@ async fn test_process_match_root() -> Result<()> {
     let account = sequencer.account();
     let mut ark_merkle_tree = ark_merkle_tree.unwrap();
 
-    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let args = get_dummy_process_match_args(
+        WALLET1.clone(),
+        WALLET2.clone(),
+        MATCH_RES.clone(),
+        initial_root,
+    )?;
     poll_process_match_to_completion(&account, &args).await?;
 
     insert_scalar_to_ark_merkle_tree(
@@ -147,6 +153,25 @@ async fn test_process_match_root() -> Result<()> {
     )?;
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_process_match_invalid_statement_root() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
+    let account = sequencer.account();
+
+    let args = get_dummy_process_match_args(
+        WALLET1.clone(),
+        WALLET2.clone(),
+        MATCH_RES.clone(),
+        Scalar::random(&mut thread_rng()), /* merkle_root */
+    )?;
+    // The random root in the dummy `MatchPayload`s should not be a valid historical root
+    assert!(process_match(&account, &args).await.is_err());
 
     global_teardown(sequencer);
 
@@ -204,7 +229,13 @@ async fn test_process_match_last_modified() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
-    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let args = get_dummy_process_match_args(
+        WALLET1.clone(),
+        WALLET2.clone(),
+        MATCH_RES.clone(),
+        initial_root,
+    )?;
     let tx_hash = poll_process_match_to_completion(&account, &args).await?;
 
     let party_0_last_modified_tx =
@@ -255,7 +286,13 @@ async fn test_process_match_nullifiers() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
-    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let args = get_dummy_process_match_args(
+        WALLET1.clone(),
+        WALLET2.clone(),
+        MATCH_RES.clone(),
+        initial_root,
+    )?;
 
     assert!(
         is_nullifier_available(
@@ -329,7 +366,13 @@ async fn test_double_process_match() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
-    let args = get_dummy_process_match_args(WALLET1.clone(), WALLET2.clone(), MATCH_RES.clone())?;
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let args = get_dummy_process_match_args(
+        WALLET1.clone(),
+        WALLET2.clone(),
+        MATCH_RES.clone(),
+        initial_root,
+    )?;
 
     process_match(&account, &args).await?;
     // Second call to update_wallet should fail because the `original_shares_nullifier`s

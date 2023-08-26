@@ -692,10 +692,11 @@ pub fn get_dummy_process_match_args(
     party0_wallet: SizedWallet,
     party1_wallet: SizedWallet,
     match_res: MatchResult,
+    merkle_root: Scalar,
 ) -> Result<ProcessMatchArgs> {
     debug!("Generating dummy process_match args...");
-    let party_0_match_payload = MatchPayload::dummy(&party0_wallet)?;
-    let party_1_match_payload = MatchPayload::dummy(&party1_wallet)?;
+    let party_0_match_payload = MatchPayload::dummy(&party0_wallet, merkle_root)?;
+    let party_1_match_payload = MatchPayload::dummy(&party1_wallet, merkle_root)?;
     let (valid_match_mpc_witness, valid_match_mpc_proof) =
         singleprover_prove::<DummyValidMatchMpc>(Scalar::from(DUMMY_VALUE), ())?;
     let (_, valid_settle_statement) =

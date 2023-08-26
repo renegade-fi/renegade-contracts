@@ -565,7 +565,10 @@ mod Darkpool {
         ) {
             // Assert that the merkle root for which inclusion is proven in `VALID WALLET UPDATE`
             // is a valid historical root
-            assert(_get_merkle_tree(@self).root_in_history(statement.merkle_root), 'invalid statement merkle root');
+            assert(
+                _get_merkle_tree(@self).root_in_history(statement.merkle_root),
+                'invalid statement merkle root'
+            );
 
             // Mark the `old_shares_nullifier` as in use
             _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
@@ -685,6 +688,18 @@ mod Darkpool {
             valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) {
+            // Assert that the merkle roots for which inclusion is proven in `VALID REBLIND`
+            // are valid historical roots
+            let merkle_tree = _get_merkle_tree(@self);
+            assert(
+                merkle_tree.root_in_history(party_0_payload.valid_reblind_statement.merkle_root),
+                'invalid statement merkle root'
+            );
+            assert(
+                merkle_tree.root_in_history(party_1_payload.valid_reblind_statement.merkle_root),
+                'invalid statement merkle root'
+            );
+
             // Mark the `original_shares_nullifier`s as in use
             let nullifier_set = _get_nullifier_set(@self);
             nullifier_set
