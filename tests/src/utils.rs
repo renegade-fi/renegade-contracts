@@ -431,14 +431,15 @@ pub struct MatchPayload {
 }
 
 impl MatchPayload {
-    pub fn dummy(wallet: &SizedWallet) -> Result<Self> {
+    pub fn dummy(wallet: &SizedWallet, merkle_root: Scalar) -> Result<Self> {
         let (_, valid_commitments_statement) = create_witness_and_statement(wallet);
-        let (_, valid_reblind_statement) = construct_valid_reblind_witness_statement::<
+        let (_, mut valid_reblind_statement) = construct_valid_reblind_witness_statement::<
             MAX_BALANCES,
             MAX_ORDERS,
             MAX_FEES,
             TEST_MERKLE_HEIGHT,
         >(wallet);
+        valid_reblind_statement.merkle_root = merkle_root;
         let (_, valid_commitments_proof) =
             singleprover_prove::<DummyValidCommitments>((), valid_commitments_statement.clone())?;
         let (_, valid_reblind_proof) =
