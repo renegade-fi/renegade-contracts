@@ -563,6 +563,10 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
+            // Assert that the merkle root for which inclusion is proven in `VALID WALLET UPDATE`
+            // is a valid historical root
+            assert(_get_merkle_tree(@self).root_in_history(statement.merkle_root), 'invalid statement merkle root');
+
             // Mark the `old_shares_nullifier` as in use
             _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
 
