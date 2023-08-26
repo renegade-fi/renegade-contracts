@@ -71,6 +71,7 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         wallet_blinder_share: Scalar,
         statement: ValidWalletUpdateStatement,
+        statement_signature: (Scalar, Scalar),
         witness_commitments: Array<EcPoint>,
         proof: Proof,
         verification_job_id: felt252,
@@ -97,10 +98,12 @@ trait IDarkpool<TContractState> {
 #[starknet::contract]
 mod Darkpool {
     use option::OptionTrait;
+    use traits::Into;
     use clone::Clone;
     use array::{ArrayTrait, SpanTrait};
     use box::BoxTrait;
     use zeroable::Zeroable;
+    use ecdsa::check_ecdsa_signature;
     use starknet::{
         ClassHash, get_caller_address, get_contract_address, get_tx_info, ContractAddress,
         replace_class_syscall, contract_address::ContractAddressZeroable,
@@ -116,7 +119,8 @@ mod Darkpool {
         merkle::{poseidon::poseidon_hash, IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::{
-            serde::EcPointSerde, storage::StoreSerdeWrapper, crypto::append_statement_commitments,
+            serde::EcPointSerde, storage::StoreSerdeWrapper,
+            crypto::{append_statement_commitments, hash_statement}
         },
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
@@ -124,7 +128,7 @@ mod Darkpool {
     use super::{
         types::{
             ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-            ProcessMatchCallbackElems, Circuit,
+            ProcessMatchCallbackElems, Circuit, PublicSigningKeyTrait,
         },
         statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement}
     };
@@ -559,6 +563,7 @@ mod Darkpool {
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             statement: ValidWalletUpdateStatement,
+            statement_signature: (Scalar, Scalar),
             mut witness_commitments: Array<EcPoint>,
             proof: Proof,
             verification_job_id: felt252,
@@ -568,6 +573,16 @@ mod Darkpool {
             assert(
                 _get_merkle_tree(@self).root_in_history(statement.merkle_root),
                 'invalid statement merkle root'
+            );
+
+            // Assert that statement signature is valid
+            let statement_hash = hash_statement(@statement);
+            let (r, s) = statement_signature;
+            assert(
+                check_ecdsa_signature(
+                    statement_hash.into(), statement.old_pk_root.get_x(), r.into(), s.into()
+                ),
+                'invalid statement signature'
             );
 
             // Mark the `old_shares_nullifier` as in use

@@ -7,7 +7,7 @@ use renegade_contracts::{
     verifier::scalar::{Scalar, ScalarSerializable}, utils::eq::ArrayTPartialEq
 };
 
-use super::types::ExternalTransfer;
+use super::types::{ExternalTransfer, PublicSigningKey};
 
 // -------------------
 // | STATEMENT TYPES |
@@ -52,7 +52,7 @@ struct ValidWalletUpdateStatement {
     /// The external transfer associated with this update
     external_transfer: ExternalTransfer,
     /// The public root key of the old wallet, rotated out after this update
-    old_pk_root: Array<Scalar>,
+    old_pk_root: PublicSigningKey,
     /// The timestamp this update was applied at
     timestamp: u64,
 }
@@ -69,7 +69,8 @@ impl ValidWalletUpdateStatementToScalarsImpl of ScalarSerializable<ValidWalletUp
         scalars.append_all(ref new_public_shares);
         scalars.append(*self.merkle_root);
         scalars.append_all(ref external_transfer_scalars);
-        scalars.append_all(ref old_pk_root);
+        scalars.append_all(ref old_pk_root.x);
+        scalars.append_all(ref old_pk_root.y);
         scalars.append((*self.timestamp).into());
 
         scalars

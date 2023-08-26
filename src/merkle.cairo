@@ -29,7 +29,7 @@ mod Merkle {
     /// The value of an empty leaf in the Merkle tree:
     /// 306932273398430716639340090025251549301604242969558673011416862133942957551
     /// This value is computed as the keccak256 hash of the string 'renegade'
-    /// taken modulo the STARK scalar field's modulus (see `SCALAR_FIELD_ORDER` in src/utils/constants.cairo)
+    /// taken modulo the STARK curve order
     const EMPTY_LEAF_VAL_INNER: felt252 =
         306932273398430716639340090025251550554329269971178413658580639401611971225;
 

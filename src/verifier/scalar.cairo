@@ -3,12 +3,11 @@ use traits::{TryInto, Into};
 use integer::NumericLiteral;
 use debug::PrintTrait;
 use hash::LegacyHash;
+use ec::stark_curve;
 
 use alexandria_math::mod_arithmetics::{
     mult_inverse, pow_mod, add_mod, sub_mod, mult_mod, div_mod, add_inverse_mod
 };
-
-use renegade_contracts::utils::constants::SCALAR_FIELD_ORDER;
 
 // TODO: When deserializing Scalars from calldata / storage, we need to assert that they are
 // within the scalar field order.
@@ -22,13 +21,17 @@ struct Scalar {
 impl ScalarImpl of ScalarTrait {
     fn inverse(self: @Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = mult_inverse((*self.inner).into(), SCALAR_FIELD_ORDER).try_into().unwrap();
+        let inner = mult_inverse((*self.inner).into(), stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
         Scalar { inner }
     }
 
     fn pow(self: @Scalar, exponent: u256) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = pow_mod((*self.inner).into(), exponent, SCALAR_FIELD_ORDER).try_into().unwrap();
+        let inner = pow_mod((*self.inner).into(), exponent, stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
         Scalar { inner }
     }
 }
@@ -44,7 +47,7 @@ impl ScalarImpl of ScalarTrait {
 impl ScalarAdd of Add<Scalar> {
     fn add(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = add_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+        let inner = add_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
             .try_into()
             .unwrap();
         Scalar { inner }
@@ -64,7 +67,7 @@ impl ScalarAddEq of AddEq<Scalar> {
 impl ScalarSub of Sub<Scalar> {
     fn sub(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = sub_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+        let inner = sub_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
             .try_into()
             .unwrap();
         Scalar { inner }
@@ -84,7 +87,7 @@ impl ScalarSubEq of SubEq<Scalar> {
 impl ScalarMul of Mul<Scalar> {
     fn mul(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = mult_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+        let inner = mult_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
             .try_into()
             .unwrap();
         Scalar { inner }
@@ -106,7 +109,7 @@ impl ScalarDiv of Div<Scalar> {
         // Under the hood, this is implemented as
         // lhs * rhs.inverse()
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = div_mod(lhs.inner.into(), rhs.inner.into(), SCALAR_FIELD_ORDER)
+        let inner = div_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
             .try_into()
             .unwrap();
         Scalar { inner }
@@ -126,7 +129,7 @@ impl ScalarDivEq of DivEq<Scalar> {
 impl ScalarNeg of Neg<Scalar> {
     fn neg(a: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        let inner = add_inverse_mod(a.inner.into(), SCALAR_FIELD_ORDER).try_into().unwrap();
+        let inner = add_inverse_mod(a.inner.into(), stark_curve::ORDER.into()).try_into().unwrap();
         Scalar { inner }
     }
 }
@@ -141,7 +144,7 @@ impl ScalarNeg of Neg<Scalar> {
 
 impl U256IntoScalar of Into<u256, Scalar> {
     fn into(self: u256) -> Scalar {
-        let inner_u256 = self % SCALAR_FIELD_ORDER;
+        let inner_u256 = self % stark_curve::ORDER.into();
         // Safe to unwrap b/c scalar field is smaller than base field
         Scalar { inner: inner_u256.try_into().unwrap() }
     }
@@ -164,6 +167,12 @@ impl ScalarIntoU256 of Into<Scalar, u256> {
 impl ScalarIntoFelt of Into<Scalar, felt252> {
     fn into(self: Scalar) -> felt252 {
         self.inner
+    }
+}
+
+impl ScalarTryIntoU128 of TryInto<Scalar, u128> {
+    fn try_into(self: Scalar) -> Option<u128> {
+        self.inner.try_into()
     }
 }
 

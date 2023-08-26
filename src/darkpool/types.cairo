@@ -5,7 +5,8 @@ use array::ArrayTrait;
 use starknet::ContractAddress;
 
 use renegade_contracts::{
-    verifier::{scalar::{Scalar, ScalarSerializable}, types::Proof}, utils::serde::EcPointSerde
+    verifier::{scalar::{Scalar, ScalarSerializable}, types::Proof},
+    utils::{serde::EcPointSerde, eq::ArrayTPartialEq}
 };
 
 use super::statements::{ValidReblindStatement, ValidCommitmentsStatement};
@@ -65,6 +66,24 @@ struct MatchPayload {
     valid_reblind_statement: ValidReblindStatement,
     valid_reblind_witness_commitments: Array<EcPoint>,
     valid_reblind_proof: Proof,
+}
+
+/// Represents the affine coordinates of an ECDSA public key over the STARK curve.
+/// Since each coordinate is an element of the base field, it takes 2 scalars to represent it.
+#[derive(Drop, Serde, Clone, PartialEq)]
+struct PublicSigningKey {
+    x: Array<Scalar>,
+    y: Array<Scalar>,
+}
+
+#[generate_trait]
+impl PublicSigningKeyImpl of PublicSigningKeyTrait {
+    fn get_x(self: @PublicSigningKey) -> felt252 {
+        let x_u256 = u256 {
+            low: (*self.x[0]).try_into().unwrap(), high: (*self.x[1]).try_into().unwrap()
+        };
+        x_u256.try_into().unwrap()
+    }
 }
 
 // --------------------------
