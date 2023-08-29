@@ -1109,7 +1109,7 @@ mod Darkpool {
                 );
         } else {
             // Deposit
-            erc20.transfer_from(transfer.account_addr, contract_address, transfer.amount);
+            erc20.transferFrom(transfer.account_addr, contract_address, transfer.amount);
 
             // Emit event
             self
