@@ -66,7 +66,7 @@ const UPDATE_WALLET_FN_NAME: &str = "update_wallet";
 const POLL_UPDATE_WALLET_FN_NAME: &str = "poll_update_wallet";
 const PROCESS_MATCH_FN_NAME: &str = "process_match";
 const POLL_PROCESS_MATCH_FN_NAME: &str = "poll_process_match";
-const BALANCE_OF_FN_NAME: &str = "balance_of";
+const BALANCE_OF_FN_NAME: &str = "balanceOf";
 const APPROVE_FN_NAME: &str = "approve";
 const UPGRADE_FN_NAME: &str = "upgrade";
 
