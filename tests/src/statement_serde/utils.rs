@@ -1,5 +1,5 @@
 use circuit_types::{
-    keychain::{PublicSigningKey, ROOT_KEY_WORDS},
+    keychain::{PublicSigningKey, SCALAR_WORDS_PER_FELT},
     traits::BaseType,
     transfers::ExternalTransfer,
     wallet::WalletShare,
@@ -356,6 +356,7 @@ fn dummy_public_wallet_shares() -> WalletShare<MAX_BALANCES, MAX_ORDERS, MAX_FEE
 
 fn dummy_public_signing_key() -> PublicSigningKey {
     PublicSigningKey {
-        key_words: [Scalar::from(DUMMY_VALUE); ROOT_KEY_WORDS],
+        x: [Scalar::from(DUMMY_VALUE); SCALAR_WORDS_PER_FELT],
+        y: [Scalar::from(DUMMY_VALUE); SCALAR_WORDS_PER_FELT],
     }
 }

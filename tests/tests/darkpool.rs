@@ -4,10 +4,7 @@ use circuit_types::{
     order::Order,
     transfers::{ExternalTransfer, ExternalTransferDirection},
 };
-use circuits::zk_circuits::{
-    test_helpers::INITIAL_WALLET,
-    valid_settle::test_helpers::{MATCH_RES, WALLET1, WALLET2},
-};
+use circuits::zk_circuits::valid_settle::test_helpers::{MATCH_RES, WALLET1, WALLET2};
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use num_bigint::BigUint;
@@ -22,7 +19,10 @@ use tests::{
         upgrade, DARKPOOL_ADDRESS, DARKPOOL_CLASS_HASH, ERC20_ADDRESS, INIT_BALANCE,
         TRANSFER_AMOUNT, UPGRADE_TARGET_CLASS_HASH,
     },
-    utils::{assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree},
+    utils::{
+        assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree,
+        DUMMY_WALLET,
+    },
 };
 
 // ---------------------
@@ -75,8 +75,8 @@ async fn test_update_wallet_root() -> Result<()> {
     let mut ark_merkle_tree = ark_merkle_tree.unwrap();
 
     let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
-    let old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
+    let old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
     let args =
@@ -101,8 +101,8 @@ async fn test_update_wallet_invalid_statement_root() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
-    let old_wallet = INITIAL_WALLET.clone();
-    let new_wallet = INITIAL_WALLET.clone();
+    let old_wallet = DUMMY_WALLET.clone();
+    let new_wallet = DUMMY_WALLET.clone();
     let external_transfer = ExternalTransfer::default();
     let args = get_dummy_update_wallet_args(
         old_wallet,
@@ -204,8 +204,8 @@ async fn test_update_wallet_last_modified() -> Result<()> {
     let account = sequencer.account();
 
     let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
-    let old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
+    let old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
     let args =
@@ -261,8 +261,8 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
     let account = sequencer.account();
 
     let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
-    let old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
+    let old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
     let args =
@@ -343,8 +343,8 @@ async fn test_double_update_wallet() -> Result<()> {
     let account = sequencer.account();
 
     let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
-    let old_wallet = INITIAL_WALLET.clone();
-    let new_wallet = INITIAL_WALLET.clone();
+    let old_wallet = DUMMY_WALLET.clone();
+    let new_wallet = DUMMY_WALLET.clone();
     let external_transfer = ExternalTransfer::default();
     let args =
         get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
@@ -393,8 +393,8 @@ async fn test_update_wallet_deposit() -> Result<()> {
 
     // Adapted from `test_external_transfer__valid_deposit_new_balance` in https://github.com/renegade-fi/renegade/blob/main/circuits/src/zk_circuits/valid_wallet_update.rs
 
-    let mut old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
+    let mut old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
 
     // Remove the first balance from the old wallet
     old_wallet.balances[0] = Balance::default();
@@ -444,8 +444,8 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
 
     // Adapted from `test_external_transfer__valid_withdrawal` in https://github.com/renegade-fi/renegade/blob/main/circuits/src/zk_circuits/valid_wallet_update.rs
 
-    let mut old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
+    let mut old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
 
     // Set the first old wallet balance to reflect the initial supply of dummy ERC20 tokens
     old_wallet.balances[0].mint =
@@ -483,14 +483,18 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
     Ok(())
 }
 
+// --------------
+// | MISC TESTS |
+// --------------
+
 #[tokio::test]
 async fn test_upgrade_darkpool_storage() -> Result<()> {
     let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
     let account = sequencer.account();
 
     let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
-    let old_wallet = INITIAL_WALLET.clone();
-    let mut new_wallet = INITIAL_WALLET.clone();
+    let old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
     new_wallet.orders[0] = Order::default();
     let external_transfer = ExternalTransfer::default();
     let args =
@@ -513,6 +517,28 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
 
     assert_eq!(pre_upgrade_root, post_upgrade_root);
     assert!(old_shares_nullifier_used);
+
+    global_teardown(sequencer);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_update_wallet_invalid_signature() -> Result<()> {
+    let (sequencer, _) = setup_darkpool_test(false /* init_arkworks_tree */).await?;
+    let account = sequencer.account();
+
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let old_wallet = DUMMY_WALLET.clone();
+    let new_wallet = DUMMY_WALLET.clone();
+    let external_transfer = ExternalTransfer::default();
+    let mut args =
+        get_dummy_update_wallet_args(old_wallet, new_wallet, external_transfer, initial_root)?;
+
+    // Corrupt the signature of the statement
+    args.statement_signature.r += Scalar::one();
+
+    assert!(update_wallet(&account, &args).await.is_err());
 
     global_teardown(sequencer);
 

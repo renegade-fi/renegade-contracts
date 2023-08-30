@@ -1,8 +1,10 @@
 use ark_ff::{BigInteger, PrimeField};
 use byteorder::{BigEndian, ReadBytesExt};
 use circuit_types::{
+    keychain::{PublicKeyChain, SecretIdentificationKey, SecretSigningKey},
     traits::{BaseType, CircuitBaseType, SingleProverCircuit},
     transfers::{ExternalTransfer, ExternalTransferDirection},
+    wallet::Wallet,
 };
 use circuits::zk_circuits::{
     test_helpers::{SizedWallet, INITIAL_WALLET, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
@@ -37,6 +39,7 @@ use katana_core::{
     constants::DEFAULT_INVOKE_MAX_STEPS, db::serde::state::SerializableState,
     sequencer::SequencerConfig,
 };
+use lazy_static::lazy_static;
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
     r1cs::{
@@ -49,6 +52,7 @@ use mpc_bulletproof::{
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use num_bigint::{BigUint, RandBigInt};
 use rand::thread_rng;
+use renegade_crypto::{ecdsa::Signature, hash::compute_poseidon_hash};
 use starknet::{
     accounts::{Account, Call, ConnectedAccount},
     core::{
@@ -116,6 +120,21 @@ static VERIFIER_UTILS_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static TRANSCRIPT_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static POSEIDON_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static STATEMENT_SERDE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+
+lazy_static! {
+    pub static ref SK_ROOT: SecretSigningKey = Scalar::from(DUMMY_VALUE);
+    pub static ref SK_MATCH: SecretIdentificationKey = SecretIdentificationKey {
+        key: Scalar::from(DUMMY_VALUE)
+    };
+    pub static ref PUBLIC_KEYS: PublicKeyChain = PublicKeyChain {
+        pk_root: (&(StarkPoint::generator() * *SK_ROOT)).into(),
+        pk_match: compute_poseidon_hash(&[SK_MATCH.key]).into()
+    };
+    pub static ref DUMMY_WALLET: SizedWallet = Wallet {
+        keys: PUBLIC_KEYS.clone(),
+        ..INITIAL_WALLET.clone()
+    };
+}
 
 /// Label with which to seed the Fiat-Shamir transcript
 pub const TRANSCRIPT_SEED: &str = "merlin seed";
@@ -505,6 +524,7 @@ pub struct NewWalletArgs {
 pub struct UpdateWalletArgs {
     pub wallet_blinder_share: Scalar,
     pub statement: SizedValidWalletUpdateStatement,
+    pub statement_signature: Signature,
     pub proof: R1CSProof,
     pub witness_commitments: Vec<StarkPoint>,
     pub verification_job_id: FieldElement,
@@ -538,6 +558,16 @@ impl CalldataSerializable for u64 {
 }
 
 impl<T: CalldataSerializable> CalldataSerializable for Vec<T> {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        self.len()
+            .to_calldata()
+            .into_iter()
+            .chain(self.iter().flat_map(|t| t.to_calldata()))
+            .collect()
+    }
+}
+
+impl<T: CalldataSerializable, const N: usize> CalldataSerializable for [T; N] {
     fn to_calldata(&self) -> Vec<FieldElement> {
         self.len()
             .to_calldata()
@@ -685,7 +715,8 @@ where
             .chain(self.new_public_shares.to_scalars().to_calldata())
             .chain(self.merkle_root.to_calldata())
             .chain(self.external_transfer.to_calldata())
-            .chain(self.old_pk_root.to_scalars().to_calldata())
+            .chain(self.old_pk_root.x.to_calldata())
+            .chain(self.old_pk_root.y.to_calldata())
             .chain(self.timestamp.to_calldata())
             .collect()
     }
@@ -795,6 +826,8 @@ impl CalldataSerializable for UpdateWalletArgs {
             .to_calldata()
             .into_iter()
             .chain(self.statement.to_calldata())
+            .chain(self.statement_signature.r.to_calldata())
+            .chain(self.statement_signature.s.to_calldata())
             .chain(self.witness_commitments.to_calldata())
             .chain(self.proof.to_calldata())
             .chain(self.verification_job_id.to_calldata())
@@ -910,13 +943,13 @@ pub fn get_dummy_statement_scalars(circuit: Circuit) -> Vec<Scalar> {
             MAX_FEES,
             TEST_MERKLE_HEIGHT,
         >(
-            INITIAL_WALLET.clone(),
-            INITIAL_WALLET.clone(),
+            DUMMY_WALLET.clone(),
+            DUMMY_WALLET.clone(),
             ExternalTransfer::default(),
         )
         .1
         .to_scalars(),
-        Circuit::ValidCommitments(_) => create_witness_and_statement(&INITIAL_WALLET.clone())
+        Circuit::ValidCommitments(_) => create_witness_and_statement(&DUMMY_WALLET.clone())
             .1
             .to_scalars(),
         Circuit::ValidReblind(_) => construct_valid_reblind_witness_statement::<
@@ -924,13 +957,13 @@ pub fn get_dummy_statement_scalars(circuit: Circuit) -> Vec<Scalar> {
             MAX_ORDERS,
             MAX_FEES,
             TEST_MERKLE_HEIGHT,
-        >(&INITIAL_WALLET.clone())
+        >(&DUMMY_WALLET.clone())
         .1
         .to_scalars(),
         Circuit::ValidMatchMpc(_) => vec![],
         Circuit::ValidSettle(_) => create_witness_statement(
-            INITIAL_WALLET.clone(),
-            INITIAL_WALLET.clone(),
+            DUMMY_WALLET.clone(),
+            DUMMY_WALLET.clone(),
             MATCH_RES.clone(),
         )
         .1
