@@ -15,7 +15,7 @@ use renegade_contracts::{
 
 use types::{
     ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-    ProcessMatchCallbackElems, Circuit,
+    ProcessMatchCallbackElems, Circuit, Signature,
 };
 use statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement};
 
@@ -71,7 +71,7 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         wallet_blinder_share: Scalar,
         statement: ValidWalletUpdateStatement,
-        statement_signature: (Scalar, Scalar),
+        statement_signature: Signature,
         witness_commitments: Array<EcPoint>,
         proof: Proof,
         verification_job_id: felt252,
@@ -128,7 +128,7 @@ mod Darkpool {
     use super::{
         types::{
             ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-            ProcessMatchCallbackElems, Circuit, PublicSigningKeyTrait,
+            ProcessMatchCallbackElems, Circuit, PublicSigningKeyTrait, Signature,
         },
         statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement}
     };
@@ -563,7 +563,7 @@ mod Darkpool {
             ref self: ContractState,
             wallet_blinder_share: Scalar,
             statement: ValidWalletUpdateStatement,
-            statement_signature: (Scalar, Scalar),
+            statement_signature: Signature,
             mut witness_commitments: Array<EcPoint>,
             proof: Proof,
             verification_job_id: felt252,
@@ -575,12 +575,17 @@ mod Darkpool {
                 'invalid statement merkle root'
             );
 
-            // Assert that statement signature is valid
+            // Assert that statement signature is valid.
+            // This check implicitly authorizes a key rotation in the update wallet,
+            // as the `old_pk_root` in the statement is the root key of the pre-update wallet
+            // now signing a new wallet with a new root key.
             let statement_hash = hash_statement(@statement);
-            let (r, s) = statement_signature;
             assert(
                 check_ecdsa_signature(
-                    statement_hash.into(), statement.old_pk_root.get_x(), r.into(), s.into()
+                    statement_hash.into(),
+                    statement.old_pk_root.get_x(),
+                    statement_signature.r.into(),
+                    statement_signature.s.into()
                 ),
                 'invalid statement signature'
             );

@@ -18,6 +18,7 @@ use eyre::{eyre, Result};
 use mpc_stark::algebra::scalar::Scalar;
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
+use renegade_crypto::ecdsa::sign_scalar_message;
 use starknet::{
     accounts::Account,
     core::{
@@ -46,7 +47,7 @@ use crate::{
         CalldataSerializable, Circuit, DummyValidCommitments, DummyValidMatchMpc,
         DummyValidReblind, DummyValidSettle, DummyValidWalletCreate, DummyValidWalletUpdate,
         MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig, UpdateWalletArgs,
-        ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
+        ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE, SK_ROOT,
     },
 };
 
@@ -675,13 +676,14 @@ pub fn get_dummy_update_wallet_args(
     >(old_wallet, new_wallet, external_transfer);
     statement.merkle_root = merkle_root;
 
+    let statement_signature = sign_scalar_message(&statement.to_scalars(), &SK_ROOT);
     let (_, proof) = singleprover_prove::<DummyValidWalletUpdate>((), statement.clone())?;
-
     let verification_job_id = random_felt();
 
     Ok(UpdateWalletArgs {
         wallet_blinder_share,
         statement,
+        statement_signature,
         proof,
         witness_commitments: vec![],
         verification_job_id,

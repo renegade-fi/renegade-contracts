@@ -86,6 +86,13 @@ impl PublicSigningKeyImpl of PublicSigningKeyTrait {
     }
 }
 
+/// Represents an ECDSA signature over the STARK curve
+#[derive(Drop, Serde, Copy, PartialEq)]
+struct Signature {
+    r: Scalar,
+    s: Scalar,
+}
+
 // --------------------------
 // | CALLBACK ELEMENT TYPES |
 // --------------------------

@@ -79,7 +79,8 @@ fn append_statement_commitments<T, impl TScalarSerializable: ScalarSerializable<
 }
 
 /// Computes the Keccak256 hash of the given statement, reducing the result into a Scalar.
-/// We manually mirrors the implementation of keccak::keccak_u256s_le_inputs so that we can
+///
+/// We manually mirror the implementation of keccak::keccak_u256s_le_inputs so that we can
 /// avoid an extra loop over the input to map it into u256s.
 fn hash_statement<T, impl TScalarSerializable: ScalarSerializable<T>>(statement: @T) -> Scalar {
     let mut statement_scalars = statement.to_scalars();
