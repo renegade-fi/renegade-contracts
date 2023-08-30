@@ -7,13 +7,20 @@ mod utils;
 // -------------
 // TODO: Move to separate file / module when extensibility pattern is stabilized
 
+use starknet::ContractAddress;
+
 use renegade_contracts::utils::serde::EcPointSerde;
 
 use types::{CircuitParams, Proof, VerificationJob};
 
 #[starknet::interface]
 trait IVerifier<TContractState> {
+    // OWNERSHIP
+    fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
+    fn owner(self: @TContractState) -> ContractAddress;
+    // INITIALIZATION
     fn initialize(ref self: TContractState, circuit_params: CircuitParams);
+    // SETTERS
     fn queue_verification_job(
         ref self: TContractState,
         proof: Proof,
@@ -21,6 +28,7 @@ trait IVerifier<TContractState> {
         verification_job_id: felt252
     );
     fn step_verification(ref self: TContractState, verification_job_id: felt252) -> Option<bool>;
+    // GETTERS
     fn get_pc_gens(self: @TContractState) -> (EcPoint, EcPoint);
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
@@ -34,6 +42,8 @@ mod Verifier {
     use traits::{Into, TryInto};
     use array::{ArrayTrait, SpanTrait};
     use ec::{EcPoint, ec_point_zero, ec_mul, ec_point_unwrap, ec_point_non_zero};
+    use zeroable::Zeroable;
+    use starknet::{ContractAddress, get_caller_address};
 
     use alexandria_data_structures::array_ext::ArrayTraitExt;
     use alexandria_math::fast_power::fast_power;
@@ -67,6 +77,9 @@ mod Verifier {
 
     #[storage]
     struct Storage {
+        // OWNABLE
+        /// Stores the owner of the contract
+        _owner: ContractAddress,
         /// Queue of in-progress verification jobs
         verification_queue: LegacyMap<felt252, StoreSerdeWrapper<VerificationJob>>,
         /// Map of in-use verification job IDs
@@ -103,7 +116,12 @@ mod Verifier {
     // | EVENTS |
     // ----------
 
-    // TODO: Access / management controls events
+    /// Emitted when ownership of the Darkpool contract is transferred
+    #[derive(Drop, PartialEq, starknet::Event)]
+    struct OwnershipTransfer {
+        previous_owner: ContractAddress,
+        new_owner: ContractAddress,
+    }
 
     #[derive(Drop, PartialEq, starknet::Event)]
     struct Initialized {}
@@ -122,9 +140,20 @@ mod Verifier {
     #[event]
     #[derive(Drop, PartialEq, starknet::Event)]
     enum Event {
+        OwnershipTransfer: OwnershipTransfer,
         Initialized: Initialized,
         VerificationJobQueued: VerificationJobQueued,
         VerificationJobCompleted: VerificationJobCompleted,
+    }
+
+    // ---------------
+    // | CONSTRUCTOR |
+    // ---------------
+
+    // NOTE: THE OWNER SHOULD BE THE DARKPOOL CONTRACT
+    #[constructor]
+    fn constructor(ref self: ContractState, owner: ContractAddress) {
+        _ownable_initialize(ref self, owner);
     }
 
     // ----------------------------
@@ -133,10 +162,32 @@ mod Verifier {
 
     #[external(v0)]
     impl IVerifierImpl of super::IVerifier<ContractState> {
+        // -------------
+        // | OWNERSHIP |
+        // -------------
+
+        /// Transfers ownership of the contract to a new address
+        fn transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+            assert(!new_owner.is_zero(), 'New owner is the zero address');
+            ownable__assert_only_owner(@self);
+            _ownable__transfer_ownership(ref self, new_owner);
+        }
+
+        /// Returns the owner of the contract
+        fn owner(self: @ContractState) -> ContractAddress {
+            self._owner.read()
+        }
+
+        // ------------------
+        // | INITIALIZATION |
+        // ------------------
+
         /// Initializes the verifier for the given public parameters
         /// Parameters:
         /// - `circuit_params`: The public parameters of the circuit
         fn initialize(ref self: ContractState, circuit_params: CircuitParams) {
+            ownable__assert_only_owner(@self);
+
             // Assert that n_plus = 2^k
             assert(
                 fast_power(2, circuit_params.k.into(), MAX_USIZE.into() + 1) == circuit_params
@@ -176,6 +227,10 @@ mod Verifier {
             self.emit(Event::Initialized(Initialized {}));
         }
 
+        // -----------
+        // | SETTERS |
+        // -----------
+
         /// Enqueues a verification job for the given proof, squeezing out challenge scalars
         /// as necessary.
         /// Parameters:
@@ -187,6 +242,8 @@ mod Verifier {
             mut witness_commitments: Array<EcPoint>,
             verification_job_id: felt252
         ) {
+            ownable__assert_only_owner(@self);
+
             // Assert that the verification job ID is not already in use
             assert(!self.job_id_in_use.read(verification_job_id), 'job ID already in use');
             self.job_id_in_use.write(verification_job_id, true);
@@ -263,6 +320,8 @@ mod Verifier {
         fn step_verification(
             ref self: ContractState, verification_job_id: felt252
         ) -> Option<bool> {
+            ownable__assert_only_owner(@self);
+
             let mut verification_job = self.verification_queue.read(verification_job_id).inner;
             step_verification_inner(ref self, ref verification_job);
 
@@ -728,5 +787,31 @@ mod Verifier {
                 },
             }
         }
+    }
+
+    // -----------
+    // | OWNABLE |
+    // -----------
+    // Adapted from OpenZeppelin's `Ownable` contract
+
+    /// Asserts that the caller is the owner of the contract
+    #[external(v0)]
+    fn ownable__assert_only_owner(self: @ContractState) {
+        let owner = self._owner.read();
+        let caller = get_caller_address();
+        assert(!caller.is_zero(), 'Caller is the zero address');
+        assert(caller == owner, 'Caller is not the owner');
+    }
+
+    /// Initializes the contract with an owner
+    fn _ownable_initialize(ref self: ContractState, owner: ContractAddress) {
+        _ownable__transfer_ownership(ref self, owner)
+    }
+
+    /// Internal function to transfer ownership of the contract to a new address
+    fn _ownable__transfer_ownership(ref self: ContractState, new_owner: ContractAddress) {
+        let previous_owner: ContractAddress = self._owner.read();
+        self._owner.write(new_owner);
+        self.emit(Event::OwnershipTransfer(OwnershipTransfer { previous_owner, new_owner }));
     }
 }
