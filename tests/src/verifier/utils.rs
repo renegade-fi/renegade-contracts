@@ -9,9 +9,13 @@ use mpc_bulletproof::{
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
-use starknet::core::types::FieldElement;
+use starknet::{
+    accounts::Account,
+    core::types::{DeclareTransactionResult, FieldElement},
+};
 use starknet_scripts::commands::utils::{
-    deploy_verifier, initialize, ScriptAccount, VERIFIER_CONTRACT_NAME,
+    calculate_contract_address, declare, deploy, get_artifacts, initialize, ScriptAccount,
+    VERIFIER_CONTRACT_NAME,
 };
 use std::env;
 use tracing::debug;
@@ -40,13 +44,7 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
     let account = sequencer.account();
 
     debug!("Declaring & deploying verifier contract...");
-    let (verifier_address, _, _) = deploy_verifier(
-        None,
-        FieldElement::ZERO, /* salt */
-        &artifacts_path,
-        &account,
-    )
-    .await?;
+    let verifier_address = declare_and_deploy_verifier(&artifacts_path, &account).await?;
 
     debug!("Initializing verifier contract...");
     initialize_verifier(&account, verifier_address).await?;
@@ -54,20 +52,39 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
     Ok(sequencer)
 }
 
-pub fn init_verifier_test_statics() -> Result<()> {
+pub fn init_verifier_test_statics(account: &ScriptAccount) -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
     let verifier_address = get_contract_address_from_artifact(
         &artifacts_path,
         VERIFIER_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
-        &[],
+        &[account.address()],
     )?;
     if VERIFIER_ADDRESS.get().is_none() {
         VERIFIER_ADDRESS.set(verifier_address).unwrap();
     }
 
     Ok(())
+}
+
+pub async fn declare_and_deploy_verifier(
+    artifacts_path: &str,
+    account: &ScriptAccount,
+) -> Result<FieldElement> {
+    let (verifier_sierra_path, verifier_casm_path) =
+        get_artifacts(artifacts_path, VERIFIER_CONTRACT_NAME);
+    let DeclareTransactionResult {
+        class_hash: verifier_class_hash,
+        ..
+    } = declare(verifier_sierra_path, verifier_casm_path, account).await?;
+
+    // Deploy verifier
+    debug!("Deploying verifier contract...");
+    deploy(account, verifier_class_hash, &[account.address()]).await?;
+
+    let verifier_address = calculate_contract_address(verifier_class_hash, &[account.address()]);
+
+    Ok(verifier_address)
 }
 
 // --------------------------------

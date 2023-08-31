@@ -28,8 +28,8 @@ use starknet::{
 };
 use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::{
-    calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
-    initialize, ScriptAccount, DARKPOOL_CONTRACT_NAME,
+    calculate_contract_address, declare, deploy, deploy_darkpool, get_artifacts, initialize,
+    ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
 use std::{env, iter};
 
@@ -114,13 +114,12 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
         darkpool_address,
         merkle_class_hash,
         nullifier_set_class_hash,
+        verifier_class_hash,
         TEST_MERKLE_HEIGHT.into(),
     )
     .await?;
 
-    let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
-
-    for (i, circuit) in [
+    for circuit in [
         Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
         Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
         Circuit::ValidCommitments(DummyValidCommitments {}),
@@ -129,17 +128,8 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
         Circuit::ValidSettle(DummyValidSettle {}),
     ]
     .into_iter()
-    .enumerate()
     {
-        deploy_and_initialize_verifier(
-            &account,
-            &artifacts_path,
-            circuit,
-            darkpool_address,
-            verifier_class_hash_hex.clone(),
-            FieldElement::from(i), /* salt */
-        )
-        .await?;
+        initialize_verifier(&account, darkpool_address, circuit).await?;
     }
 
     debug!("Declaring & deploying dummy ERC20 contract...");
@@ -167,7 +157,6 @@ pub fn init_darkpool_test_statics(account: &ScriptAccount) -> Result<()> {
     let darkpool_address = get_contract_address_from_artifact(
         &artifacts_path,
         DARKPOOL_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
         &[account.address()],
     )?;
     if DARKPOOL_ADDRESS.get().is_none() {
@@ -177,7 +166,6 @@ pub fn init_darkpool_test_statics(account: &ScriptAccount) -> Result<()> {
     let erc20_address = get_contract_address_from_artifact(
         &artifacts_path,
         DUMMY_ERC20_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
         &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
     )?;
     if ERC20_ADDRESS.get().is_none() {
@@ -234,18 +222,8 @@ async fn deploy_dummy_erc20(
 
     let calldata = get_dummy_erc20_calldata(account.address(), darkpool_address)?;
 
-    deploy(
-        account,
-        class_hash,
-        &calldata,
-        FieldElement::ZERO, /* salt */
-    )
-    .await?;
-    Ok(calculate_contract_address(
-        class_hash,
-        FieldElement::ZERO, /* salt */
-        &calldata,
-    ))
+    deploy(account, class_hash, &calldata).await?;
+    Ok(calculate_contract_address(class_hash, &calldata))
 }
 
 async fn declare_dummy_upgrade_target(
@@ -273,9 +251,15 @@ pub async fn initialize_darkpool(
     darkpool_address: FieldElement,
     merkle_class_hash: FieldElement,
     nullifier_set_class_hash: FieldElement,
+    verifier_class_hash: FieldElement,
     merkle_height: FieldElement,
 ) -> Result<()> {
-    let calldata = vec![merkle_class_hash, nullifier_set_class_hash, merkle_height];
+    let calldata = vec![
+        merkle_class_hash,
+        nullifier_set_class_hash,
+        verifier_class_hash,
+        merkle_height,
+    ];
 
     initialize(account, darkpool_address, calldata)
         .await
@@ -284,10 +268,10 @@ pub async fn initialize_darkpool(
 
 pub async fn initialize_verifier(
     account: &ScriptAccount,
-    circuit: Circuit,
     darkpool_address: FieldElement,
-    verifier_address: FieldElement,
+    circuit: Circuit,
 ) -> Result<()> {
+    debug!("Initializing {circuit:?} verifier contract...");
     let mut statement_scalars = get_dummy_statement_scalars(circuit).into_iter();
 
     let circuit_params = match circuit {
@@ -319,7 +303,6 @@ pub async fn initialize_verifier(
     let calldata = circuit
         .to_calldata()
         .into_iter()
-        .chain(iter::once(verifier_address))
         .chain(circuit_params.to_calldata())
         .collect();
 
@@ -331,29 +314,6 @@ pub async fn initialize_verifier(
     )
     .await
     .map(|_| ())
-}
-
-pub async fn deploy_and_initialize_verifier(
-    account: &ScriptAccount,
-    artifacts_path: &str,
-    circuit: Circuit,
-    darkpool_address: FieldElement,
-    verifier_class_hash_hex: Option<String>,
-    salt: FieldElement,
-) -> Result<()> {
-    debug!("Declaring & deploying {circuit:?} verifier contract...");
-    let (verifier_address, _, _) = deploy_verifier(
-        verifier_class_hash_hex.clone(),
-        salt,
-        artifacts_path,
-        account,
-    )
-    .await?;
-
-    debug!("Initializing {circuit:?} verifier contract...");
-    initialize_verifier(account, circuit, darkpool_address, verifier_address)
-        .await
-        .map(|_| ())
 }
 
 pub async fn get_wallet_blinder_transaction(

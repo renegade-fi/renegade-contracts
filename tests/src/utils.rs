@@ -230,15 +230,10 @@ pub fn get_sierra_class_hash_from_artifact(
 pub fn get_contract_address_from_artifact(
     artifacts_path: &str,
     contract_name: &str,
-    salt: FieldElement,
     constructor_calldata: &[FieldElement],
 ) -> Result<FieldElement> {
     let class_hash = get_sierra_class_hash_from_artifact(artifacts_path, contract_name)?;
-    Ok(calculate_contract_address(
-        class_hash,
-        salt,
-        constructor_calldata,
-    ))
+    Ok(calculate_contract_address(class_hash, constructor_calldata))
 }
 
 pub async fn setup_sequencer(test_config: TestConfig) -> Result<TestSequencer> {
@@ -305,7 +300,7 @@ fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Res
         TestConfig::Darkpool => init_darkpool_test_statics(&sequencer.account()),
         TestConfig::Merkle => init_merkle_test_statics(),
         TestConfig::NullifierSet => init_nullifier_set_test_statics(),
-        TestConfig::Verifier => init_verifier_test_statics(),
+        TestConfig::Verifier => init_verifier_test_statics(&sequencer.account()),
         TestConfig::VerifierUtils => init_verifier_utils_test_statics(),
         TestConfig::Transcript => init_transcript_test_statics(),
         TestConfig::Poseidon => init_poseidon_test_statics(),
