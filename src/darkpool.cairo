@@ -30,13 +30,11 @@ trait IDarkpool<TContractState> {
         ref self: TContractState,
         merkle_class_hash: ClassHash,
         nullifier_set_class_hash: ClassHash,
+        verifier_class_hash: ClassHash,
         height: u8,
-    );
+    ) -> Array<ContractAddress>;
     fn initialize_verifier(
-        ref self: TContractState,
-        circuit: Circuit,
-        verifier_contract_address: ContractAddress,
-        circuit_params: CircuitParams,
+        ref self: TContractState, circuit: Circuit, circuit_params: CircuitParams, 
     );
     // OZ
     fn upgrade(ref self: TContractState, darkpool_class_hash: ClassHash);
@@ -106,7 +104,7 @@ mod Darkpool {
     use ecdsa::check_ecdsa_signature;
     use starknet::{
         ClassHash, get_caller_address, get_contract_address, get_tx_info, ContractAddress,
-        replace_class_syscall, contract_address::ContractAddressZeroable,
+        replace_class_syscall, contract_address::ContractAddressZeroable, deploy_syscall,
     };
 
     use alexandria_data_structures::array_ext::ArrayTraitExt;
@@ -298,8 +296,9 @@ mod Darkpool {
             ref self: ContractState,
             merkle_class_hash: ClassHash,
             nullifier_set_class_hash: ClassHash,
+            verifier_class_hash: ClassHash,
             height: u8,
-        ) {
+        ) -> Array<ContractAddress> {
             ownable__assert_only_owner(@self);
             initializable__initialize(ref self);
 
@@ -307,25 +306,61 @@ mod Darkpool {
             self.merkle_class_hash.write(merkle_class_hash);
             self.nullifier_set_class_hash.write(nullifier_set_class_hash);
 
+            // Deploy verifier contracts
+
+            // Verifier constructor accepts a `ContractAddress` as the contract owner,
+            // here we make sure that it is the darkpool contract itself
+            let verifier_constructor_calldata = array![get_contract_address().into()].span();
+
+            let circuits = array![
+                Circuit::ValidWalletCreate(()),
+                Circuit::ValidWalletUpdate(()),
+                Circuit::ValidCommitments(()),
+                Circuit::ValidReblind(()),
+                Circuit::ValidMatchMpc(()),
+                Circuit::ValidSettle(()),
+            ];
+
+            let mut i = 0;
+            let mut verifier_addresses = ArrayTrait::new();
+            loop {
+                if i == circuits.len() {
+                    break;
+                }
+
+                let circuit = *circuits[i];
+                // Deploy verifier contract
+                let (verifier_address, _) = deploy_syscall(
+                    verifier_class_hash,
+                    i.into(), // contract_address_salt
+                    verifier_constructor_calldata,
+                    true, // deploy_from_zero
+                )
+                    .unwrap_syscall();
+
+                verifier_addresses.append(verifier_address);
+
+                // Save verifier contract address to storage
+                _write_verifier_address(ref self, circuit, verifier_address);
+
+                i += 1;
+            };
+
             // Initialize the Merkle tree & verifier
             _get_merkle_tree(@self).initialize(height);
+
+            verifier_addresses
         }
 
         /// Initializes a verifier contract
         /// Parameters:
-        /// - `verifier_contract_address`: The address of the deployed verifier contract
         /// - `circuit`: The circuit for which to initialize the verifier contract
         /// - `circuit_params`: The parameters of the circuit
         fn initialize_verifier(
-            ref self: ContractState,
-            circuit: Circuit,
-            verifier_contract_address: ContractAddress,
-            circuit_params: CircuitParams
+            ref self: ContractState, circuit: Circuit, circuit_params: CircuitParams
         ) {
             ownable__assert_only_owner(@self);
 
-            // Save verifier contract address to storage
-            _write_verifier_address(ref self, circuit, verifier_contract_address);
             // Initialize the verifier
             _get_verifier(@self, circuit).initialize(circuit_params);
         }

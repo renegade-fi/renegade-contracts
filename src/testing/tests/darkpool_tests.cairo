@@ -42,7 +42,7 @@ const DUMMY_CALLER: felt252 = 'DUMMY_CALLER';
 fn test_upgrade_darkpool() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     darkpool.upgrade(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
     // The dummy upgrade target has a hardcoded response for the `get_wallet_blinder_transaction`
@@ -61,7 +61,7 @@ fn test_upgrade_darkpool() {
 fn test_upgrade_merkle() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let original_root = darkpool.get_root();
 
@@ -77,7 +77,7 @@ fn test_upgrade_merkle() {
 fn test_upgrade_nullifier_set() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     darkpool.upgrade_nullifier_set(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
     assert(!darkpool.is_nullifier_available(0.into()), 'upgrade target wrong result');
@@ -89,18 +89,8 @@ fn test_upgrade_nullifier_set() {
 #[test]
 #[available_gas(10000000000)] // 100x
 fn test_upgrade_verifier() {
-    let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
-    set_contract_address(test_caller);
-    let (
-        mut darkpool,
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    ) =
-        setup_darkpool();
+    set_contract_address(contract_address_try_from_felt252(TEST_CALLER).unwrap());
+    let (mut darkpool, verifier_addresses) = setup_darkpool();
 
     let (upgrade_target_address, _) = deploy_syscall(
         DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap(), 0, ArrayTrait::new().span(), false, 
@@ -111,12 +101,24 @@ fn test_upgrade_verifier() {
     // upgrade the verifier, check that it (and it alone) has verified the dummy job,
     // and then upgrade it back to the original verifier contract.
 
+    let valid_wallet_create_verifier_address = *verifier_addresses[0];
+    let valid_wallet_update_verifier_address = *verifier_addresses[1];
+    let valid_commitments_verifier_address = *verifier_addresses[2];
+    let valid_reblind_verifier_address = *verifier_addresses[3];
+    let valid_match_mpc_verifier_address = *verifier_addresses[4];
+    let valid_settle_verifier_address = *verifier_addresses[5];
+
+    // Only the darkpool address can call external functions on the verifier
+    set_contract_address(darkpool.contract_address);
+
     queue_job_direct(valid_wallet_create_verifier_address, 0);
     queue_job_direct(valid_wallet_update_verifier_address, 0);
     queue_job_direct(valid_commitments_verifier_address, 0);
     queue_job_direct(valid_reblind_verifier_address, 0);
     queue_job_direct(valid_match_mpc_verifier_address, 0);
     queue_job_direct(valid_settle_verifier_address, 0);
+
+    set_contract_address(contract_address_try_from_felt252(TEST_CALLER).unwrap());
 
     // VALID WALLET CREATE
     assert_not_verified(ref darkpool, Circuit::ValidWalletCreate(()), 0);
@@ -164,7 +166,7 @@ fn test_upgrade_verifier() {
 fn test_transfer_ownership() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     darkpool.transfer_ownership(dummy_caller);
@@ -177,21 +179,21 @@ fn test_transfer_ownership() {
 // ------------------------
 
 #[test]
-#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_initialize_access() {
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
-    let (_, _, _, _, _, _, _) = setup_darkpool();
+    setup_darkpool();
 }
 
 #[test]
-#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_upgrade_darkpool_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -200,12 +202,12 @@ fn test_upgrade_darkpool_access() {
 }
 
 #[test]
-#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_upgrade_merkle_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -214,12 +216,12 @@ fn test_upgrade_merkle_access() {
 }
 
 #[test]
-#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_upgrade_nullifier_set_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -228,12 +230,12 @@ fn test_upgrade_nullifier_set_access() {
 }
 
 #[test]
-#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_upgrade_verifier_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -247,12 +249,12 @@ fn test_upgrade_verifier_access() {
 }
 
 #[test]
-#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Caller is not the owner', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_transfer_ownership_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let (mut darkpool, _, _, _, _, _, _) = setup_darkpool();
+    let (mut darkpool, _) = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -264,7 +266,7 @@ fn test_transfer_ownership_access() {
 // ------------------------
 
 #[test]
-#[should_panic(expected: ('Initializable: is initialized', 'ENTRYPOINT_FAILED', ))]
+#[should_panic(expected: ('Initializable: is initialized', 'ENTRYPOINT_FAILED'))]
 #[available_gas(10000000000)] // 100x
 fn test_initialize_twice() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
@@ -278,51 +280,17 @@ fn test_initialize_twice() {
     )
         .unwrap();
 
-    let (
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    ) =
-        deploy_all_verifier_contracts();
-
     let mut darkpool = IDarkpoolDispatcher { contract_address: darkpool_address };
 
-    initialize_darkpool(
-        ref darkpool,
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    );
-    initialize_darkpool(
-        ref darkpool,
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    );
+    initialize_darkpool(ref darkpool);
+    initialize_darkpool(ref darkpool);
 }
 
 // -----------
 // | HELPERS |
 // -----------
 
-fn setup_darkpool() -> (
-    IDarkpoolDispatcher,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-) {
+fn setup_darkpool() -> (IDarkpoolDispatcher, Array<ContractAddress>) {
     let mut calldata = ArrayTrait::new();
     calldata.append(TEST_CALLER);
 
@@ -331,131 +299,29 @@ fn setup_darkpool() -> (
     )
         .unwrap();
 
-    let (
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    ) =
-        deploy_all_verifier_contracts();
-
     let mut darkpool = IDarkpoolDispatcher { contract_address: darkpool_address };
-    initialize_darkpool(
-        ref darkpool,
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    );
+    let verifier_addresses = initialize_darkpool(ref darkpool);
 
-    (
-        darkpool,
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    )
+    (darkpool, verifier_addresses)
 }
 
-fn initialize_darkpool(
-    ref darkpool: IDarkpoolDispatcher,
-    valid_wallet_create_verifier_address: ContractAddress,
-    valid_wallet_update_verifier_address: ContractAddress,
-    valid_commitments_verifier_address: ContractAddress,
-    valid_reblind_verifier_address: ContractAddress,
-    valid_match_mpc_verifier_address: ContractAddress,
-    valid_settle_verifier_address: ContractAddress,
-) {
-    darkpool
+fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher) -> Array<ContractAddress> {
+    let verifier_addresses = darkpool
         .initialize(
             Merkle::TEST_CLASS_HASH.try_into().unwrap(),
             NullifierSet::TEST_CLASS_HASH.try_into().unwrap(),
+            Verifier::TEST_CLASS_HASH.try_into().unwrap(),
             TEST_MERKLE_HEIGHT,
         );
 
-    darkpool
-        .initialize_verifier(
-            Circuit::ValidWalletCreate(()),
-            valid_wallet_create_verifier_address,
-            get_dummy_circuit_params(),
-        );
-    darkpool
-        .initialize_verifier(
-            Circuit::ValidWalletUpdate(()),
-            valid_wallet_update_verifier_address,
-            get_dummy_circuit_params(),
-        );
-    darkpool
-        .initialize_verifier(
-            Circuit::ValidCommitments(()),
-            valid_commitments_verifier_address,
-            get_dummy_circuit_params(),
-        );
-    darkpool
-        .initialize_verifier(
-            Circuit::ValidReblind(()), valid_reblind_verifier_address, get_dummy_circuit_params(), 
-        );
-    darkpool
-        .initialize_verifier(
-            Circuit::ValidMatchMpc(()),
-            valid_match_mpc_verifier_address,
-            get_dummy_circuit_params(),
-        );
-    darkpool
-        .initialize_verifier(
-            Circuit::ValidSettle(()), valid_settle_verifier_address, get_dummy_circuit_params(), 
-        );
-}
+    darkpool.initialize_verifier(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());
+    darkpool.initialize_verifier(Circuit::ValidWalletUpdate(()), get_dummy_circuit_params());
+    darkpool.initialize_verifier(Circuit::ValidCommitments(()), get_dummy_circuit_params());
+    darkpool.initialize_verifier(Circuit::ValidReblind(()), get_dummy_circuit_params());
+    darkpool.initialize_verifier(Circuit::ValidMatchMpc(()), get_dummy_circuit_params());
+    darkpool.initialize_verifier(Circuit::ValidSettle(()), get_dummy_circuit_params());
 
-fn deploy_all_verifier_contracts() -> (
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-    ContractAddress,
-) {
-    let verifier_class_hash = Verifier::TEST_CLASS_HASH.try_into().unwrap();
-
-    let (valid_wallet_create_verifier_address, _) = deploy_syscall(
-        verifier_class_hash, 0, ArrayTrait::new().span(), false, 
-    )
-        .unwrap();
-    let (valid_wallet_update_verifier_address, _) = deploy_syscall(
-        verifier_class_hash, 1, ArrayTrait::new().span(), false, 
-    )
-        .unwrap();
-    let (valid_commitments_verifier_address, _) = deploy_syscall(
-        verifier_class_hash, 2, ArrayTrait::new().span(), false, 
-    )
-        .unwrap();
-    let (valid_reblind_verifier_address, _) = deploy_syscall(
-        verifier_class_hash, 3, ArrayTrait::new().span(), false, 
-    )
-        .unwrap();
-    let (valid_match_mpc_verifier_address, _) = deploy_syscall(
-        verifier_class_hash, 4, ArrayTrait::new().span(), false, 
-    )
-        .unwrap();
-    let (valid_settle_verifier_address, _) = deploy_syscall(
-        verifier_class_hash, 5, ArrayTrait::new().span(), false, 
-    )
-        .unwrap();
-
-    (
-        valid_wallet_create_verifier_address,
-        valid_wallet_update_verifier_address,
-        valid_commitments_verifier_address,
-        valid_reblind_verifier_address,
-        valid_match_mpc_verifier_address,
-        valid_settle_verifier_address,
-    )
+    verifier_addresses
 }
 
 fn assert_only_upgraded_circuit_verified(
