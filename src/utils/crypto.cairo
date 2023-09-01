@@ -2,7 +2,7 @@ use traits::{TryInto, Into};
 use option::OptionTrait;
 use array::{ArrayTrait, SpanTrait};
 use keccak::{keccak_u256s_le_inputs, keccak_add_u256_le, add_padding};
-use ec::ec_mul;
+use ec::{ec_mul, ec_point_new, stark_curve};
 use alexandria_data_structures::array_ext::ArrayTraitExt;
 use starknet::{syscalls::keccak_syscall, SyscallResultTrait};
 use renegade_contracts::verifier::scalar::{Scalar, ScalarSerializable};
@@ -48,16 +48,18 @@ fn hash_to_felt(hash: u256) -> felt252 {
 }
 
 
-/// Computes Pedersen commitments of the given public inputs using the given generators.
+/// Computes Pedersen commitments of the given public inputs.
 /// We use 1 as the scalar blinding factor for public inputs.
-fn commit_public(B: EcPoint, B_blind: EcPoint, mut inputs: Span<Scalar>) -> Array<EcPoint> {
+fn commit_public(mut inputs: Span<Scalar>) -> Array<EcPoint> {
+    let pedersen_generator = ec_point_new(stark_curve::GEN_X, stark_curve::GEN_Y);
     let mut commitments = ArrayTrait::new();
 
     loop {
         match inputs.pop_front() {
             Option::Some(input) => {
-                // Using 1 as scalar blinding factor => simply add B_blind
-                commitments.append(ec_mul(B, (*input).into()) + B_blind);
+                // Using 1 as scalar blinding factor => simply add generator
+                commitments
+                    .append(ec_mul(pedersen_generator, (*input).into()) + pedersen_generator);
             },
             Option::None(()) => {
                 break;
@@ -68,13 +70,13 @@ fn commit_public(B: EcPoint, B_blind: EcPoint, mut inputs: Span<Scalar>) -> Arra
     commitments
 }
 
-/// Computes Pedersen commitments of the given statement using the given generators,
-/// and appends the commitments to the existing array of witness commitments
+/// Computes Pedersen commitments of the given statement and appends
+/// the commitments to the existing array of witness commitments
 fn append_statement_commitments<T, impl TScalarSerializable: ScalarSerializable<T>>(
-    B: EcPoint, B_blind: EcPoint, statement: @T, ref witness_commitments: Array<EcPoint>
+    statement: @T, ref witness_commitments: Array<EcPoint>
 ) {
     let statement_scalars = statement.to_scalars();
-    let mut statement_commitments = commit_public(B, B_blind, statement_scalars.span());
+    let mut statement_commitments = commit_public(statement_scalars.span());
     witness_commitments.append_all(ref statement_commitments);
 }
 
