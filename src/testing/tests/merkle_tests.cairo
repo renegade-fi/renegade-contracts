@@ -4,8 +4,8 @@ use traits::Into;
 use renegade_contracts::merkle::{Merkle, Merkle::ContractState, IMerkle};
 
 
-const TEST_MERKLE_HEIGHT: u8 = 5;
-const TEST_MERKLE_CAPACITY: u8 = 32;
+const TEST_MERKLE_HEIGHT: u8 = 3;
+const TEST_MERKLE_CAPACITY: u8 = 8;
 
 #[test]
 #[available_gas(1000000000)] // 10x

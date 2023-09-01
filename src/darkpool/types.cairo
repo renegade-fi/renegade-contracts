@@ -141,3 +141,16 @@ enum Circuit {
     ValidMatchMpc: (),
     ValidSettle: (),
 }
+
+impl CircuitIntoFelt of Into<Circuit, felt252> {
+    fn into(self: Circuit) -> felt252 {
+        match self {
+            Circuit::ValidWalletCreate(()) => 0,
+            Circuit::ValidWalletUpdate(()) => 1,
+            Circuit::ValidCommitments(()) => 2,
+            Circuit::ValidReblind(()) => 3,
+            Circuit::ValidMatchMpc(()) => 4,
+            Circuit::ValidSettle(()) => 5,
+        }
+    }
+}

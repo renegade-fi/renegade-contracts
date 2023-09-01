@@ -12,28 +12,36 @@ use renegade_contracts::utils::serde::EcPointSerde;
 use types::{CircuitParams, Proof, VerificationJob};
 
 #[starknet::interface]
-trait IVerifier<TContractState> {
-    fn initialize(ref self: TContractState, circuit_params: CircuitParams);
+trait IMultiVerifier<TContractState> {
+    fn add_circuit(ref self: TContractState, circuit_id: felt252);
+    fn parameterize_circuit(
+        ref self: TContractState, circuit_id: felt252, circuit_params: CircuitParams
+    );
     fn queue_verification_job(
         ref self: TContractState,
+        circuit_id: felt252,
         proof: Proof,
         witness_commitments: Array<EcPoint>,
         verification_job_id: felt252
     );
-    fn step_verification(ref self: TContractState, verification_job_id: felt252) -> Option<bool>;
-    fn get_pc_gens(self: @TContractState) -> (EcPoint, EcPoint);
+    fn step_verification(
+        ref self: TContractState, circuit_id: felt252, verification_job_id: felt252
+    ) -> Option<bool>;
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
     ) -> Option<bool>;
 }
 
 #[starknet::contract]
-mod Verifier {
+mod MultiVerifier {
     use option::OptionTrait;
     use clone::Clone;
     use traits::{Into, TryInto};
     use array::{ArrayTrait, SpanTrait};
-    use ec::{EcPoint, ec_point_zero, ec_mul, ec_point_unwrap, ec_point_non_zero};
+    use ec::{
+        EcPoint, ec_point_zero, ec_mul, ec_point_unwrap, ec_point_non_zero, ec_point_new,
+        stark_curve
+    };
 
     use alexandria_data_structures::array_ext::ArrayTraitExt;
     use alexandria_math::fast_power::fast_power;
@@ -67,36 +75,33 @@ mod Verifier {
 
     #[storage]
     struct Storage {
-        /// Queue of in-progress verification jobs
+        /// Map of in-use circuit IDs
+        circuit_id_in_use: LegacyMap<felt252, bool>,
+        /// Mapping from verification job ID -> verification job
         verification_queue: LegacyMap<felt252, StoreSerdeWrapper<VerificationJob>>,
         /// Map of in-use verification job IDs
         job_id_in_use: LegacyMap<felt252, bool>,
-        /// Generator used for Pedersen commitments
-        B: StoreSerdeWrapper<EcPoint>,
-        /// Generator used for blinding in Pedersen commitments
-        B_blind: StoreSerdeWrapper<EcPoint>,
-        /// Number of multiplication gates in the circuit
-        n: usize,
-        /// Number of multiplication gates in the circuit,
+        /// Mapping from circuit ID -> number of multiplication gates in the circuit
+        n: LegacyMap<felt252, usize>,
+        /// Mapping from circuit ID -> number of multiplication gates in the circuit,
         /// padded to the next power of 2
-        n_plus: usize,
-        /// log_2(n_plus), cached for efficiency
-        k: usize,
-        /// The number of linear constraints in the circuit
-        q: usize,
-        /// The witness size
-        m: usize,
-        // TODO: These may just have to be lists of pointers (StorageBaseAddress) to the matrices
-        /// Sparse-reduced matrix of left input weights for the circuit
-        W_L: StoreSerdeWrapper<SparseWeightMatrix>,
-        /// Sparse-reduced matrix of right input weights for the circuit
-        W_R: StoreSerdeWrapper<SparseWeightMatrix>,
-        /// Sparse-reduced matrix of output weights for the circuit
-        W_O: StoreSerdeWrapper<SparseWeightMatrix>,
-        /// Sparse-reduced matrix of witness weights for the circuit
-        W_V: StoreSerdeWrapper<SparseWeightMatrix>,
-        /// Sparse-reduced vector of constants for the circuit
-        c: StoreSerdeWrapper<SparseWeightVec>,
+        n_plus: LegacyMap<felt252, usize>,
+        /// Mapping from circuit ID -> log_2(n_plus), cached for efficiency
+        k: LegacyMap<felt252, usize>,
+        /// Mapping from circuit ID -> the number of linear constraints in the circuit
+        q: LegacyMap<felt252, usize>,
+        /// Mapping from circuit ID -> the witness size for the circuit
+        m: LegacyMap<felt252, usize>,
+        /// Mapping from circuit ID -> sparse-reduced matrix of left input weights for the circuit
+        W_L: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
+        /// Mapping from circuit ID -> sparse-reduced matrix of right input weights for the circuit
+        W_R: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
+        /// Mapping from circuit ID -> sparse-reduced matrix of output weights for the circuit
+        W_O: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
+        /// Mapping from circuit ID -> sparse-reduced matrix of witness weights for the circuit
+        W_V: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
+        /// Mapping from circuit ID -> sparse-reduced vector of constants for the circuit
+        c: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
     }
 
     // ----------
@@ -106,7 +111,14 @@ mod Verifier {
     // TODO: Access / management controls events
 
     #[derive(Drop, PartialEq, starknet::Event)]
-    struct Initialized {}
+    struct CircuitAdded {
+        circuit_id: felt252, 
+    }
+
+    #[derive(Drop, PartialEq, starknet::Event)]
+    struct CircuitParameterized {
+        circuit_id: felt252, 
+    }
 
     #[derive(Drop, PartialEq, starknet::Event)]
     struct VerificationJobQueued {
@@ -122,7 +134,8 @@ mod Verifier {
     #[event]
     #[derive(Drop, PartialEq, starknet::Event)]
     enum Event {
-        Initialized: Initialized,
+        CircuitAdded: CircuitAdded,
+        CircuitParameterized: CircuitParameterized,
         VerificationJobQueued: VerificationJobQueued,
         VerificationJobCompleted: VerificationJobCompleted,
     }
@@ -132,11 +145,28 @@ mod Verifier {
     // ----------------------------
 
     #[external(v0)]
-    impl IVerifierImpl of super::IVerifier<ContractState> {
+    impl IMultiVerifierImpl of super::IMultiVerifier<ContractState> {
+        /// Adds a new circuit to the contract
+        /// Parameters:
+        /// - `circuit_id`: The ID of the circuit
+        fn add_circuit(ref self: ContractState, circuit_id: felt252) {
+            // Assert that the circuit ID is not already in use
+            assert(!self.circuit_id_in_use.read(circuit_id), 'circuit ID already in use');
+            self.circuit_id_in_use.write(circuit_id, true);
+
+            self.emit(Event::CircuitAdded(CircuitAdded { circuit_id }));
+        }
+
         /// Initializes the verifier for the given public parameters
         /// Parameters:
+        /// - `circuit_id`: The ID of the circuit
         /// - `circuit_params`: The public parameters of the circuit
-        fn initialize(ref self: ContractState, circuit_params: CircuitParams) {
+        fn parameterize_circuit(
+            ref self: ContractState, circuit_id: felt252, circuit_params: CircuitParams
+        ) {
+            // Assert that the circuit ID is in use
+            assert(self.circuit_id_in_use.read(circuit_id), 'circuit ID not in use');
+
             // Assert that n_plus = 2^k
             assert(
                 fast_power(2, circuit_params.k.into(), MAX_USIZE.into() + 1) == circuit_params
@@ -160,52 +190,53 @@ mod Verifier {
             // Assert that `c` vector is not too wide
             assert(circuit_params.c.len() <= circuit_params.q, 'c too wide');
 
-            self.n.write(circuit_params.n);
-            self.n_plus.write(circuit_params.n_plus);
-            self.k.write(circuit_params.k);
-            self.q.write(circuit_params.q);
-            self.m.write(circuit_params.m);
-            self.B.write(StoreSerdeWrapper { inner: circuit_params.B });
-            self.B_blind.write(StoreSerdeWrapper { inner: circuit_params.B_blind });
-            self.W_L.write(StoreSerdeWrapper { inner: circuit_params.W_L });
-            self.W_R.write(StoreSerdeWrapper { inner: circuit_params.W_R });
-            self.W_O.write(StoreSerdeWrapper { inner: circuit_params.W_O });
-            self.W_V.write(StoreSerdeWrapper { inner: circuit_params.W_V });
-            self.c.write(StoreSerdeWrapper { inner: circuit_params.c });
+            self.n.write(circuit_id, circuit_params.n);
+            self.n_plus.write(circuit_id, circuit_params.n_plus);
+            self.k.write(circuit_id, circuit_params.k);
+            self.q.write(circuit_id, circuit_params.q);
+            self.m.write(circuit_id, circuit_params.m);
+            self.W_L.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_L });
+            self.W_R.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_R });
+            self.W_O.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_O });
+            self.W_V.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_V });
+            self.c.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.c });
 
-            self.emit(Event::Initialized(Initialized {}));
+            self.emit(Event::CircuitParameterized(CircuitParameterized { circuit_id }));
         }
 
         /// Enqueues a verification job for the given proof, squeezing out challenge scalars
         /// as necessary.
         /// Parameters:
+        /// - `circuit_id`: The ID of the circuit
         /// - `proof`: The proof to verify
         /// - `verification_job_id`: The ID of the verification job
         fn queue_verification_job(
             ref self: ContractState,
+            circuit_id: felt252,
             mut proof: Proof,
             mut witness_commitments: Array<EcPoint>,
             verification_job_id: felt252
         ) {
+            // Assert that the circuit ID is in use
+            assert(self.circuit_id_in_use.read(circuit_id), 'circuit ID not in use');
+
             // Assert that the verification job ID is not already in use
             assert(!self.job_id_in_use.read(verification_job_id), 'job ID already in use');
             self.job_id_in_use.write(verification_job_id, true);
 
             // Assert that there is the right number of witness commitments
-            let m = self.m.read();
+            let m = self.m.read(circuit_id);
             assert(witness_commitments.len() == m, 'wrong # of witness commitments');
 
-            let n = self.n.read();
-            let n_plus = self.n_plus.read();
-            let k = self.k.read();
-            let q = self.q.read();
-            let B = self.B.read().inner;
-            let B_blind = self.B_blind.read().inner;
-            let W_L = self.W_L.read().inner;
-            let W_R = self.W_R.read().inner;
-            let W_O = self.W_O.read().inner;
-            let W_V = self.W_V.read().inner;
-            let c = self.c.read().inner;
+            let n = self.n.read(circuit_id);
+            let n_plus = self.n_plus.read(circuit_id);
+            let k = self.k.read(circuit_id);
+            let q = self.q.read(circuit_id);
+            let W_L = self.W_L.read(circuit_id).inner;
+            let W_R = self.W_R.read(circuit_id).inner;
+            let W_O = self.W_O.read(circuit_id).inner;
+            let W_V = self.W_V.read(circuit_id).inner;
+            let c = self.c.read(circuit_id).inner;
 
             // Prep `RemainingGenerators` structs for G and H generators
             let (G_rem, H_rem) = prep_rem_gens(n_plus);
@@ -232,8 +263,9 @@ mod Verifier {
             );
 
             // Prep commitments
+            let pedersen_generator = ec_point_new(stark_curve::GEN_X, stark_curve::GEN_Y);
             let rem_commitments = prep_rem_commitments(
-                ref proof, ref witness_commitments, B, B_blind
+                ref proof, ref witness_commitments, pedersen_generator, pedersen_generator, 
             );
 
             // Pack `VerificationJob` struct
@@ -249,7 +281,15 @@ mod Verifier {
             };
 
             let verification_job = VerificationJobTrait::new(
-                rem_scalar_polys, y_inv_power, z, u_vec, vec_indices, G_rem, H_rem, rem_commitments, 
+                circuit_id,
+                rem_scalar_polys,
+                y_inv_power,
+                z,
+                u_vec,
+                vec_indices,
+                G_rem,
+                H_rem,
+                rem_commitments,
             );
 
             // Enqueue verification job
@@ -261,7 +301,7 @@ mod Verifier {
         }
 
         fn step_verification(
-            ref self: ContractState, verification_job_id: felt252
+            ref self: ContractState, circuit_id: felt252, verification_job_id: felt252
         ) -> Option<bool> {
             let mut verification_job = self.verification_queue.read(verification_job_id).inner;
             step_verification_inner(ref self, ref verification_job);
@@ -290,10 +330,6 @@ mod Verifier {
         // -----------
         // | GETTERS |
         // -----------
-
-        fn get_pc_gens(self: @ContractState) -> (EcPoint, EcPoint) {
-            (self.B.read().inner, self.B_blind.read().inner)
-        }
 
         fn check_verification_job_status(
             self: @ContractState, verification_job_id: felt252
@@ -550,7 +586,8 @@ mod Verifier {
                 return Option::None(());
             }
 
-            let VerificationJob{rem_scalar_polys: mut rem_scalar_polys,
+            let VerificationJob{circuit_id,
+            rem_scalar_polys: mut rem_scalar_polys,
             y_inv_power: mut y_inv_power,
             z,
             u_vec,
@@ -564,7 +601,8 @@ mod Verifier {
                 self;
 
             let poly = rem_scalar_polys.at(0);
-            let scalar = poly.evaluate(contract, y_inv_power, z, u_vec.span(), @vec_indices);
+            let scalar = poly
+                .evaluate(contract, circuit_id, y_inv_power, z, u_vec.span(), @vec_indices);
 
             if poly.uses_y() {
                 // Last scalar used a power of y, so we now increase it to the next power
@@ -584,7 +622,7 @@ mod Verifier {
                             // Last scalar used an element from this vector, so we now
                             // increase the index of the next element to be used from this vector
                             let index = vec_indices.bump_index(@vec_subterm);
-                            let max_index = vec_subterm.len(contract);
+                            let max_index = vec_subterm.len(contract, circuit_id);
 
                             // If the index is now equal to the max index for the vector, we pop the
                             // current polynomial from `rem_scalar_polys`.
@@ -611,6 +649,7 @@ mod Verifier {
             };
 
             self = VerificationJob {
+                circuit_id,
                 rem_scalar_polys,
                 y_inv_power,
                 z,
@@ -633,6 +672,7 @@ mod Verifier {
         fn evaluate(
             self: @VecPoly3,
             contract: @ContractState,
+            circuit_id: felt252,
             y_inv_power: (Scalar, Scalar),
             z: Scalar,
             u: Span<Scalar>,
@@ -660,7 +700,7 @@ mod Verifier {
 
                 term_eval *= match term.vec {
                     Option::Some(vec_subterm) => {
-                        vec_subterm.evaluate(z, u, vec_indices, contract)
+                        vec_subterm.evaluate(z, u, vec_indices, contract, circuit_id)
                     },
                     Option::None(()) => 1.into(),
                 };
@@ -676,16 +716,16 @@ mod Verifier {
     #[generate_trait]
     impl VecSubtermImpl of ContractAwareVecSubtermTrait {
         /// Returns the expected length of the given vector
-        fn len(self: @VecSubterm, contract: @ContractState) -> usize {
+        fn len(self: @VecSubterm, contract: @ContractState, circuit_id: felt252) -> usize {
             match self {
-                VecSubterm::W_L_flat(()) => contract.n.read(),
-                VecSubterm::W_R_flat(()) => contract.n.read(),
-                VecSubterm::W_O_flat(()) => contract.n.read(),
-                VecSubterm::W_V_flat(()) => contract.m.read(),
-                VecSubterm::S(()) => contract.n_plus.read(),
-                VecSubterm::S_inv(()) => contract.n_plus.read(),
-                VecSubterm::U_sq(()) => contract.k.read(),
-                VecSubterm::U_sq_inv(()) => contract.k.read(),
+                VecSubterm::W_L_flat(()) => contract.n.read(circuit_id),
+                VecSubterm::W_R_flat(()) => contract.n.read(circuit_id),
+                VecSubterm::W_O_flat(()) => contract.n.read(circuit_id),
+                VecSubterm::W_V_flat(()) => contract.m.read(circuit_id),
+                VecSubterm::S(()) => contract.n_plus.read(circuit_id),
+                VecSubterm::S_inv(()) => contract.n_plus.read(circuit_id),
+                VecSubterm::U_sq(()) => contract.k.read(circuit_id),
+                VecSubterm::U_sq_inv(()) => contract.k.read(circuit_id),
             }
         }
 
@@ -695,27 +735,44 @@ mod Verifier {
             z: Scalar,
             u: Span<Scalar>,
             vec_indices: @VecIndices,
-            contract: @ContractState
+            contract: @ContractState,
+            circuit_id: felt252,
         ) -> Scalar {
             match self {
                 VecSubterm::W_L_flat(()) => {
-                    contract.W_L.read().inner.get_flattened_elem(*vec_indices.w_L_flat_index, z)
+                    contract
+                        .W_L
+                        .read(circuit_id)
+                        .inner
+                        .get_flattened_elem(*vec_indices.w_L_flat_index, z)
                 },
                 VecSubterm::W_R_flat(()) => {
-                    contract.W_R.read().inner.get_flattened_elem(*vec_indices.w_R_flat_index, z)
+                    contract
+                        .W_R
+                        .read(circuit_id)
+                        .inner
+                        .get_flattened_elem(*vec_indices.w_R_flat_index, z)
                 },
                 VecSubterm::W_O_flat(()) => {
-                    contract.W_O.read().inner.get_flattened_elem(*vec_indices.w_O_flat_index, z)
+                    contract
+                        .W_O
+                        .read(circuit_id)
+                        .inner
+                        .get_flattened_elem(*vec_indices.w_O_flat_index, z)
                 },
                 VecSubterm::W_V_flat(()) => {
-                    contract.W_V.read().inner.get_flattened_elem(*vec_indices.w_V_flat_index, z)
+                    contract
+                        .W_V
+                        .read(circuit_id)
+                        .inner
+                        .get_flattened_elem(*vec_indices.w_V_flat_index, z)
                 },
                 VecSubterm::S(()) => {
                     get_s_elem(u, *vec_indices.s_index)
                 },
                 VecSubterm::S_inv(()) => {
                     // s_inv = rev(s)
-                    get_s_elem(u, contract.n_plus.read() - *vec_indices.s_inv_index - 1)
+                    get_s_elem(u, contract.n_plus.read(circuit_id) - *vec_indices.s_inv_index - 1)
                 },
                 VecSubterm::U_sq(()) => {
                     let u_i = *u.at(*vec_indices.u_sq_index);

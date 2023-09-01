@@ -18,8 +18,9 @@ use super::scalar::{Scalar, ScalarTrait};
 /// Tracks the verification of a single proof
 #[derive(Drop, Serde, PartialEq)]
 struct VerificationJob {
+    /// The ID of the circuit being verified
+    circuit_id: felt252,
     /// The challenge scalars remaining to be used for verification
-    // TODO: This may just have to be a pointer (StorageBaseAddress) to the array
     rem_scalar_polys: Array<VecPoly3>,
     /// Represents the base y^-1 challenge scalar & the last computed power of y^-1
     y_inv_power: (Scalar, Scalar),
@@ -45,6 +46,7 @@ struct VerificationJob {
 #[generate_trait]
 impl VerificationJobImpl of VerificationJobTrait {
     fn new(
+        circuit_id: felt252,
         rem_scalar_polys: Array<VecPoly3>,
         y_inv_power: (Scalar, Scalar),
         z: Scalar,
@@ -55,6 +57,7 @@ impl VerificationJobImpl of VerificationJobTrait {
         rem_commitments: Array<EcPoint>,
     ) -> VerificationJob {
         VerificationJob {
+            circuit_id,
             rem_scalar_polys,
             y_inv_power,
             z,
