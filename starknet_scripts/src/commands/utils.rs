@@ -48,7 +48,7 @@ const ADDR_BOUND: FieldElement = FieldElement::from_mont([
 pub const DARKPOOL_CONTRACT_NAME: &str = "renegade_contracts_Darkpool";
 pub const MERKLE_CONTRACT_NAME: &str = "renegade_contracts_Merkle";
 pub const NULLIFIER_SET_CONTRACT_NAME: &str = "renegade_contracts_NullifierSet";
-pub const VERIFIER_CONTRACT_NAME: &str = "renegade_contracts_Verifier";
+pub const VERIFIER_CONTRACT_NAME: &str = "renegade_contracts_MultiVerifier";
 
 pub const SIERRA_FILE_EXTENSION: &str = "sierra.json";
 pub const CASM_FILE_EXTENSION: &str = "casm.json";
@@ -171,11 +171,14 @@ pub async fn deploy(
     account: &ScriptAccount,
     class_hash: FieldElement,
     calldata: &[FieldElement],
-    salt: FieldElement,
 ) -> Result<InvokeTransactionResult> {
     let contract_factory = ContractFactory::new(class_hash, account);
     let deploy_result = contract_factory
-        .deploy(calldata, salt, false /* unique */)
+        .deploy(
+            calldata,
+            FieldElement::ZERO, /* salt */
+            false,              /* unique */
+        )
         .send()
         .await?;
 
@@ -206,13 +209,12 @@ pub async fn initialize(
 // Taken from https://github.com/xJonathanLEI/starknet-rs/blob/master/starknet-accounts/src/factory/mod.rs
 pub fn calculate_contract_address(
     class_hash: FieldElement,
-    salt: FieldElement,
     constructor_calldata: &[FieldElement],
 ) -> FieldElement {
     compute_hash_on_elements(&[
         PREFIX_CONTRACT_ADDRESS,
         FieldElement::ZERO, /* deployer address */
-        salt,
+        FieldElement::ZERO, /* salt */
         class_hash,
         compute_hash_on_elements(constructor_calldata),
     ]) % ADDR_BOUND
@@ -278,19 +280,9 @@ pub async fn deploy_darkpool(
     let calldata = vec![account.address()];
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(
-        account,
-        darkpool_class_hash_felt,
-        &calldata,
-        FieldElement::ZERO, /* salt */
-    )
-    .await?;
+    } = deploy(account, darkpool_class_hash_felt, &calldata).await?;
 
-    let darkpool_address = calculate_contract_address(
-        darkpool_class_hash_felt,
-        FieldElement::ZERO, /* salt */
-        &calldata,
-    );
+    let darkpool_address = calculate_contract_address(darkpool_class_hash_felt, &calldata);
 
     Ok((
         darkpool_address,
@@ -321,19 +313,9 @@ pub async fn deploy_merkle(
     debug!("Deploying merkle contract...");
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(
-        account,
-        merkle_class_hash_felt,
-        &[],
-        FieldElement::ZERO, /* salt */
-    )
-    .await?;
+    } = deploy(account, merkle_class_hash_felt, &[]).await?;
 
-    let merkle_address = calculate_contract_address(
-        merkle_class_hash_felt,
-        FieldElement::ZERO, /* salt */
-        &[],
-    );
+    let merkle_address = calculate_contract_address(merkle_class_hash_felt, &[]);
 
     Ok((merkle_address, merkle_class_hash_felt, transaction_hash))
 }
@@ -357,50 +339,13 @@ pub async fn deploy_nullifier_set(
     debug!("Deploying nullifier set contract...");
     let InvokeTransactionResult {
         transaction_hash, ..
-    } = deploy(
-        account,
-        nullifier_set_class_hash_felt,
-        &[],
-        FieldElement::ZERO, /* salt */
-    )
-    .await?;
+    } = deploy(account, nullifier_set_class_hash_felt, &[]).await?;
 
-    let nullifier_set_address = calculate_contract_address(
-        nullifier_set_class_hash_felt,
-        FieldElement::ZERO, /* salt */
-        &[],
-    );
+    let nullifier_set_address = calculate_contract_address(nullifier_set_class_hash_felt, &[]);
 
     Ok((
         nullifier_set_address,
         nullifier_set_class_hash_felt,
         transaction_hash,
     ))
-}
-
-pub async fn deploy_verifier(
-    verifier_class_hash: Option<String>,
-    salt: FieldElement,
-    artifacts_path: &str,
-    account: &ScriptAccount,
-) -> Result<(FieldElement, FieldElement, FieldElement)> {
-    let (verifier_sierra_path, verifier_casm_path) =
-        get_artifacts(artifacts_path, VERIFIER_CONTRACT_NAME);
-    let verifier_class_hash_felt = get_or_declare(
-        verifier_class_hash,
-        verifier_sierra_path,
-        verifier_casm_path,
-        account,
-    )
-    .await?;
-
-    // Deploy verifier
-    debug!("Deploying verifier contract...");
-    let InvokeTransactionResult {
-        transaction_hash, ..
-    } = deploy(account, verifier_class_hash_felt, &[], salt).await?;
-
-    let verifier_address = calculate_contract_address(verifier_class_hash_felt, salt, &[]);
-
-    Ok((verifier_address, verifier_class_hash_felt, transaction_hash))
 }

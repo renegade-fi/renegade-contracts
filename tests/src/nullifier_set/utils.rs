@@ -41,12 +41,8 @@ pub async fn init_nullifier_set_test_state() -> Result<TestSequencer> {
 pub fn init_nullifier_set_test_statics() -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let nullifier_set_address = get_contract_address_from_artifact(
-        &artifacts_path,
-        NULLIFIER_SET_CONTRACT_NAME,
-        FieldElement::ZERO,
-        &[],
-    )?;
+    let nullifier_set_address =
+        get_contract_address_from_artifact(&artifacts_path, NULLIFIER_SET_CONTRACT_NAME, &[])?;
     if NULLIFIER_SET_ADDRESS.get().is_none() {
         NULLIFIER_SET_ADDRESS.set(nullifier_set_address).unwrap();
     }

@@ -7,8 +7,8 @@ use tracing::{debug, info};
 use crate::{
     cli::{Contract, DeployArgs},
     commands::utils::{
-        deploy_darkpool, deploy_merkle, deploy_nullifier_set, deploy_verifier, dump_deployment,
-        initialize, setup_account, MERKLE_HEIGHT,
+        deploy_darkpool, deploy_merkle, deploy_nullifier_set, dump_deployment, initialize,
+        setup_account, MERKLE_HEIGHT,
     },
 };
 
@@ -66,32 +66,19 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
             );
 
             if should_initialize {
-                // Deploy verifier
-                let verifier_class_hash_hex = if let Some(verifier_class_hash) = verifier_class_hash
-                {
-                    verifier_class_hash
-                } else {
-                    format!("{verifier_class_hash_felt:#64x}")
-                };
-                let (verifier_address, _, _) = deploy_verifier(
-                    Some(verifier_class_hash_hex),
-                    FieldElement::ZERO, /* salt */
-                    &artifacts_path,
-                    &account,
-                )
-                .await?;
-
                 // Initialize darkpool
                 debug!("Initializing darkpool contract...");
                 let calldata = vec![
                     merkle_class_hash_felt,
                     nullifier_set_class_hash_felt,
-                    verifier_address,
+                    verifier_class_hash_felt,
                     FieldElement::from(MERKLE_HEIGHT),
                     // TODO: Need to get circuit params! Prob best to read them in from file.
                 ];
                 let initialization_result =
                     initialize(&account, darkpool_address, calldata).await?;
+
+                // TODO: Parameterize verifiers
 
                 info!(
                     "Darkpool contract initialized!\n\

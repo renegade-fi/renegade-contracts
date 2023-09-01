@@ -70,7 +70,6 @@ pub fn init_verifier_utils_test_statics() -> Result<()> {
     let verifier_utils_wrapper_address = get_contract_address_from_artifact(
         &artifacts_path,
         VERIFIER_UTILS_WRAPPER_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
         &[],
     )?;
     if VERIFIER_UTILS_WRAPPER_ADDRESS.get().is_none() {
@@ -95,12 +94,8 @@ pub async fn deploy_verifier_utils_wrapper(
     )
     .await?;
 
-    deploy(account, class_hash, &[], FieldElement::ZERO /* salt */).await?;
-    Ok(calculate_contract_address(
-        class_hash,
-        FieldElement::ZERO, /* salt */
-        &[],
-    ))
+    deploy(account, class_hash, &[]).await?;
+    Ok(calculate_contract_address(class_hash, &[]))
 }
 
 // --------------------------------

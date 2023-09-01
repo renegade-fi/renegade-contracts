@@ -230,15 +230,10 @@ pub fn get_sierra_class_hash_from_artifact(
 pub fn get_contract_address_from_artifact(
     artifacts_path: &str,
     contract_name: &str,
-    salt: FieldElement,
     constructor_calldata: &[FieldElement],
 ) -> Result<FieldElement> {
     let class_hash = get_sierra_class_hash_from_artifact(artifacts_path, contract_name)?;
-    Ok(calculate_contract_address(
-        class_hash,
-        salt,
-        constructor_calldata,
-    ))
+    Ok(calculate_contract_address(class_hash, constructor_calldata))
 }
 
 pub async fn setup_sequencer(test_config: TestConfig) -> Result<TestSequencer> {
@@ -318,6 +313,7 @@ fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Res
 // --------------------------------
 
 pub const GET_ROOT_FN_NAME: &str = "get_root";
+pub const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 
 pub async fn call_contract(
     account: &ScriptAccount,
@@ -362,6 +358,30 @@ pub async fn get_root(account: &ScriptAccount, contract_address: FieldElement) -
     call_contract(account, contract_address, GET_ROOT_FN_NAME, vec![])
         .await
         .map(|r| felt_to_scalar(&r[0]))
+}
+
+pub async fn check_verification_job_status(
+    account: &ScriptAccount,
+    contract_address: FieldElement,
+    verification_job_id: FieldElement,
+) -> Result<Option<bool>> {
+    call_contract(
+        account,
+        contract_address,
+        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
+        vec![verification_job_id],
+    )
+    .await
+    .map(|r| {
+        // The Cairo corelib serializes an Option::None(()) as 1,
+        // and an Option::Some(x) as [0, ..serialize(x)].
+        // In our case, x is a bool => serializes as a true = 1, false = 0.
+        if r[0] == FieldElement::ONE {
+            None
+        } else {
+            Some(r[1] == FieldElement::ONE)
+        }
+    })
 }
 
 // ----------------

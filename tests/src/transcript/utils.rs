@@ -70,7 +70,6 @@ pub fn init_transcript_test_statics() -> Result<()> {
     let transcript_wrapper_address = get_contract_address_from_artifact(
         &artifacts_path,
         TRANSCRIPT_WRAPPER_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
         &calldata,
     )?;
 
@@ -100,18 +99,8 @@ pub async fn deploy_transcript_wrapper(
         declare(transcript_sierra_path, transcript_casm_path, account).await?;
 
     let calldata = get_transcript_wrapper_constructor_calldata()?;
-    deploy(
-        account,
-        class_hash,
-        &calldata,
-        FieldElement::ZERO, /* salt */
-    )
-    .await?;
-    Ok(calculate_contract_address(
-        class_hash,
-        FieldElement::ZERO, /* salt */
-        &calldata,
-    ))
+    deploy(account, class_hash, &calldata).await?;
+    Ok(calculate_contract_address(class_hash, &calldata))
 }
 
 // --------------------------------
