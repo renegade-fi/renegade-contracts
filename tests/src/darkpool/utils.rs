@@ -58,7 +58,7 @@ const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgrad
 pub const INIT_BALANCE: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 100;
 
-const INITIALIZE_VERIFIER_FN_NAME: &str = "initialize_verifier";
+const PARAMETERIZE_VERIFIER_FN_NAME: &str = "parameterize_verifier";
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
 const IS_NULLIFIER_AVAILABLE_FN_NAME: &str = "is_nullifier_available";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
@@ -105,7 +105,7 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     let sequencer = global_setup(None).await;
     let account = sequencer.account();
     debug!("Declaring & deploying darkpool contract...");
-    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _verifier_class_hash, _) =
+    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
         deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
 
     debug!("Initializing darkpool contract...");
@@ -114,23 +114,24 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
         darkpool_address,
         merkle_class_hash,
         nullifier_set_class_hash,
+        verifier_class_hash,
         TEST_MERKLE_HEIGHT.into(),
     )
     .await?;
 
-    // for (i, circuit) in [
-    //     Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
-    //     Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
-    //     Circuit::ValidCommitments(DummyValidCommitments {}),
-    //     Circuit::ValidReblind(DummyValidReblind {}),
-    //     Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
-    //     Circuit::ValidSettle(DummyValidSettle {}),
-    // ]
-    // .into_iter()
-    // .enumerate()
-    // {
-    //     todo!()
-    // }
+    debug!("Parameterizing verifier...");
+    for circuit in [
+        Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
+        Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
+        Circuit::ValidCommitments(DummyValidCommitments {}),
+        Circuit::ValidReblind(DummyValidReblind {}),
+        Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
+        Circuit::ValidSettle(DummyValidSettle {}),
+    ]
+    .into_iter()
+    {
+        parameterize_verifier(&account, circuit, darkpool_address).await?;
+    }
 
     debug!("Declaring & deploying dummy ERC20 contract...");
     let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
@@ -251,20 +252,25 @@ pub async fn initialize_darkpool(
     darkpool_address: FieldElement,
     merkle_class_hash: FieldElement,
     nullifier_set_class_hash: FieldElement,
+    verifier_class_hash: FieldElement,
     merkle_height: FieldElement,
 ) -> Result<()> {
-    let calldata = vec![merkle_class_hash, nullifier_set_class_hash, merkle_height];
+    let calldata = vec![
+        merkle_class_hash,
+        nullifier_set_class_hash,
+        verifier_class_hash,
+        merkle_height,
+    ];
 
     initialize(account, darkpool_address, calldata)
         .await
         .map(|_| ())
 }
 
-pub async fn initialize_verifier(
+pub async fn parameterize_verifier(
     account: &ScriptAccount,
     circuit: Circuit,
     darkpool_address: FieldElement,
-    verifier_address: FieldElement,
 ) -> Result<()> {
     let mut statement_scalars = get_dummy_statement_scalars(circuit).into_iter();
 
@@ -297,14 +303,13 @@ pub async fn initialize_verifier(
     let calldata = circuit
         .to_calldata()
         .into_iter()
-        .chain(iter::once(verifier_address))
         .chain(circuit_params.to_calldata())
         .collect();
 
     invoke_contract(
         account,
         darkpool_address,
-        INITIALIZE_VERIFIER_FN_NAME,
+        PARAMETERIZE_VERIFIER_FN_NAME,
         calldata,
     )
     .await
