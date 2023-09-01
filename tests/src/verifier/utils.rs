@@ -18,14 +18,13 @@ use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
-    get_contract_address_from_artifact, global_setup, invoke_contract, CalldataSerializable,
-    CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+    get_contract_address_from_artifact, global_setup, invoke_contract, parameterize_circuit,
+    CalldataSerializable, CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
 };
 
 pub const FUZZ_ROUNDS: usize = 1;
 
 const ADD_CIRCUIT_FN_NAME: &str = "add_circuit";
-const PARAMETERIZE_CIRCUIT_FN_NAME: &str = "parameterize_circuit";
 const QUEUE_VERIFICATION_JOB_FN_NAME: &str = "queue_verification_job";
 const STEP_VERIFICATION_FN_NAME: &str = "step_verification";
 
@@ -46,7 +45,13 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
 
     debug!("Initializing verifier contract...");
     add_circuit(&account, verifier_address).await?;
-    parameterize_circuit(&account, verifier_address).await?;
+    parameterize_circuit(
+        &account,
+        verifier_address,
+        DUMMY_CIRCUIT_ID,
+        get_dummy_circuit_params(),
+    )
+    .await?;
 
     Ok(sequencer)
 }
@@ -94,24 +99,6 @@ pub async fn add_circuit(account: &ScriptAccount, verifier_address: FieldElement
         verifier_address,
         ADD_CIRCUIT_FN_NAME,
         vec![DUMMY_CIRCUIT_ID],
-    )
-    .await
-    .map(|_| ())
-}
-
-pub async fn parameterize_circuit(
-    account: &ScriptAccount,
-    verifier_address: FieldElement,
-) -> Result<()> {
-    let calldata = iter::once(DUMMY_CIRCUIT_ID)
-        .chain(get_dummy_circuit_params().to_calldata())
-        .collect();
-
-    invoke_contract(
-        account,
-        verifier_address,
-        PARAMETERIZE_CIRCUIT_FN_NAME,
-        calldata,
     )
     .await
     .map(|_| ())

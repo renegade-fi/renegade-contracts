@@ -260,12 +260,12 @@ fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher, ) {
             TEST_MERKLE_HEIGHT,
         );
 
-    darkpool.parameterize_verifier(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());
-    darkpool.parameterize_verifier(Circuit::ValidWalletUpdate(()), get_dummy_circuit_params());
-    darkpool.parameterize_verifier(Circuit::ValidCommitments(()), get_dummy_circuit_params());
-    darkpool.parameterize_verifier(Circuit::ValidReblind(()), get_dummy_circuit_params());
-    darkpool.parameterize_verifier(Circuit::ValidMatchMpc(()), get_dummy_circuit_params());
-    darkpool.parameterize_verifier(Circuit::ValidSettle(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidWalletUpdate(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidCommitments(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidReblind(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidMatchMpc(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidSettle(()), get_dummy_circuit_params());
 }
 
 fn assert_not_verified(ref darkpool: IDarkpoolDispatcher, verification_job_id: felt252) {

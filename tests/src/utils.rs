@@ -312,6 +312,7 @@ fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Res
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
+pub const PARAMETERIZE_CIRCUIT_FN_NAME: &str = "parameterize_circuit";
 pub const GET_ROOT_FN_NAME: &str = "get_root";
 pub const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 
@@ -382,6 +383,26 @@ pub async fn check_verification_job_status(
             Some(r[1] == FieldElement::ONE)
         }
     })
+}
+
+pub async fn parameterize_circuit(
+    account: &ScriptAccount,
+    contract_address: FieldElement,
+    circuit_id: FieldElement,
+    circuit_params: CircuitParams,
+) -> Result<()> {
+    let calldata = iter::once(circuit_id)
+        .chain(circuit_params.to_calldata())
+        .collect();
+
+    invoke_contract(
+        account,
+        contract_address,
+        PARAMETERIZE_CIRCUIT_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|_| ())
 }
 
 // ----------------
