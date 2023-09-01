@@ -28,8 +28,8 @@ use starknet::{
 };
 use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::{
-    calculate_contract_address, declare, deploy, deploy_darkpool, deploy_verifier, get_artifacts,
-    initialize, ScriptAccount, DARKPOOL_CONTRACT_NAME,
+    calculate_contract_address, declare, deploy, deploy_darkpool, get_artifacts, initialize,
+    ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
 use std::{env, iter};
 
@@ -41,13 +41,14 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, felt_to_u128, get_circuit_params, get_contract_address_from_artifact,
-        get_dummy_statement_scalars, get_sierra_class_hash_from_artifact, global_setup,
-        invoke_contract, random_felt, scalar_to_felt, setup_sequencer, singleprover_prove,
-        CalldataSerializable, Circuit, DummyValidCommitments, DummyValidMatchMpc,
-        DummyValidReblind, DummyValidSettle, DummyValidWalletCreate, DummyValidWalletUpdate,
-        MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig, UpdateWalletArgs,
-        ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE, SK_ROOT,
+        call_contract, check_verification_job_status, felt_to_u128, get_circuit_params,
+        get_contract_address_from_artifact, get_dummy_statement_scalars,
+        get_sierra_class_hash_from_artifact, global_setup, invoke_contract, random_felt,
+        scalar_to_felt, setup_sequencer, singleprover_prove, CalldataSerializable, Circuit,
+        DummyValidCommitments, DummyValidMatchMpc, DummyValidReblind, DummyValidSettle,
+        DummyValidWalletCreate, DummyValidWalletUpdate, MatchPayload, NewWalletArgs,
+        ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
+        SK_ROOT,
     },
 };
 
@@ -60,7 +61,6 @@ pub const TRANSFER_AMOUNT: u64 = 100;
 const INITIALIZE_VERIFIER_FN_NAME: &str = "initialize_verifier";
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
 const IS_NULLIFIER_AVAILABLE_FN_NAME: &str = "is_nullifier_available";
-const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
 const POLL_NEW_WALLET_FN_NAME: &str = "poll_new_wallet";
 const UPDATE_WALLET_FN_NAME: &str = "update_wallet";
@@ -105,7 +105,7 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     let sequencer = global_setup(None).await;
     let account = sequencer.account();
     debug!("Declaring & deploying darkpool contract...");
-    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
+    let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, _verifier_class_hash, _) =
         deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
 
     debug!("Initializing darkpool contract...");
@@ -118,29 +118,19 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     )
     .await?;
 
-    let verifier_class_hash_hex = Some(format!("{verifier_class_hash:#64x}"));
-
-    for (i, circuit) in [
-        Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
-        Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
-        Circuit::ValidCommitments(DummyValidCommitments {}),
-        Circuit::ValidReblind(DummyValidReblind {}),
-        Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
-        Circuit::ValidSettle(DummyValidSettle {}),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        deploy_and_initialize_verifier(
-            &account,
-            &artifacts_path,
-            circuit,
-            darkpool_address,
-            verifier_class_hash_hex.clone(),
-            FieldElement::from(i), /* salt */
-        )
-        .await?;
-    }
+    // for (i, circuit) in [
+    //     Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
+    //     Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
+    //     Circuit::ValidCommitments(DummyValidCommitments {}),
+    //     Circuit::ValidReblind(DummyValidReblind {}),
+    //     Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
+    //     Circuit::ValidSettle(DummyValidSettle {}),
+    // ]
+    // .into_iter()
+    // .enumerate()
+    // {
+    //     todo!()
+    // }
 
     debug!("Declaring & deploying dummy ERC20 contract...");
     let erc20_address = deploy_dummy_erc20(&artifacts_path, &account, darkpool_address).await?;
@@ -167,7 +157,6 @@ pub fn init_darkpool_test_statics(account: &ScriptAccount) -> Result<()> {
     let darkpool_address = get_contract_address_from_artifact(
         &artifacts_path,
         DARKPOOL_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
         &[account.address()],
     )?;
     if DARKPOOL_ADDRESS.get().is_none() {
@@ -177,7 +166,6 @@ pub fn init_darkpool_test_statics(account: &ScriptAccount) -> Result<()> {
     let erc20_address = get_contract_address_from_artifact(
         &artifacts_path,
         DUMMY_ERC20_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
         &get_dummy_erc20_calldata(account.address(), darkpool_address)?,
     )?;
     if ERC20_ADDRESS.get().is_none() {
@@ -234,18 +222,8 @@ async fn deploy_dummy_erc20(
 
     let calldata = get_dummy_erc20_calldata(account.address(), darkpool_address)?;
 
-    deploy(
-        account,
-        class_hash,
-        &calldata,
-        FieldElement::ZERO, /* salt */
-    )
-    .await?;
-    Ok(calculate_contract_address(
-        class_hash,
-        FieldElement::ZERO, /* salt */
-        &calldata,
-    ))
+    deploy(account, class_hash, &calldata).await?;
+    Ok(calculate_contract_address(class_hash, &calldata))
 }
 
 async fn declare_dummy_upgrade_target(
@@ -333,29 +311,6 @@ pub async fn initialize_verifier(
     .map(|_| ())
 }
 
-pub async fn deploy_and_initialize_verifier(
-    account: &ScriptAccount,
-    artifacts_path: &str,
-    circuit: Circuit,
-    darkpool_address: FieldElement,
-    verifier_class_hash_hex: Option<String>,
-    salt: FieldElement,
-) -> Result<()> {
-    debug!("Declaring & deploying {circuit:?} verifier contract...");
-    let (verifier_address, _, _) = deploy_verifier(
-        verifier_class_hash_hex.clone(),
-        salt,
-        artifacts_path,
-        account,
-    )
-    .await?;
-
-    debug!("Initializing {circuit:?} verifier contract...");
-    initialize_verifier(account, circuit, darkpool_address, verifier_address)
-        .await
-        .map(|_| ())
-}
-
 pub async fn get_wallet_blinder_transaction(
     account: &ScriptAccount,
     wallet_blinder_share: Scalar,
@@ -379,36 +334,6 @@ pub async fn is_nullifier_available(account: &ScriptAccount, nullifier: Scalar) 
     )
     .await
     .map(|r| r[0] == FieldElement::ONE)
-}
-
-pub async fn check_verification_job_status(
-    account: &ScriptAccount,
-    circuit: Circuit,
-    verification_job_id: FieldElement,
-) -> Result<Option<bool>> {
-    let calldata = circuit
-        .to_calldata()
-        .into_iter()
-        .chain(iter::once(verification_job_id))
-        .collect();
-
-    call_contract(
-        account,
-        *DARKPOOL_ADDRESS.get().unwrap(),
-        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
-        calldata,
-    )
-    .await
-    .map(|r| {
-        // The Cairo corelib serializes an Option::None(()) as 1,
-        // and an Option::Some(x) as [0, ..serialize(x)].
-        // In our case, x is a bool => serializes as a true = 1, false = 0.
-        if r[0] == FieldElement::ONE {
-            None
-        } else {
-            Some(r[1] == FieldElement::ONE)
-        }
-    })
 }
 
 pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result<FieldElement> {
@@ -445,7 +370,7 @@ pub async fn poll_new_wallet_to_completion(
     let tx_hash = new_wallet(account, args).await?;
     let mut verification_job_status = check_verification_job_status(
         account,
-        Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
+        *DARKPOOL_ADDRESS.get().unwrap(),
         args.verification_job_id,
     )
     .await?;
@@ -455,7 +380,7 @@ pub async fn poll_new_wallet_to_completion(
 
         verification_job_status = check_verification_job_status(
             account,
-            Circuit::ValidWalletCreate(DummyValidWalletCreate {}),
+            *DARKPOOL_ADDRESS.get().unwrap(),
             args.verification_job_id,
         )
         .await?;
@@ -505,7 +430,7 @@ pub async fn poll_update_wallet_to_completion(
     let tx_hash = update_wallet(account, args).await?;
     let mut verification_job_status = check_verification_job_status(
         account,
-        Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
+        *DARKPOOL_ADDRESS.get().unwrap(),
         args.verification_job_id,
     )
     .await?;
@@ -514,7 +439,7 @@ pub async fn poll_update_wallet_to_completion(
         poll_update_wallet(account, args.verification_job_id).await?;
         verification_job_status = check_verification_job_status(
             account,
-            Circuit::ValidWalletUpdate(DummyValidWalletUpdate {}),
+            *DARKPOOL_ADDRESS.get().unwrap(),
             args.verification_job_id,
         )
         .await?;
@@ -561,20 +486,13 @@ pub async fn process_match_verification_jobs_are_done(
     account: &ScriptAccount,
     verification_job_ids: &[FieldElement],
 ) -> Result<bool> {
-    for (verification_job_id, circuit) in verification_job_ids.iter().zip(
-        // Matches expected order of verification job IDs
-        [
-            Circuit::ValidCommitments(DummyValidCommitments {}),
-            Circuit::ValidReblind(DummyValidReblind {}),
-            Circuit::ValidCommitments(DummyValidCommitments {}),
-            Circuit::ValidReblind(DummyValidReblind {}),
-            Circuit::ValidMatchMpc(DummyValidMatchMpc {}),
-            Circuit::ValidSettle(DummyValidSettle {}),
-        ]
-        .into_iter(),
-    ) {
-        let verification_job_status =
-            check_verification_job_status(account, circuit, *verification_job_id).await?;
+    for verification_job_id in verification_job_ids {
+        let verification_job_status = check_verification_job_status(
+            account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            *verification_job_id,
+        )
+        .await?;
         if verification_job_status.is_none() {
             return Ok(false);
         } else if let Some(false) = verification_job_status {

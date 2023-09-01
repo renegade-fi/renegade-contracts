@@ -9,21 +9,23 @@ use mpc_bulletproof::{
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use once_cell::sync::OnceCell;
 use rand::thread_rng;
-use starknet::core::types::FieldElement;
+use starknet::core::types::{DeclareTransactionResult, FieldElement, InvokeTransactionResult};
 use starknet_scripts::commands::utils::{
-    deploy_verifier, initialize, ScriptAccount, VERIFIER_CONTRACT_NAME,
+    calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
+    VERIFIER_CONTRACT_NAME,
 };
-use std::env;
+use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
-    call_contract, get_contract_address_from_artifact, global_setup, invoke_contract,
-    CalldataSerializable, CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+    get_contract_address_from_artifact, global_setup, invoke_contract, CalldataSerializable,
+    CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
 };
 
 pub const FUZZ_ROUNDS: usize = 1;
 
-const CHECK_VERIFICATION_JOB_STATUS_FN_NAME: &str = "check_verification_job_status";
+const ADD_CIRCUIT_FN_NAME: &str = "add_circuit";
+const PARAMETERIZE_CIRCUIT_FN_NAME: &str = "parameterize_circuit";
 const QUEUE_VERIFICATION_JOB_FN_NAME: &str = "queue_verification_job";
 const STEP_VERIFICATION_FN_NAME: &str = "step_verification";
 
@@ -40,16 +42,11 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
     let account = sequencer.account();
 
     debug!("Declaring & deploying verifier contract...");
-    let (verifier_address, _, _) = deploy_verifier(
-        None,
-        FieldElement::ZERO, /* salt */
-        &artifacts_path,
-        &account,
-    )
-    .await?;
+    let (verifier_address, _, _) = declare_and_deploy_verifier(&artifacts_path, &account).await?;
 
     debug!("Initializing verifier contract...");
-    initialize_verifier(&account, verifier_address).await?;
+    add_circuit(&account, verifier_address).await?;
+    parameterize_circuit(&account, verifier_address).await?;
 
     Ok(sequencer)
 }
@@ -57,12 +54,8 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
 pub fn init_verifier_test_statics() -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
-    let verifier_address = get_contract_address_from_artifact(
-        &artifacts_path,
-        VERIFIER_CONTRACT_NAME,
-        FieldElement::ZERO, /* salt */
-        &[],
-    )?;
+    let verifier_address =
+        get_contract_address_from_artifact(&artifacts_path, VERIFIER_CONTRACT_NAME, &[])?;
     if VERIFIER_ADDRESS.get().is_none() {
         VERIFIER_ADDRESS.set(verifier_address).unwrap();
     }
@@ -70,44 +63,58 @@ pub fn init_verifier_test_statics() -> Result<()> {
     Ok(())
 }
 
+pub async fn declare_and_deploy_verifier(
+    artifacts_path: &str,
+    account: &ScriptAccount,
+) -> Result<(FieldElement, FieldElement, FieldElement)> {
+    let (verifier_sierra_path, verifier_casm_path) =
+        get_artifacts(artifacts_path, VERIFIER_CONTRACT_NAME);
+
+    let DeclareTransactionResult {
+        class_hash: verifier_class_hash,
+        ..
+    } = declare(verifier_sierra_path, verifier_casm_path, account).await?;
+
+    let InvokeTransactionResult {
+        transaction_hash, ..
+    } = deploy(account, verifier_class_hash, &[]).await?;
+
+    let verifier_address = calculate_contract_address(verifier_class_hash, &[]);
+
+    Ok((verifier_address, verifier_class_hash, transaction_hash))
+}
+
 // --------------------------------
 // | CONTRACT INTERACTION HELPERS |
 // --------------------------------
 
-pub async fn initialize_verifier<'t, 'g>(
-    account: &ScriptAccount,
-    verifier_address: FieldElement,
-) -> Result<()> {
-    initialize(
+pub async fn add_circuit(account: &ScriptAccount, verifier_address: FieldElement) -> Result<()> {
+    invoke_contract(
         account,
         verifier_address,
-        get_dummy_circuit_params().to_calldata(),
+        ADD_CIRCUIT_FN_NAME,
+        vec![DUMMY_CIRCUIT_ID],
     )
     .await
     .map(|_| ())
 }
 
-pub async fn check_verification_job_status(
+pub async fn parameterize_circuit(
     account: &ScriptAccount,
-    verification_job_id: FieldElement,
-) -> Result<Option<bool>> {
-    call_contract(
+    verifier_address: FieldElement,
+) -> Result<()> {
+    let calldata = iter::once(DUMMY_CIRCUIT_ID)
+        .chain(get_dummy_circuit_params().to_calldata())
+        .collect();
+
+    invoke_contract(
         account,
-        *VERIFIER_ADDRESS.get().unwrap(),
-        CHECK_VERIFICATION_JOB_STATUS_FN_NAME,
-        vec![verification_job_id],
+        verifier_address,
+        PARAMETERIZE_CIRCUIT_FN_NAME,
+        calldata,
     )
     .await
-    .map(|r| {
-        // The Cairo corelib serializes an Option::None(()) as 1,
-        // and an Option::Some(x) as [0, ..serialize(x)].
-        // In our case, x is a bool => serializes as a true = 1, false = 0.
-        if r[0] == FieldElement::ONE {
-            None
-        } else {
-            Some(r[1] == FieldElement::ONE)
-        }
-    })
+    .map(|_| ())
 }
 
 pub async fn queue_verification_job(
@@ -116,9 +123,8 @@ pub async fn queue_verification_job(
     witness_commitments: &Vec<StarkPoint>,
     verification_job_id: FieldElement,
 ) -> Result<()> {
-    let calldata = proof
-        .to_calldata()
-        .into_iter()
+    let calldata = iter::once(DUMMY_CIRCUIT_ID)
+        .chain(proof.to_calldata())
         .chain(witness_commitments.to_calldata())
         .chain(verification_job_id.to_calldata())
         .collect();
@@ -141,7 +147,7 @@ pub async fn step_verification(
         account,
         *VERIFIER_ADDRESS.get().unwrap(),
         STEP_VERIFICATION_FN_NAME,
-        vec![verification_job_id],
+        vec![DUMMY_CIRCUIT_ID, verification_job_id],
     )
     .await
     .map(|_| ())
@@ -183,6 +189,8 @@ pub const DUMMY_CIRCUIT_N_PLUS: usize = 4;
 pub const DUMMY_CIRCUIT_K: usize = 2;
 pub const DUMMY_CIRCUIT_M: usize = 4;
 pub const DUMMY_CIRCUIT_Q: usize = 8;
+
+pub const DUMMY_CIRCUIT_ID: FieldElement = FieldElement::ONE;
 
 pub fn singleprover_prove_dummy_circuit() -> Result<(R1CSProof, Vec<StarkPoint>)> {
     debug!("Generating proof for dummy circuit...");
