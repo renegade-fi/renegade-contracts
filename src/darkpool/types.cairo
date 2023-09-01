@@ -93,6 +93,16 @@ struct Signature {
     s: Scalar,
 }
 
+/// Represents which optional features to enable in the darkpool
+#[derive(Drop, Serde, Copy)]
+struct FeatureFlags {
+    /// Whether or not to use Poseidon over the scalar field
+    /// (the alternative is the Pedersen builtin)
+    poseidon_hash: bool,
+    /// Whether or not to verify proofs
+    verifier: bool,
+}
+
 // --------------------------
 // | CALLBACK ELEMENT TYPES |
 // --------------------------

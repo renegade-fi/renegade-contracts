@@ -125,7 +125,7 @@ mod Darkpool {
     use super::{
         types::{
             ExternalTransfer, MatchPayload, NewWalletCallbackElems, UpdateWalletCallbackElems,
-            ProcessMatchCallbackElems, Circuit, PublicSigningKeyTrait, Signature,
+            ProcessMatchCallbackElems, Circuit, PublicSigningKeyTrait, Signature, FeatureFlags,
         },
         statements::{ValidWalletCreateStatement, ValidWalletUpdateStatement, ValidSettleStatement}
     };
@@ -143,6 +143,8 @@ mod Darkpool {
         /// Stores whether or not the contract has been initialized
         _initialized: bool,
         // CORE
+        /// Feature flag settings
+        feature_flags: StoreSerdeWrapper<FeatureFlags>,
         /// Stores the implementation class hash for the Merkle tree interface
         merkle_class_hash: ClassHash,
         /// Stores the implementation class hash for the nullifier set interface
@@ -245,8 +247,9 @@ mod Darkpool {
     // ---------------
 
     #[constructor]
-    fn constructor(ref self: ContractState, owner: ContractAddress) {
+    fn constructor(ref self: ContractState, owner: ContractAddress, feature_flags: FeatureFlags) {
         _ownable_initialize(ref self, owner);
+        self.feature_flags.write(StoreSerdeWrapper { inner: feature_flags });
     }
 
     // -------------
@@ -297,28 +300,30 @@ mod Darkpool {
 
             // Add all of the circuits to the multi-verifier
 
-            let verifier = _get_verifier(@self);
-            let mut circuits = array![
-                Circuit::ValidWalletCreate(()),
-                Circuit::ValidWalletUpdate(()),
-                Circuit::ValidCommitments(()),
-                Circuit::ValidReblind(()),
-                Circuit::ValidMatchMpc(()),
-                Circuit::ValidSettle(()),
-            ];
+            if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
+                let mut circuits = array![
+                    Circuit::ValidWalletCreate(()),
+                    Circuit::ValidWalletUpdate(()),
+                    Circuit::ValidCommitments(()),
+                    Circuit::ValidReblind(()),
+                    Circuit::ValidMatchMpc(()),
+                    Circuit::ValidSettle(()),
+                ];
 
-            loop {
-                match circuits.pop_front() {
-                    Option::Some(circuit) => {
-                        verifier.add_circuit(circuit.into());
-                    },
-                    Option::None(()) => {
-                        break;
-                    }
+                loop {
+                    match circuits.pop_front() {
+                        Option::Some(circuit) => {
+                            verifier.add_circuit(circuit.into());
+                        },
+                        Option::None(()) => {
+                            break;
+                        }
+                    };
                 };
-            };
+            }
 
-            // Initialize the Merkle tree & verifier
+            // Initialize the Merkle tree
             _get_merkle_tree(@self).initialize(height);
         }
 
@@ -326,6 +331,7 @@ mod Darkpool {
         /// Parameters:
         /// - `circuit`: The circuit to add
         fn add_circuit(ref self: ContractState, circuit: Circuit) {
+            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
             _get_verifier(@self).add_circuit(circuit.into());
         }
@@ -337,8 +343,8 @@ mod Darkpool {
         fn parameterize_circuit(
             ref self: ContractState, circuit: Circuit, circuit_params: CircuitParams
         ) {
+            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
-
             // Parameterize the circuit
             _get_verifier(@self).parameterize_circuit(circuit.into(), circuit_params);
         }
@@ -398,6 +404,7 @@ mod Darkpool {
         /// - `verifier_class_hash`: The hash of the implementation class used for verifier operations
         /// - `circuit`: The circuit for which to upgrade the verifier
         fn upgrade_verifier(ref self: ContractState, verifier_class_hash: ClassHash) {
+            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
 
             // Get existing class hash to emit event
@@ -467,6 +474,7 @@ mod Darkpool {
         fn check_verification_job_status(
             self: @ContractState, verification_job_id: felt252
         ) -> Option<bool> {
+            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
             _get_verifier(self).check_verification_job_status(verification_job_id)
         }
 
@@ -489,19 +497,21 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
-            let verifier = _get_verifier(@self);
+            if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
 
-            // Inject witness
-            append_statement_commitments(@statement, ref witness_commitments);
+                // Inject witness
+                append_statement_commitments(@statement, ref witness_commitments);
 
-            // Queue verification
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidWalletCreate(()).into(),
-                    proof,
-                    witness_commitments,
-                    verification_job_id
-                );
+                // Queue verification
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidWalletCreate(()).into(),
+                        proof,
+                        witness_commitments,
+                        verification_job_id
+                    );
+            }
 
             // Store callback elements
             let callback_elems = NewWalletCallbackElems {
@@ -524,15 +534,19 @@ mod Darkpool {
         fn poll_new_wallet(
             ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verifier = _get_verifier(@self);
+            let verified = if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
 
-            assert(
-                verifier.check_verification_job_status(verification_job_id).is_none(),
-                'polling already complete'
-            );
+                assert(
+                    verifier.check_verification_job_status(verification_job_id).is_none(),
+                    'polling already complete'
+                );
 
-            let verified = verifier
-                .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id);
+                verifier
+                    .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id)
+            } else {
+                Option::Some(true)
+            };
 
             match verified {
                 Option::Some(success) => {
@@ -610,19 +624,21 @@ mod Darkpool {
             // Mark the `old_shares_nullifier` as in use
             _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
 
-            let verifier = _get_verifier(@self);
+            if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
 
-            // Inject witness
-            append_statement_commitments(@statement, ref witness_commitments);
+                // Inject witness
+                append_statement_commitments(@statement, ref witness_commitments);
 
-            // Queue verification
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidWalletUpdate(()).into(),
-                    proof,
-                    witness_commitments,
-                    verification_job_id
-                );
+                // Queue verification
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidWalletUpdate(()).into(),
+                        proof,
+                        witness_commitments,
+                        verification_job_id
+                    );
+            }
 
             // Store callback elements
             let external_transfer = if statement.external_transfer == Default::default() {
@@ -653,15 +669,19 @@ mod Darkpool {
         fn poll_update_wallet(
             ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verifier = _get_verifier(@self);
+            let verified = if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
 
-            assert(
-                verifier.check_verification_job_status(verification_job_id).is_none(),
-                'polling already complete'
-            );
+                assert(
+                    verifier.check_verification_job_status(verification_job_id).is_none(),
+                    'polling already complete'
+                );
 
-            let verified = verifier
-                .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id);
+                verifier
+                    .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id)
+            } else {
+                Option::Some(true)
+            };
 
             match verified {
                 Option::Some(success) => {
@@ -757,81 +777,83 @@ mod Darkpool {
             // Inject witnesses & queue verifications
             // TODO: This probably won't fit in a transaction... think about how to handle this
 
-            let verifier = _get_verifier(@self);
+            if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
 
-            // Party 0 VALID COMMITMENTS
-            append_statement_commitments(
-                @party_0_payload.valid_commitments_statement,
-                ref party_0_payload.valid_commitments_witness_commitments
-            );
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidCommitments(()).into(),
-                    party_0_payload.valid_commitments_proof,
-                    party_0_payload.valid_commitments_witness_commitments,
-                    *verification_job_ids[0]
+                // Party 0 VALID COMMITMENTS
+                append_statement_commitments(
+                    @party_0_payload.valid_commitments_statement,
+                    ref party_0_payload.valid_commitments_witness_commitments
                 );
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidCommitments(()).into(),
+                        party_0_payload.valid_commitments_proof,
+                        party_0_payload.valid_commitments_witness_commitments,
+                        *verification_job_ids[0]
+                    );
 
-            // Party 0 VALID REBLIND
-            append_statement_commitments(
-                @party_0_payload.valid_reblind_statement,
-                ref party_0_payload.valid_reblind_witness_commitments
-            );
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidReblind(()).into(),
-                    party_0_payload.valid_reblind_proof,
-                    party_0_payload.valid_reblind_witness_commitments,
-                    *verification_job_ids[1]
+                // Party 0 VALID REBLIND
+                append_statement_commitments(
+                    @party_0_payload.valid_reblind_statement,
+                    ref party_0_payload.valid_reblind_witness_commitments
                 );
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidReblind(()).into(),
+                        party_0_payload.valid_reblind_proof,
+                        party_0_payload.valid_reblind_witness_commitments,
+                        *verification_job_ids[1]
+                    );
 
-            // Party 1 VALID COMMITMENTS
-            append_statement_commitments(
-                @party_1_payload.valid_commitments_statement,
-                ref party_1_payload.valid_commitments_witness_commitments
-            );
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidCommitments(()).into(),
-                    party_1_payload.valid_commitments_proof,
-                    party_1_payload.valid_commitments_witness_commitments,
-                    *verification_job_ids[2]
+                // Party 1 VALID COMMITMENTS
+                append_statement_commitments(
+                    @party_1_payload.valid_commitments_statement,
+                    ref party_1_payload.valid_commitments_witness_commitments
                 );
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidCommitments(()).into(),
+                        party_1_payload.valid_commitments_proof,
+                        party_1_payload.valid_commitments_witness_commitments,
+                        *verification_job_ids[2]
+                    );
 
-            // Party 1 VALID REBLIND
-            append_statement_commitments(
-                @party_1_payload.valid_reblind_statement,
-                ref party_1_payload.valid_reblind_witness_commitments
-            );
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidReblind(()).into(),
-                    party_1_payload.valid_reblind_proof,
-                    party_1_payload.valid_reblind_witness_commitments,
-                    *verification_job_ids[3]
+                // Party 1 VALID REBLIND
+                append_statement_commitments(
+                    @party_1_payload.valid_reblind_statement,
+                    ref party_1_payload.valid_reblind_witness_commitments
                 );
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidReblind(()).into(),
+                        party_1_payload.valid_reblind_proof,
+                        party_1_payload.valid_reblind_witness_commitments,
+                        *verification_job_ids[3]
+                    );
 
-            // VALID MATCH MPC
-            // No statement to inject into witness
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidMatchMpc(()).into(),
-                    valid_match_mpc_proof,
-                    valid_match_mpc_witness_commitments,
-                    *verification_job_ids[4]
-                );
+                // VALID MATCH MPC
+                // No statement to inject into witness
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidMatchMpc(()).into(),
+                        valid_match_mpc_proof,
+                        valid_match_mpc_witness_commitments,
+                        *verification_job_ids[4]
+                    );
 
-            // VALID SETTLE
-            append_statement_commitments(
-                @valid_settle_statement, ref valid_settle_witness_commitments
-            );
-            verifier
-                .queue_verification_job(
-                    Circuit::ValidSettle(()).into(),
-                    valid_settle_proof,
-                    valid_settle_witness_commitments,
-                    *verification_job_ids[5]
+                // VALID SETTLE
+                append_statement_commitments(
+                    @valid_settle_statement, ref valid_settle_witness_commitments
                 );
+                verifier
+                    .queue_verification_job(
+                        Circuit::ValidSettle(()).into(),
+                        valid_settle_proof,
+                        valid_settle_witness_commitments,
+                        *verification_job_ids[5]
+                    );
+            }
 
             // Store callback elements
             let callback_elems = ProcessMatchCallbackElems {
@@ -869,71 +891,79 @@ mod Darkpool {
         fn poll_process_match(
             ref self: ContractState, verification_job_ids: Array<felt252>, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verifier = _get_verifier(@self);
+            let all_verified = if self.feature_flags.read().inner.verifier {
+                let verifier = _get_verifier(@self);
 
-            let circuits = array![
-                Circuit::ValidCommitments(()),
-                Circuit::ValidReblind(()),
-                Circuit::ValidCommitments(()),
-                Circuit::ValidReblind(()),
-                Circuit::ValidMatchMpc(()),
-                Circuit::ValidSettle(())
-            ]
-                .span();
+                let circuits = array![
+                    Circuit::ValidCommitments(()),
+                    Circuit::ValidReblind(()),
+                    Circuit::ValidCommitments(()),
+                    Circuit::ValidReblind(()),
+                    Circuit::ValidMatchMpc(()),
+                    Circuit::ValidSettle(())
+                ]
+                    .span();
 
-            let verification_job_ids = verification_job_ids.span();
+                let verification_job_ids = verification_job_ids.span();
 
-            assert(circuits.len() == verification_job_ids.len(), 'wrong # of verification job ids');
+                assert(
+                    circuits.len() == verification_job_ids.len(), 'wrong # of verification job ids'
+                );
 
-            // Assert that no verification jobs have failed, and that not all are complete
-            let mut i = 0;
-            let mut should_poll = false;
-            loop {
-                if i == verification_job_ids.len() {
-                    break;
-                }
-
-                let verified = verifier.check_verification_job_status(*verification_job_ids[i]);
-
-                match verified {
-                    Option::Some(success) => {
-                        if !success {
-                            break;
-                        }
-                    },
-                    Option::None(()) => {
-                        should_poll = true;
+                // Assert that no verification jobs have failed, and that not all are complete
+                let mut i = 0;
+                let mut should_poll = false;
+                loop {
+                    if i == verification_job_ids.len() {
                         break;
-                    },
-                };
+                    }
 
-                i += 1;
-            };
-            assert(should_poll, 'polling already complete');
+                    let verified = verifier.check_verification_job_status(*verification_job_ids[i]);
 
-            let mut all_verified = Option::None(());
-            loop {
-                if i == verification_job_ids.len() {
-                    all_verified = Option::Some(true);
-                    break;
-                };
-
-                let verified = verifier
-                    .step_verification((*circuits[i]).into(), *verification_job_ids[i]);
-
-                match verified {
-                    Option::Some(success) => {
-                        if !success {
-                            all_verified = Option::Some(false);
+                    match verified {
+                        Option::Some(success) => {
+                            if !success {
+                                break;
+                            }
+                        },
+                        Option::None(()) => {
+                            should_poll = true;
                             break;
-                        };
+                        },
+                    };
 
-                        i += 1;
-                    },
-                    Option::None(()) => {
-                        break;
-                    },
+                    i += 1;
                 };
+                assert(should_poll, 'polling already complete');
+
+                let mut all_verified = Option::None(());
+                loop {
+                    if i == verification_job_ids.len() {
+                        all_verified = Option::Some(true);
+                        break;
+                    };
+
+                    let verified = verifier
+                        .step_verification((*circuits[i]).into(), *verification_job_ids[i]);
+
+                    match verified {
+                        Option::Some(success) => {
+                            if !success {
+                                all_verified = Option::Some(false);
+                                break;
+                            };
+
+                            i += 1;
+                        },
+                        Option::None(()) => {
+                            break;
+                        },
+                    };
+                };
+
+                all_verified
+            } else {
+                Option::Some(true)
             };
 
             match all_verified {
