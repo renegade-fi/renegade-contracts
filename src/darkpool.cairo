@@ -33,7 +33,8 @@ trait IDarkpool<TContractState> {
         verifier_class_hash: ClassHash,
         height: u8,
     );
-    fn parameterize_verifier(
+    fn add_circuit(ref self: TContractState, circuit: Circuit);
+    fn parameterize_circuit(
         ref self: TContractState, circuit: Circuit, circuit_params: CircuitParams, 
     );
     // OZ
@@ -321,16 +322,24 @@ mod Darkpool {
             _get_merkle_tree(@self).initialize(height);
         }
 
-        /// Parameterizes the verifier for a given circuit
+        /// Adds a circuit to the verifier
         /// Parameters:
-        /// - `circuit`: The circuit for which to initialize the verifier contract
+        /// - `circuit`: The circuit to add
+        fn add_circuit(ref self: ContractState, circuit: Circuit) {
+            ownable__assert_only_owner(@self);
+            _get_verifier(@self).add_circuit(circuit.into());
+        }
+
+        /// Parameterizes the given circuit within the verifier
+        /// Parameters:
+        /// - `circuit`: The circuit to parameterize
         /// - `circuit_params`: The parameters of the circuit
-        fn parameterize_verifier(
+        fn parameterize_circuit(
             ref self: ContractState, circuit: Circuit, circuit_params: CircuitParams
         ) {
             ownable__assert_only_owner(@self);
 
-            // Initialize the verifier
+            // Parameterize the circuit
             _get_verifier(@self).parameterize_circuit(circuit.into(), circuit_params);
         }
 

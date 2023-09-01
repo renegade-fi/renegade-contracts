@@ -43,9 +43,9 @@ use crate::{
     utils::{
         call_contract, check_verification_job_status, felt_to_u128, get_circuit_params,
         get_contract_address_from_artifact, get_dummy_statement_scalars,
-        get_sierra_class_hash_from_artifact, global_setup, invoke_contract, random_felt,
-        scalar_to_felt, setup_sequencer, singleprover_prove, CalldataSerializable, Circuit,
-        DummyValidCommitments, DummyValidMatchMpc, DummyValidReblind, DummyValidSettle,
+        get_sierra_class_hash_from_artifact, global_setup, invoke_contract, parameterize_circuit,
+        random_felt, scalar_to_felt, setup_sequencer, singleprover_prove, CalldataSerializable,
+        Circuit, DummyValidCommitments, DummyValidMatchMpc, DummyValidReblind, DummyValidSettle,
         DummyValidWalletCreate, DummyValidWalletUpdate, MatchPayload, NewWalletArgs,
         ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
         SK_ROOT,
@@ -58,7 +58,6 @@ const DUMMY_UPGRADE_TARGET_CONTRACT_NAME: &str = "renegade_contracts_DummyUpgrad
 pub const INIT_BALANCE: u64 = 1000;
 pub const TRANSFER_AMOUNT: u64 = 100;
 
-const PARAMETERIZE_VERIFIER_FN_NAME: &str = "parameterize_verifier";
 const GET_WALLET_BLINDER_TRANSACTION_FN_NAME: &str = "get_wallet_blinder_transaction";
 const IS_NULLIFIER_AVAILABLE_FN_NAME: &str = "is_nullifier_available";
 const NEW_WALLET_FN_NAME: &str = "new_wallet";
@@ -130,7 +129,41 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     ]
     .into_iter()
     {
-        parameterize_verifier(&account, circuit, darkpool_address).await?;
+        let mut statement_scalars = get_dummy_statement_scalars(circuit).into_iter();
+
+        let circuit_params = match circuit {
+            Circuit::ValidWalletCreate(_) => get_circuit_params::<DummyValidWalletCreate>(
+                (),
+                SizedValidWalletCreateStatement::from_scalars(&mut statement_scalars),
+            ),
+            Circuit::ValidWalletUpdate(_) => get_circuit_params::<DummyValidWalletUpdate>(
+                (),
+                SizedValidWalletUpdateStatement::from_scalars(&mut statement_scalars),
+            ),
+            Circuit::ValidCommitments(_) => get_circuit_params::<DummyValidCommitments>(
+                (),
+                ValidCommitmentsStatement::from_scalars(&mut statement_scalars),
+            ),
+            Circuit::ValidReblind(_) => get_circuit_params::<DummyValidReblind>(
+                (),
+                ValidReblindStatement::from_scalars(&mut statement_scalars),
+            ),
+            Circuit::ValidMatchMpc(_) => {
+                get_circuit_params::<DummyValidMatchMpc>(Scalar::from(DUMMY_VALUE), ())
+            }
+            Circuit::ValidSettle(_) => get_circuit_params::<DummyValidSettle>(
+                (),
+                SizedValidSettleStatement::from_scalars(&mut statement_scalars),
+            ),
+        };
+
+        parameterize_circuit(
+            &account,
+            darkpool_address,
+            circuit.to_calldata()[0],
+            circuit_params,
+        )
+        .await?;
     }
 
     debug!("Declaring & deploying dummy ERC20 contract...");
@@ -265,55 +298,6 @@ pub async fn initialize_darkpool(
     initialize(account, darkpool_address, calldata)
         .await
         .map(|_| ())
-}
-
-pub async fn parameterize_verifier(
-    account: &ScriptAccount,
-    circuit: Circuit,
-    darkpool_address: FieldElement,
-) -> Result<()> {
-    let mut statement_scalars = get_dummy_statement_scalars(circuit).into_iter();
-
-    let circuit_params = match circuit {
-        Circuit::ValidWalletCreate(_) => get_circuit_params::<DummyValidWalletCreate>(
-            (),
-            SizedValidWalletCreateStatement::from_scalars(&mut statement_scalars),
-        ),
-        Circuit::ValidWalletUpdate(_) => get_circuit_params::<DummyValidWalletUpdate>(
-            (),
-            SizedValidWalletUpdateStatement::from_scalars(&mut statement_scalars),
-        ),
-        Circuit::ValidCommitments(_) => get_circuit_params::<DummyValidCommitments>(
-            (),
-            ValidCommitmentsStatement::from_scalars(&mut statement_scalars),
-        ),
-        Circuit::ValidReblind(_) => get_circuit_params::<DummyValidReblind>(
-            (),
-            ValidReblindStatement::from_scalars(&mut statement_scalars),
-        ),
-        Circuit::ValidMatchMpc(_) => {
-            get_circuit_params::<DummyValidMatchMpc>(Scalar::from(DUMMY_VALUE), ())
-        }
-        Circuit::ValidSettle(_) => get_circuit_params::<DummyValidSettle>(
-            (),
-            SizedValidSettleStatement::from_scalars(&mut statement_scalars),
-        ),
-    };
-
-    let calldata = circuit
-        .to_calldata()
-        .into_iter()
-        .chain(circuit_params.to_calldata())
-        .collect();
-
-    invoke_contract(
-        account,
-        darkpool_address,
-        PARAMETERIZE_VERIFIER_FN_NAME,
-        calldata,
-    )
-    .await
-    .map(|_| ())
 }
 
 pub async fn get_wallet_blinder_transaction(
