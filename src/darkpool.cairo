@@ -117,7 +117,7 @@ mod Darkpool {
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::{
             serde::EcPointSerde, storage::StoreSerdeWrapper,
-            crypto::{append_statement_commitments, hash_statement}
+            crypto::{append_statement_commitments, hash_statement, native_poseidon_hash_scalars}
         },
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
@@ -144,7 +144,7 @@ mod Darkpool {
         _initialized: bool,
         // CORE
         /// Feature flag settings
-        feature_flags: StoreSerdeWrapper<FeatureFlags>,
+        feature_flags: FeatureFlags,
         /// Stores the implementation class hash for the Merkle tree interface
         merkle_class_hash: ClassHash,
         /// Stores the implementation class hash for the nullifier set interface
@@ -249,7 +249,7 @@ mod Darkpool {
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress, feature_flags: FeatureFlags) {
         _ownable_initialize(ref self, owner);
-        self.feature_flags.write(StoreSerdeWrapper { inner: feature_flags });
+        self.feature_flags.write(feature_flags);
     }
 
     // -------------
@@ -300,7 +300,7 @@ mod Darkpool {
 
             // Add all of the circuits to the multi-verifier
 
-            if self.feature_flags.read().inner.verifier {
+            if self.feature_flags.read().verifier {
                 let verifier = _get_verifier(@self);
                 let mut circuits = array![
                     Circuit::ValidWalletCreate(()),
@@ -324,14 +324,15 @@ mod Darkpool {
             }
 
             // Initialize the Merkle tree
-            _get_merkle_tree(@self).initialize(height);
+            _get_merkle_tree(@self)
+                .initialize(height, self.feature_flags.read().non_native_poseidon);
         }
 
         /// Adds a circuit to the verifier
         /// Parameters:
         /// - `circuit`: The circuit to add
         fn add_circuit(ref self: ContractState, circuit: Circuit) {
-            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
+            assert(self.feature_flags.read().verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
             _get_verifier(@self).add_circuit(circuit.into());
         }
@@ -343,7 +344,7 @@ mod Darkpool {
         fn parameterize_circuit(
             ref self: ContractState, circuit: Circuit, circuit_params: CircuitParams
         ) {
-            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
+            assert(self.feature_flags.read().verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
             // Parameterize the circuit
             _get_verifier(@self).parameterize_circuit(circuit.into(), circuit_params);
@@ -404,7 +405,7 @@ mod Darkpool {
         /// - `verifier_class_hash`: The hash of the implementation class used for verifier operations
         /// - `circuit`: The circuit for which to upgrade the verifier
         fn upgrade_verifier(ref self: ContractState, verifier_class_hash: ClassHash) {
-            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
+            assert(self.feature_flags.read().verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
 
             // Get existing class hash to emit event
@@ -474,7 +475,7 @@ mod Darkpool {
         fn check_verification_job_status(
             self: @ContractState, verification_job_id: felt252
         ) -> Option<bool> {
-            assert(self.feature_flags.read().inner.verifier, 'verifier disabled');
+            assert(self.feature_flags.read().verifier, 'verifier disabled');
             _get_verifier(self).check_verification_job_status(verification_job_id)
         }
 
@@ -497,7 +498,7 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
-            if self.feature_flags.read().inner.verifier {
+            if self.feature_flags.read().verifier {
                 let verifier = _get_verifier(@self);
 
                 // Inject witness
@@ -534,7 +535,7 @@ mod Darkpool {
         fn poll_new_wallet(
             ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verified = if self.feature_flags.read().inner.verifier {
+            let verified = if self.feature_flags.read().verifier {
                 let verifier = _get_verifier(@self);
 
                 assert(
@@ -561,9 +562,16 @@ mod Darkpool {
                         let mut hash_input = ArrayTrait::new();
                         hash_input.append(callback_elems.private_shares_commitment);
                         hash_input.append_all(ref callback_elems.public_wallet_shares);
-                        let total_shares_commitment = *poseidon_hash(
-                            hash_input.span(), 1 // num_elements
-                        )[0];
+
+                        let total_shares_commitment = if self
+                            .feature_flags
+                            .read()
+                            .non_native_poseidon {
+                            *poseidon_hash(hash_input.span(), 1 // num_elements
+                            )[0]
+                        } else {
+                            native_poseidon_hash_scalars(hash_input.span())
+                        };
 
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
@@ -599,6 +607,15 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
+            let verifier = _get_verifier(@self);
+
+            if self.feature_flags.read().verifier {
+                // Inject witness
+                // Have to do this in a separate conditional block before any other
+                // member references on the statement due to compiler issues
+                append_statement_commitments(@statement, ref witness_commitments);
+            }
+
             // Assert that the merkle root for which inclusion is proven in `VALID WALLET UPDATE`
             // is a valid historical root
             assert(
@@ -624,12 +641,7 @@ mod Darkpool {
             // Mark the `old_shares_nullifier` as in use
             _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
 
-            if self.feature_flags.read().inner.verifier {
-                let verifier = _get_verifier(@self);
-
-                // Inject witness
-                append_statement_commitments(@statement, ref witness_commitments);
-
+            if self.feature_flags.read().verifier {
                 // Queue verification
                 verifier
                     .queue_verification_job(
@@ -669,7 +681,7 @@ mod Darkpool {
         fn poll_update_wallet(
             ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verified = if self.feature_flags.read().inner.verifier {
+            let verified = if self.feature_flags.read().verifier {
                 let verifier = _get_verifier(@self);
 
                 assert(
@@ -698,9 +710,16 @@ mod Darkpool {
                         let mut hash_input = ArrayTrait::new();
                         hash_input.append(callback_elems.new_private_shares_commitment);
                         hash_input.append_all(ref callback_elems.new_public_shares);
-                        let total_shares_commitment = *poseidon_hash(
-                            hash_input.span(), 1 // num_elements
-                        )[0];
+
+                        let total_shares_commitment = if self
+                            .feature_flags
+                            .read()
+                            .non_native_poseidon {
+                            *poseidon_hash(hash_input.span(), 1 // num_elements
+                            )[0]
+                        } else {
+                            native_poseidon_hash_scalars(hash_input.span())
+                        };
 
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
@@ -751,6 +770,40 @@ mod Darkpool {
             valid_settle_proof: Proof,
             verification_job_ids: Array<felt252>,
         ) {
+            let verifier = _get_verifier(@self);
+
+            if self.feature_flags.read().verifier {
+                // Inject witnesses
+                // Have to do this in a separate conditional block before any other
+                // member references on the statements due to compiler issues
+
+                // Party 0 VALID COMMITMENTS
+                append_statement_commitments(
+                    @party_0_payload.valid_commitments_statement,
+                    ref party_0_payload.valid_commitments_witness_commitments
+                );
+                // Party 0 VALID REBLIND
+                append_statement_commitments(
+                    @party_0_payload.valid_reblind_statement,
+                    ref party_0_payload.valid_reblind_witness_commitments
+                );
+                // Party 1 VALID COMMITMENTS
+                append_statement_commitments(
+                    @party_1_payload.valid_commitments_statement,
+                    ref party_1_payload.valid_commitments_witness_commitments
+                );
+                // Party 1 VALID REBLIND
+                append_statement_commitments(
+                    @party_1_payload.valid_reblind_statement,
+                    ref party_1_payload.valid_reblind_witness_commitments
+                );
+                // No statement to inject into witness for VALID MATCH MPC
+                // VALID SETTLE
+                append_statement_commitments(
+                    @valid_settle_statement, ref valid_settle_witness_commitments
+                );
+            }
+
             // Assert that the merkle roots for which inclusion is proven in `VALID REBLIND`
             // are valid historical roots
             let merkle_tree = _get_merkle_tree(@self);
@@ -774,17 +827,10 @@ mod Darkpool {
                     party_1_payload.valid_reblind_statement.original_shares_nullifier
                 );
 
-            // Inject witnesses & queue verifications
-            // TODO: This probably won't fit in a transaction... think about how to handle this
+            // Queue verifications
 
-            if self.feature_flags.read().inner.verifier {
-                let verifier = _get_verifier(@self);
-
+            if self.feature_flags.read().verifier {
                 // Party 0 VALID COMMITMENTS
-                append_statement_commitments(
-                    @party_0_payload.valid_commitments_statement,
-                    ref party_0_payload.valid_commitments_witness_commitments
-                );
                 verifier
                     .queue_verification_job(
                         Circuit::ValidCommitments(()).into(),
@@ -792,12 +838,7 @@ mod Darkpool {
                         party_0_payload.valid_commitments_witness_commitments,
                         *verification_job_ids[0]
                     );
-
                 // Party 0 VALID REBLIND
-                append_statement_commitments(
-                    @party_0_payload.valid_reblind_statement,
-                    ref party_0_payload.valid_reblind_witness_commitments
-                );
                 verifier
                     .queue_verification_job(
                         Circuit::ValidReblind(()).into(),
@@ -805,12 +846,7 @@ mod Darkpool {
                         party_0_payload.valid_reblind_witness_commitments,
                         *verification_job_ids[1]
                     );
-
                 // Party 1 VALID COMMITMENTS
-                append_statement_commitments(
-                    @party_1_payload.valid_commitments_statement,
-                    ref party_1_payload.valid_commitments_witness_commitments
-                );
                 verifier
                     .queue_verification_job(
                         Circuit::ValidCommitments(()).into(),
@@ -818,12 +854,7 @@ mod Darkpool {
                         party_1_payload.valid_commitments_witness_commitments,
                         *verification_job_ids[2]
                     );
-
                 // Party 1 VALID REBLIND
-                append_statement_commitments(
-                    @party_1_payload.valid_reblind_statement,
-                    ref party_1_payload.valid_reblind_witness_commitments
-                );
                 verifier
                     .queue_verification_job(
                         Circuit::ValidReblind(()).into(),
@@ -831,9 +862,7 @@ mod Darkpool {
                         party_1_payload.valid_reblind_witness_commitments,
                         *verification_job_ids[3]
                     );
-
                 // VALID MATCH MPC
-                // No statement to inject into witness
                 verifier
                     .queue_verification_job(
                         Circuit::ValidMatchMpc(()).into(),
@@ -841,11 +870,7 @@ mod Darkpool {
                         valid_match_mpc_witness_commitments,
                         *verification_job_ids[4]
                     );
-
                 // VALID SETTLE
-                append_statement_commitments(
-                    @valid_settle_statement, ref valid_settle_witness_commitments
-                );
                 verifier
                     .queue_verification_job(
                         Circuit::ValidSettle(()).into(),
@@ -891,7 +916,7 @@ mod Darkpool {
         fn poll_process_match(
             ref self: ContractState, verification_job_ids: Array<felt252>, 
         ) -> Option<Result<Scalar, felt252>> {
-            let all_verified = if self.feature_flags.read().inner.verifier {
+            let all_verified = if self.feature_flags.read().verifier {
                 let verifier = _get_verifier(@self);
 
                 let circuits = array![
@@ -988,16 +1013,29 @@ mod Darkpool {
                         party_0_hash_input
                             .append(callback_elems.party_0_reblinded_private_shares_commitment);
                         party_0_hash_input.append_all(ref callback_elems.party_0_modified_shares);
-                        let party_0_total_shares_commitment = *poseidon_hash(
-                            party_0_hash_input.span(), 1 // num_elements
-                        )[0];
+
                         let mut party_1_hash_input = ArrayTrait::new();
                         party_1_hash_input
                             .append(callback_elems.party_1_reblinded_private_shares_commitment);
                         party_1_hash_input.append_all(ref callback_elems.party_1_modified_shares);
-                        let party_1_total_shares_commitment = *poseidon_hash(
-                            party_1_hash_input.span(), 1 // num_elements
-                        )[0];
+
+                        let (party_0_total_shares_commitment, party_1_total_shares_commitment) =
+                            if self
+                            .feature_flags
+                            .read()
+                            .non_native_poseidon {
+                            (
+                                *poseidon_hash(party_0_hash_input.span(), 1 // num_elements
+                                )[0],
+                                *poseidon_hash(party_1_hash_input.span(), 1 // num_elements
+                                )[0],
+                            )
+                        } else {
+                            (
+                                native_poseidon_hash_scalars(party_0_hash_input.span()),
+                                native_poseidon_hash_scalars(party_1_hash_input.span())
+                            )
+                        };
 
                         let merkle_tree = _get_merkle_tree(@self);
                         merkle_tree.insert(party_0_total_shares_commitment);

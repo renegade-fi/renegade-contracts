@@ -5,6 +5,8 @@ use keccak::{keccak_u256s_le_inputs, keccak_add_u256_le, add_padding};
 use ec::{ec_mul, ec_point_new, stark_curve};
 use alexandria_data_structures::array_ext::ArrayTraitExt;
 use starknet::{syscalls::keccak_syscall, SyscallResultTrait};
+use poseidon::poseidon_hash_span;
+
 use renegade_contracts::verifier::scalar::{Scalar, ScalarSerializable};
 
 use super::constants::{BASE_FIELD_ORDER, SHIFT_256_FELT, SHIFT_256_SCALAR};
@@ -103,4 +105,20 @@ fn hash_statement<T, impl TScalarSerializable: ScalarSerializable<T>>(statement:
 
     // This `into` call performs modular reduction of the hash into a scalar
     keccak_syscall(keccak_input.span()).unwrap_syscall().into()
+}
+
+fn native_poseidon_hash_scalars(mut scalars: Span<Scalar>) -> Scalar {
+    let mut hash_input_felt = ArrayTrait::new();
+    loop {
+        match scalars.pop_front() {
+            Option::Some(scalar) => {
+                hash_input_felt.append((*scalar).into());
+            },
+            Option::None(()) => {
+                break;
+            }
+        };
+    };
+
+    poseidon_hash_span(hash_input_felt.span()).into()
 }
