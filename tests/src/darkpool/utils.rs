@@ -46,7 +46,7 @@ use crate::{
         get_sierra_class_hash_from_artifact, global_setup, invoke_contract, parameterize_circuit,
         random_felt, scalar_to_felt, setup_sequencer, singleprover_prove, CalldataSerializable,
         Circuit, DummyValidCommitments, DummyValidMatchMpc, DummyValidReblind, DummyValidSettle,
-        DummyValidWalletCreate, DummyValidWalletUpdate, MatchPayload, NewWalletArgs,
+        DummyValidWalletCreate, DummyValidWalletUpdate, FeatureFlags, MatchPayload, NewWalletArgs,
         ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
         SK_ROOT,
     },
@@ -188,10 +188,14 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
 pub fn init_darkpool_test_statics(account: &ScriptAccount) -> Result<()> {
     let artifacts_path = env::var(ARTIFACTS_PATH_ENV_VAR).unwrap();
 
+    let constructor_calldata: Vec<FieldElement> = iter::once(account.address())
+        .chain(FeatureFlags::default().to_calldata())
+        .collect();
+
     let darkpool_address = get_contract_address_from_artifact(
         &artifacts_path,
         DARKPOOL_CONTRACT_NAME,
-        &[account.address()],
+        &constructor_calldata,
     )?;
     if DARKPOOL_ADDRESS.get().is_none() {
         DARKPOOL_ADDRESS.set(darkpool_address).unwrap();
@@ -459,13 +463,13 @@ pub async fn process_match(
 
 pub async fn poll_process_match(
     account: &ScriptAccount,
-    verification_job_ids: Vec<FieldElement>,
+    verification_job_id: FieldElement,
 ) -> Result<()> {
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
         POLL_PROCESS_MATCH_FN_NAME,
-        verification_job_ids.to_calldata(),
+        vec![verification_job_id],
     )
     .await
     .map(|_| ())
@@ -473,13 +477,13 @@ pub async fn poll_process_match(
 
 pub async fn process_match_verification_jobs_are_done(
     account: &ScriptAccount,
-    verification_job_ids: &[FieldElement],
+    verification_job_id: FieldElement,
 ) -> Result<bool> {
-    for verification_job_id in verification_job_ids {
+    for i in 0..PROCESS_MATCH_NUM_PROOFS {
         let verification_job_status = check_verification_job_status(
             account,
             *DARKPOOL_ADDRESS.get().unwrap(),
-            *verification_job_id,
+            verification_job_id + i.into(),
         )
         .await?;
         if verification_job_status.is_none() {
@@ -498,8 +502,8 @@ pub async fn poll_process_match_to_completion(
 ) -> Result<FieldElement> {
     let tx_hash = process_match(account, args).await?;
 
-    while !process_match_verification_jobs_are_done(account, &args.verification_job_ids).await? {
-        poll_process_match(account, args.verification_job_ids.clone()).await?;
+    while !process_match_verification_jobs_are_done(account, args.verification_job_id).await? {
+        poll_process_match(account, args.verification_job_id).await?;
     }
 
     Ok(tx_hash)
@@ -612,9 +616,7 @@ pub fn get_dummy_process_match_args(
         create_witness_statement(party0_wallet, party1_wallet, match_res);
     let (_, valid_settle_proof) =
         singleprover_prove::<DummyValidSettle>((), valid_settle_statement.clone())?;
-    let verification_job_ids = (0..PROCESS_MATCH_NUM_PROOFS)
-        .map(|_| random_felt())
-        .collect();
+    let verification_job_id = random_felt();
 
     Ok(ProcessMatchArgs {
         party_0_match_payload,
@@ -624,6 +626,6 @@ pub fn get_dummy_process_match_args(
         valid_settle_statement,
         valid_settle_witness_commitments: vec![],
         valid_settle_proof,
-        verification_job_ids,
+        verification_job_id,
     })
 }

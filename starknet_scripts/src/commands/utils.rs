@@ -277,7 +277,11 @@ pub async fn deploy_darkpool(
 
     // Deploy darkpool
     debug!("Deploying darkpool contract...");
-    let calldata = vec![account.address()];
+    let calldata = vec![
+        account.address(),
+        FieldElement::ZERO, /* serialization of boolean `false` indicating that poseidon over the base field should not be used */
+        FieldElement::ZERO, /* serialization of boolean `false` indicating that the verifier should not be disabled */
+    ];
     let InvokeTransactionResult {
         transaction_hash, ..
     } = deploy(account, darkpool_class_hash_felt, &calldata).await?;
