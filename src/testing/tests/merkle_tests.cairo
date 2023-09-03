@@ -1,7 +1,9 @@
 use traits::Into;
 
 
-use renegade_contracts::merkle::{Merkle, Merkle::ContractState, IMerkle};
+use renegade_contracts::{
+    merkle::{Merkle, Merkle::ContractState, IMerkle}, darkpool::types::FeatureFlags
+};
 
 
 const TEST_MERKLE_HEIGHT: u8 = 3;
@@ -50,6 +52,10 @@ fn test_multi_insert_root_history() {
 
 fn setup_merkle() -> ContractState {
     let mut merkle = Merkle::contract_state_for_testing();
-    merkle.initialize(TEST_MERKLE_HEIGHT, false);
+    merkle
+        .initialize(
+            TEST_MERKLE_HEIGHT,
+            FeatureFlags { use_base_field_poseidon: true, disable_verification: true }
+        );
     merkle
 }

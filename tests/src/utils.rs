@@ -579,7 +579,15 @@ pub struct ProcessMatchArgs {
     pub valid_settle_statement: SizedValidSettleStatement,
     pub valid_settle_witness_commitments: Vec<StarkPoint>,
     pub valid_settle_proof: R1CSProof,
-    pub verification_job_ids: Vec<FieldElement>,
+    pub verification_job_id: FieldElement,
+}
+
+#[derive(Default)]
+pub struct FeatureFlags {
+    /// Whether or not to use Poseidon over the base field
+    pub use_base_field_poseidon: bool,
+    /// Whether or not to verify proofs
+    pub disable_verification: bool,
 }
 
 pub trait CalldataSerializable {
@@ -887,8 +895,17 @@ impl CalldataSerializable for ProcessMatchArgs {
             .chain(self.valid_settle_statement.to_calldata())
             .chain(self.valid_settle_witness_commitments.to_calldata())
             .chain(self.valid_settle_proof.to_calldata())
-            .chain(self.verification_job_ids.to_calldata())
+            .chain(self.verification_job_id.to_calldata())
             .collect()
+    }
+}
+
+impl CalldataSerializable for FeatureFlags {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![
+            FieldElement::from(self.use_base_field_poseidon as u8),
+            FieldElement::from(self.disable_verification as u8),
+        ]
     }
 }
 
