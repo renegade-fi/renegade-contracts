@@ -85,10 +85,10 @@ trait IDarkpool<TContractState> {
         valid_settle_statement: ValidSettleStatement,
         valid_settle_witness_commitments: Array<EcPoint>,
         valid_settle_proof: Proof,
-        verification_job_ids: Array<felt252>,
+        verification_job_id: felt252,
     );
     fn poll_process_match(
-        ref self: TContractState, verification_job_ids: Array<felt252>, 
+        ref self: TContractState, verification_job_id: felt252, 
     ) -> Option<Result<Scalar, felt252>>;
 }
 
@@ -113,11 +113,11 @@ mod Darkpool {
             scalar::Scalar, types::{Proof, CircuitParams}, IMultiVerifierLibraryDispatcher,
             IMultiVerifierDispatcherTrait
         },
-        merkle::{poseidon::poseidon_hash, IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
+        merkle::{IMerkleLibraryDispatcher, IMerkleDispatcherTrait},
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::{
             serde::EcPointSerde, storage::StoreSerdeWrapper,
-            crypto::{append_statement_commitments, hash_statement, native_poseidon_hash_scalars}
+            crypto::{append_statement_commitments, hash_statement, compute_poseidon_with_flag}
         },
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
@@ -300,39 +300,40 @@ mod Darkpool {
 
             // Add all of the circuits to the multi-verifier
 
-            if self.feature_flags.read().verifier {
-                let verifier = _get_verifier(@self);
-                let mut circuits = array![
-                    Circuit::ValidWalletCreate(()),
-                    Circuit::ValidWalletUpdate(()),
-                    Circuit::ValidCommitments(()),
-                    Circuit::ValidReblind(()),
-                    Circuit::ValidMatchMpc(()),
-                    Circuit::ValidSettle(()),
-                ];
+            let verifier = _get_verifier(@self);
+            let mut circuits = array![
+                Circuit::ValidWalletCreate(()),
+                Circuit::ValidWalletUpdate(()),
+                Circuit::ValidCommitments(()),
+                Circuit::ValidReblind(()),
+                Circuit::ValidMatchMpc(()),
+                Circuit::ValidSettle(()),
+            ];
 
-                loop {
-                    match circuits.pop_front() {
-                        Option::Some(circuit) => {
-                            verifier.add_circuit(circuit.into());
-                        },
-                        Option::None(()) => {
-                            break;
-                        }
-                    };
+            loop {
+                match circuits.pop_front() {
+                    Option::Some(circuit) => {
+                        verifier.add_circuit(circuit.into());
+                    },
+                    Option::None(()) => {
+                        break;
+                    }
                 };
-            }
+            };
+
+            let feature_flags = self.feature_flags.read();
 
             // Initialize the Merkle tree
-            _get_merkle_tree(@self)
-                .initialize(height, self.feature_flags.read().non_native_poseidon);
+            _get_merkle_tree(@self).initialize(height, feature_flags);
+
+            // Set verification disabled flag in the verifier
+            _get_verifier(@self).set_feature_flags(feature_flags);
         }
 
         /// Adds a circuit to the verifier
         /// Parameters:
         /// - `circuit`: The circuit to add
         fn add_circuit(ref self: ContractState, circuit: Circuit) {
-            assert(self.feature_flags.read().verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
             _get_verifier(@self).add_circuit(circuit.into());
         }
@@ -344,7 +345,6 @@ mod Darkpool {
         fn parameterize_circuit(
             ref self: ContractState, circuit: Circuit, circuit_params: CircuitParams
         ) {
-            assert(self.feature_flags.read().verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
             // Parameterize the circuit
             _get_verifier(@self).parameterize_circuit(circuit.into(), circuit_params);
@@ -405,7 +405,6 @@ mod Darkpool {
         /// - `verifier_class_hash`: The hash of the implementation class used for verifier operations
         /// - `circuit`: The circuit for which to upgrade the verifier
         fn upgrade_verifier(ref self: ContractState, verifier_class_hash: ClassHash) {
-            assert(self.feature_flags.read().verifier, 'verifier disabled');
             ownable__assert_only_owner(@self);
 
             // Get existing class hash to emit event
@@ -475,7 +474,6 @@ mod Darkpool {
         fn check_verification_job_status(
             self: @ContractState, verification_job_id: felt252
         ) -> Option<bool> {
-            assert(self.feature_flags.read().verifier, 'verifier disabled');
             _get_verifier(self).check_verification_job_status(verification_job_id)
         }
 
@@ -498,21 +496,19 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
-            if self.feature_flags.read().verifier {
-                let verifier = _get_verifier(@self);
+            let verifier = _get_verifier(@self);
 
-                // Inject witness
-                append_statement_commitments(@statement, ref witness_commitments);
+            // Inject witness
+            append_statement_commitments(@statement, ref witness_commitments);
 
-                // Queue verification
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidWalletCreate(()).into(),
-                        proof,
-                        witness_commitments,
-                        verification_job_id
-                    );
-            }
+            // Queue verification
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidWalletCreate(()).into(),
+                    proof,
+                    witness_commitments,
+                    verification_job_id
+                );
 
             // Store callback elements
             let callback_elems = NewWalletCallbackElems {
@@ -535,19 +531,15 @@ mod Darkpool {
         fn poll_new_wallet(
             ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verified = if self.feature_flags.read().verifier {
-                let verifier = _get_verifier(@self);
+            let verifier = _get_verifier(@self);
 
-                assert(
-                    verifier.check_verification_job_status(verification_job_id).is_none(),
-                    'polling already complete'
-                );
+            assert(
+                verifier.check_verification_job_status(verification_job_id).is_none(),
+                'polling already complete'
+            );
 
-                verifier
-                    .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id)
-            } else {
-                Option::Some(true)
-            };
+            let verified = verifier
+                .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id);
 
             match verified {
                 Option::Some(success) => {
@@ -563,15 +555,9 @@ mod Darkpool {
                         hash_input.append(callback_elems.private_shares_commitment);
                         hash_input.append_all(ref callback_elems.public_wallet_shares);
 
-                        let total_shares_commitment = if self
-                            .feature_flags
-                            .read()
-                            .non_native_poseidon {
-                            *poseidon_hash(hash_input.span(), 1 // num_elements
-                            )[0]
-                        } else {
-                            native_poseidon_hash_scalars(hash_input.span())
-                        };
+                        let total_shares_commitment = compute_poseidon_with_flag(
+                            hash_input.span(), self.feature_flags.read().use_base_field_poseidon
+                        );
 
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
@@ -607,15 +593,6 @@ mod Darkpool {
             proof: Proof,
             verification_job_id: felt252,
         ) {
-            let verifier = _get_verifier(@self);
-
-            if self.feature_flags.read().verifier {
-                // Inject witness
-                // Have to do this in a separate conditional block before any other
-                // member references on the statement due to compiler issues
-                append_statement_commitments(@statement, ref witness_commitments);
-            }
-
             // Assert that the merkle root for which inclusion is proven in `VALID WALLET UPDATE`
             // is a valid historical root
             assert(
@@ -641,16 +618,17 @@ mod Darkpool {
             // Mark the `old_shares_nullifier` as in use
             _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
 
-            if self.feature_flags.read().verifier {
-                // Queue verification
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidWalletUpdate(()).into(),
-                        proof,
-                        witness_commitments,
-                        verification_job_id
-                    );
-            }
+            // Inject witness
+            append_statement_commitments(@statement, ref witness_commitments);
+
+            // Queue verification
+            _get_verifier(@self)
+                .queue_verification_job(
+                    Circuit::ValidWalletUpdate(()).into(),
+                    proof,
+                    witness_commitments,
+                    verification_job_id
+                );
 
             // Store callback elements
             let external_transfer = if statement.external_transfer == Default::default() {
@@ -681,19 +659,15 @@ mod Darkpool {
         fn poll_update_wallet(
             ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let verified = if self.feature_flags.read().verifier {
-                let verifier = _get_verifier(@self);
+            let verifier = _get_verifier(@self);
 
-                assert(
-                    verifier.check_verification_job_status(verification_job_id).is_none(),
-                    'polling already complete'
-                );
+            assert(
+                verifier.check_verification_job_status(verification_job_id).is_none(),
+                'polling already complete'
+            );
 
-                verifier
-                    .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id)
-            } else {
-                Option::Some(true)
-            };
+            let verified = verifier
+                .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id);
 
             match verified {
                 Option::Some(success) => {
@@ -711,15 +685,9 @@ mod Darkpool {
                         hash_input.append(callback_elems.new_private_shares_commitment);
                         hash_input.append_all(ref callback_elems.new_public_shares);
 
-                        let total_shares_commitment = if self
-                            .feature_flags
-                            .read()
-                            .non_native_poseidon {
-                            *poseidon_hash(hash_input.span(), 1 // num_elements
-                            )[0]
-                        } else {
-                            native_poseidon_hash_scalars(hash_input.span())
-                        };
+                        let total_shares_commitment = compute_poseidon_with_flag(
+                            hash_input.span(), self.feature_flags.read().use_base_field_poseidon
+                        );
 
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
@@ -755,10 +723,12 @@ mod Darkpool {
         /// Parameters:
         /// - `party_0_payload`: The first party's match payload
         /// - `party_1_payload`: The second party's match payload
-        /// - `match_proof`: The proof of `VALID_MATCH_MPC`
-        /// - `match_witness_commitments`: The Pedersen commitments to the match proof witness elements
-        /// - `settle_proof`: The proof of `VALID_SETTLE`
-        /// - `settle_witness_commitments`: The Pedersen commitments to the settle proof witness elements
+        /// - `valid_match_witness_commitments`: The Pedersen commitments to the match proof witness elements
+        /// - `valid_match_proof`: The proof of `VALID_MATCH_MPC`
+        /// - `valid_settle_statement`: Public inputs to the `VALID_SETTLE` circuit
+        /// - `valid_settle_witness_commitments`: The Pedersen commitments to the settle proof witness elements
+        /// - `valid_settle_proof`: The proof of `VALID_SETTLE`
+        /// - `verification_job_id`: The ID of the verification job to enqueue
         fn process_match(
             ref self: ContractState,
             mut party_0_payload: MatchPayload,
@@ -768,42 +738,8 @@ mod Darkpool {
             valid_settle_statement: ValidSettleStatement,
             mut valid_settle_witness_commitments: Array<EcPoint>,
             valid_settle_proof: Proof,
-            verification_job_ids: Array<felt252>,
+            verification_job_id: felt252,
         ) {
-            let verifier = _get_verifier(@self);
-
-            if self.feature_flags.read().verifier {
-                // Inject witnesses
-                // Have to do this in a separate conditional block before any other
-                // member references on the statements due to compiler issues
-
-                // Party 0 VALID COMMITMENTS
-                append_statement_commitments(
-                    @party_0_payload.valid_commitments_statement,
-                    ref party_0_payload.valid_commitments_witness_commitments
-                );
-                // Party 0 VALID REBLIND
-                append_statement_commitments(
-                    @party_0_payload.valid_reblind_statement,
-                    ref party_0_payload.valid_reblind_witness_commitments
-                );
-                // Party 1 VALID COMMITMENTS
-                append_statement_commitments(
-                    @party_1_payload.valid_commitments_statement,
-                    ref party_1_payload.valid_commitments_witness_commitments
-                );
-                // Party 1 VALID REBLIND
-                append_statement_commitments(
-                    @party_1_payload.valid_reblind_statement,
-                    ref party_1_payload.valid_reblind_witness_commitments
-                );
-                // No statement to inject into witness for VALID MATCH MPC
-                // VALID SETTLE
-                append_statement_commitments(
-                    @valid_settle_statement, ref valid_settle_witness_commitments
-                );
-            }
-
             // Assert that the merkle roots for which inclusion is proven in `VALID REBLIND`
             // are valid historical roots
             let merkle_tree = _get_merkle_tree(@self);
@@ -827,58 +763,84 @@ mod Darkpool {
                     party_1_payload.valid_reblind_statement.original_shares_nullifier
                 );
 
-            // Queue verifications
+            // Inject witnesses & queue verifications
+            // TODO: This probably won't fit in a transaction... think about how to handle this
 
-            if self.feature_flags.read().verifier {
-                // Party 0 VALID COMMITMENTS
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidCommitments(()).into(),
-                        party_0_payload.valid_commitments_proof,
-                        party_0_payload.valid_commitments_witness_commitments,
-                        *verification_job_ids[0]
-                    );
-                // Party 0 VALID REBLIND
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidReblind(()).into(),
-                        party_0_payload.valid_reblind_proof,
-                        party_0_payload.valid_reblind_witness_commitments,
-                        *verification_job_ids[1]
-                    );
-                // Party 1 VALID COMMITMENTS
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidCommitments(()).into(),
-                        party_1_payload.valid_commitments_proof,
-                        party_1_payload.valid_commitments_witness_commitments,
-                        *verification_job_ids[2]
-                    );
-                // Party 1 VALID REBLIND
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidReblind(()).into(),
-                        party_1_payload.valid_reblind_proof,
-                        party_1_payload.valid_reblind_witness_commitments,
-                        *verification_job_ids[3]
-                    );
-                // VALID MATCH MPC
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidMatchMpc(()).into(),
-                        valid_match_mpc_proof,
-                        valid_match_mpc_witness_commitments,
-                        *verification_job_ids[4]
-                    );
-                // VALID SETTLE
-                verifier
-                    .queue_verification_job(
-                        Circuit::ValidSettle(()).into(),
-                        valid_settle_proof,
-                        valid_settle_witness_commitments,
-                        *verification_job_ids[5]
-                    );
-            }
+            let verifier = _get_verifier(@self);
+
+            // Party 0 VALID COMMITMENTS
+            append_statement_commitments(
+                @party_0_payload.valid_commitments_statement,
+                ref party_0_payload.valid_commitments_witness_commitments
+            );
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidCommitments(()).into(),
+                    party_0_payload.valid_commitments_proof,
+                    party_0_payload.valid_commitments_witness_commitments,
+                    verification_job_id
+                );
+
+            // Party 0 VALID REBLIND
+            append_statement_commitments(
+                @party_0_payload.valid_reblind_statement,
+                ref party_0_payload.valid_reblind_witness_commitments
+            );
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidReblind(()).into(),
+                    party_0_payload.valid_reblind_proof,
+                    party_0_payload.valid_reblind_witness_commitments,
+                    verification_job_id + 1
+                );
+
+            // Party 1 VALID COMMITMENTS
+            append_statement_commitments(
+                @party_1_payload.valid_commitments_statement,
+                ref party_1_payload.valid_commitments_witness_commitments
+            );
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidCommitments(()).into(),
+                    party_1_payload.valid_commitments_proof,
+                    party_1_payload.valid_commitments_witness_commitments,
+                    verification_job_id + 2
+                );
+
+            // Party 1 VALID REBLIND
+            append_statement_commitments(
+                @party_1_payload.valid_reblind_statement,
+                ref party_1_payload.valid_reblind_witness_commitments
+            );
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidReblind(()).into(),
+                    party_1_payload.valid_reblind_proof,
+                    party_1_payload.valid_reblind_witness_commitments,
+                    verification_job_id + 3
+                );
+
+            // VALID MATCH MPC
+            // No statement to inject into witness
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidMatchMpc(()).into(),
+                    valid_match_mpc_proof,
+                    valid_match_mpc_witness_commitments,
+                    verification_job_id + 4
+                );
+
+            // VALID SETTLE
+            append_statement_commitments(
+                @valid_settle_statement, ref valid_settle_witness_commitments
+            );
+            verifier
+                .queue_verification_job(
+                    Circuit::ValidSettle(()).into(),
+                    valid_settle_proof,
+                    valid_settle_witness_commitments,
+                    verification_job_id + 5
+                );
 
             // Store callback elements
             let callback_elems = ProcessMatchCallbackElems {
@@ -902,9 +864,7 @@ mod Darkpool {
             };
             self
                 .process_match_callback_elems
-                .write( // Use the first verification job id as the mapping key for the callback elements
-                    *verification_job_ids[0], StoreSerdeWrapper { inner: callback_elems }
-                );
+                .write(verification_job_id, StoreSerdeWrapper { inner: callback_elems });
         }
 
         /// Poll the process match verification job, and if it verifies, insert the updated wallet into the
@@ -914,161 +874,11 @@ mod Darkpool {
         /// Returns:
         /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn poll_process_match(
-            ref self: ContractState, verification_job_ids: Array<felt252>, 
+            ref self: ContractState, verification_job_id: felt252, 
         ) -> Option<Result<Scalar, felt252>> {
-            let all_verified = if self.feature_flags.read().verifier {
-                let verifier = _get_verifier(@self);
+            let poll_result = _check_and_poll_process_match(@self, verification_job_id);
 
-                let circuits = array![
-                    Circuit::ValidCommitments(()),
-                    Circuit::ValidReblind(()),
-                    Circuit::ValidCommitments(()),
-                    Circuit::ValidReblind(()),
-                    Circuit::ValidMatchMpc(()),
-                    Circuit::ValidSettle(())
-                ]
-                    .span();
-
-                let verification_job_ids = verification_job_ids.span();
-
-                assert(
-                    circuits.len() == verification_job_ids.len(), 'wrong # of verification job ids'
-                );
-
-                // Assert that no verification jobs have failed, and that not all are complete
-                let mut i = 0;
-                let mut should_poll = false;
-                loop {
-                    if i == verification_job_ids.len() {
-                        break;
-                    }
-
-                    let verified = verifier.check_verification_job_status(*verification_job_ids[i]);
-
-                    match verified {
-                        Option::Some(success) => {
-                            if !success {
-                                break;
-                            }
-                        },
-                        Option::None(()) => {
-                            should_poll = true;
-                            break;
-                        },
-                    };
-
-                    i += 1;
-                };
-                assert(should_poll, 'polling already complete');
-
-                let mut all_verified = Option::None(());
-                loop {
-                    if i == verification_job_ids.len() {
-                        all_verified = Option::Some(true);
-                        break;
-                    };
-
-                    let verified = verifier
-                        .step_verification((*circuits[i]).into(), *verification_job_ids[i]);
-
-                    match verified {
-                        Option::Some(success) => {
-                            if !success {
-                                all_verified = Option::Some(false);
-                                break;
-                            };
-
-                            i += 1;
-                        },
-                        Option::None(()) => {
-                            break;
-                        },
-                    };
-                };
-
-                all_verified
-            } else {
-                Option::Some(true)
-            };
-
-            match all_verified {
-                Option::Some(success) => {
-                    let nullifier_set = _get_nullifier_set(@self);
-                    let mut callback_elems = self
-                        .process_match_callback_elems
-                        .read(*verification_job_ids[0])
-                        .inner;
-
-                    if success {
-                        // Callback logic
-
-                        // Insert both parties' old shares nullifiers to the spent nullifier set
-                        nullifier_set
-                            .mark_nullifier_spent(callback_elems.party_0_original_shares_nullifier);
-                        nullifier_set
-                            .mark_nullifier_spent(callback_elems.party_1_original_shares_nullifier);
-
-                        // Insert both partes' updated wallet commitments to the merkle tree
-                        let mut party_0_hash_input = ArrayTrait::new();
-                        party_0_hash_input
-                            .append(callback_elems.party_0_reblinded_private_shares_commitment);
-                        party_0_hash_input.append_all(ref callback_elems.party_0_modified_shares);
-
-                        let mut party_1_hash_input = ArrayTrait::new();
-                        party_1_hash_input
-                            .append(callback_elems.party_1_reblinded_private_shares_commitment);
-                        party_1_hash_input.append_all(ref callback_elems.party_1_modified_shares);
-
-                        let (party_0_total_shares_commitment, party_1_total_shares_commitment) =
-                            if self
-                            .feature_flags
-                            .read()
-                            .non_native_poseidon {
-                            (
-                                *poseidon_hash(party_0_hash_input.span(), 1 // num_elements
-                                )[0],
-                                *poseidon_hash(party_1_hash_input.span(), 1 // num_elements
-                                )[0],
-                            )
-                        } else {
-                            (
-                                native_poseidon_hash_scalars(party_0_hash_input.span()),
-                                native_poseidon_hash_scalars(party_1_hash_input.span())
-                            )
-                        };
-
-                        let merkle_tree = _get_merkle_tree(@self);
-                        merkle_tree.insert(party_0_total_shares_commitment);
-                        let new_root = merkle_tree.insert(party_1_total_shares_commitment);
-
-                        // Mark wallet as updated
-                        _mark_wallet_updated(
-                            ref self,
-                            callback_elems.party_0_wallet_blinder_share,
-                            callback_elems.tx_hash
-                        );
-                        _mark_wallet_updated(
-                            ref self,
-                            callback_elems.party_1_wallet_blinder_share,
-                            callback_elems.tx_hash
-                        );
-
-                        Option::Some(Result::Ok(new_root))
-                    } else {
-                        // Verification failed
-                        nullifier_set
-                            .mark_nullifier_unused(
-                                callback_elems.party_0_original_shares_nullifier
-                            );
-                        nullifier_set
-                            .mark_nullifier_unused(
-                                callback_elems.party_1_original_shares_nullifier
-                            );
-                        Option::Some(Result::Err('verification failed'))
-                    }
-                },
-                Option::None(()) => Option::None(()),
-            }
+            _handle_process_match_poll_result(ref self, verification_job_id, poll_result)
         }
     }
 
@@ -1174,6 +984,144 @@ mod Darkpool {
                     )
                 );
         };
+    }
+
+    /// Asserts that verification of the `process_match` proofs associated with the given
+    /// `verification_job_id` has not already completed, and if not, polls the verification jobs
+    fn _check_and_poll_process_match(
+        self: @ContractState, verification_job_id: felt252
+    ) -> Option<bool> {
+        let verifier = _get_verifier(self);
+
+        let circuits = array![
+            Circuit::ValidCommitments(()),
+            Circuit::ValidReblind(()),
+            Circuit::ValidCommitments(()),
+            Circuit::ValidReblind(()),
+            Circuit::ValidMatchMpc(()),
+            Circuit::ValidSettle(())
+        ];
+
+        let mut already_completed = false;
+        let mut poll_result = Option::None(());
+        let mut i = 0;
+        loop {
+            if i == circuits.len() {
+                // We only make it to this branch if the last verification job had just polled successfully
+                poll_result = Option::Some(true);
+                break;
+            }
+
+            let already_verified = verifier
+                .check_verification_job_status(verification_job_id + i.into());
+
+            match already_verified {
+                Option::Some(success) => {
+                    // If any of the verification jobs failed, or if the last verification
+                    // job has already (successfully) completed, the polling must have previously
+                    // completed.
+                    if !success || i == circuits.len() - 1 {
+                        already_completed = true;
+                        break;
+                    }
+                // Continue to next iteration if verification job had previously succeeded
+                },
+                Option::None(()) => {
+                    let verified = verifier
+                        .step_verification((*circuits[i]).into(), verification_job_id + i.into());
+
+                    match verified {
+                        Option::Some(success) => {
+                            if !success {
+                                poll_result = Option::Some(false);
+                                break;
+                            }
+                        // Continue to next iteration if verification job just succeeded.
+                        // This means that we'll do another `step_verification` call in this
+                        // transaction, which may exceed the gas limit...
+                        },
+                        Option::None(()) => {
+                            break;
+                        },
+                    };
+                },
+            };
+
+            i += 1;
+        };
+
+        assert(!already_completed, 'polling already complete');
+
+        poll_result
+    }
+
+    fn _handle_process_match_poll_result(
+        ref self: ContractState, verification_job_id: felt252, poll_result: Option<bool>
+    ) -> Option<Result<Scalar, felt252>> {
+        match poll_result {
+            Option::Some(success) => {
+                let nullifier_set = _get_nullifier_set(@self);
+                let mut callback_elems = self
+                    .process_match_callback_elems
+                    .read(verification_job_id)
+                    .inner;
+
+                if success {
+                    // Callback logic
+
+                    // Insert both parties' old shares nullifiers to the spent nullifier set
+                    nullifier_set
+                        .mark_nullifier_spent(callback_elems.party_0_original_shares_nullifier);
+                    nullifier_set
+                        .mark_nullifier_spent(callback_elems.party_1_original_shares_nullifier);
+
+                    // Insert both partes' updated wallet commitments to the merkle tree
+                    let use_base_field_poseidon = self.feature_flags.read().use_base_field_poseidon;
+
+                    let mut party_0_hash_input = ArrayTrait::new();
+                    party_0_hash_input
+                        .append(callback_elems.party_0_reblinded_private_shares_commitment);
+                    party_0_hash_input.append_all(ref callback_elems.party_0_modified_shares);
+                    let party_0_total_shares_commitment = compute_poseidon_with_flag(
+                        party_0_hash_input.span(), use_base_field_poseidon
+                    );
+
+                    let mut party_1_hash_input = ArrayTrait::new();
+                    party_1_hash_input
+                        .append(callback_elems.party_1_reblinded_private_shares_commitment);
+                    party_1_hash_input.append_all(ref callback_elems.party_1_modified_shares);
+                    let party_1_total_shares_commitment = compute_poseidon_with_flag(
+                        party_1_hash_input.span(), use_base_field_poseidon
+                    );
+
+                    let merkle_tree = _get_merkle_tree(@self);
+                    merkle_tree.insert(party_0_total_shares_commitment);
+                    let new_root = merkle_tree.insert(party_1_total_shares_commitment);
+
+                    // Mark wallet as updated
+                    _mark_wallet_updated(
+                        ref self,
+                        callback_elems.party_0_wallet_blinder_share,
+                        callback_elems.tx_hash
+                    );
+                    _mark_wallet_updated(
+                        ref self,
+                        callback_elems.party_1_wallet_blinder_share,
+                        callback_elems.tx_hash
+                    );
+
+                    Option::Some(Result::Ok(new_root))
+                } else {
+                    // Verification failed
+                    nullifier_set
+                        .mark_nullifier_unused(callback_elems.party_0_original_shares_nullifier);
+                    nullifier_set
+                        .mark_nullifier_unused(callback_elems.party_1_original_shares_nullifier);
+                    Option::Some(Result::Err('verification failed'))
+                }
+            },
+            Option::None(()) => Option::None(()),
+        }
     }
 
     // -----------

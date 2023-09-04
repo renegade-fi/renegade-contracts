@@ -7,7 +7,9 @@ use alexandria_data_structures::array_ext::ArrayTraitExt;
 use starknet::{syscalls::keccak_syscall, SyscallResultTrait};
 use poseidon::poseidon_hash_span;
 
-use renegade_contracts::verifier::scalar::{Scalar, ScalarSerializable};
+use renegade_contracts::{
+    verifier::scalar::{Scalar, ScalarSerializable}, merkle::poseidon::poseidon_hash
+};
 
 use super::constants::{BASE_FIELD_ORDER, SHIFT_256_FELT, SHIFT_256_SCALAR};
 
@@ -107,7 +109,7 @@ fn hash_statement<T, impl TScalarSerializable: ScalarSerializable<T>>(statement:
     keccak_syscall(keccak_input.span()).unwrap_syscall().into()
 }
 
-fn native_poseidon_hash_scalars(mut scalars: Span<Scalar>) -> Scalar {
+fn base_field_poseidon_hash_scalars(mut scalars: Span<Scalar>) -> Scalar {
     let mut hash_input_felt = ArrayTrait::new();
     loop {
         match scalars.pop_front() {
@@ -121,4 +123,13 @@ fn native_poseidon_hash_scalars(mut scalars: Span<Scalar>) -> Scalar {
     };
 
     poseidon_hash_span(hash_input_felt.span()).into()
+}
+
+fn compute_poseidon_with_flag(mut scalars: Span<Scalar>, use_base_field_poseidon: bool) -> Scalar {
+    if use_base_field_poseidon {
+        base_field_poseidon_hash_scalars(scalars)
+    } else {
+        *poseidon_hash(scalars, 1 // num_elements
+        )[0]
+    }
 }

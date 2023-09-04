@@ -44,7 +44,7 @@ const DUMMY_CALLER: felt252 = 'DUMMY_CALLER';
 fn test_upgrade_darkpool() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     darkpool.upgrade(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
     // The dummy upgrade target has a hardcoded response for the `get_wallet_blinder_transaction`
@@ -63,7 +63,7 @@ fn test_upgrade_darkpool() {
 fn test_upgrade_merkle() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     let original_root = darkpool.get_root();
 
@@ -79,7 +79,7 @@ fn test_upgrade_merkle() {
 fn test_upgrade_nullifier_set() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     darkpool.upgrade_nullifier_set(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
     assert(!darkpool.is_nullifier_available(0.into()), 'upgrade target wrong result');
@@ -96,7 +96,9 @@ fn test_upgrade_nullifier_set() {
 fn test_upgrade_verifier() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: true, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool_with_flags(
+        FeatureFlags { use_base_field_poseidon: true, disable_verification: false }
+    );
 
     darkpool.upgrade_verifier(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
     assert(
@@ -119,7 +121,7 @@ fn test_upgrade_verifier() {
 fn test_transfer_ownership() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     darkpool.transfer_ownership(dummy_caller);
@@ -137,7 +139,7 @@ fn test_transfer_ownership() {
 fn test_initialize_access() {
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
-    setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    setup_darkpool();
 }
 
 #[test]
@@ -146,7 +148,7 @@ fn test_initialize_access() {
 fn test_upgrade_darkpool_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -160,7 +162,7 @@ fn test_upgrade_darkpool_access() {
 fn test_upgrade_merkle_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -174,7 +176,7 @@ fn test_upgrade_merkle_access() {
 fn test_upgrade_nullifier_set_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -188,7 +190,9 @@ fn test_upgrade_nullifier_set_access() {
 fn test_upgrade_verifier_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: true, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool_with_flags(
+        FeatureFlags { use_base_field_poseidon: true, disable_verification: false }
+    );
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -202,7 +206,7 @@ fn test_upgrade_verifier_access() {
 fn test_transfer_ownership_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
-    let mut darkpool = setup_darkpool(FeatureFlags { verifier: false, non_native_poseidon: false });
+    let mut darkpool = setup_darkpool();
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
     set_contract_address(dummy_caller);
@@ -223,7 +227,7 @@ fn test_initialize_twice() {
     let mut calldata = ArrayTrait::new();
     calldata.append(TEST_CALLER);
     Serde::<FeatureFlags>::serialize(
-        @FeatureFlags { verifier: false, non_native_poseidon: false }, ref calldata
+        @FeatureFlags { use_base_field_poseidon: false, disable_verification: false }, ref calldata
     );
 
     let (darkpool_address, _) = deploy_syscall(
@@ -233,15 +237,23 @@ fn test_initialize_twice() {
 
     let mut darkpool = IDarkpoolDispatcher { contract_address: darkpool_address };
 
-    initialize_darkpool(ref darkpool, false);
-    initialize_darkpool(ref darkpool, false);
+    initialize_darkpool(ref darkpool);
+    initialize_darkpool(ref darkpool);
 }
 
 // -----------
 // | HELPERS |
 // -----------
 
-fn setup_darkpool(feature_flags: FeatureFlags) -> IDarkpoolDispatcher {
+fn setup_darkpool() -> IDarkpoolDispatcher {
+    // Default feature flags used disable the scalar field poseidon hash and the verifier, as these
+    // are generally not what is being tested here and disabling them speeds up tests.
+    setup_darkpool_with_flags(
+        FeatureFlags { use_base_field_poseidon: true, disable_verification: true }
+    )
+}
+
+fn setup_darkpool_with_flags(feature_flags: FeatureFlags) -> IDarkpoolDispatcher {
     let mut calldata = ArrayTrait::new();
     calldata.append(TEST_CALLER);
     Serde::<FeatureFlags>::serialize(@feature_flags, ref calldata);
@@ -252,12 +264,12 @@ fn setup_darkpool(feature_flags: FeatureFlags) -> IDarkpoolDispatcher {
         .unwrap();
 
     let mut darkpool = IDarkpoolDispatcher { contract_address: darkpool_address };
-    initialize_darkpool(ref darkpool, feature_flags.verifier);
+    initialize_darkpool(ref darkpool);
 
     darkpool
 }
 
-fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher, initialize_verifier: bool) {
+fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher) {
     darkpool
         .initialize(
             Merkle::TEST_CLASS_HASH.try_into().unwrap(),
@@ -266,14 +278,12 @@ fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher, initialize_verifier: b
             TEST_MERKLE_HEIGHT,
         );
 
-    if initialize_verifier {
-        darkpool.parameterize_circuit(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());
-        darkpool.parameterize_circuit(Circuit::ValidWalletUpdate(()), get_dummy_circuit_params());
-        darkpool.parameterize_circuit(Circuit::ValidCommitments(()), get_dummy_circuit_params());
-        darkpool.parameterize_circuit(Circuit::ValidReblind(()), get_dummy_circuit_params());
-        darkpool.parameterize_circuit(Circuit::ValidMatchMpc(()), get_dummy_circuit_params());
-        darkpool.parameterize_circuit(Circuit::ValidSettle(()), get_dummy_circuit_params());
-    }
+    darkpool.parameterize_circuit(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidWalletUpdate(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidCommitments(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidReblind(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidMatchMpc(()), get_dummy_circuit_params());
+    darkpool.parameterize_circuit(Circuit::ValidSettle(()), get_dummy_circuit_params());
 }
 
 fn assert_not_verified(ref darkpool: IDarkpoolDispatcher, verification_job_id: felt252) {

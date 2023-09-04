@@ -7,12 +7,13 @@ mod utils;
 // -------------
 // TODO: Move to separate file / module when extensibility pattern is stabilized
 
-use renegade_contracts::utils::serde::EcPointSerde;
+use renegade_contracts::{utils::serde::EcPointSerde, darkpool::types::FeatureFlags};
 
 use types::{CircuitParams, Proof, VerificationJob};
 
 #[starknet::interface]
 trait IMultiVerifier<TContractState> {
+    fn set_feature_flags(ref self: TContractState, feature_flags: FeatureFlags);
     fn add_circuit(ref self: TContractState, circuit_id: felt252);
     fn parameterize_circuit(
         ref self: TContractState, circuit_id: felt252, circuit_params: CircuitParams
@@ -45,9 +46,12 @@ mod MultiVerifier {
 
     use alexandria_data_structures::array_ext::ArrayTraitExt;
     use alexandria_math::fast_power::fast_power;
-    use renegade_contracts::utils::{
-        math::get_consecutive_powers, storage::StoreSerdeWrapper, eq::EcPointPartialEq,
-        serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
+    use renegade_contracts::{
+        utils::{
+            math::get_consecutive_powers, storage::StoreSerdeWrapper, eq::EcPointPartialEq,
+            serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
+        },
+        darkpool::types::FeatureFlags
     };
 
     use super::{
@@ -75,6 +79,8 @@ mod MultiVerifier {
 
     #[storage]
     struct Storage {
+        /// Feature flag settings
+        feature_flags: FeatureFlags,
         /// Map of in-use circuit IDs
         circuit_id_in_use: LegacyMap<felt252, bool>,
         /// Mapping from verification job ID -> verification job
@@ -146,6 +152,15 @@ mod MultiVerifier {
 
     #[external(v0)]
     impl IMultiVerifierImpl of super::IMultiVerifier<ContractState> {
+        /// Controls whether or not full verification is enabled. If disabled, all
+        /// smart contract logic remains the same, other than `step_verification`, which
+        /// will immediately mark the verification job as verified.
+        /// Parameters:
+        /// - `disabled`: Whether or not verification should be enabled
+        fn set_feature_flags(ref self: ContractState, feature_flags: FeatureFlags) {
+            self.feature_flags.write(feature_flags);
+        }
+
         /// Adds a new circuit to the contract
         /// Parameters:
         /// - `circuit_id`: The ID of the circuit
@@ -157,7 +172,7 @@ mod MultiVerifier {
             self.emit(Event::CircuitAdded(CircuitAdded { circuit_id }));
         }
 
-        /// Initializes the verifier for the given public parameters
+        /// Parameterizes the verifier with the given public parameters
         /// Parameters:
         /// - `circuit_id`: The ID of the circuit
         /// - `circuit_params`: The public parameters of the circuit
@@ -304,7 +319,12 @@ mod MultiVerifier {
             ref self: ContractState, circuit_id: felt252, verification_job_id: felt252
         ) -> Option<bool> {
             let mut verification_job = self.verification_queue.read(verification_job_id).inner;
-            step_verification_inner(ref self, ref verification_job);
+
+            if !self.feature_flags.read().disable_verification {
+                step_verification_inner(ref self, ref verification_job);
+            } else {
+                verification_job.verified = Option::Some(true);
+            }
 
             let verified = verification_job.verified;
 
