@@ -96,10 +96,10 @@ struct Signature {
 /// Represents which optional features to enable in the darkpool
 #[derive(Drop, Serde, Copy, starknet::Store)]
 struct FeatureFlags {
-    /// Whether or not to use Poseidon over the scalar field
-    non_native_poseidon: bool,
+    /// Whether or not to use Poseidon over the base field
+    use_base_field_poseidon: bool,
     /// Whether or not to verify proofs
-    verifier: bool,
+    disable_verification: bool,
 }
 
 // --------------------------

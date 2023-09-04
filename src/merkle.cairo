@@ -1,10 +1,10 @@
 mod poseidon;
 
-use renegade_contracts::verifier::scalar::Scalar;
+use renegade_contracts::{verifier::scalar::Scalar, darkpool::types::FeatureFlags};
 
 #[starknet::interface]
 trait IMerkle<TContractState> {
-    fn initialize(ref self: TContractState, height: u8, non_native_poseidon: bool);
+    fn initialize(ref self: TContractState, height: u8, feature_flags: FeatureFlags);
     fn get_root(self: @TContractState) -> Scalar;
     fn root_in_history(self: @TContractState, root: Scalar) -> bool;
     fn insert(ref self: TContractState, value: Scalar) -> Scalar;
@@ -20,9 +20,9 @@ mod Merkle {
     use alexandria_math::fast_power::fast_power;
 
     use renegade_contracts::{
-        utils::{constants::MAX_U128, crypto::native_poseidon_hash_scalars}, verifier::scalar::Scalar
+        utils::{constants::MAX_U128, crypto::compute_poseidon_with_flag}, verifier::scalar::Scalar,
+        darkpool::types::FeatureFlags,
     };
-    use super::poseidon::poseidon_hash;
 
     // -------------
     // | CONSTANTS |
@@ -41,6 +41,8 @@ mod Merkle {
 
     #[storage]
     struct Storage {
+        /// Feature flag settings
+        feature_flags: FeatureFlags,
         /// The height of the Merkle tree stored by this contract
         height: u8,
         /// Capacity of the Merkle tree, cached in contract storage
@@ -63,8 +65,6 @@ mod Merkle {
         /// at the given height. Used to set the sibling pathway when a subtree is
         /// filled.
         zeros: LegacyMap<u8, Scalar>,
-        /// Indicates whether or not to use Poseidon over the scalar field
-        non_native_poseidon: bool,
     }
 
     // ----------
@@ -107,8 +107,8 @@ mod Merkle {
         /// Set up the Merkle tree
         /// Parameters:
         /// - `height`: The height of the Merkle tree
-        fn initialize(ref self: ContractState, height: u8, non_native_poseidon: bool) {
-            self.non_native_poseidon.write(non_native_poseidon);
+        fn initialize(ref self: ContractState, height: u8, feature_flags: FeatureFlags) {
+            self.feature_flags.write(feature_flags);
             self.height.write(height);
 
             // Calculate the capacity
@@ -196,12 +196,9 @@ mod Merkle {
         hash_input.append(current_leaf);
         hash_input.append(current_leaf);
 
-        let next_leaf = if self.non_native_poseidon.read() {
-            *poseidon_hash(hash_input.span(), 1, // num_elements
-             )[0]
-        } else {
-            native_poseidon_hash_scalars(hash_input.span())
-        };
+        let next_leaf = compute_poseidon_with_flag(
+            hash_input.span(), self.feature_flags.read().use_base_field_poseidon
+        );
 
         setup_empty_tree(ref self, height - 1, next_leaf)
     }
@@ -277,12 +274,9 @@ mod Merkle {
             new_subtree_filled = subtree_filled;
         }
         next_value =
-            if self.non_native_poseidon.read() {
-                *poseidon_hash(hash_input.span(), 1, // num_elements
-                 )[0]
-            } else {
-                native_poseidon_hash_scalars(hash_input.span())
-            };
+            compute_poseidon_with_flag(
+                hash_input.span(), self.feature_flags.read().use_base_field_poseidon
+            );
 
         // Emit an event indicating that the internal node has changed
         self
