@@ -599,7 +599,6 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.1.0-rc0"
-source = "git+https://github.com/renegade-fi/blockifier.git?rev=9c9bbe1#9c9bbe1cc0f1d013caa1fc0ab53c372c8adb7530"
 dependencies = [
  "ark-ff",
  "ark-secp256k1",
@@ -2089,6 +2088,18 @@ checksum = "4ebda144c4fe02d1f7ea1a7d9641b6fc6b580adcfa024ae48797ecdeb6825b4d"
 dependencies = [
  "libc",
  "redox_users",
+ "winapi",
+]
+
+[[package]]
+name = "dns-lookup"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53ecafc952c4528d9b51a458d1a8904b81783feff9fde08ab6ed2545ff396872"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "socket2 0.4.9",
  "winapi",
 ]
 
@@ -3863,6 +3874,12 @@ checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "inventory"
+version = "0.3.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1be380c410bf0595e94992a648ea89db4dd3f3354ba54af206fd2a68cf5ac8e"
 
 [[package]]
 name = "io-close"
@@ -6825,6 +6842,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
+name = "test-helpers"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=stark-curve-ecdsa#6ac39e780935086746c600b055cd13cc5fddca29"
+dependencies = [
+ "async-trait",
+ "constants",
+ "dns-lookup",
+ "eyre",
+ "futures",
+ "inventory",
+ "itertools 0.10.5",
+ "json",
+ "mpc-stark",
+ "num-bigint",
+ "rand 0.8.5",
+ "renegade-crypto",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "starknet",
+ "tokio",
+ "tokio-condvar",
+ "tracing",
+]
+
+[[package]]
 name = "tests"
 version = "0.1.0"
 dependencies = [
@@ -6849,6 +6892,7 @@ dependencies = [
  "starknet",
  "starknet-client",
  "starknet_scripts",
+ "test-helpers",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.17",
@@ -6992,6 +7036,15 @@ dependencies = [
  "socket2 0.5.3",
  "tokio-macros",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "tokio-condvar"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7233b09174540ef9bf9fc8326bcad6ccebc631e7c9a1e2e48d956a133056f9d"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

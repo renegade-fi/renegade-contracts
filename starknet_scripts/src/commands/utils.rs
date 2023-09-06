@@ -61,6 +61,16 @@ pub const DEPLOYMENTS_FILE_NAME: &str = "deployments.json";
 
 pub type ScriptAccount = SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>;
 
+#[derive(Default)]
+pub struct FeatureFlags {
+    /// Whether or not to use Poseidon over the base field
+    pub use_base_field_poseidon: bool,
+    /// Whether or not to verify proofs
+    pub disable_verification: bool,
+    /// Whether or not to enable profiling
+    pub enable_profiling: bool,
+}
+
 pub fn setup_account(
     address: FieldElement,
     private_key: String,
@@ -225,6 +235,7 @@ pub async fn deploy_darkpool(
     merkle_class_hash: Option<String>,
     nullifier_set_class_hash: Option<String>,
     verifier_class_hash: Option<String>,
+    feature_flags: FeatureFlags,
     artifacts_path: &str,
     account: &ScriptAccount,
 ) -> Result<(
@@ -279,8 +290,9 @@ pub async fn deploy_darkpool(
     debug!("Deploying darkpool contract...");
     let calldata = vec![
         account.address(),
-        FieldElement::ZERO, /* serialization of boolean `false` indicating that poseidon over the base field should not be used */
-        FieldElement::ZERO, /* serialization of boolean `false` indicating that the verifier should not be disabled */
+        FieldElement::from(feature_flags.use_base_field_poseidon as u8),
+        FieldElement::from(feature_flags.disable_verification as u8),
+        FieldElement::from(feature_flags.enable_profiling as u8),
     ];
     let InvokeTransactionResult {
         transaction_hash, ..

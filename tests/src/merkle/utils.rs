@@ -5,15 +5,14 @@ use once_cell::sync::OnceCell;
 use rand::thread_rng;
 use starknet::core::types::FieldElement;
 use starknet_scripts::commands::utils::{
-    deploy_merkle, initialize, ScriptAccount, MERKLE_CONTRACT_NAME,
+    deploy_merkle, initialize, FeatureFlags, ScriptAccount, MERKLE_CONTRACT_NAME,
 };
 use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
     get_contract_address_from_artifact, global_setup, insert_scalar_to_ark_merkle_tree,
-    invoke_contract, setup_sequencer, CalldataSerializable, FeatureFlags, TestConfig,
-    ARTIFACTS_PATH_ENV_VAR,
+    invoke_contract, setup_sequencer, CalldataSerializable, TestConfig, ARTIFACTS_PATH_ENV_VAR,
 };
 
 use super::ark_merkle::{setup_empty_tree, ScalarMerkleTree};

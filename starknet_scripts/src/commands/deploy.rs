@@ -8,7 +8,7 @@ use crate::{
     cli::{Contract, DeployArgs},
     commands::utils::{
         deploy_darkpool, deploy_merkle, deploy_nullifier_set, dump_deployment, initialize,
-        setup_account, MERKLE_HEIGHT,
+        setup_account, FeatureFlags, MERKLE_HEIGHT,
     },
 };
 
@@ -46,6 +46,7 @@ pub async fn deploy_and_initialize(args: DeployArgs) -> Result<()> {
                 merkle_class_hash,
                 nullifier_set_class_hash,
                 verifier_class_hash.clone(),
+                FeatureFlags::default(),
                 &artifacts_path,
                 &account,
             )
