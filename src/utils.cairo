@@ -7,4 +7,5 @@ mod collections;
 mod eq;
 mod constants;
 mod crypto;
+mod profiling;
 
