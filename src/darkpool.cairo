@@ -520,7 +520,7 @@ mod Darkpool {
             append_statement_commitments(@statement, ref witness_commitments);
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::AppendStatementCommitments {
+                && breakpoint == Breakpoint::AppendStatement {
                 return;
             }
 
@@ -569,11 +569,6 @@ mod Darkpool {
 
             let verified = verifier
                 .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id);
-
-            if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::StepVerification {
-                return Option::Some(Result::Err('breakpoint reached'));
-            }
 
             match verified {
                 Option::Some(success) => {
@@ -677,7 +672,7 @@ mod Darkpool {
             append_statement_commitments(@statement, ref witness_commitments);
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::AppendStatementCommitments {
+                && breakpoint == Breakpoint::AppendStatement {
                 return;
             }
 
@@ -734,11 +729,6 @@ mod Darkpool {
 
             let verified = verifier
                 .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id);
-
-            if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::StepVerification {
-                return Option::Some(Result::Err('breakpoint reached'));
-            }
 
             match verified {
                 Option::Some(success) => {
@@ -860,6 +850,12 @@ mod Darkpool {
                 @party_0_payload.valid_commitments_statement,
                 ref party_0_payload.valid_commitments_witness_commitments
             );
+
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendParty0ValidCommitmentsStatement {
+                return;
+            }
+
             verifier
                 .queue_verification_job(
                     Circuit::ValidCommitments(()).into(),
@@ -870,7 +866,7 @@ mod Darkpool {
                 );
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::Party0ValidCommitments {
+                && breakpoint == Breakpoint::QueueParty0ValidCommitments {
                 return;
             }
 
@@ -879,6 +875,12 @@ mod Darkpool {
                 @party_0_payload.valid_reblind_statement,
                 ref party_0_payload.valid_reblind_witness_commitments
             );
+
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendParty0ValidReblindStatement {
+                return;
+            }
+
             verifier
                 .queue_verification_job(
                     Circuit::ValidReblind(()).into(),
@@ -889,7 +891,7 @@ mod Darkpool {
                 );
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::Party0ValidReblind {
+                && breakpoint == Breakpoint::QueueParty0ValidReblind {
                 return;
             }
 
@@ -898,6 +900,12 @@ mod Darkpool {
                 @party_1_payload.valid_commitments_statement,
                 ref party_1_payload.valid_commitments_witness_commitments
             );
+
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendParty1ValidCommitmentsStatement {
+                return;
+            }
+
             verifier
                 .queue_verification_job(
                     Circuit::ValidCommitments(()).into(),
@@ -908,7 +916,7 @@ mod Darkpool {
                 );
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::Party1ValidCommitments {
+                && breakpoint == Breakpoint::QueueParty1ValidCommitments {
                 return;
             }
 
@@ -917,6 +925,12 @@ mod Darkpool {
                 @party_1_payload.valid_reblind_statement,
                 ref party_1_payload.valid_reblind_witness_commitments
             );
+
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendParty1ValidReblindStatement {
+                return;
+            }
+
             verifier
                 .queue_verification_job(
                     Circuit::ValidReblind(()).into(),
@@ -927,7 +941,7 @@ mod Darkpool {
                 );
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::Party1ValidReblind {
+                && breakpoint == Breakpoint::QueueParty1ValidReblind {
                 return;
             }
 
@@ -943,7 +957,7 @@ mod Darkpool {
                 );
 
             if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::ValidMatchMpc {
+                && breakpoint == Breakpoint::QueueValidMatchMpc {
                 return;
             }
 
@@ -951,6 +965,12 @@ mod Darkpool {
             append_statement_commitments(
                 @valid_settle_statement, ref valid_settle_witness_commitments
             );
+
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendValidSettleStatement {
+                return;
+            }
+
             verifier
                 .queue_verification_job(
                     Circuit::ValidSettle(()).into(),
@@ -960,7 +980,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if self.feature_flags.read().enable_profiling && breakpoint == Breakpoint::ValidSettle {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::QueueValidSettle {
                 return;
             }
 
@@ -999,11 +1020,6 @@ mod Darkpool {
             ref self: ContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
         ) -> Option<Result<Scalar, felt252>> {
             let poll_result = _check_and_poll_process_match(@self, verification_job_id);
-
-            if self.feature_flags.read().enable_profiling
-                && breakpoint == Breakpoint::CheckAndPoll {
-                return Option::Some(Result::Err('breakpoint reached'));
-            }
 
             _handle_process_match_poll_result(
                 ref self, verification_job_id, poll_result, breakpoint
