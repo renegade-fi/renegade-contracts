@@ -1,17 +1,9 @@
 use circuit_types::{r#match::MatchResult, traits::BaseType, transfers::ExternalTransfer};
 use circuits::zk_circuits::{
     test_helpers::{SizedWallet, MAX_BALANCES, MAX_FEES, MAX_ORDERS},
-    valid_commitments::ValidCommitmentsStatement,
-    valid_reblind::ValidReblindStatement,
-    valid_settle::test_helpers::{
-        create_witness_statement, SizedStatement as SizedValidSettleStatement,
-    },
-    valid_wallet_create::test_helpers::{
-        create_default_witness_statement, SizedStatement as SizedValidWalletCreateStatement,
-    },
-    valid_wallet_update::test_helpers::{
-        construct_witness_statement, SizedStatement as SizedValidWalletUpdateStatement,
-    },
+    valid_settle::test_helpers::create_witness_statement,
+    valid_wallet_create::test_helpers::create_default_witness_statement,
+    valid_wallet_update::test_helpers::construct_witness_statement,
 };
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
@@ -29,7 +21,7 @@ use starknet::{
 use starknet_client::types::StarknetU256;
 use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, deploy_darkpool, get_artifacts, initialize,
-    ScriptAccount, DARKPOOL_CONTRACT_NAME,
+    FeatureFlags, ScriptAccount, DARKPOOL_CONTRACT_NAME,
 };
 use std::{env, iter};
 
@@ -42,13 +34,12 @@ use crate::{
     },
     utils::{
         call_contract, check_verification_job_status, felt_to_u128, get_circuit_params,
-        get_contract_address_from_artifact, get_dummy_statement_scalars,
-        get_sierra_class_hash_from_artifact, global_setup, invoke_contract, parameterize_circuit,
-        random_felt, scalar_to_felt, setup_sequencer, singleprover_prove, Breakpoint,
-        CalldataSerializable, Circuit, DummyValidCommitments, DummyValidMatchMpc,
-        DummyValidReblind, DummyValidSettle, DummyValidWalletCreate, DummyValidWalletUpdate,
-        FeatureFlags, MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig, UpdateWalletArgs,
-        ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE, SK_ROOT,
+        get_contract_address_from_artifact, get_sierra_class_hash_from_artifact, global_setup,
+        invoke_contract, parameterize_circuit, random_felt, scalar_to_felt, setup_sequencer,
+        singleprover_prove, Breakpoint, CalldataSerializable, Circuit, DummyValidCommitments,
+        DummyValidMatchMpc, DummyValidReblind, DummyValidSettle, DummyValidWalletCreate,
+        DummyValidWalletUpdate, MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig,
+        UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE, SK_ROOT,
     },
 };
 
@@ -105,7 +96,16 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     let account = sequencer.account();
     debug!("Declaring & deploying darkpool contract...");
     let (darkpool_address, _, merkle_class_hash, nullifier_set_class_hash, verifier_class_hash, _) =
-        deploy_darkpool(None, None, None, None, &artifacts_path, &account).await?;
+        deploy_darkpool(
+            None,
+            None,
+            None,
+            None,
+            FeatureFlags::default(),
+            &artifacts_path,
+            &account,
+        )
+        .await?;
 
     debug!("Initializing darkpool contract...");
     initialize_darkpool(
@@ -115,6 +115,7 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
         nullifier_set_class_hash,
         verifier_class_hash,
         TEST_MERKLE_HEIGHT.into(),
+        Breakpoint::None,
     )
     .await?;
 
@@ -129,32 +130,13 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
     ]
     .into_iter()
     {
-        let mut statement_scalars = get_dummy_statement_scalars(circuit).into_iter();
-
         let circuit_params = match circuit {
-            Circuit::ValidWalletCreate(_) => get_circuit_params::<DummyValidWalletCreate>(
-                (),
-                SizedValidWalletCreateStatement::from_scalars(&mut statement_scalars),
-            ),
-            Circuit::ValidWalletUpdate(_) => get_circuit_params::<DummyValidWalletUpdate>(
-                (),
-                SizedValidWalletUpdateStatement::from_scalars(&mut statement_scalars),
-            ),
-            Circuit::ValidCommitments(_) => get_circuit_params::<DummyValidCommitments>(
-                (),
-                ValidCommitmentsStatement::from_scalars(&mut statement_scalars),
-            ),
-            Circuit::ValidReblind(_) => get_circuit_params::<DummyValidReblind>(
-                (),
-                ValidReblindStatement::from_scalars(&mut statement_scalars),
-            ),
-            Circuit::ValidMatchMpc(_) => {
-                get_circuit_params::<DummyValidMatchMpc>(Scalar::from(DUMMY_VALUE), ())
-            }
-            Circuit::ValidSettle(_) => get_circuit_params::<DummyValidSettle>(
-                (),
-                SizedValidSettleStatement::from_scalars(&mut statement_scalars),
-            ),
+            Circuit::ValidWalletCreate(_) => get_circuit_params::<DummyValidWalletCreate>(),
+            Circuit::ValidWalletUpdate(_) => get_circuit_params::<DummyValidWalletUpdate>(),
+            Circuit::ValidCommitments(_) => get_circuit_params::<DummyValidCommitments>(),
+            Circuit::ValidReblind(_) => get_circuit_params::<DummyValidReblind>(),
+            Circuit::ValidMatchMpc(_) => get_circuit_params::<DummyValidMatchMpc>(),
+            Circuit::ValidSettle(_) => get_circuit_params::<DummyValidSettle>(),
         };
 
         parameterize_circuit(
@@ -291,6 +273,7 @@ pub async fn initialize_darkpool(
     nullifier_set_class_hash: FieldElement,
     verifier_class_hash: FieldElement,
     merkle_height: FieldElement,
+    breakpoint: Breakpoint,
 ) -> Result<()> {
     let mut calldata = vec![
         merkle_class_hash,
@@ -298,7 +281,7 @@ pub async fn initialize_darkpool(
         verifier_class_hash,
         merkle_height,
     ];
-    calldata.extend(Breakpoint::None.to_calldata().into_iter());
+    calldata.extend(breakpoint.to_calldata().into_iter());
 
     initialize(account, darkpool_address, calldata)
         .await

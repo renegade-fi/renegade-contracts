@@ -2,7 +2,7 @@ use ark_ff::{BigInteger, PrimeField};
 use byteorder::{BigEndian, ReadBytesExt};
 use circuit_types::{
     keychain::{PublicKeyChain, SecretIdentificationKey, SecretSigningKey},
-    traits::{BaseType, CircuitBaseType, SingleProverCircuit},
+    traits::{BaseType, CircuitBaseType, CircuitCommitmentType, SingleProverCircuit},
     transfers::{ExternalTransfer, ExternalTransferDirection},
     wallet::Wallet,
 };
@@ -14,23 +14,13 @@ use circuits::zk_circuits::{
         ValidReblindStatement,
     },
     valid_settle::{
-        test_helpers::{
-            create_witness_statement, SizedStatement as SizedValidSettleStatement, MATCH_RES,
-        },
-        ValidSettleStatement,
+        test_helpers::SizedStatement as SizedValidSettleStatement, ValidSettleStatement,
     },
     valid_wallet_create::{
-        test_helpers::{
-            create_default_witness_statement, SizedStatement as SizedValidWalletCreateStatement,
-        },
-        ValidWalletCreateStatement,
+        test_helpers::SizedStatement as SizedValidWalletCreateStatement, ValidWalletCreateStatement,
     },
     valid_wallet_update::{
-        test_helpers::{
-            construct_witness_statement as construct_valid_wallet_update_witness_statement,
-            SizedStatement as SizedValidWalletUpdateStatement,
-        },
-        ValidWalletUpdateStatement,
+        test_helpers::SizedStatement as SizedValidWalletUpdateStatement, ValidWalletUpdateStatement,
     },
 };
 use dojo_test_utils::sequencer::{Environment, StarknetConfig, TestSequencer};
@@ -65,9 +55,12 @@ use starknet::{
     providers::Provider,
 };
 use starknet_client::types::StarknetU256;
-use starknet_scripts::commands::utils::{calculate_contract_address, get_artifacts, ScriptAccount};
+use starknet_scripts::commands::utils::{
+    calculate_contract_address, get_artifacts, FeatureFlags, ScriptAccount,
+};
 use std::{
     env,
+    fmt::Display,
     fs::{self, File},
     io::Cursor,
     iter,
@@ -86,6 +79,10 @@ use crate::{
     },
     nullifier_set::utils::{init_nullifier_set_test_state, init_nullifier_set_test_statics},
     poseidon::utils::{init_poseidon_test_state, init_poseidon_test_statics},
+    profiling::utils::{
+        init_profiling_test_state, init_profiling_test_statics, singleprover_prove_prealloc,
+        verify_singleprover_proof_prealloc, SizedValidCommitments, SizedValidReblind,
+    },
     statement_serde::utils::{init_statement_serde_test_state, init_statement_serde_test_statics},
     transcript::utils::{init_transcript_test_state, init_transcript_test_statics},
     verifier::utils::{init_verifier_test_state, init_verifier_test_statics},
@@ -111,6 +108,7 @@ const VERIFIER_UTILS_STATE_SEPARATOR: &str = "verifier_utils_state";
 const TRANSCRIPT_STATE_SEPARATOR: &str = "transcript_state";
 const POSEIDON_STATE_SEPARATOR: &str = "poseidon_state";
 const STATEMENT_SERDE_STATE_SEPARATOR: &str = "statement_serde_state";
+const PROFILING_STATE_SEPARATOR: &str = "profiling_state";
 
 static DARKPOOL_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static MERKLE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
@@ -120,6 +118,7 @@ static VERIFIER_UTILS_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static TRANSCRIPT_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static POSEIDON_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static STATEMENT_SERDE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
+static PROFILING_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 
 lazy_static! {
     pub static ref SK_ROOT: SecretSigningKey = Scalar::from(DUMMY_VALUE);
@@ -162,6 +161,7 @@ pub enum TestConfig {
     Transcript,
     Poseidon,
     StatementSerde,
+    Profiling,
 }
 
 fn get_test_starknet_config(init_state: Option<SerializableState>) -> StarknetConfig {
@@ -172,6 +172,7 @@ fn get_test_starknet_config(init_state: Option<SerializableState>) -> StarknetCo
         env: Environment {
             invoke_max_steps,
             chain_id: "SN_GOERLI".into(),
+            gas_price: 0,
             ..Default::default()
         },
         disable_fee: true,
@@ -183,7 +184,10 @@ fn get_test_starknet_config(init_state: Option<SerializableState>) -> StarknetCo
 pub async fn global_setup(init_state: Option<SerializableState>) -> TestSequencer {
     // Set up logging
     TRACING_INIT.call_once(|| {
-        fmt().with_env_filter(EnvFilter::from_default_env()).init();
+        fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .with_ansi(false)
+            .init();
     });
 
     // Start test sequencer
@@ -279,6 +283,7 @@ fn get_state_lock_and_separator(test_config: &TestConfig) -> (&'static Mutex<boo
             &STATEMENT_SERDE_STATE_DUMPED,
             STATEMENT_SERDE_STATE_SEPARATOR,
         ),
+        TestConfig::Profiling => (&PROFILING_STATE_DUMPED, PROFILING_STATE_SEPARATOR),
     }
 }
 
@@ -292,6 +297,7 @@ async fn init_test_state(test_config: &TestConfig) -> Result<TestSequencer> {
         TestConfig::Transcript => init_transcript_test_state().await,
         TestConfig::Poseidon => init_poseidon_test_state().await,
         TestConfig::StatementSerde => init_statement_serde_test_state().await,
+        TestConfig::Profiling => init_profiling_test_state().await,
     }
 }
 
@@ -305,6 +311,7 @@ fn init_test_statics(test_config: &TestConfig, sequencer: &TestSequencer) -> Res
         TestConfig::Transcript => init_transcript_test_statics(),
         TestConfig::Poseidon => init_poseidon_test_statics(),
         TestConfig::StatementSerde => init_statement_serde_test_statics(),
+        TestConfig::Profiling => init_profiling_test_statics(&sequencer.account()),
     }
 }
 
@@ -515,16 +522,97 @@ impl MatchPayload {
             valid_reblind_proof,
         })
     }
+
+    pub fn example(
+        wallet: &SizedWallet,
+        merkle_root: Scalar,
+        wallet_blinder_share: Scalar,
+    ) -> Result<Self> {
+        let (valid_commitments_witness, valid_commitments_statement) =
+            create_witness_and_statement(wallet);
+
+        let (valid_reblind_witness, mut valid_reblind_statement) =
+            construct_valid_reblind_witness_statement::<
+                MAX_BALANCES,
+                MAX_ORDERS,
+                MAX_FEES,
+                TEST_MERKLE_HEIGHT,
+            >(wallet);
+        valid_reblind_statement.merkle_root = merkle_root;
+
+        let (valid_commitments_witness_commitment, valid_commitments_proof) =
+            singleprover_prove_prealloc::<SizedValidCommitments>(
+                valid_commitments_witness,
+                valid_commitments_statement.clone(),
+            )?;
+
+        verify_singleprover_proof_prealloc::<SizedValidCommitments>(
+            valid_commitments_statement.clone(),
+            valid_commitments_witness_commitment.clone(),
+            valid_commitments_proof.clone(),
+        )?;
+
+        let (valid_reblind_witness_commitment, valid_reblind_proof) =
+            singleprover_prove_prealloc::<SizedValidReblind>(
+                valid_reblind_witness,
+                valid_reblind_statement.clone(),
+            )?;
+
+        verify_singleprover_proof_prealloc::<SizedValidReblind>(
+            valid_reblind_statement.clone(),
+            valid_reblind_witness_commitment.clone(),
+            valid_reblind_proof.clone(),
+        )?;
+
+        Ok(Self {
+            wallet_blinder_share,
+            valid_commitments_statement,
+            valid_commitments_witness_commitments: valid_commitments_witness_commitment
+                .to_commitments(),
+            valid_commitments_proof,
+            valid_reblind_statement,
+            valid_reblind_witness_commitments: valid_reblind_witness_commitment.to_commitments(),
+            valid_reblind_proof,
+        })
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum Circuit {
-    ValidWalletCreate(DummyValidWalletCreate),
-    ValidWalletUpdate(DummyValidWalletUpdate),
-    ValidCommitments(DummyValidCommitments),
-    ValidReblind(DummyValidReblind),
-    ValidMatchMpc(DummyValidMatchMpc),
-    ValidSettle(DummyValidSettle),
+pub enum Circuit<
+    VWC: SingleProverCircuit,
+    VWU: SingleProverCircuit,
+    VC: SingleProverCircuit,
+    VR: SingleProverCircuit,
+    VMM: SingleProverCircuit,
+    VS: SingleProverCircuit,
+> {
+    ValidWalletCreate(VWC),
+    ValidWalletUpdate(VWU),
+    ValidCommitments(VC),
+    ValidReblind(VR),
+    ValidMatchMpc(VMM),
+    ValidSettle(VS),
+}
+
+impl<VWC, VWU, VC, VR, VMM, VS> Display for Circuit<VWC, VWU, VC, VR, VMM, VS>
+where
+    VWC: SingleProverCircuit,
+    VWU: SingleProverCircuit,
+    VC: SingleProverCircuit,
+    VR: SingleProverCircuit,
+    VMM: SingleProverCircuit,
+    VS: SingleProverCircuit,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Circuit::ValidWalletCreate(_) => write!(f, "ValidWalletCreate"),
+            Circuit::ValidWalletUpdate(_) => write!(f, "ValidWalletUpdate"),
+            Circuit::ValidCommitments(_) => write!(f, "ValidCommitments"),
+            Circuit::ValidReblind(_) => write!(f, "ValidReblind"),
+            Circuit::ValidMatchMpc(_) => write!(f, "ValidMatchMpc"),
+            Circuit::ValidSettle(_) => write!(f, "ValidSettle"),
+        }
+    }
 }
 
 pub struct CircuitParams {
@@ -583,16 +671,6 @@ pub struct ProcessMatchArgs {
     pub valid_settle_proof: R1CSProof,
     pub verification_job_id: FieldElement,
     pub breakpoint: Breakpoint,
-}
-
-#[derive(Default)]
-pub struct FeatureFlags {
-    /// Whether or not to use Poseidon over the base field
-    pub use_base_field_poseidon: bool,
-    /// Whether or not to verify proofs
-    pub disable_verification: bool,
-    /// Whether or not to enable profiling
-    pub enable_profiling: bool,
 }
 
 pub enum Breakpoint {
@@ -756,7 +834,15 @@ impl CalldataSerializable for CircuitParams {
     }
 }
 
-impl CalldataSerializable for Circuit {
+impl<VWC, VWU, VC, VR, VMM, VS> CalldataSerializable for Circuit<VWC, VWU, VC, VR, VMM, VS>
+where
+    VWC: SingleProverCircuit,
+    VWU: SingleProverCircuit,
+    VC: SingleProverCircuit,
+    VR: SingleProverCircuit,
+    VMM: SingleProverCircuit,
+    VS: SingleProverCircuit,
+{
     fn to_calldata(&self) -> Vec<FieldElement> {
         vec![match self {
             Circuit::ValidWalletCreate(_) => FieldElement::from(0_u8),
@@ -1001,13 +1087,14 @@ pub fn singleprover_prove<C: SingleProverCircuit>(
 
 /// Generates circuit parameters for the given circuit
 // TODO: Upstream this into `SingleProverCircuit` trait?
-pub fn get_circuit_params<C: SingleProverCircuit>(
-    witness: C::Witness,
-    statement: C::Statement,
-) -> CircuitParams {
+pub fn get_circuit_params<C: SingleProverCircuit>() -> CircuitParams {
     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
     let pc_gens = PedersenGens::default();
     let mut prover = Prover::new(&pc_gens, &mut transcript);
+
+    // Generate dummy witness & statement
+    let witness = C::Witness::from_scalars(&mut iter::repeat(Scalar::one()));
+    let statement = C::Statement::from_scalars(&mut iter::repeat(Scalar::one()));
 
     // Commit to the witness and statement
     let mut rng = thread_rng();
@@ -1059,45 +1146,6 @@ fn mul_and_constrain<CS: RandomizableConstraintSystem>(
     let (var, _, m) = cs.multiply(var.into(), Scalar::one().into());
     cs.constrain(m - var);
     Ok(())
-}
-
-/// Returns a (scalar-serialized) dummy statement for the given circuit, to be used for
-/// creating circuit params from a constraint system.
-pub fn get_dummy_statement_scalars(circuit: Circuit) -> Vec<Scalar> {
-    match circuit {
-        Circuit::ValidWalletCreate(_) => create_default_witness_statement().1.to_scalars(),
-        Circuit::ValidWalletUpdate(_) => construct_valid_wallet_update_witness_statement::<
-            MAX_BALANCES,
-            MAX_ORDERS,
-            MAX_FEES,
-            TEST_MERKLE_HEIGHT,
-        >(
-            DUMMY_WALLET.clone(),
-            DUMMY_WALLET.clone(),
-            ExternalTransfer::default(),
-        )
-        .1
-        .to_scalars(),
-        Circuit::ValidCommitments(_) => create_witness_and_statement(&DUMMY_WALLET.clone())
-            .1
-            .to_scalars(),
-        Circuit::ValidReblind(_) => construct_valid_reblind_witness_statement::<
-            MAX_BALANCES,
-            MAX_ORDERS,
-            MAX_FEES,
-            TEST_MERKLE_HEIGHT,
-        >(&DUMMY_WALLET.clone())
-        .1
-        .to_scalars(),
-        Circuit::ValidMatchMpc(_) => vec![],
-        Circuit::ValidSettle(_) => create_witness_statement(
-            DUMMY_WALLET.clone(),
-            DUMMY_WALLET.clone(),
-            MATCH_RES.clone(),
-        )
-        .1
-        .to_scalars(),
-    }
 }
 
 // -------------------------------------

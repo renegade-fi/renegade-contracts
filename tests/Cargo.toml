@@ -33,4 +33,5 @@ merlin = { git = "https://github.com/renegade-fi/merlin.git" }
 renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
 circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa", features = ["test_helpers"] }
 circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
+test-helpers = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
 starknet-client = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
