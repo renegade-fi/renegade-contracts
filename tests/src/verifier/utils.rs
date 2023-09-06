@@ -19,7 +19,7 @@ use tracing::debug;
 
 use crate::utils::{
     get_contract_address_from_artifact, global_setup, invoke_contract, parameterize_circuit,
-    CalldataSerializable, CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+    Breakpoint, CalldataSerializable, CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
 };
 
 pub const FUZZ_ROUNDS: usize = 1;
@@ -114,6 +114,7 @@ pub async fn queue_verification_job(
         .chain(proof.to_calldata())
         .chain(witness_commitments.to_calldata())
         .chain(verification_job_id.to_calldata())
+        .chain(Breakpoint::None.to_calldata())
         .collect();
 
     invoke_contract(

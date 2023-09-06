@@ -100,6 +100,8 @@ struct FeatureFlags {
     use_base_field_poseidon: bool,
     /// Whether or not to verify proofs
     disable_verification: bool,
+    /// Whether or not to enable profiling
+    enable_profiling: bool,
 }
 
 // --------------------------

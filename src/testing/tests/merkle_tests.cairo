@@ -55,7 +55,9 @@ fn setup_merkle() -> ContractState {
     merkle
         .initialize(
             TEST_MERKLE_HEIGHT,
-            FeatureFlags { use_base_field_poseidon: true, disable_verification: true }
+            FeatureFlags {
+                use_base_field_poseidon: true, disable_verification: true, enable_profiling: false
+            }
         );
     merkle
 }

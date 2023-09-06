@@ -257,14 +257,15 @@ mod MultiVerifier {
             let W_V = self.W_V.read(circuit_id).inner;
             let c = self.c.read(circuit_id).inner;
 
-            if breakpoint == Breakpoint::ReadCircuitParams {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::ReadCircuitParams {
                 return;
             }
 
             // Prep `RemainingGenerators` structs for G and H generators
             let (G_rem, H_rem) = prep_rem_gens(n_plus);
 
-            if breakpoint == Breakpoint::PrepRemGens {
+            if self.feature_flags.read().enable_profiling && breakpoint == Breakpoint::PrepRemGens {
                 return;
             }
 
@@ -273,7 +274,8 @@ mod MultiVerifier {
                 @proof, witness_commitments.span(), m, n_plus
             );
 
-            if breakpoint == Breakpoint::SqueezeChallengeScalars {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::SqueezeChallengeScalars {
                 return;
             }
 
@@ -294,7 +296,8 @@ mod MultiVerifier {
                 y_inv, z, u, x, w, r, @proof, n, n_plus, @W_L, @W_R, @c, 
             );
 
-            if breakpoint == Breakpoint::PrepRemScalarPolys {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::PrepRemScalarPolys {
                 return;
             }
 
@@ -304,7 +307,8 @@ mod MultiVerifier {
                 ref proof, ref witness_commitments, pedersen_generator, pedersen_generator, 
             );
 
-            if breakpoint == Breakpoint::PrepRemCommitments {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::PrepRemCommitments {
                 return;
             }
 
