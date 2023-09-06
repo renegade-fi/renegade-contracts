@@ -7,7 +7,9 @@ mod utils;
 // -------------
 // TODO: Move to separate file / module when extensibility pattern is stabilized
 
-use renegade_contracts::{utils::serde::EcPointSerde, darkpool::types::FeatureFlags};
+use renegade_contracts::{
+    utils::{serde::EcPointSerde, profiling::Breakpoint}, darkpool::types::FeatureFlags
+};
 
 use types::{CircuitParams, Proof, VerificationJob};
 
@@ -23,7 +25,8 @@ trait IMultiVerifier<TContractState> {
         circuit_id: felt252,
         proof: Proof,
         witness_commitments: Array<EcPoint>,
-        verification_job_id: felt252
+        verification_job_id: felt252,
+        breakpoint: Breakpoint,
     );
     fn step_verification(
         ref self: TContractState, circuit_id: felt252, verification_job_id: felt252
@@ -49,7 +52,7 @@ mod MultiVerifier {
     use renegade_contracts::{
         utils::{
             math::get_consecutive_powers, storage::StoreSerdeWrapper, eq::EcPointPartialEq,
-            serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}
+            serde::EcPointSerde, constants::{MAX_USIZE, G_LABEL, H_LABEL}, profiling::Breakpoint,
         },
         darkpool::types::FeatureFlags
     };
@@ -69,9 +72,9 @@ mod MultiVerifier {
 
     /// Determines how many MSM points are processed in each invocation
     /// of `step_verification`.
-    // TODO: The current value (50) was chosen arbitrarily, we should benchmark
+    // TODO: The current value (1) was chosen to aid in profiling, we should benchmark
     // the optimal amount given Starknet parameters.
-    const MSM_CHUNK_SIZE: usize = 50;
+    const MSM_CHUNK_SIZE: usize = 1;
 
     // -----------
     // | STORAGE |
@@ -230,7 +233,8 @@ mod MultiVerifier {
             circuit_id: felt252,
             mut proof: Proof,
             mut witness_commitments: Array<EcPoint>,
-            verification_job_id: felt252
+            verification_job_id: felt252,
+            breakpoint: Breakpoint,
         ) {
             // Assert that the circuit ID is in use
             assert(self.circuit_id_in_use.read(circuit_id), 'circuit ID not in use');
@@ -253,13 +257,26 @@ mod MultiVerifier {
             let W_V = self.W_V.read(circuit_id).inner;
             let c = self.c.read(circuit_id).inner;
 
+            if breakpoint == Breakpoint::ReadCircuitParams {
+                return;
+            }
+
             // Prep `RemainingGenerators` structs for G and H generators
             let (G_rem, H_rem) = prep_rem_gens(n_plus);
+
+            if breakpoint == Breakpoint::PrepRemGens {
+                return;
+            }
 
             // Squeeze out challenge scalars from proof
             let (mut challenge_scalars, u_vec) = squeeze_challenge_scalars(
                 @proof, witness_commitments.span(), m, n_plus
             );
+
+            if breakpoint == Breakpoint::SqueezeChallengeScalars {
+                return;
+            }
+
             let y = challenge_scalars.pop_front().unwrap();
             let z = challenge_scalars.pop_front().unwrap();
             let u = challenge_scalars.pop_front().unwrap();
@@ -277,11 +294,19 @@ mod MultiVerifier {
                 y_inv, z, u, x, w, r, @proof, n, n_plus, @W_L, @W_R, @c, 
             );
 
+            if breakpoint == Breakpoint::PrepRemScalarPolys {
+                return;
+            }
+
             // Prep commitments
             let pedersen_generator = ec_point_new(stark_curve::GEN_X, stark_curve::GEN_Y);
             let rem_commitments = prep_rem_commitments(
                 ref proof, ref witness_commitments, pedersen_generator, pedersen_generator, 
             );
+
+            if breakpoint == Breakpoint::PrepRemCommitments {
+                return;
+            }
 
             // Pack `VerificationJob` struct
             let vec_indices = VecIndices {

@@ -13,7 +13,7 @@ use renegade_contracts::{
     },
     merkle::Merkle, nullifier_set::NullifierSet,
     verifier::{MultiVerifier, IMultiVerifierDispatcher, IMultiVerifierDispatcherTrait},
-    utils::eq::OptionTPartialEq,
+    utils::{eq::OptionTPartialEq, profiling::Breakpoint},
 };
 
 use super::{
@@ -276,6 +276,7 @@ fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher) {
             NullifierSet::TEST_CLASS_HASH.try_into().unwrap(),
             MultiVerifier::TEST_CLASS_HASH.try_into().unwrap(),
             TEST_MERKLE_HEIGHT,
+            Breakpoint::None,
         );
 
     darkpool.parameterize_circuit(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());

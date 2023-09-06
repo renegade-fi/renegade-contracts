@@ -10,7 +10,8 @@ mod statements;
 use starknet::{ClassHash, ContractAddress};
 
 use renegade_contracts::{
-    verifier::{scalar::Scalar, types::{Proof, CircuitParams}}, utils::serde::EcPointSerde,
+    verifier::{scalar::Scalar, types::{Proof, CircuitParams}},
+    utils::{serde::EcPointSerde, profiling::Breakpoint},
 };
 
 use types::{
@@ -32,6 +33,7 @@ trait IDarkpool<TContractState> {
         nullifier_set_class_hash: ClassHash,
         verifier_class_hash: ClassHash,
         height: u8,
+        breakpoint: Breakpoint,
     );
     fn add_circuit(ref self: TContractState, circuit: Circuit);
     fn parameterize_circuit(
@@ -60,9 +62,10 @@ trait IDarkpool<TContractState> {
         witness_commitments: Array<EcPoint>,
         proof: Proof,
         verification_job_id: felt252,
+        breakpoint: Breakpoint,
     );
     fn poll_new_wallet(
-        ref self: TContractState, verification_job_id: felt252, 
+        ref self: TContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
     ) -> Option<Result<Scalar, felt252>>;
     fn update_wallet(
         ref self: TContractState,
@@ -72,9 +75,10 @@ trait IDarkpool<TContractState> {
         witness_commitments: Array<EcPoint>,
         proof: Proof,
         verification_job_id: felt252,
+        breakpoint: Breakpoint,
     );
     fn poll_update_wallet(
-        ref self: TContractState, verification_job_id: felt252, 
+        ref self: TContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
     ) -> Option<Result<Scalar, felt252>>;
     fn process_match(
         ref self: TContractState,
@@ -86,9 +90,10 @@ trait IDarkpool<TContractState> {
         valid_settle_witness_commitments: Array<EcPoint>,
         valid_settle_proof: Proof,
         verification_job_id: felt252,
+        breakpoint: Breakpoint,
     );
     fn poll_process_match(
-        ref self: TContractState, verification_job_id: felt252, 
+        ref self: TContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
     ) -> Option<Result<Scalar, felt252>>;
 }
 
@@ -117,7 +122,8 @@ mod Darkpool {
         nullifier_set::{INullifierSetLibraryDispatcher, INullifierSetDispatcherTrait},
         utils::{
             serde::EcPointSerde, storage::StoreSerdeWrapper,
-            crypto::{append_statement_commitments, hash_statement, compute_poseidon_with_flag}
+            crypto::{append_statement_commitments, hash_statement, compute_poseidon_with_flag},
+            profiling::Breakpoint,
         },
         oz::erc20::{IERC20DispatcherTrait, IERC20Dispatcher},
     };
@@ -289,6 +295,7 @@ mod Darkpool {
             nullifier_set_class_hash: ClassHash,
             verifier_class_hash: ClassHash,
             height: u8,
+            breakpoint: Breakpoint,
         ) {
             ownable__assert_only_owner(@self);
             initializable__initialize(ref self);
@@ -323,8 +330,16 @@ mod Darkpool {
 
             let feature_flags = self.feature_flags.read();
 
+            if breakpoint == Breakpoint::PreMerkleInitialize {
+                return;
+            }
+
             // Initialize the Merkle tree
             _get_merkle_tree(@self).initialize(height, feature_flags);
+
+            if breakpoint == Breakpoint::MerkleInitialize {
+                return;
+            }
 
             // Set verification disabled flag in the verifier
             _get_verifier(@self).set_feature_flags(feature_flags);
@@ -495,11 +510,16 @@ mod Darkpool {
             mut witness_commitments: Array<EcPoint>,
             proof: Proof,
             verification_job_id: felt252,
+            breakpoint: Breakpoint,
         ) {
             let verifier = _get_verifier(@self);
 
             // Inject witness
             append_statement_commitments(@statement, ref witness_commitments);
+
+            if breakpoint == Breakpoint::AppendStatementCommitments {
+                return;
+            }
 
             // Queue verification
             verifier
@@ -507,8 +527,13 @@ mod Darkpool {
                     Circuit::ValidWalletCreate(()).into(),
                     proof,
                     witness_commitments,
-                    verification_job_id
+                    verification_job_id,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::QueueVerification {
+                return;
+            }
 
             // Store callback elements
             let callback_elems = NewWalletCallbackElems {
@@ -529,7 +554,7 @@ mod Darkpool {
         /// Returns:
         /// - The new root after the wallet is inserted into the tree, if the proof verifies
         fn poll_new_wallet(
-            ref self: ContractState, verification_job_id: felt252, 
+            ref self: ContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
         ) -> Option<Result<Scalar, felt252>> {
             let verifier = _get_verifier(@self);
 
@@ -540,6 +565,10 @@ mod Darkpool {
 
             let verified = verifier
                 .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id);
+
+            if breakpoint == Breakpoint::StepVerification {
+                return Option::Some(Result::Err('breakpoint reached'));
+            }
 
             match verified {
                 Option::Some(success) => {
@@ -559,8 +588,16 @@ mod Darkpool {
                             hash_input.span(), self.feature_flags.read().use_base_field_poseidon
                         );
 
+                        if breakpoint == Breakpoint::SharesCommitment {
+                            return Option::Some(Result::Err('breakpoint reached'));
+                        }
+
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
+
+                        if breakpoint == Breakpoint::MerkleInsert {
+                            return Option::Some(Result::Err('breakpoint reached'));
+                        }
 
                         // Mark wallet as updated
                         _mark_wallet_updated(
@@ -592,6 +629,7 @@ mod Darkpool {
             mut witness_commitments: Array<EcPoint>,
             proof: Proof,
             verification_job_id: felt252,
+            breakpoint: Breakpoint,
         ) {
             // Assert that the merkle root for which inclusion is proven in `VALID WALLET UPDATE`
             // is a valid historical root
@@ -605,6 +643,11 @@ mod Darkpool {
             // as the `old_pk_root` in the statement is the root key of the pre-update wallet
             // now signing a new wallet with a new root key.
             let statement_hash = hash_statement(@statement);
+
+            if breakpoint == Breakpoint::HashStatement {
+                return;
+            }
+
             assert(
                 check_ecdsa_signature(
                     statement_hash.into(),
@@ -615,11 +658,19 @@ mod Darkpool {
                 'invalid statement signature'
             );
 
+            if breakpoint == Breakpoint::CheckECDSA {
+                return;
+            }
+
             // Mark the `old_shares_nullifier` as in use
             _get_nullifier_set(@self).mark_nullifier_in_use(statement.old_shares_nullifier);
 
             // Inject witness
             append_statement_commitments(@statement, ref witness_commitments);
+
+            if breakpoint == Breakpoint::AppendStatementCommitments {
+                return;
+            }
 
             // Queue verification
             _get_verifier(@self)
@@ -627,8 +678,13 @@ mod Darkpool {
                     Circuit::ValidWalletUpdate(()).into(),
                     proof,
                     witness_commitments,
-                    verification_job_id
+                    verification_job_id,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::QueueVerification {
+                return;
+            }
 
             // Store callback elements
             let external_transfer = if statement.external_transfer == Default::default() {
@@ -657,7 +713,7 @@ mod Darkpool {
         /// Returns:
         /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn poll_update_wallet(
-            ref self: ContractState, verification_job_id: felt252, 
+            ref self: ContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
         ) -> Option<Result<Scalar, felt252>> {
             let verifier = _get_verifier(@self);
 
@@ -668,6 +724,10 @@ mod Darkpool {
 
             let verified = verifier
                 .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id);
+
+            if breakpoint == Breakpoint::StepVerification {
+                return Option::Some(Result::Err('breakpoint reached'));
+            }
 
             match verified {
                 Option::Some(success) => {
@@ -689,8 +749,16 @@ mod Darkpool {
                             hash_input.span(), self.feature_flags.read().use_base_field_poseidon
                         );
 
+                        if breakpoint == Breakpoint::SharesCommitment {
+                            return Option::Some(Result::Err('breakpoint reached'));
+                        }
+
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
+
+                        if breakpoint == Breakpoint::MerkleInsert {
+                            return Option::Some(Result::Err('breakpoint reached'));
+                        }
 
                         // Add the old shares nullifier to the spent nullifier set
                         nullifier_set.mark_nullifier_spent(callback_elems.old_shares_nullifier);
@@ -739,6 +807,7 @@ mod Darkpool {
             mut valid_settle_witness_commitments: Array<EcPoint>,
             valid_settle_proof: Proof,
             verification_job_id: felt252,
+            breakpoint: Breakpoint,
         ) {
             // Assert that the merkle roots for which inclusion is proven in `VALID REBLIND`
             // are valid historical roots
@@ -768,6 +837,10 @@ mod Darkpool {
 
             let verifier = _get_verifier(@self);
 
+            if breakpoint == Breakpoint::PreInjectAndQueue {
+                return;
+            }
+
             // Party 0 VALID COMMITMENTS
             append_statement_commitments(
                 @party_0_payload.valid_commitments_statement,
@@ -778,8 +851,13 @@ mod Darkpool {
                     Circuit::ValidCommitments(()).into(),
                     party_0_payload.valid_commitments_proof,
                     party_0_payload.valid_commitments_witness_commitments,
-                    verification_job_id
+                    verification_job_id,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::Party0ValidCommitments {
+                return;
+            }
 
             // Party 0 VALID REBLIND
             append_statement_commitments(
@@ -791,8 +869,13 @@ mod Darkpool {
                     Circuit::ValidReblind(()).into(),
                     party_0_payload.valid_reblind_proof,
                     party_0_payload.valid_reblind_witness_commitments,
-                    verification_job_id + 1
+                    verification_job_id + 1,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::Party0ValidReblind {
+                return;
+            }
 
             // Party 1 VALID COMMITMENTS
             append_statement_commitments(
@@ -804,8 +887,13 @@ mod Darkpool {
                     Circuit::ValidCommitments(()).into(),
                     party_1_payload.valid_commitments_proof,
                     party_1_payload.valid_commitments_witness_commitments,
-                    verification_job_id + 2
+                    verification_job_id + 2,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::Party1ValidCommitments {
+                return;
+            }
 
             // Party 1 VALID REBLIND
             append_statement_commitments(
@@ -817,8 +905,13 @@ mod Darkpool {
                     Circuit::ValidReblind(()).into(),
                     party_1_payload.valid_reblind_proof,
                     party_1_payload.valid_reblind_witness_commitments,
-                    verification_job_id + 3
+                    verification_job_id + 3,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::Party1ValidReblind {
+                return;
+            }
 
             // VALID MATCH MPC
             // No statement to inject into witness
@@ -827,8 +920,13 @@ mod Darkpool {
                     Circuit::ValidMatchMpc(()).into(),
                     valid_match_mpc_proof,
                     valid_match_mpc_witness_commitments,
-                    verification_job_id + 4
+                    verification_job_id + 4,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::ValidMatchMpc {
+                return;
+            }
 
             // VALID SETTLE
             append_statement_commitments(
@@ -839,8 +937,13 @@ mod Darkpool {
                     Circuit::ValidSettle(()).into(),
                     valid_settle_proof,
                     valid_settle_witness_commitments,
-                    verification_job_id + 5
+                    verification_job_id + 5,
+                    breakpoint,
                 );
+
+            if breakpoint == Breakpoint::ValidSettle {
+                return;
+            }
 
             // Store callback elements
             let callback_elems = ProcessMatchCallbackElems {
@@ -874,11 +977,17 @@ mod Darkpool {
         /// Returns:
         /// - The root of the tree after the new commitment is inserted, if the proof verifies
         fn poll_process_match(
-            ref self: ContractState, verification_job_id: felt252, 
+            ref self: ContractState, verification_job_id: felt252, breakpoint: Breakpoint, 
         ) -> Option<Result<Scalar, felt252>> {
             let poll_result = _check_and_poll_process_match(@self, verification_job_id);
 
-            _handle_process_match_poll_result(ref self, verification_job_id, poll_result)
+            if breakpoint == Breakpoint::CheckAndPoll {
+                return Option::Some(Result::Err('breakpoint reached'));
+            }
+
+            _handle_process_match_poll_result(
+                ref self, verification_job_id, poll_result, breakpoint
+            )
         }
     }
 
@@ -1056,7 +1165,10 @@ mod Darkpool {
     }
 
     fn _handle_process_match_poll_result(
-        ref self: ContractState, verification_job_id: felt252, poll_result: Option<bool>
+        ref self: ContractState,
+        verification_job_id: felt252,
+        poll_result: Option<bool>,
+        breakpoint: Breakpoint,
     ) -> Option<Result<Scalar, felt252>> {
         match poll_result {
             Option::Some(success) => {
@@ -1094,9 +1206,17 @@ mod Darkpool {
                         party_1_hash_input.span(), use_base_field_poseidon
                     );
 
+                    if breakpoint == Breakpoint::SharesCommitment {
+                        return Option::Some(Result::Err('breakpoint reached'));
+                    }
+
                     let merkle_tree = _get_merkle_tree(@self);
                     merkle_tree.insert(party_0_total_shares_commitment);
                     let new_root = merkle_tree.insert(party_1_total_shares_commitment);
+
+                    if breakpoint == Breakpoint::MerkleInsert {
+                        return Option::Some(Result::Err('breakpoint reached'));
+                    }
 
                     // Mark wallet as updated
                     _mark_wallet_updated(
