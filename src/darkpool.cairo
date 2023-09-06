@@ -330,14 +330,16 @@ mod Darkpool {
 
             let feature_flags = self.feature_flags.read();
 
-            if breakpoint == Breakpoint::PreMerkleInitialize {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::PreMerkleInitialize {
                 return;
             }
 
             // Initialize the Merkle tree
             _get_merkle_tree(@self).initialize(height, feature_flags);
 
-            if breakpoint == Breakpoint::MerkleInitialize {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::MerkleInitialize {
                 return;
             }
 
@@ -517,7 +519,8 @@ mod Darkpool {
             // Inject witness
             append_statement_commitments(@statement, ref witness_commitments);
 
-            if breakpoint == Breakpoint::AppendStatementCommitments {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendStatementCommitments {
                 return;
             }
 
@@ -531,7 +534,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::QueueVerification {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::QueueVerification {
                 return;
             }
 
@@ -566,7 +570,8 @@ mod Darkpool {
             let verified = verifier
                 .step_verification(Circuit::ValidWalletCreate(()).into(), verification_job_id);
 
-            if breakpoint == Breakpoint::StepVerification {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::StepVerification {
                 return Option::Some(Result::Err('breakpoint reached'));
             }
 
@@ -588,14 +593,16 @@ mod Darkpool {
                             hash_input.span(), self.feature_flags.read().use_base_field_poseidon
                         );
 
-                        if breakpoint == Breakpoint::SharesCommitment {
+                        if self.feature_flags.read().enable_profiling
+                            && breakpoint == Breakpoint::SharesCommitment {
                             return Option::Some(Result::Err('breakpoint reached'));
                         }
 
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
 
-                        if breakpoint == Breakpoint::MerkleInsert {
+                        if self.feature_flags.read().enable_profiling
+                            && breakpoint == Breakpoint::MerkleInsert {
                             return Option::Some(Result::Err('breakpoint reached'));
                         }
 
@@ -644,7 +651,8 @@ mod Darkpool {
             // now signing a new wallet with a new root key.
             let statement_hash = hash_statement(@statement);
 
-            if breakpoint == Breakpoint::HashStatement {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::HashStatement {
                 return;
             }
 
@@ -658,7 +666,7 @@ mod Darkpool {
                 'invalid statement signature'
             );
 
-            if breakpoint == Breakpoint::CheckECDSA {
+            if self.feature_flags.read().enable_profiling && breakpoint == Breakpoint::CheckECDSA {
                 return;
             }
 
@@ -668,7 +676,8 @@ mod Darkpool {
             // Inject witness
             append_statement_commitments(@statement, ref witness_commitments);
 
-            if breakpoint == Breakpoint::AppendStatementCommitments {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::AppendStatementCommitments {
                 return;
             }
 
@@ -682,7 +691,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::QueueVerification {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::QueueVerification {
                 return;
             }
 
@@ -725,7 +735,8 @@ mod Darkpool {
             let verified = verifier
                 .step_verification(Circuit::ValidWalletUpdate(()).into(), verification_job_id);
 
-            if breakpoint == Breakpoint::StepVerification {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::StepVerification {
                 return Option::Some(Result::Err('breakpoint reached'));
             }
 
@@ -749,14 +760,16 @@ mod Darkpool {
                             hash_input.span(), self.feature_flags.read().use_base_field_poseidon
                         );
 
-                        if breakpoint == Breakpoint::SharesCommitment {
+                        if self.feature_flags.read().enable_profiling
+                            && breakpoint == Breakpoint::SharesCommitment {
                             return Option::Some(Result::Err('breakpoint reached'));
                         }
 
                         let merkle_tree = _get_merkle_tree(@self);
                         let new_root = merkle_tree.insert(total_shares_commitment);
 
-                        if breakpoint == Breakpoint::MerkleInsert {
+                        if self.feature_flags.read().enable_profiling
+                            && breakpoint == Breakpoint::MerkleInsert {
                             return Option::Some(Result::Err('breakpoint reached'));
                         }
 
@@ -837,7 +850,8 @@ mod Darkpool {
 
             let verifier = _get_verifier(@self);
 
-            if breakpoint == Breakpoint::PreInjectAndQueue {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::PreInjectAndQueue {
                 return;
             }
 
@@ -855,7 +869,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::Party0ValidCommitments {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::Party0ValidCommitments {
                 return;
             }
 
@@ -873,7 +888,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::Party0ValidReblind {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::Party0ValidReblind {
                 return;
             }
 
@@ -891,7 +907,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::Party1ValidCommitments {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::Party1ValidCommitments {
                 return;
             }
 
@@ -909,7 +926,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::Party1ValidReblind {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::Party1ValidReblind {
                 return;
             }
 
@@ -924,7 +942,8 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::ValidMatchMpc {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::ValidMatchMpc {
                 return;
             }
 
@@ -941,7 +960,7 @@ mod Darkpool {
                     breakpoint,
                 );
 
-            if breakpoint == Breakpoint::ValidSettle {
+            if self.feature_flags.read().enable_profiling && breakpoint == Breakpoint::ValidSettle {
                 return;
             }
 
@@ -981,7 +1000,8 @@ mod Darkpool {
         ) -> Option<Result<Scalar, felt252>> {
             let poll_result = _check_and_poll_process_match(@self, verification_job_id);
 
-            if breakpoint == Breakpoint::CheckAndPoll {
+            if self.feature_flags.read().enable_profiling
+                && breakpoint == Breakpoint::CheckAndPoll {
                 return Option::Some(Result::Err('breakpoint reached'));
             }
 
@@ -1206,7 +1226,8 @@ mod Darkpool {
                         party_1_hash_input.span(), use_base_field_poseidon
                     );
 
-                    if breakpoint == Breakpoint::SharesCommitment {
+                    if self.feature_flags.read().enable_profiling
+                        && breakpoint == Breakpoint::SharesCommitment {
                         return Option::Some(Result::Err('breakpoint reached'));
                     }
 
@@ -1214,7 +1235,8 @@ mod Darkpool {
                     merkle_tree.insert(party_0_total_shares_commitment);
                     let new_root = merkle_tree.insert(party_1_total_shares_commitment);
 
-                    if breakpoint == Breakpoint::MerkleInsert {
+                    if self.feature_flags.read().enable_profiling
+                        && breakpoint == Breakpoint::MerkleInsert {
                         return Option::Some(Result::Err('breakpoint reached'));
                     }
 

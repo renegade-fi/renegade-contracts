@@ -97,7 +97,9 @@ fn test_upgrade_verifier() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
     let mut darkpool = setup_darkpool_with_flags(
-        FeatureFlags { use_base_field_poseidon: true, disable_verification: false }
+        FeatureFlags {
+            use_base_field_poseidon: true, disable_verification: false, enable_profiling: false
+        }
     );
 
     darkpool.upgrade_verifier(DummyUpgradeTarget::TEST_CLASS_HASH.try_into().unwrap());
@@ -191,7 +193,9 @@ fn test_upgrade_verifier_access() {
     let test_caller = contract_address_try_from_felt252(TEST_CALLER).unwrap();
     set_contract_address(test_caller);
     let mut darkpool = setup_darkpool_with_flags(
-        FeatureFlags { use_base_field_poseidon: true, disable_verification: false }
+        FeatureFlags {
+            use_base_field_poseidon: true, disable_verification: false, enable_profiling: false
+        }
     );
 
     let dummy_caller = contract_address_try_from_felt252(DUMMY_CALLER).unwrap();
@@ -227,7 +231,10 @@ fn test_initialize_twice() {
     let mut calldata = ArrayTrait::new();
     calldata.append(TEST_CALLER);
     Serde::<FeatureFlags>::serialize(
-        @FeatureFlags { use_base_field_poseidon: false, disable_verification: false }, ref calldata
+        @FeatureFlags {
+            use_base_field_poseidon: false, disable_verification: false, enable_profiling: false
+        },
+        ref calldata
     );
 
     let (darkpool_address, _) = deploy_syscall(
@@ -249,7 +256,9 @@ fn setup_darkpool() -> IDarkpoolDispatcher {
     // Default feature flags used disable the scalar field poseidon hash and the verifier, as these
     // are generally not what is being tested here and disabling them speeds up tests.
     setup_darkpool_with_flags(
-        FeatureFlags { use_base_field_poseidon: true, disable_verification: true }
+        FeatureFlags {
+            use_base_field_poseidon: true, disable_verification: true, enable_profiling: false
+        }
     )
 }
 

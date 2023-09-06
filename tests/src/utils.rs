@@ -560,6 +560,7 @@ pub struct NewWalletArgs {
     pub proof: R1CSProof,
     pub witness_commitments: Vec<StarkPoint>,
     pub verification_job_id: FieldElement,
+    pub breakpoint: Breakpoint,
 }
 
 pub struct UpdateWalletArgs {
@@ -569,6 +570,7 @@ pub struct UpdateWalletArgs {
     pub proof: R1CSProof,
     pub witness_commitments: Vec<StarkPoint>,
     pub verification_job_id: FieldElement,
+    pub breakpoint: Breakpoint,
 }
 
 pub struct ProcessMatchArgs {
@@ -580,6 +582,7 @@ pub struct ProcessMatchArgs {
     pub valid_settle_witness_commitments: Vec<StarkPoint>,
     pub valid_settle_proof: R1CSProof,
     pub verification_job_id: FieldElement,
+    pub breakpoint: Breakpoint,
 }
 
 #[derive(Default)]
@@ -588,6 +591,34 @@ pub struct FeatureFlags {
     pub use_base_field_poseidon: bool,
     /// Whether or not to verify proofs
     pub disable_verification: bool,
+    /// Whether or not to enable profiling
+    pub enable_profiling: bool,
+}
+
+pub enum Breakpoint {
+    None,
+    ReadCircuitParams,
+    PrepRemGens,
+    SqueezeChallengeScalars,
+    PrepRemScalarPolys,
+    PrepRemCommitments,
+    PreMerkleInitialize,
+    MerkleInitialize,
+    AppendStatementCommitments,
+    QueueVerification,
+    StepVerification,
+    SharesCommitment,
+    MerkleInsert,
+    HashStatement,
+    CheckECDSA,
+    PreInjectAndQueue,
+    Party0ValidCommitments,
+    Party0ValidReblind,
+    Party1ValidCommitments,
+    Party1ValidReblind,
+    ValidMatchMpc,
+    ValidSettle,
+    CheckAndPoll,
 }
 
 pub trait CalldataSerializable {
@@ -865,6 +896,7 @@ impl CalldataSerializable for NewWalletArgs {
             .chain(self.witness_commitments.to_calldata())
             .chain(self.proof.to_calldata())
             .chain(self.verification_job_id.to_calldata())
+            .chain(self.breakpoint.to_calldata())
             .collect()
     }
 }
@@ -880,6 +912,7 @@ impl CalldataSerializable for UpdateWalletArgs {
             .chain(self.witness_commitments.to_calldata())
             .chain(self.proof.to_calldata())
             .chain(self.verification_job_id.to_calldata())
+            .chain(self.breakpoint.to_calldata())
             .collect()
     }
 }
@@ -896,6 +929,7 @@ impl CalldataSerializable for ProcessMatchArgs {
             .chain(self.valid_settle_witness_commitments.to_calldata())
             .chain(self.valid_settle_proof.to_calldata())
             .chain(self.verification_job_id.to_calldata())
+            .chain(self.breakpoint.to_calldata())
             .collect()
     }
 }
@@ -905,7 +939,38 @@ impl CalldataSerializable for FeatureFlags {
         vec![
             FieldElement::from(self.use_base_field_poseidon as u8),
             FieldElement::from(self.disable_verification as u8),
+            FieldElement::from(self.enable_profiling as u8),
         ]
+    }
+}
+
+impl CalldataSerializable for Breakpoint {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        vec![match self {
+            Breakpoint::None => FieldElement::from(0_u8),
+            Breakpoint::ReadCircuitParams => FieldElement::from(1_u8),
+            Breakpoint::PrepRemGens => FieldElement::from(2_u8),
+            Breakpoint::SqueezeChallengeScalars => FieldElement::from(3_u8),
+            Breakpoint::PrepRemScalarPolys => FieldElement::from(4_u8),
+            Breakpoint::PrepRemCommitments => FieldElement::from(5_u8),
+            Breakpoint::PreMerkleInitialize => FieldElement::from(6_u8),
+            Breakpoint::MerkleInitialize => FieldElement::from(7_u8),
+            Breakpoint::AppendStatementCommitments => FieldElement::from(8_u8),
+            Breakpoint::QueueVerification => FieldElement::from(9_u8),
+            Breakpoint::StepVerification => FieldElement::from(10_u8),
+            Breakpoint::SharesCommitment => FieldElement::from(11_u8),
+            Breakpoint::MerkleInsert => FieldElement::from(12_u8),
+            Breakpoint::HashStatement => FieldElement::from(13_u8),
+            Breakpoint::CheckECDSA => FieldElement::from(14_u8),
+            Breakpoint::PreInjectAndQueue => FieldElement::from(15_u8),
+            Breakpoint::Party0ValidCommitments => FieldElement::from(16_u8),
+            Breakpoint::Party0ValidReblind => FieldElement::from(17_u8),
+            Breakpoint::Party1ValidCommitments => FieldElement::from(18_u8),
+            Breakpoint::Party1ValidReblind => FieldElement::from(19_u8),
+            Breakpoint::ValidMatchMpc => FieldElement::from(20_u8),
+            Breakpoint::ValidSettle => FieldElement::from(21_u8),
+            Breakpoint::CheckAndPoll => FieldElement::from(22_u8),
+        }]
     }
 }
 

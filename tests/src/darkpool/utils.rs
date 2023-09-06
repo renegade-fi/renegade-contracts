@@ -44,11 +44,11 @@ use crate::{
         call_contract, check_verification_job_status, felt_to_u128, get_circuit_params,
         get_contract_address_from_artifact, get_dummy_statement_scalars,
         get_sierra_class_hash_from_artifact, global_setup, invoke_contract, parameterize_circuit,
-        random_felt, scalar_to_felt, setup_sequencer, singleprover_prove, CalldataSerializable,
-        Circuit, DummyValidCommitments, DummyValidMatchMpc, DummyValidReblind, DummyValidSettle,
-        DummyValidWalletCreate, DummyValidWalletUpdate, FeatureFlags, MatchPayload, NewWalletArgs,
-        ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
-        SK_ROOT,
+        random_felt, scalar_to_felt, setup_sequencer, singleprover_prove, Breakpoint,
+        CalldataSerializable, Circuit, DummyValidCommitments, DummyValidMatchMpc,
+        DummyValidReblind, DummyValidSettle, DummyValidWalletCreate, DummyValidWalletUpdate,
+        FeatureFlags, MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig, UpdateWalletArgs,
+        ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE, SK_ROOT,
     },
 };
 
@@ -292,12 +292,13 @@ pub async fn initialize_darkpool(
     verifier_class_hash: FieldElement,
     merkle_height: FieldElement,
 ) -> Result<()> {
-    let calldata = vec![
+    let mut calldata = vec![
         merkle_class_hash,
         nullifier_set_class_hash,
         verifier_class_hash,
         merkle_height,
     ];
+    calldata.extend(Breakpoint::None.to_calldata().into_iter());
 
     initialize(account, darkpool_address, calldata)
         .await
@@ -346,11 +347,14 @@ pub async fn poll_new_wallet(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
 ) -> Result<()> {
+    let calldata = iter::once(verification_job_id)
+        .chain(Breakpoint::None.to_calldata())
+        .collect();
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
         POLL_NEW_WALLET_FN_NAME,
-        vec![verification_job_id],
+        calldata,
     )
     .await
     .map(|_| ())
@@ -406,11 +410,14 @@ pub async fn poll_update_wallet(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
 ) -> Result<()> {
+    let calldata = iter::once(verification_job_id)
+        .chain(Breakpoint::None.to_calldata())
+        .collect();
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
         POLL_UPDATE_WALLET_FN_NAME,
-        vec![verification_job_id],
+        calldata,
     )
     .await
     .map(|_| ())
@@ -465,11 +472,14 @@ pub async fn poll_process_match(
     account: &ScriptAccount,
     verification_job_id: FieldElement,
 ) -> Result<()> {
+    let calldata = iter::once(verification_job_id)
+        .chain(Breakpoint::None.to_calldata())
+        .collect();
     invoke_contract(
         account,
         *DARKPOOL_ADDRESS.get().unwrap(),
         POLL_PROCESS_MATCH_FN_NAME,
-        vec![verification_job_id],
+        calldata,
     )
     .await
     .map(|_| ())
@@ -560,6 +570,7 @@ pub fn get_dummy_new_wallet_args() -> Result<NewWalletArgs> {
     let (_, statement) = create_default_witness_statement();
     let (_, proof) = singleprover_prove::<DummyValidWalletCreate>((), statement.clone())?;
     let verification_job_id = random_felt();
+    let breakpoint = Breakpoint::None;
 
     Ok(NewWalletArgs {
         wallet_blinder_share,
@@ -567,6 +578,7 @@ pub fn get_dummy_new_wallet_args() -> Result<NewWalletArgs> {
         proof,
         witness_commitments: vec![],
         verification_job_id,
+        breakpoint,
     })
 }
 
@@ -590,6 +602,7 @@ pub fn get_dummy_update_wallet_args(
     let statement_signature = sign_scalar_message(&statement.to_scalars(), &SK_ROOT);
     let (_, proof) = singleprover_prove::<DummyValidWalletUpdate>((), statement.clone())?;
     let verification_job_id = random_felt();
+    let breakpoint = Breakpoint::None;
 
     Ok(UpdateWalletArgs {
         wallet_blinder_share,
@@ -598,6 +611,7 @@ pub fn get_dummy_update_wallet_args(
         proof,
         witness_commitments: vec![],
         verification_job_id,
+        breakpoint,
     })
 }
 
@@ -617,6 +631,7 @@ pub fn get_dummy_process_match_args(
     let (_, valid_settle_proof) =
         singleprover_prove::<DummyValidSettle>((), valid_settle_statement.clone())?;
     let verification_job_id = random_felt();
+    let breakpoint = Breakpoint::None;
 
     Ok(ProcessMatchArgs {
         party_0_match_payload,
@@ -627,5 +642,6 @@ pub fn get_dummy_process_match_args(
         valid_settle_witness_commitments: vec![],
         valid_settle_proof,
         verification_job_id,
+        breakpoint,
     })
 }
