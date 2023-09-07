@@ -288,12 +288,23 @@ fn initialize_darkpool(ref darkpool: IDarkpoolDispatcher) {
             Breakpoint::None,
         );
 
-    darkpool.parameterize_circuit(Circuit::ValidWalletCreate(()), get_dummy_circuit_params());
-    darkpool.parameterize_circuit(Circuit::ValidWalletUpdate(()), get_dummy_circuit_params());
-    darkpool.parameterize_circuit(Circuit::ValidCommitments(()), get_dummy_circuit_params());
-    darkpool.parameterize_circuit(Circuit::ValidReblind(()), get_dummy_circuit_params());
-    darkpool.parameterize_circuit(Circuit::ValidMatchMpc(()), get_dummy_circuit_params());
-    darkpool.parameterize_circuit(Circuit::ValidSettle(()), get_dummy_circuit_params());
+    fully_parameterize_circuit(ref darkpool, Circuit::ValidWalletCreate(()));
+    fully_parameterize_circuit(ref darkpool, Circuit::ValidWalletUpdate(()));
+    fully_parameterize_circuit(ref darkpool, Circuit::ValidCommitments(()));
+    fully_parameterize_circuit(ref darkpool, Circuit::ValidReblind(()));
+    fully_parameterize_circuit(ref darkpool, Circuit::ValidMatchMpc(()));
+    fully_parameterize_circuit(ref darkpool, Circuit::ValidSettle(()));
+}
+
+fn fully_parameterize_circuit(ref darkpool: IDarkpoolDispatcher, circuit: Circuit) {
+    let (size_params, w_l, w_r, w_o, w_v, c) = get_dummy_circuit_params();
+
+    darkpool.parameterize_circuit(circuit, size_params);
+    darkpool.parameterize_circuit(circuit, w_l);
+    darkpool.parameterize_circuit(circuit, w_r);
+    darkpool.parameterize_circuit(circuit, w_o);
+    darkpool.parameterize_circuit(circuit, w_v);
+    darkpool.parameterize_circuit(circuit, c);
 }
 
 fn assert_not_verified(ref darkpool: IDarkpoolDispatcher, verification_job_id: felt252) {

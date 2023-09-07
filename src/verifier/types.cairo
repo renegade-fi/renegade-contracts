@@ -479,9 +479,9 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
     }
 }
 
-/// The public parameters of the circuit
+/// The public sizing parameters of the circuit
 #[derive(Drop, Clone, Serde, PartialEq)]
-struct CircuitParams {
+struct CircuitSizeParams {
     /// The number of multiplication gates in the circuit
     n: usize,
     /// The number of multiplication gates in the circuit, padded to the next power of 2
@@ -492,10 +492,13 @@ struct CircuitParams {
     q: usize,
     /// The size of the witness
     m: usize,
-    /// Generator used for Pedersen commitments
-    B: EcPoint,
-    /// Generator used for blinding in Pedersen commitments
-    B_blind: EcPoint,
+}
+
+/// The public parameters of the circuit
+#[derive(Drop, Clone, Serde, PartialEq)]
+enum CircuitParams {
+    /// Sizing parameters for the circuit
+    SizeParams: CircuitSizeParams,
     /// Sparse-reduced matrix of left input weights for the circuit
     W_L: SparseWeightMatrix,
     /// Sparse-reduced matrix of right input weights for the circuit
@@ -505,5 +508,5 @@ struct CircuitParams {
     /// Sparse-reduced matrix of witness weights for the circuit
     W_V: SparseWeightMatrix,
     /// Sparse-reduced vector of constants for the circuit
-    c: SparseWeightVec,
+    C: SparseWeightVec,
 }
