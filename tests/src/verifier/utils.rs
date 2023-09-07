@@ -18,8 +18,9 @@ use std::{env, iter};
 use tracing::debug;
 
 use crate::utils::{
-    get_contract_address_from_artifact, global_setup, invoke_contract, parameterize_circuit,
-    Breakpoint, CalldataSerializable, CircuitParams, ARTIFACTS_PATH_ENV_VAR, TRANSCRIPT_SEED,
+    fully_parameterize_circuit, get_contract_address_from_artifact, global_setup, invoke_contract,
+    Breakpoint, CalldataSerializable, CircuitParams, CircuitSizeParams, ARTIFACTS_PATH_ENV_VAR,
+    NUM_CIRCUITS, TRANSCRIPT_SEED,
 };
 
 pub const FUZZ_ROUNDS: usize = 1;
@@ -45,7 +46,7 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
 
     debug!("Initializing verifier contract...");
     add_circuit(&account, verifier_address).await?;
-    parameterize_circuit(
+    fully_parameterize_circuit(
         &account,
         verifier_address,
         DUMMY_CIRCUIT_ID,
@@ -267,21 +268,20 @@ fn get_dummy_circuit_weights() -> CircuitWeights {
     prover.get_weights()
 }
 
-fn get_dummy_circuit_params() -> CircuitParams {
+fn get_dummy_circuit_params() -> [CircuitParams; NUM_CIRCUITS] {
     let circuit_weights = get_dummy_circuit_weights();
-    let pc_gens = PedersenGens::default();
-    CircuitParams {
-        n: DUMMY_CIRCUIT_N,
-        n_plus: DUMMY_CIRCUIT_N_PLUS,
-        k: DUMMY_CIRCUIT_K,
-        q: DUMMY_CIRCUIT_Q,
-        m: DUMMY_CIRCUIT_M,
-        b: pc_gens.B,
-        b_blind: pc_gens.B_blinding,
-        w_l: circuit_weights.w_l,
-        w_o: circuit_weights.w_o,
-        w_r: circuit_weights.w_r,
-        w_v: circuit_weights.w_v,
-        c: circuit_weights.c,
-    }
+    [
+        CircuitParams::SizeParams(CircuitSizeParams {
+            n: DUMMY_CIRCUIT_N,
+            n_plus: DUMMY_CIRCUIT_N_PLUS,
+            k: DUMMY_CIRCUIT_K,
+            q: DUMMY_CIRCUIT_Q,
+            m: DUMMY_CIRCUIT_M,
+        }),
+        CircuitParams::Wl(circuit_weights.w_l),
+        CircuitParams::Wr(circuit_weights.w_r),
+        CircuitParams::Wo(circuit_weights.w_o),
+        CircuitParams::Wv(circuit_weights.w_v),
+        CircuitParams::C(circuit_weights.c),
+    ]
 }

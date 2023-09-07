@@ -138,6 +138,8 @@ lazy_static! {
 /// Label with which to seed the Fiat-Shamir transcript
 pub const TRANSCRIPT_SEED: &str = "merlin seed";
 
+pub const NUM_CIRCUITS: usize = 6;
+
 /// Number of bytes to represent a FieldElement
 const N_BYTES_FELT: usize = 32;
 /// Number of bytes to represent a u128
@@ -186,7 +188,7 @@ pub async fn global_setup(init_state: Option<SerializableState>) -> TestSequence
     TRACING_INIT.call_once(|| {
         fmt()
             .with_env_filter(EnvFilter::from_default_env())
-            .with_ansi(false)
+            // .with_ansi(false)
             .init();
     });
 
@@ -412,6 +414,19 @@ pub async fn parameterize_circuit(
     .map(|_| ())
 }
 
+pub async fn fully_parameterize_circuit(
+    account: &ScriptAccount,
+    contract_address: FieldElement,
+    circuit_id: FieldElement,
+    circuit_params: [CircuitParams; NUM_CIRCUITS],
+) -> Result<()> {
+    for circuit_param in circuit_params {
+        parameterize_circuit(account, contract_address, circuit_id, circuit_param).await?;
+    }
+
+    Ok(())
+}
+
 // ----------------
 // | MISC HELPERS |
 // ----------------
@@ -615,31 +630,32 @@ where
     }
 }
 
-pub struct CircuitParams {
-    /// Number of multiplication gates in the circuit
+pub struct CircuitSizeParams {
+    /// The number of multiplication gates in the circuit
     pub n: usize,
-    /// Number of multiplication gates in the circuit, padded to the next power of 2
+    /// The number of multiplication gates in the circuit, padded to the next power of 2
     pub n_plus: usize,
-    /// log2(n_plus)
+    /// log_2(n_plus)
     pub k: usize,
-    /// Number of linear constraints in the circuit
+    /// The number of linear constraints in the circuit
     pub q: usize,
-    /// Number of witness elements for the circuit
+    /// The size of the witness
     pub m: usize,
-    /// Generator for Pedersen commitments
-    pub b: StarkPoint,
-    /// Generator for blinding in Pedersen commitments
-    pub b_blind: StarkPoint,
-    /// Sparse-reduced matrix of left input weights in the circuit
-    pub w_l: SparseReducedMatrix,
-    /// Sparse-reduced matrix of right input weights in the circuit
-    pub w_r: SparseReducedMatrix,
-    /// Sparse-reduced matrix of output weights in the circuit
-    pub w_o: SparseReducedMatrix,
-    /// Sparse-reduced matrix of witness weights in the circuit
-    pub w_v: SparseReducedMatrix,
-    /// Sparse-reduced vector of constants in the circuit
-    pub c: SparseWeightRow,
+}
+
+pub enum CircuitParams {
+    /// Sizing parameters for the circuit
+    SizeParams(CircuitSizeParams),
+    /// Sparse-reduced matrix of left input weights for the circuit
+    Wl(SparseReducedMatrix),
+    /// Sparse-reduced matrix of right input weights for the circuit
+    Wr(SparseReducedMatrix),
+    /// Sparse-reduced matrix of output weights for the circuit
+    Wo(SparseReducedMatrix),
+    /// Sparse-reduced matrix of witness weights for the circuit
+    Wv(SparseReducedMatrix),
+    /// Sparse-reduced vector of constants for the circuit
+    C(SparseWeightRow),
 }
 
 pub struct NewWalletArgs {
@@ -818,19 +834,28 @@ impl CalldataSerializable for R1CSProof {
     }
 }
 
-impl CalldataSerializable for CircuitParams {
+impl CalldataSerializable for CircuitSizeParams {
     fn to_calldata(&self) -> Vec<FieldElement> {
         [self.n, self.n_plus, self.k, self.q, self.m]
-            .iter()
-            .flat_map(|s| s.to_calldata())
-            .chain([self.b, self.b_blind].iter().flat_map(|s| s.to_calldata()))
-            .chain(
-                [&self.w_l, &self.w_r, &self.w_o, &self.w_v]
-                    .iter()
-                    .flat_map(|s| s.to_calldata()),
-            )
-            .chain(self.c.to_calldata())
+            .into_iter()
+            .map(FieldElement::from)
             .collect()
+    }
+}
+
+impl CalldataSerializable for CircuitParams {
+    fn to_calldata(&self) -> Vec<FieldElement> {
+        match self {
+            CircuitParams::SizeParams(size_params) => {
+                iter::once(FieldElement::from(0_u8)).chain(size_params.to_calldata())
+            }
+            CircuitParams::Wl(w_l) => iter::once(FieldElement::from(1_u8)).chain(w_l.to_calldata()),
+            CircuitParams::Wr(w_r) => iter::once(FieldElement::from(2_u8)).chain(w_r.to_calldata()),
+            CircuitParams::Wo(w_o) => iter::once(FieldElement::from(3_u8)).chain(w_o.to_calldata()),
+            CircuitParams::Wv(w_v) => iter::once(FieldElement::from(4_u8)).chain(w_v.to_calldata()),
+            CircuitParams::C(c) => iter::once(FieldElement::from(5_u8)).chain(c.to_calldata()),
+        }
+        .collect()
     }
 }
 
@@ -1087,7 +1112,7 @@ pub fn singleprover_prove<C: SingleProverCircuit>(
 
 /// Generates circuit parameters for the given circuit
 // TODO: Upstream this into `SingleProverCircuit` trait?
-pub fn get_circuit_params<C: SingleProverCircuit>() -> CircuitParams {
+pub fn get_circuit_params<C: SingleProverCircuit>() -> [CircuitParams; NUM_CIRCUITS] {
     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
     let pc_gens = PedersenGens::default();
     let mut prover = Prover::new(&pc_gens, &mut transcript);
@@ -1109,8 +1134,9 @@ pub fn get_circuit_params<C: SingleProverCircuit>() -> CircuitParams {
     let k = n_plus.ilog2() as usize;
     let q = prover.num_constraints();
     let m = witness.to_scalars().len() + statement.to_scalars().len();
-    let b = pc_gens.B;
-    let b_blind = pc_gens.B_blinding;
+
+    debug!("n_plus = {n_plus}, q = {q}, m = {m}",);
+
     let CircuitWeights {
         w_l,
         w_r,
@@ -1119,20 +1145,14 @@ pub fn get_circuit_params<C: SingleProverCircuit>() -> CircuitParams {
         c,
     } = prover.get_weights();
 
-    CircuitParams {
-        n,
-        n_plus,
-        k,
-        q,
-        m,
-        b,
-        b_blind,
-        w_l,
-        w_o,
-        w_r,
-        w_v,
-        c,
-    }
+    [
+        CircuitParams::SizeParams(CircuitSizeParams { n, n_plus, k, q, m }),
+        CircuitParams::Wl(w_l),
+        CircuitParams::Wr(w_r),
+        CircuitParams::Wo(w_o),
+        CircuitParams::Wv(w_v),
+        CircuitParams::C(c),
+    ]
 }
 
 /// Defines the constraints of the dummy circuits below, which takes in a single
