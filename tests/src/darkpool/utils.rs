@@ -33,13 +33,14 @@ use crate::{
         utils::TEST_MERKLE_HEIGHT,
     },
     utils::{
-        call_contract, check_verification_job_status, felt_to_u128, get_circuit_params,
-        get_contract_address_from_artifact, get_sierra_class_hash_from_artifact, global_setup,
-        invoke_contract, parameterize_circuit, random_felt, scalar_to_felt, setup_sequencer,
-        singleprover_prove, Breakpoint, CalldataSerializable, Circuit, DummyValidCommitments,
-        DummyValidMatchMpc, DummyValidReblind, DummyValidSettle, DummyValidWalletCreate,
-        DummyValidWalletUpdate, MatchPayload, NewWalletArgs, ProcessMatchArgs, TestConfig,
-        UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE, SK_ROOT,
+        call_contract, check_verification_job_status, felt_to_u128, fully_parameterize_circuit,
+        get_circuit_params, get_contract_address_from_artifact,
+        get_sierra_class_hash_from_artifact, global_setup, invoke_contract, random_felt,
+        scalar_to_felt, setup_sequencer, singleprover_prove, Breakpoint, CalldataSerializable,
+        Circuit, DummyValidCommitments, DummyValidMatchMpc, DummyValidReblind, DummyValidSettle,
+        DummyValidWalletCreate, DummyValidWalletUpdate, MatchPayload, NewWalletArgs,
+        ProcessMatchArgs, TestConfig, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, DUMMY_VALUE,
+        SK_ROOT,
     },
 };
 
@@ -139,7 +140,7 @@ pub async fn init_darkpool_test_state() -> Result<TestSequencer> {
             Circuit::ValidSettle(_) => get_circuit_params::<DummyValidSettle>(),
         };
 
-        parameterize_circuit(
+        fully_parameterize_circuit(
             &account,
             darkpool_address,
             circuit.to_calldata()[0],

@@ -44,9 +44,10 @@ use crate::{
     darkpool::utils::{initialize_darkpool, DARKPOOL_ADDRESS},
     merkle::utils::TEST_MERKLE_HEIGHT,
     utils::{
-        get_circuit_params, get_contract_address_from_artifact, global_setup, parameterize_circuit,
-        random_felt, Breakpoint, CalldataSerializable, Circuit, MatchPayload, NewWalletArgs,
-        ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
+        fully_parameterize_circuit, get_circuit_params, get_contract_address_from_artifact,
+        global_setup, random_felt, Breakpoint, CalldataSerializable, Circuit, MatchPayload,
+        NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT,
+        TRANSCRIPT_SEED,
     },
 };
 
@@ -125,6 +126,8 @@ pub async fn init_profiling_test_state() -> Result<TestSequencer> {
     ]
     .into_iter()
     {
+        debug!("Parameterizing circuit {circuit}");
+
         let circuit_params = match circuit {
             Circuit::ValidWalletCreate(_) => get_circuit_params::<SizedValidWalletCreate>(),
             Circuit::ValidWalletUpdate(_) => get_circuit_params::<SizedValidWalletUpdate>(),
@@ -134,11 +137,7 @@ pub async fn init_profiling_test_state() -> Result<TestSequencer> {
             Circuit::ValidSettle(_) => get_circuit_params::<SizedValidSettle>(),
         };
 
-        debug!(
-            "Parameterizing {circuit} (n_plus = {}, q = {}, m = {})",
-            circuit_params.n_plus, circuit_params.q, circuit_params.m
-        );
-        parameterize_circuit(
+        fully_parameterize_circuit(
             &account,
             darkpool_address,
             circuit.to_calldata()[0],
