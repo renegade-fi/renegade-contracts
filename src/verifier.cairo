@@ -111,6 +111,18 @@ mod MultiVerifier {
         W_V: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
         /// Mapping from circuit ID -> sparse-reduced vector of constants for the circuit
         c: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
+        /// Mapping from circuit ID -> boolean indicating if the circuit's size params have been set
+        size_params_set: LegacyMap<felt252, bool>,
+        /// Mapping from circuit ID -> boolean indicating if the circuit's W_L weights have been set
+        W_L_set: LegacyMap<felt252, bool>,
+        /// Mapping from circuit ID -> boolean indicating if the circuit's W_R weights have been set
+        W_R_set: LegacyMap<felt252, bool>,
+        /// Mapping from circuit ID -> boolean indicating if the circuit's W_O weights have been set
+        W_O_set: LegacyMap<felt252, bool>,
+        /// Mapping from circuit ID -> boolean indicating if the circuit's W_V weights have been set
+        W_V_set: LegacyMap<felt252, bool>,
+        /// Mapping from circuit ID -> boolean indicating if the circuit's c weights have been set
+        c_set: LegacyMap<felt252, bool>,
     }
 
     // ----------
@@ -185,41 +197,94 @@ mod MultiVerifier {
             // Assert that the circuit ID is in use
             assert(self.circuit_id_in_use.read(circuit_id), 'circuit ID not in use');
 
-            // Assert that n_plus = 2^k
+            // Assert that circuit is not already fully parameterized
             assert(
-                fast_power(2, circuit_params.k.into(), MAX_USIZE.into() + 1) == circuit_params
-                    .n_plus
-                    .into(),
-                'n_plus != 2^k'
+                !_is_circuit_fully_parameterized(@self, circuit_id), 'circuit already parameterized'
             );
 
-            // Assert that all weight matrices are have `q` rows
-            assert(circuit_params.W_L.len() == circuit_params.q, 'W_L has wrong number of rows');
-            assert(circuit_params.W_R.len() == circuit_params.q, 'W_R has wrong number of rows');
-            assert(circuit_params.W_O.len() == circuit_params.q, 'W_O has wrong number of rows');
-            assert(circuit_params.W_V.len() == circuit_params.q, 'W_V has wrong number of rows');
+            match circuit_params {
+                CircuitParams::SizeParams(circuit_size_params) => {
+                    // Assert that n_plus = 2^k
+                    assert(
+                        fast_power(
+                            2, circuit_size_params.k.into(), MAX_USIZE.into() + 1
+                        ) == circuit_size_params
+                            .n_plus
+                            .into(),
+                        'n_plus != 2^k'
+                    );
 
-            // Assert that all weight matrices have correct max number of columns
-            circuit_params.W_L.assert_width(circuit_params.n);
-            circuit_params.W_R.assert_width(circuit_params.n);
-            circuit_params.W_O.assert_width(circuit_params.n);
-            circuit_params.W_V.assert_width(circuit_params.m);
+                    self.n.write(circuit_id, circuit_size_params.n);
+                    self.n_plus.write(circuit_id, circuit_size_params.n_plus);
+                    self.k.write(circuit_id, circuit_size_params.k);
+                    self.q.write(circuit_id, circuit_size_params.q);
+                    self.m.write(circuit_id, circuit_size_params.m);
 
-            // Assert that `c` vector is not too wide
-            assert(circuit_params.c.len() <= circuit_params.q, 'c too wide');
+                    self.size_params_set.write(circuit_id, true);
+                },
+                CircuitParams::W_L(w_l) => {
+                    // Assert size params have been set
+                    assert(self.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `q` rows
+                    assert(w_l.len() == self.q.read(circuit_id), 'W_L has wrong number of rows');
+                    // Assert weight matrix has correct max number of columns
+                    w_l.assert_width(self.n.read(circuit_id));
 
-            self.n.write(circuit_id, circuit_params.n);
-            self.n_plus.write(circuit_id, circuit_params.n_plus);
-            self.k.write(circuit_id, circuit_params.k);
-            self.q.write(circuit_id, circuit_params.q);
-            self.m.write(circuit_id, circuit_params.m);
-            self.W_L.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_L });
-            self.W_R.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_R });
-            self.W_O.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_O });
-            self.W_V.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.W_V });
-            self.c.write(circuit_id, StoreSerdeWrapper { inner: circuit_params.c });
+                    self.W_L.write(circuit_id, StoreSerdeWrapper { inner: w_l });
 
-            self.emit(Event::CircuitParameterized(CircuitParameterized { circuit_id }));
+                    self.W_L_set.write(circuit_id, true);
+                },
+                CircuitParams::W_R(w_r) => {
+                    // Assert size params have been set
+                    assert(self.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `q` rows
+                    assert(w_r.len() == self.q.read(circuit_id), 'W_R has wrong number of rows');
+                    // Assert weight matrix has correct max number of columns
+                    w_r.assert_width(self.n.read(circuit_id));
+
+                    self.W_R.write(circuit_id, StoreSerdeWrapper { inner: w_r });
+
+                    self.W_R_set.write(circuit_id, true);
+                },
+                CircuitParams::W_O(w_o) => {
+                    // Assert size params have been set
+                    assert(self.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `q` rows
+                    assert(w_o.len() == self.q.read(circuit_id), 'W_O has wrong number of rows');
+                    // Assert weight matrix has correct max number of columns
+                    w_o.assert_width(self.n.read(circuit_id));
+
+                    self.W_O.write(circuit_id, StoreSerdeWrapper { inner: w_o });
+
+                    self.W_O_set.write(circuit_id, true);
+                },
+                CircuitParams::W_V(w_v) => {
+                    // Assert size params have been set
+                    assert(self.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `q` rows
+                    assert(w_v.len() == self.q.read(circuit_id), 'W_V has wrong number of rows');
+                    // Assert weight matrix has correct max number of columns
+                    w_v.assert_width(self.n.read(circuit_id));
+
+                    self.W_V.write(circuit_id, StoreSerdeWrapper { inner: w_v });
+
+                    self.W_V_set.write(circuit_id, true);
+                },
+                CircuitParams::C(c) => {
+                    // Assert size params have been set
+                    assert(self.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert that `c` vector is not too wide
+                    assert(c.len() <= self.q.read(circuit_id), 'c too wide');
+
+                    self.c.write(circuit_id, StoreSerdeWrapper { inner: c });
+
+                    self.c_set.write(circuit_id, true);
+                },
+            };
+
+            if _is_circuit_fully_parameterized(@self, circuit_id) {
+                self.emit(Event::CircuitParameterized(CircuitParameterized { circuit_id }));
+            }
         }
 
         /// Enqueues a verification job for the given proof, squeezing out challenge scalars
@@ -238,6 +303,9 @@ mod MultiVerifier {
         ) {
             // Assert that the circuit ID is in use
             assert(self.circuit_id_in_use.read(circuit_id), 'circuit ID not in use');
+
+            // Assert that circuit is fully parameterized
+            assert(_is_circuit_fully_parameterized(@self, circuit_id), 'circuit not parameterized');
 
             // Assert that the verification job ID is not already in use
             assert(!self.job_id_in_use.read(verification_job_id), 'job ID already in use');
@@ -390,6 +458,17 @@ mod MultiVerifier {
     // -----------
     // | HELPERS |
     // -----------
+
+    fn _is_circuit_fully_parameterized(self: @ContractState, circuit_id: felt252) -> bool {
+        let size_params_set = self.size_params_set.read(circuit_id);
+        let W_L_set = self.W_L_set.read(circuit_id);
+        let W_R_set = self.W_R_set.read(circuit_id);
+        let W_O_set = self.W_O_set.read(circuit_id);
+        let W_V_set = self.W_V_set.read(circuit_id);
+        let c_set = self.c_set.read(circuit_id);
+
+        size_params_set && W_L_set && W_R_set && W_O_set && W_V_set && c_set
+    }
 
     fn prep_rem_gens(n_plus: usize) -> (RemainingGenerators, RemainingGenerators) {
         (

@@ -5,7 +5,7 @@ use traits::Into;
 use ec::{ec_point_from_x, ec_mul, ec_point_new, stark_curve};
 
 use renegade_contracts::verifier::types::{
-    Proof, SparseWeightMatrix, SparseWeightVec, CircuitParams
+    Proof, SparseWeightMatrix, SparseWeightVec, CircuitParams, CircuitSizeParams
 };
 
 const DUMMY_ROOT_INNER: felt252 = 'DUMMY_ROOT';
@@ -176,16 +176,18 @@ fn get_dummy_circuit_size_params() -> (usize, usize, usize, usize, usize) {
     (n, n_plus, k, q, m)
 }
 
-fn get_dummy_circuit_pc_gens() -> (EcPoint, EcPoint) {
-    let gen = ec_point_new(stark_curve::GEN_X, stark_curve::GEN_Y);
-
-    (gen, gen)
-}
-
-fn get_dummy_circuit_params() -> CircuitParams {
+fn get_dummy_circuit_params() -> (
+    CircuitParams, CircuitParams, CircuitParams, CircuitParams, CircuitParams, CircuitParams, 
+) {
     let (n, n_plus, k, q, m) = get_dummy_circuit_size_params();
-    let (B, B_blind) = get_dummy_circuit_pc_gens();
     let (W_L, W_R, W_O, W_V, c) = get_dummy_circuit_weights();
 
-    CircuitParams { n, n_plus, k, q, m, B, B_blind, W_L, W_R, W_O, W_V, c }
+    (
+        CircuitParams::SizeParams(CircuitSizeParams { n, n_plus, k, q, m }),
+        CircuitParams::W_L(W_L),
+        CircuitParams::W_R(W_R),
+        CircuitParams::W_O(W_O),
+        CircuitParams::W_V(W_V),
+        CircuitParams::C(c),
+    )
 }
