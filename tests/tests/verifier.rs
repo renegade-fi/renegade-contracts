@@ -1,3 +1,6 @@
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 use eyre::Result;
 use mpc_stark::algebra::scalar::Scalar;
 use rand::thread_rng;

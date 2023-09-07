@@ -1,3 +1,6 @@
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 use circuit_types::{
     balance::Balance,
     native_helpers::compute_wallet_commitment_from_private,
