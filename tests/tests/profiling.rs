@@ -4,20 +4,28 @@
 use circuit_types::{order::Order, transfers::ExternalTransfer};
 use circuits::zk_circuits::valid_match_mpc::ValidMatchMpcSingleProver;
 use eyre::Result;
+use mpc_stark::algebra::scalar::Scalar;
+use starknet::core::types::FieldElement;
 use tests::{
     darkpool::utils::{
         new_wallet, poll_new_wallet_to_completion, poll_update_wallet_to_completion, update_wallet,
         DARKPOOL_ADDRESS,
     },
+    merkle::utils::insert,
     profiling::utils::{
-        get_new_wallet_args, get_update_wallet_args, SizedValidCommitments, SizedValidReblind,
-        SizedValidSettle, SizedValidWalletCreate, SizedValidWalletUpdate, TestParamsCircuit,
+        get_new_wallet_args, get_update_wallet_args, raw_msm, sample_bp_gens,
+        SizedValidCommitments, SizedValidReblind, SizedValidSettle, SizedValidWalletCreate,
+        SizedValidWalletUpdate, TestParamsCircuit,
     },
     utils::{
         fully_parameterize_circuit, get_circuit_params, get_root, global_teardown, setup_sequencer,
-        Breakpoint, CalldataSerializable, TestConfig, DUMMY_WALLET,
+        Breakpoint, CalldataSerializable, TestConfig, DUMMY_VALUE, DUMMY_WALLET,
     },
 };
+
+// ----------------------------
+// | CIRCUIT PARAMETERIZATION |
+// ----------------------------
 
 #[tokio::test]
 async fn profile_parameterize_valid_wallet_create() -> Result<()> {
@@ -121,6 +129,10 @@ async fn profile_parameterize_valid_settle() -> Result<()> {
     Ok(())
 }
 
+// ---------------------
+// | CORE DARKPOOL API |
+// ---------------------
+
 #[tokio::test]
 async fn profile_new_wallet() -> Result<()> {
     let sequencer = setup_sequencer(TestConfig::Profiling).await?;
@@ -202,6 +214,40 @@ async fn profile_poll_update_wallet() -> Result<()> {
     poll_update_wallet_to_completion(&account, &update_wallet_args).await?;
 
     global_teardown(TestConfig::Profiling, sequencer, false).await;
+
+    Ok(())
+}
+
+// -----------
+// | HELPERS |
+// -----------
+
+#[tokio::test]
+async fn profile_verifier_utils_sample_bp_gens() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
+    sample_bp_gens(&sequencer.account(), FieldElement::from(4096_u32)).await?;
+
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_verifier_utils_raw_msm() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
+    raw_msm(&sequencer.account(), FieldElement::from(8279_u32)).await?;
+
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_merkle_insert() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::Merkle).await?;
+    insert(&sequencer.account(), Scalar::from(DUMMY_VALUE)).await?;
+
+    global_teardown(TestConfig::Merkle, sequencer, false).await;
 
     Ok(())
 }
