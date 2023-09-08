@@ -5,3 +5,4 @@
 /cairo_project.toml
 /.vscode
 /.gitattributes
+/*.log

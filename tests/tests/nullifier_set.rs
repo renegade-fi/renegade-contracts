@@ -25,7 +25,7 @@ async fn test_nullifier_set_fuzz() -> Result<()> {
         );
     }
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::NullifierSet, sequencer, false).await;
 
     Ok(())
 }
@@ -47,7 +47,7 @@ async fn test_in_use_nullifier_set_fuzz() -> Result<()> {
         );
     }
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::NullifierSet, sequencer, false).await;
 
     Ok(())
 }

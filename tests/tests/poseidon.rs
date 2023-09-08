@@ -14,7 +14,7 @@ async fn test_poseidon_fuzz() -> Result<()> {
         assert!(contract_hash == ark_hash);
     }
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Poseidon, sequencer, false).await;
 
     Ok(())
 }

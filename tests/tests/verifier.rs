@@ -44,7 +44,7 @@ async fn test_full_verification_fuzz() -> Result<()> {
         .unwrap());
     }
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Verifier, sequencer, false).await;
     Ok(())
 }
 
@@ -78,6 +78,6 @@ async fn test_full_verification_invalid_proof() -> Result<()> {
     .await?
     .unwrap());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Verifier, sequencer, false).await;
     Ok(())
 }

@@ -599,6 +599,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.1.0-rc0"
+source = "git+https://github.com/renegade-fi/blockifier.git?branch=renegade-testing#9f4375853d40ea7f2a1a840cb5c5feb017bb1b03"
 dependencies = [
  "ark-ff",
  "ark-secp256k1",
@@ -2112,7 +2113,7 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 [[package]]
 name = "dojo-lang"
 version = "0.1.0"
-source = "git+https://github.com/dojoengine/dojo.git?rev=954dbb3#954dbb32e1454cbd1491991ad16feeadbc78d6de"
+source = "git+https://github.com/renegade-fi/dojo.git?branch=renegade-testing#114412e193ede743772d5ce1d94a74e52b19220c"
 dependencies = [
  "anyhow",
  "assert_fs",
@@ -2152,7 +2153,7 @@ dependencies = [
 [[package]]
 name = "dojo-test-utils"
 version = "0.1.0"
-source = "git+https://github.com/dojoengine/dojo.git?rev=954dbb3#954dbb32e1454cbd1491991ad16feeadbc78d6de"
+source = "git+https://github.com/renegade-fi/dojo.git?branch=renegade-testing#114412e193ede743772d5ce1d94a74e52b19220c"
 dependencies = [
  "anyhow",
  "assert_fs",
@@ -2182,7 +2183,7 @@ dependencies = [
 [[package]]
 name = "dojo-types"
 version = "0.1.0"
-source = "git+https://github.com/dojoengine/dojo.git?rev=954dbb3#954dbb32e1454cbd1491991ad16feeadbc78d6de"
+source = "git+https://github.com/renegade-fi/dojo.git?branch=renegade-testing#114412e193ede743772d5ce1d94a74e52b19220c"
 dependencies = [
  "serde",
  "starknet",
@@ -2191,7 +2192,7 @@ dependencies = [
 [[package]]
 name = "dojo-world"
 version = "0.1.0"
-source = "git+https://github.com/dojoengine/dojo.git?rev=954dbb3#954dbb32e1454cbd1491991ad16feeadbc78d6de"
+source = "git+https://github.com/renegade-fi/dojo.git?branch=renegade-testing#114412e193ede743772d5ce1d94a74e52b19220c"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4093,7 +4094,7 @@ dependencies = [
 [[package]]
 name = "katana-core"
 version = "0.1.0"
-source = "git+https://github.com/dojoengine/dojo.git?rev=954dbb3#954dbb32e1454cbd1491991ad16feeadbc78d6de"
+source = "git+https://github.com/renegade-fi/dojo.git?branch=renegade-testing#114412e193ede743772d5ce1d94a74e52b19220c"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4121,7 +4122,7 @@ dependencies = [
 [[package]]
 name = "katana-rpc"
 version = "0.1.0"
-source = "git+https://github.com/dojoengine/dojo.git?rev=954dbb3#954dbb32e1454cbd1491991ad16feeadbc78d6de"
+source = "git+https://github.com/renegade-fi/dojo.git?branch=renegade-testing#114412e193ede743772d5ce1d94a74e52b19220c"
 dependencies = [
  "anyhow",
  "blockifier",

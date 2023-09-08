@@ -80,8 +80,8 @@ use crate::{
     nullifier_set::utils::{init_nullifier_set_test_state, init_nullifier_set_test_statics},
     poseidon::utils::{init_poseidon_test_state, init_poseidon_test_statics},
     profiling::utils::{
-        init_profiling_test_state, init_profiling_test_statics, singleprover_prove_prealloc,
-        verify_singleprover_proof_prealloc, SizedValidCommitments, SizedValidReblind,
+        init_profiling_test_state, init_profiling_test_statics, verify_singleprover_proof,
+        SizedValidCommitments, SizedValidReblind,
     },
     statement_serde::utils::{init_statement_serde_test_state, init_statement_serde_test_statics},
     transcript::utils::{init_transcript_test_state, init_transcript_test_statics},
@@ -188,7 +188,7 @@ pub async fn global_setup(init_state: Option<SerializableState>) -> TestSequence
     TRACING_INIT.call_once(|| {
         fmt()
             .with_env_filter(EnvFilter::from_default_env())
-            // .with_ansi(false)
+            .with_ansi(false)
             .init();
     });
 
@@ -201,7 +201,16 @@ pub async fn global_setup(init_state: Option<SerializableState>) -> TestSequence
     .await
 }
 
-pub fn global_teardown(sequencer: TestSequencer) {
+pub async fn global_teardown(test_config: TestConfig, sequencer: TestSequencer, force_dump: bool) {
+    if force_dump {
+        let (state_dumped_lock, state_separator) = get_state_lock_and_separator(&test_config);
+        let mut state_dumped = state_dumped_lock.lock().await;
+        // Dump the state
+        debug!("Dumping state...");
+        dump_state(&sequencer, state_separator).await.unwrap();
+        // Mark the state as dumped
+        *state_dumped = true;
+    }
     debug!("Stopping test sequencer...");
     sequencer.stop().unwrap();
 }
@@ -359,6 +368,7 @@ pub async fn invoke_contract(
             selector: get_selector_from_name(entry_point)?,
             calldata,
         }])
+        .max_fee(FieldElement::ZERO)
         .send()
         .await
         .map_err(|e| eyre!("Error invoking {}: {}", entry_point, e))
@@ -556,24 +566,24 @@ impl MatchPayload {
         valid_reblind_statement.merkle_root = merkle_root;
 
         let (valid_commitments_witness_commitment, valid_commitments_proof) =
-            singleprover_prove_prealloc::<SizedValidCommitments>(
+            singleprover_prove::<SizedValidCommitments>(
                 valid_commitments_witness,
                 valid_commitments_statement.clone(),
             )?;
 
-        verify_singleprover_proof_prealloc::<SizedValidCommitments>(
+        verify_singleprover_proof::<SizedValidCommitments>(
             valid_commitments_statement.clone(),
             valid_commitments_witness_commitment.clone(),
             valid_commitments_proof.clone(),
         )?;
 
         let (valid_reblind_witness_commitment, valid_reblind_proof) =
-            singleprover_prove_prealloc::<SizedValidReblind>(
+            singleprover_prove::<SizedValidReblind>(
                 valid_reblind_witness,
                 valid_reblind_statement.clone(),
             )?;
 
-        verify_singleprover_proof_prealloc::<SizedValidReblind>(
+        verify_singleprover_proof::<SizedValidReblind>(
             valid_reblind_statement.clone(),
             valid_reblind_witness_commitment.clone(),
             valid_reblind_proof.clone(),
@@ -689,6 +699,7 @@ pub struct ProcessMatchArgs {
     pub breakpoint: Breakpoint,
 }
 
+#[derive(Debug)]
 pub enum Breakpoint {
     None,
     ReadCircuitParams,

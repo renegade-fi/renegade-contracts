@@ -24,10 +24,9 @@ use circuits::zk_circuits::{
 };
 use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
-use lazy_static::lazy_static;
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
-    r1cs::{Prover, R1CSProof, Verifier},
+    r1cs::{R1CSProof, Verifier},
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::scalar::Scalar;
@@ -44,10 +43,9 @@ use crate::{
     darkpool::utils::{initialize_darkpool, DARKPOOL_ADDRESS},
     merkle::utils::TEST_MERKLE_HEIGHT,
     utils::{
-        fully_parameterize_circuit, get_circuit_params, get_contract_address_from_artifact,
-        global_setup, random_felt, Breakpoint, CalldataSerializable, Circuit, MatchPayload,
-        NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT,
-        TRANSCRIPT_SEED,
+        get_contract_address_from_artifact, global_setup, random_felt, singleprover_prove,
+        Breakpoint, CalldataSerializable, Circuit, MatchPayload, NewWalletArgs, ProcessMatchArgs,
+        UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
     },
 };
 
@@ -58,25 +56,14 @@ pub type SizedValidCommitments = ValidCommitments<MAX_BALANCES, MAX_ORDERS, MAX_
 pub type SizedValidReblind = ValidReblind<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>;
 pub type SizedValidSettle = ValidSettle<MAX_BALANCES, MAX_ORDERS, MAX_FEES>;
 
-// Mirrors pre-allocated BP generators from relayer repo
-lazy_static! {
-    /// The maximum number of generators that may be needed for any of the circuits
-    /// so that the generators may be pre-allocated and re-used between proofs
-    static ref MAX_GENERATORS: usize = vec![
-        SizedValidWalletCreate::BP_GENS_CAPACITY,
-        SizedValidWalletUpdate::BP_GENS_CAPACITY,
-        SizedValidReblind::BP_GENS_CAPACITY,
-        SizedValidCommitments::BP_GENS_CAPACITY,
-        ValidMatchMpcSingleProver::BP_GENS_CAPACITY,
-        SizedValidSettle::BP_GENS_CAPACITY,
-    ]
-    .into_iter()
-    .max()
-    .unwrap();
-
-    /// The pre-allocated bulletproof generators for the circuits
-    static ref PRE_ALLOCATED_GENS: BulletproofGens = BulletproofGens::new(*MAX_GENERATORS, 1 /* party_capacity */);
-}
+pub type TestParamsCircuit = Circuit<
+    SizedValidWalletCreate,
+    SizedValidWalletUpdate,
+    SizedValidCommitments,
+    SizedValidReblind,
+    ValidMatchMpcSingleProver,
+    SizedValidSettle,
+>;
 
 // ---------------------
 // | META TEST HELPERS |
@@ -116,36 +103,6 @@ pub async fn init_profiling_test_state() -> Result<TestSequencer> {
     )
     .await?;
 
-    for circuit in [
-        Circuit::ValidWalletCreate(SizedValidWalletCreate {}),
-        Circuit::ValidWalletUpdate(SizedValidWalletUpdate {}),
-        Circuit::ValidCommitments(SizedValidCommitments {}),
-        Circuit::ValidReblind(SizedValidReblind {}),
-        Circuit::ValidMatchMpc(ValidMatchMpcSingleProver {}),
-        Circuit::ValidSettle(SizedValidSettle {}),
-    ]
-    .into_iter()
-    {
-        debug!("Parameterizing circuit {circuit}");
-
-        let circuit_params = match circuit {
-            Circuit::ValidWalletCreate(_) => get_circuit_params::<SizedValidWalletCreate>(),
-            Circuit::ValidWalletUpdate(_) => get_circuit_params::<SizedValidWalletUpdate>(),
-            Circuit::ValidCommitments(_) => get_circuit_params::<SizedValidCommitments>(),
-            Circuit::ValidReblind(_) => get_circuit_params::<SizedValidReblind>(),
-            Circuit::ValidMatchMpc(_) => get_circuit_params::<ValidMatchMpcSingleProver>(),
-            Circuit::ValidSettle(_) => get_circuit_params::<SizedValidSettle>(),
-        };
-
-        fully_parameterize_circuit(
-            &account,
-            darkpool_address,
-            circuit.to_calldata()[0],
-            circuit_params,
-        )
-        .await?;
-    }
-
     Ok(sequencer)
 }
 
@@ -179,21 +136,8 @@ pub fn init_profiling_test_statics(account: &ScriptAccount) -> Result<()> {
 // | MISC HELPERS |
 // ----------------
 
-/// Mirrors `singleprover_prove` from the relayer repo, but uses our pre-allocated BP gens
-pub fn singleprover_prove_prealloc<C: SingleProverCircuit>(
-    witness: C::Witness,
-    statement: C::Statement,
-) -> Result<(<C::Witness as CircuitBaseType>::CommitmentType, R1CSProof)> {
-    let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
-    let pc_gens = PedersenGens::default();
-    let prover = Prover::new(&pc_gens, &mut transcript);
-
-    C::prove(witness, statement, &PRE_ALLOCATED_GENS, prover)
-        .map_err(|e| eyre!("Error proving circuit: {}", e))
-}
-
 /// Mirrors `verify_singleprover_proof` from the relayer repo, but uses our pre-allocated BP gens
-pub fn verify_singleprover_proof_prealloc<C: SingleProverCircuit>(
+pub fn verify_singleprover_proof<C: SingleProverCircuit>(
     statement: C::Statement,
     witness_commitment: <C::Witness as CircuitBaseType>::CommitmentType,
     proof: R1CSProof,
@@ -203,14 +147,10 @@ pub fn verify_singleprover_proof_prealloc<C: SingleProverCircuit>(
     let pc_gens = PedersenGens::default();
     let verifier = Verifier::new(&pc_gens, &mut verifier_transcript);
 
-    C::verify(
-        witness_commitment,
-        statement,
-        proof,
-        &PRE_ALLOCATED_GENS,
-        verifier,
-    )
-    .map_err(|e| eyre!("Error verifying proof: {}", e))
+    let bp_gens = BulletproofGens::new(C::BP_GENS_CAPACITY, 1);
+
+    C::verify(witness_commitment, statement, proof, &bp_gens, verifier)
+        .map_err(|e| eyre!("Error verifying proof: {}", e))
 }
 
 pub fn get_new_wallet_args(breakpoint: Breakpoint) -> Result<NewWalletArgs> {
@@ -218,9 +158,9 @@ pub fn get_new_wallet_args(breakpoint: Breakpoint) -> Result<NewWalletArgs> {
     let (witness, statement) = valid_wallet_create_witness_statement();
     let wallet_blinder_share = statement.public_wallet_shares.blinder;
     let (witness_commitment, proof) =
-        singleprover_prove_prealloc::<SizedValidWalletCreate>(witness, statement.clone())?;
+        singleprover_prove::<SizedValidWalletCreate>(witness, statement.clone())?;
 
-    verify_singleprover_proof_prealloc::<SizedValidWalletCreate>(
+    verify_singleprover_proof::<SizedValidWalletCreate>(
         statement.clone(),
         witness_commitment.clone(),
         proof.clone(),
@@ -258,9 +198,9 @@ pub fn get_update_wallet_args(
     let statement_signature = sign_scalar_message(&statement.to_scalars(), &SK_ROOT);
 
     let (witness_commitment, proof) =
-        singleprover_prove_prealloc::<SizedValidWalletUpdate>(witness, statement.clone())?;
+        singleprover_prove::<SizedValidWalletUpdate>(witness, statement.clone())?;
 
-    verify_singleprover_proof_prealloc::<SizedValidWalletUpdate>(
+    verify_singleprover_proof::<SizedValidWalletUpdate>(
         statement.clone(),
         witness_commitment.clone(),
         proof.clone(),
@@ -296,9 +236,9 @@ pub async fn get_process_match_args(
     .await
     .0?;
     let (valid_match_mpc_witness_commitment, valid_match_mpc_proof) =
-        singleprover_prove_prealloc::<ValidMatchMpcSingleProver>(valid_match_mpc_witness, ())?;
+        singleprover_prove::<ValidMatchMpcSingleProver>(valid_match_mpc_witness, ())?;
 
-    verify_singleprover_proof_prealloc::<ValidMatchMpcSingleProver>(
+    verify_singleprover_proof::<ValidMatchMpcSingleProver>(
         (),
         valid_match_mpc_witness_commitment.clone(),
         valid_match_mpc_proof.clone(),
@@ -307,12 +247,12 @@ pub async fn get_process_match_args(
     let (valid_settle_witness, valid_settle_statement) =
         valid_settle_witness_statement(party0_wallet.clone(), party1_wallet.clone(), match_res);
     let (valid_settle_witness_commitment, valid_settle_proof) =
-        singleprover_prove_prealloc::<SizedValidSettle>(
+        singleprover_prove::<SizedValidSettle>(
             valid_settle_witness,
             valid_settle_statement.clone(),
         )?;
 
-    verify_singleprover_proof_prealloc::<SizedValidSettle>(
+    verify_singleprover_proof::<SizedValidSettle>(
         valid_settle_statement.clone(),
         valid_settle_witness_commitment.clone(),
         valid_settle_proof.clone(),

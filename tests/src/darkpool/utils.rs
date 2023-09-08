@@ -315,6 +315,7 @@ pub async fn is_nullifier_available(account: &ScriptAccount, nullifier: Scalar) 
 }
 
 pub async fn new_wallet(account: &ScriptAccount, args: &NewWalletArgs) -> Result<FieldElement> {
+    debug!("Running new_wallet until {:?}", args.breakpoint);
     let calldata = args.to_calldata();
 
     invoke_contract(
