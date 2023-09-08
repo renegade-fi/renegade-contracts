@@ -30,8 +30,8 @@ dojo-test-utils = { git = "https://github.com/renegade-fi/dojo.git", branch = "r
 mpc-stark = { workspace = true }
 mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", features = ["integration_test"] }
 merlin = { git = "https://github.com/renegade-fi/merlin.git" }
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
-circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa", features = ["test_helpers"] }
-circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
-test-helpers = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
-starknet-client = { git = "https://github.com/renegade-fi/renegade.git", branch = "stark-curve-ecdsa" }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
+circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation", features = ["test_helpers"] }
+circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
+test-helpers = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
+starknet-client = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
