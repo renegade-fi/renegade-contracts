@@ -24,7 +24,7 @@ use tests::{
     },
     utils::{
         assert_roots_equal, get_root, global_teardown, insert_scalar_to_ark_merkle_tree,
-        DUMMY_WALLET,
+        TestConfig, DUMMY_WALLET,
     },
 };
 
@@ -44,7 +44,7 @@ async fn test_initialization_root() -> Result<()> {
     )
     .await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -66,7 +66,7 @@ async fn test_new_wallet_root() -> Result<()> {
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -94,7 +94,7 @@ async fn test_update_wallet_root() -> Result<()> {
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -118,7 +118,7 @@ async fn test_update_wallet_invalid_statement_root() -> Result<()> {
     // a valid historical root
     assert!(update_wallet(&account, &args).await.is_err());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -155,7 +155,7 @@ async fn test_process_match_root() -> Result<()> {
 
     assert_roots_equal(&account, *DARKPOOL_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -174,7 +174,7 @@ async fn test_process_match_invalid_statement_root() -> Result<()> {
     // The random root in the dummy `MatchPayload`s should not be a valid historical root
     assert!(process_match(&account, &args).await.is_err());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -196,7 +196,7 @@ async fn test_new_wallet_last_modified() -> Result<()> {
 
     assert_eq!(tx_hash, last_modified_tx);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -220,7 +220,7 @@ async fn test_update_wallet_last_modified() -> Result<()> {
 
     assert_eq!(tx_hash, last_modified_tx);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -249,7 +249,7 @@ async fn test_process_match_last_modified() -> Result<()> {
     assert_eq!(tx_hash, party_0_last_modified_tx);
     assert_eq!(tx_hash, party_1_last_modified_tx);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -277,7 +277,7 @@ async fn test_update_wallet_nullifiers() -> Result<()> {
 
     assert!(!is_nullifier_available(&account, args.statement.old_shares_nullifier).await?);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -335,7 +335,7 @@ async fn test_process_match_nullifiers() -> Result<()> {
         .await?
     );
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -357,7 +357,7 @@ async fn test_double_update_wallet() -> Result<()> {
     // should already be marked as in progress
     assert!(update_wallet(&account, &args).await.is_err());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -380,7 +380,7 @@ async fn test_double_process_match() -> Result<()> {
     // should already be marked as in progress
     assert!(process_match(&account, &args).await.is_err());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -435,7 +435,7 @@ async fn test_update_wallet_deposit() -> Result<()> {
         (INIT_BALANCE + TRANSFER_AMOUNT) as u128
     );
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -481,7 +481,7 @@ async fn test_update_wallet_withdrawal() -> Result<()> {
         (INIT_BALANCE - TRANSFER_AMOUNT) as u128
     );
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -521,7 +521,7 @@ async fn test_upgrade_darkpool_storage() -> Result<()> {
     assert_eq!(pre_upgrade_root, post_upgrade_root);
     assert!(old_shares_nullifier_used);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }
@@ -543,7 +543,7 @@ async fn test_update_wallet_invalid_signature() -> Result<()> {
 
     assert!(update_wallet(&account, &args).await.is_err());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Darkpool, sequencer, false).await;
 
     Ok(())
 }

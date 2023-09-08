@@ -6,7 +6,7 @@ use tests::{
         insert, insert_random_val_to_trees, setup_merkle_test, MERKLE_ADDRESS, MULTI_INSERT_ROUNDS,
         TEST_MERKLE_HEIGHT,
     },
-    utils::{assert_roots_equal, global_teardown},
+    utils::{assert_roots_equal, global_teardown, TestConfig},
 };
 
 #[tokio::test]
@@ -20,7 +20,7 @@ async fn test_initialization_root() -> Result<()> {
     )
     .await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Merkle, sequencer, false).await;
 
     Ok(())
 }
@@ -34,7 +34,7 @@ async fn test_single_insert_root() -> Result<()> {
 
     assert_roots_equal(&account, *MERKLE_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Merkle, sequencer, false).await;
 
     Ok(())
 }
@@ -50,7 +50,7 @@ async fn test_multi_insert_root() -> Result<()> {
 
     assert_roots_equal(&account, *MERKLE_ADDRESS.get().unwrap(), &ark_merkle_tree).await?;
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Merkle, sequencer, false).await;
 
     Ok(())
 }
@@ -68,7 +68,7 @@ async fn test_full_insert() -> Result<()> {
         .await
         .is_err());
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Merkle, sequencer, false).await;
 
     Ok(())
 }

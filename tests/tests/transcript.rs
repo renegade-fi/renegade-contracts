@@ -8,7 +8,7 @@ use tests::{
         innerproduct_domain_sep, r1cs_1phase_domain_sep, r1cs_domain_sep, rangeproof_domain_sep,
         setup_transcript_test, validate_and_append_point, FUZZ_ROUNDS,
     },
-    utils::global_teardown,
+    utils::{global_teardown, TestConfig},
 };
 
 #[tokio::test]
@@ -56,7 +56,7 @@ async fn test_transcript_fuzz() -> Result<()> {
         assert!(challenge_scalar == expected_challenge_scalar);
     }
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::Transcript, sequencer, false).await;
 
     Ok(())
 }

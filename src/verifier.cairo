@@ -264,7 +264,7 @@ mod MultiVerifier {
                     // Assert weight matrix has `q` rows
                     assert(w_v.len() == self.q.read(circuit_id), 'W_V has wrong number of rows');
                     // Assert weight matrix has correct max number of columns
-                    w_v.assert_width(self.n.read(circuit_id));
+                    w_v.assert_width(self.m.read(circuit_id));
 
                     self.W_V.write(circuit_id, StoreSerdeWrapper { inner: w_v });
 

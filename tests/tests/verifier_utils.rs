@@ -6,7 +6,7 @@ use mpc_bulletproof::{
     PedersenGens,
 };
 use tests::{
-    utils::{global_teardown, TRANSCRIPT_SEED},
+    utils::{global_teardown, TestConfig, TRANSCRIPT_SEED},
     verifier::utils::DUMMY_CIRCUIT_N,
     verifier_utils::utils::{
         calc_delta, get_expected_dummy_circuit_delta, get_expected_dummy_circuit_s, get_s_elem,
@@ -37,7 +37,7 @@ async fn test_squeeze_challenge_scalars_dummy_circuit() -> Result<()> {
     assert_eq!(challenge_scalars, expected_challenge_scalars);
     assert_eq!(u, expected_u);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
     Ok(())
 }
 
@@ -66,7 +66,7 @@ async fn test_get_s_elem() -> Result<()> {
         assert_eq!(&s_elem, expected_s_elem);
     }
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
 
     Ok(())
 }
@@ -106,7 +106,7 @@ async fn test_calc_delta() -> Result<()> {
 
     assert_eq!(delta, expected_delta);
 
-    global_teardown(sequencer);
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
 
     Ok(())
 }
