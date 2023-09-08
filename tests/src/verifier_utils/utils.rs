@@ -32,7 +32,7 @@ const CALC_DELTA_FN_NAME: &str = "calc_delta";
 const GET_S_ELEM_FN_NAME: &str = "get_s_elem";
 const SQUEEZE_CHALLENGE_SCALARS_FN_NAME: &str = "squeeze_challenge_scalars";
 
-static VERIFIER_UTILS_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
+pub static VERIFIER_UTILS_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
 // ---------------------
 // | META TEST HELPERS |

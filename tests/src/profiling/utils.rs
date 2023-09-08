@@ -43,10 +43,11 @@ use crate::{
     darkpool::utils::{initialize_darkpool, DARKPOOL_ADDRESS},
     merkle::utils::TEST_MERKLE_HEIGHT,
     utils::{
-        get_contract_address_from_artifact, global_setup, random_felt, singleprover_prove,
-        Breakpoint, CalldataSerializable, Circuit, MatchPayload, NewWalletArgs, ProcessMatchArgs,
-        UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
+        get_contract_address_from_artifact, global_setup, invoke_contract, random_felt,
+        singleprover_prove, Breakpoint, CalldataSerializable, Circuit, MatchPayload, NewWalletArgs,
+        ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
     },
+    verifier_utils::utils::VERIFIER_UTILS_WRAPPER_ADDRESS,
 };
 
 pub type SizedValidWalletCreate = ValidWalletCreate<MAX_BALANCES, MAX_ORDERS, MAX_FEES>;
@@ -64,6 +65,9 @@ pub type TestParamsCircuit = Circuit<
     ValidMatchMpcSingleProver,
     SizedValidSettle,
 >;
+
+pub const SAMPLE_BP_GENS_FN_NAME: &str = "sample_bp_gens";
+pub const RAW_MSM_FN_NAME: &str = "raw_msm";
 
 // ---------------------
 // | META TEST HELPERS |
@@ -130,6 +134,32 @@ pub fn init_profiling_test_statics(account: &ScriptAccount) -> Result<()> {
     }
 
     Ok(())
+}
+
+// --------------------------------
+// | CONTRACT INTERACTION HELPERS |
+// --------------------------------
+
+pub async fn sample_bp_gens(account: &ScriptAccount, n_plus: FieldElement) -> Result<()> {
+    invoke_contract(
+        account,
+        *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
+        SAMPLE_BP_GENS_FN_NAME,
+        vec![n_plus],
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn raw_msm(account: &ScriptAccount, num_points: FieldElement) -> Result<()> {
+    invoke_contract(
+        account,
+        *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
+        RAW_MSM_FN_NAME,
+        vec![num_points],
+    )
+    .await
+    .map(|_| ())
 }
 
 // ----------------
