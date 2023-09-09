@@ -35,7 +35,11 @@ trait IMultiVerifier<TContractState> {
         ref self: TContractState, verification_job_id: felt252, poly_index: usize
     );
     fn evaluate_scalar_poly_term(
-        ref self: TContractState, verification_job_id: felt252, poly_index: usize, term_index: usize
+        ref self: TContractState,
+        verification_job_id: felt252,
+        poly_index: usize,
+        term_index: usize,
+        vec_index: usize
     );
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
@@ -471,7 +475,8 @@ mod MultiVerifier {
             ref self: ContractState,
             verification_job_id: felt252,
             poly_index: usize,
-            term_index: usize
+            term_index: usize,
+            vec_index: usize,
         ) {
             let VerificationJob{circuit_id,
             rem_scalar_polys,
@@ -504,7 +509,7 @@ mod MultiVerifier {
 
             term_eval *= match term.vec {
                 Option::Some(vec_subterm) => {
-                    vec_subterm.evaluate(z, u_vec.span(), @vec_indices, @self, circuit_id)
+                    vec_subterm.evaluate(z, u_vec.span(), vec_index, @self, circuit_id)
                 },
                 Option::None(()) => 1.into(),
             };
@@ -894,7 +899,19 @@ mod MultiVerifier {
 
                 term_eval *= match term.vec {
                     Option::Some(vec_subterm) => {
-                        vec_subterm.evaluate(z, u, vec_indices, contract, circuit_id)
+                        let vec_index = match vec_subterm {
+                            VecSubterm::W_L_flat(()) => *vec_indices.w_L_flat_index,
+                            VecSubterm::W_R_flat(()) => *vec_indices.w_R_flat_index,
+                            VecSubterm::W_O_flat(()) => *vec_indices.w_O_flat_index,
+                            VecSubterm::W_V_flat(()) => *vec_indices.w_V_flat_index,
+                            VecSubterm::S(()) => *vec_indices.s_index,
+                            VecSubterm::S_inv(()) => contract.n_plus.read(circuit_id)
+                                - *vec_indices.s_inv_index
+                                - 1,
+                            VecSubterm::U_sq(()) => *vec_indices.u_sq_index,
+                            VecSubterm::U_sq_inv(()) => *vec_indices.u_sq_inv_index,
+                        };
+                        vec_subterm.evaluate(z, u, vec_index, contract, circuit_id)
                     },
                     Option::None(()) => 1.into(),
                 };
@@ -928,53 +945,36 @@ mod MultiVerifier {
             self: @VecSubterm,
             z: Scalar,
             u: Span<Scalar>,
-            vec_indices: @VecIndices,
+            vec_index: usize,
             contract: @ContractState,
             circuit_id: felt252,
         ) -> Scalar {
             match self {
                 VecSubterm::W_L_flat(()) => {
-                    contract
-                        .W_L
-                        .read(circuit_id)
-                        .inner
-                        .get_flattened_elem(*vec_indices.w_L_flat_index, z)
+                    contract.W_L.read(circuit_id).inner.get_flattened_elem(vec_index, z)
                 },
                 VecSubterm::W_R_flat(()) => {
-                    contract
-                        .W_R
-                        .read(circuit_id)
-                        .inner
-                        .get_flattened_elem(*vec_indices.w_R_flat_index, z)
+                    contract.W_R.read(circuit_id).inner.get_flattened_elem(vec_index, z)
                 },
                 VecSubterm::W_O_flat(()) => {
-                    contract
-                        .W_O
-                        .read(circuit_id)
-                        .inner
-                        .get_flattened_elem(*vec_indices.w_O_flat_index, z)
+                    contract.W_O.read(circuit_id).inner.get_flattened_elem(vec_index, z)
                 },
                 VecSubterm::W_V_flat(()) => {
-                    contract
-                        .W_V
-                        .read(circuit_id)
-                        .inner
-                        .get_flattened_elem(*vec_indices.w_V_flat_index, z)
+                    contract.W_V.read(circuit_id).inner.get_flattened_elem(vec_index, z)
                 },
                 VecSubterm::S(()) => {
-                    get_s_elem(u, *vec_indices.s_index)
+                    get_s_elem(u, vec_index)
                 },
                 VecSubterm::S_inv(()) => {
                     // s_inv = rev(s)
-                    get_s_elem(u, contract.n_plus.read(circuit_id) - *vec_indices.s_inv_index - 1)
+                    get_s_elem(u, vec_index)
                 },
                 VecSubterm::U_sq(()) => {
-                    let u_i = *u.at(*vec_indices.u_sq_index);
+                    let u_i = *u.at(vec_index);
                     u_i * u_i
                 },
                 VecSubterm::U_sq_inv(()) => {
-                    // Unwrapping here is safe since u challenge scalars are always nonzero
-                    let u_i_inv = u.at(*vec_indices.u_sq_inv_index).inverse();
+                    let u_i_inv = u.at(vec_index).inverse();
                     u_i_inv * u_i_inv
                 },
             }

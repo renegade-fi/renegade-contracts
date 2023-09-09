@@ -282,12 +282,13 @@ pub async fn evaluate_scalar_poly_term(
     verification_job_id: FieldElement,
     poly_index: FieldElement,
     term_index: FieldElement,
+    vec_index: FieldElement,
 ) -> Result<()> {
     invoke_contract(
         account,
         *VERIFIER_ADDRESS.get().unwrap(),
         EVALUATE_SCALAR_POLY_TERM_FN_NAME,
-        vec![verification_job_id, poly_index, term_index],
+        vec![verification_job_id, poly_index, term_index, vec_index],
     )
     .await
     .map(|_| ())

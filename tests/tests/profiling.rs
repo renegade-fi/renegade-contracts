@@ -431,11 +431,19 @@ async fn profile_scalar_poly_term_eval() -> Result<()> {
 
     queue_verification_job(&account, &proof, &witness_commitments, verification_job_id).await?;
 
-    let poly_index = FieldElement::from(0_u32);
-    // TODO: PICK SCALAR POLY TERM TO EVALUATE
-    let term_index = FieldElement::from(0_u32);
+    let poly_index = FieldElement::from(15_u32);
+    let vec_index = FieldElement::from(1007_u32);
 
-    evaluate_scalar_poly_term(&account, verification_job_id, poly_index, term_index).await?;
+    for term_index in 0..4_usize {
+        evaluate_scalar_poly_term(
+            &account,
+            verification_job_id,
+            poly_index,
+            FieldElement::from(term_index),
+            vec_index,
+        )
+        .await?;
+    }
 
     global_teardown(TestConfig::Verifier, sequencer, false).await;
 
