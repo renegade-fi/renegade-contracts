@@ -4,6 +4,8 @@
 use circuit_types::{order::Order, transfers::ExternalTransfer};
 use circuits::zk_circuits::valid_match_mpc::ValidMatchMpcSingleProver;
 use eyre::Result;
+use merlin::HashChainTranscript;
+use mpc_bulletproof::util::exp_iter;
 use mpc_stark::algebra::scalar::Scalar;
 use starknet::core::types::FieldElement;
 use tests::{
@@ -14,15 +16,20 @@ use tests::{
     merkle::utils::insert,
     profiling::utils::{
         evaluate_scalar_poly, evaluate_scalar_poly_term, get_new_wallet_args,
-        get_new_wallet_queue_verification_args, get_update_wallet_args, raw_msm, sample_bp_gens,
-        SizedValidCommitments, SizedValidReblind, SizedValidSettle, SizedValidWalletCreate,
-        SizedValidWalletUpdate, TestParamsCircuit,
+        get_new_wallet_queue_verification_args, get_update_wallet_args,
+        hash_statement_and_verify_signature, raw_msm, sample_bp_gens, SizedValidCommitments,
+        SizedValidReblind, SizedValidSettle, SizedValidWalletCreate, SizedValidWalletUpdate,
+        TestParamsCircuit,
     },
     utils::{
         fully_parameterize_circuit, get_circuit_params, get_root, global_teardown, setup_sequencer,
-        Breakpoint, CalldataSerializable, TestConfig, DUMMY_VALUE, DUMMY_WALLET,
+        Breakpoint, CalldataSerializable, CircuitParams, TestConfig, UpdateWalletArgs, DUMMY_VALUE,
+        DUMMY_WALLET, TRANSCRIPT_SEED,
     },
     verifier::utils::queue_verification_job,
+    verifier_utils::utils::{
+        calc_delta, get_s_elem, squeeze_challenge_scalars, squeeze_expected_challenge_scalars,
+    },
 };
 
 // ----------------------------
@@ -220,9 +227,9 @@ async fn profile_poll_update_wallet() -> Result<()> {
     Ok(())
 }
 
-// -----------
-// | HELPERS |
-// -----------
+// ------------------
+// | VERIFIER UTILS |
+// ------------------
 
 #[tokio::test]
 async fn profile_verifier_utils_sample_bp_gens() -> Result<()> {
@@ -243,6 +250,122 @@ async fn profile_verifier_utils_raw_msm() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn profile_verifier_utils_squeeze_challenge_scalars() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
+
+    let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
+
+    squeeze_challenge_scalars(&sequencer.account(), &proof, &witness_commitments).await?;
+
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_verifier_utils_calc_delta() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
+
+    let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
+
+    let [circuit_params_0, circuit_params_1, circuit_params_2, ..] =
+        get_circuit_params::<SizedValidWalletCreate>();
+    let circuit_size_params = match circuit_params_0 {
+        CircuitParams::SizeParams(circuit_size_params) => circuit_size_params,
+        _ => panic!("Invalid circuit params"),
+    };
+    let w_l = match circuit_params_1 {
+        CircuitParams::Wl(w_l) => w_l,
+        _ => panic!("Invalid circuit params"),
+    };
+    let w_r = match circuit_params_2 {
+        CircuitParams::Wr(w_r) => w_r,
+        _ => panic!("Invalid circuit params"),
+    };
+
+    let (challenge_scalars, _) = squeeze_expected_challenge_scalars(
+        circuit_size_params.m as u64,
+        circuit_size_params.n_plus as u64,
+        &mut HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes()),
+        &proof,
+        &witness_commitments,
+    )?;
+    let y_inv_powers_to_n = exp_iter(challenge_scalars[0].inverse())
+        .take(circuit_size_params.n)
+        .collect();
+    let z = challenge_scalars[1];
+
+    calc_delta(&sequencer.account(), &y_inv_powers_to_n, z, w_l, w_r).await?;
+
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_verifier_utils_get_s_elem() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
+
+    let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
+
+    let [circuit_params_0, ..] = get_circuit_params::<SizedValidWalletCreate>();
+    let circuit_size_params = match circuit_params_0 {
+        CircuitParams::SizeParams(circuit_size_params) => circuit_size_params,
+        _ => panic!("Invalid circuit params"),
+    };
+
+    let (_, u) = squeeze_expected_challenge_scalars(
+        circuit_size_params.m as u64,
+        circuit_size_params.n_plus as u64,
+        &mut HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes()),
+        &proof,
+        &witness_commitments,
+    )?;
+
+    for i in 0..u.len() {
+        get_s_elem(&sequencer.account(), &u, i).await?;
+    }
+
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_verifier_utils_hash_statement_and_verify_signature() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
+    let account = sequencer.account();
+
+    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let old_wallet = DUMMY_WALLET.clone();
+    let mut new_wallet = DUMMY_WALLET.clone();
+    new_wallet.orders[0] = Order::default();
+    let external_transfer = ExternalTransfer::default();
+
+    let UpdateWalletArgs {
+        statement,
+        statement_signature,
+        ..
+    } = get_update_wallet_args(
+        old_wallet,
+        new_wallet,
+        external_transfer,
+        initial_root,
+        Breakpoint::None,
+    )?;
+
+    hash_statement_and_verify_signature(&account, statement, statement_signature).await?;
+
+    global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
+
+    Ok(())
+}
+
+// ----------
+// | MERKLE |
+// ----------
 
 #[tokio::test]
 async fn profile_merkle_insert() -> Result<()> {

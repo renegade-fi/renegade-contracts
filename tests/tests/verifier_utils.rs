@@ -7,11 +7,10 @@ use mpc_bulletproof::{
 };
 use tests::{
     utils::{global_teardown, TestConfig, TRANSCRIPT_SEED},
-    verifier::utils::DUMMY_CIRCUIT_N,
+    verifier::utils::{DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS},
     verifier_utils::utils::{
-        calc_delta, get_expected_dummy_circuit_delta, get_expected_dummy_circuit_s, get_s_elem,
-        setup_verifier_utils_test, squeeze_challenge_scalars,
-        squeeze_expected_dummy_circuit_challenge_scalars,
+        calc_delta, get_expected_delta, get_expected_s_vec, get_s_elem, setup_verifier_utils_test,
+        squeeze_challenge_scalars, squeeze_expected_challenge_scalars,
     },
 };
 
@@ -27,12 +26,13 @@ async fn test_squeeze_challenge_scalars_dummy_circuit() -> Result<()> {
     let (challenge_scalars, u) =
         squeeze_challenge_scalars(&sequencer.account(), &proof, &witness_commitments).await?;
 
-    let (expected_challenge_scalars, expected_u) =
-        squeeze_expected_dummy_circuit_challenge_scalars(
-            &mut transcript_clone,
-            &proof,
-            &witness_commitments,
-        )?;
+    let (expected_challenge_scalars, expected_u) = squeeze_expected_challenge_scalars(
+        DUMMY_CIRCUIT_M as u64,
+        DUMMY_CIRCUIT_N_PLUS as u64,
+        &mut transcript_clone,
+        &proof,
+        &witness_commitments,
+    )?;
 
     assert_eq!(challenge_scalars, expected_challenge_scalars);
     assert_eq!(u, expected_u);
@@ -52,14 +52,21 @@ async fn test_get_s_elem() -> Result<()> {
     let (sequencer, proof, witness_commitments) = setup_verifier_utils_test(&mut verifier).await?;
     let account = sequencer.account();
 
-    let (_, u) = squeeze_expected_dummy_circuit_challenge_scalars(
+    let (_, u) = squeeze_expected_challenge_scalars(
+        DUMMY_CIRCUIT_M as u64,
+        DUMMY_CIRCUIT_N_PLUS as u64,
         &mut challenge_scalars_transcript_clone,
         &proof,
         &witness_commitments,
     )?;
 
-    let expected_s =
-        get_expected_dummy_circuit_s(&proof, &witness_commitments, &mut s_transcript_clone)?;
+    let expected_s = get_expected_s_vec(
+        DUMMY_CIRCUIT_M as u64,
+        DUMMY_CIRCUIT_N_PLUS,
+        &proof,
+        &witness_commitments,
+        &mut s_transcript_clone,
+    )?;
 
     for (i, expected_s_elem) in expected_s.iter().enumerate().take(u.len()) {
         let s_elem = get_s_elem(&account, &u, i).await?;
@@ -80,7 +87,9 @@ async fn test_calc_delta() -> Result<()> {
 
     let (sequencer, proof, witness_commitments) = setup_verifier_utils_test(&mut verifier).await?;
 
-    let (challenge_scalars, _) = squeeze_expected_dummy_circuit_challenge_scalars(
+    let (challenge_scalars, _) = squeeze_expected_challenge_scalars(
+        DUMMY_CIRCUIT_M as u64,
+        DUMMY_CIRCUIT_N_PLUS as u64,
         &mut transcript_clone,
         &proof,
         &witness_commitments,
@@ -102,7 +111,13 @@ async fn test_calc_delta() -> Result<()> {
     )
     .await?;
 
-    let expected_delta = get_expected_dummy_circuit_delta(&mut verifier, &y_inv_powers_to_n, &z);
+    let expected_delta = get_expected_delta(
+        DUMMY_CIRCUIT_N,
+        DUMMY_CIRCUIT_N_PLUS,
+        &mut verifier,
+        &y_inv_powers_to_n,
+        &z,
+    );
 
     assert_eq!(delta, expected_delta);
 

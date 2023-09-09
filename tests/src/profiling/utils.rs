@@ -18,7 +18,10 @@ use circuits::zk_circuits::{
         ValidWalletCreate,
     },
     valid_wallet_update::{
-        test_helpers::construct_witness_statement as valid_wallet_update_witness_statement,
+        test_helpers::{
+            construct_witness_statement as valid_wallet_update_witness_statement,
+            SizedStatement as SizedValidWalletUpdateStatement,
+        },
         ValidWalletUpdate,
     },
 };
@@ -31,7 +34,7 @@ use mpc_bulletproof::{
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
 use rand::thread_rng;
-use renegade_crypto::ecdsa::sign_scalar_message;
+use renegade_crypto::ecdsa::{sign_scalar_message, Signature};
 use starknet::{accounts::Account, core::types::FieldElement};
 use starknet_scripts::commands::utils::{
     deploy_darkpool, FeatureFlags, ScriptAccount, DARKPOOL_CONTRACT_NAME,
@@ -70,6 +73,7 @@ pub type TestParamsCircuit = Circuit<
 
 pub const SAMPLE_BP_GENS_FN_NAME: &str = "sample_bp_gens";
 pub const RAW_MSM_FN_NAME: &str = "raw_msm";
+pub const HASH_STATEMENT_AND_VERIFY_SIGNATURE_FN_NAME: &str = "hash_statement_and_verify_signature";
 pub const EVALUATE_SCALAR_POLY_FN_NAME: &str = "evaluate_scalar_poly";
 pub const EVALUATE_SCALAR_POLY_TERM_FN_NAME: &str = "evaluate_scalar_poly_term";
 
@@ -161,6 +165,28 @@ pub async fn raw_msm(account: &ScriptAccount, num_points: FieldElement) -> Resul
         *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
         RAW_MSM_FN_NAME,
         vec![num_points],
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn hash_statement_and_verify_signature(
+    account: &ScriptAccount,
+    statement: SizedValidWalletUpdateStatement,
+    signature: Signature,
+) -> Result<()> {
+    let calldata = statement
+        .to_calldata()
+        .into_iter()
+        .chain(signature.r.to_calldata())
+        .chain(signature.s.to_calldata())
+        .collect();
+
+    invoke_contract(
+        account,
+        *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
+        HASH_STATEMENT_AND_VERIFY_SIGNATURE_FN_NAME,
+        calldata,
     )
     .await
     .map(|_| ())

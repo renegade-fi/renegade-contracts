@@ -1,5 +1,6 @@
 use renegade_contracts::{
-    verifier::{scalar::Scalar, types::{Proof, SparseWeightMatrix}}, utils::serde::EcPointSerde
+    verifier::{scalar::Scalar, types::{Proof, SparseWeightMatrix}}, utils::serde::EcPointSerde,
+    darkpool::{types::Signature, statements::ValidWalletUpdateStatement},
 };
 
 
@@ -19,18 +20,27 @@ trait IVerifierUtils<TContractState> {
     ) -> (Array<Scalar>, Array<Scalar>);
     fn sample_bp_gens(ref self: TContractState, n_plus: usize);
     fn raw_msm(ref self: TContractState, num_points: usize);
+    fn hash_statement_and_verify_signature(
+        ref self: TContractState,
+        statement: ValidWalletUpdateStatement,
+        statement_signature: Signature
+    );
 }
 
 #[starknet::contract]
 mod VerifierUtilsWrapper {
+    use traits::Into;
     use array::ArrayTrait;
     use ec::{ec_point_new, ec_mul, stark_curve};
+    use ecdsa::check_ecdsa_signature;
     use renegade_contracts::{
         verifier::{
-            scalar::Scalar, types::{Proof, SparseWeightMatrix, RemainingGeneratorsTrait},
-            utils
+            scalar::Scalar, types::{Proof, SparseWeightMatrix, RemainingGeneratorsTrait}, utils
         },
-        utils::{serde::EcPointSerde, constants::{G_LABEL, H_LABEL}}
+        utils::{serde::EcPointSerde, constants::{G_LABEL, H_LABEL}, crypto::hash_statement},
+        darkpool::{
+            types::{Signature, PublicSigningKeyTrait}, statements::ValidWalletUpdateStatement
+        },
     };
 
     #[storage]
@@ -91,6 +101,20 @@ mod VerifierUtilsWrapper {
 
                 i += 1;
             }
+        }
+
+        fn hash_statement_and_verify_signature(
+            ref self: ContractState,
+            statement: ValidWalletUpdateStatement,
+            statement_signature: Signature
+        ) {
+            let statement_hash = hash_statement(@statement);
+            check_ecdsa_signature(
+                statement_hash.into(),
+                statement.old_pk_root.get_x(),
+                statement_signature.r.into(),
+                statement_signature.s.into(),
+            );
         }
     }
 }

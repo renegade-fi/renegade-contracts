@@ -21,8 +21,8 @@ use crate::{
         global_setup, setup_sequencer, CalldataSerializable, TestConfig, ARTIFACTS_PATH_ENV_VAR,
     },
     verifier::utils::{
-        prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit, DUMMY_CIRCUIT_K,
-        DUMMY_CIRCUIT_M, DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
+        prep_dummy_circuit_verifier, singleprover_prove_dummy_circuit, DUMMY_CIRCUIT_M,
+        DUMMY_CIRCUIT_N, DUMMY_CIRCUIT_N_PLUS,
     },
 };
 
@@ -191,7 +191,9 @@ pub async fn squeeze_challenge_scalars(
 /// Squeezes the expected challenge scalars for a given proof and witness commitments,
 /// copying the implementation in `mpc-bulletproof`.
 /// Assumes the transcript has absorbed nothing other than the seed it was initialized with.
-pub fn squeeze_expected_dummy_circuit_challenge_scalars(
+pub fn squeeze_expected_challenge_scalars(
+    m: u64,
+    n_plus: u64,
     transcript: &mut HashChainTranscript,
     proof: &R1CSProof,
     witness_commitments: &[StarkPoint],
@@ -199,16 +201,17 @@ pub fn squeeze_expected_dummy_circuit_challenge_scalars(
     debug!("Squeezing expected challenge scalars for dummy circuit...");
 
     let mut challenge_scalars =
-        replay_transcript_r1cs_protocol(transcript, proof, witness_commitments)?;
+        replay_transcript_r1cs_protocol(m, transcript, proof, witness_commitments)?;
 
-    let u = replay_transcript_ipp_protocol(transcript, &proof.ipp_proof)?;
+    let u = replay_transcript_ipp_protocol(n_plus, transcript, &proof.ipp_proof)?;
 
     challenge_scalars.push(transcript.challenge_scalar(b"r"));
 
     Ok((challenge_scalars, u))
 }
 
-fn replay_transcript_r1cs_protocol(
+pub fn replay_transcript_r1cs_protocol(
+    m: u64,
     transcript: &mut HashChainTranscript,
     proof: &R1CSProof,
     witness_commitments: &[StarkPoint],
@@ -221,7 +224,7 @@ fn replay_transcript_r1cs_protocol(
         .iter()
         .try_for_each(|w| transcript.validate_and_append_point(b"V", w))?;
 
-    transcript.append_u64(b"m", DUMMY_CIRCUIT_M as u64);
+    transcript.append_u64(b"m", m);
 
     transcript.validate_and_append_point(b"A_I1", &proof.A_I1)?;
     transcript.validate_and_append_point(b"A_O1", &proof.A_O1)?;
@@ -256,13 +259,14 @@ fn replay_transcript_r1cs_protocol(
     Ok(challenge_scalars)
 }
 
-fn replay_transcript_ipp_protocol(
+pub fn replay_transcript_ipp_protocol(
+    n_plus: u64,
     transcript: &mut HashChainTranscript,
     ipp_proof: &InnerProductProof,
 ) -> Result<Vec<Scalar>> {
-    let mut u = Vec::with_capacity(DUMMY_CIRCUIT_K);
+    let mut u = Vec::new();
 
-    transcript.innerproduct_domain_sep(DUMMY_CIRCUIT_N_PLUS as u64);
+    transcript.innerproduct_domain_sep(n_plus);
 
     for (l, r) in ipp_proof.L_vec.iter().zip(ipp_proof.R_vec.iter()) {
         transcript.validate_and_append_point(b"L", l)?;
@@ -277,24 +281,28 @@ fn replay_transcript_ipp_protocol(
 /// from `mpc-bulletproof`.
 ///
 /// Assumes the transcript has absorbed nothing other than the seed it was initialized with.
-pub fn get_expected_dummy_circuit_s(
+pub fn get_expected_s_vec(
+    m: u64,
+    n_plus: usize,
     proof: &R1CSProof,
     witness_commitments: &[StarkPoint],
     transcript: &mut HashChainTranscript,
 ) -> Result<Vec<Scalar>> {
     // Catch up the transcript to the expected point
-    replay_transcript_r1cs_protocol(transcript, proof, witness_commitments)?;
+    replay_transcript_r1cs_protocol(m, transcript, proof, witness_commitments)?;
 
     proof
         .ipp_proof
-        .verification_scalars(DUMMY_CIRCUIT_N_PLUS, transcript)
+        .verification_scalars(n_plus, transcript)
         .map(|(_, _, s)| s)
         .map_err(|e| eyre!("error obtainining s: {e}"))
 }
 
 /// Calculates delta given the powers of y^{-1} and z (and, via the verifier, the circuit weights),
 /// copying `mpc-bulletproof`'s implementation.
-pub fn get_expected_dummy_circuit_delta(
+pub fn get_expected_delta(
+    n: usize,
+    n_plus: usize,
     verifier: &mut Verifier,
     y_inv_powers_to_n: &[Scalar],
     z: &Scalar,
@@ -304,8 +312,8 @@ pub fn get_expected_dummy_circuit_delta(
         .into_iter()
         .zip(y_inv_powers_to_n.iter())
         .map(|(w_r_flat_i, exp_y_inv)| w_r_flat_i * exp_y_inv)
-        .chain(iter::repeat(Scalar::zero()).take(DUMMY_CIRCUIT_N_PLUS - DUMMY_CIRCUIT_N))
+        .chain(iter::repeat(Scalar::zero()).take(n_plus - n))
         .collect::<Vec<Scalar>>();
 
-    inner_product(&yneg_w_r_flat[0..DUMMY_CIRCUIT_N], &w_l_flat)
+    inner_product(&yneg_w_r_flat[0..n], &w_l_flat)
 }
