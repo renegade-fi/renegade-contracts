@@ -17,7 +17,8 @@ use tests::{
     profiling::utils::{
         evaluate_scalar_poly, evaluate_scalar_poly_term, get_new_wallet_args,
         get_new_wallet_queue_verification_args, get_update_wallet_args,
-        hash_statement_and_verify_signature, raw_msm, sample_bp_gens, SizedValidCommitments,
+        hash_statement_and_verify_signature, invoke_calc_delta, invoke_get_s_elem,
+        invoke_squeeze_challenge_scalars, raw_msm, sample_bp_gens, SizedValidCommitments,
         SizedValidReblind, SizedValidSettle, SizedValidWalletCreate, SizedValidWalletUpdate,
         TestParamsCircuit,
     },
@@ -27,9 +28,7 @@ use tests::{
         DUMMY_WALLET, TRANSCRIPT_SEED,
     },
     verifier::utils::queue_verification_job,
-    verifier_utils::utils::{
-        calc_delta, get_s_elem, squeeze_challenge_scalars, squeeze_expected_challenge_scalars,
-    },
+    verifier_utils::utils::squeeze_expected_challenge_scalars,
 };
 
 // ----------------------------
@@ -257,7 +256,20 @@ async fn profile_verifier_utils_squeeze_challenge_scalars() -> Result<()> {
 
     let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
 
-    squeeze_challenge_scalars(&sequencer.account(), &proof, &witness_commitments).await?;
+    let [circuit_params_0, ..] = get_circuit_params::<SizedValidWalletCreate>();
+    let circuit_size_params = match circuit_params_0 {
+        CircuitParams::SizeParams(circuit_size_params) => circuit_size_params,
+        _ => panic!("Invalid circuit params"),
+    };
+
+    invoke_squeeze_challenge_scalars(
+        &sequencer.account(),
+        FieldElement::from(circuit_size_params.m),
+        FieldElement::from(circuit_size_params.n_plus),
+        &proof,
+        &witness_commitments,
+    )
+    .await?;
 
     global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
 
@@ -297,7 +309,15 @@ async fn profile_verifier_utils_calc_delta() -> Result<()> {
         .collect();
     let z = challenge_scalars[1];
 
-    calc_delta(&sequencer.account(), &y_inv_powers_to_n, z, w_l, w_r).await?;
+    invoke_calc_delta(
+        &sequencer.account(),
+        FieldElement::from(circuit_size_params.n),
+        &y_inv_powers_to_n,
+        z,
+        w_l,
+        w_r,
+    )
+    .await?;
 
     global_teardown(TestConfig::VerifierUtils, sequencer, false).await;
 
@@ -325,7 +345,7 @@ async fn profile_verifier_utils_get_s_elem() -> Result<()> {
     )?;
 
     for i in 0..u.len() {
-        get_s_elem(&sequencer.account(), &u, i).await?;
+        invoke_get_s_elem(&sequencer.account(), &u, i).await?;
     }
 
     global_teardown(TestConfig::VerifierUtils, sequencer, false).await;

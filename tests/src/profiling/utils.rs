@@ -29,7 +29,7 @@ use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
-    r1cs::{Prover, R1CSProof, Verifier},
+    r1cs::{Prover, R1CSProof, SparseReducedMatrix, Verifier},
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
@@ -52,7 +52,10 @@ use crate::{
         ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
     },
     verifier::utils::VERIFIER_ADDRESS,
-    verifier_utils::utils::VERIFIER_UTILS_WRAPPER_ADDRESS,
+    verifier_utils::utils::{
+        CALC_DELTA_FN_NAME, GET_S_ELEM_FN_NAME, SQUEEZE_CHALLENGE_SCALARS_FN_NAME,
+        VERIFIER_UTILS_WRAPPER_ADDRESS,
+    },
 };
 
 pub type SizedValidWalletCreate = ValidWalletCreate<MAX_BALANCES, MAX_ORDERS, MAX_FEES>;
@@ -186,6 +189,73 @@ pub async fn hash_statement_and_verify_signature(
         account,
         *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
         HASH_STATEMENT_AND_VERIFY_SIGNATURE_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn invoke_calc_delta(
+    account: &ScriptAccount,
+    n: FieldElement,
+    y_inv_powers_to_n: &Vec<Scalar>,
+    z: Scalar,
+    w_l: SparseReducedMatrix,
+    w_r: SparseReducedMatrix,
+) -> Result<()> {
+    let calldata = iter::once(n)
+        .chain(y_inv_powers_to_n.to_calldata())
+        .chain(z.to_calldata())
+        .chain(w_l.to_calldata())
+        .chain(w_r.to_calldata())
+        .collect();
+
+    invoke_contract(
+        account,
+        *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
+        CALC_DELTA_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn invoke_get_s_elem(account: &ScriptAccount, u: &Vec<Scalar>, i: usize) -> Result<()> {
+    let calldata = u
+        .to_calldata()
+        .into_iter()
+        .chain(iter::once(FieldElement::from(i)))
+        .collect();
+
+    invoke_contract(
+        account,
+        *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
+        GET_S_ELEM_FN_NAME,
+        calldata,
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn invoke_squeeze_challenge_scalars(
+    account: &ScriptAccount,
+    m: FieldElement,
+    n_plus: FieldElement,
+    proof: &R1CSProof,
+    witness_commitments: &Vec<StarkPoint>,
+) -> Result<()> {
+    let calldata = proof
+        .to_calldata()
+        .into_iter()
+        .chain(witness_commitments.to_calldata())
+        .chain(iter::once(m))
+        .chain(iter::once(n_plus))
+        .collect();
+
+    invoke_contract(
+        account,
+        *VERIFIER_UTILS_WRAPPER_ADDRESS.get().unwrap(),
+        SQUEEZE_CHALLENGE_SCALARS_FN_NAME,
         calldata,
     )
     .await

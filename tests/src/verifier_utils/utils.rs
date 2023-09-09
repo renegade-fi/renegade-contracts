@@ -28,9 +28,9 @@ use crate::{
 
 const VERIFIER_UTILS_WRAPPER_CONTRACT_NAME: &str = "renegade_contracts_VerifierUtilsWrapper";
 
-const CALC_DELTA_FN_NAME: &str = "calc_delta";
-const GET_S_ELEM_FN_NAME: &str = "get_s_elem";
-const SQUEEZE_CHALLENGE_SCALARS_FN_NAME: &str = "squeeze_challenge_scalars";
+pub const CALC_DELTA_FN_NAME: &str = "calc_delta";
+pub const GET_S_ELEM_FN_NAME: &str = "get_s_elem";
+pub const SQUEEZE_CHALLENGE_SCALARS_FN_NAME: &str = "squeeze_challenge_scalars";
 
 pub static VERIFIER_UTILS_WRAPPER_ADDRESS: OnceCell<FieldElement> = OnceCell::new();
 
