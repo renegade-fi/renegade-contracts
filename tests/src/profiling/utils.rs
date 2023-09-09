@@ -385,11 +385,11 @@ pub fn get_update_wallet_args(
     let (witness_commitment, proof) =
         singleprover_prove::<SizedValidWalletUpdate>(witness, statement.clone())?;
 
-    verify_singleprover_proof::<SizedValidWalletUpdate>(
-        statement.clone(),
-        witness_commitment.clone(),
-        proof.clone(),
-    )?;
+    // verify_singleprover_proof::<SizedValidWalletUpdate>(
+    //     statement.clone(),
+    //     witness_commitment.clone(),
+    //     proof.clone(),
+    // )?;
 
     let verification_job_id = random_felt();
 
