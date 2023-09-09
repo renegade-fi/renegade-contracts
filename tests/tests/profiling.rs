@@ -358,7 +358,7 @@ async fn profile_verifier_utils_hash_statement_and_verify_signature() -> Result<
     let sequencer = setup_sequencer(TestConfig::VerifierUtils).await?;
     let account = sequencer.account();
 
-    let initial_root = get_root(&account, *DARKPOOL_ADDRESS.get().unwrap()).await?;
+    let initial_root = Scalar::one();
     let old_wallet = DUMMY_WALLET.clone();
     let mut new_wallet = DUMMY_WALLET.clone();
     new_wallet.orders[0] = Order::default();
