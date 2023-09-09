@@ -3,7 +3,7 @@ use eyre::{eyre, Result};
 
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
-    r1cs::{CircuitWeights, ConstraintSystem, Prover, R1CSProof, Variable, Verifier},
+    r1cs::{ConstraintSystem, Prover, R1CSProof, Variable, Verifier},
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
@@ -14,13 +14,16 @@ use starknet_scripts::commands::utils::{
     calculate_contract_address, declare, deploy, get_artifacts, ScriptAccount,
     VERIFIER_CONTRACT_NAME,
 };
-use std::{env, iter};
+use std::env;
 use tracing::debug;
 
-use crate::utils::{
-    fully_parameterize_circuit, get_contract_address_from_artifact, global_setup, invoke_contract,
-    Breakpoint, CalldataSerializable, CircuitParams, CircuitSizeParams, ARTIFACTS_PATH_ENV_VAR,
-    NUM_CIRCUITS, TRANSCRIPT_SEED,
+use crate::{
+    profiling::utils::{SizedValidWalletCreate, TestParamsCircuit},
+    utils::{
+        fully_parameterize_circuit, get_circuit_params, get_contract_address_from_artifact,
+        global_setup, invoke_contract, Breakpoint, CalldataSerializable, ARTIFACTS_PATH_ENV_VAR,
+        TRANSCRIPT_SEED,
+    },
 };
 
 pub const FUZZ_ROUNDS: usize = 1;
@@ -49,8 +52,8 @@ pub async fn init_verifier_test_state() -> Result<TestSequencer> {
     fully_parameterize_circuit(
         &account,
         verifier_address,
-        DUMMY_CIRCUIT_ID,
-        get_dummy_circuit_params(),
+        TestParamsCircuit::ValidWalletCreate(SizedValidWalletCreate {}).to_calldata()[0],
+        get_circuit_params::<SizedValidWalletCreate>(),
     )
     .await?;
 
@@ -99,7 +102,7 @@ pub async fn add_circuit(account: &ScriptAccount, verifier_address: FieldElement
         account,
         verifier_address,
         ADD_CIRCUIT_FN_NAME,
-        vec![DUMMY_CIRCUIT_ID],
+        TestParamsCircuit::ValidWalletCreate(SizedValidWalletCreate {}).to_calldata(),
     )
     .await
     .map(|_| ())
@@ -111,7 +114,9 @@ pub async fn queue_verification_job(
     witness_commitments: &Vec<StarkPoint>,
     verification_job_id: FieldElement,
 ) -> Result<()> {
-    let calldata = iter::once(DUMMY_CIRCUIT_ID)
+    let calldata = TestParamsCircuit::ValidWalletCreate(SizedValidWalletCreate {})
+        .to_calldata()
+        .into_iter()
         .chain(proof.to_calldata())
         .chain(witness_commitments.to_calldata())
         .chain(verification_job_id.to_calldata())
@@ -251,37 +256,37 @@ pub fn prep_dummy_circuit_verifier(verifier: &mut Verifier, witness_commitments:
     apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, verifier);
 }
 
-fn get_dummy_circuit_weights() -> CircuitWeights {
-    let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
-    let pc_gens = PedersenGens::default();
-    let mut prover = Prover::new(&pc_gens, &mut transcript);
+// fn get_dummy_circuit_weights() -> CircuitWeights {
+//     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
+//     let pc_gens = PedersenGens::default();
+//     let mut prover = Prover::new(&pc_gens, &mut transcript);
 
-    let mut rng = thread_rng();
+//     let mut rng = thread_rng();
 
-    let (_, a_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-    let (_, b_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-    let (_, x_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-    let (_, y_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+//     let (_, a_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+//     let (_, b_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+//     let (_, x_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
+//     let (_, y_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
 
-    apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, &mut prover);
+//     apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, &mut prover);
 
-    prover.get_weights()
-}
+//     prover.get_weights()
+// }
 
-fn get_dummy_circuit_params() -> [CircuitParams; NUM_CIRCUITS] {
-    let circuit_weights = get_dummy_circuit_weights();
-    [
-        CircuitParams::SizeParams(CircuitSizeParams {
-            n: DUMMY_CIRCUIT_N,
-            n_plus: DUMMY_CIRCUIT_N_PLUS,
-            k: DUMMY_CIRCUIT_K,
-            q: DUMMY_CIRCUIT_Q,
-            m: DUMMY_CIRCUIT_M,
-        }),
-        CircuitParams::Wl(circuit_weights.w_l),
-        CircuitParams::Wr(circuit_weights.w_r),
-        CircuitParams::Wo(circuit_weights.w_o),
-        CircuitParams::Wv(circuit_weights.w_v),
-        CircuitParams::C(circuit_weights.c),
-    ]
-}
+// fn get_dummy_circuit_params() -> [CircuitParams; NUM_CIRCUITS] {
+//     let circuit_weights = get_dummy_circuit_weights();
+//     [
+//         CircuitParams::SizeParams(CircuitSizeParams {
+//             n: DUMMY_CIRCUIT_N,
+//             n_plus: DUMMY_CIRCUIT_N_PLUS,
+//             k: DUMMY_CIRCUIT_K,
+//             q: DUMMY_CIRCUIT_Q,
+//             m: DUMMY_CIRCUIT_M,
+//         }),
+//         CircuitParams::Wl(circuit_weights.w_l),
+//         CircuitParams::Wr(circuit_weights.w_r),
+//         CircuitParams::Wo(circuit_weights.w_o),
+//         CircuitParams::Wv(circuit_weights.w_v),
+//         CircuitParams::C(circuit_weights.c),
+//     ]
+// }

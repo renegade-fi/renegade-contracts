@@ -26,10 +26,11 @@ use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
-    r1cs::{R1CSProof, Verifier},
+    r1cs::{Prover, R1CSProof, Verifier},
     BulletproofGens, PedersenGens,
 };
-use mpc_stark::algebra::scalar::Scalar;
+use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
+use rand::thread_rng;
 use renegade_crypto::ecdsa::sign_scalar_message;
 use starknet::{accounts::Account, core::types::FieldElement};
 use starknet_scripts::commands::utils::{
@@ -47,6 +48,7 @@ use crate::{
         singleprover_prove, Breakpoint, CalldataSerializable, Circuit, MatchPayload, NewWalletArgs,
         ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
     },
+    verifier::utils::VERIFIER_ADDRESS,
     verifier_utils::utils::VERIFIER_UTILS_WRAPPER_ADDRESS,
 };
 
@@ -68,6 +70,8 @@ pub type TestParamsCircuit = Circuit<
 
 pub const SAMPLE_BP_GENS_FN_NAME: &str = "sample_bp_gens";
 pub const RAW_MSM_FN_NAME: &str = "raw_msm";
+pub const EVALUATE_SCALAR_POLY_FN_NAME: &str = "evaluate_scalar_poly";
+pub const EVALUATE_SCALAR_POLY_TERM_FN_NAME: &str = "evaluate_scalar_poly_term";
 
 // ---------------------
 // | META TEST HELPERS |
@@ -162,6 +166,37 @@ pub async fn raw_msm(account: &ScriptAccount, num_points: FieldElement) -> Resul
     .map(|_| ())
 }
 
+pub async fn evaluate_scalar_poly(
+    account: &ScriptAccount,
+    verification_job_id: FieldElement,
+    poly_index: FieldElement,
+) -> Result<()> {
+    invoke_contract(
+        account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        EVALUATE_SCALAR_POLY_FN_NAME,
+        vec![verification_job_id, poly_index],
+    )
+    .await
+    .map(|_| ())
+}
+
+pub async fn evaluate_scalar_poly_term(
+    account: &ScriptAccount,
+    verification_job_id: FieldElement,
+    poly_index: FieldElement,
+    term_index: FieldElement,
+) -> Result<()> {
+    invoke_contract(
+        account,
+        *VERIFIER_ADDRESS.get().unwrap(),
+        EVALUATE_SCALAR_POLY_TERM_FN_NAME,
+        vec![verification_job_id, poly_index, term_index],
+    )
+    .await
+    .map(|_| ())
+}
+
 // ----------------
 // | MISC HELPERS |
 // ----------------
@@ -206,6 +241,30 @@ pub fn get_new_wallet_args(breakpoint: Breakpoint) -> Result<NewWalletArgs> {
         verification_job_id,
         breakpoint,
     })
+}
+
+pub fn get_new_wallet_queue_verification_args() -> Result<(Vec<StarkPoint>, R1CSProof, FieldElement)>
+{
+    let NewWalletArgs {
+        statement,
+        mut witness_commitments,
+        proof,
+        verification_job_id,
+        ..
+    } = get_new_wallet_args(Breakpoint::None)?;
+
+    let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
+    let pc_gens = PedersenGens::default();
+    let mut prover = Prover::new(&pc_gens, &mut transcript);
+
+    witness_commitments.extend(
+        statement
+            .commit_witness(&mut thread_rng(), &mut prover)
+            .1
+            .to_commitments(),
+    );
+
+    Ok((witness_commitments, proof, verification_job_id))
 }
 
 pub fn get_update_wallet_args(

@@ -13,7 +13,8 @@ use tests::{
     },
     merkle::utils::insert,
     profiling::utils::{
-        get_new_wallet_args, get_update_wallet_args, raw_msm, sample_bp_gens,
+        evaluate_scalar_poly, evaluate_scalar_poly_term, get_new_wallet_args,
+        get_new_wallet_queue_verification_args, get_update_wallet_args, raw_msm, sample_bp_gens,
         SizedValidCommitments, SizedValidReblind, SizedValidSettle, SizedValidWalletCreate,
         SizedValidWalletUpdate, TestParamsCircuit,
     },
@@ -21,6 +22,7 @@ use tests::{
         fully_parameterize_circuit, get_circuit_params, get_root, global_teardown, setup_sequencer,
         Breakpoint, CalldataSerializable, TestConfig, DUMMY_VALUE, DUMMY_WALLET,
     },
+    verifier::utils::queue_verification_job,
 };
 
 // ----------------------------
@@ -248,6 +250,51 @@ async fn profile_merkle_insert() -> Result<()> {
     insert(&sequencer.account(), Scalar::from(DUMMY_VALUE)).await?;
 
     global_teardown(TestConfig::Merkle, sequencer, false).await;
+
+    Ok(())
+}
+
+// ------------
+// | VERIFIER |
+// ------------
+
+#[tokio::test]
+async fn profile_scalar_poly_eval() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::Verifier).await?;
+    let account = sequencer.account();
+
+    let (witness_commitments, proof, verification_job_id) =
+        get_new_wallet_queue_verification_args()?;
+
+    queue_verification_job(&account, &proof, &witness_commitments, verification_job_id).await?;
+
+    // TODO: PICK SCALAR POLY TO EVALUATE
+    let poly_index = FieldElement::from(0_u32);
+
+    evaluate_scalar_poly(&account, verification_job_id, poly_index).await?;
+
+    global_teardown(TestConfig::Verifier, sequencer, false).await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_scalar_poly_term_eval() -> Result<()> {
+    let sequencer = setup_sequencer(TestConfig::Verifier).await?;
+    let account = sequencer.account();
+
+    let (witness_commitments, proof, verification_job_id) =
+        get_new_wallet_queue_verification_args()?;
+
+    queue_verification_job(&account, &proof, &witness_commitments, verification_job_id).await?;
+
+    let poly_index = FieldElement::from(0_u32);
+    // TODO: PICK SCALAR POLY TERM TO EVALUATE
+    let term_index = FieldElement::from(0_u32);
+
+    evaluate_scalar_poly_term(&account, verification_job_id, poly_index, term_index).await?;
+
+    global_teardown(TestConfig::Verifier, sequencer, false).await;
 
     Ok(())
 }

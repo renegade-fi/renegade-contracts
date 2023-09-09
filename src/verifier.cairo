@@ -31,6 +31,12 @@ trait IMultiVerifier<TContractState> {
     fn step_verification(
         ref self: TContractState, circuit_id: felt252, verification_job_id: felt252
     ) -> Option<bool>;
+    fn evaluate_scalar_poly(
+        ref self: TContractState, verification_job_id: felt252, poly_index: usize
+    );
+    fn evaluate_scalar_poly_term(
+        ref self: TContractState, verification_job_id: felt252, poly_index: usize, term_index: usize
+    );
     fn check_verification_job_status(
         self: @TContractState, verification_job_id: felt252
     ) -> Option<bool>;
@@ -60,8 +66,9 @@ mod MultiVerifier {
     use super::{
         types::{
             VerificationJob, VerificationJobTrait, RemainingGenerators, RemainingGeneratorsTrait,
-            VecPoly3, VecPoly3Trait, SparseWeightVec, SparseWeightVecTrait, SparseWeightMatrix,
-            SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams, VecIndices, VecIndicesTrait
+            VecPoly3, VecPoly3Term, VecPoly3Trait, SparseWeightVec, SparseWeightVecTrait,
+            SparseWeightMatrix, SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams,
+            VecIndices, VecIndicesTrait
         },
         utils::{squeeze_challenge_scalars, calc_delta, get_s_elem}, scalar::{Scalar, ScalarTrait}
     };
@@ -442,6 +449,65 @@ mod MultiVerifier {
                 .write(verification_job_id, StoreSerdeWrapper { inner: verification_job });
 
             verified
+        }
+
+        fn evaluate_scalar_poly(
+            ref self: ContractState, verification_job_id: felt252, poly_index: usize
+        ) {
+            let verification_job = self.verification_queue.read(verification_job_id).inner;
+            let poly = verification_job.rem_scalar_polys[poly_index];
+            poly
+                .evaluate(
+                    @self,
+                    verification_job.circuit_id,
+                    verification_job.y_inv_power,
+                    verification_job.z,
+                    verification_job.u_vec.span(),
+                    @verification_job.vec_indices,
+                );
+        }
+
+        fn evaluate_scalar_poly_term(
+            ref self: ContractState,
+            verification_job_id: felt252,
+            poly_index: usize,
+            term_index: usize
+        ) {
+            let VerificationJob{circuit_id,
+            rem_scalar_polys,
+            y_inv_power,
+            z,
+            u_vec,
+            vec_indices,
+            G_rem,
+            H_rem,
+            rem_commitments,
+            msm_result,
+            verified,
+            } =
+                self
+                .verification_queue
+                .read(verification_job_id)
+                .inner;
+            let poly: @Array<VecPoly3Term> = rem_scalar_polys[poly_index];
+
+            let term: VecPoly3Term = *poly[term_index];
+            let mut term_eval: Scalar = term.scalar;
+
+            term_eval *=
+                if term.uses_y_power {
+                    let (_, y_inv_power) = y_inv_power;
+                    y_inv_power
+                } else {
+                    1.into()
+                };
+
+            term_eval *= match term.vec {
+                Option::Some(vec_subterm) => {
+                    vec_subterm.evaluate(z, u_vec.span(), @vec_indices, @self, circuit_id)
+                },
+                Option::None(()) => 1.into(),
+            };
         }
 
         // -----------
