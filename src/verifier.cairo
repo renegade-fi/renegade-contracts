@@ -56,6 +56,7 @@ mod MultiVerifier {
         EcPoint, ec_point_zero, ec_mul, ec_point_unwrap, ec_point_non_zero, ec_point_new,
         stark_curve
     };
+    use hash::LegacyHash;
 
     use alexandria_data_structures::array_ext::ArrayTraitExt;
     use alexandria_math::fast_power::fast_power;
@@ -71,8 +72,7 @@ mod MultiVerifier {
         types::{
             VerificationJob, VerificationJobTrait, RemainingGenerators, RemainingGeneratorsTrait,
             VecPoly3, VecPoly3Term, VecPoly3Trait, SparseWeightVec, SparseWeightVecTrait,
-            SparseWeightMatrix, SparseWeightMatrixTrait, VecSubterm, Proof, CircuitParams,
-            VecIndices, VecIndicesTrait
+            SparseWeightMatrix, VecSubterm, Proof, CircuitParams, VecIndices, VecIndicesTrait
         },
         utils::{squeeze_challenge_scalars, calc_delta, get_s_elem}, scalar::{Scalar, ScalarTrait}
     };
@@ -112,14 +112,22 @@ mod MultiVerifier {
         q: LegacyMap<felt252, usize>,
         /// Mapping from circuit ID -> the witness size for the circuit
         m: LegacyMap<felt252, usize>,
-        /// Mapping from circuit ID -> sparse-reduced matrix of left input weights for the circuit
-        W_L: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
-        /// Mapping from circuit ID -> sparse-reduced matrix of right input weights for the circuit
-        W_R: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
-        /// Mapping from circuit ID -> sparse-reduced matrix of output weights for the circuit
-        W_O: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
-        /// Mapping from circuit ID -> sparse-reduced matrix of witness weights for the circuit
-        W_V: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightMatrix>>,
+        /// Mapping from index -> column of left input weights.
+        /// All circuits' W_L columns are stored in this single mapping. For a given circuit,
+        /// the starting index of its columns is given by the hash of the circuit ID.
+        W_L: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
+        /// Mapping from index -> column of right input weights.
+        /// All circuits' W_R columns are stored in this single mapping. For a given circuit,
+        /// the starting index of its columns is given by the hash of the circuit ID.
+        W_R: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
+        /// Mapping from index -> column of output weights.
+        /// All circuits' W_O columns are stored in this single mapping. For a given circuit,
+        /// the starting index of its columns is given by the hash of the circuit ID.
+        W_O: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
+        /// Mapping from index -> column of witness weights.
+        /// All circuits' W_V columns are stored in this single mapping. For a given circuit,
+        /// the starting index of its columns is given by the hash of the circuit ID.
+        W_V: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
         /// Mapping from circuit ID -> sparse-reduced vector of constants for the circuit
         c: LegacyMap<felt252, StoreSerdeWrapper<SparseWeightVec>>,
         /// Mapping from circuit ID -> boolean indicating if the circuit's size params have been set
@@ -213,85 +221,7 @@ mod MultiVerifier {
                 !_is_circuit_fully_parameterized(@self, circuit_id), 'circuit already parameterized'
             );
 
-            match circuit_params {
-                CircuitParams::SizeParams(circuit_size_params) => {
-                    // Assert that n_plus = 2^k
-                    assert(
-                        fast_power(
-                            2, circuit_size_params.k.into(), MAX_USIZE.into() + 1
-                        ) == circuit_size_params
-                            .n_plus
-                            .into(),
-                        'n_plus != 2^k'
-                    );
-
-                    self.n.write(circuit_id, circuit_size_params.n);
-                    self.n_plus.write(circuit_id, circuit_size_params.n_plus);
-                    self.k.write(circuit_id, circuit_size_params.k);
-                    self.q.write(circuit_id, circuit_size_params.q);
-                    self.m.write(circuit_id, circuit_size_params.m);
-
-                    self.size_params_set.write(circuit_id, true);
-                },
-                CircuitParams::W_L(w_l) => {
-                    // Assert size params have been set
-                    assert(self.size_params_set.read(circuit_id), 'size params not set');
-                    // Assert weight matrix has `q` rows
-                    assert(w_l.len() == self.q.read(circuit_id), 'W_L has wrong number of rows');
-                    // Assert weight matrix has correct max number of columns
-                    w_l.assert_width(self.n.read(circuit_id));
-
-                    self.W_L.write(circuit_id, StoreSerdeWrapper { inner: w_l });
-
-                    self.W_L_set.write(circuit_id, true);
-                },
-                CircuitParams::W_R(w_r) => {
-                    // Assert size params have been set
-                    assert(self.size_params_set.read(circuit_id), 'size params not set');
-                    // Assert weight matrix has `q` rows
-                    assert(w_r.len() == self.q.read(circuit_id), 'W_R has wrong number of rows');
-                    // Assert weight matrix has correct max number of columns
-                    w_r.assert_width(self.n.read(circuit_id));
-
-                    self.W_R.write(circuit_id, StoreSerdeWrapper { inner: w_r });
-
-                    self.W_R_set.write(circuit_id, true);
-                },
-                CircuitParams::W_O(w_o) => {
-                    // Assert size params have been set
-                    assert(self.size_params_set.read(circuit_id), 'size params not set');
-                    // Assert weight matrix has `q` rows
-                    assert(w_o.len() == self.q.read(circuit_id), 'W_O has wrong number of rows');
-                    // Assert weight matrix has correct max number of columns
-                    w_o.assert_width(self.n.read(circuit_id));
-
-                    self.W_O.write(circuit_id, StoreSerdeWrapper { inner: w_o });
-
-                    self.W_O_set.write(circuit_id, true);
-                },
-                CircuitParams::W_V(w_v) => {
-                    // Assert size params have been set
-                    assert(self.size_params_set.read(circuit_id), 'size params not set');
-                    // Assert weight matrix has `q` rows
-                    assert(w_v.len() == self.q.read(circuit_id), 'W_V has wrong number of rows');
-                    // Assert weight matrix has correct max number of columns
-                    w_v.assert_width(self.m.read(circuit_id));
-
-                    self.W_V.write(circuit_id, StoreSerdeWrapper { inner: w_v });
-
-                    self.W_V_set.write(circuit_id, true);
-                },
-                CircuitParams::C(c) => {
-                    // Assert size params have been set
-                    assert(self.size_params_set.read(circuit_id), 'size params not set');
-                    // Assert that `c` vector is not too wide
-                    assert(c.len() <= self.q.read(circuit_id), 'c too wide');
-
-                    self.c.write(circuit_id, StoreSerdeWrapper { inner: c });
-
-                    self.c_set.write(circuit_id, true);
-                },
-            };
+            circuit_params.write_circuit_params(ref self, circuit_id);
 
             if _is_circuit_fully_parameterized(@self, circuit_id) {
                 self.emit(Event::CircuitParameterized(CircuitParameterized { circuit_id }));
@@ -330,10 +260,8 @@ mod MultiVerifier {
             let n_plus = self.n_plus.read(circuit_id);
             let k = self.k.read(circuit_id);
             let q = self.q.read(circuit_id);
-            let W_L = self.W_L.read(circuit_id).inner;
-            let W_R = self.W_R.read(circuit_id).inner;
-            let W_O = self.W_O.read(circuit_id).inner;
-            let W_V = self.W_V.read(circuit_id).inner;
+            let W_L = ContractAwareCircuitParamsTrait::read_full_W_L(@self, circuit_id);
+            let W_R = ContractAwareCircuitParamsTrait::read_full_W_R(@self, circuit_id);
             let c = self.c.read(circuit_id).inner;
 
             if self.feature_flags.read().enable_profiling
@@ -951,16 +879,20 @@ mod MultiVerifier {
         ) -> Scalar {
             match self {
                 VecSubterm::W_L_flat(()) => {
-                    contract.W_L.read(circuit_id).inner.get_flattened_elem(vec_index, z)
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    contract.W_L.read(offset + vec_index.into()).inner.flatten(z)
                 },
                 VecSubterm::W_R_flat(()) => {
-                    contract.W_R.read(circuit_id).inner.get_flattened_elem(vec_index, z)
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    contract.W_R.read(offset + vec_index.into()).inner.flatten(z)
                 },
                 VecSubterm::W_O_flat(()) => {
-                    contract.W_O.read(circuit_id).inner.get_flattened_elem(vec_index, z)
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    contract.W_O.read(offset + vec_index.into()).inner.flatten(z)
                 },
                 VecSubterm::W_V_flat(()) => {
-                    contract.W_V.read(circuit_id).inner.get_flattened_elem(vec_index, z)
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    contract.W_V.read(offset + vec_index.into()).inner.flatten(z)
                 },
                 VecSubterm::S(()) => {
                     get_s_elem(u, vec_index)
@@ -978,6 +910,189 @@ mod MultiVerifier {
                     u_i_inv * u_i_inv
                 },
             }
+        }
+    }
+
+    #[generate_trait]
+    impl CircuitParamsImpl of ContractAwareCircuitParamsTrait {
+        fn get_matrix_offset(circuit_id: felt252) -> felt252 {
+            LegacyHash::hash(circuit_id, circuit_id)
+        }
+
+        fn write_circuit_params(
+            self: CircuitParams, ref contract: ContractState, circuit_id: felt252
+        ) {
+            match self {
+                CircuitParams::SizeParams(circuit_size_params) => {
+                    // Assert that n_plus = 2^k
+                    assert(
+                        fast_power(
+                            2, circuit_size_params.k.into(), MAX_USIZE.into() + 1
+                        ) == circuit_size_params
+                            .n_plus
+                            .into(),
+                        'n_plus != 2^k'
+                    );
+
+                    contract.n.write(circuit_id, circuit_size_params.n);
+                    contract.n_plus.write(circuit_id, circuit_size_params.n_plus);
+                    contract.k.write(circuit_id, circuit_size_params.k);
+                    contract.q.write(circuit_id, circuit_size_params.q);
+                    contract.m.write(circuit_id, circuit_size_params.m);
+
+                    contract.size_params_set.write(circuit_id, true);
+                },
+                CircuitParams::W_L(w_l) => {
+                    // Assert size params have been set
+                    assert(contract.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `n` columns
+                    assert(
+                        w_l.len() == contract.n.read(circuit_id), 'W_L has wrong number of columns'
+                    );
+                    // // Assert weight matrix has correct max number of columns
+                    // w_l.assert_width(contract.n.read(circuit_id));
+
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    let mut i = 0;
+                    loop {
+                        if i == w_l.len() {
+                            break;
+                        }
+
+                        contract
+                            .W_L
+                            .write(offset + i.into(), StoreSerdeWrapper { inner: w_l[i].clone() });
+
+                        i += 1;
+                    };
+
+                    contract.W_L_set.write(circuit_id, true);
+                },
+                CircuitParams::W_R(w_r) => {
+                    // Assert size params have been set
+                    assert(contract.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `n` columns
+                    assert(
+                        w_r.len() == contract.n.read(circuit_id), 'W_R has wrong number of columns'
+                    );
+                    // // Assert weight matrix has correct max number of columns
+                    // w_r.assert_width(contract.n.read(circuit_id));
+
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    let mut i = 0;
+                    loop {
+                        if i == w_r.len() {
+                            break;
+                        }
+
+                        contract
+                            .W_R
+                            .write(offset + i.into(), StoreSerdeWrapper { inner: w_r[i].clone() });
+
+                        i += 1;
+                    };
+
+                    contract.W_R_set.write(circuit_id, true);
+                },
+                CircuitParams::W_O(w_o) => {
+                    // Assert size params have been set
+                    assert(contract.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `n` columns
+                    assert(
+                        w_o.len() == contract.n.read(circuit_id), 'W_O has wrong number of columns'
+                    );
+                    // // Assert weight matrix has correct max number of columns
+                    // w_o.assert_width(contract.n.read(circuit_id));
+
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    let mut i = 0;
+                    loop {
+                        if i == w_o.len() {
+                            break;
+                        }
+
+                        contract
+                            .W_O
+                            .write(offset + i.into(), StoreSerdeWrapper { inner: w_o[i].clone() });
+
+                        i += 1;
+                    };
+
+                    contract.W_O_set.write(circuit_id, true);
+                },
+                CircuitParams::W_V(w_v) => {
+                    // Assert size params have been set
+                    assert(contract.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert weight matrix has `m` columns
+                    assert(
+                        w_v.len() == contract.m.read(circuit_id), 'W_V has wrong number of columns'
+                    );
+                    // // Assert weight matrix has correct max number of columns
+                    // w_v.assert_width(contract.n.read(circuit_id));
+
+                    let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+                    let mut i = 0;
+                    loop {
+                        if i == w_v.len() {
+                            break;
+                        }
+
+                        contract
+                            .W_V
+                            .write(offset + i.into(), StoreSerdeWrapper { inner: w_v[i].clone() });
+
+                        i += 1;
+                    };
+
+                    contract.W_V_set.write(circuit_id, true);
+                },
+                CircuitParams::C(c) => {
+                    // Assert size params have been set
+                    assert(contract.size_params_set.read(circuit_id), 'size params not set');
+                    // Assert that `c` vector is not too long
+                    assert(c.len() <= contract.q.read(circuit_id), 'c too long');
+
+                    contract.c.write(circuit_id, StoreSerdeWrapper { inner: c });
+
+                    contract.c_set.write(circuit_id, true);
+                },
+            };
+        }
+
+        fn read_full_W_L(contract: @ContractState, circuit_id: felt252) -> SparseWeightMatrix {
+            let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+            let num_columns = contract.n.read(circuit_id);
+            let mut w_l = ArrayTrait::new();
+            let mut i = 0;
+            loop {
+                if i == num_columns {
+                    break;
+                }
+
+                w_l.append(contract.W_L.read(offset + i.into()).inner);
+
+                i += 1;
+            };
+
+            w_l
+        }
+
+        fn read_full_W_R(contract: @ContractState, circuit_id: felt252) -> SparseWeightMatrix {
+            let offset = ContractAwareCircuitParamsTrait::get_matrix_offset(circuit_id);
+            let num_columns = contract.n.read(circuit_id);
+            let mut w_r = ArrayTrait::new();
+            let mut i = 0;
+            loop {
+                if i == num_columns {
+                    break;
+                }
+
+                w_r.append(contract.W_R.read(offset + i.into()).inner);
+
+                i += 1;
+            };
+
+            w_r
         }
     }
 }

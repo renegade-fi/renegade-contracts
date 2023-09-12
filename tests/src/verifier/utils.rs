@@ -255,38 +255,3 @@ pub fn prep_dummy_circuit_verifier(verifier: &mut Verifier, witness_commitments:
     debug!("Applying dummy circuit constraints on verifier...");
     apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, verifier);
 }
-
-// fn get_dummy_circuit_weights() -> CircuitWeights {
-//     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
-//     let pc_gens = PedersenGens::default();
-//     let mut prover = Prover::new(&pc_gens, &mut transcript);
-
-//     let mut rng = thread_rng();
-
-//     let (_, a_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-//     let (_, b_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-//     let (_, x_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-//     let (_, y_var) = prover.commit(Scalar::random(&mut rng), Scalar::random(&mut rng));
-
-//     apply_dummy_circuit_constraints(a_var, b_var, x_var, y_var, &mut prover);
-
-//     prover.get_weights()
-// }
-
-// fn get_dummy_circuit_params() -> [CircuitParams; NUM_CIRCUITS] {
-//     let circuit_weights = get_dummy_circuit_weights();
-//     [
-//         CircuitParams::SizeParams(CircuitSizeParams {
-//             n: DUMMY_CIRCUIT_N,
-//             n_plus: DUMMY_CIRCUIT_N_PLUS,
-//             k: DUMMY_CIRCUIT_K,
-//             q: DUMMY_CIRCUIT_Q,
-//             m: DUMMY_CIRCUIT_M,
-//         }),
-//         CircuitParams::Wl(circuit_weights.w_l),
-//         CircuitParams::Wr(circuit_weights.w_r),
-//         CircuitParams::Wo(circuit_weights.w_o),
-//         CircuitParams::Wv(circuit_weights.w_v),
-//         CircuitParams::C(circuit_weights.c),
-//     ]
-// }

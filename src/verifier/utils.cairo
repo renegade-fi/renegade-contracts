@@ -10,7 +10,7 @@ use renegade_contracts::{
 };
 
 use super::{
-    types::{SparseWeightMatrix, SparseWeightMatrixTrait, Proof}, scalar::{Scalar, ScalarTrait},
+    types::{SparseWeightMatrix, SparseWeightVecTrait, Proof}, scalar::{Scalar, ScalarTrait},
 };
 
 
@@ -129,6 +129,7 @@ fn squeeze_challenge_scalars(
 // TODO: Can make this more efficient by pre-computing all powers of z & selectively using in dot products
 // (will need all powers of z across both of W_L, W_R)
 // TODO: Technically, only need powers of y for which the corresponding column of W_R & W_L is non-zero
+//       (would require writing a dot product impl over sparse vectors)
 fn calc_delta(
     n: usize,
     y_inv_powers_to_n: Span<Scalar>,
@@ -137,8 +138,20 @@ fn calc_delta(
     W_R: @SparseWeightMatrix
 ) -> Scalar {
     // Flatten W_L, W_R using z
-    let w_L_flat = W_L.flatten(z, n);
-    let w_R_flat = W_R.flatten(z, n);
+    let mut w_L_flat = ArrayTrait::new();
+    let mut w_R_flat = ArrayTrait::new();
+    let mut col_index = 0;
+    loop {
+        if col_index == n {
+            break;
+        };
+
+        let w_L_col = W_L[col_index];
+        w_L_flat.append(w_L_col.flatten(z));
+
+        let w_R_col = W_R[col_index];
+        w_R_flat.append(w_R_col.flatten(z));
+    };
 
     // \delta = <y^n * w_R_flat, w_L_flat>
     dot(elt_wise_mul(y_inv_powers_to_n, w_R_flat.span()).span(), w_L_flat.span())

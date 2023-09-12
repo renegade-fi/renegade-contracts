@@ -61,29 +61,18 @@ fn get_test_matrix() -> SparseWeightMatrix {
     //   [4, 5, 6, 0], 
     // ]
 
-    // Matrix (sparse):
+    // Matrix (sparse, column-major):
     // [
-    //   [(0, 1)], 
-    //   [(0, 2), (1, 3)], 
-    //   [(0, 4), (1, 5), (2, 6)], 
+    //   [(0, 1), (1, 2), (2, 4)],
+    //   [(1, 3), (2, 5)],
+    //   [(2, 6)],
     // ]
 
-    let mut matrix = ArrayTrait::new();
-
-    let mut row_0 = ArrayTrait::new();
-    row_0.append((0, 1.into()));
-    matrix.append(row_0);
-
-    let mut row_1 = ArrayTrait::new();
-    row_1.append((0, 2.into()));
-    row_1.append((1, 3.into()));
-    matrix.append(row_1);
-
-    let mut row_2 = ArrayTrait::new();
-    row_2.append((0, 4.into()));
-    row_2.append((1, 5.into()));
-    row_2.append((2, 6.into()));
-    matrix.append(row_2);
+    let matrix = array![
+        array![(0, 1.into()), (1, 2.into()), (2, 4.into())],
+        array![(1, 3.into()), (2, 5.into())],
+        array![(2, 6.into())],
+    ];
 
     matrix
 }
@@ -91,73 +80,18 @@ fn get_test_matrix() -> SparseWeightMatrix {
 fn get_dummy_circuit_weights() -> (
     SparseWeightMatrix, SparseWeightMatrix, SparseWeightMatrix, SparseWeightMatrix, SparseWeightVec, 
 ) {
-    let mut W_L = ArrayTrait::new();
-    let mut W_L_0 = ArrayTrait::new();
-    W_L_0.append((0_usize, -(1.into())));
-    W_L.append(W_L_0);
-    W_L.append(ArrayTrait::new());
-    let mut W_L_2 = ArrayTrait::new();
-    W_L_2.append((1_usize, -(1.into())));
-    W_L.append(W_L_2);
-    W_L.append(ArrayTrait::new());
-    let mut W_L_4 = ArrayTrait::new();
-    W_L_4.append((2_usize, -(1.into())));
-    W_L.append(W_L_4);
-    W_L.append(ArrayTrait::new());
-    W_L.append(ArrayTrait::new());
-    W_L.append(ArrayTrait::new());
+    let W_L = array![array![(0, -1.into())], array![(2, -1.into())], array![(4, -1.into())]];
 
-    let mut W_R = ArrayTrait::new();
-    W_R.append(ArrayTrait::new());
-    let mut W_R_1 = ArrayTrait::new();
-    W_R_1.append((0_usize, -(1.into())));
-    W_R.append(W_R_1);
-    W_R.append(ArrayTrait::new());
-    let mut W_R_3 = ArrayTrait::new();
-    W_R_3.append((1_usize, -(1.into())));
-    W_R.append(W_R_3);
-    W_R.append(ArrayTrait::new());
-    let mut W_R_5 = ArrayTrait::new();
-    W_R_5.append((2_usize, -(1.into())));
-    W_R.append(W_R_5);
-    W_R.append(ArrayTrait::new());
-    W_R.append(ArrayTrait::new());
+    let W_R = array![array![(1, -1.into())], array![(3, -1.into())], array![(5, -1.into())]];
 
-    let mut W_O = ArrayTrait::new();
-    W_O.append(ArrayTrait::new());
-    W_O.append(ArrayTrait::new());
-    W_O.append(ArrayTrait::new());
-    W_O.append(ArrayTrait::new());
-    let mut W_O_4 = ArrayTrait::new();
-    W_O_4.append((0_usize, 1.into()));
-    W_O.append(W_O_4);
-    let mut W_O_5 = ArrayTrait::new();
-    W_O_5.append((1_usize, 1.into()));
-    W_O.append(W_O_5);
-    W_O.append(ArrayTrait::new());
-    let mut W_O_7 = ArrayTrait::new();
-    W_O_7.append((2_usize, 1.into()));
-    W_O.append(W_O_7);
+    let W_O = array![array![(4, 1.into())], array![(5, 1.into())], array![(7, 1.into())]];
 
-    let mut W_V = ArrayTrait::new();
-    let mut W_V_0 = ArrayTrait::new();
-    W_V_0.append((0_usize, -(1.into())));
-    W_V.append(W_V_0);
-    let mut W_V_1 = ArrayTrait::new();
-    W_V_1.append((1_usize, -(1.into())));
-    W_V.append(W_V_1);
-    let mut W_V_2 = ArrayTrait::new();
-    W_V_2.append((2_usize, -(1.into())));
-    W_V.append(W_V_2);
-    let mut W_V_3 = ArrayTrait::new();
-    W_V_3.append((3_usize, -(1.into())));
-    W_V.append(W_V_3);
-    W_V.append(ArrayTrait::new());
-    W_V.append(ArrayTrait::new());
-    let mut W_V_6 = ArrayTrait::new();
-    W_V_6.append((0_usize, -(1.into())));
-    W_V.append(W_V_6);
-    W_V.append(ArrayTrait::new());
+    let W_V = array![
+        array![(0, -1.into()), (6, -1.into())],
+        array![(1, -1.into())],
+        array![(2, -1.into())],
+        array![(3, -1.into())],
+    ];
 
     let mut c = ArrayTrait::new();
     c.append((6_usize, 69.into()));

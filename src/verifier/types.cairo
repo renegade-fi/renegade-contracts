@@ -322,6 +322,7 @@ struct Proof {
 // (index, weight) entries in a sparse-reduced vector are expected
 // to be sorted by increasing index
 type SparseWeightVec = Array<(usize, Scalar)>;
+// This matrix is assumed to be in *column-major* form
 type SparseWeightMatrix = Array<SparseWeightVec>;
 
 type SparseWeightVecSpan = Span<(usize, Scalar)>;
@@ -353,131 +354,34 @@ impl SparseWeightVecImpl of SparseWeightVecTrait {
     }
 }
 
-#[generate_trait]
-impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
-    /// "Flattens" the matrix into a `width`-length vector by computing
-    /// [z, z^2, ..., z^height] * W_{L, R, O, V} (vector-matrix multiplication)
-    fn flatten(self: @SparseWeightMatrix, z: Scalar, width: usize) -> Array<Scalar> {
-        let matrix: SparseWeightMatrixSpan = self.deep_span();
+// #[generate_trait]
+// impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
+//     /// Asserts that the matrix has a maximum width of `width`.
+//     /// This asserts both that each row has at most `width` entries, and that
+//     /// the last entry in each row has an index less than `width`.
+//     /// This relies on the assumption that sparse weight vector entries are sorted
+//     /// by increasing index.
+//     // TODO: Swap for `assert_height`?
+//     fn assert_width(self: @SparseWeightMatrix, width: usize) {
+//         let matrix: SparseWeightMatrixSpan = self.deep_span();
+//         let mut row_index = 0;
+//         loop {
+//             if row_index == matrix.len() {
+//                 break;
+//             };
 
-        // Can't set an item at a given index in an array, can only append,
-        // so we use a dict here
-        let mut flattened_dict: Felt252Dict<Nullable<Scalar>> = Default::default();
+//             let row = *matrix.at(row_index);
+//             let row_len = row.len();
+//             assert(row_len <= width, 'row has too many entries');
+//             if row_len > 0 {
+//                 let (last_index, _) = *row.at(row.len() - 1);
+//                 assert(last_index <= width, 'last index in row too big');
+//             }
 
-        // Loop over rows first, then entries
-        // Since matrices are sparse and in row-major form, this ensure that we only loop
-        // once per non-zero entry
-        let mut row_index: usize = 0;
-        loop {
-            if row_index == matrix.len() {
-                break;
-            };
-
-            let mut row = *matrix.at(row_index);
-            let mut entry_index = 0;
-            let z_i = binary_exp(z, (row_index + 1).into());
-            loop {
-                if entry_index == row.len() {
-                    break;
-                };
-
-                let (col_index, weight) = *row.at(entry_index);
-                let col_index_felt = col_index.into();
-                let mut scalar = get_scalar_or_zero(ref flattened_dict, col_index_felt);
-
-                // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
-                scalar += z_i * weight;
-                insert_scalar(ref flattened_dict, col_index_felt, scalar);
-
-                entry_index += 1;
-            };
-
-            row_index += 1;
-        };
-
-        let mut flattened_vec = ArrayTrait::new();
-        let mut col_index = 0;
-        loop {
-            if col_index == width {
-                break;
-            };
-
-            flattened_vec.append(get_scalar_or_zero(ref flattened_dict, col_index.into()));
-            col_index += 1;
-        };
-
-        flattened_vec
-    }
-
-    /// Extracts a column from the matrix in the form of a sparse-reduced vector
-    fn get_sparse_weight_column(self: @SparseWeightMatrix, col_index: usize) -> SparseWeightVec {
-        let matrix: SparseWeightMatrixSpan = self.deep_span();
-        let mut column = ArrayTrait::new();
-        let mut row_index = 0;
-        loop {
-            if row_index == matrix.len() {
-                break;
-            };
-
-            let mut row = *matrix.at(row_index);
-            let mut entry_index = 0;
-            loop {
-                // Break early if we've passed the desired column's index.
-                // This relies on the assumption that sparse weight vector entries
-                // are sorted by increasing index.
-                if entry_index > col_index || entry_index == row.len() {
-                    break;
-                };
-
-                let (current_index, current_weight) = *row.at(entry_index);
-                if current_index == col_index {
-                    column.append((row_index, current_weight));
-                    break;
-                };
-
-                entry_index += 1;
-            };
-
-            row_index += 1;
-        };
-
-        column
-    }
-
-    /// Gets the element at `index` in the flattened matrix
-    fn get_flattened_elem(self: @SparseWeightMatrix, index: usize, z: Scalar) -> Scalar {
-        // Pop column `index` from `matrix` as a `SparseWeightVec`
-        let column = self.get_sparse_weight_column(index);
-
-        // Flatten the column using `z`
-        column.flatten(z)
-    }
-
-    /// Asserts that the matrix has a maximum width of `width`.
-    /// This asserts both that each row has at most `width` entries, and that
-    /// the last entry in each row has an index less than `width`.
-    /// This relies on the assumption that sparse weight vector entries are sorted
-    /// by increasing index.
-    fn assert_width(self: @SparseWeightMatrix, width: usize) {
-        let matrix: SparseWeightMatrixSpan = self.deep_span();
-        let mut row_index = 0;
-        loop {
-            if row_index == matrix.len() {
-                break;
-            };
-
-            let row = *matrix.at(row_index);
-            let row_len = row.len();
-            assert(row_len <= width, 'row has too many entries');
-            if row_len > 0 {
-                let (last_index, _) = *row.at(row.len() - 1);
-                assert(last_index <= width, 'last index in row too big');
-            }
-
-            row_index += 1;
-        };
-    }
-}
+//             row_index += 1;
+//         };
+//     }
+// }
 
 /// The public sizing parameters of the circuit
 #[derive(Drop, Clone, Serde, PartialEq)]
