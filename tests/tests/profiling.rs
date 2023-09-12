@@ -10,7 +10,7 @@ use mpc_stark::algebra::scalar::Scalar;
 use starknet::core::types::FieldElement;
 use tests::{
     darkpool::utils::{
-        new_wallet, poll_new_wallet_to_completion, poll_update_wallet_to_completion, update_wallet,
+        new_wallet, poll_new_wallet, poll_update_wallet_to_completion, update_wallet,
         DARKPOOL_ADDRESS,
     },
     merkle::utils::insert,
@@ -23,9 +23,10 @@ use tests::{
         SizedValidWalletUpdate, TestParamsCircuit,
     },
     utils::{
-        fully_parameterize_circuit, get_circuit_params, get_circuit_size_and_weights, get_root,
-        global_teardown, setup_sequencer, Breakpoint, CalldataSerializable, TestConfig,
-        UpdateWalletArgs, DUMMY_VALUE, DUMMY_WALLET, TRACING_INIT, TRANSCRIPT_SEED,
+        check_verification_job_status, dump_state, fully_parameterize_circuit, get_circuit_params,
+        get_circuit_size_and_weights, get_root, global_teardown, setup_sequencer, Breakpoint,
+        CalldataSerializable, TestConfig, UpdateWalletArgs, DUMMY_VALUE, DUMMY_WALLET,
+        PROFILING_STATE_SEPARATOR, TRACING_INIT, TRANSCRIPT_SEED,
     },
     verifier::utils::queue_verification_job,
     verifier_utils::utils::squeeze_expected_challenge_scalars,
@@ -179,9 +180,34 @@ async fn profile_new_wallet() -> Result<()> {
 #[tokio::test]
 async fn profile_poll_new_wallet() -> Result<()> {
     let sequencer = setup_sequencer(TestConfig::Profiling).await?;
+    let account = sequencer.account();
 
     let new_wallet_args = get_new_wallet_args(Breakpoint::None)?;
-    poll_new_wallet_to_completion(&sequencer.account(), &new_wallet_args).await?;
+    new_wallet(&account, &new_wallet_args).await?;
+    let mut verification_job_status = check_verification_job_status(
+        &account,
+        *DARKPOOL_ADDRESS.get().unwrap(),
+        new_wallet_args.verification_job_id,
+    )
+    .await?;
+
+    let mut i = 0;
+    while verification_job_status.is_none() {
+        if i % 1000 == 0 {
+            dump_state(&sequencer, PROFILING_STATE_SEPARATOR).await?;
+        }
+
+        poll_new_wallet(&account, new_wallet_args.verification_job_id).await?;
+
+        verification_job_status = check_verification_job_status(
+            &account,
+            *DARKPOOL_ADDRESS.get().unwrap(),
+            new_wallet_args.verification_job_id,
+        )
+        .await?;
+
+        i += 1;
+    }
 
     global_teardown(TestConfig::Profiling, sequencer, false).await;
 

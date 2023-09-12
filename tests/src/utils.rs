@@ -108,7 +108,7 @@ const VERIFIER_UTILS_STATE_SEPARATOR: &str = "verifier_utils_state";
 const TRANSCRIPT_STATE_SEPARATOR: &str = "transcript_state";
 const POSEIDON_STATE_SEPARATOR: &str = "poseidon_state";
 const STATEMENT_SERDE_STATE_SEPARATOR: &str = "statement_serde_state";
-const PROFILING_STATE_SEPARATOR: &str = "profiling_state";
+pub const PROFILING_STATE_SEPARATOR: &str = "profiling_state";
 
 static DARKPOOL_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
 static MERKLE_STATE_DUMPED: Mutex<bool> = Mutex::const_new(false);
