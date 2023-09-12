@@ -152,7 +152,7 @@ pub const DUMMY_VALUE: u64 = 42;
 
 const DUMMY_BP_GENS_CAPACITY: usize = 8;
 
-static TRACING_INIT: Once = Once::new();
+pub static TRACING_INIT: Once = Once::new();
 
 pub enum TestConfig {
     Darkpool,
@@ -640,6 +640,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct CircuitSizeParams {
     /// The number of multiplication gates in the circuit
     pub n: usize,
@@ -1121,9 +1122,8 @@ pub fn singleprover_prove<C: SingleProverCircuit>(
         .map_err(|e| eyre!("Error proving circuit: {}", e))
 }
 
-/// Generates circuit parameters for the given circuit
-// TODO: Upstream this into `SingleProverCircuit` trait?
-pub fn get_circuit_params<C: SingleProverCircuit>() -> [CircuitParams; NUM_CIRCUITS] {
+pub fn get_circuit_size_and_weights<C: SingleProverCircuit>() -> (CircuitSizeParams, CircuitWeights)
+{
     let mut transcript = HashChainTranscript::new(TRANSCRIPT_SEED.as_bytes());
     let pc_gens = PedersenGens::default();
     let mut prover = Prover::new(&pc_gens, &mut transcript);
@@ -1146,23 +1146,24 @@ pub fn get_circuit_params<C: SingleProverCircuit>() -> [CircuitParams; NUM_CIRCU
     let q = prover.num_constraints();
     let m = witness.to_scalars().len() + statement.to_scalars().len();
 
-    debug!("n_plus = {n_plus}, q = {q}, m = {m}",);
+    (
+        CircuitSizeParams { n, n_plus, k, q, m },
+        prover.get_weights(),
+    )
+}
 
-    let CircuitWeights {
-        w_l,
-        w_r,
-        w_o,
-        w_v,
-        c,
-    } = prover.get_weights();
+/// Generates circuit parameters for the given circuit
+// TODO: Upstream this into `SingleProverCircuit` trait?
+pub fn get_circuit_params<C: SingleProverCircuit>() -> [CircuitParams; NUM_CIRCUITS] {
+    let (circuit_size_params, circuit_weights) = get_circuit_size_and_weights::<C>();
 
     [
-        CircuitParams::SizeParams(CircuitSizeParams { n, n_plus, k, q, m }),
-        CircuitParams::Wl(w_l),
-        CircuitParams::Wr(w_r),
-        CircuitParams::Wo(w_o),
-        CircuitParams::Wv(w_v),
-        CircuitParams::C(c),
+        CircuitParams::SizeParams(circuit_size_params),
+        CircuitParams::Wl(circuit_weights.w_l),
+        CircuitParams::Wr(circuit_weights.w_r),
+        CircuitParams::Wo(circuit_weights.w_o),
+        CircuitParams::Wv(circuit_weights.w_v),
+        CircuitParams::C(circuit_weights.c),
     ]
 }
 

@@ -18,22 +18,40 @@ use tests::{
         evaluate_scalar_poly, evaluate_scalar_poly_term, get_new_wallet_args,
         get_new_wallet_queue_verification_args, get_update_wallet_args,
         hash_statement_and_verify_signature, invoke_calc_delta, invoke_get_s_elem,
-        invoke_squeeze_challenge_scalars, raw_msm, sample_bp_gens, SizedValidCommitments,
-        SizedValidReblind, SizedValidSettle, SizedValidWalletCreate, SizedValidWalletUpdate,
-        TestParamsCircuit,
+        invoke_squeeze_challenge_scalars, print_circuit_params, raw_msm, sample_bp_gens,
+        SizedValidCommitments, SizedValidReblind, SizedValidSettle, SizedValidWalletCreate,
+        SizedValidWalletUpdate, TestParamsCircuit,
     },
     utils::{
-        fully_parameterize_circuit, get_circuit_params, get_root, global_teardown, setup_sequencer,
-        Breakpoint, CalldataSerializable, CircuitParams, TestConfig, UpdateWalletArgs, DUMMY_VALUE,
-        DUMMY_WALLET, TRANSCRIPT_SEED,
+        fully_parameterize_circuit, get_circuit_params, get_circuit_size_and_weights, get_root,
+        global_teardown, setup_sequencer, Breakpoint, CalldataSerializable, TestConfig,
+        UpdateWalletArgs, DUMMY_VALUE, DUMMY_WALLET, TRACING_INIT, TRANSCRIPT_SEED,
     },
     verifier::utils::queue_verification_job,
     verifier_utils::utils::squeeze_expected_challenge_scalars,
 };
+use tracing_subscriber::{fmt, EnvFilter};
 
 // ----------------------------
 // | CIRCUIT PARAMETERIZATION |
 // ----------------------------
+
+#[test]
+fn profile_print_circuit_params() {
+    TRACING_INIT.call_once(|| {
+        fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .with_ansi(false)
+            .init();
+    });
+
+    print_circuit_params::<SizedValidWalletCreate>();
+    print_circuit_params::<SizedValidWalletUpdate>();
+    print_circuit_params::<SizedValidCommitments>();
+    print_circuit_params::<SizedValidReblind>();
+    print_circuit_params::<ValidMatchMpcSingleProver>();
+    print_circuit_params::<SizedValidSettle>();
+}
 
 #[tokio::test]
 async fn profile_parameterize_valid_wallet_create() -> Result<()> {
@@ -256,11 +274,7 @@ async fn profile_verifier_utils_squeeze_challenge_scalars() -> Result<()> {
 
     let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
 
-    let [circuit_params_0, ..] = get_circuit_params::<SizedValidWalletCreate>();
-    let circuit_size_params = match circuit_params_0 {
-        CircuitParams::SizeParams(circuit_size_params) => circuit_size_params,
-        _ => panic!("Invalid circuit params"),
-    };
+    let (circuit_size_params, _) = get_circuit_size_and_weights::<SizedValidWalletCreate>();
 
     invoke_squeeze_challenge_scalars(
         &sequencer.account(),
@@ -282,20 +296,8 @@ async fn profile_verifier_utils_calc_delta() -> Result<()> {
 
     let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
 
-    let [circuit_params_0, circuit_params_1, circuit_params_2, ..] =
-        get_circuit_params::<SizedValidWalletCreate>();
-    let circuit_size_params = match circuit_params_0 {
-        CircuitParams::SizeParams(circuit_size_params) => circuit_size_params,
-        _ => panic!("Invalid circuit params"),
-    };
-    let w_l = match circuit_params_1 {
-        CircuitParams::Wl(w_l) => w_l,
-        _ => panic!("Invalid circuit params"),
-    };
-    let w_r = match circuit_params_2 {
-        CircuitParams::Wr(w_r) => w_r,
-        _ => panic!("Invalid circuit params"),
-    };
+    let (circuit_size_params, circuit_weights) =
+        get_circuit_size_and_weights::<SizedValidWalletCreate>();
 
     let (challenge_scalars, _) = squeeze_expected_challenge_scalars(
         circuit_size_params.m as u64,
@@ -314,8 +316,8 @@ async fn profile_verifier_utils_calc_delta() -> Result<()> {
         FieldElement::from(circuit_size_params.n),
         &y_inv_powers_to_n,
         z,
-        w_l,
-        w_r,
+        circuit_weights.w_l,
+        circuit_weights.w_r,
     )
     .await?;
 
@@ -330,11 +332,7 @@ async fn profile_verifier_utils_get_s_elem() -> Result<()> {
 
     let (witness_commitments, proof, _) = get_new_wallet_queue_verification_args()?;
 
-    let [circuit_params_0, ..] = get_circuit_params::<SizedValidWalletCreate>();
-    let circuit_size_params = match circuit_params_0 {
-        CircuitParams::SizeParams(circuit_size_params) => circuit_size_params,
-        _ => panic!("Invalid circuit params"),
-    };
+    let (circuit_size_params, _) = get_circuit_size_and_weights::<SizedValidWalletCreate>();
 
     let (_, u) = squeeze_expected_challenge_scalars(
         circuit_size_params.m as u64,

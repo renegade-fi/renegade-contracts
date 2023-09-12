@@ -47,9 +47,10 @@ use crate::{
     darkpool::utils::{initialize_darkpool, DARKPOOL_ADDRESS},
     merkle::utils::TEST_MERKLE_HEIGHT,
     utils::{
-        get_contract_address_from_artifact, global_setup, invoke_contract, random_felt,
-        singleprover_prove, Breakpoint, CalldataSerializable, Circuit, MatchPayload, NewWalletArgs,
-        ProcessMatchArgs, UpdateWalletArgs, ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
+        get_circuit_size_and_weights, get_contract_address_from_artifact, global_setup,
+        invoke_contract, random_felt, singleprover_prove, Breakpoint, CalldataSerializable,
+        Circuit, MatchPayload, NewWalletArgs, ProcessMatchArgs, UpdateWalletArgs,
+        ARTIFACTS_PATH_ENV_VAR, SK_ROOT, TRANSCRIPT_SEED,
     },
     verifier::utils::VERIFIER_ADDRESS,
     verifier_utils::utils::{
@@ -297,6 +298,31 @@ pub async fn evaluate_scalar_poly_term(
 // ----------------
 // | MISC HELPERS |
 // ----------------
+
+pub fn print_circuit_params<C: SingleProverCircuit>() {
+    let (circuit_size_params, circuit_weights) = get_circuit_size_and_weights::<C>();
+    debug!("{circuit_size_params:?}");
+    debug!(
+        "W_L num calldata elements: {}",
+        circuit_weights.w_l.to_calldata().len()
+    );
+    debug!(
+        "W_R num calldata elements: {}",
+        circuit_weights.w_r.to_calldata().len()
+    );
+    debug!(
+        "W_O num calldata elements: {}",
+        circuit_weights.w_o.to_calldata().len()
+    );
+    debug!(
+        "W_V num calldata elements: {}",
+        circuit_weights.w_v.to_calldata().len()
+    );
+    debug!(
+        "C num calldata elements: {}",
+        circuit_weights.c.to_calldata().len()
+    );
+}
 
 /// Mirrors `verify_singleprover_proof` from the relayer repo, but uses our pre-allocated BP gens
 pub fn verify_singleprover_proof<C: SingleProverCircuit>(
