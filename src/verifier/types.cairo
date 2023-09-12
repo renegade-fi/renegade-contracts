@@ -343,7 +343,7 @@ impl SparseWeightVecImpl of SparseWeightVecTrait {
 
             let (i, weight) = *self.at(entry_index);
             // z vector starts at z^1, i.e. is [z, z^2, ..., z^q]
-            let z_i = binary_exp(z, i + 1);
+            let z_i = binary_exp(z, (i + 1).into());
             res += z_i * weight;
 
             entry_index += 1;
@@ -375,7 +375,7 @@ impl SparseWeightMatrixImpl of SparseWeightMatrixTrait {
 
             let mut row = *matrix.at(row_index);
             let mut entry_index = 0;
-            let z_i = binary_exp(z, row_index + 1);
+            let z_i = binary_exp(z, (row_index + 1).into());
             loop {
                 if entry_index == row.len() {
                     break;

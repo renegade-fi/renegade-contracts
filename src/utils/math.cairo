@@ -47,7 +47,7 @@ fn elt_wise_mul(mut a: Span<Scalar>, mut b: Span<Scalar>) -> Array<Scalar> {
 /// computing base^{2^i} for each bit `i` in the decomposition, and multiplying
 /// an accumulated result (initialized to 1) by base^{2^i} whenever the i-th bit
 /// of the decomposition is set.
-fn binary_exp(base: Scalar, exp: usize) -> Scalar {
+fn binary_exp(base: Scalar, exp: u256) -> Scalar {
     if exp == 0 {
         1.into()
     } else if exp % 2 == 0 {
