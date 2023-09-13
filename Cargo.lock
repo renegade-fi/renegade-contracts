@@ -1298,7 +1298,7 @@ dependencies = [
 [[package]]
 name = "circuit-macros"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "itertools 0.10.5",
  "mpc-bulletproof",
@@ -1310,7 +1310,7 @@ dependencies = [
 [[package]]
 name = "circuit-types"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1337,7 +1337,7 @@ dependencies = [
 [[package]]
 name = "circuits"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ff",
@@ -1478,7 +1478,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "base64 0.13.1",
  "bimap",
@@ -1507,7 +1507,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "base64 0.13.1",
  "clap 3.2.25",
@@ -1548,7 +1548,7 @@ checksum = "28c122c3980598d243d63d9a704629a2d748d101f278052ff068be5a4423ab6f"
 [[package]]
 name = "constants"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 
 [[package]]
 name = "convert_case"
@@ -2413,7 +2413,7 @@ dependencies = [
 [[package]]
 name = "external-api"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "circuit-types",
  "common",
@@ -3444,7 +3444,7 @@ dependencies = [
 [[package]]
 name = "gossip-api"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "circuit-types",
  "common",
@@ -3946,7 +3946,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "job-types"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "circuit-types",
  "circuits",
@@ -4540,7 +4540,7 @@ checksum = "4519a88847ba2d5ead3dc53f1060ec6a571de93f325d9c5c4968147382b1cbc3"
 [[package]]
 name = "mpc-bulletproof"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/mpc-bulletproof.git#0c579bdd3734026f2a096536b52ee6f5863fe3f3"
+source = "git+https://github.com/renegade-fi/mpc-bulletproof.git?branch=andrew/column-major-weights#1743b6e95c86417858d0bf68ba6a9d8a9acfbec6"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -5611,7 +5611,7 @@ checksum = "c707298afce11da2efef2f600116fa93ffa7a032b5d7b628aa17711ec81383ca"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ff",
@@ -6449,7 +6449,7 @@ dependencies = [
 [[package]]
 name = "starknet-client"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "ark-ff",
  "circuit-types",
@@ -6670,7 +6670,7 @@ dependencies = [
 [[package]]
 name = "state"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "base64 0.13.1",
  "circuit-types",
@@ -6788,7 +6788,7 @@ dependencies = [
 [[package]]
 name = "system-bus"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "bus",
  "common",
@@ -6845,7 +6845,7 @@ checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 [[package]]
 name = "test-helpers"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "async-trait",
  "constants",
@@ -7481,7 +7481,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=starknet-client-consolidation#895bd7db94296fe88af2e5248eb2fbeff3383449"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/column-major-weights#0f7c63fe9675ba8dad83b082960113030d8216a7"
 dependencies = [
  "chrono",
  "env_logger 0.9.3",

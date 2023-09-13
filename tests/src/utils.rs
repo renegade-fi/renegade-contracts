@@ -34,7 +34,7 @@ use merlin::HashChainTranscript;
 use mpc_bulletproof::{
     r1cs::{
         CircuitWeights, ConstraintSystem, LinearCombination, Prover, R1CSProof,
-        RandomizableConstraintSystem, SparseReducedMatrix, SparseWeightRow, Variable,
+        RandomizableConstraintSystem, SparseWeightMatrix, SparseWeightVec, Variable,
     },
     r1cs_mpc::R1CSError,
     BulletproofGens, PedersenGens,
@@ -658,15 +658,15 @@ pub enum CircuitParams {
     /// Sizing parameters for the circuit
     SizeParams(CircuitSizeParams),
     /// Sparse-reduced matrix of left input weights for the circuit
-    Wl(SparseReducedMatrix),
+    Wl(SparseWeightMatrix),
     /// Sparse-reduced matrix of right input weights for the circuit
-    Wr(SparseReducedMatrix),
+    Wr(SparseWeightMatrix),
     /// Sparse-reduced matrix of output weights for the circuit
-    Wo(SparseReducedMatrix),
+    Wo(SparseWeightMatrix),
     /// Sparse-reduced matrix of witness weights for the circuit
-    Wv(SparseReducedMatrix),
+    Wv(SparseWeightMatrix),
     /// Sparse-reduced vector of constants for the circuit
-    C(SparseWeightRow),
+    C(SparseWeightVec),
 }
 
 pub struct NewWalletArgs {
@@ -766,7 +766,7 @@ impl<T: CalldataSerializable, const N: usize> CalldataSerializable for [T; N] {
     }
 }
 
-// `(usize, Scalar)` represents an entry in a `SparseWeightRow`
+// `(usize, Scalar)` represents an entry in a `SparseWeightVec`
 impl CalldataSerializable for (usize, Scalar) {
     fn to_calldata(&self) -> Vec<FieldElement> {
         self.0
@@ -777,13 +777,13 @@ impl CalldataSerializable for (usize, Scalar) {
     }
 }
 
-impl CalldataSerializable for SparseWeightRow {
+impl CalldataSerializable for SparseWeightVec {
     fn to_calldata(&self) -> Vec<FieldElement> {
         self.0.to_calldata()
     }
 }
 
-impl CalldataSerializable for SparseReducedMatrix {
+impl CalldataSerializable for SparseWeightMatrix {
     fn to_calldata(&self) -> Vec<FieldElement> {
         self.0.to_calldata()
     }

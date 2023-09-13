@@ -151,6 +151,8 @@ fn calc_delta(
 
         let w_R_col = W_R[col_index];
         w_R_flat.append(w_R_col.flatten(z));
+
+        col_index += 1;
     };
 
     // \delta = <y^n * w_R_flat, w_L_flat>

@@ -29,7 +29,7 @@ use dojo_test_utils::sequencer::TestSequencer;
 use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
-    r1cs::{Prover, R1CSProof, SparseReducedMatrix, Verifier},
+    r1cs::{Prover, R1CSProof, SparseWeightMatrix, Verifier},
     BulletproofGens, PedersenGens,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
@@ -201,8 +201,8 @@ pub async fn invoke_calc_delta(
     n: FieldElement,
     y_inv_powers_to_n: &Vec<Scalar>,
     z: Scalar,
-    w_l: SparseReducedMatrix,
-    w_r: SparseReducedMatrix,
+    w_l: SparseWeightMatrix,
+    w_r: SparseWeightMatrix,
 ) -> Result<()> {
     let calldata = iter::once(n)
         .chain(y_inv_powers_to_n.to_calldata())

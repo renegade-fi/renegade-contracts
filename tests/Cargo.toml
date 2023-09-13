@@ -28,10 +28,10 @@ starknet = { workspace = true }
 katana-core = { git = "https://github.com/renegade-fi/dojo.git", branch = "renegade-testing" }
 dojo-test-utils = { git = "https://github.com/renegade-fi/dojo.git", branch = "renegade-testing" }
 mpc-stark = { workspace = true }
-mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", features = ["integration_test"] }
+mpc-bulletproof = { git = "https://github.com/renegade-fi/mpc-bulletproof.git", branch="andrew/column-major-weights", features = ["integration_test"] }
 merlin = { git = "https://github.com/renegade-fi/merlin.git" }
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
-circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation", features = ["test_helpers"] }
-circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
-test-helpers = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
-starknet-client = { git = "https://github.com/renegade-fi/renegade.git", branch = "starknet-client-consolidation" }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/column-major-weights" }
+circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/column-major-weights", features = ["test_helpers"] }
+circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/column-major-weights" }
+test-helpers = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/column-major-weights" }
+starknet-client = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/column-major-weights" }

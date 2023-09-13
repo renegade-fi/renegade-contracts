@@ -23,21 +23,20 @@ struct Scalar {
 impl ScalarImpl of ScalarTrait {
     fn inverse(self: @Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = mult_inverse((*self.inner).into(), stark_curve::ORDER.into())
-        //     .try_into()
-        //     .unwrap();
-        let inner = felt252_div(1, (*self.inner).try_into().unwrap());
+        let inner = mult_inverse((*self.inner).into(), stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
+        // let inner = felt252_div(1, (*self.inner).try_into().unwrap());
         Scalar { inner }
     }
 
     fn pow(self: @Scalar, exponent: u256) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = pow_mod((*self.inner).into(), exponent, stark_curve::ORDER.into())
-        //     .try_into()
-        //     .unwrap();
-        // Scalar { inner }
-
-        binary_exp(*self, exponent)
+        let inner = pow_mod((*self.inner).into(), exponent, stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
+        Scalar { inner }
+    // binary_exp(*self, exponent)
     }
 }
 
@@ -52,10 +51,10 @@ impl ScalarImpl of ScalarTrait {
 impl ScalarAdd of Add<Scalar> {
     fn add(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = add_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
-        //     .try_into()
-        //     .unwrap();
-        let inner = (lhs.inner + rhs.inner);
+        let inner = add_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
+        // let inner = (lhs.inner + rhs.inner);
         Scalar { inner }
     }
 }
@@ -73,10 +72,10 @@ impl ScalarAddEq of AddEq<Scalar> {
 impl ScalarSub of Sub<Scalar> {
     fn sub(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = sub_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
-        //     .try_into()
-        //     .unwrap();
-        let inner = (lhs.inner - rhs.inner);
+        let inner = sub_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
+        // let inner = (lhs.inner - rhs.inner);
         Scalar { inner }
     }
 }
@@ -94,10 +93,10 @@ impl ScalarSubEq of SubEq<Scalar> {
 impl ScalarMul of Mul<Scalar> {
     fn mul(lhs: Scalar, rhs: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = mult_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
-        //     .try_into()
-        //     .unwrap();
-        let inner = (lhs.inner * rhs.inner);
+        let inner = mult_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
+        // let inner = (lhs.inner * rhs.inner);
         Scalar { inner }
     }
 }
@@ -117,10 +116,10 @@ impl ScalarDiv of Div<Scalar> {
         // Under the hood, this is implemented as
         // lhs * rhs.inverse()
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = div_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
-        //     .try_into()
-        //     .unwrap();
-        let inner = felt252_div(lhs.inner, rhs.inner.try_into().unwrap());
+        let inner = div_mod(lhs.inner.into(), rhs.inner.into(), stark_curve::ORDER.into())
+            .try_into()
+            .unwrap();
+        // let inner = felt252_div(lhs.inner, rhs.inner.try_into().unwrap());
         Scalar { inner }
     }
 }
@@ -138,8 +137,8 @@ impl ScalarDivEq of DivEq<Scalar> {
 impl ScalarNeg of Neg<Scalar> {
     fn neg(a: Scalar) -> Scalar {
         // Safe to unwrap b/c scalar field is smaller than base field
-        // let inner = add_inverse_mod(a.inner.into(), stark_curve::ORDER.into()).try_into().unwrap();
-        let inner = -a.inner;
+        let inner = add_inverse_mod(a.inner.into(), stark_curve::ORDER.into()).try_into().unwrap();
+        // let inner = -a.inner;
         Scalar { inner }
     }
 }
@@ -154,8 +153,8 @@ impl ScalarNeg of Neg<Scalar> {
 
 impl U256IntoScalar of Into<u256, Scalar> {
     fn into(self: u256) -> Scalar {
-        // let inner_u256 = self % stark_curve::ORDER.into();
-        let inner_u256 = self % BASE_FIELD_ORDER;
+        let inner_u256 = self % stark_curve::ORDER.into();
+        // let inner_u256 = self % BASE_FIELD_ORDER;
         // Safe to unwrap b/c scalar field is smaller than base field
         Scalar { inner: inner_u256.try_into().unwrap() }
     }
@@ -163,10 +162,10 @@ impl U256IntoScalar of Into<u256, Scalar> {
 
 impl FeltIntoScalar<T, impl TIntoFelt: Into<T, felt252>> of Into<T, Scalar> {
     fn into(self: T) -> Scalar {
-        // let inner_felt: felt252 = self.into();
-        // let inner_u256: u256 = inner_felt.into();
-        // inner_u256.into()
-        Scalar { inner: self.into() }
+        let inner_felt: felt252 = self.into();
+        let inner_u256: u256 = inner_felt.into();
+        inner_u256.into()
+    // Scalar { inner: self.into() }
     }
 }
 

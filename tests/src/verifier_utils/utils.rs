@@ -3,7 +3,7 @@ use eyre::{eyre, Result};
 use merlin::HashChainTranscript;
 use mpc_bulletproof::{
     inner_product,
-    r1cs::{R1CSProof, SparseReducedMatrix, Verifier},
+    r1cs::{R1CSProof, SparseWeightMatrix, Verifier},
     InnerProductProof, TranscriptProtocol,
 };
 use mpc_stark::algebra::{scalar::Scalar, stark_curve::StarkPoint};
@@ -106,8 +106,8 @@ pub async fn calc_delta(
     account: &ScriptAccount,
     y_inv_powers_to_n: &Vec<Scalar>,
     z: Scalar,
-    w_l: SparseReducedMatrix,
-    w_r: SparseReducedMatrix,
+    w_l: SparseWeightMatrix,
+    w_r: SparseWeightMatrix,
 ) -> Result<Scalar> {
     let calldata = iter::once(FieldElement::from(DUMMY_CIRCUIT_N))
         .chain(y_inv_powers_to_n.to_calldata())
