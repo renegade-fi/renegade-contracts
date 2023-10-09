@@ -1,5 +1,9 @@
 #![no_main]
 #![no_std]
+
+mod transcript;
+mod types;
+
 extern crate alloc;
 
 #[global_allocator]
