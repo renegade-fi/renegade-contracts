@@ -24,7 +24,7 @@ pub struct VerificationKey {
     pub k: [ScalarField; NUM_WIRE_TYPES],
     /// The commitments to the selector polynomials (q_*) of the circuit
     pub selector_comms: [G1Affine; NUM_SELECTORS],
-    /// The commitments to the permutation polynomials (S_{\sigma *}) of the circuit
+    /// The commitments to the permutation polynomials (S_{\sigma_*}) of the circuit
     pub permutation_comms: [G1Affine; NUM_WIRE_TYPES],
     /// The generator of the G1 group
     pub g: G1Affine,
@@ -32,4 +32,25 @@ pub struct VerificationKey {
     pub h: G2Affine,
     /// The G2 commitment to the secret evaluation point
     pub x_h: G2Affine,
+}
+
+/// A Plonk proof, using the "fast prover" strategy described in the paper.
+pub struct Proof {
+    /// The commitments to the wire polynomials (e.g. a, b, c) encoding the witness
+    pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
+    /// The commitment to the grand product polynomial (z) encoding the permutation argument (i.e., copy constraints)
+    pub grand_product_comm: G1Affine,
+    /// The commitments to the split quotient polynomials (e.g. t_lo, t_mid, t_hi) encoding the
+    /// gate constraints
+    pub split_quotient_comms: [G1Affine; NUM_WIRE_TYPES],
+    /// The opening proof (W_{\zeta}) of evaluations at challenge point `zeta`
+    pub opening_proof: G1Affine,
+    /// The opening proof (W_{\zeta \omega}) of evaluations at challenge point `zeta * omega`
+    pub shifted_opening_proof: G1Affine,
+    /// The evaluations of the wire polynomials at the challenge point `zeta` (e.g. \bar{a}, \bar{b}, \bar{c})
+    pub wire_evals: [ScalarField; NUM_WIRE_TYPES],
+    /// The evaluations of the permutation polynomials at the challenge point `zeta` (i.e. \bar{\sigma}_*)
+    pub permutation_evals: [ScalarField; NUM_WIRE_TYPES - 1],
+    /// The evaluation of the grand product polynomial at the challenge point `zeta * omega` (i.e. \bar{z})
+    pub grand_product_eval: ScalarField,
 }
