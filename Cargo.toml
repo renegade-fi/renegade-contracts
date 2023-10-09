@@ -1,11 +1,15 @@
 [package]
-name = "stylus-hello-world-minimal"
+name = "renegade-contracts"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 stylus-sdk = "0.4.1"
 wee_alloc = "0.4.5"
+ark-bn254 = "0.4.0"
+ark-ec = "0.4.0"
+ark-serialize = "0.4.0"
+ark-ff = "0.4.0"
 
 [features]
 export-abi = ["stylus-sdk/export-abi"]
