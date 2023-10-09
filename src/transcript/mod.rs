@@ -49,10 +49,11 @@ impl Transcript {
     }
 
     pub fn challenge_scalar(&mut self) -> ScalarField {
-        let new_state = keccak(self.state);
+        let intermediate_state = keccak(&self.state[..]);
+        let new_state = keccak(&intermediate_state[..]);
 
         let challenge =
-            ScalarField::from_le_bytes_mod_order(&[&self.state[..], &new_state[..]].concat());
+            ScalarField::from_le_bytes_mod_order(&[&intermediate_state, &new_state].concat());
 
         self.state = new_state;
 
