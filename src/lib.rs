@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+mod constants;
 mod transcript;
 mod types;
 
