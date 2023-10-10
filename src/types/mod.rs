@@ -1,5 +1,8 @@
 //! Common types used throughout the verifier.
 
+mod errors;
+pub mod solidity_types;
+
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
 
@@ -17,9 +20,9 @@ pub type G2Affine = <Bn254 as Pairing>::G2Affine;
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
 pub struct VerificationKey {
     /// The number of gates in the circuit
-    pub n: usize,
+    pub n: u64,
     /// The number of public inputs to the circuit
-    pub l: usize,
+    pub l: u64,
     /// The constants used to generate disjoint cosets of the evaluation domain
     pub k: [ScalarField; NUM_WIRE_TYPES],
     /// The commitments to the selector polynomials (q_*) of the circuit

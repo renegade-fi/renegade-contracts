@@ -1,12 +1,14 @@
 //! Transcript error types and conversions.
 
+/// Errors stemming from transcript operations
 #[derive(Debug)]
 pub enum TranscriptError {
-    SerializationError(ark_serialize::SerializationError),
+    /// An error that occured while serializing a value into the transcript
+    Serialization,
 }
 
 impl From<ark_serialize::SerializationError> for TranscriptError {
-    fn from(value: ark_serialize::SerializationError) -> Self {
-        TranscriptError::SerializationError(value)
+    fn from(_value: ark_serialize::SerializationError) -> Self {
+        TranscriptError::Serialization
     }
 }
