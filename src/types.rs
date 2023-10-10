@@ -2,6 +2,7 @@
 
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
+use ark_serialize::CanonicalSerialize;
 
 use crate::constants::{NUM_SELECTORS, NUM_WIRE_TYPES};
 
@@ -15,6 +16,7 @@ pub type G2Affine = <Bn254 as Pairing>::G2Affine;
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
+#[derive(CanonicalSerialize)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: usize,
@@ -53,4 +55,20 @@ pub struct Proof {
     pub permutation_evals: [ScalarField; NUM_WIRE_TYPES - 1],
     /// The evaluation of the grand product polynomial at the challenge point `zeta * omega` (i.e. \bar{z})
     pub grand_product_eval: ScalarField,
+}
+
+/// The public coin challenges used throughout the Plonk protocol, obtained via a Fiat-Shamir transformation.
+pub struct Challenges {
+    /// The first permutation challenge, used in round 2 of the prover algorithm
+    pub beta: ScalarField,
+    /// The second permutation challenge, used in round 2 of the prover algorithm
+    pub gamma: ScalarField,
+    /// The quotient challenge, used in round 3 of the prover algorithm
+    pub alpha: ScalarField,
+    /// The evaluation challenge, used in round 4 of the prover algorithm
+    pub zeta: ScalarField,
+    /// The opening challenge, used in round 5 of the prover algorithm
+    pub v: ScalarField,
+    /// The multipoint evaluation challenge, generated at the end of round 5 of the prover algorithm
+    pub u: ScalarField,
 }
