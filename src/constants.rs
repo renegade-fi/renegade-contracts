@@ -15,3 +15,6 @@ pub const NUM_WIRE_TYPES: usize = 3;
 /// - `q_M`: The selector for the multiplication constraints
 /// - `q_C`: The selector for constant constraints
 pub const NUM_SELECTORS: usize = 5;
+
+/// The transcript has a 64 byte state size to accommodate two hash digests.
+pub const TRANSCRIPT_STATE_SIZE: usize = 64;
