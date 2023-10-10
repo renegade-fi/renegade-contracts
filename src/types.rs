@@ -2,7 +2,6 @@
 
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
-use ark_serialize::CanonicalSerialize;
 
 use crate::constants::{NUM_SELECTORS, NUM_WIRE_TYPES};
 
@@ -16,7 +15,6 @@ pub type G2Affine = <Bn254 as Pairing>::G2Affine;
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
-#[derive(CanonicalSerialize)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: usize,
