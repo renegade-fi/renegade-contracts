@@ -1,0 +1,28 @@
+[package]
+name = "contracts-stylus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+stylus-sdk = "0.4.1"
+wee_alloc = "0.4.5"
+ark-serialize = { workspace = true }
+ark-ff = { workspace = true }
+contracts-core = { path = "../contracts-core" }
+
+[features]
+export-abi = ["stylus-sdk/export-abi"]
+
+[profile.release]
+codegen-units = 1        # prefer efficiency to compile time
+panic = "abort"          # use simple panics
+opt-level = "z"          # optimize for size ("s" may also work)
+strip = true             # remove debug info
+lto = true               # link time optimization
+debug = false            # no debug data
+rpath = false            # no run-time search path
+debug-assertions = false # prune debug assertions
+incremental = false      # no incremental builds
+
+[lib]
+crate-type = ["lib", "cdylib"]

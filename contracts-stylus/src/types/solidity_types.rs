@@ -5,18 +5,14 @@
 
 use alloc::vec::Vec;
 use ark_serialize::CanonicalDeserialize;
+use contracts_core::{constants::{NUM_SELECTORS, NUM_WIRE_TYPES}, types::{ScalarField, G1Affine, G2Affine, VerificationKey}};
 use core::result::Result;
 use stylus_sdk::{
     storage::{StorageArray, StorageBytes, StorageU64},
     stylus_proc::solidity_storage,
 };
 
-use crate::{
-    constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
-    types::G1Affine,
-};
-
-use super::{errors::StorageError, G2Affine, ScalarField, VerificationKey};
+use super::errors::StorageError;
 
 fn deserialize_storage_bytes_array<T: CanonicalDeserialize, const N: usize>(
     storage_array: &StorageArray<StorageBytes, N>,
