@@ -1,7 +1,7 @@
 //! Common types used throughout the verifier.
 
-mod errors;
-pub mod solidity_types;
+// mod errors;
+// pub mod solidity_types;
 
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
@@ -18,6 +18,7 @@ pub type G2Affine = <Bn254 as Pairing>::G2Affine;
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
+#[derive(Default)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
@@ -38,6 +39,7 @@ pub struct VerificationKey {
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
+#[derive(Default)]
 pub struct Proof {
     /// The commitments to the wire polynomials (e.g. a, b, c) encoding the witness
     pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
