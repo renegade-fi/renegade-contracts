@@ -1,6 +1,6 @@
 //! A simple transcript used for computing challenge values via the Fiat-Shamir transformation.
 
-mod errors;
+pub mod errors;
 
 use alloc::vec::Vec;
 use ark_ff::PrimeField;
@@ -26,7 +26,8 @@ pub struct Transcript<H: TranscriptHasher> {
 
 impl<H: TranscriptHasher> Transcript<H> {
     /// Creates a new transcript with a zeroed-out hash state
-    fn new() -> Self {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
         Transcript {
             transcript: Vec::new(),
             state: [0u8; TRANSCRIPT_STATE_SIZE],
@@ -65,7 +66,7 @@ impl<H: TranscriptHasher> Transcript<H> {
     }
     /// Computes all the challenges used in the Plonk protocol,
     /// given a verification key, a proof, and a set of public inputs.
-    fn compute_challenges(
+    pub fn compute_challenges(
         &mut self,
         vkey: &VerificationKey,
         proof: &Proof,
