@@ -554,6 +554,7 @@ dependencies = [
  "ark-bn254",
  "ark-ec",
  "ark-ff",
+ "ark-poly",
  "ark-serialize",
  "jf-plonk",
  "jf-primitives",
