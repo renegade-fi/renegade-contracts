@@ -71,10 +71,10 @@ impl<H: TranscriptHasher> Transcript<H> {
         vkey: &VerificationKey,
         proof: &Proof,
         public_inputs: &[ScalarField],
-        extra_transcript_init_msg: &Option<Vec<u8>>,
+        extra_transcript_init_message: &Option<Vec<u8>>,
     ) -> Result<Challenges, TranscriptError> {
         // Absorb verification key & public inputs
-        if let Some(msg) = extra_transcript_init_msg {
+        if let Some(msg) = extra_transcript_init_message {
             self.append_message(msg);
         }
         self.append_message(&ScalarField::MODULUS_BIT_SIZE.to_le_bytes());
