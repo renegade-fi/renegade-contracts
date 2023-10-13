@@ -10,9 +10,11 @@ pub enum VerifierError {
     /// An error that occurred when computing the challenges
     ChallengeComputation,
     /// An error that occurred when computing a modular inverse
-    InversionError,
+    Inversion,
     /// An error that occurred when doing elliptic curve arithmetic
-    EcArithmeticError,
+    EcArithmetic,
+    /// An error that occurred when doing an MSM over different-length scalar & point slices
+    MsmLength,
 }
 
 impl From<TranscriptError> for VerifierError {
