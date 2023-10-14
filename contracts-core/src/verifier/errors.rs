@@ -2,6 +2,7 @@
 
 use crate::transcript::errors::TranscriptError;
 
+#[derive(Debug)]
 pub enum VerifierError {
     /// An error that occurred when constructing the PIOP evaluation domain representation
     InvalidEvaluationDomain,
@@ -11,8 +12,6 @@ pub enum VerifierError {
     ChallengeComputation,
     /// An error that occurred when computing a modular inverse
     Inversion,
-    /// An error that occurred when doing elliptic curve arithmetic
-    EcArithmetic,
     /// An error that occurred when doing an MSM over different-length scalar & point slices
     MsmLength,
 }
