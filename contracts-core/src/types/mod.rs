@@ -3,6 +3,8 @@
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
 
+use crate::constants::{NUM_SELECTORS, NUM_WIRE_TYPES};
+
 // TODO: Consider using associated types of the `CurveGroup` trait instead.
 // Docs imply that arithmetic should be more efficient: https://docs.rs/ark-ec/0.4.2/ark_ec/#elliptic-curve-groups
 // Since we don't use the Arkworks implementation of EC arithmetic, nor that of pairings, use whichever is more convenient for precompiles
@@ -19,26 +21,12 @@ pub struct VerificationKey {
     pub n: u64,
     /// The number of public inputs to the circuit
     pub l: u64,
-    /// The constants used to generate the first coset of the evaluation domain
-    pub k1: ScalarField,
-    /// The constants used to generate the second coset of the evaluation domain
-    pub k2: ScalarField,
-    /// The commitment to the left input selector polynomial
-    pub q_l_comm: G1Affine,
-    /// The commitment to the right input selector polynomial
-    pub q_r_comm: G1Affine,
-    /// The commitment to the output selector polynomial
-    pub q_o_comm: G1Affine,
-    /// The commitment to the multiplication selector polynomial
-    pub q_m_comm: G1Affine,
-    /// The commitment to the constant selector polynomial
-    pub q_c_comm: G1Affine,
-    /// The commitment to the first permutation polynomial
-    pub sigma_1_comm: G1Affine,
-    /// The commitment to the second permutation polynomial
-    pub sigma_2_comm: G1Affine,
-    /// The commitment to the third permutation polynomial
-    pub sigma_3_comm: G1Affine,
+    /// The constants used to generate the cosets of the evaluation domain
+    pub k: [ScalarField; NUM_WIRE_TYPES],
+    /// The commitments to the selector polynomials
+    pub q_comms: [G1Affine; NUM_SELECTORS],
+    /// The commitments to the permutation polynomials
+    pub sigma_comms: [G1Affine; NUM_WIRE_TYPES],
     /// The generator of the G1 group
     pub g: G1Affine,
     /// The generator of the G2 group
@@ -50,34 +38,20 @@ pub struct VerificationKey {
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
 #[derive(Default)]
 pub struct Proof {
-    /// The commitment to the left input wire polynomial
-    pub a_comm: G1Affine,
-    /// The commitment to the right input wire polynomial
-    pub b_comm: G1Affine,
-    /// The commitment to the output wire polynomial
-    pub c_comm: G1Affine,
+    /// The commitments to the wire polynomials
+    pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
     /// The commitment to the grand product polynomial encoding the permutation argument (i.e., copy constraints)
     pub z_comm: G1Affine,
-    /// The commitment to the lower split quotient polynomial
-    pub t_lo_comm: G1Affine,
-    /// The commitment to the middle split quotient polynomial
-    pub t_mid_comm: G1Affine,
-    /// The commitment to the upper split quotient polynomial
-    pub t_hi_comm: G1Affine,
+    /// The commitments to the split quotient polynomials
+    pub quotient_comms: [G1Affine; NUM_WIRE_TYPES],
     /// The opening proof of evaluations at challenge point `zeta`
     pub w_zeta: G1Affine,
     /// The opening proof of evaluations at challenge point `zeta * omega`
     pub w_zeta_omega: G1Affine,
-    /// The evaluation of the left input wire polynomial at the challenge point `zeta`
-    pub a_bar: ScalarField,
-    /// The evaluation of the right input wire polynomial at the challenge point `zeta`
-    pub b_bar: ScalarField,
-    /// The evaluation of the output wire polynomial at the challenge point `zeta`
-    pub c_bar: ScalarField,
-    /// The evaluation of the first permutation polynomial at the challenge point `zeta`
-    pub sigma_1_bar: ScalarField,
-    /// The evaluation of the second permutation polynomial at the challenge point `zeta`
-    pub sigma_2_bar: ScalarField,
+    /// The evaluations of the wire polynomials at the challenge point `zeta`
+    pub wire_evals: [ScalarField; NUM_WIRE_TYPES],
+    /// The evaluations of the permutation polynomials at the challenge point `zeta`
+    pub sigma_evals: [ScalarField; NUM_WIRE_TYPES - 1],
     /// The evaluation of the grand product polynomial at the challenge point `zeta * omega` (\bar{z})
     pub z_bar: ScalarField,
 }
