@@ -3,7 +3,7 @@
 pub mod errors;
 
 use alloc::vec::Vec;
-use ark_ff::{One, PrimeField};
+use ark_ff::PrimeField;
 use ark_serialize::CanonicalSerialize;
 use core::{marker::PhantomData, result::Result};
 
@@ -82,21 +82,15 @@ impl<H: TranscriptHasher> Transcript<H> {
         self.append_message(&vkey.l.to_le_bytes());
         // For equivalency with Jellyfish, which expects as many coset constants as there are wire types,
         // we inject an identity constant, which generates the first coset
-        self.append_serializable(&[ScalarField::one(), vkey.k1, vkey.k2])?;
-        self.append_serializable(&[
-            vkey.q_l_comm,
-            vkey.q_r_comm,
-            vkey.q_o_comm,
-            vkey.q_m_comm,
-            vkey.q_c_comm,
-        ])?;
-        self.append_serializable(&[vkey.sigma_1_comm, vkey.sigma_2_comm, vkey.sigma_3_comm])?;
+        self.append_serializable(&vkey.k)?;
+        self.append_serializable(&vkey.q_comms)?;
+        self.append_serializable(&vkey.sigma_comms)?;
         for pi in public_inputs.iter() {
             self.append_serializable(pi)?;
         }
 
         // Prover round 1: absorb wire polynomial commitments
-        self.append_serializable(&[proof.a_comm, proof.b_comm, proof.c_comm])?;
+        self.append_serializable(&proof.wire_comms)?;
         // Here, for consistency with the Jellyfish implementation, we squeeze an unused challenge
         // `tau`, which would be used for Plookup
         self.get_and_append_challenge();
@@ -108,12 +102,12 @@ impl<H: TranscriptHasher> Transcript<H> {
 
         // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial commitments
         let alpha = self.get_and_append_challenge();
-        self.append_serializable(&[proof.t_lo_comm, proof.t_mid_comm, proof.t_hi_comm])?;
+        self.append_serializable(&proof.quotient_comms)?;
 
         // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand product polynomial evaluations
         let zeta = self.get_and_append_challenge();
-        self.append_serializable(&[proof.a_bar, proof.b_bar, proof.c_bar])?;
-        self.append_serializable(&[proof.sigma_1_bar, proof.sigma_2_bar])?;
+        self.append_serializable(&proof.wire_evals)?;
+        self.append_serializable(&proof.sigma_evals)?;
         self.append_serializable(&proof.z_bar)?;
 
         // Prover round 5: squeeze v challenge, absorb opening proofs
@@ -139,7 +133,6 @@ impl<H: TranscriptHasher> Transcript<H> {
 pub mod tests {
     use alloc::vec;
     use ark_bn254::Bn254;
-    use ark_ff::One;
     use jf_plonk::{
         proof_system::{
             structs::{BatchProof, ProofEvaluations, VerifyingKey},
@@ -151,14 +144,12 @@ pub mod tests {
     use sha3::{Digest, Keccak256};
 
     use crate::{
-        constants::HASH_OUTPUT_SIZE,
+        constants::{HASH_OUTPUT_SIZE, NUM_SELECTORS, NUM_WIRE_TYPES},
         types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
     };
 
     use super::{Transcript, TranscriptHasher};
 
-    const NUM_WIRE_TYPES: usize = 3;
-    const NUM_SELECTORS: usize = 5;
     const N: usize = 1024;
     const L: usize = 512;
 
@@ -183,12 +174,7 @@ pub mod tests {
             num_inputs: L,
             sigma_comms: vec![Commitment::default(); NUM_WIRE_TYPES],
             selector_comms: vec![Commitment::default(); NUM_SELECTORS],
-            k: [
-                // First coset constant is always 1
-                vec![ScalarField::one()],
-                vec![ScalarField::default(); NUM_WIRE_TYPES - 1],
-            ]
-            .concat(),
+            k: vec![ScalarField::default(); NUM_WIRE_TYPES],
             open_key: UnivariateVerifierParam {
                 g: G1Affine::default(),
                 h: G2Affine::default(),
