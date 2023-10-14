@@ -5,4 +5,4 @@ extern crate alloc;
 pub mod constants;
 pub mod transcript;
 pub mod types;
-// pub mod verifier;
+pub mod verifier;

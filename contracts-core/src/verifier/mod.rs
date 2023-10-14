@@ -8,11 +8,12 @@
 mod errors;
 
 use alloc::vec::Vec;
-use ark_ff::{Field, One};
+use ark_ff::{Field, One, Zero};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use core::result::Result;
 
 use crate::{
+    constants::NUM_WIRE_TYPES,
     transcript::{Transcript, TranscriptHasher},
     types::{Challenges, G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
@@ -21,7 +22,7 @@ use self::errors::VerifierError;
 
 /// Encapsulates the implementations of elliptic curve arithmetic done on the G1 source group,
 /// including a pairing identity check with elements of the G2 source group.
-/// 
+///
 /// The type that implements this trait should be a unit struct that either calls out to precompiles
 /// for EC arithmetic and pairings in a smart contract context, or call out to Arkworks code in a testing context.
 pub trait G1ArithmeticBackend {
@@ -95,16 +96,11 @@ pub fn verify<H: TranscriptHasher, G: G1ArithmeticBackend>(
 
     let d_1 = step_9::<G>(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
 
-    let v_2 = challenges.v * challenges.v;
-    let v_4 = v_2 * v_2;
-    let v_powers = [
-        ScalarField::one(),
-        challenges.v,
-        v_2,
-        challenges.v * v_2,
-        v_4,
-        challenges.v * v_4,
-    ];
+    // Increasing powers of v, starting w/ v
+    let mut v_powers = [challenges.v; NUM_WIRE_TYPES * 2 - 1];
+    for i in 1..NUM_WIRE_TYPES * 2 - 1 {
+        v_powers[i] = v_powers[i - 1] * challenges.v;
+    }
 
     let f_1 = step_10::<G>(d_1, &v_powers, vkey, proof)?;
 
@@ -189,22 +185,26 @@ fn step_8(
         alpha, beta, gamma, ..
     } = challenges;
     let Proof {
-        a_bar,
-        b_bar,
-        c_bar,
-        sigma_1_bar,
-        sigma_2_bar,
+        wire_evals,
+        sigma_evals,
         z_bar,
         ..
     } = proof;
 
-    pi_eval
-        - lagrange_1_eval * *alpha * *alpha
-        - *alpha
-            * (*a_bar + *beta * *sigma_1_bar + *gamma)
-            * (*b_bar + *beta * *sigma_2_bar + *gamma)
-            * (*c_bar + *gamma)
-            * *z_bar
+    let mut r_0 = pi_eval - lagrange_1_eval * *alpha * *alpha;
+    r_0 -= *alpha
+        * *z_bar
+        * wire_evals[..NUM_WIRE_TYPES - 1]
+            .iter()
+            .zip(sigma_evals.iter())
+            .fold(ScalarField::one(), |acc, (wire_bar, sigma_bar)| {
+                // I.e. (a_bar + beta * sigma_1_bar + gamma) * (b_bar + beta * sigma_2_bar + gamma) in the paper
+                acc * (*wire_bar + *beta * *sigma_bar + *gamma)
+            })
+        // I.e. (c_bar + gamma) in the paper
+        * (wire_evals[NUM_WIRE_TYPES - 1] + *gamma);
+
+    r_0
 }
 
 /// Compute first part of batched polynomial commitment [D]1
@@ -221,7 +221,7 @@ fn step_9<G: G1ArithmeticBackend>(
             step_9_line_1::<G>(vkey, proof)?,
             step_9_line_2::<G>(lagrange_1_eval, vkey, proof, challenges)?,
             step_9_line_3::<G>(vkey, proof, challenges)?,
-            step_9_line_4::<G>(zero_poly_eval, proof)?,
+            step_9_line_4::<G>(zero_poly_eval, proof, challenges)?,
         ],
     )
 }
@@ -231,24 +231,28 @@ fn step_9_line_1<G: G1ArithmeticBackend>(
     vkey: &VerificationKey,
     proof: &Proof,
 ) -> Result<G1Affine, VerifierError> {
-    let VerificationKey {
-        q_m_comm,
-        q_l_comm,
-        q_r_comm,
-        q_o_comm,
-        q_c_comm,
-        ..
-    } = vkey;
-    let Proof {
-        a_bar,
-        b_bar,
-        c_bar,
-        ..
-    } = proof;
+    let VerificationKey { q_comms, .. } = vkey;
+    let Proof { wire_evals, .. } = proof;
 
+    // We hardcode the gate identity used by the Jellyfish implementation here,
+    // at the cost of some generality
     G::msm(
-        &[*a_bar * *b_bar, *a_bar, *b_bar, *c_bar, ScalarField::one()],
-        &[*q_m_comm, *q_l_comm, *q_r_comm, *q_o_comm, *q_c_comm],
+        &[
+            wire_evals[0],
+            wire_evals[1],
+            wire_evals[2],
+            wire_evals[3],
+            wire_evals[0] * wire_evals[1],
+            wire_evals[2] * wire_evals[3],
+            wire_evals[0].pow([5]),
+            wire_evals[1].pow([5]),
+            wire_evals[2].pow([5]),
+            wire_evals[3].pow([5]),
+            -wire_evals[4],
+            ScalarField::one(),
+            wire_evals[0] * wire_evals[1] * wire_evals[2] * wire_evals[3] * wire_evals[4],
+        ],
+        q_comms,
     )
 }
 
@@ -259,13 +263,9 @@ fn step_9_line_2<G: G1ArithmeticBackend>(
     proof: &Proof,
     challenges: &Challenges,
 ) -> Result<G1Affine, VerifierError> {
-    let VerificationKey { k1, k2, .. } = vkey;
+    let VerificationKey { k, .. } = vkey;
     let Proof {
-        a_bar,
-        b_bar,
-        c_bar,
-        z_comm,
-        ..
+        wire_evals, z_comm, ..
     } = proof;
     let Challenges {
         alpha,
@@ -276,15 +276,20 @@ fn step_9_line_2<G: G1ArithmeticBackend>(
         ..
     } = challenges;
 
-    G::ec_scalar_mul(
-        (*a_bar + *beta * *zeta + *gamma)
-            * (*b_bar + *beta * *k1 * *zeta + *gamma)
-            * (*c_bar + *beta * *k2 * *zeta + *gamma)
+    let z_scalar_coeff =
+        wire_evals
+            .iter()
+            .zip(k.iter())
+            .fold(ScalarField::one(), |acc, (wire_bar, k_i)| {
+                // I.e. (a_bar + beta * k1 * zeta + gamma) * (b_bar + beta * k2 * zeta + gamma) * (c_bar + beta * k3 * zeta + gamma) in the paper,
+                // where k_1 = 1
+                acc * (*wire_bar + *beta * *k_i * *zeta + *gamma)
+            })
             * *alpha
             + lagrange_1_eval * *alpha * *alpha
-            + *u,
-        *z_comm,
-    )
+            + *u;
+
+    G::ec_scalar_mul(z_scalar_coeff, *z_comm)
 }
 
 /// Scalar mul of final permutation polynomial commitment
@@ -293,12 +298,10 @@ fn step_9_line_3<G: G1ArithmeticBackend>(
     proof: &Proof,
     challenges: &Challenges,
 ) -> Result<G1Affine, VerifierError> {
-    let VerificationKey { sigma_3_comm, .. } = vkey;
+    let VerificationKey { sigma_comms, .. } = vkey;
     let Proof {
-        a_bar,
-        b_bar,
-        sigma_1_bar,
-        sigma_2_bar,
+        wire_evals,
+        sigma_evals,
         z_bar,
         ..
     } = proof;
@@ -306,61 +309,64 @@ fn step_9_line_3<G: G1ArithmeticBackend>(
         alpha, beta, gamma, ..
     } = challenges;
 
-    G::ec_scalar_mul(
-        -(*a_bar + *beta * *sigma_1_bar + *gamma)
-            * (*b_bar + *beta * *sigma_2_bar + *gamma)
-            * *alpha
-            * *beta
-            * *z_bar,
-        *sigma_3_comm,
-    )
+    let final_sigma_scalar_coeff = wire_evals[..NUM_WIRE_TYPES - 1]
+        .iter()
+        .zip(sigma_evals.iter())
+        .fold(ScalarField::one(), |acc, (wire_bar, sigma_bar)| {
+            // I.e. (a_bar + beta * sigma_1_bar + gamma) * (b_bar + beta * sigma_2_bar + gamma) in the paper
+            acc * (*wire_bar + *beta * *sigma_bar + *gamma)
+        })
+        * *alpha
+        * *beta
+        * *z_bar;
+
+    G::ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
 }
 
 /// MSM over split quotient polynomial commitments
 fn step_9_line_4<G: G1ArithmeticBackend>(
     zero_poly_eval: ScalarField,
     proof: &Proof,
+    challenges: &Challenges,
 ) -> Result<G1Affine, VerifierError> {
-    let Proof {
-        t_lo_comm,
-        t_mid_comm,
-        t_hi_comm,
-        ..
-    } = proof;
+    let Proof { quotient_comms, .. } = proof;
+    let Challenges { zeta, .. } = challenges;
 
-    let zeta_to_n = zero_poly_eval + ScalarField::one();
+    // In the Jellyfish implementation, they multiply each split quotient commtiment by increaseing powers of
+    // zeta^{n+2}, as opposed to zeta^n, as in the paper.
+    // This is in order to "achieve better balance among degrees of all splitting
+    // polynomials (especially the highest-degree/last one)"
+    // (As indicated in the doc comment here: https://github.com/EspressoSystems/jellyfish/blob/main/plonk/src/proof_system/prover.rs#L893)
+    let zeta_to_n_plus_two = (zero_poly_eval + ScalarField::one()) * *zeta * *zeta;
+
+    // Increasing powers of zeta^{n+2}, starting w/ 1
+    let mut split_quotients_scalars = [ScalarField::one(); NUM_WIRE_TYPES];
+    for i in 1..NUM_WIRE_TYPES {
+        split_quotients_scalars[i] = split_quotients_scalars[i - 1] * zeta_to_n_plus_two;
+    }
+
     G::ec_scalar_mul(
         -zero_poly_eval,
-        G::msm(
-            &[ScalarField::one(), zeta_to_n, zeta_to_n * zeta_to_n],
-            &[*t_lo_comm, *t_mid_comm, *t_hi_comm],
-        )?,
+        G::msm(&split_quotients_scalars, quotient_comms)?,
     )
 }
 
 /// Compute full batched polynomial commitment [F]1
 fn step_10<G: G1ArithmeticBackend>(
     d_1: G1Affine,
-    v_powers: &[ScalarField; 6],
+    v_powers: &[ScalarField; NUM_WIRE_TYPES * 2 - 1],
     vkey: &VerificationKey,
     proof: &Proof,
 ) -> Result<G1Affine, VerifierError> {
-    let VerificationKey {
-        sigma_1_comm,
-        sigma_2_comm,
-        ..
-    } = vkey;
-    let Proof {
-        a_comm,
-        b_comm,
-        c_comm,
-        ..
-    } = proof;
+    let VerificationKey { sigma_comms, .. } = vkey;
+    let Proof { wire_comms, .. } = proof;
 
-    G::msm(
-        v_powers,
-        &[d_1, *a_comm, *b_comm, *c_comm, *sigma_1_comm, *sigma_2_comm],
-    )
+    let mut points = Vec::with_capacity(NUM_WIRE_TYPES * 2);
+    points.extend_from_slice(&[d_1]);
+    points.extend_from_slice(wire_comms);
+    points.extend_from_slice(&sigma_comms[..NUM_WIRE_TYPES - 1]);
+
+    G::msm(v_powers, &points)
 }
 
 /// Compute group-encoded batch evaluation [E]1
@@ -368,33 +374,30 @@ fn step_10<G: G1ArithmeticBackend>(
 /// We negate the scalar here to obtain -[E]1 so that we can avoid another EC scalar mul in step 12
 fn step_11<G: G1ArithmeticBackend>(
     r_0: ScalarField,
-    v_powers: &[ScalarField; 6],
+    v_powers: &[ScalarField; NUM_WIRE_TYPES * 2 - 1],
     vkey: &VerificationKey,
     proof: &Proof,
     challenges: &Challenges,
 ) -> Result<G1Affine, VerifierError> {
     let VerificationKey { g, .. } = vkey;
     let Proof {
-        a_bar,
-        b_bar,
-        c_bar,
-        sigma_1_bar,
-        sigma_2_bar,
+        wire_evals,
+        sigma_evals,
         z_bar,
         ..
     } = proof;
     let Challenges { u, .. } = challenges;
 
-    G::ec_scalar_mul(
-        -(-r_0
-            + v_powers[1] * *a_bar
-            + v_powers[2] * *b_bar
-            + v_powers[3] * *c_bar
-            + v_powers[4] * *sigma_1_bar
-            + v_powers[5] * *sigma_2_bar
-            + *u * *z_bar),
-        *g,
-    )
+    let e = -r_0
+        + v_powers
+            .iter()
+            .zip(wire_evals.iter().chain(sigma_evals.iter()))
+            .fold(ScalarField::zero(), |acc, (v_power, eval)| {
+                acc + v_power * eval
+            })
+        + *u * *z_bar;
+
+    G::ec_scalar_mul(-e, *g)
 }
 
 /// Batch validate all evaluations
