@@ -12,5 +12,9 @@ ark-poly = { workspace = true }
 
 [dev-dependencies]
 sha3 = "^0.10"
-jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
+jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
+    "test-srs",
+] }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
+jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
+jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }

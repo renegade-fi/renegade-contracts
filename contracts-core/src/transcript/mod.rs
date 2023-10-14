@@ -153,7 +153,7 @@ pub mod tests {
     const N: usize = 1024;
     const L: usize = 512;
 
-    struct TestHasher;
+    pub struct TestHasher;
     impl TranscriptHasher for TestHasher {
         fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
             let mut hasher = Keccak256::new();

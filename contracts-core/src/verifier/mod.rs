@@ -82,7 +82,7 @@ pub fn verify<H: TranscriptHasher, G: G1ArithmeticBackend>(
         .ok_or(VerifierError::Inversion)?
         * zero_poly_eval;
 
-    let lagrange_1_eval = step_6(zero_poly_eval_div_n, &domain, &challenges);
+    let lagrange_1_eval = step_6(zero_poly_eval_div_n, &challenges);
 
     let pi_eval = step_7(
         lagrange_1_eval,
@@ -96,9 +96,9 @@ pub fn verify<H: TranscriptHasher, G: G1ArithmeticBackend>(
 
     let d_1 = step_9::<G>(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
 
-    // Increasing powers of v, starting w/ v
-    let mut v_powers = [challenges.v; NUM_WIRE_TYPES * 2 - 1];
-    for i in 1..NUM_WIRE_TYPES * 2 - 1 {
+    // Increasing powers of v, starting w/ 1
+    let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
+    for i in 1..NUM_WIRE_TYPES * 2 {
         v_powers[i] = v_powers[i - 1] * challenges.v;
     }
 
@@ -141,17 +141,12 @@ fn step_5(domain: &Radix2EvaluationDomain<ScalarField>, challenges: &Challenges)
 }
 
 /// Compute first Lagrange polynomial evaluation at challenge point `zeta`
-fn step_6(
-    zero_poly_eval_div_n: ScalarField,
-    domain: &Radix2EvaluationDomain<ScalarField>,
-    challenges: &Challenges,
-) -> ScalarField {
-    let Radix2EvaluationDomain {
-        group_gen: omega, ..
-    } = domain;
+fn step_6(zero_poly_eval_div_n: ScalarField, challenges: &Challenges) -> ScalarField {
     let Challenges { zeta, .. } = challenges;
 
-    zero_poly_eval_div_n * *omega / (*zeta - *omega)
+    // N.B.: Jellyfish begins enumerating Lagrange polynomials at omega^0 = 1,
+    // whereas the paper begins at omega^1 = omega
+    zero_poly_eval_div_n / (*zeta - ScalarField::one())
 }
 
 /// Evaluate public inputs polynomial at challenge point `zeta`
@@ -162,6 +157,10 @@ fn step_7(
     challenges: &Challenges,
     public_inputs: &[ScalarField],
 ) -> ScalarField {
+    if public_inputs.is_empty() {
+        return ScalarField::zero();
+    }
+
     let Challenges { zeta, .. } = challenges;
 
     // TODO: Can factor out constant term `zero_poly_eval_div_n` from sum across Lagrange bases
@@ -354,7 +353,7 @@ fn step_9_line_4<G: G1ArithmeticBackend>(
 /// Compute full batched polynomial commitment [F]1
 fn step_10<G: G1ArithmeticBackend>(
     d_1: G1Affine,
-    v_powers: &[ScalarField; NUM_WIRE_TYPES * 2 - 1],
+    v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
     vkey: &VerificationKey,
     proof: &Proof,
 ) -> Result<G1Affine, VerifierError> {
@@ -374,7 +373,7 @@ fn step_10<G: G1ArithmeticBackend>(
 /// We negate the scalar here to obtain -[E]1 so that we can avoid another EC scalar mul in step 12
 fn step_11<G: G1ArithmeticBackend>(
     r_0: ScalarField,
-    v_powers: &[ScalarField; NUM_WIRE_TYPES * 2 - 1],
+    v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
     vkey: &VerificationKey,
     proof: &Proof,
     challenges: &Challenges,
@@ -389,7 +388,7 @@ fn step_11<G: G1ArithmeticBackend>(
     let Challenges { u, .. } = challenges;
 
     let e = -r_0
-        + v_powers
+        + v_powers[1..]
             .iter()
             .zip(wire_evals.iter().chain(sigma_evals.iter()))
             .fold(ScalarField::zero(), |acc, (v_power, eval)| {
@@ -434,4 +433,148 @@ fn step_12<G: G1ArithmeticBackend>(
         )?,
         *h,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use core::result::Result;
+
+    use alloc::vec::Vec;
+    use ark_bn254::Bn254;
+    use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+    use ark_ff::One;
+    use jf_plonk::{
+        errors::PlonkError,
+        proof_system::{
+            structs::{Proof as JfProof, VerifyingKey},
+            PlonkKzgSnark, UniversalSNARK,
+        },
+        transcript::SolidityTranscript,
+    };
+    use jf_primitives::pcs::prelude::Commitment;
+    use jf_relation::{Circuit, PlonkCircuit};
+    use jf_utils::multi_pairing;
+
+    use crate::{
+        transcript::tests::TestHasher,
+        types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
+    };
+
+    use super::{errors::VerifierError, verify, G1ArithmeticBackend};
+
+    pub struct ArkG1ArithmeticBackend;
+    impl G1ArithmeticBackend for ArkG1ArithmeticBackend {
+        fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
+            Ok((a + b).into_affine())
+        }
+        fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
+            let mut b_group = b.into_group();
+            b_group *= a;
+            Ok(b_group.into_affine())
+        }
+        fn ec_pairing_check(
+            a_1: G1Affine,
+            b_1: G2Affine,
+            a_2: G1Affine,
+            b_2: G2Affine,
+        ) -> Result<bool, VerifierError> {
+            // We negate a_2 here because we're expressing the check:
+            // e(a_1, b_1) == e(a_2, b_2)
+            // In the form:
+            // e(a_1, b_1) * e(-a_2, b_2) == e(g, h)
+            // (Where g, h are the generators used for the source groups)
+            Ok(multi_pairing::<Bn254>(&[a_1, -a_2], &[b_1, b_2]).0
+                == <Bn254 as Pairing>::TargetField::one())
+        }
+    }
+
+    const N: usize = 8192;
+
+    fn unwrap_commitments<const N: usize>(comms: &[Commitment<Bn254>]) -> [G1Affine; N] {
+        comms
+            .iter()
+            .map(|c| c.0)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+
+    fn gen_circuit(n: usize) -> Result<PlonkCircuit<ScalarField>, PlonkError> {
+        let mut circuit = PlonkCircuit::new_turbo_plonk();
+        let mut a = circuit.zero();
+        for _ in 0..n / 2 - 10 {
+            a = circuit.add(a, circuit.one())?;
+            a = circuit.mul(a, circuit.one())?;
+        }
+        circuit.finalize_for_arithmetization()?;
+
+        Ok(circuit)
+    }
+
+    fn gen_jf_proof_and_vkey(
+        n: usize,
+    ) -> Result<(JfProof<Bn254>, VerifyingKey<Bn254>), PlonkError> {
+        let rng = &mut jf_utils::test_rng();
+        let circuit = gen_circuit(n)?;
+
+        let max_degree = n + 2;
+        let srs = PlonkKzgSnark::<Bn254>::universal_setup_for_testing(max_degree, rng)?;
+
+        let (pkey, jf_vkey) = PlonkKzgSnark::<Bn254>::preprocess(&srs, &circuit)?;
+
+        let jf_proof =
+            PlonkKzgSnark::<Bn254>::prove::<_, _, SolidityTranscript>(rng, &circuit, &pkey, None)?;
+
+        Ok((jf_proof, jf_vkey))
+    }
+
+    fn convert_jf_proof_and_vkey(
+        jf_proof: JfProof<Bn254>,
+        jf_vkey: VerifyingKey<Bn254>,
+    ) -> (Proof, VerificationKey) {
+        (
+            Proof {
+                wire_comms: unwrap_commitments(&jf_proof.wires_poly_comms),
+                z_comm: jf_proof.prod_perm_poly_comm.0,
+                quotient_comms: unwrap_commitments(&jf_proof.split_quot_poly_comms),
+                w_zeta: jf_proof.opening_proof.0,
+                w_zeta_omega: jf_proof.shifted_opening_proof.0,
+                wire_evals: jf_proof.poly_evals.wires_evals.try_into().unwrap(),
+                sigma_evals: jf_proof.poly_evals.wire_sigma_evals.try_into().unwrap(),
+                z_bar: jf_proof.poly_evals.perm_next_eval,
+            },
+            VerificationKey {
+                n: jf_vkey.domain_size as u64,
+                l: jf_vkey.num_inputs as u64,
+                k: jf_vkey.k.try_into().unwrap(),
+                q_comms: unwrap_commitments(&jf_vkey.selector_comms),
+                sigma_comms: unwrap_commitments(&jf_vkey.sigma_comms),
+                g: jf_vkey.open_key.g,
+                h: jf_vkey.open_key.h,
+                x_h: jf_vkey.open_key.beta_h,
+            },
+        )
+    }
+
+    // Mirrors circuit definition in the Jellyfish benchmarks
+    #[test]
+    fn test_valid_proof_verification() {
+        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N).unwrap();
+        let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+        let result =
+            verify::<TestHasher, ArkG1ArithmeticBackend>(&vkey, &proof, &[], &None).unwrap();
+
+        assert!(result, "valid proof did not verify");
+    }
+
+    #[test]
+    fn test_invalid_proof_verification() {
+        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N).unwrap();
+        let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+        proof.z_bar += ScalarField::one();
+        let result =
+            verify::<TestHasher, ArkG1ArithmeticBackend>(&vkey, &proof, &[], &None).unwrap();
+
+        assert!(!result, "invalid proof verified");
+    }
 }
