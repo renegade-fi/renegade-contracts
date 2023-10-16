@@ -2,7 +2,6 @@
 #![no_std]
 
 mod transcript;
-mod types;
 mod verifier;
 
 extern crate alloc;
