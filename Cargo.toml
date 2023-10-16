@@ -7,3 +7,14 @@ ark-ec = "0.4.0"
 ark-serialize = "0.4.0"
 ark-ff = "0.4.0"
 ark-poly = "0.4.0"
+
+[profile.release]
+codegen-units = 1        # prefer efficiency to compile time
+panic = "abort"          # use simple panics
+opt-level = "z"          # optimize for size ("s" may also work)
+strip = true             # remove debug info
+lto = true               # link time optimization
+debug = false            # no debug data
+rpath = false            # no run-time search path
+debug-assertions = false # prune debug assertions
+incremental = false      # no incremental builds
