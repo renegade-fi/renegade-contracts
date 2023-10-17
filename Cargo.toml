@@ -1,5 +1,5 @@
 [workspace]
-members = ["contracts-stylus", "contracts-core"]
+members = ["contracts-stylus", "contracts-core", "integration"]
 
 [workspace.dependencies]
 ark-bn254 = "0.4.0"

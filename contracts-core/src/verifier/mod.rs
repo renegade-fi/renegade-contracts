@@ -25,6 +25,10 @@ use self::errors::VerifierError;
 ///
 /// The type that implements this trait should be a unit struct that either calls out to precompiles
 /// for EC arithmetic and pairings in a smart contract context, or call out to Arkworks code in a testing context.
+///
+/// The methods on this trait accept a mutable reference to `self` in case the trait needs to be implemented
+/// on some stateful type, i.e. a Stylus contract. For an example of why this is necessary, see the implementation
+/// in `contracts-stylus/src/utils.rs`
 pub trait G1ArithmeticBackend {
     /// Add two points in G1
     fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError>;
@@ -453,7 +457,12 @@ fn step_12<G: G1ArithmeticBackend>(
     )?;
     let b_2 = *h;
 
-    backend.ec_pairing_check(a_1, b_1, a_2, b_2)
+    // We negate a_2 here because we're expressing the check:
+    // e(a_1, b_1) == e(a_2, b_2)
+    // In the form:
+    // e(a_1, b_1) * e(-a_2, b_2) == e(g, h)
+    // (Where g, h are the generators used for the source groups)
+    backend.ec_pairing_check(a_1, b_1, -a_2, b_2)
 }
 
 #[cfg(test)]
@@ -504,12 +513,7 @@ mod tests {
             a_2: G1Affine,
             b_2: G2Affine,
         ) -> Result<bool, VerifierError> {
-            // We negate a_2 here because we're expressing the check:
-            // e(a_1, b_1) == e(a_2, b_2)
-            // In the form:
-            // e(a_1, b_1) * e(-a_2, b_2) == e(g, h)
-            // (Where g, h are the generators used for the source groups)
-            Ok(multi_pairing::<Bn254>(&[a_1, -a_2], &[b_1, b_2]).0
+            Ok(multi_pairing::<Bn254>(&[a_1, a_2], &[b_1, b_2]).0
                 == <Bn254 as Pairing>::TargetField::one())
         }
     }

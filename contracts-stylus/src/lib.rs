@@ -2,9 +2,15 @@
 #![no_std]
 
 mod constants;
-mod transcript;
 mod utils;
+
+#[cfg(not(feature = "test-contracts"))]
+mod transcript;
+#[cfg(not(feature = "test-contracts"))]
 mod verifier;
+
+#[cfg(feature = "test-contracts")]
+mod test_contracts;
 
 extern crate alloc;
 
