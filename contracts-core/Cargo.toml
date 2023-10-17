@@ -1,7 +1,10 @@
+# cargo-features = ["per-package-target"]
+
 [package]
 name = "contracts-core"
 version = "0.1.0"
 edition = "2021"
+# default-target = "aarch64-apple-darwin"
 
 [dependencies]
 ark-bn254 = { workspace = true }
@@ -11,10 +14,10 @@ ark-ff = { workspace = true }
 ark-poly = { workspace = true }
 
 [dev-dependencies]
-sha3 = "^0.10"
+sha3 = { version = "^0.10", default-features = false }
 jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
     "test-srs",
 ] }
-jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
-jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
+jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
+jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }

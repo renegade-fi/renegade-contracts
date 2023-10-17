@@ -5,7 +5,7 @@
 //! It's generic over the hash function used for the Fiat-Shamir transform,
 //! and the type implementing elliptic curve arithmetic over the G1 pairing group.
 
-mod errors;
+pub mod errors;
 
 use alloc::vec::Vec;
 use ark_ff::{Field, One, Zero};
@@ -27,11 +27,12 @@ use self::errors::VerifierError;
 /// for EC arithmetic and pairings in a smart contract context, or call out to Arkworks code in a testing context.
 pub trait G1ArithmeticBackend {
     /// Add two points in G1
-    fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError>;
+    fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError>;
     /// Multiply a G1 point by a scalar in its scalar field
-    fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError>;
+    fn ec_scalar_mul(&mut self, a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError>;
     /// Check the pairing identity e(a_1, b_1) == e(a_2, b_2)
     fn ec_pairing_check(
+        &mut self,
         a_1: G1Affine,
         b_1: G2Affine,
         a_2: G1Affine,
@@ -39,7 +40,11 @@ pub trait G1ArithmeticBackend {
     ) -> Result<bool, VerifierError>;
 
     /// A helper for computing multi-scalar multiplications over G1
-    fn msm(scalars: &[ScalarField], points: &[G1Affine]) -> Result<G1Affine, VerifierError> {
+    fn msm(
+        &mut self,
+        scalars: &[ScalarField],
+        points: &[G1Affine],
+    ) -> Result<G1Affine, VerifierError> {
         if scalars.len() != points.len() {
             return Err(VerifierError::MsmLength);
         }
@@ -48,13 +53,15 @@ pub trait G1ArithmeticBackend {
             .iter()
             .zip(points.iter())
             .try_fold(G1Affine::identity(), |acc, (scalar, point)| {
-                Self::ec_add(acc, Self::ec_scalar_mul(*scalar, *point)?)
+                let scaled_point = self.ec_scalar_mul(*scalar, *point)?;
+                self.ec_add(acc, scaled_point)
             })
     }
 }
 
 /// Verify a proof. Follows the algorithm laid out in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf
 pub fn verify<H: TranscriptHasher, G: G1ArithmeticBackend>(
+    backend: &mut G,
     vkey: &VerificationKey,
     proof: &Proof,
     public_inputs: &[ScalarField],
@@ -94,7 +101,14 @@ pub fn verify<H: TranscriptHasher, G: G1ArithmeticBackend>(
 
     let r_0 = step_8(pi_eval, lagrange_1_eval, &challenges, proof);
 
-    let d_1 = step_9::<G>(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
+    let d_1 = step_9::<G>(
+        backend,
+        zero_poly_eval,
+        lagrange_1_eval,
+        vkey,
+        proof,
+        &challenges,
+    )?;
 
     // Increasing powers of v, starting w/ 1
     let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
@@ -102,11 +116,11 @@ pub fn verify<H: TranscriptHasher, G: G1ArithmeticBackend>(
         v_powers[i] = v_powers[i - 1] * challenges.v;
     }
 
-    let f_1 = step_10::<G>(d_1, &v_powers, vkey, proof)?;
+    let f_1 = step_10::<G>(backend, d_1, &v_powers, vkey, proof)?;
 
-    let neg_e_1 = step_11::<G>(r_0, &v_powers, vkey, proof, &challenges)?;
+    let neg_e_1 = step_11::<G>(backend, r_0, &v_powers, vkey, proof, &challenges)?;
 
-    step_12::<G>(f_1, neg_e_1, &domain, vkey, proof, &challenges)
+    step_12::<G>(backend, f_1, neg_e_1, &domain, vkey, proof, &challenges)
 }
 
 /// Validate public inputs
@@ -208,25 +222,26 @@ fn step_8(
 
 /// Compute first part of batched polynomial commitment [D]1
 fn step_9<G: G1ArithmeticBackend>(
+    backend: &mut G,
     zero_poly_eval: ScalarField,
     lagrange_1_eval: ScalarField,
     vkey: &VerificationKey,
     proof: &Proof,
     challenges: &Challenges,
 ) -> Result<G1Affine, VerifierError> {
-    G::msm(
-        &[ScalarField::one(); 4],
-        &[
-            step_9_line_1::<G>(vkey, proof)?,
-            step_9_line_2::<G>(lagrange_1_eval, vkey, proof, challenges)?,
-            step_9_line_3::<G>(vkey, proof, challenges)?,
-            step_9_line_4::<G>(zero_poly_eval, proof, challenges)?,
-        ],
-    )
+    let points = [
+        step_9_line_1::<G>(backend, vkey, proof)?,
+        step_9_line_2::<G>(backend, lagrange_1_eval, vkey, proof, challenges)?,
+        step_9_line_3::<G>(backend, vkey, proof, challenges)?,
+        step_9_line_4::<G>(backend, zero_poly_eval, proof, challenges)?,
+    ];
+
+    backend.msm(&[ScalarField::one(); 4], &points)
 }
 
 /// MSM over selector polynomial commitments
 fn step_9_line_1<G: G1ArithmeticBackend>(
+    backend: &mut G,
     vkey: &VerificationKey,
     proof: &Proof,
 ) -> Result<G1Affine, VerifierError> {
@@ -235,7 +250,7 @@ fn step_9_line_1<G: G1ArithmeticBackend>(
 
     // We hardcode the gate identity used by the Jellyfish implementation here,
     // at the cost of some generality
-    G::msm(
+    backend.msm(
         &[
             wire_evals[0],
             wire_evals[1],
@@ -257,6 +272,7 @@ fn step_9_line_1<G: G1ArithmeticBackend>(
 
 /// Scalar mul of grand product polynomial commitment
 fn step_9_line_2<G: G1ArithmeticBackend>(
+    backend: &mut G,
     lagrange_1_eval: ScalarField,
     vkey: &VerificationKey,
     proof: &Proof,
@@ -288,11 +304,12 @@ fn step_9_line_2<G: G1ArithmeticBackend>(
             + lagrange_1_eval * *alpha * *alpha
             + *u;
 
-    G::ec_scalar_mul(z_scalar_coeff, *z_comm)
+    backend.ec_scalar_mul(z_scalar_coeff, *z_comm)
 }
 
 /// Scalar mul of final permutation polynomial commitment
 fn step_9_line_3<G: G1ArithmeticBackend>(
+    backend: &mut G,
     vkey: &VerificationKey,
     proof: &Proof,
     challenges: &Challenges,
@@ -319,11 +336,12 @@ fn step_9_line_3<G: G1ArithmeticBackend>(
         * *beta
         * *z_bar;
 
-    G::ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
+    backend.ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
 }
 
 /// MSM over split quotient polynomial commitments
 fn step_9_line_4<G: G1ArithmeticBackend>(
+    backend: &mut G,
     zero_poly_eval: ScalarField,
     proof: &Proof,
     challenges: &Challenges,
@@ -344,14 +362,14 @@ fn step_9_line_4<G: G1ArithmeticBackend>(
         split_quotients_scalars[i] = split_quotients_scalars[i - 1] * zeta_to_n_plus_two;
     }
 
-    G::ec_scalar_mul(
-        -zero_poly_eval,
-        G::msm(&split_quotients_scalars, quotient_comms)?,
-    )
+    let split_quotients_sum = backend.msm(&split_quotients_scalars, quotient_comms)?;
+
+    backend.ec_scalar_mul(-zero_poly_eval, split_quotients_sum)
 }
 
 /// Compute full batched polynomial commitment [F]1
 fn step_10<G: G1ArithmeticBackend>(
+    backend: &mut G,
     d_1: G1Affine,
     v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
     vkey: &VerificationKey,
@@ -365,13 +383,14 @@ fn step_10<G: G1ArithmeticBackend>(
     points.extend_from_slice(wire_comms);
     points.extend_from_slice(&sigma_comms[..NUM_WIRE_TYPES - 1]);
 
-    G::msm(v_powers, &points)
+    backend.msm(v_powers, &points)
 }
 
 /// Compute group-encoded batch evaluation [E]1
 ///
 /// We negate the scalar here to obtain -[E]1 so that we can avoid another EC scalar mul in step 12
 fn step_11<G: G1ArithmeticBackend>(
+    backend: &mut G,
     r_0: ScalarField,
     v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
     vkey: &VerificationKey,
@@ -396,11 +415,12 @@ fn step_11<G: G1ArithmeticBackend>(
             })
         + *u * *z_bar;
 
-    G::ec_scalar_mul(-e, *g)
+    backend.ec_scalar_mul(-e, *g)
 }
 
 /// Batch validate all evaluations
 fn step_12<G: G1ArithmeticBackend>(
+    backend: &mut G,
     f_1: G1Affine,
     neg_e_1: G1Affine,
     domain: &Radix2EvaluationDomain<ScalarField>,
@@ -419,20 +439,21 @@ fn step_12<G: G1ArithmeticBackend>(
     } = proof;
     let Challenges { zeta, u, .. } = challenges;
 
-    G::ec_pairing_check(
-        G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])?,
-        *x_h,
-        G::msm(
-            &[
-                *zeta,
-                *u * *zeta * *omega,
-                ScalarField::one(),
-                ScalarField::one(),
-            ],
-            &[*w_zeta, *w_zeta_omega, f_1, neg_e_1],
-        )?,
-        *h,
-    )
+    let a_1 = backend.msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])?;
+    let b_1 = *x_h;
+
+    let a_2 = backend.msm(
+        &[
+            *zeta,
+            *u * *zeta * *omega,
+            ScalarField::one(),
+            ScalarField::one(),
+        ],
+        &[*w_zeta, *w_zeta_omega, f_1, neg_e_1],
+    )?;
+    let b_2 = *h;
+
+    backend.ec_pairing_check(a_1, b_1, a_2, b_2)
 }
 
 #[cfg(test)]
@@ -464,15 +485,20 @@ mod tests {
 
     pub struct ArkG1ArithmeticBackend;
     impl G1ArithmeticBackend for ArkG1ArithmeticBackend {
-        fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
+        fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
             Ok((a + b).into_affine())
         }
-        fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
+        fn ec_scalar_mul(
+            &mut self,
+            a: ScalarField,
+            b: G1Affine,
+        ) -> Result<G1Affine, VerifierError> {
             let mut b_group = b.into_group();
             b_group *= a;
             Ok(b_group.into_affine())
         }
         fn ec_pairing_check(
+            &mut self,
             a_1: G1Affine,
             b_1: G2Affine,
             a_2: G1Affine,
@@ -561,8 +587,14 @@ mod tests {
     fn test_valid_proof_verification() {
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N).unwrap();
         let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
-        let result =
-            verify::<TestHasher, ArkG1ArithmeticBackend>(&vkey, &proof, &[], &None).unwrap();
+        let result = verify::<TestHasher, ArkG1ArithmeticBackend>(
+            &mut ArkG1ArithmeticBackend,
+            &vkey,
+            &proof,
+            &[],
+            &None,
+        )
+        .unwrap();
 
         assert!(result, "valid proof did not verify");
     }
@@ -572,8 +604,14 @@ mod tests {
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N).unwrap();
         let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
         proof.z_bar += ScalarField::one();
-        let result =
-            verify::<TestHasher, ArkG1ArithmeticBackend>(&vkey, &proof, &[], &None).unwrap();
+        let result = verify::<TestHasher, ArkG1ArithmeticBackend>(
+            &mut ArkG1ArithmeticBackend,
+            &vkey,
+            &proof,
+            &[],
+            &None,
+        )
+        .unwrap();
 
         assert!(!result, "invalid proof verified");
     }

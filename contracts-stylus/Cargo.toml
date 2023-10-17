@@ -1,15 +1,18 @@
-cargo-features = ["per-package-target"]
+# cargo-features = ["per-package-target"]
 
 [package]
 name = "contracts-stylus"
 version = "0.1.0"
 edition = "2021"
-forced-target = "wasm32-unknown-unknown"
+# forced-target = "wasm32-unknown-unknown"
 
 [dependencies]
 stylus-sdk = "0.4.1"
 wee_alloc = "0.4.5"
 ark-serialize = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-bn254 = { workspace = true }
 contracts-core = { path = "../contracts-core" }
 
 [features]

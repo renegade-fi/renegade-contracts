@@ -1,5 +1,6 @@
 //! Common types used throughout the verifier.
 
+use alloc::vec::Vec;
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
