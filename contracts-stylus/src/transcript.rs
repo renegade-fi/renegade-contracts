@@ -1,7 +1,4 @@
-use contracts_core::{
-    constants::HASH_OUTPUT_SIZE,
-    transcript::{Transcript, TranscriptHasher},
-};
+use contracts_core::{constants::HASH_OUTPUT_SIZE, transcript::TranscriptHasher};
 use stylus_sdk::crypto::keccak;
 
 pub struct StylusHasher;
@@ -10,5 +7,3 @@ impl TranscriptHasher for StylusHasher {
         keccak(input).into()
     }
 }
-
-pub type StylusTranscript = Transcript<StylusHasher>;
