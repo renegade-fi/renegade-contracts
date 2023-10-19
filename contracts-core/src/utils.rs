@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 
 use crate::{
     constants::BASE_FIELD_BYTES,
-    types::{G1Affine, G2Affine},
+    types::{G1Affine, G2Affine}, verifier::errors::VerifierError,
 };
 
 type G1BaseField = Fq;
@@ -19,6 +19,12 @@ pub struct PrecompileG2(pub G2Affine);
 
 #[derive(Debug)]
 pub struct PrecompileSerializationError;
+
+impl From<PrecompileSerializationError> for VerifierError {
+    fn from(_value: PrecompileSerializationError) -> Self {
+        VerifierError::BackendError
+    }
+}
 
 pub trait PrecompileSerializable {
     fn serialize_for_precompile(&self) -> Vec<u8>;

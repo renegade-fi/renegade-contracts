@@ -17,7 +17,7 @@ pub type G2Affine = <Bn254 as Pairing>::G2Affine;
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
-#[derive(Default, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Copy, Default, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
