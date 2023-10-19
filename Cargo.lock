@@ -817,6 +817,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-serialize",
+ "ark-std",
  "contracts-core",
  "stylus-sdk",
  "wee_alloc",
