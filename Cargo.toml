@@ -4,7 +4,6 @@ members = ["contracts-stylus", "contracts-core", "integration"]
 [workspace.dependencies]
 ark-bn254 = "0.4.0"
 ark-ec = "0.4.0"
-ark-serialize = "0.4.0"
 ark-ff = "0.4.0"
 ark-poly = "0.4.0"
 

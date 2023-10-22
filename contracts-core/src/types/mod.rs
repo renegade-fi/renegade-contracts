@@ -1,23 +1,21 @@
 //! Common types used throughout the verifier.
 
-use alloc::vec::Vec;
-use ark_bn254::Bn254;
-use ark_ec::pairing::Pairing;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_bn254::{g1::Config as G1Config, g2::Config as G2Config, Fr};
+use ark_ec::short_weierstrass::Affine;
 
 use crate::constants::{NUM_SELECTORS, NUM_WIRE_TYPES};
 
 // TODO: Consider using associated types of the `CurveGroup` trait instead.
 // Docs imply that arithmetic should be more efficient: https://docs.rs/ark-ec/0.4.2/ark_ec/#elliptic-curve-groups
 // Since we don't use the Arkworks implementation of EC arithmetic, nor that of pairings, use whichever is more convenient for precompiles
-pub type ScalarField = <Bn254 as Pairing>::ScalarField;
-pub type G1Affine = <Bn254 as Pairing>::G1Affine;
-pub type G2Affine = <Bn254 as Pairing>::G2Affine;
+pub type ScalarField = Fr;
+pub type G1Affine = Affine<G1Config>;
+pub type G2Affine = Affine<G2Config>;
 
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
-#[derive(Clone, Copy, Default, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Copy, Default)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
@@ -38,7 +36,7 @@ pub struct VerificationKey {
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
-#[derive(Default, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Default)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     pub wire_comms: [G1Affine; NUM_WIRE_TYPES],

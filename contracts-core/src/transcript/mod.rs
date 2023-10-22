@@ -4,11 +4,11 @@ pub mod errors;
 
 use alloc::vec::Vec;
 use ark_ff::PrimeField;
-use ark_serialize::CanonicalSerialize;
 use core::{marker::PhantomData, result::Result};
 
 use crate::{
     constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
+    serde::TranscriptSerializable,
     types::{Challenges, Proof, ScalarField, VerificationKey},
 };
 
@@ -55,13 +55,11 @@ impl<H: TranscriptHasher> Transcript<H> {
     }
 
     /// Appends a serializable Arkworks type to the transcript
-    fn append_serializable<T: CanonicalSerialize>(
+    fn append_serializable<T: TranscriptSerializable>(
         &mut self,
         message: &T,
     ) -> Result<(), TranscriptError> {
-        let mut bytes = Vec::new();
-        message.serialize_compressed(&mut bytes)?;
-        self.append_message(&bytes);
+        self.append_message(&message.serialize_for_transcript());
         Ok(())
     }
     /// Computes all the challenges used in the Plonk protocol,
@@ -82,15 +80,15 @@ impl<H: TranscriptHasher> Transcript<H> {
         self.append_message(&vkey.l.to_le_bytes());
         // For equivalency with Jellyfish, which expects as many coset constants as there are wire types,
         // we inject an identity constant, which generates the first coset
-        self.append_serializable(&vkey.k)?;
-        self.append_serializable(&vkey.q_comms)?;
-        self.append_serializable(&vkey.sigma_comms)?;
+        self.append_serializable(&vkey.k.as_slice())?;
+        self.append_serializable(&vkey.q_comms.as_slice())?;
+        self.append_serializable(&vkey.sigma_comms.as_slice())?;
         for pi in public_inputs.iter() {
             self.append_serializable(pi)?;
         }
 
         // Prover round 1: absorb wire polynomial commitments
-        self.append_serializable(&proof.wire_comms)?;
+        self.append_serializable(&proof.wire_comms.as_slice())?;
         // Here, for consistency with the Jellyfish implementation, we squeeze an unused challenge
         // `tau`, which would be used for Plookup
         self.get_and_append_challenge();
@@ -102,12 +100,12 @@ impl<H: TranscriptHasher> Transcript<H> {
 
         // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial commitments
         let alpha = self.get_and_append_challenge();
-        self.append_serializable(&proof.quotient_comms)?;
+        self.append_serializable(&proof.quotient_comms.as_slice())?;
 
         // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand product polynomial evaluations
         let zeta = self.get_and_append_challenge();
-        self.append_serializable(&proof.wire_evals)?;
-        self.append_serializable(&proof.sigma_evals)?;
+        self.append_serializable(&proof.wire_evals.as_slice())?;
+        self.append_serializable(&proof.sigma_evals.as_slice())?;
         self.append_serializable(&proof.z_bar)?;
 
         // Prover round 5: squeeze v challenge, absorb opening proofs
