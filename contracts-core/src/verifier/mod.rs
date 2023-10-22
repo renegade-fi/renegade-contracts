@@ -99,7 +99,7 @@ impl<G: G1ArithmeticBackend, H: TranscriptHasher> Verifier<G, H> {
         let challenges = self.step_4(&vkey, proof, public_inputs, extra_transcript_init_message)?;
 
         let domain = Radix2EvaluationDomain::new(self.vkey.n as usize)
-            .ok_or(VerifierError::InvalidEvaluationDomain)?;
+            .ok_or(VerifierError::InvalidInputs)?;
 
         let zero_poly_eval = self.step_5(&domain, &challenges);
 
@@ -149,7 +149,7 @@ impl<G: G1ArithmeticBackend, H: TranscriptHasher> Verifier<G, H> {
         vkey: &VerificationKey,
     ) -> Result<(), VerifierError> {
         if public_inputs.len() != vkey.l as usize {
-            return Err(VerifierError::InvalidPublicInputs);
+            return Err(VerifierError::InvalidInputs);
         }
         Ok(())
     }

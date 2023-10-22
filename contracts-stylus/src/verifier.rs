@@ -1,8 +1,8 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::vec::Vec;
-use ark_serialize::CanonicalDeserialize;
 use contracts_core::{
+    serde::CalldataDeserializable,
     types::{Proof, ScalarField, VerificationKey},
     verifier::Verifier,
 };
@@ -30,18 +30,17 @@ impl VerifierContract {
     pub fn verify(&mut self, proof: Bytes, public_inputs: Bytes) -> Result<bool, Vec<u8>> {
         let vkey_bytes = self.vkey.get_bytes();
         let vkey: VerificationKey =
-            CanonicalDeserialize::deserialize_compressed_unchecked(vkey_bytes.as_slice()).unwrap();
+            CalldataDeserializable::deserialize_from_calldata(vkey_bytes.as_slice());
 
         let backend = EvmPrecompileBackend { contract: self };
 
         let mut verifier = Verifier::<EvmPrecompileBackend<_>, StylusHasher>::new(vkey, backend);
 
         let proof: Proof =
-            CanonicalDeserialize::deserialize_uncompressed_unchecked(proof.as_slice()).unwrap();
+            CalldataDeserializable::deserialize_from_calldata(proof.as_slice());
 
         let public_inputs: Vec<ScalarField> =
-            CanonicalDeserialize::deserialize_uncompressed_unchecked(public_inputs.as_slice())
-                .unwrap();
+            CalldataDeserializable::deserialize_from_calldata(public_inputs.as_slice());
 
         Ok(verifier.verify(&proof, &public_inputs, &None).unwrap())
     }

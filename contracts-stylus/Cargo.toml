@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 stylus-sdk = { version = "0.4.1" }
 wee_alloc = "0.4.5"
-ark-serialize = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 ark-bn254 = { workspace = true }
