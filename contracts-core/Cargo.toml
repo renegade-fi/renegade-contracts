@@ -14,6 +14,7 @@ num-bigint = { version = "0.4", default-features = false }
 sha3 = { version = "^0.10", default-features = false }
 jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
     "test-srs",
+    "test_apis",
 ] }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }

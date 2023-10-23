@@ -15,9 +15,23 @@ use crate::{
     types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
 
-// ----------------------------
-// | TYPE ALIASES & CONSTANTS |
-// ----------------------------
+// --------------------
+// | TRAIT DEFINITION |
+// --------------------
+
+pub trait Serializable {
+    /// Serializes a type into a vector of bytes
+    fn serialize(&self) -> Vec<u8>;
+}
+
+pub trait Deserializable {
+    /// Deserializes a type from a slice of bytes
+    fn deserialize(bytes: &[u8]) -> Self;
+}
+
+// ---------------------
+// | TYPES & CONSTANTS |
+// ---------------------
 
 const NUM_U64S_FELT: usize = 4;
 
@@ -25,185 +39,90 @@ type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 type G1BaseField = Fq;
 type G2BaseField = Fq2;
 
-// ---------------------
-// | TRAIT DEFINITIONS |
-// ---------------------
+pub struct PrecompileScalar(pub ScalarField);
+pub struct TranscriptScalar(pub ScalarField);
 
-// --------------
-// | Precompile |
-// --------------
+pub struct PrecompileG1(pub G1Affine);
+pub struct TranscriptG1(pub G1Affine);
 
-pub trait PrecompileSerializable {
-    /// Serializes a type into a vector of bytes for use in EVM precompile invocation
-    fn serialize_for_precompile(&self) -> Vec<u8>;
-}
-
-pub trait PrecompileDeserializable: Sized {
-    /// Deserializes a type from a vector of bytes returned from a precompile invocation
-    fn deserialize_from_precompile(bytes: &[u8]) -> Self;
-}
-
-// --------------
-// | Transcript |
-// --------------
-
-pub trait TranscriptSerializable {
-    /// Serializes a type into a vector of bytes for absorption into a transcript
-    fn serialize_for_transcript(&self) -> Vec<u8>;
-}
-
-pub trait TranscriptDeserializable: Sized {
-    /// Deserializes a type from a vector of bytes squeezed from a transcript
-    fn deserialize_from_transcript(bytes: &[u8]) -> Self;
-}
-
-// ------------
-// | Calldata |
-// ------------
-
-pub trait CalldataDeserializable: Sized {
-    /// Deserializes a type from a vector of bytes submitted as calldata
-    fn deserialize_from_calldata(bytes: &[u8]) -> Self;
-}
+pub struct PrecompileG2(pub G2Affine);
 
 // -------------------------
 // | TRAIT IMPLEMENTATIONS |
 // -------------------------
 
-// ------------------
-// | Field elements |
-// ------------------
-
-// --------------
-// | Precompile |
-// --------------
-
-impl PrecompileSerializable for ScalarField {
-    fn serialize_for_precompile(&self) -> Vec<u8> {
+impl Serializable for PrecompileScalar {
+    fn serialize(&self) -> Vec<u8> {
         // Precompiles expect big-endian serialization
-        into_bigint(self).to_bytes_be()
+        into_bigint(&self.0).to_bytes_be()
     }
 }
 
-impl PrecompileSerializable for G1BaseField {
-    fn serialize_for_precompile(&self) -> Vec<u8> {
-        // Precompiles expect big-endian serialization
-        into_bigint(self).to_bytes_be()
-    }
-}
-
-impl PrecompileDeserializable for G1BaseField {
-    fn deserialize_from_precompile(bytes: &[u8]) -> Self {
-        // Note: although this performs modular reduction, it's safe to do so
-        // since we can assume that precompiles will always correctly return
-        // elements contained in the field
-        G1BaseField::from_be_bytes_mod_order(bytes)
-    }
-}
-
-// --------------
-// | Transcript |
-// --------------
-
-impl TranscriptSerializable for ScalarField {
-    fn serialize_for_transcript(&self) -> Vec<u8> {
+impl Serializable for TranscriptScalar {
+    fn serialize(&self) -> Vec<u8> {
         // Transcript expects little-endian serialization
-        into_bigint(self).to_bytes_le()
+        into_bigint(&self.0).to_bytes_le()
     }
 }
 
-impl TranscriptDeserializable for ScalarField {
-    fn deserialize_from_transcript(bytes: &[u8]) -> Self {
-        ScalarField::from_le_bytes_mod_order(bytes)
+impl Deserializable for TranscriptScalar {
+    fn deserialize(bytes: &[u8]) -> Self {
+        TranscriptScalar(ScalarField::from_le_bytes_mod_order(bytes))
     }
 }
 
-impl TranscriptSerializable for G1BaseField {
-    fn serialize_for_transcript(&self) -> Vec<u8> {
-        // Transcript expects little-endian serialization
-        into_bigint(self).to_bytes_le()
-    }
-}
-
-// ------------
-// | Calldata |
-// ------------
-
-impl CalldataDeserializable for Vec<ScalarField> {
-    fn deserialize_from_calldata(_bytes: &[u8]) -> Self {
-        todo!()
-    }
-}
-
-// -------------------
-// | G1 curve points |
-// -------------------
-
-// --------------
-// | Precompile |
-// --------------
-
-impl PrecompileSerializable for G1Affine {
+impl Serializable for PrecompileG1 {
     /// Serializes a G1 point into the format expected by the EVM `ecAdd`, `ecMul`, and `ecPairing`
     /// precompiles.
     ///
     /// Namely, this is a big-endian serialization of the x and y affine coordinates, as specified here:
     /// https://eips.ethereum.org/EIPS/eip-197#encoding
-    fn serialize_for_precompile(&self) -> Vec<u8> {
+    fn serialize(&self) -> Vec<u8> {
         let zero = G1BaseField::zero();
-        let (x, y) = self.xy().unwrap_or((&zero, &zero));
+        let (x, y) = self.0.xy().unwrap_or((&zero, &zero));
         [x, y]
             .into_iter()
-            .flat_map(PrecompileSerializable::serialize_for_precompile)
+            .flat_map(|f| into_bigint(f).to_bytes_be())
             .collect()
     }
 }
 
-impl PrecompileDeserializable for G1Affine {
+impl Deserializable for PrecompileG1 {
     /// Deserializes a G1 point from the format returned by the EVM `ecAdd` and `ecMul` precompiles.
     ///
     /// Namely, this is a big-endian serialization of the x and y affine coordinates, as specified here:
     /// https://eips.ethereum.org/EIPS/eip-196#encoding
-    fn deserialize_from_precompile(bytes: &[u8]) -> Self {
-        let x = G1BaseField::deserialize_from_precompile(&bytes[..FELT_BYTES]);
-        let y = G1BaseField::deserialize_from_precompile(&bytes[FELT_BYTES..FELT_BYTES * 2]);
+    fn deserialize(bytes: &[u8]) -> Self {
+        // Note: although this performs modular reduction, it's safe to do so
+        // since we can assume that precompiles will always correctly return
+        // elements contained in the field
+        let x = G1BaseField::from_be_bytes_mod_order(&bytes[..FELT_BYTES]);
+        let y = G1BaseField::from_be_bytes_mod_order(&bytes[FELT_BYTES..FELT_BYTES * 2]);
 
-        G1Affine {
+        PrecompileG1(G1Affine {
             x,
             y,
             infinity: x.is_zero() && y.is_zero(),
-        }
+        })
     }
 }
 
-// --------------
-// | Transcript |
-// --------------
-
-impl TranscriptSerializable for G1Affine {
+impl Serializable for TranscriptG1 {
     /// Replicates the functionality of `serialize_compressed` for `Affine`
-    fn serialize_for_transcript(&self) -> Vec<u8> {
-        let (x, flags) = match self.infinity {
+    fn serialize(&self) -> Vec<u8> {
+        let (x, flags) = match self.0.infinity {
             true => (G1BaseField::zero(), SWFlags::infinity()),
-            false => (self.x, to_flags(self)),
+            false => (self.0.x, to_flags(&self.0)),
         };
 
-        let mut x_bytes = x.serialize_for_transcript();
+        let mut x_bytes = into_bigint(&x).to_bytes_le();
         x_bytes[FELT_BYTES - 1] |= u8_bitmask(flags);
 
         x_bytes
     }
 }
 
-// -------------------
-// | G2 curve points |
-// -------------------
-
-// --------------
-// | Precompile |
-// --------------
-
-impl PrecompileSerializable for G2Affine {
+impl Serializable for PrecompileG2 {
     /// Serializes a G2 point into the format expected by the EVM `ecPairing` precompile.
     ///
     /// Namely, this is a big-endian serialization of the coefficients of the x and y affine coordinates,
@@ -213,32 +132,32 @@ impl PrecompileSerializable for G2Affine {
     /// of F_p, its serialization is the concatenation of a and b in big-endian order.
     ///
     /// This follows the specification here: https://eips.ethereum.org/EIPS/eip-197#encoding
-    fn serialize_for_precompile(&self) -> Vec<u8> {
+    fn serialize(&self) -> Vec<u8> {
         let zero = G2BaseField::zero();
-        let (x, y) = self.xy().unwrap_or((&zero, &zero));
+        let (x, y) = self.0.xy().unwrap_or((&zero, &zero));
         [x.c1, x.c0, y.c1, y.c0]
             .iter()
-            .flat_map(PrecompileSerializable::serialize_for_precompile)
+            .flat_map(|f| into_bigint(f).to_bytes_be())
             .collect()
     }
 }
 
-// --------------------
-// | Verification key |
-// --------------------
+// TEMP
 
-impl CalldataDeserializable for VerificationKey {
-    fn deserialize_from_calldata(_bytes: &[u8]) -> Self {
+impl Deserializable for VerificationKey {
+    fn deserialize(_bytes: &[u8]) -> Self {
         todo!()
     }
 }
 
-// ---------
-// | Proof |
-// ---------
+impl Deserializable for Proof {
+    fn deserialize(_bytes: &[u8]) -> Self {
+        todo!()
+    }
+}
 
-impl CalldataDeserializable for Proof {
-    fn deserialize_from_calldata(_bytes: &[u8]) -> Self {
+impl Deserializable for Vec<ScalarField> {
+    fn deserialize(_bytes: &[u8]) -> Self {
         todo!()
     }
 }
@@ -247,11 +166,9 @@ impl CalldataDeserializable for Proof {
 // | GENERIC IMPLEMENTATIONS |
 // ---------------------------
 
-impl<S: TranscriptSerializable> TranscriptSerializable for &[S] {
-    fn serialize_for_transcript(&self) -> Vec<u8> {
-        self.iter()
-            .flat_map(TranscriptSerializable::serialize_for_transcript)
-            .collect()
+impl<S: Serializable> Serializable for &[S] {
+    fn serialize(&self) -> Vec<u8> {
+        self.iter().flat_map(Serializable::serialize).collect()
     }
 }
 
@@ -261,7 +178,8 @@ impl<S: TranscriptSerializable> TranscriptSerializable for &[S] {
 
 /// Converts a field element into an Arkworks `BigInt`.
 ///
-/// Copied from Arkworks, but omitting loop unrolling and forced inlining.
+/// Copied from https://github.com/arkworks-rs/algebra/blob/master/ff/src/fields/models/fp/montgomery_backend.rs#L372,
+/// but omitting loop unrolling and forced inlining.
 fn into_bigint<P: MontConfig<4>>(value: &MontFp256<P>) -> BigInt<4> {
     let mut tmp = value.0;
     let mut r = tmp.0;
@@ -283,7 +201,8 @@ fn into_bigint<P: MontConfig<4>>(value: &MontFp256<P>) -> BigInt<4> {
 /// Calculate a + (b * c) + carry, returning the least significant digit
 /// and setting carry to the most significant digit.
 ///
-///  Copied from Arkworks, but omitting forced inlining
+/// Copied from https://github.com/arkworks-rs/algebra/blob/master/ff/src/biginteger/arithmetic.rs#L124,
+/// but omitting forced inlining
 pub fn mac_with_carry(a: u64, b: u64, c: u64, carry: &mut u64) -> u64 {
     let tmp = (a as u128) + (b as u128 * c as u128) + (*carry as u128);
     *carry = (tmp >> 64) as u64;
@@ -292,7 +211,8 @@ pub fn mac_with_carry(a: u64, b: u64, c: u64, carry: &mut u64) -> u64 {
 
 /// Returns a bit mask corresponding to the given serialization flags
 ///
-///  Copied from Arkworks to avoid depending on `ark-serialize`
+/// Copied from https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/short_weierstrass/serialization_flags.rs#L58
+/// to avoid depending on `ark-serialize`
 fn u8_bitmask(flags: SWFlags) -> u8 {
     let mut mask = 0;
     match flags {
@@ -305,8 +225,8 @@ fn u8_bitmask(flags: SWFlags) -> u8 {
 
 /// Computes serialization flags for the given `G1Affine` point
 ///
-/// Copied from Arkworks, but avoids a `PartialOrd::cmp` call that invokes
-/// the Arkworks implementation of `into_bigint`
+/// Copied from https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/short_weierstrass/affine.rs#L157,
+/// but avoids a `PartialOrd::cmp` call that invokes the Arkworks implementation of `into_bigint`
 fn to_flags(value: &G1Affine) -> SWFlags {
     if value.infinity {
         SWFlags::PointAtInfinity
@@ -324,25 +244,26 @@ mod tests {
 
     use crate::{
         constants::FELT_BYTES,
+        serde::{PrecompileG1, PrecompileG2},
         types::{G1Affine, G2Affine},
     };
 
-    use super::{PrecompileDeserializable, PrecompileSerializable};
+    use super::{Deserializable, Serializable};
 
     #[test]
     fn test_g1_precompile_serde() {
         let a = G1Affine::generator();
-        let res = a.serialize_for_precompile();
+        let res = PrecompileG1(a).serialize();
         // EC precompiles return G1 points in the same format, i.e. big-endian serialization of x and y
         // As such we can use this output to test deserialization
-        let a_prime = G1Affine::deserialize_from_precompile(&res).unwrap();
+        let a_prime = PrecompileG1::deserialize(&res).0;
         assert_eq!(a, a_prime)
     }
 
     #[test]
     fn test_g2_precompile_serde() {
         let a = G2Affine::generator();
-        let res = a.serialize_for_precompile();
+        let res = PrecompileG2(a).serialize();
 
         let x_c1 = BigUint::from_bytes_be(&res[..FELT_BYTES]);
         let x_c0 = BigUint::from_bytes_be(&res[FELT_BYTES..FELT_BYTES * 2]);
