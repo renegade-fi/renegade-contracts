@@ -799,6 +799,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
+ "ark-std",
  "byteorder",
  "jf-plonk",
  "jf-primitives",

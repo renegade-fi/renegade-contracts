@@ -6,6 +6,7 @@ ark-bn254 = "0.4.0"
 ark-ec = "0.4.0"
 ark-ff = "0.4.0"
 ark-poly = "0.4.0"
+ark-std = "0.4.0"
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time

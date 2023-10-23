@@ -39,71 +39,59 @@ type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 type G1BaseField = Fq;
 type G2BaseField = Fq2;
 
-pub struct PrecompileScalar(pub ScalarField);
-pub struct TranscriptScalar(pub ScalarField);
-
-pub struct PrecompileG1(pub G1Affine);
 pub struct TranscriptG1(pub G1Affine);
-
-pub struct PrecompileG2(pub G2Affine);
 
 // -------------------------
 // | TRAIT IMPLEMENTATIONS |
 // -------------------------
 
-impl Serializable for PrecompileScalar {
+impl<P: MontConfig<NUM_U64S_FELT>> Serializable for MontFp256<P> {
+    /// Serializes a field element into a big-endian byte array
     fn serialize(&self) -> Vec<u8> {
-        // Precompiles expect big-endian serialization
-        into_bigint(&self.0).to_bytes_be()
+        into_bigint(self).to_bytes_be()
     }
 }
 
-impl Serializable for TranscriptScalar {
-    fn serialize(&self) -> Vec<u8> {
-        // Transcript expects little-endian serialization
-        into_bigint(&self.0).to_bytes_le()
-    }
-}
-
-impl Deserializable for TranscriptScalar {
+impl<P: MontConfig<NUM_U64S_FELT>> Deserializable for MontFp256<P> {
     fn deserialize(bytes: &[u8]) -> Self {
-        TranscriptScalar(ScalarField::from_le_bytes_mod_order(bytes))
+        MontFp256::<P>::from_be_bytes_mod_order(bytes)
     }
 }
 
-impl Serializable for PrecompileG1 {
-    /// Serializes a G1 point into the format expected by the EVM `ecAdd`, `ecMul`, and `ecPairing`
-    /// precompiles.
+impl Serializable for G1Affine {
+    /// Serializes a G1 point into a big-endian byte array of its coordinates.
     ///
-    /// Namely, this is a big-endian serialization of the x and y affine coordinates, as specified here:
+    /// This matches the format expected by the EVM `ecAdd`, `ecMul`, and `ecPairing`
+    /// precompiles as specified here:
     /// https://eips.ethereum.org/EIPS/eip-197#encoding
     fn serialize(&self) -> Vec<u8> {
         let zero = G1BaseField::zero();
-        let (x, y) = self.0.xy().unwrap_or((&zero, &zero));
+        let (x, y) = self.xy().unwrap_or((&zero, &zero));
         [x, y]
             .into_iter()
-            .flat_map(|f| into_bigint(f).to_bytes_be())
+            .flat_map(Serializable::serialize)
             .collect()
     }
 }
 
-impl Deserializable for PrecompileG1 {
-    /// Deserializes a G1 point from the format returned by the EVM `ecAdd` and `ecMul` precompiles.
+impl Deserializable for G1Affine {
+    /// Deserializes a G1 point from a byte array.
     ///
-    /// Namely, this is a big-endian serialization of the x and y affine coordinates, as specified here:
+    /// This matches the format returned by the EVM `ecAdd` and `ecMul` precompiles,
+    /// as specified here:
     /// https://eips.ethereum.org/EIPS/eip-196#encoding
     fn deserialize(bytes: &[u8]) -> Self {
         // Note: although this performs modular reduction, it's safe to do so
         // since we can assume that precompiles will always correctly return
         // elements contained in the field
-        let x = G1BaseField::from_be_bytes_mod_order(&bytes[..FELT_BYTES]);
-        let y = G1BaseField::from_be_bytes_mod_order(&bytes[FELT_BYTES..FELT_BYTES * 2]);
+        let x = G1BaseField::deserialize(&bytes[..FELT_BYTES]);
+        let y = G1BaseField::deserialize(&bytes[FELT_BYTES..FELT_BYTES * 2]);
 
-        PrecompileG1(G1Affine {
+        G1Affine {
             x,
             y,
             infinity: x.is_zero() && y.is_zero(),
-        })
+        }
     }
 }
 
@@ -122,19 +110,18 @@ impl Serializable for TranscriptG1 {
     }
 }
 
-impl Serializable for PrecompileG2 {
-    /// Serializes a G2 point into the format expected by the EVM `ecPairing` precompile.
-    ///
-    /// Namely, this is a big-endian serialization of the coefficients of the x and y affine coordinates,
-    /// themselves members of the quadratic field extension of the base field of the curve.
+impl Serializable for G2Affine {
+    /// Serializes a G2 point into a big-endian byte array of the coefficients
+    /// of its coordinates in the extension field, i.e.:
     ///
     /// Given an element of the field extension F_p^2[i] represented as ai + b, where a and b are elements
     /// of F_p, its serialization is the concatenation of a and b in big-endian order.
     ///
-    /// This follows the specification here: https://eips.ethereum.org/EIPS/eip-197#encoding
+    /// This matches the format expected by the EVM `ecPairing` precompile, as specified here:
+    /// https://eips.ethereum.org/EIPS/eip-197#encoding
     fn serialize(&self) -> Vec<u8> {
         let zero = G2BaseField::zero();
-        let (x, y) = self.0.xy().unwrap_or((&zero, &zero));
+        let (x, y) = self.xy().unwrap_or((&zero, &zero));
         [x.c1, x.c0, y.c1, y.c0]
             .iter()
             .flat_map(|f| into_bigint(f).to_bytes_be())
@@ -146,6 +133,7 @@ impl Serializable for PrecompileG2 {
 
 impl Deserializable for VerificationKey {
     fn deserialize(_bytes: &[u8]) -> Self {
+        // let mut cursor: usize = 0;
         todo!()
     }
 }
@@ -244,7 +232,6 @@ mod tests {
 
     use crate::{
         constants::FELT_BYTES,
-        serde::{PrecompileG1, PrecompileG2},
         types::{G1Affine, G2Affine},
     };
 
@@ -253,17 +240,17 @@ mod tests {
     #[test]
     fn test_g1_precompile_serde() {
         let a = G1Affine::generator();
-        let res = PrecompileG1(a).serialize();
+        let res = a.serialize();
         // EC precompiles return G1 points in the same format, i.e. big-endian serialization of x and y
         // As such we can use this output to test deserialization
-        let a_prime = PrecompileG1::deserialize(&res).0;
+        let a_prime = G1Affine::deserialize(&res);
         assert_eq!(a, a_prime)
     }
 
     #[test]
     fn test_g2_precompile_serde() {
         let a = G2Affine::generator();
-        let res = PrecompileG2(a).serialize();
+        let res = a.serialize();
 
         let x_c1 = BigUint::from_bytes_be(&res[..FELT_BYTES]);
         let x_c0 = BigUint::from_bytes_be(&res[FELT_BYTES..FELT_BYTES * 2]);

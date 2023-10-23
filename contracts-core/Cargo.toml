@@ -11,6 +11,7 @@ ark-poly = { workspace = true }
 num-bigint = { version = "0.4", default-features = false }
 
 [dev-dependencies]
+ark-std = { workspace = true }
 sha3 = { version = "^0.10", default-features = false }
 jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
     "test-srs",

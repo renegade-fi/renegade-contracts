@@ -15,7 +15,7 @@ pub type G2Affine = Affine<G2Config>;
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
@@ -36,7 +36,6 @@ pub struct VerificationKey {
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
-#[derive(Default)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
