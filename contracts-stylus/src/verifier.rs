@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 use contracts_core::{
-    serde::CalldataDeserializable,
+    serde::Deserializable,
     types::{Proof, ScalarField, VerificationKey},
     verifier::Verifier,
 };
@@ -29,18 +29,15 @@ impl VerifierContract {
     /// Verify the given proof, using the given public inputs and the stored verification key
     pub fn verify(&mut self, proof: Bytes, public_inputs: Bytes) -> Result<bool, Vec<u8>> {
         let vkey_bytes = self.vkey.get_bytes();
-        let vkey: VerificationKey =
-            CalldataDeserializable::deserialize_from_calldata(vkey_bytes.as_slice());
+        let vkey: VerificationKey = Deserializable::deserialize(vkey_bytes.as_slice());
 
         let backend = EvmPrecompileBackend { contract: self };
 
         let mut verifier = Verifier::<EvmPrecompileBackend<_>, StylusHasher>::new(vkey, backend);
 
-        let proof: Proof =
-            CalldataDeserializable::deserialize_from_calldata(proof.as_slice());
+        let proof: Proof = Deserializable::deserialize(proof.as_slice());
 
-        let public_inputs: Vec<ScalarField> =
-            CalldataDeserializable::deserialize_from_calldata(public_inputs.as_slice());
+        let public_inputs: Vec<ScalarField> = Deserializable::deserialize(public_inputs.as_slice());
 
         Ok(verifier.verify(&proof, &public_inputs, &None).unwrap())
     }

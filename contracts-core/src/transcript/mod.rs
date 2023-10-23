@@ -8,8 +8,8 @@ use core::{marker::PhantomData, result::Result};
 
 use crate::{
     constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
-    serde::TranscriptSerializable,
-    types::{Challenges, Proof, ScalarField, VerificationKey},
+    serde::{Serializable, TranscriptG1, TranscriptScalar},
+    types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
 
 use self::errors::TranscriptError;
@@ -55,11 +55,8 @@ impl<H: TranscriptHasher> Transcript<H> {
     }
 
     /// Appends a serializable Arkworks type to the transcript
-    fn append_serializable<T: TranscriptSerializable>(
-        &mut self,
-        message: &T,
-    ) -> Result<(), TranscriptError> {
-        self.append_message(&message.serialize_for_transcript());
+    fn append_serializable<S: Serializable>(&mut self, message: &S) -> Result<(), TranscriptError> {
+        self.append_message(&message.serialize());
         Ok(())
     }
     /// Computes all the challenges used in the Plonk protocol,
@@ -80,15 +77,13 @@ impl<H: TranscriptHasher> Transcript<H> {
         self.append_message(&vkey.l.to_le_bytes());
         // For equivalency with Jellyfish, which expects as many coset constants as there are wire types,
         // we inject an identity constant, which generates the first coset
-        self.append_serializable(&vkey.k.as_slice())?;
-        self.append_serializable(&vkey.q_comms.as_slice())?;
-        self.append_serializable(&vkey.sigma_comms.as_slice())?;
-        for pi in public_inputs.iter() {
-            self.append_serializable(pi)?;
-        }
+        self.append_serializable(&to_transcript_scalars(&vkey.k).as_slice())?;
+        self.append_serializable(&to_transcript_g1s(&vkey.q_comms).as_slice())?;
+        self.append_serializable(&to_transcript_g1s(&vkey.sigma_comms).as_slice())?;
+        self.append_serializable(&to_transcript_scalars(public_inputs).as_slice())?;
 
         // Prover round 1: absorb wire polynomial commitments
-        self.append_serializable(&proof.wire_comms.as_slice())?;
+        self.append_serializable(&to_transcript_g1s(&proof.wire_comms).as_slice())?;
         // Here, for consistency with the Jellyfish implementation, we squeeze an unused challenge
         // `tau`, which would be used for Plookup
         self.get_and_append_challenge();
@@ -96,22 +91,22 @@ impl<H: TranscriptHasher> Transcript<H> {
         // Prover round 2: squeeze beta & gamma challenges, absorb grand product polynomial commitment
         let beta = self.get_and_append_challenge();
         let gamma = self.get_and_append_challenge();
-        self.append_serializable(&proof.z_comm)?;
+        self.append_serializable(&TranscriptG1(proof.z_comm))?;
 
         // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial commitments
         let alpha = self.get_and_append_challenge();
-        self.append_serializable(&proof.quotient_comms.as_slice())?;
+        self.append_serializable(&to_transcript_g1s(&proof.quotient_comms).as_slice())?;
 
         // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand product polynomial evaluations
         let zeta = self.get_and_append_challenge();
-        self.append_serializable(&proof.wire_evals.as_slice())?;
-        self.append_serializable(&proof.sigma_evals.as_slice())?;
-        self.append_serializable(&proof.z_bar)?;
+        self.append_serializable(&to_transcript_scalars(&proof.wire_evals).as_slice())?;
+        self.append_serializable(&to_transcript_scalars(&proof.sigma_evals).as_slice())?;
+        self.append_serializable(&TranscriptScalar(proof.z_bar))?;
 
         // Prover round 5: squeeze v challenge, absorb opening proofs
         let v = self.get_and_append_challenge();
-        self.append_serializable(&proof.w_zeta)?;
-        self.append_serializable(&proof.w_zeta_omega)?;
+        self.append_serializable(&TranscriptG1(proof.w_zeta))?;
+        self.append_serializable(&TranscriptG1(proof.w_zeta_omega))?;
 
         // Squeeze u challenge
         let u = self.get_and_append_challenge();
@@ -125,6 +120,14 @@ impl<H: TranscriptHasher> Transcript<H> {
             u,
         })
     }
+}
+
+fn to_transcript_scalars(scalars: &[ScalarField]) -> Vec<TranscriptScalar> {
+    scalars.iter().copied().map(TranscriptScalar).collect()
+}
+
+fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
+    points.iter().copied().map(TranscriptG1).collect()
 }
 
 #[cfg(test)]
