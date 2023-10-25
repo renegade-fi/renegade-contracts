@@ -1,3 +1,4 @@
 /target
 /.env
 /profiling_data
+/deployments.json

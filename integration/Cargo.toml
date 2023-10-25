@@ -11,3 +11,5 @@ tokio = { version = "1.12.0", features = ["full"] }
 ethers = "2.0"
 eyre = "0.6.8"
 ark-ff = { workspace = true }
+clap = { version = "4.4.7", features = ["derive"] }
+json = "0.12"
