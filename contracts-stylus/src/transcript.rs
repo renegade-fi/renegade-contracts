@@ -1,4 +1,5 @@
-use contracts_core::{transcript::TranscriptHasher, utils::constants::HASH_OUTPUT_SIZE};
+use common::constants::HASH_OUTPUT_SIZE;
+use contracts_core::transcript::TranscriptHasher;
 use stylus_sdk::crypto::keccak;
 
 pub struct StylusHasher;

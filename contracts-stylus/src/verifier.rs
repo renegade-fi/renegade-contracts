@@ -2,10 +2,10 @@
 
 use alloc::vec::Vec;
 use contracts_core::{
-    types::{Proof, ScalarField, VerificationKey},
-    utils::{constants::NUM_PUBLIC_INPUTS, serde::Deserializable},
+    serde::Deserializable,
     verifier::Verifier,
 };
+use common::{types::{Proof, ScalarField, VerificationKey}, constants::NUM_PUBLIC_INPUTS};
 use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::{transcript::StylusHasher, utils::EvmPrecompileBackend};

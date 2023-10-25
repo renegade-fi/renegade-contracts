@@ -2109,8 +2109,12 @@ dependencies = [
 name = "integration"
 version = "0.1.0"
 dependencies = [
+ "ark-ff",
+ "common",
+ "contracts-core",
  "ethers",
  "eyre",
+ "test-helpers",
  "tokio",
 ]
 
