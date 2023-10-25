@@ -7,7 +7,7 @@ pub enum VerifierError {
     /// An error that occurred when interpreting the verification inputs
     InvalidInputs,
     /// An error that occurred when computing the challenges
-    TranscriptBackend,
+    Transcript,
     /// An error that occurred when computing a modular inverse
     Inversion,
     /// An error that occurred when doing an MSM over different-length scalar & point slices
@@ -18,6 +18,6 @@ pub enum VerifierError {
 
 impl From<TranscriptError> for VerifierError {
     fn from(_value: TranscriptError) -> Self {
-        VerifierError::TranscriptBackend
+        VerifierError::Transcript
     }
 }

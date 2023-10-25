@@ -8,16 +8,28 @@ ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 ark-poly = { workspace = true }
+ark-serialize = { workspace = true }
 num-bigint = { version = "0.4", default-features = false }
+jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
+    "test-srs",
+    "test_apis",
+], optional = true }
+jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false, optional = true }
+jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", optional = true }
+jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false, optional = true }
 
 [dev-dependencies]
 ark-std = { workspace = true }
 sha3 = { version = "^0.10", default-features = false }
-jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
-    "test-srs",
-    "test_apis",
-] }
-jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
-jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
-jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 byteorder = "1.5"
+
+[features]
+test-helpers = [
+    "dep:jf-plonk",
+    "dep:jf-relation",
+    "dep:jf-utils",
+    "dep:jf-primitives",
+]
+
+[profile.test]
+features = ["test-helpers"]

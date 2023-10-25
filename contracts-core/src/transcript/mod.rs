@@ -7,9 +7,11 @@ use ark_ff::PrimeField;
 use core::{marker::PhantomData, result::Result};
 
 use crate::{
-    constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
-    serde::{Serializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
+    utils::{
+        constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
+        serde::{Serializable, TranscriptG1},
+    },
 };
 
 use self::errors::TranscriptError;
@@ -153,8 +155,8 @@ pub mod tests {
     use sha3::{Digest, Keccak256};
 
     use crate::{
-        constants::{HASH_OUTPUT_SIZE, NUM_SELECTORS, NUM_WIRE_TYPES},
         types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
+        utils::constants::{HASH_OUTPUT_SIZE, NUM_SELECTORS, NUM_WIRE_TYPES},
     };
 
     use super::{Transcript, TranscriptHasher};
@@ -171,7 +173,7 @@ pub mod tests {
         }
     }
 
-    fn dummy_vkeys() -> (VerificationKey, VerifyingKey<Bn254>) {
+    pub fn dummy_vkeys() -> (VerificationKey, VerifyingKey<Bn254>) {
         let mut rng = ark_std::test_rng();
         let vkey = VerificationKey {
             n: N as u64,
@@ -202,7 +204,7 @@ pub mod tests {
         (vkey, jf_vkey)
     }
 
-    fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
+    pub fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
         let mut rng = ark_std::test_rng();
         let proof = Proof {
             wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],

@@ -1,8 +1,8 @@
 //! Common utilities used throughout the smart contracts, including testing contracts.
 
 use contracts_core::{
-    serde::{Deserializable, Serializable},
     types::{G1Affine, G2Affine, ScalarField},
+    utils::serde::{Deserializable, Serializable},
     verifier::{errors::VerifierError, G1ArithmeticBackend},
 };
 use stylus_sdk::{
@@ -36,7 +36,7 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
         .map_err(|_| VerifierError::ArithmeticBackend)?;
 
         // Deserialize the affine coordinates returned from the precompile
-        Ok(G1Affine::deserialize(&res_xy_bytes))
+        G1Affine::deserialize(&res_xy_bytes).map_err(|_| VerifierError::ArithmeticBackend)
     }
 
     /// Calls the `ecMul` precompile with the given scalar and point, handling de/serialization
@@ -54,7 +54,7 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
         .map_err(|_| VerifierError::ArithmeticBackend)?;
 
         // Deserialize the affine coordinates returned from the precompile
-        Ok(G1Affine::deserialize(&res_xy_bytes))
+        G1Affine::deserialize(&res_xy_bytes).map_err(|_| VerifierError::ArithmeticBackend)
     }
 
     /// Calls the `ecPairing` precompile with the given points, handling de/serialization
