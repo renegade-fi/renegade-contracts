@@ -5,12 +5,13 @@ use alloc::vec::Vec;
 use ark_ec::{short_weierstrass::SWFlags, AffineRepr};
 use ark_ff::{BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
-
-use crate::types::{
-    G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, Proof, ScalarField, VerificationKey,
+use common::{
+    constants::{FELT_BYTES, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    types::{
+        G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, Proof, ScalarField,
+        VerificationKey,
+    },
 };
-
-use super::constants::{FELT_BYTES, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES};
 
 // --------------------
 // | TRAIT DEFINITION |
@@ -287,13 +288,12 @@ fn deserialize_cursor<D: Deserializable>(
 #[cfg(test)]
 mod tests {
     use ark_ec::AffineRepr;
-    use num_bigint::BigUint;
-
-    use crate::{
+    use common::{
         constants::FELT_BYTES,
-        transcript::tests::{dummy_proofs, dummy_vkeys},
         types::{G1Affine, G2Affine, Proof, VerificationKey},
     };
+    use num_bigint::BigUint;
+    use test_helpers::{dummy_proofs, dummy_vkeys};
 
     use super::{Deserializable, Serializable};
 
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_vkey_serde() {
-        let vkey = dummy_vkeys().0;
+        let vkey = dummy_vkeys(1024, 512).0;
         let vkey_ser = vkey.serialize();
         let vkey_deser = VerificationKey::deserialize(&vkey_ser).unwrap();
 

@@ -5,10 +5,8 @@
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_std::UniformRand;
-use contracts_core::{
-    types::{G1Affine, G2Affine, ScalarField},
-    verifier::G1ArithmeticBackend,
-};
+use common::types::{G1Affine, G2Affine, ScalarField};
+use contracts_core::verifier::G1ArithmeticBackend;
 use stylus_sdk::prelude::*;
 
 use crate::utils::EvmPrecompileBackend;
