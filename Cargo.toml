@@ -1,5 +1,11 @@
 [workspace]
-members = ["contracts-stylus", "contracts-core", "integration"]
+members = [
+    "contracts-stylus",
+    "contracts-core",
+    "common",
+    "test-helpers",
+    "integration",
+]
 
 [workspace.dependencies]
 ark-bn254 = "0.4.0"
@@ -27,6 +33,9 @@ opt-level = "z"     # optimize for size ("s" may also work)
 lto = true          # link time optimization
 rpath = false       # no run-time search path
 incremental = false # no incremental builds
+
+[profile.test]
+features = ["test-helpers"]
 
 
 [patch.crates-io]

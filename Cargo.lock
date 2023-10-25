@@ -763,6 +763,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+]
+
+[[package]]
 name = "const-hex"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -797,12 +807,11 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "byteorder",
- "jf-plonk",
- "jf-primitives",
- "jf-relation",
+ "common",
  "jf-utils",
  "num-bigint",
  "sha3",
+ "test-helpers",
 ]
 
 [[package]]
@@ -813,6 +822,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-std",
+ "common",
  "contracts-core",
  "stylus-sdk",
  "wee_alloc",
@@ -3961,6 +3971,20 @@ dependencies = [
  "dirs-next",
  "rustversion",
  "winapi",
+]
+
+[[package]]
+name = "test-helpers"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-std",
+ "common",
+ "jf-plonk",
+ "jf-primitives",
+ "jf-relation",
+ "jf-utils",
 ]
 
 [[package]]

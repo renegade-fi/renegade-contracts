@@ -1,8 +1,8 @@
 //! Common utilities used throughout the smart contracts, including testing contracts.
 
+use common::types::{G1Affine, G2Affine, ScalarField};
 use contracts_core::{
     serde::{Deserializable, Serializable},
-    types::{G1Affine, G2Affine, ScalarField},
     verifier::{errors::VerifierError, G1ArithmeticBackend},
 };
 use stylus_sdk::{

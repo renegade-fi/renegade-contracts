@@ -4,13 +4,13 @@ pub mod errors;
 
 use alloc::vec::Vec;
 use ark_ff::PrimeField;
-use core::{marker::PhantomData, result::Result};
-
-use crate::{
+use common::{
     constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
-    serde::{Serializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
+use core::{marker::PhantomData, result::Result};
+
+use crate::serde::{Serializable, TranscriptG1};
 
 use self::errors::TranscriptError;
 
@@ -138,24 +138,10 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 
 #[cfg(test)]
 pub mod tests {
-    use alloc::vec;
-    use ark_bn254::Bn254;
-    use ark_ec::AffineRepr;
     use ark_std::UniformRand;
-    use jf_plonk::{
-        proof_system::{
-            structs::{BatchProof, ProofEvaluations, VerifyingKey},
-            verifier::Verifier,
-        },
-        transcript::SolidityTranscript,
-    };
-    use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
+    use common::{constants::HASH_OUTPUT_SIZE, types::ScalarField};
     use sha3::{Digest, Keccak256};
-
-    use crate::{
-        constants::{HASH_OUTPUT_SIZE, NUM_SELECTORS, NUM_WIRE_TYPES},
-        types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
-    };
+    use test_helpers::{dummy_proofs, dummy_vkeys, get_jf_challenges};
 
     use super::{Transcript, TranscriptHasher};
 
@@ -171,76 +157,10 @@ pub mod tests {
         }
     }
 
-    pub fn dummy_vkeys() -> (VerificationKey, VerifyingKey<Bn254>) {
-        let mut rng = ark_std::test_rng();
-        let vkey = VerificationKey {
-            n: N as u64,
-            l: L as u64,
-            k: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
-            q_comms: [G1Affine::rand(&mut rng); NUM_SELECTORS],
-            sigma_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
-            g: G1Affine::generator(),
-            h: G2Affine::generator(),
-            x_h: G2Affine::rand(&mut rng),
-        };
-
-        let jf_vkey = VerifyingKey {
-            domain_size: N,
-            num_inputs: L,
-            sigma_comms: vkey.sigma_comms.iter().copied().map(Commitment).collect(),
-            selector_comms: vkey.q_comms.iter().copied().map(Commitment).collect(),
-            k: vkey.k.to_vec(),
-            open_key: UnivariateVerifierParam {
-                g: vkey.g,
-                h: vkey.h,
-                beta_h: vkey.x_h,
-            },
-            is_merged: false,
-            plookup_vk: None,
-        };
-
-        (vkey, jf_vkey)
-    }
-
-    pub fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
-        let mut rng = ark_std::test_rng();
-        let proof = Proof {
-            wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
-            z_comm: G1Affine::rand(&mut rng),
-            quotient_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
-            w_zeta: G1Affine::rand(&mut rng),
-            w_zeta_omega: G1Affine::rand(&mut rng),
-            wire_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
-            sigma_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES - 1],
-            z_bar: ScalarField::rand(&mut rng),
-        };
-
-        let jf_proof = BatchProof {
-            wires_poly_comms_vec: vec![proof.wire_comms.iter().copied().map(Commitment).collect()],
-            prod_perm_poly_comms_vec: vec![Commitment(proof.z_comm)],
-            poly_evals_vec: vec![ProofEvaluations {
-                wires_evals: proof.wire_evals.to_vec(),
-                wire_sigma_evals: proof.sigma_evals.to_vec(),
-                perm_next_eval: proof.z_bar,
-            }],
-            plookup_proofs_vec: vec![],
-            split_quot_poly_comms: proof
-                .quotient_comms
-                .iter()
-                .copied()
-                .map(Commitment)
-                .collect(),
-            opening_proof: Commitment(proof.w_zeta),
-            shifted_opening_proof: Commitment(proof.w_zeta_omega),
-        };
-
-        (proof, jf_proof)
-    }
-
     #[test]
     fn test_transcript_equivalency() {
         let mut rng = ark_std::test_rng();
-        let (vkey, jf_vkey) = dummy_vkeys();
+        let (vkey, jf_vkey) = dummy_vkeys(N as u64, L as u64);
         let (proof, jf_proof) = dummy_proofs();
         let public_inputs = [ScalarField::rand(&mut rng); L];
 
@@ -249,13 +169,7 @@ pub mod tests {
             .compute_challenges(&vkey, &proof, &public_inputs, &None)
             .unwrap();
 
-        let jf_challenges = Verifier::compute_challenges::<SolidityTranscript>(
-            &[&jf_vkey],
-            &[&public_inputs],
-            &jf_proof,
-            &None,
-        )
-        .unwrap();
+        let jf_challenges = get_jf_challenges(&jf_vkey, &public_inputs, &jf_proof, &None).unwrap();
 
         assert_eq!(challenges.beta, jf_challenges.beta);
         assert_eq!(challenges.gamma, jf_challenges.gamma);
