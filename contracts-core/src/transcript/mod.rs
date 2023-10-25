@@ -8,7 +8,7 @@ use core::{marker::PhantomData, result::Result};
 
 use crate::{
     constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
-    serde::{Serializable, TranscriptG1, TranscriptScalar},
+    serde::{Serializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
 
@@ -55,9 +55,8 @@ impl<H: TranscriptHasher> Transcript<H> {
     }
 
     /// Appends a serializable Arkworks type to the transcript
-    fn append_serializable<S: Serializable>(&mut self, message: &S) -> Result<(), TranscriptError> {
+    fn append_serializable<S: Serializable>(&mut self, message: &S) {
         self.append_message(&message.serialize());
-        Ok(())
     }
     /// Computes all the challenges used in the Plonk protocol,
     /// given a verification key, a proof, and a set of public inputs.
@@ -77,13 +76,13 @@ impl<H: TranscriptHasher> Transcript<H> {
         self.append_message(&vkey.l.to_le_bytes());
         // For equivalency with Jellyfish, which expects as many coset constants as there are wire types,
         // we inject an identity constant, which generates the first coset
-        self.append_serializable(&to_transcript_scalars(&vkey.k).as_slice())?;
-        self.append_serializable(&to_transcript_g1s(&vkey.q_comms).as_slice())?;
-        self.append_serializable(&to_transcript_g1s(&vkey.sigma_comms).as_slice())?;
-        self.append_serializable(&to_transcript_scalars(public_inputs).as_slice())?;
+        self.append_message(&serialize_scalars_for_transcript(&vkey.k));
+        self.append_serializable(&to_transcript_g1s(&vkey.q_comms).as_slice());
+        self.append_serializable(&to_transcript_g1s(&vkey.sigma_comms).as_slice());
+        self.append_message(&serialize_scalars_for_transcript(public_inputs));
 
         // Prover round 1: absorb wire polynomial commitments
-        self.append_serializable(&to_transcript_g1s(&proof.wire_comms).as_slice())?;
+        self.append_serializable(&to_transcript_g1s(&proof.wire_comms).as_slice());
         // Here, for consistency with the Jellyfish implementation, we squeeze an unused challenge
         // `tau`, which would be used for Plookup
         self.get_and_append_challenge();
@@ -91,22 +90,22 @@ impl<H: TranscriptHasher> Transcript<H> {
         // Prover round 2: squeeze beta & gamma challenges, absorb grand product polynomial commitment
         let beta = self.get_and_append_challenge();
         let gamma = self.get_and_append_challenge();
-        self.append_serializable(&TranscriptG1(proof.z_comm))?;
+        self.append_serializable(&TranscriptG1(proof.z_comm));
 
         // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial commitments
         let alpha = self.get_and_append_challenge();
-        self.append_serializable(&to_transcript_g1s(&proof.quotient_comms).as_slice())?;
+        self.append_serializable(&to_transcript_g1s(&proof.quotient_comms).as_slice());
 
         // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand product polynomial evaluations
         let zeta = self.get_and_append_challenge();
-        self.append_serializable(&to_transcript_scalars(&proof.wire_evals).as_slice())?;
-        self.append_serializable(&to_transcript_scalars(&proof.sigma_evals).as_slice())?;
-        self.append_serializable(&TranscriptScalar(proof.z_bar))?;
+        self.append_message(&serialize_scalars_for_transcript(&proof.wire_evals));
+        self.append_message(&serialize_scalars_for_transcript(&proof.sigma_evals));
+        self.append_message(&serialize_scalars_for_transcript(&[proof.z_bar]));
 
         // Prover round 5: squeeze v challenge, absorb opening proofs
         let v = self.get_and_append_challenge();
-        self.append_serializable(&TranscriptG1(proof.w_zeta))?;
-        self.append_serializable(&TranscriptG1(proof.w_zeta_omega))?;
+        self.append_serializable(&TranscriptG1(proof.w_zeta));
+        self.append_serializable(&TranscriptG1(proof.w_zeta_omega));
 
         // Squeeze u challenge
         let u = self.get_and_append_challenge();
@@ -122,8 +121,15 @@ impl<H: TranscriptHasher> Transcript<H> {
     }
 }
 
-fn to_transcript_scalars(scalars: &[ScalarField]) -> Vec<TranscriptScalar> {
-    scalars.iter().copied().map(TranscriptScalar).collect()
+/// Serializes a vector of scalars into a little-endian byte array.
+///
+/// This is the format expected by the transcript, whereas our serialization format
+/// is big-endian.
+fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
+    scalars
+        .iter()
+        .flat_map(|s| s.serialize().into_iter().rev())
+        .collect()
 }
 
 fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
@@ -134,6 +140,8 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 pub mod tests {
     use alloc::vec;
     use ark_bn254::Bn254;
+    use ark_ec::AffineRepr;
+    use ark_std::UniformRand;
     use jf_plonk::{
         proof_system::{
             structs::{BatchProof, ProofEvaluations, VerifyingKey},
@@ -163,23 +171,29 @@ pub mod tests {
         }
     }
 
-    fn dummy_vkeys() -> (VerificationKey, VerifyingKey<Bn254>) {
+    pub fn dummy_vkeys() -> (VerificationKey, VerifyingKey<Bn254>) {
+        let mut rng = ark_std::test_rng();
         let vkey = VerificationKey {
             n: N as u64,
             l: L as u64,
-            ..Default::default()
+            k: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
+            q_comms: [G1Affine::rand(&mut rng); NUM_SELECTORS],
+            sigma_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
+            g: G1Affine::generator(),
+            h: G2Affine::generator(),
+            x_h: G2Affine::rand(&mut rng),
         };
 
         let jf_vkey = VerifyingKey {
             domain_size: N,
             num_inputs: L,
-            sigma_comms: vec![Commitment::default(); NUM_WIRE_TYPES],
-            selector_comms: vec![Commitment::default(); NUM_SELECTORS],
-            k: vec![ScalarField::default(); NUM_WIRE_TYPES],
+            sigma_comms: vkey.sigma_comms.iter().copied().map(Commitment).collect(),
+            selector_comms: vkey.q_comms.iter().copied().map(Commitment).collect(),
+            k: vkey.k.to_vec(),
             open_key: UnivariateVerifierParam {
-                g: G1Affine::default(),
-                h: G2Affine::default(),
-                beta_h: G2Affine::default(),
+                g: vkey.g,
+                h: vkey.h,
+                beta_h: vkey.x_h,
             },
             is_merged: false,
             plookup_vk: None,
@@ -188,21 +202,36 @@ pub mod tests {
         (vkey, jf_vkey)
     }
 
-    fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
-        let proof = Proof::default();
+    pub fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
+        let mut rng = ark_std::test_rng();
+        let proof = Proof {
+            wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
+            z_comm: G1Affine::rand(&mut rng),
+            quotient_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
+            w_zeta: G1Affine::rand(&mut rng),
+            w_zeta_omega: G1Affine::rand(&mut rng),
+            wire_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
+            sigma_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES - 1],
+            z_bar: ScalarField::rand(&mut rng),
+        };
 
         let jf_proof = BatchProof {
-            wires_poly_comms_vec: vec![vec![Commitment::default(); NUM_WIRE_TYPES]],
-            prod_perm_poly_comms_vec: vec![Commitment::default()],
+            wires_poly_comms_vec: vec![proof.wire_comms.iter().copied().map(Commitment).collect()],
+            prod_perm_poly_comms_vec: vec![Commitment(proof.z_comm)],
             poly_evals_vec: vec![ProofEvaluations {
-                wires_evals: vec![ScalarField::default(); NUM_WIRE_TYPES],
-                wire_sigma_evals: vec![ScalarField::default(); NUM_WIRE_TYPES - 1],
-                perm_next_eval: ScalarField::default(),
+                wires_evals: proof.wire_evals.to_vec(),
+                wire_sigma_evals: proof.sigma_evals.to_vec(),
+                perm_next_eval: proof.z_bar,
             }],
             plookup_proofs_vec: vec![],
-            split_quot_poly_comms: vec![Commitment::default(); NUM_WIRE_TYPES],
-            opening_proof: Commitment::default(),
-            shifted_opening_proof: Commitment::default(),
+            split_quot_poly_comms: proof
+                .quotient_comms
+                .iter()
+                .copied()
+                .map(Commitment)
+                .collect(),
+            opening_proof: Commitment(proof.w_zeta),
+            shifted_opening_proof: Commitment(proof.w_zeta_omega),
         };
 
         (proof, jf_proof)
@@ -210,9 +239,10 @@ pub mod tests {
 
     #[test]
     fn test_transcript_equivalency() {
+        let mut rng = ark_std::test_rng();
         let (vkey, jf_vkey) = dummy_vkeys();
         let (proof, jf_proof) = dummy_proofs();
-        let public_inputs = [ScalarField::default(); L];
+        let public_inputs = [ScalarField::rand(&mut rng); L];
 
         let mut stylus_transcript = Transcript::<TestHasher>::new();
         let challenges = stylus_transcript

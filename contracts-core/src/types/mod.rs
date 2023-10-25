@@ -1,9 +1,12 @@
 //! Common types used throughout the verifier.
 
-use ark_bn254::{g1::Config as G1Config, g2::Config as G2Config, Fr};
+use alloc::vec::Vec;
+use ark_bn254::{g1::Config as G1Config, g2::Config as G2Config, Fq, Fq2, Fr};
 use ark_ec::short_weierstrass::Affine;
+use ark_ff::{Fp256, MontBackend};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::constants::{NUM_SELECTORS, NUM_WIRE_TYPES};
+use crate::constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES};
 
 // TODO: Consider using associated types of the `CurveGroup` trait instead.
 // Docs imply that arithmetic should be more efficient: https://docs.rs/ark-ec/0.4.2/ark_ec/#elliptic-curve-groups
@@ -11,11 +14,14 @@ use crate::constants::{NUM_SELECTORS, NUM_WIRE_TYPES};
 pub type ScalarField = Fr;
 pub type G1Affine = Affine<G1Config>;
 pub type G2Affine = Affine<G2Config>;
+pub type G1BaseField = Fq;
+pub type G2BaseField = Fq2;
+pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
@@ -36,7 +42,7 @@ pub struct VerificationKey {
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
-#[derive(Default)]
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
