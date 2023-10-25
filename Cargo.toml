@@ -4,8 +4,10 @@ members = ["contracts-stylus", "contracts-core", "integration"]
 [workspace.dependencies]
 ark-bn254 = "0.4.0"
 ark-ec = "0.4.0"
-ark-ff = "0.4.0"
+ark-ff = { version = "0.4.0", features = ["bin-opt"] }
 ark-poly = "0.4.0"
+ark-std = "0.4.0"
+ark-serialize = "0.4.0"
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time
@@ -17,3 +19,16 @@ debug = false            # no debug data
 rpath = false            # no run-time search path
 debug-assertions = false # prune debug assertions
 incremental = false      # no incremental builds
+
+[profile.dev]
+codegen-units = 1   # prefer efficiency to compile time
+panic = "abort"     # use simple panics
+opt-level = "z"     # optimize for size ("s" may also work)
+lto = true          # link time optimization
+rpath = false       # no run-time search path
+incremental = false # no incremental builds
+
+
+[patch.crates-io]
+ark-ff = { git = "https://github.com/renegade-fi/algebra.git", branch = "bin-opt-feature" }
+ark-serialize = { git = "https://github.com/renegade-fi/algebra.git", branch = "bin-opt-feature" }
