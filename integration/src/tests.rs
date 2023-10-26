@@ -1,13 +1,15 @@
 //! Integration tests for the contracts
 
 use ark_ff::One;
+use ark_std::UniformRand;
 use common::types::ScalarField;
 use contracts_core::serde::Serializable;
 use ethers::{providers::Middleware, types::Bytes};
 use eyre::Result;
+use rand::thread_rng;
 use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey};
 
-use crate::abis::{PrecompileTestContract, VerifierContract};
+use crate::abis::{DarkpoolContract, PrecompileTestContract, VerifierContract};
 
 pub(crate) async fn test_precompile_backend(
     contract: PrecompileTestContract<impl Middleware + 'static>,
@@ -43,6 +45,31 @@ pub(crate) async fn test_verifier(
         .await?;
 
     assert!(!unsuccessful_res, "Invalid proof verified");
+
+    Ok(())
+}
+
+pub(crate) async fn test_nullifier_set(
+    contract: DarkpoolContract<impl Middleware + 'static>,
+) -> Result<()> {
+    let mut rng = thread_rng();
+    let nullifier = ScalarField::rand(&mut rng);
+    // let nullifier = ScalarField::one();
+    let nullifier_bytes: [u8; 32] = nullifier.serialize().try_into().unwrap();
+
+    let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
+
+    assert!(!nullifier_spent, "Nullifier already spent");
+
+    contract
+        .mark_nullifier_spent(nullifier_bytes)
+        .send()
+        .await?
+        .await?;
+
+    let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
+
+    assert!(nullifier_spent, "Nullifier not spent");
 
     Ok(())
 }
