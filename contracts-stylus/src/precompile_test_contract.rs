@@ -1,5 +1,5 @@
-//! Dummy contracts which wrap VM-specific functionality (e.g., precompiles) for testing purposes.
-//! These contracts are intended to be used in conjunction with a local devnet, along with testing scripts
+//! Testing contract which wraps precompile functionality for testing purposes.
+//! This contract is intended to be used in conjunction with a local devnet, along with testing scripts
 //! in the `integration` crate
 
 use alloc::vec::Vec;
@@ -13,11 +13,11 @@ use crate::utils::EvmPrecompileBackend;
 
 #[solidity_storage]
 #[entrypoint]
-struct TestContract;
+struct PrecompileTestContract;
 
 #[external]
-impl TestContract {
-    pub fn test_add(&mut self) -> Result<(), Vec<u8>> {
+impl PrecompileTestContract {
+    pub fn test_ec_add(&mut self) -> Result<(), Vec<u8>> {
         let mut backend = EvmPrecompileBackend { contract: self };
 
         let mut rng = ark_std::test_rng();
@@ -29,7 +29,7 @@ impl TestContract {
         Ok(())
     }
 
-    pub fn test_mul(&mut self) -> Result<(), Vec<u8>> {
+    pub fn test_ec_mul(&mut self) -> Result<(), Vec<u8>> {
         let mut backend = EvmPrecompileBackend { contract: self };
 
         let mut rng = ark_std::test_rng();
@@ -43,7 +43,7 @@ impl TestContract {
         Ok(())
     }
 
-    pub fn test_pairing(&mut self) -> Result<(), Vec<u8>> {
+    pub fn test_ec_pairing(&mut self) -> Result<(), Vec<u8>> {
         let mut backend = EvmPrecompileBackend { contract: self };
 
         let mut rng = ark_std::test_rng();

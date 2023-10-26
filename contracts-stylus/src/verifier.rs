@@ -1,14 +1,24 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::vec::Vec;
-use contracts_core::{
-    serde::Deserializable,
-    verifier::Verifier,
+use common::constants::HASH_OUTPUT_SIZE;
+use common::{
+    constants::NUM_PUBLIC_INPUTS,
+    types::{Proof, ScalarField, VerificationKey},
 };
-use common::{types::{Proof, ScalarField, VerificationKey}, constants::NUM_PUBLIC_INPUTS};
+use contracts_core::transcript::TranscriptHasher;
+use contracts_core::{serde::Deserializable, verifier::Verifier};
+use stylus_sdk::crypto::keccak;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
-use crate::{transcript::StylusHasher, utils::EvmPrecompileBackend};
+use crate::utils::EvmPrecompileBackend;
+
+pub struct StylusHasher;
+impl TranscriptHasher for StylusHasher {
+    fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
+        keccak(input).into()
+    }
+}
 
 #[solidity_storage]
 #[entrypoint]

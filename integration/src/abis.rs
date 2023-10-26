@@ -5,9 +5,9 @@ use ethers::prelude::abigen;
 abigen!(
     PrecompileTestContract,
     r#"[
-        function testAdd() external view
-        function testMul() external view
-        function testPairing() external view
+        function testEcAdd() external view
+        function testEcMul() external view
+        function testEcPairing() external view
     ]"#
 );
 

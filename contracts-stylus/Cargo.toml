@@ -14,8 +14,10 @@ contracts-core = { path = "../contracts-core" }
 ark-std = { version = "0.4.0", optional = true }
 
 [features]
+darkpool = []
+verifier = []
+precompile-test-contract = ["dep:ark-std"]
 export-abi = ["stylus-sdk/export-abi"]
-test-contracts = ["dep:ark-std"]
 
 [lib]
 crate-type = ["lib", "cdylib"]

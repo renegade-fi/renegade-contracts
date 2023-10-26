@@ -4,13 +4,14 @@
 mod constants;
 mod utils;
 
-#[cfg(not(feature = "test-contracts"))]
-mod transcript;
-#[cfg(not(feature = "test-contracts"))]
+#[cfg(feature = "darkpool")]
+mod darkpool;
+
+#[cfg(feature = "verifier")]
 mod verifier;
 
-#[cfg(feature = "test-contracts")]
-mod test_contracts;
+#[cfg(feature = "precompile-test-contract")]
+mod precompile_test_contract;
 
 extern crate alloc;
 
