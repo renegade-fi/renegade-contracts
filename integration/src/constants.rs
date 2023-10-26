@@ -16,5 +16,5 @@ pub(crate) const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract"
 /// The verifier contract key in the `deployments.json` file
 pub(crate) const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
-/// The darkpool contract key in the `deployments.json` file
-pub(crate) const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
+/// The darkpool test contract key in the `deployments.json` file
+pub(crate) const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";

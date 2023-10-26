@@ -16,6 +16,7 @@ ark-std = { version = "0.4.0", optional = true }
 [features]
 darkpool = []
 verifier = []
+darkpool-test-contract = []
 precompile-test-contract = ["dep:ark-std"]
 export-abi = ["stylus-sdk/export-abi"]
 

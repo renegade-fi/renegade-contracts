@@ -2,9 +2,10 @@
 #![no_std]
 
 mod constants;
+mod interfaces;
 mod utils;
 
-#[cfg(feature = "darkpool")]
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 mod darkpool;
 
 #[cfg(feature = "verifier")]
@@ -12,6 +13,9 @@ mod verifier;
 
 #[cfg(feature = "precompile-test-contract")]
 mod precompile_test_contract;
+
+#[cfg(feature = "darkpool-test-contract")]
+mod darkpool_test_contract;
 
 extern crate alloc;
 

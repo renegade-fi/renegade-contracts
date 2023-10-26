@@ -3,10 +3,13 @@
 use ethers::prelude::abigen;
 
 abigen!(
-    DarkpoolContract,
+    DarkpoolTestContract,
     r#"[
         function isNullifierSpent(bytes32 memory nullifier) external view returns (bool)
         function markNullifierSpent(bytes32 memory nullifier) external
+        function setVerifierAddress(address memory _address) external
+        function addVerificationKey(uint8 memory circuit_id, bytes memory vkey) external
+        function verify(uint8 memory circuit_id, bytes memory proof, bytes memory public_inputs) external view returns (bool)
     ]"#
 );
 
