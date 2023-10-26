@@ -3,11 +3,10 @@
 use ethers::prelude::abigen;
 
 abigen!(
-    PrecompileTestContract,
+    DarkpoolContract,
     r#"[
-        function testEcAdd() external view
-        function testEcMul() external view
-        function testEcPairing() external view
+        function isNullifierSpent(bytes32 memory nullifier) external view returns (bool)
+        function markNullifierSpent(bytes32 memory nullifier) external
     ]"#
 );
 
@@ -15,5 +14,14 @@ abigen!(
     VerifierContract,
     r#"[
         function verify(bytes memory vkey, bytes memory proof, bytes memory public_inputs) external view returns (bool)
+    ]"#
+);
+
+abigen!(
+    PrecompileTestContract,
+    r#"[
+        function testEcAdd() external view
+        function testEcMul() external view
+        function testEcPairing() external view
     ]"#
 );

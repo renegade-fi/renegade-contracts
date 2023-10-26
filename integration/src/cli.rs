@@ -27,6 +27,7 @@ pub(crate) struct Cli {
 
 #[derive(ValueEnum, Clone, Copy)]
 pub(crate) enum Tests {
-    Precompile,
+    NullifierSet,
     Verifier,
+    Precompile,
 }

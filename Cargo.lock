@@ -2204,12 +2204,14 @@ name = "integration"
 version = "0.1.0"
 dependencies = [
  "ark-ff",
+ "ark-std",
  "clap",
  "common",
  "contracts-core",
  "ethers",
  "eyre",
  "json",
+ "rand",
  "test-helpers",
  "tokio",
 ]
