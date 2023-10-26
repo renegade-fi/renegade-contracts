@@ -30,4 +30,5 @@ pub(crate) enum Tests {
     NullifierSet,
     Verifier,
     Precompile,
+    DarkpoolVerification,
 }

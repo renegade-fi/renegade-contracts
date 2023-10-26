@@ -13,7 +13,8 @@ use eyre::{eyre, Result};
 use crate::{
     cli::Tests,
     constants::{
-        DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, PRECOMPILE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
+        DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
+        VERIFIER_CONTRACT_KEY,
     },
 };
 
@@ -35,7 +36,7 @@ pub(crate) async fn setup_client(
     Ok(client)
 }
 
-fn parse_addr_from_deployments_file(
+pub(crate) fn parse_addr_from_deployments_file(
     file_path: String,
     contract_key: &'static str,
 ) -> Result<Address> {
@@ -53,7 +54,10 @@ fn parse_addr_from_deployments_file(
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -> Result<Address> {
     Ok(match test {
         Tests::NullifierSet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+        }
+        Tests::DarkpoolVerification => {
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
         }
         Tests::Verifier => {
             parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?
