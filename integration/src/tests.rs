@@ -1,20 +1,20 @@
 //! Integration tests for the contracts
 
+use ark_ff::One;
 use common::types::ScalarField;
 use contracts_core::serde::Serializable;
 use ethers::{providers::Middleware, types::Bytes};
 use eyre::Result;
 use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey};
-use ark_ff::One;
 
 use crate::abis::{PrecompileTestContract, VerifierContract};
 
 pub(crate) async fn test_precompile_backend(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
-    contract.test_add().send().await?.await?;
-    contract.test_mul().send().await?.await?;
-    contract.test_pairing().send().await?.await?;
+    contract.test_ec_add().send().await?.await?;
+    contract.test_ec_mul().send().await?.await?;
+    contract.test_ec_pairing().send().await?.await?;
 
     Ok(())
 }
