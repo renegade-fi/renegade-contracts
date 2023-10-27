@@ -4,31 +4,42 @@
 use alloc::vec::Vec;
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::{aliases::B256, Address},
+    alloy_primitives::{aliases::B256, Address, TxHash},
     prelude::*,
-    storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
+    storage::{StorageAddress, StorageBool, StorageBytes, StorageFixedBytes, StorageMap},
 };
 
 use crate::interfaces::IVerifier;
 
+type SolScalar = B256;
+type StorageTxHash = StorageFixedBytes<32>;
+
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
-    /// The set of wallet nullifiers, representing a mapping from a nullifier
-    /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
-    /// boolean indicating whether or not the nullifier is spent
-    nullifier_set: StorageMap<B256, StorageBool>,
+    /// The address of the verifier contract
+    verifier_address: StorageAddress,
 
     /// The set of verification keys, representing a mapping from a circuit id
     /// to a serialized verification key
     verification_keys: StorageMap<u8, StorageBytes>,
 
-    /// The address of the verifier contract
-    verifier_address: StorageAddress,
+    /// The set of wallet nullifiers, representing a mapping from a nullifier
+    /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
+    /// boolean indicating whether or not the nullifier is spent
+    nullifier_set: StorageMap<SolScalar, StorageBool>,
+
+    /// Mapping from wallet identity to the hash of the last transaction
+    /// in which the wallet was changed
+    wallet_last_modified: StorageMap<SolScalar, StorageTxHash>,
 }
 
 #[external]
 impl DarkpoolContract {
+    // -----------------
+    // | CONFIGURATION |
+    // -----------------
+
     /// Stores the given address for the verifier contract
     pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
         self.verifier_address.set(address);
@@ -49,16 +60,26 @@ impl DarkpoolContract {
         Ok(())
     }
 
+    // -----------
+    // | GETTERS |
+    // -----------
+
     /// Checks whether the given nullifier is spent
-    pub fn is_nullifier_spent(&self, nullifier: B256) -> Result<bool, Vec<u8>> {
+    pub fn is_nullifier_spent(&self, nullifier: SolScalar) -> Result<bool, Vec<u8>> {
         Ok(self.nullifier_set.get(nullifier))
+    }
+
+    /// Returns the hash of the most recent transaction in which the wallet indexed by the given
+    /// public blinder share was modified
+    pub fn get_wallet_blinder_transaction(&self, wallet_blinder_share: SolScalar) -> Result<TxHash, Vec<u8>> {
+        Ok(self.wallet_last_modified.get(wallet_blinder_share))
     }
 }
 
 /// Internal helper methods
 impl DarkpoolContract {
     /// Marks the given nullifier as spent
-    pub fn mark_nullifier_spent(&mut self, nullifier: B256) -> Result<(), Vec<u8>> {
+    pub fn mark_nullifier_spent(&mut self, nullifier: SolScalar) -> Result<(), Vec<u8>> {
         self.nullifier_set.insert(nullifier, true);
         Ok(())
     }
@@ -74,10 +95,7 @@ impl DarkpoolContract {
         let verifier = IVerifier::new(self.verifier_address.get());
         let vkey_bytes = self.verification_keys.get(circuit_id).get_bytes();
 
-        assert!(
-            !vkey_bytes.is_empty(),
-            "No verification key for circuit ID"
-        );
+        assert!(!vkey_bytes.is_empty(), "No verification key for circuit ID");
 
         Ok(verifier.verify(self, vkey_bytes, proof.into(), public_inputs.into())?)
     }
