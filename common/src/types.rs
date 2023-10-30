@@ -100,7 +100,7 @@ pub struct PublicSigningKey {
 pub struct ValidWalletCreateStatement {
     /// The commitment to the private secret shares of the wallet
     pub private_shares_commitment: ScalarField,
-    /// The public secret shares of the wallet
+    /// The blinded public secret shares of the wallet
     pub public_wallet_shares: [ScalarField; WALLET_SHARES_LEN],
 }
 
@@ -110,7 +110,7 @@ pub struct ValidWalletUpdateStatement {
     pub old_shares_nullifier: ScalarField,
     /// A commitment to the new wallet's private secret shares
     pub new_private_shares_commitment: ScalarField,
-    /// The public secret shares of the new wallet
+    /// The blinded public secret shares of the new wallet
     pub new_public_shares: [ScalarField; WALLET_SHARES_LEN],
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to the old wallet's private secret shares
@@ -146,9 +146,9 @@ pub struct ValidCommitmentsStatement {
 
 /// Statement for the `VALID_MATCH_SETTLE` circuit
 pub struct ValidMatchSettleStatement {
-    /// The modified public secret shares of the first party
+    /// The modified blinded public secret shares of the first party
     pub party0_modified_shares: [ScalarField; WALLET_SHARES_LEN],
-    /// The modified public secret shares of the second party
+    /// The modified blinded public secret shares of the second party
     pub party1_modified_shares: [ScalarField; WALLET_SHARES_LEN],
     /// The index of the balance sent by the first party in the settlement
     pub party0_send_balance_index: u64,
@@ -166,9 +166,14 @@ pub struct ValidMatchSettleStatement {
 
 /// Represents the outputs produced by one of the parties in a match
 pub struct MatchPayload {
+    /// The public secret share of the party's wallet-level blinder
     pub wallet_blinder_share: ScalarField,
+    /// The statement for the party's `VALID_COMMITMENTS` proof
     pub valid_commitments_statement: ValidCommitmentsStatement,
+    /// The party's `VALID_COMMITMENTS` proof
     pub valid_commitments_proof: Proof,
+    /// The statement for the party's `VALID_REBLIND` proof
     pub valid_reblind_statement: ValidReblindStatement,
+    /// The party's `VALID_REBLIND` proof
     pub valid_reblind_proof: Proof,
 }
