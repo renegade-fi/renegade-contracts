@@ -1,12 +1,11 @@
 //! Common types used throughout the verifier.
 
-use alloc::vec::Vec;
+use alloy_primitives::{Address, U256};
 use ark_bn254::{g1::Config as G1Config, g2::Config as G2Config, Fq, Fq2, Fr};
 use ark_ec::short_weierstrass::Affine;
 use ark_ff::{Fp256, MontBackend};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES};
+use crate::constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES, WALLET_SHARES_LEN};
 
 // TODO: Consider using associated types of the `CurveGroup` trait instead.
 // Docs imply that arithmetic should be more efficient: https://docs.rs/ark-ec/0.4.2/ark_ec/#elliptic-curve-groups
@@ -21,7 +20,7 @@ pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 /// Preprocessed information derived from the circuit definition and universal SRS
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
-#[derive(Clone, Copy, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Copy)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
@@ -42,7 +41,6 @@ pub struct VerificationKey {
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
-#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
@@ -76,4 +74,101 @@ pub struct Challenges {
     pub v: ScalarField,
     /// The multipoint evaluation challenge, generated at the end of round 5 of the prover algorithm
     pub u: ScalarField,
+}
+
+/// Represents an external transfer of an ERC20 token
+pub struct ExternalTransfer {
+    /// The address of the account contract to deposit from or withdraw to
+    pub account_addr: Address,
+    /// The mint (contract address) of the token being transferred
+    pub mint: Address,
+    /// The amount of the token transferred
+    pub amount: U256,
+    /// Whether or not the transfer is a withdrawal (otherwise a deposit)
+    pub is_withdrawal: bool,
+}
+
+/// Represents the affine coordinates of a secp256k1 ECDSA public key.
+/// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
+/// it takes 2 Bn254 scalar field elements to represent each coordinate.
+pub struct PublicSigningKey {
+    pub x: [ScalarField; 2],
+    pub y: [ScalarField; 2],
+}
+
+/// Statement for `VALID_WALLET_CREATE` circuit
+pub struct ValidWalletCreateStatement {
+    /// The commitment to the private secret shares of the wallet
+    pub private_shares_commitment: ScalarField,
+    /// The public secret shares of the wallet
+    pub public_wallet_shares: [ScalarField; WALLET_SHARES_LEN],
+}
+
+/// Statement for `VALID_WALLET_UPDATE` circuit
+pub struct ValidWalletUpdateStatement {
+    /// The nullifier of the old wallet's secret shares
+    pub old_shares_nullifier: ScalarField,
+    /// A commitment to the new wallet's private secret shares
+    pub new_private_shares_commitment: ScalarField,
+    /// The public secret shares of the new wallet
+    pub new_public_shares: [ScalarField; WALLET_SHARES_LEN],
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the old wallet's private secret shares
+    pub merkle_root: ScalarField,
+    /// The external transfer associated with this update
+    pub external_transfer: ExternalTransfer,
+    /// The public root key of the old wallet, rotated out after this update
+    pub old_pk_root: PublicSigningKey,
+    /// The timestamp this update was applied at
+    pub timestamp: u64,
+}
+
+/// Statement for the `VALID_REBLIND` circuit
+pub struct ValidReblindStatement {
+    /// The nullifier of the original wallet's secret shares
+    pub original_shares_nullifier: ScalarField,
+    /// A commitment to the private secret shares of the reblinded wallet
+    pub reblinded_private_shares_commitment: ScalarField,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the original wallet's private secret shares
+    pub merkle_root: ScalarField,
+}
+
+/// Statememt for the `VALID_COMMITMENTS` circuit
+pub struct ValidCommitmentsStatement {
+    /// The index of the balance sent by the party if a successful match occurs
+    pub balance_send_index: u64,
+    /// The index of the balance received by the party if a successful match occurs
+    pub balance_receive_index: u64,
+    /// The index of the order being matched
+    pub order_index: u64,
+}
+
+/// Statement for the `VALID_MATCH_SETTLE` circuit
+pub struct ValidMatchSettleStatement {
+    /// The modified public secret shares of the first party
+    pub party0_modified_shares: [ScalarField; WALLET_SHARES_LEN],
+    /// The modified public secret shares of the second party
+    pub party1_modified_shares: [ScalarField; WALLET_SHARES_LEN],
+    /// The index of the balance sent by the first party in the settlement
+    pub party0_send_balance_index: u64,
+    /// The index of the balance received by the first party in the settlement
+    pub party0_receive_balance_index: u64,
+    /// The index of the first party's matched order
+    pub party0_order_index: u64,
+    /// The index of the balance sent by the second party in the settlement
+    pub party1_send_balance_index: u64,
+    /// The index of the balance received by the second party in the settlement
+    pub party1_receive_balance_index: u64,
+    /// The index of the second party's matched order
+    pub party1_order_index: u64,
+}
+
+/// Represents the outputs produced by one of the parties in a match
+pub struct MatchPayload {
+    pub wallet_blinder_share: ScalarField,
+    pub valid_commitments_statement: ValidCommitmentsStatement,
+    pub valid_commitments_proof: Proof,
+    pub valid_reblind_statement: ValidReblindStatement,
+    pub valid_reblind_proof: Proof,
 }
