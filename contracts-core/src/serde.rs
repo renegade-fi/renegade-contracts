@@ -1,21 +1,26 @@
 //! Custom de/serialization logic used to serialize objects into byte arrays
 //! for use in EVM precompiles, transcript operations, and calldata.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
+use alloy_primitives::{Address, U256};
 use ark_ec::{short_weierstrass::SWFlags, AffineRepr};
 use ark_ff::{BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 use common::{
-    constants::{FELT_BYTES, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
     types::{
-        G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, Proof, ScalarField,
+        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MatchPayload, MontFp256,
+        Proof, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
+        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
         VerificationKey,
     },
 };
 
-// --------------------
-// | TRAIT DEFINITION |
-// --------------------
+// -------------------------------
+// | BYTE SERDE TRAIT DEFINITION |
+// -------------------------------
+
+// TODO: Implement derive macros for `Serializable` and `Deserializable`
 
 #[derive(Debug)]
 pub struct SerdeError;
@@ -243,6 +248,203 @@ impl Deserializable for Proof {
             sigma_evals: deserialize_cursor(bytes, &mut cursor)?,
             z_bar: deserialize_cursor(bytes, &mut cursor)?,
         })
+    }
+}
+
+impl Serializable for ValidWalletCreateStatement {
+    fn serialize(&self) -> Vec<u8> {
+        self.to_scalars()
+            .iter()
+            .flat_map(Serializable::serialize)
+            .collect()
+    }
+}
+
+impl Serializable for ValidWalletUpdateStatement {
+    fn serialize(&self) -> Vec<u8> {
+        self.to_scalars()
+            .iter()
+            .flat_map(Serializable::serialize)
+            .collect()
+    }
+}
+
+impl Serializable for ValidReblindStatement {
+    fn serialize(&self) -> Vec<u8> {
+        self.to_scalars()
+            .iter()
+            .flat_map(Serializable::serialize)
+            .collect()
+    }
+}
+
+impl Serializable for ValidCommitmentsStatement {
+    fn serialize(&self) -> Vec<u8> {
+        self.to_scalars()
+            .iter()
+            .flat_map(Serializable::serialize)
+            .collect()
+    }
+}
+
+impl Serializable for ValidMatchSettleStatement {
+    fn serialize(&self) -> Vec<u8> {
+        self.to_scalars()
+            .iter()
+            .flat_map(Serializable::serialize)
+            .collect()
+    }
+}
+
+impl Serializable for MatchPayload {
+    fn serialize(&self) -> Vec<u8> {
+        let mut bytes = self.wallet_blinder_share.serialize();
+        bytes.extend(self.valid_commitments_statement.serialize());
+        bytes.extend(self.valid_commitments_proof.serialize());
+        bytes.extend(self.valid_reblind_statement.serialize());
+        bytes.extend(self.valid_reblind_proof.serialize());
+        bytes
+    }
+}
+
+// ---------------------------------
+// | SCALAR SERDE TRAIT DEFINITION |
+// ---------------------------------
+
+#[derive(Debug)]
+pub struct ScalarSerdeError;
+
+pub trait ScalarSerializable {
+    /// Serializes a type into a vector of scalars
+    fn to_scalars(&self) -> Vec<ScalarField>;
+}
+
+pub trait ScalarDeserializable {
+    /// Deserializes a type from a slice of scalars
+    fn from_scalars(scalars: &[ScalarField]) -> Result<Self, ScalarSerdeError>
+    where
+        Self: Sized;
+}
+
+// -------------------------
+// | TRAIT IMPLEMENTATIONS |
+// -------------------------
+
+impl ScalarSerializable for bool {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        vec![(*self).into()]
+    }
+}
+
+impl ScalarSerializable for u64 {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        vec![(*self).into()]
+    }
+}
+
+impl ScalarSerializable for Address {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        // It's safe to perform modular reduction here since an address is 20 bytes
+        // and as such fits within the scalar field modulus
+        vec![ScalarField::from_be_bytes_mod_order(&self.into_array())]
+    }
+}
+
+impl ScalarSerializable for U256 {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        // Need to split the U256 into two 128-bit chunks to fit into the scalar field
+        let bytes: [u8; NUM_BYTES_U256] = self.to_be_bytes();
+        vec![
+            ScalarField::from_be_bytes_mod_order(&bytes[..NUM_BYTES_U256 / 2]),
+            ScalarField::from_be_bytes_mod_order(&bytes[NUM_BYTES_U256 / 2..]),
+        ]
+    }
+}
+
+impl ScalarSerializable for ExternalTransfer {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        let mut scalars = Vec::new();
+        scalars.extend(self.account_addr.to_scalars());
+        scalars.extend(self.mint.to_scalars());
+        scalars.extend(self.amount.to_scalars());
+        scalars.extend(self.is_withdrawal.to_scalars());
+        scalars
+    }
+}
+
+impl ScalarSerializable for PublicSigningKey {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        let mut scalars = Vec::new();
+        scalars.extend(self.x);
+        scalars.extend(self.y);
+        scalars
+    }
+}
+
+impl ScalarSerializable for ValidWalletCreateStatement {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        let mut scalars = vec![self.private_shares_commitment];
+        scalars.extend(self.public_wallet_shares);
+        scalars
+    }
+}
+
+impl ScalarSerializable for ValidWalletUpdateStatement {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        let mut scalars = vec![
+            self.old_shares_nullifier,
+            self.new_private_shares_commitment,
+        ];
+        scalars.extend(self.new_public_shares);
+        scalars.push(self.merkle_root);
+        scalars.extend(self.external_transfer.to_scalars());
+        scalars.extend(self.old_pk_root.to_scalars());
+        scalars.extend(self.timestamp.to_scalars());
+        scalars
+    }
+}
+
+impl ScalarSerializable for ValidReblindStatement {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        vec![
+            self.original_shares_nullifier,
+            self.reblinded_private_shares_commitment,
+            self.merkle_root,
+        ]
+    }
+}
+
+impl ScalarSerializable for ValidCommitmentsStatement {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        [
+            self.balance_send_index,
+            self.balance_receive_index,
+            self.order_index,
+        ]
+        .iter()
+        .flat_map(ScalarSerializable::to_scalars)
+        .collect()
+    }
+}
+
+impl ScalarSerializable for ValidMatchSettleStatement {
+    fn to_scalars(&self) -> Vec<ScalarField> {
+        let mut scalars = Vec::new();
+        scalars.extend(self.party0_modified_shares);
+        scalars.extend(self.party1_modified_shares);
+        scalars.extend(
+            [
+                self.party0_send_balance_index,
+                self.party0_receive_balance_index,
+                self.party0_order_index,
+                self.party0_send_balance_index,
+                self.party0_receive_balance_index,
+                self.party0_order_index,
+            ]
+            .iter()
+            .flat_map(ScalarSerializable::to_scalars),
+        );
+        scalars
     }
 }
 

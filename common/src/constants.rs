@@ -19,6 +19,9 @@ pub const FELT_BYTES: usize = 32;
 /// The number of u64s it takes to represent a field element
 pub const NUM_U64S_FELT: usize = 4;
 
+/// The number of bytes it takes to represent an unsigned 256-bit integer
+pub const NUM_BYTES_U256: usize = 32;
+
 /// The number of public inputs in the verifier testing circuit
 pub const NUM_PUBLIC_INPUTS: usize = 0;
 
