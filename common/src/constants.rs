@@ -21,3 +21,6 @@ pub const NUM_U64S_FELT: usize = 4;
 
 /// The number of public inputs in the verifier testing circuit
 pub const NUM_PUBLIC_INPUTS: usize = 0;
+
+/// The number of secret-shared scalars it takes to represent a wallet
+pub const WALLET_SHARES_LEN: usize = 0;
