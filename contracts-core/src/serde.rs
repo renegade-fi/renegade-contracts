@@ -7,7 +7,10 @@ use ark_ec::{short_weierstrass::SWFlags, AffineRepr};
 use ark_ff::{BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 use common::{
-    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    constants::{
+        FELT_BYTES, NUM_BYTES_ADDRESS, NUM_BYTES_U256, NUM_SELECTORS, NUM_U64S_FELT,
+        NUM_WIRE_TYPES, WALLET_SHARES_LEN,
+    },
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MatchPayload, MontFp256,
         Proof, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
@@ -48,6 +51,14 @@ pub struct TranscriptG1(pub G1Affine);
 impl Serializable for bool {
     fn serialize(&self) -> Vec<u8> {
         vec![*self as u8]
+    }
+}
+
+impl Deserializable for bool {
+    const SER_LEN: usize = 1;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        bytes.first().ok_or(SerdeError).map(|b| *b != 0)
     }
 }
 
@@ -263,10 +274,28 @@ impl Serializable for Address {
     }
 }
 
+impl Deserializable for Address {
+    const SER_LEN: usize = NUM_BYTES_ADDRESS;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        bytes.try_into().map_err(|_| SerdeError)
+    }
+}
+
 impl Serializable for U256 {
     fn serialize(&self) -> Vec<u8> {
         let bytes: [u8; NUM_BYTES_U256] = self.to_be_bytes();
         bytes.to_vec()
+    }
+}
+
+impl Deserializable for U256 {
+    const SER_LEN: usize = NUM_BYTES_U256;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        Ok(U256::from_be_bytes::<NUM_BYTES_U256>(
+            bytes.try_into().map_err(|_| SerdeError)?,
+        ))
     }
 }
 
@@ -281,6 +310,20 @@ impl Serializable for ExternalTransfer {
     }
 }
 
+impl Deserializable for ExternalTransfer {
+    const SER_LEN: usize = Address::SER_LEN * 2 + U256::SER_LEN + bool::SER_LEN;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(ExternalTransfer {
+            account_addr: deserialize_cursor(bytes, &mut cursor)?,
+            mint: deserialize_cursor(bytes, &mut cursor)?,
+            amount: deserialize_cursor(bytes, &mut cursor)?,
+            is_withdrawal: deserialize_cursor(bytes, &mut cursor)?,
+        })
+    }
+}
+
 impl Serializable for PublicSigningKey {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -290,12 +333,36 @@ impl Serializable for PublicSigningKey {
     }
 }
 
+impl Deserializable for PublicSigningKey {
+    const SER_LEN: usize = FELT_BYTES * 4;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(PublicSigningKey {
+            x: deserialize_cursor(bytes, &mut cursor)?,
+            y: deserialize_cursor(bytes, &mut cursor)?,
+        })
+    }
+}
+
 impl Serializable for ValidWalletCreateStatement {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.extend(self.private_shares_commitment.serialize());
         bytes.extend(self.public_wallet_shares.as_slice().serialize());
         bytes
+    }
+}
+
+impl Deserializable for ValidWalletCreateStatement {
+    const SER_LEN: usize = ScalarField::SER_LEN * (WALLET_SHARES_LEN + 1);
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(ValidWalletCreateStatement {
+            private_shares_commitment: deserialize_cursor(bytes, &mut cursor)?,
+            public_wallet_shares: deserialize_cursor(bytes, &mut cursor)?,
+        })
     }
 }
 
@@ -313,6 +380,26 @@ impl Serializable for ValidWalletUpdateStatement {
     }
 }
 
+impl Deserializable for ValidWalletUpdateStatement {
+    const SER_LEN: usize = ScalarField::SER_LEN * (WALLET_SHARES_LEN + 3)
+        + ExternalTransfer::SER_LEN
+        + PublicSigningKey::SER_LEN
+        + u64::SER_LEN;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(ValidWalletUpdateStatement {
+            old_shares_nullifier: deserialize_cursor(bytes, &mut cursor)?,
+            new_private_shares_commitment: deserialize_cursor(bytes, &mut cursor)?,
+            new_public_shares: deserialize_cursor(bytes, &mut cursor)?,
+            merkle_root: deserialize_cursor(bytes, &mut cursor)?,
+            external_transfer: deserialize_cursor(bytes, &mut cursor)?,
+            old_pk_root: deserialize_cursor(bytes, &mut cursor)?,
+            timestamp: deserialize_cursor(bytes, &mut cursor)?,
+        })
+    }
+}
+
 impl Serializable for ValidReblindStatement {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -323,6 +410,19 @@ impl Serializable for ValidReblindStatement {
     }
 }
 
+impl Deserializable for ValidReblindStatement {
+    const SER_LEN: usize = ScalarField::SER_LEN * 3;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(ValidReblindStatement {
+            original_shares_nullifier: deserialize_cursor(bytes, &mut cursor)?,
+            reblinded_private_shares_commitment: deserialize_cursor(bytes, &mut cursor)?,
+            merkle_root: deserialize_cursor(bytes, &mut cursor)?,
+        })
+    }
+}
+
 impl Serializable for ValidCommitmentsStatement {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -330,6 +430,19 @@ impl Serializable for ValidCommitmentsStatement {
         bytes.extend(self.balance_receive_index.serialize());
         bytes.extend(self.order_index.serialize());
         bytes
+    }
+}
+
+impl Deserializable for ValidCommitmentsStatement {
+    const SER_LEN: usize = u64::SER_LEN * 3;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(ValidCommitmentsStatement {
+            balance_send_index: deserialize_cursor(bytes, &mut cursor)?,
+            balance_receive_index: deserialize_cursor(bytes, &mut cursor)?,
+            order_index: deserialize_cursor(bytes, &mut cursor)?,
+        })
     }
 }
 
@@ -348,6 +461,24 @@ impl Serializable for ValidMatchSettleStatement {
     }
 }
 
+impl Deserializable for ValidMatchSettleStatement {
+    const SER_LEN: usize = ScalarField::SER_LEN * (WALLET_SHARES_LEN * 2) + u64::SER_LEN * 6;
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(ValidMatchSettleStatement {
+            party0_modified_shares: deserialize_cursor(bytes, &mut cursor)?,
+            party1_modified_shares: deserialize_cursor(bytes, &mut cursor)?,
+            party0_send_balance_index: deserialize_cursor(bytes, &mut cursor)?,
+            party0_receive_balance_index: deserialize_cursor(bytes, &mut cursor)?,
+            party0_order_index: deserialize_cursor(bytes, &mut cursor)?,
+            party1_send_balance_index: deserialize_cursor(bytes, &mut cursor)?,
+            party1_receive_balance_index: deserialize_cursor(bytes, &mut cursor)?,
+            party1_order_index: deserialize_cursor(bytes, &mut cursor)?,
+        })
+    }
+}
+
 impl Serializable for MatchPayload {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = self.wallet_blinder_share.serialize();
@@ -356,6 +487,24 @@ impl Serializable for MatchPayload {
         bytes.extend(self.valid_reblind_statement.serialize());
         bytes.extend(self.valid_reblind_proof.serialize());
         bytes
+    }
+}
+
+impl Deserializable for MatchPayload {
+    const SER_LEN: usize = ScalarField::SER_LEN
+        + ValidCommitmentsStatement::SER_LEN
+        + ValidReblindStatement::SER_LEN
+        + (Proof::SER_LEN * 2);
+
+    fn deserialize(bytes: &[u8]) -> Result<Self, SerdeError> {
+        let mut cursor = 0;
+        Ok(MatchPayload {
+            wallet_blinder_share: deserialize_cursor(bytes, &mut cursor)?,
+            valid_commitments_statement: deserialize_cursor(bytes, &mut cursor)?,
+            valid_commitments_proof: deserialize_cursor(bytes, &mut cursor)?,
+            valid_reblind_statement: deserialize_cursor(bytes, &mut cursor)?,
+            valid_reblind_proof: deserialize_cursor(bytes, &mut cursor)?,
+        })
     }
 }
 

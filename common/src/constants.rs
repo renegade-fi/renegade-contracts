@@ -22,6 +22,9 @@ pub const NUM_U64S_FELT: usize = 4;
 /// The number of bytes it takes to represent an unsigned 256-bit integer
 pub const NUM_BYTES_U256: usize = 32;
 
+/// The number of bytes it takes to represent an Ethereum address
+pub const NUM_BYTES_ADDRESS: usize = 20;
+
 /// The number of public inputs in the verifier testing circuit
 pub const NUM_PUBLIC_INPUTS: usize = 0;
 
