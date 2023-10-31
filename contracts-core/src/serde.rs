@@ -45,6 +45,12 @@ pub struct TranscriptG1(pub G1Affine);
 // | TRAIT IMPLEMENTATIONS |
 // -------------------------
 
+impl Serializable for bool {
+    fn serialize(&self) -> Vec<u8> {
+        vec![*self as u8]
+    }
+}
+
 impl Serializable for u64 {
     fn serialize(&self) -> Vec<u8> {
         self.to_be_bytes().to_vec()
@@ -251,48 +257,94 @@ impl Deserializable for Proof {
     }
 }
 
+impl Serializable for Address {
+    fn serialize(&self) -> Vec<u8> {
+        self.into_array().to_vec()
+    }
+}
+
+impl Serializable for U256 {
+    fn serialize(&self) -> Vec<u8> {
+        let bytes: [u8; NUM_BYTES_U256] = self.to_be_bytes();
+        bytes.to_vec()
+    }
+}
+
+impl Serializable for ExternalTransfer {
+    fn serialize(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend(self.account_addr.serialize());
+        bytes.extend(self.mint.serialize());
+        bytes.extend(self.amount.serialize());
+        bytes.extend(self.is_withdrawal.serialize());
+        bytes
+    }
+}
+
+impl Serializable for PublicSigningKey {
+    fn serialize(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend(self.x.as_slice().serialize());
+        bytes.extend(self.y.as_slice().serialize());
+        bytes
+    }
+}
+
 impl Serializable for ValidWalletCreateStatement {
     fn serialize(&self) -> Vec<u8> {
-        self.to_scalars()
-            .iter()
-            .flat_map(Serializable::serialize)
-            .collect()
+        let mut bytes = Vec::new();
+        bytes.extend(self.private_shares_commitment.serialize());
+        bytes.extend(self.public_wallet_shares.as_slice().serialize());
+        bytes
     }
 }
 
 impl Serializable for ValidWalletUpdateStatement {
     fn serialize(&self) -> Vec<u8> {
-        self.to_scalars()
-            .iter()
-            .flat_map(Serializable::serialize)
-            .collect()
+        let mut bytes = Vec::new();
+        bytes.extend(self.old_shares_nullifier.serialize());
+        bytes.extend(self.new_private_shares_commitment.serialize());
+        bytes.extend(self.new_public_shares.as_slice().serialize());
+        bytes.extend(self.merkle_root.serialize());
+        bytes.extend(self.external_transfer.serialize());
+        bytes.extend(self.old_pk_root.serialize());
+        bytes.extend(self.timestamp.serialize());
+        bytes
     }
 }
 
 impl Serializable for ValidReblindStatement {
     fn serialize(&self) -> Vec<u8> {
-        self.to_scalars()
-            .iter()
-            .flat_map(Serializable::serialize)
-            .collect()
+        let mut bytes = Vec::new();
+        bytes.extend(self.original_shares_nullifier.serialize());
+        bytes.extend(self.reblinded_private_shares_commitment.serialize());
+        bytes.extend(self.merkle_root.serialize());
+        bytes
     }
 }
 
 impl Serializable for ValidCommitmentsStatement {
     fn serialize(&self) -> Vec<u8> {
-        self.to_scalars()
-            .iter()
-            .flat_map(Serializable::serialize)
-            .collect()
+        let mut bytes = Vec::new();
+        bytes.extend(self.balance_send_index.serialize());
+        bytes.extend(self.balance_receive_index.serialize());
+        bytes.extend(self.order_index.serialize());
+        bytes
     }
 }
 
 impl Serializable for ValidMatchSettleStatement {
     fn serialize(&self) -> Vec<u8> {
-        self.to_scalars()
-            .iter()
-            .flat_map(Serializable::serialize)
-            .collect()
+        let mut bytes = Vec::new();
+        bytes.extend(self.party0_modified_shares.as_slice().serialize());
+        bytes.extend(self.party1_modified_shares.as_slice().serialize());
+        bytes.extend(self.party0_send_balance_index.serialize());
+        bytes.extend(self.party0_receive_balance_index.serialize());
+        bytes.extend(self.party0_order_index.serialize());
+        bytes.extend(self.party1_send_balance_index.serialize());
+        bytes.extend(self.party1_receive_balance_index.serialize());
+        bytes.extend(self.party1_order_index.serialize());
+        bytes
     }
 }
 
