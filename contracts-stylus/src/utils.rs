@@ -2,7 +2,7 @@
 
 use common::types::{G1Affine, G2Affine, ScalarField};
 use contracts_core::{
-    serde::{Deserializable, Serializable},
+    custom_serde::{BytesDeserializable, BytesSerializable},
     verifier::{errors::VerifierError, G1ArithmeticBackend},
 };
 use stylus_sdk::{
@@ -24,8 +24,8 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
     /// Calls the `ecAdd` precompile with the given points, handling de/serialization
     fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
         // Serialize the points
-        let a_data = a.serialize();
-        let b_data = b.serialize();
+        let a_data = a.serialize_to_bytes();
+        let b_data = b.serialize_to_bytes();
 
         // Call the `ecAdd` precompile
         let res_xy_bytes = static_call(
@@ -36,14 +36,15 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
         .map_err(|_| VerifierError::ArithmeticBackend)?;
 
         // Deserialize the affine coordinates returned from the precompile
-        G1Affine::deserialize(&res_xy_bytes).map_err(|_| VerifierError::ArithmeticBackend)
+        G1Affine::deserialize_from_bytes(&res_xy_bytes)
+            .map_err(|_| VerifierError::ArithmeticBackend)
     }
 
     /// Calls the `ecMul` precompile with the given scalar and point, handling de/serialization
     fn ec_scalar_mul(&mut self, a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
         // Serialize the point and scalar
-        let a_data = a.serialize();
-        let b_data = b.serialize();
+        let a_data = a.serialize_to_bytes();
+        let b_data = b.serialize_to_bytes();
 
         // Call the `ecMul` precompile
         let res_xy_bytes = static_call(
@@ -54,7 +55,8 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
         .map_err(|_| VerifierError::ArithmeticBackend)?;
 
         // Deserialize the affine coordinates returned from the precompile
-        G1Affine::deserialize(&res_xy_bytes).map_err(|_| VerifierError::ArithmeticBackend)
+        G1Affine::deserialize_from_bytes(&res_xy_bytes)
+            .map_err(|_| VerifierError::ArithmeticBackend)
     }
 
     /// Calls the `ecPairing` precompile with the given points, handling de/serialization
@@ -66,10 +68,10 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
         b_2: G2Affine,
     ) -> Result<bool, VerifierError> {
         // Serialize the points
-        let a_1_data = a_1.serialize();
-        let b_1_data = b_1.serialize();
-        let a_2_data = a_2.serialize();
-        let b_2_data = b_2.serialize();
+        let a_1_data = a_1.serialize_to_bytes();
+        let b_1_data = b_1.serialize_to_bytes();
+        let a_2_data = a_2.serialize_to_bytes();
+        let b_2_data = b_2.serialize_to_bytes();
 
         // Call the `ecPairing` precompile
         let res = static_call(

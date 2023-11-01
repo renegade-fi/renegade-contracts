@@ -2,6 +2,6 @@
 
 extern crate alloc;
 
-pub mod serde;
+pub mod custom_serde;
 pub mod transcript;
 pub mod verifier;

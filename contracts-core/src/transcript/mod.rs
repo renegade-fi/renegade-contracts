@@ -10,7 +10,7 @@ use common::{
 };
 use core::{marker::PhantomData, result::Result};
 
-use crate::serde::{Serializable, TranscriptG1};
+use crate::custom_serde::{BytesSerializable, TranscriptG1};
 
 use self::errors::TranscriptError;
 
@@ -55,8 +55,8 @@ impl<H: TranscriptHasher> Transcript<H> {
     }
 
     /// Appends a serializable Arkworks type to the transcript
-    fn append_serializable<S: Serializable>(&mut self, message: &S) {
-        self.append_message(&message.serialize());
+    fn append_serializable<S: BytesSerializable>(&mut self, message: &S) {
+        self.append_message(&message.serialize_to_bytes());
     }
     /// Computes all the challenges used in the Plonk protocol,
     /// given a verification key, a proof, and a set of public inputs.
@@ -128,7 +128,7 @@ impl<H: TranscriptHasher> Transcript<H> {
 fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
     scalars
         .iter()
-        .flat_map(|s| s.serialize().into_iter().rev())
+        .flat_map(|s| s.serialize_to_bytes().into_iter().rev())
         .collect()
 }
 

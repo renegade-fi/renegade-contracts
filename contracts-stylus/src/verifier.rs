@@ -7,7 +7,7 @@ use common::{
     types::{Proof, ScalarField, VerificationKey},
 };
 use contracts_core::transcript::TranscriptHasher;
-use contracts_core::{serde::Deserializable, verifier::Verifier};
+use contracts_core::verifier::Verifier;
 use stylus_sdk::crypto::keccak;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
@@ -33,16 +33,16 @@ impl VerifierContract {
         proof: Bytes,
         public_inputs: Bytes,
     ) -> Result<bool, Vec<u8>> {
-        let vkey: VerificationKey = Deserializable::deserialize(vkey.as_slice()).unwrap();
+        let vkey: VerificationKey = postcard::from_bytes(vkey.as_slice()).unwrap();
 
         let backend = EvmPrecompileBackend { contract: self };
 
         let mut verifier = Verifier::<EvmPrecompileBackend<_>, StylusHasher>::new(vkey, backend);
 
-        let proof: Proof = Deserializable::deserialize(proof.as_slice()).unwrap();
+        let proof: Proof = postcard::from_bytes(proof.as_slice()).unwrap();
 
         let public_inputs: [ScalarField; NUM_PUBLIC_INPUTS] =
-            Deserializable::deserialize(public_inputs.as_slice()).unwrap();
+            postcard::from_bytes(public_inputs.as_slice()).unwrap();
 
         Ok(verifier.verify(&proof, &public_inputs, &None).unwrap())
     }

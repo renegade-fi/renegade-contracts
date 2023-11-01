@@ -15,3 +15,4 @@ ark-std = { workspace = true }
 rand = "0.8.5"
 clap = { version = "4.4.7", features = ["derive"] }
 json = "0.12"
+postcard = { workspace = true }
