@@ -2,8 +2,7 @@
 
 use ark_ff::One;
 use ark_std::UniformRand;
-use common::types::ScalarField;
-use contracts_core::serde::Serializable;
+use common::{serde_def_types::SerdeScalarField, types::ScalarField};
 use ethers::{providers::Middleware, types::Bytes};
 use eyre::Result;
 use rand::thread_rng;
@@ -30,8 +29,8 @@ pub(crate) async fn test_verifier(
 ) -> Result<()> {
     let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(8192)?;
     let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
-    let vkey_bytes: Bytes = vkey.serialize().into();
-    let proof_bytes: Bytes = proof.serialize().into();
+    let vkey_bytes: Bytes = postcard::to_allocvec(&vkey)?.into();
+    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
     let public_input_bytes = Bytes::new();
 
     let successful_res = contract
@@ -42,7 +41,7 @@ pub(crate) async fn test_verifier(
     assert!(successful_res, "Valid proof did not verify");
 
     proof.z_bar += ScalarField::one();
-    let proof_bytes: Bytes = proof.serialize().into();
+    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
     let unsuccessful_res = contract
         .verify(vkey_bytes, proof_bytes, public_input_bytes)
         .call()
@@ -57,9 +56,8 @@ pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let nullifier = ScalarField::rand(&mut rng);
-    // let nullifier = ScalarField::one();
-    let nullifier_bytes: [u8; 32] = nullifier.serialize().try_into().unwrap();
+    let nullifier = SerdeScalarField(ScalarField::rand(&mut rng));
+    let nullifier_bytes: [u8; 32] = postcard::to_allocvec(&nullifier)?.try_into().unwrap();
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
 
@@ -84,8 +82,8 @@ pub(crate) async fn test_darkpool_verification(
 ) -> Result<()> {
     let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(8192)?;
     let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
-    let vkey_bytes: Bytes = vkey.serialize().into();
-    let proof_bytes: Bytes = proof.serialize().into();
+    let vkey_bytes: Bytes = postcard::to_allocvec(&vkey)?.into();
+    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
     let public_input_bytes = Bytes::new();
 
     let verifier_contract_address =
@@ -111,7 +109,7 @@ pub(crate) async fn test_darkpool_verification(
     assert!(successful_res, "Valid proof did not verify");
 
     proof.z_bar += ScalarField::one();
-    let proof_bytes: Bytes = proof.serialize().into();
+    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
     let unsuccessful_res = contract
         .verify(circuit_id, proof_bytes, public_input_bytes)
         .call()
