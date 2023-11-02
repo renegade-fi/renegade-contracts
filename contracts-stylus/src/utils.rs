@@ -1,8 +1,12 @@
 //! Common utilities used throughout the smart contracts, including testing contracts.
 
-use common::types::{G1Affine, G2Affine, ScalarField};
+use alloc::vec::Vec;
+use common::{
+    serde_def_types::SerdeScalarField,
+    types::{G1Affine, G2Affine, ScalarField},
+};
 use contracts_core::{
-    custom_serde::{BytesDeserializable, BytesSerializable},
+    custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
     verifier::{errors::VerifierError, G1ArithmeticBackend},
 };
 use stylus_sdk::{
@@ -85,4 +89,16 @@ impl<'a, S: TopLevelStorage + 'a> G1ArithmeticBackend for EvmPrecompileBackend<&
         // However, the precompile always returns a 32-byte output
         Ok(res[PAIRING_CHECK_RESULT_LAST_BYTE_INDEX] == 1)
     }
+}
+
+pub fn serialize_statement_for_verification<S: ScalarSerializable>(
+    statement: &S,
+) -> postcard::Result<Vec<u8>> {
+    postcard::to_allocvec(
+        &statement
+            .serialize_to_scalars()
+            .into_iter()
+            .map(SerdeScalarField)
+            .collect::<Vec<_>>(),
+    )
 }

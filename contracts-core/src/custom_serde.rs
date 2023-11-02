@@ -8,12 +8,11 @@ use ark_ec::{short_weierstrass::SWFlags, AffineRepr};
 use ark_ff::{BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 use common::{
-    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_U64S_FELT},
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
         ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
-        VerificationKey,
     },
 };
 
@@ -178,60 +177,6 @@ impl BytesDeserializable for G2Affine {
             x,
             y,
             infinity: x.is_zero() && y.is_zero(),
-        })
-    }
-}
-
-impl BytesSerializable for VerificationKey {
-    fn serialize_to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend(self.n.serialize_to_bytes());
-        bytes.extend(self.l.serialize_to_bytes());
-        bytes.extend(
-            self.k
-                .iter()
-                .flat_map(BytesSerializable::serialize_to_bytes),
-        );
-        bytes.extend(
-            self.q_comms
-                .iter()
-                .flat_map(BytesSerializable::serialize_to_bytes),
-        );
-        bytes.extend(
-            self.sigma_comms
-                .iter()
-                .flat_map(BytesSerializable::serialize_to_bytes),
-        );
-        bytes.extend(self.g.serialize_to_bytes());
-        bytes.extend(self.h.serialize_to_bytes());
-        bytes.extend(self.x_h.serialize_to_bytes());
-        bytes
-    }
-}
-
-impl BytesDeserializable for VerificationKey {
-    const SER_LEN: usize =
-        // n, l
-        u64::SER_LEN * 2
-        // k
-        + ScalarField::SER_LEN * NUM_WIRE_TYPES
-        // q_comms, sigma_comms, g
-        + G1Affine::SER_LEN * (NUM_SELECTORS + NUM_WIRE_TYPES + 1)
-        // h, x_H
-        + G2Affine::SER_LEN * 2;
-
-    fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
-        let mut cursor: usize = 0;
-
-        Ok(VerificationKey {
-            n: deserialize_cursor(bytes, &mut cursor)?,
-            l: deserialize_cursor(bytes, &mut cursor)?,
-            k: deserialize_cursor(bytes, &mut cursor)?,
-            q_comms: deserialize_cursor(bytes, &mut cursor)?,
-            sigma_comms: deserialize_cursor(bytes, &mut cursor)?,
-            g: deserialize_cursor(bytes, &mut cursor)?,
-            h: deserialize_cursor(bytes, &mut cursor)?,
-            x_h: deserialize_cursor(bytes, &mut cursor)?,
         })
     }
 }
@@ -424,10 +369,9 @@ mod tests {
     use ark_std::UniformRand;
     use common::{
         constants::FELT_BYTES,
-        types::{G1Affine, G2Affine, VerificationKey},
+        types::{G1Affine, G2Affine},
     };
     use num_bigint::BigUint;
-    use test_helpers::dummy_vkeys;
 
     use super::{BytesDeserializable, BytesSerializable};
 
@@ -485,21 +429,5 @@ mod tests {
             )
             .unwrap()
         );
-    }
-
-    #[test]
-    fn test_vkey_transcript_serde() {
-        let vkey = dummy_vkeys(1024, 512).0;
-        let vkey_ser = vkey.serialize_to_bytes();
-        let vkey_deser = VerificationKey::deserialize_from_bytes(&vkey_ser).unwrap();
-
-        assert_eq!(vkey.n, vkey_deser.n);
-        assert_eq!(vkey.l, vkey_deser.l);
-        assert_eq!(vkey.k, vkey_deser.k);
-        assert_eq!(vkey.q_comms, vkey_deser.q_comms);
-        assert_eq!(vkey.sigma_comms, vkey_deser.sigma_comms);
-        assert_eq!(vkey.g, vkey_deser.g);
-        assert_eq!(vkey.h, vkey_deser.h);
-        assert_eq!(vkey.x_h, vkey_deser.x_h);
     }
 }
