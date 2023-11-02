@@ -3,13 +3,18 @@
 use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
+    constants::NUM_BYTES_FELT,
+    custom_serde::ScalarSerializable,
     serde_def_types::SerdeScalarField,
     types::{ScalarField, VerificationBundle},
 };
 use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
 use rand::thread_rng;
-use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey, random_scalars};
+use test_helpers::{
+    convert_jf_proof_and_vkey, dummy_valid_wallet_update_statement, gen_jf_proof_and_vkey,
+    random_scalars,
+};
 
 use crate::{
     abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract},
@@ -64,8 +69,10 @@ pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let nullifier = SerdeScalarField(ScalarField::rand(&mut rng));
-    let nullifier_bytes: [u8; 32] = postcard::to_allocvec(&nullifier)?.try_into().unwrap();
+    let nullifier_bytes: [u8; NUM_BYTES_FELT] =
+        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?
+            .try_into()
+            .unwrap();
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
 
@@ -79,6 +86,71 @@ pub(crate) async fn test_nullifier_set(
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
 
+    assert!(nullifier_spent, "Nullifier not spent");
+
+    Ok(())
+}
+
+pub(crate) async fn test_update_wallet(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    verifier_address: Address,
+) -> Result<()> {
+    // Generate test data
+    let mut rng = thread_rng();
+
+    let valid_wallet_update_statement = dummy_valid_wallet_update_statement(&mut rng);
+
+    let public_inputs = valid_wallet_update_statement
+        .serialize_to_scalars()
+        .unwrap();
+    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs)?;
+    let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+
+    // Serialize test data into calldata
+    let vkey_bytes = postcard::to_allocvec(&vkey)?.into();
+    let wallet_blinder_share_bytes: [u8; NUM_BYTES_FELT] =
+        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?
+            .try_into()
+            .unwrap();
+    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
+    let valid_wallet_update_statement_bytes: Bytes =
+        postcard::to_allocvec(&valid_wallet_update_statement)?.into();
+    let public_inputs_signature_bytes = Bytes::new();
+
+    // Set verifier address
+    contract
+        .set_verifier_address(verifier_address)
+        .send()
+        .await?
+        .await?;
+
+    // Set `VALID_WALLET_UPDATE` verification key
+    contract
+        .set_valid_wallet_update_vkey(vkey_bytes)
+        .send()
+        .await?
+        .await?;
+
+    // Call `update_wallet` with valid data
+    contract
+        .update_wallet(
+            wallet_blinder_share_bytes,
+            proof_bytes,
+            valid_wallet_update_statement_bytes,
+            public_inputs_signature_bytes,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert that correct nullifier is spent
+    let nullifier_bytes: [u8; NUM_BYTES_FELT] = postcard::to_allocvec(&SerdeScalarField(
+        valid_wallet_update_statement.old_shares_nullifier,
+    ))?
+    .try_into()
+    .unwrap();
+
+    let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
 
     Ok(())

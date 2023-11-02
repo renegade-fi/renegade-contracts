@@ -5,7 +5,7 @@ use clap::Parser;
 use cli::{Cli, Tests};
 use constants::VERIFIER_CONTRACT_KEY;
 use eyre::Result;
-use tests::{test_nullifier_set, test_precompile_backend, test_verifier};
+use tests::{test_nullifier_set, test_precompile_backend, test_verifier, test_update_wallet};
 use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
 mod abis;
@@ -27,23 +27,30 @@ async fn main() -> Result<()> {
     let contract_address = get_test_contract_address(test, deployments_file.clone())?;
 
     match test {
+        Tests::Precompile => {
+            let contract = PrecompileTestContract::new(contract_address, client);
+
+            test_precompile_backend(contract).await?;
+        },
         Tests::NullifierSet => {
             let contract = DarkpoolTestContract::new(contract_address, client);
 
             test_nullifier_set(contract).await?;
-        }
+        },
         Tests::Verifier => {
             let contract = VerifierTestContract::new(contract_address, client);
             let verifier_address =
                 parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
 
             test_verifier(contract, verifier_address).await?;
-        }
-        Tests::Precompile => {
-            let contract = PrecompileTestContract::new(contract_address, client);
+        },
+        Tests::UpdateWallet => {
+            let contract = DarkpoolTestContract::new(contract_address, client);
+            let verifier_address =
+                parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
 
-            test_precompile_backend(contract).await?;
-        }
+            test_update_wallet(contract, verifier_address).await?;
+        },
     }
 
     Ok(())

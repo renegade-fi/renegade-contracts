@@ -17,3 +17,4 @@ ark-std = { workspace = true }
 sha3 = { version = "^0.10", default-features = false }
 jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 test-helpers = { path = "../test-helpers" }
+rand = { workspace = true }
