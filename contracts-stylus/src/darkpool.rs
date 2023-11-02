@@ -171,7 +171,7 @@ impl DarkpoolContract {
         party_1_valid_commitments_proof: Bytes,
         party_1_valid_reblind_proof: Bytes,
         valid_match_settle_proof: Bytes,
-        valid_match_settle_statement: Bytes,
+        valid_match_settle_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
         let party_0_match_payload: MatchPayload =
             postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
@@ -180,7 +180,7 @@ impl DarkpoolContract {
             postcard::from_bytes(party_1_match_payload.as_slice()).unwrap();
 
         let valid_match_settle_statement: ValidMatchSettleStatement =
-            postcard::from_bytes(valid_match_settle_statement.as_slice()).unwrap();
+            postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
         // TODO: Assert that the Merkle roots for which inclusion is proven in `VALID_REBLIND`
         // are valid historical roots

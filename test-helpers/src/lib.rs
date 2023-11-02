@@ -3,13 +3,20 @@
 #![no_std]
 
 use alloc::{vec, vec::Vec};
+use alloy_primitives::{Address, U256};
 use ark_bn254::Bn254;
 use ark_ec::AffineRepr;
 use ark_std::UniformRand;
 use common::{
-    constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
-    types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
+    constants::{
+        NUM_BYTES_ADDRESS, NUM_BYTES_U256, NUM_SELECTORS, NUM_WIRE_TYPES, WALLET_SHARES_LEN,
+    },
+    types::{
+        ExternalTransfer, G1Affine, G2Affine, Proof, PublicSigningKey, ScalarField,
+        ValidWalletUpdateStatement, VerificationKey,
+    },
 };
+use core::iter;
 use jf_plonk::{
     errors::PlonkError,
     proof_system::PlonkKzgSnark,
@@ -22,11 +29,12 @@ use jf_plonk::{
 };
 use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
 use jf_relation::{Arithmetization, Circuit, PlonkCircuit};
+use rand::{thread_rng, Rng};
 
 extern crate alloc;
 
 pub fn random_scalars(n: usize) -> Vec<ScalarField> {
-    let mut rng = ark_std::test_rng();
+    let mut rng = thread_rng();
     (0..n).map(|_| ScalarField::rand(&mut rng)).collect()
 }
 
@@ -106,7 +114,7 @@ fn unwrap_commitments<const N: usize>(comms: &[Commitment<Bn254>]) -> [G1Affine;
 }
 
 pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<Bn254>) {
-    let mut rng = ark_std::test_rng();
+    let mut rng = thread_rng();
     let vkey = VerificationKey {
         n,
         l,
@@ -137,7 +145,7 @@ pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<Bn254>) {
 }
 
 pub fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
-    let mut rng = ark_std::test_rng();
+    let mut rng = thread_rng();
     let proof = Proof {
         wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
         z_comm: G1Affine::rand(&mut rng),
@@ -183,4 +191,59 @@ pub fn get_jf_challenges(
         proof,
         extra_transcript_init_message,
     )
+}
+
+fn dummy_wallet_shares(rng: &mut impl Rng) -> [ScalarField; WALLET_SHARES_LEN] {
+    iter::repeat(ScalarField::rand(rng))
+        .take(WALLET_SHARES_LEN)
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
+}
+
+fn dummy_address(rng: &mut impl Rng) -> Address {
+    Address::from_slice(
+        iter::repeat(u8::rand(rng))
+            .take(NUM_BYTES_ADDRESS)
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}
+
+fn dummy_u256(rng: &mut impl Rng) -> U256 {
+    U256::from_be_bytes::<NUM_BYTES_U256>(
+        iter::repeat(u8::rand(rng))
+            .take(NUM_BYTES_U256)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap(),
+    )
+}
+
+fn dummy_external_transfer(rng: &mut impl Rng) -> ExternalTransfer {
+    ExternalTransfer {
+        account_addr: dummy_address(rng),
+        mint: dummy_address(rng),
+        amount: dummy_u256(rng),
+        is_withdrawal: rng.gen(),
+    }
+}
+
+fn dummy_public_signing_key(rng: &mut impl Rng) -> PublicSigningKey {
+    PublicSigningKey {
+        x: [ScalarField::rand(rng), ScalarField::rand(rng)],
+        y: [ScalarField::rand(rng), ScalarField::rand(rng)],
+    }
+}
+
+pub fn dummy_valid_wallet_update_statement(rng: &mut impl Rng) -> ValidWalletUpdateStatement {
+    ValidWalletUpdateStatement {
+        old_shares_nullifier: ScalarField::rand(rng),
+        new_private_shares_commitment: ScalarField::rand(rng),
+        new_public_shares: dummy_wallet_shares(rng),
+        merkle_root: ScalarField::rand(rng),
+        external_transfer: dummy_external_transfer(rng),
+        old_pk_root: dummy_public_signing_key(rng),
+        timestamp: rng.gen(),
+    }
 }

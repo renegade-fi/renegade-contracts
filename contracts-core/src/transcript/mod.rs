@@ -139,6 +139,7 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 pub mod tests {
     use ark_std::UniformRand;
     use common::{constants::HASH_OUTPUT_SIZE, types::ScalarField};
+    use rand::thread_rng;
     use sha3::{Digest, Keccak256};
     use test_helpers::{dummy_proofs, dummy_vkeys, get_jf_challenges};
 
@@ -158,7 +159,7 @@ pub mod tests {
 
     #[test]
     fn test_transcript_equivalency() {
-        let mut rng = ark_std::test_rng();
+        let mut rng = thread_rng();
         let (vkey, jf_vkey) = dummy_vkeys(N as u64, L as u64);
         let (proof, jf_proof) = dummy_proofs();
         let public_inputs = [ScalarField::rand(&mut rng); L];

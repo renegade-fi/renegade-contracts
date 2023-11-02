@@ -5,10 +5,21 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
+        function setVerifierAddress(address memory _address) external
+
+        function setValidWalletCreateVkey(bytes memory vkey) external
+        function setValidWalletUpdateVkey(bytes memory vkey) external
+        function setValidCommitmentsVkey(bytes memory vkey) external
+        function setValidReblindVkey(bytes memory vkey) external
+        function setValidMatchSettleVkey(bytes memory vkey) external
+
         function isNullifierSpent(bytes32 memory nullifier) external view returns (bool)
         function markNullifierSpent(bytes32 memory nullifier) external
-        function setVerifierAddress(address memory _address) external
-        function addVerificationKey(uint8 memory circuit_id, bytes memory vkey) external
+
+        function newWallet(bytes32 memory wallet_blinder_share, bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
+        function updateWallet(bytes32 memory wallet_blinder_share, bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature) external
+        function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_reblind_proof, bytes memory party_1_match_payload, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_reblind_proof, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_statement_bytes,) external
+
         function verify(uint8 memory circuit_id, bytes memory proof, bytes memory public_inputs) external view returns (bool)
     ]"#
 );

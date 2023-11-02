@@ -917,6 +917,7 @@ dependencies = [
  "ark-std",
  "common",
  "jf-utils",
+ "rand",
  "sha3",
  "test-helpers",
 ]
@@ -4193,6 +4194,7 @@ dependencies = [
 name = "test-helpers"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "ark-bn254",
  "ark-ec",
  "ark-std",
@@ -4201,6 +4203,7 @@ dependencies = [
  "jf-primitives",
  "jf-relation",
  "jf-utils",
+ "rand",
 ]
 
 [[package]]

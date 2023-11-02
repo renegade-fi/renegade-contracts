@@ -9,7 +9,7 @@ use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 
 use crate::{
-    constants::{FELT_BYTES, NUM_BYTES_U64, NUM_U64S_FELT},
+    constants::{NUM_BYTES_FELT, NUM_BYTES_U64, NUM_U64S_FELT},
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
@@ -81,7 +81,7 @@ impl<P: MontConfig<NUM_U64S_FELT>> BytesSerializable for MontFp256<P> {
 }
 
 impl<P: MontConfig<NUM_U64S_FELT>> BytesDeserializable for MontFp256<P> {
-    const SER_LEN: usize = FELT_BYTES;
+    const SER_LEN: usize = NUM_BYTES_FELT;
 
     fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
         // Field elements are serialized as big-endian, so we need to reverse here
@@ -111,7 +111,7 @@ impl BytesSerializable for G1Affine {
 }
 
 impl BytesDeserializable for G1Affine {
-    const SER_LEN: usize = FELT_BYTES * 2;
+    const SER_LEN: usize = NUM_BYTES_FELT * 2;
 
     /// Deserializes a G1 point from a byte array.
     ///
@@ -143,7 +143,7 @@ impl BytesSerializable for TranscriptG1 {
         };
 
         let mut x_bytes = x.into_bigint().to_bytes_le();
-        x_bytes[FELT_BYTES - 1] |= flags.u8_bitmask();
+        x_bytes[NUM_BYTES_FELT - 1] |= flags.u8_bitmask();
 
         x_bytes
     }
@@ -169,7 +169,7 @@ impl BytesSerializable for G2Affine {
 }
 
 impl BytesDeserializable for G2Affine {
-    const SER_LEN: usize = FELT_BYTES * 4;
+    const SER_LEN: usize = NUM_BYTES_FELT * 4;
 
     fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
         let mut cursor = 0;
@@ -359,7 +359,7 @@ fn deserialize_cursor<D: BytesDeserializable>(
     Ok(elem)
 }
 
-fn bigint_from_le_bytes(bytes: &[u8; FELT_BYTES]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
+fn bigint_from_le_bytes(bytes: &[u8; NUM_BYTES_FELT]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
     let mut u64s = [0u64; NUM_U64S_FELT];
     for i in 0..NUM_U64S_FELT {
         u64s[i] = u64::from_le_bytes(
@@ -374,7 +374,7 @@ fn bigint_from_le_bytes(bytes: &[u8; FELT_BYTES]) -> Result<BigInt<NUM_U64S_FELT
 #[cfg(test)]
 mod tests {
     use crate::{
-        constants::FELT_BYTES,
+        constants::NUM_BYTES_FELT,
         types::{G1Affine, G2Affine},
     };
     use ark_ec::AffineRepr;
@@ -400,10 +400,10 @@ mod tests {
         let a = G2Affine::generator();
         let res = a.serialize_to_bytes();
 
-        let x_c1 = BigUint::from_bytes_be(&res[..FELT_BYTES]);
-        let x_c0 = BigUint::from_bytes_be(&res[FELT_BYTES..FELT_BYTES * 2]);
-        let y_c1 = BigUint::from_bytes_be(&res[FELT_BYTES * 2..FELT_BYTES * 3]);
-        let y_c0 = BigUint::from_bytes_be(&res[FELT_BYTES * 3..]);
+        let x_c1 = BigUint::from_bytes_be(&res[..NUM_BYTES_FELT]);
+        let x_c0 = BigUint::from_bytes_be(&res[NUM_BYTES_FELT..NUM_BYTES_FELT * 2]);
+        let y_c1 = BigUint::from_bytes_be(&res[NUM_BYTES_FELT * 2..NUM_BYTES_FELT * 3]);
+        let y_c0 = BigUint::from_bytes_be(&res[NUM_BYTES_FELT * 3..]);
 
         // Expected values taken from: https://eips.ethereum.org/EIPS/eip-197#definition-of-the-groups
         assert_eq!(
