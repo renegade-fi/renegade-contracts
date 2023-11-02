@@ -17,6 +17,7 @@ postcard = { workspace = true }
 [features]
 darkpool = []
 verifier = []
+verifier-test-contract = []
 darkpool-test-contract = []
 precompile-test-contract = ["dep:ark-std"]
 export-abi = ["stylus-sdk/export-abi"]

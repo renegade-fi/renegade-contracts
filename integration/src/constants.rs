@@ -16,5 +16,14 @@ pub(crate) const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract"
 /// The verifier contract key in the `deployments.json` file
 pub(crate) const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
+/// The verifier contract key in the `deployments.json` file
+pub(crate) const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
+
 /// The darkpool test contract key in the `deployments.json` file
 pub(crate) const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
+
+/// The domain size to use when testing the verifier contract
+pub(crate) const N: usize = 8192;
+
+/// The number of public inputs to use when testing the verifier contract
+pub(crate) const L: usize = 128;

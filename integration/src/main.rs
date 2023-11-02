@@ -1,11 +1,12 @@
 //! Basic tests for Stylus programs. These assume that a devnet is already running locally.
 
-use abis::{DarkpoolTestContract, PrecompileTestContract, VerifierContract};
+use abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract};
 use clap::Parser;
 use cli::{Cli, Tests};
+use constants::VERIFIER_CONTRACT_KEY;
 use eyre::Result;
-use tests::{test_nullifier_set, test_precompile_backend, test_verifier, test_darkpool_verification};
-use utils::{get_test_contract_address, setup_client};
+use tests::{test_nullifier_set, test_precompile_backend, test_verifier};
+use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
 mod abis;
 mod cli;
@@ -31,15 +32,12 @@ async fn main() -> Result<()> {
 
             test_nullifier_set(contract).await?;
         }
-        Tests::DarkpoolVerification => {
-            let contract = DarkpoolTestContract::new(contract_address, client);
-
-            test_darkpool_verification(contract, deployments_file).await?;
-        }
         Tests::Verifier => {
-            let contract = VerifierContract::new(contract_address, client);
+            let contract = VerifierTestContract::new(contract_address, client);
+            let verifier_address =
+                parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
 
-            test_verifier(contract).await?;
+            test_verifier(contract, verifier_address).await?;
         }
         Tests::Precompile => {
             let contract = PrecompileTestContract::new(contract_address, client);

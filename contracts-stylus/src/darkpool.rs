@@ -12,6 +12,7 @@ use common::{
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{aliases::B256, Address},
+    call::static_call,
     prelude::*,
     storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
 };
@@ -21,11 +22,10 @@ use crate::{
         VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
-    interfaces::IVerifier,
     utils::serialize_statement_for_verification,
 };
 
-type SolScalar = B256;
+pub type SolScalar = B256;
 
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
@@ -312,11 +312,13 @@ impl DarkpoolContract {
         proof: Bytes,
         public_inputs: Bytes,
     ) -> Result<bool, Vec<u8>> {
-        let verifier = IVerifier::new(self.verifier_address.get());
         let vkey_bytes = self.verification_keys.get(circuit_id).get_bytes();
-
         assert!(!vkey_bytes.is_empty(), "No verification key for circuit ID");
 
-        Ok(verifier.verify(self, vkey_bytes, proof.into(), public_inputs.into())?)
+        let verifier_address = self.verifier_address.get();
+        let verification_bundle_ser = [vkey_bytes, proof.into(), public_inputs.into()].concat();
+        let result = static_call(self, verifier_address, &verification_bundle_ser)?;
+
+        Ok(result[0] != 0)
     }
 }

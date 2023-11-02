@@ -21,12 +21,25 @@ use jf_plonk::{
     transcript::SolidityTranscript,
 };
 use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
-use jf_relation::{Circuit, PlonkCircuit};
+use jf_relation::{Arithmetization, Circuit, PlonkCircuit};
 
 extern crate alloc;
 
-pub fn gen_circuit(n: usize) -> Result<PlonkCircuit<ScalarField>, PlonkError> {
+pub fn random_scalars(n: usize) -> Vec<ScalarField> {
+    let mut rng = ark_std::test_rng();
+    (0..n).map(|_| ScalarField::rand(&mut rng)).collect()
+}
+
+pub fn gen_circuit(
+    n: usize,
+    public_inputs: &[ScalarField],
+) -> Result<PlonkCircuit<ScalarField>, PlonkError> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
+
+    for pi in public_inputs {
+        circuit.create_public_variable(*pi)?;
+    }
+
     let mut a = circuit.zero();
     for _ in 0..n / 2 - 10 {
         a = circuit.add(a, circuit.one())?;
@@ -39,11 +52,12 @@ pub fn gen_circuit(n: usize) -> Result<PlonkCircuit<ScalarField>, PlonkError> {
 
 pub fn gen_jf_proof_and_vkey(
     n: usize,
+    public_inputs: &[ScalarField],
 ) -> Result<(JfProof<Bn254>, VerifyingKey<Bn254>), PlonkError> {
     let rng = &mut jf_utils::test_rng();
-    let circuit = gen_circuit(n)?;
+    let circuit = gen_circuit(n, public_inputs)?;
 
-    let max_degree = n + 2;
+    let max_degree = circuit.eval_domain_size()? + 2;
     let srs = PlonkKzgSnark::<Bn254>::universal_setup_for_testing(max_degree, rng)?;
 
     let (pkey, jf_vkey) = PlonkKzgSnark::<Bn254>::preprocess(&srs, &circuit)?;
