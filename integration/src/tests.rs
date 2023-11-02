@@ -2,16 +2,18 @@
 
 use ark_ff::One;
 use ark_std::UniformRand;
-use common::{serde_def_types::SerdeScalarField, types::ScalarField};
-use ethers::{providers::Middleware, types::Bytes};
+use common::{
+    serde_def_types::SerdeScalarField,
+    types::{ScalarField, VerificationBundle},
+};
+use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
 use rand::thread_rng;
-use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey};
+use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey, random_scalars};
 
 use crate::{
-    abis::{DarkpoolTestContract, PrecompileTestContract, VerifierContract},
-    constants::VERIFIER_CONTRACT_KEY,
-    utils::parse_addr_from_deployments_file,
+    abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract},
+    constants::{L, N},
 };
 
 pub(crate) async fn test_precompile_backend(
@@ -25,25 +27,31 @@ pub(crate) async fn test_precompile_backend(
 }
 
 pub(crate) async fn test_verifier(
-    contract: VerifierContract<impl Middleware + 'static>,
+    contract: VerifierTestContract<impl Middleware + 'static>,
+    verifier_address: Address,
 ) -> Result<()> {
-    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(8192)?;
-    let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
-    let vkey_bytes: Bytes = postcard::to_allocvec(&vkey)?.into();
-    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
-    let public_input_bytes = Bytes::new();
+    let public_inputs = random_scalars(L);
+    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs)?;
+    let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+
+    let mut verification_bundle = VerificationBundle {
+        vkey,
+        proof,
+        public_inputs,
+    };
+    let bundle_bytes: Bytes = postcard::to_allocvec(&verification_bundle).unwrap().into();
 
     let successful_res = contract
-        .verify(vkey_bytes.clone(), proof_bytes, public_input_bytes.clone())
+        .verify(verifier_address, bundle_bytes)
         .call()
         .await?;
 
     assert!(successful_res, "Valid proof did not verify");
 
-    proof.z_bar += ScalarField::one();
-    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
+    verification_bundle.proof.z_bar += ScalarField::one();
+    let bundle_bytes: Bytes = postcard::to_allocvec(&verification_bundle).unwrap().into();
     let unsuccessful_res = contract
-        .verify(vkey_bytes, proof_bytes, public_input_bytes)
+        .verify(verifier_address, bundle_bytes)
         .call()
         .await?;
 
@@ -72,50 +80,6 @@ pub(crate) async fn test_nullifier_set(
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
 
     assert!(nullifier_spent, "Nullifier not spent");
-
-    Ok(())
-}
-
-pub(crate) async fn test_darkpool_verification(
-    contract: DarkpoolTestContract<impl Middleware + 'static>,
-    deployments_file: String,
-) -> Result<()> {
-    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(8192)?;
-    let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
-    let vkey_bytes: Bytes = postcard::to_allocvec(&vkey)?.into();
-    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
-    let public_input_bytes = Bytes::new();
-
-    let verifier_contract_address =
-        parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
-    let circuit_id = rand::random();
-
-    contract
-        .set_verifier_address(verifier_contract_address)
-        .send()
-        .await?
-        .await?;
-    contract
-        .add_verification_key(circuit_id, vkey_bytes)
-        .send()
-        .await?
-        .await?;
-
-    let successful_res = contract
-        .verify(circuit_id, proof_bytes, public_input_bytes.clone())
-        .call()
-        .await?;
-
-    assert!(successful_res, "Valid proof did not verify");
-
-    proof.z_bar += ScalarField::one();
-    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
-    let unsuccessful_res = contract
-        .verify(circuit_id, proof_bytes, public_input_bytes)
-        .call()
-        .await?;
-
-    assert!(!unsuccessful_res, "Invalid proof verified");
 
     Ok(())
 }
