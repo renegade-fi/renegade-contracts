@@ -1,15 +1,13 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use common::constants::HASH_OUTPUT_SIZE;
-use common::{
-    constants::NUM_PUBLIC_INPUTS,
-    types::{Proof, ScalarField, VerificationKey},
-};
+use common::types::VerificationBundle;
 use contracts_core::transcript::TranscriptHasher;
 use contracts_core::verifier::Verifier;
 use stylus_sdk::crypto::keccak;
-use stylus_sdk::{abi::Bytes, prelude::*};
+use stylus_sdk::prelude::*;
+use stylus_sdk::ArbResult;
 
 use crate::utils::EvmPrecompileBackend;
 
@@ -20,30 +18,19 @@ impl TranscriptHasher for StylusHasher {
     }
 }
 
-#[solidity_storage]
+/// Verify the given proof, using the given verification bundle
 #[entrypoint]
-struct VerifierContract {}
+pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
+    let VerificationBundle {
+        vkey,
+        proof,
+        public_inputs,
+    } = postcard::from_bytes(verification_bundle_ser.as_slice()).unwrap();
 
-#[external]
-impl VerifierContract {
-    /// Verify the given proof, using the given public inputs and the stored verification key
-    pub fn verify(
-        &mut self,
-        vkey: Bytes,
-        proof: Bytes,
-        public_inputs: Bytes,
-    ) -> Result<bool, Vec<u8>> {
-        let vkey: VerificationKey = postcard::from_bytes(vkey.as_slice()).unwrap();
+    let mut verifier =
+        Verifier::<EvmPrecompileBackend, StylusHasher>::new(vkey, EvmPrecompileBackend);
 
-        let backend = EvmPrecompileBackend { contract: self };
+    let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 
-        let mut verifier = Verifier::<EvmPrecompileBackend<_>, StylusHasher>::new(vkey, backend);
-
-        let proof: Proof = postcard::from_bytes(proof.as_slice()).unwrap();
-
-        let public_inputs: [ScalarField; NUM_PUBLIC_INPUTS] =
-            postcard::from_bytes(public_inputs.as_slice()).unwrap();
-
-        Ok(verifier.verify(&proof, &public_inputs, &None).unwrap())
-    }
+    Ok(vec![result as u8])
 }

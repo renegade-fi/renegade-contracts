@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
+use common::serde_def_types::SerdeScalarField;
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::B256,
     call::{CallContext, StaticCallContext},
     prelude::*,
 };
 
-use crate::darkpool::DarkpoolContract;
+use crate::darkpool::{DarkpoolContract, SolScalar};
 
 // We implement the `CallContext` & `StaticCallContext` traits manually
 // for the `DarkpoolContract` because it is not the entrypoint when
@@ -31,8 +31,9 @@ struct DarkpoolTestContract {
 #[external]
 #[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
-    pub fn mark_nullifier_spent(&mut self, nullifier: B256) -> Result<(), Vec<u8>> {
-        self.darkpool.mark_nullifier_spent(nullifier)
+    pub fn mark_nullifier_spent(&mut self, nullifier: SolScalar) -> Result<(), Vec<u8>> {
+        let nullifier: SerdeScalarField = postcard::from_bytes(nullifier.as_slice()).unwrap();
+        self.darkpool.mark_nullifier_spent(nullifier.0)
     }
 
     pub fn verify(

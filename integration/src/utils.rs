@@ -14,7 +14,7 @@ use crate::{
     cli::Tests,
     constants::{
         DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
-        VERIFIER_CONTRACT_KEY,
+        VERIFIER_TEST_CONTRACT_KEY,
     },
 };
 
@@ -56,11 +56,8 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -
         Tests::NullifierSet => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
         }
-        Tests::DarkpoolVerification => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
-        }
         Tests::Verifier => {
-            parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
         }
         Tests::Precompile => {
             parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?

@@ -14,9 +14,9 @@ abigen!(
 );
 
 abigen!(
-    VerifierContract,
+    VerifierTestContract,
     r#"[
-        function verify(bytes memory vkey, bytes memory proof, bytes memory public_inputs) external view returns (bool)
+        function verify(address memory verifier_address, bytes memory verification_bundle_ser) external view returns (bool)
     ]"#
 );
 

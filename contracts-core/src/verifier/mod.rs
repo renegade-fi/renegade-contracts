@@ -505,7 +505,7 @@ mod tests {
     use ark_ff::One;
     use common::types::{G1Affine, G2Affine, ScalarField};
     use jf_utils::multi_pairing;
-    use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey};
+    use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey, random_scalars};
 
     use crate::transcript::tests::TestHasher;
 
@@ -538,27 +538,30 @@ mod tests {
     }
 
     const N: usize = 8192;
+    const L: usize = 128;
 
     // Mirrors circuit definition in the Jellyfish benchmarks
     #[test]
     fn test_valid_proof_verification() {
-        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N).unwrap();
+        let public_inputs = random_scalars(L);
+        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs).unwrap();
         let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
         let mut verifier =
             Verifier::<ArkG1ArithmeticBackend, TestHasher>::new(vkey, ArkG1ArithmeticBackend);
-        let result = verifier.verify(&proof, &[], &None).unwrap();
+        let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 
         assert!(result, "valid proof did not verify");
     }
 
     #[test]
     fn test_invalid_proof_verification() {
-        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N).unwrap();
+        let public_inputs = random_scalars(L);
+        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs).unwrap();
         let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
         proof.z_bar += ScalarField::one();
         let mut verifier =
             Verifier::<ArkG1ArithmeticBackend, TestHasher>::new(vkey, ArkG1ArithmeticBackend);
-        let result = verifier.verify(&proof, &[], &None).unwrap();
+        let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 
         assert!(!result, "invalid proof verified");
     }

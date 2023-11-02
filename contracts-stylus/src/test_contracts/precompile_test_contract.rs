@@ -18,7 +18,7 @@ struct PrecompileTestContract;
 #[external]
 impl PrecompileTestContract {
     pub fn test_ec_add(&mut self) -> Result<(), Vec<u8>> {
-        let mut backend = EvmPrecompileBackend { contract: self };
+        let mut backend = EvmPrecompileBackend;
 
         let mut rng = ark_std::test_rng();
         let a = G1Affine::rand(&mut rng);
@@ -30,7 +30,7 @@ impl PrecompileTestContract {
     }
 
     pub fn test_ec_mul(&mut self) -> Result<(), Vec<u8>> {
-        let mut backend = EvmPrecompileBackend { contract: self };
+        let mut backend = EvmPrecompileBackend;
 
         let mut rng = ark_std::test_rng();
         let a = ScalarField::rand(&mut rng);
@@ -44,7 +44,7 @@ impl PrecompileTestContract {
     }
 
     pub fn test_ec_pairing(&mut self) -> Result<(), Vec<u8>> {
-        let mut backend = EvmPrecompileBackend { contract: self };
+        let mut backend = EvmPrecompileBackend;
 
         let mut rng = ark_std::test_rng();
         let a_1 = G1Affine::rand(&mut rng);

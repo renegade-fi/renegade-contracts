@@ -1,5 +1,6 @@
 //! Common types used throughout the verifier.
 
+use alloc::vec::Vec;
 use alloy_primitives::{Address, U256};
 use ark_bn254::{g1::Config as G1Config, g2::Config as G2Config, Fq, Fq2, Fr};
 use ark_ec::short_weierstrass::Affine;
@@ -231,4 +232,14 @@ pub struct MatchPayload {
     pub valid_commitments_statement: ValidCommitmentsStatement,
     /// The statement for the party's `VALID_REBLIND` proof
     pub valid_reblind_statement: ValidReblindStatement,
+}
+
+/// A bundle of all of the inputs to the verifier
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct VerificationBundle {
+    pub vkey: VerificationKey,
+    pub proof: Proof,
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub public_inputs: Vec<ScalarField>,
 }

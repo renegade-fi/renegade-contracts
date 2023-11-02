@@ -11,12 +11,32 @@ pub const EC_PAIRING_ADDRESS_LAST_BYTE: u8 = 8;
 pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 
 /// The ID of the `VALID_WALLET_CREATE` circuit
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub const VALID_WALLET_CREATE_CIRCUIT_ID: u8 = 0;
 /// The ID of the `VALID_WALLET_UPDATE` circuit
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub const VALID_WALLET_UPDATE_CIRCUIT_ID: u8 = 1;
 /// The ID of the `VALID_COMMITMENTS` circuit
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub const VALID_COMMITMENTS_CIRCUIT_ID: u8 = 2;
 /// The ID of the `VALID_REBLIND` circuit
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub const VALID_REBLIND_CIRCUIT_ID: u8 = 3;
 /// The ID of the `VALID_MATCH_SETTLE` circuit
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub const VALID_MATCH_SETTLE_CIRCUIT_ID: u8 = 4;
