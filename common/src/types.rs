@@ -229,10 +229,6 @@ pub struct MatchPayload {
     pub wallet_blinder_share: ScalarField,
     /// The statement for the party's `VALID_COMMITMENTS` proof
     pub valid_commitments_statement: ValidCommitmentsStatement,
-    /// The party's `VALID_COMMITMENTS` proof
-    pub valid_commitments_proof: Proof,
     /// The statement for the party's `VALID_REBLIND` proof
     pub valid_reblind_statement: ValidReblindStatement,
-    /// The party's `VALID_REBLIND` proof
-    pub valid_reblind_proof: Proof,
 }
