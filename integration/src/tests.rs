@@ -3,7 +3,6 @@
 use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
-    custom_serde::ScalarSerializable,
     serde_def_types::SerdeScalarField,
     types::{ScalarField, VerificationBundle},
 };
@@ -11,13 +10,14 @@ use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
 use rand::thread_rng;
 use test_helpers::{
-    convert_jf_proof_and_vkey, dummy_valid_wallet_update_statement, gen_jf_proof_and_vkey,
-    random_scalars,
+    convert_jf_proof_and_vkey, dummy_circuit_bundle, extract_statement, gen_jf_proof_and_vkey,
+    random_scalars, Circuit, Statement,
 };
 
 use crate::{
     abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract},
     constants::{L, N},
+    utils::{serialize_circuit_bundle, setup_darkpool_test_contract},
 };
 
 pub(crate) async fn test_precompile_backend(
@@ -97,37 +97,24 @@ pub(crate) async fn test_update_wallet(
 ) -> Result<()> {
     // Generate test data
     let mut rng = thread_rng();
-
-    let valid_wallet_update_statement = dummy_valid_wallet_update_statement(&mut rng);
-
-    let public_inputs = valid_wallet_update_statement
-        .serialize_to_scalars()
-        .unwrap();
-    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs)?;
-    let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+    let circuit_bundle = dummy_circuit_bundle(Circuit::ValidWalletUpdate, N, &mut rng)?;
+    let wallet_blinder_share = ScalarField::rand(&mut rng);
 
     // Serialize test data into calldata
-    let vkey_bytes = postcard::to_allocvec(&vkey)?.into();
+    let (valid_wallet_update_statement_bytes, vkey_bytes, proof_bytes) =
+        serialize_circuit_bundle(&circuit_bundle)?;
+
     let wallet_blinder_share_bytes: Bytes =
-        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?.into();
-    let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
-    let valid_wallet_update_statement_bytes: Bytes =
-        postcard::to_allocvec(&valid_wallet_update_statement)?.into();
+        postcard::to_allocvec(&SerdeScalarField(wallet_blinder_share))?.into();
     let public_inputs_signature_bytes = Bytes::new();
 
-    // Set verifier address
-    contract
-        .set_verifier_address(verifier_address)
-        .send()
-        .await?
-        .await?;
-
-    // Set `VALID_WALLET_UPDATE` verification key
-    contract
-        .set_valid_wallet_update_vkey(vkey_bytes)
-        .send()
-        .await?
-        .await?;
+    // Set up contract
+    setup_darkpool_test_contract(
+        &contract,
+        verifier_address,
+        vec![(Circuit::ValidWalletUpdate, vkey_bytes)],
+    )
+    .await?;
 
     // Call `update_wallet` with valid data
     contract
@@ -142,6 +129,9 @@ pub(crate) async fn test_update_wallet(
         .await?;
 
     // Assert that correct nullifier is spent
+    let valid_wallet_update_statement =
+        extract_statement!(circuit_bundle.0, Statement::ValidWalletUpdate);
+
     let nullifier_bytes: Bytes = postcard::to_allocvec(&SerdeScalarField(
         valid_wallet_update_statement.old_shares_nullifier,
     ))?

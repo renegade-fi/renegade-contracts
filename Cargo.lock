@@ -4199,11 +4199,13 @@ dependencies = [
  "ark-ec",
  "ark-std",
  "common",
+ "eyre",
  "jf-plonk",
  "jf-primitives",
  "jf-relation",
  "jf-utils",
  "rand",
+ "serde",
 ]
 
 [[package]]

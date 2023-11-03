@@ -11,12 +11,15 @@ use common::{
     constants::{
         NUM_BYTES_ADDRESS, NUM_BYTES_U256, NUM_SELECTORS, NUM_WIRE_TYPES, WALLET_SHARES_LEN,
     },
+    custom_serde::{ScalarSerializable, SerdeError},
     types::{
         ExternalTransfer, G1Affine, G2Affine, Proof, PublicSigningKey, ScalarField,
-        ValidWalletUpdateStatement, VerificationKey,
+        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement, VerificationKey,
     },
 };
 use core::iter;
+use eyre::{eyre, Result};
 use jf_plonk::{
     errors::PlonkError,
     proof_system::PlonkKzgSnark,
@@ -28,8 +31,9 @@ use jf_plonk::{
     transcript::SolidityTranscript,
 };
 use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
-use jf_relation::{Arithmetization, Circuit, PlonkCircuit};
+use jf_relation::{Arithmetization, Circuit as JfCircuit, PlonkCircuit};
 use rand::{thread_rng, Rng};
+use serde::{Serialize, Serializer};
 
 extern crate alloc;
 
@@ -38,10 +42,7 @@ pub fn random_scalars(n: usize) -> Vec<ScalarField> {
     (0..n).map(|_| ScalarField::rand(&mut rng)).collect()
 }
 
-pub fn gen_circuit(
-    n: usize,
-    public_inputs: &[ScalarField],
-) -> Result<PlonkCircuit<ScalarField>, PlonkError> {
+pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircuit<ScalarField>> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
 
     for pi in public_inputs {
@@ -61,7 +62,7 @@ pub fn gen_circuit(
 pub fn gen_jf_proof_and_vkey(
     n: usize,
     public_inputs: &[ScalarField],
-) -> Result<(JfProof<Bn254>, VerifyingKey<Bn254>), PlonkError> {
+) -> Result<(JfProof<Bn254>, VerifyingKey<Bn254>)> {
     let rng = &mut jf_utils::test_rng();
     let circuit = gen_circuit(n, public_inputs)?;
 
@@ -193,6 +194,57 @@ pub fn get_jf_challenges(
     )
 }
 
+pub enum Circuit {
+    ValidWalletCreate,
+    ValidWalletUpdate,
+    ValidCommitments,
+    ValidReblind,
+    ValidMatchSettle,
+}
+
+#[allow(clippy::large_enum_variant)]
+pub enum Statement {
+    ValidWalletCreate(ValidWalletCreateStatement),
+    ValidWalletUpdate(ValidWalletUpdateStatement),
+    ValidCommitments(ValidCommitmentsStatement),
+    ValidReblind(ValidReblindStatement),
+    ValidMatchSettle(ValidMatchSettleStatement),
+}
+
+impl Serialize for Statement {
+    fn serialize<S: Serializer>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error> {
+        match self {
+            Statement::ValidWalletCreate(s) => s.serialize(serializer),
+            Statement::ValidWalletUpdate(s) => s.serialize(serializer),
+            Statement::ValidCommitments(s) => s.serialize(serializer),
+            Statement::ValidReblind(s) => s.serialize(serializer),
+            Statement::ValidMatchSettle(s) => s.serialize(serializer),
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! extract_statement {
+    ($enum:expr, $variant:path) => {
+        match $enum {
+            $variant(s) => s,
+            _ => panic!("wrong statement type"),
+        }
+    };
+}
+
+impl ScalarSerializable for Statement {
+    fn serialize_to_scalars(&self) -> core::result::Result<Vec<ScalarField>, SerdeError> {
+        match self {
+            Statement::ValidWalletCreate(s) => s.serialize_to_scalars(),
+            Statement::ValidWalletUpdate(s) => s.serialize_to_scalars(),
+            Statement::ValidCommitments(s) => s.serialize_to_scalars(),
+            Statement::ValidReblind(s) => s.serialize_to_scalars(),
+            Statement::ValidMatchSettle(s) => s.serialize_to_scalars(),
+        }
+    }
+}
+
 fn dummy_wallet_shares(rng: &mut impl Rng) -> [ScalarField; WALLET_SHARES_LEN] {
     iter::repeat(ScalarField::rand(rng))
         .take(WALLET_SHARES_LEN)
@@ -246,4 +298,28 @@ pub fn dummy_valid_wallet_update_statement(rng: &mut impl Rng) -> ValidWalletUpd
         old_pk_root: dummy_public_signing_key(rng),
         timestamp: rng.gen(),
     }
+}
+
+pub fn dummy_statement(circuit: Circuit, rng: &mut impl Rng) -> Statement {
+    match circuit {
+        Circuit::ValidWalletUpdate => {
+            Statement::ValidWalletUpdate(dummy_valid_wallet_update_statement(rng))
+        }
+        _ => todo!(),
+    }
+}
+
+pub fn dummy_circuit_bundle(
+    circuit: Circuit,
+    num_public_inputs: usize,
+    rng: &mut impl Rng,
+) -> Result<(Statement, VerificationKey, Proof)> {
+    let statement = dummy_statement(circuit, rng);
+    let public_inputs = statement
+        .serialize_to_scalars()
+        .map_err(|_| eyre!("failed to serialize statement to scalars"))?;
+    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(num_public_inputs, &public_inputs)?;
+    let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+
+    Ok((statement, vkey, proof))
 }
