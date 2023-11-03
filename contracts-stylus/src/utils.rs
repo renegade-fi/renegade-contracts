@@ -2,13 +2,11 @@
 
 use alloc::vec::Vec;
 use common::{
+    custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
     serde_def_types::SerdeScalarField,
     types::{G1Affine, G2Affine, ScalarField},
 };
-use contracts_core::{
-    custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
-    verifier::{errors::VerifierError, G1ArithmeticBackend},
-};
+use contracts_core::verifier::{errors::VerifierError, G1ArithmeticBackend};
 use stylus_sdk::{alloy_primitives::Address, call::RawCall};
 
 use crate::constants::{
@@ -102,6 +100,7 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     postcard::to_allocvec(
         &statement
             .serialize_to_scalars()
+            .map_err(|_| postcard::Error::SerdeSerCustom)?
             .into_iter()
             .map(SerdeScalarField)
             .collect::<Vec<_>>(),

@@ -5,10 +5,12 @@
 use alloc::{vec, vec::Vec};
 use alloy_primitives::{Address, U256};
 use ark_ec::{short_weierstrass::SWFlags, AffineRepr};
-use ark_ff::{BigInteger, MontConfig, PrimeField, Zero};
+use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
-use common::{
-    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_U64S_FELT},
+use core::iter;
+
+use crate::{
+    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_BYTES_U64, NUM_U64S_FELT},
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
@@ -16,14 +18,15 @@ use common::{
     },
 };
 
+#[derive(Debug)]
+pub enum SerdeError {
+    InvalidLength,
+    ScalarConversion,
+}
+
 // -------------------------------
 // | BYTE SERDE TRAIT DEFINITION |
 // -------------------------------
-
-// TODO: Implement derive macros for `Serializable` and `Deserializable`
-
-#[derive(Debug)]
-pub struct SerdeError;
 
 pub trait BytesSerializable {
     /// Serializes a type into a vector of bytes,
@@ -66,7 +69,7 @@ impl BytesDeserializable for u64 {
 
     fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
         Ok(u64::from_be_bytes(
-            bytes.try_into().map_err(|_| SerdeError)?,
+            bytes.try_into().map_err(|_| SerdeError::InvalidLength)?,
         ))
     }
 }
@@ -82,7 +85,13 @@ impl<P: MontConfig<NUM_U64S_FELT>> BytesDeserializable for MontFp256<P> {
     const SER_LEN: usize = FELT_BYTES;
 
     fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
-        Ok(Self::from_be_bytes_mod_order(bytes))
+        // Field elements are serialized as big-endian, so we need to reverse here
+        // for `bigint_from_le_bytes`
+        let mut bytes = bytes.to_vec();
+        bytes.reverse();
+        let bigint =
+            bigint_from_le_bytes(&bytes.try_into().map_err(|_| SerdeError::InvalidLength)?)?;
+        Self::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
     }
 }
 
@@ -185,19 +194,9 @@ impl BytesDeserializable for G2Affine {
 // | SCALAR SERDE TRAIT DEFINITION |
 // ---------------------------------
 
-#[derive(Debug)]
-pub struct ScalarSerdeError;
-
 pub trait ScalarSerializable {
     /// Serializes a type into a vector of scalars
-    fn serialize_to_scalars(&self) -> Vec<ScalarField>;
-}
-
-pub trait ScalarDeserializable {
-    /// Deserializes a type from a slice of scalars
-    fn deserialize_from_scalars(scalars: &[ScalarField]) -> Result<Self, ScalarSerdeError>
-    where
-        Self: Sized;
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError>;
 }
 
 // -------------------------
@@ -205,120 +204,139 @@ pub trait ScalarDeserializable {
 // -------------------------
 
 impl ScalarSerializable for bool {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
-        vec![(*self).into()]
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        Ok(vec![(*self).into()])
     }
 }
 
 impl ScalarSerializable for u64 {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
-        vec![(*self).into()]
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        Ok(vec![(*self).into()])
     }
 }
 
 impl ScalarSerializable for Address {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
-        // It's safe to perform modular reduction here since an address is 20 bytes
-        // and as such fits within the scalar field modulus
-        vec![ScalarField::from_be_bytes_mod_order(&self.into_array())]
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let bytes = self.into_word().0;
+        // TODO: Assert address endianness is consistent with relayer-side implementation
+        let bigint = bigint_from_le_bytes(&bytes)?;
+        Ok(vec![
+            ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)?
+        ])
     }
 }
 
 impl ScalarSerializable for U256 {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
-        // Need to split the U256 into two 128-bit chunks to fit into the scalar field
-        let bytes: [u8; NUM_BYTES_U256] = self.to_be_bytes();
-        vec![
-            ScalarField::from_be_bytes_mod_order(&bytes[..NUM_BYTES_U256 / 2]),
-            ScalarField::from_be_bytes_mod_order(&bytes[NUM_BYTES_U256 / 2..]),
-        ]
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        // Need to split the U256 into two 128-bit chunks to fit into the scalar field,
+        // taking care to reverse each separately to get two little-endian u128s
+        let bytes: [u8; NUM_BYTES_U256] = self.to_le_bytes();
+        let low_bytes: Vec<u8> = bytes
+            .into_iter()
+            .take(NUM_BYTES_U256 / 2)
+            .chain(iter::repeat(0))
+            .take(NUM_BYTES_U256 / 2)
+            .collect();
+        let high_bytes: Vec<u8> = bytes
+            .into_iter()
+            .skip(NUM_BYTES_U256 / 2)
+            .chain(iter::repeat(0))
+            .take(NUM_BYTES_U256 / 2)
+            .collect();
+
+        let low_bigint = bigint_from_le_bytes(
+            &low_bytes
+                .try_into()
+                .map_err(|_| SerdeError::InvalidLength)?,
+        )?;
+        let high_bigint = bigint_from_le_bytes(
+            &high_bytes
+                .try_into()
+                .map_err(|_| SerdeError::InvalidLength)?,
+        )?;
+
+        Ok(vec![
+            ScalarField::from_bigint(high_bigint).ok_or(SerdeError::ScalarConversion)?,
+            ScalarField::from_bigint(low_bigint).ok_or(SerdeError::ScalarConversion)?,
+        ])
     }
 }
 
 impl ScalarSerializable for ExternalTransfer {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = Vec::new();
-        scalars.extend(self.account_addr.serialize_to_scalars());
-        scalars.extend(self.mint.serialize_to_scalars());
-        scalars.extend(self.amount.serialize_to_scalars());
-        scalars.extend(self.is_withdrawal.serialize_to_scalars());
-        scalars
+        scalars.extend(self.account_addr.serialize_to_scalars()?);
+        scalars.extend(self.mint.serialize_to_scalars()?);
+        scalars.extend(self.amount.serialize_to_scalars()?);
+        scalars.extend(self.is_withdrawal.serialize_to_scalars()?);
+        Ok(scalars)
     }
 }
 
 impl ScalarSerializable for PublicSigningKey {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = Vec::new();
         scalars.extend(self.x);
         scalars.extend(self.y);
-        scalars
+        Ok(scalars)
     }
 }
 
 impl ScalarSerializable for ValidWalletCreateStatement {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = vec![self.private_shares_commitment];
         scalars.extend(self.public_wallet_shares);
-        scalars
+        Ok(scalars)
     }
 }
 
 impl ScalarSerializable for ValidWalletUpdateStatement {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = vec![
             self.old_shares_nullifier,
             self.new_private_shares_commitment,
         ];
         scalars.extend(self.new_public_shares);
         scalars.push(self.merkle_root);
-        scalars.extend(self.external_transfer.serialize_to_scalars());
-        scalars.extend(self.old_pk_root.serialize_to_scalars());
-        scalars.extend(self.timestamp.serialize_to_scalars());
-        scalars
+        scalars.extend(self.external_transfer.serialize_to_scalars()?);
+        scalars.extend(self.old_pk_root.serialize_to_scalars()?);
+        scalars.extend(self.timestamp.serialize_to_scalars()?);
+        Ok(scalars)
     }
 }
 
 impl ScalarSerializable for ValidReblindStatement {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
-        vec![
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        Ok(vec![
             self.original_shares_nullifier,
             self.reblinded_private_shares_commitment,
             self.merkle_root,
-        ]
+        ])
     }
 }
 
 impl ScalarSerializable for ValidCommitmentsStatement {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
-        [
-            self.balance_send_index,
-            self.balance_receive_index,
-            self.order_index,
-        ]
-        .iter()
-        .flat_map(ScalarSerializable::serialize_to_scalars)
-        .collect()
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars = Vec::new();
+        scalars.extend(self.balance_send_index.serialize_to_scalars()?);
+        scalars.extend(self.balance_receive_index.serialize_to_scalars()?);
+        scalars.extend(self.order_index.serialize_to_scalars()?);
+        Ok(scalars)
     }
 }
 
 impl ScalarSerializable for ValidMatchSettleStatement {
-    fn serialize_to_scalars(&self) -> Vec<ScalarField> {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = Vec::new();
         scalars.extend(self.party0_modified_shares);
         scalars.extend(self.party1_modified_shares);
-        scalars.extend(
-            [
-                self.party0_send_balance_index,
-                self.party0_receive_balance_index,
-                self.party0_order_index,
-                self.party0_send_balance_index,
-                self.party0_receive_balance_index,
-                self.party0_order_index,
-            ]
-            .iter()
-            .flat_map(ScalarSerializable::serialize_to_scalars),
-        );
-        scalars
+        scalars.extend(self.party0_send_balance_index.serialize_to_scalars()?);
+        scalars.extend(self.party0_receive_balance_index.serialize_to_scalars()?);
+        scalars.extend(self.party0_order_index.serialize_to_scalars()?);
+        scalars.extend(self.party0_send_balance_index.serialize_to_scalars()?);
+        scalars.extend(self.party0_receive_balance_index.serialize_to_scalars()?);
+        scalars.extend(self.party0_order_index.serialize_to_scalars()?);
+        Ok(scalars)
     }
 }
 
@@ -346,7 +364,7 @@ impl<D: BytesDeserializable, const N: usize> BytesDeserializable for [D; N] {
             offset += D::SER_LEN;
         }
 
-        elems.try_into().map_err(|_| SerdeError)
+        elems.try_into().map_err(|_| SerdeError::InvalidLength)
     }
 }
 
@@ -363,21 +381,34 @@ fn deserialize_cursor<D: BytesDeserializable>(
     Ok(elem)
 }
 
+fn bigint_from_le_bytes(bytes: &[u8; FELT_BYTES]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
+    let mut u64s = [0u64; NUM_U64S_FELT];
+    for i in 0..NUM_U64S_FELT {
+        u64s[i] = u64::from_le_bytes(
+            bytes[i * NUM_BYTES_U64..(i + 1) * NUM_BYTES_U64]
+                .try_into()
+                .map_err(|_| SerdeError::InvalidLength)?,
+        );
+    }
+    Ok(BigInt::<NUM_U64S_FELT>(u64s))
+}
+
 #[cfg(test)]
 mod tests {
-    use ark_ec::AffineRepr;
-    use ark_std::UniformRand;
-    use common::{
+    use crate::{
         constants::FELT_BYTES,
         types::{G1Affine, G2Affine},
     };
+    use ark_ec::AffineRepr;
+    use ark_std::UniformRand;
     use num_bigint::BigUint;
+    use rand::thread_rng;
 
     use super::{BytesDeserializable, BytesSerializable};
 
     #[test]
     fn test_g1_precompile_serde() {
-        let mut rng = ark_std::test_rng();
+        let mut rng = thread_rng();
         let a = G1Affine::rand(&mut rng);
         let res = a.serialize_to_bytes();
         // EC precompiles return G1 points in the same format, i.e. big-endian serialization of x and y
