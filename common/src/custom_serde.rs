@@ -7,10 +7,9 @@ use alloy_primitives::{Address, U256};
 use ark_ec::{short_weierstrass::SWFlags, AffineRepr};
 use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
-use core::iter;
 
 use crate::{
-    constants::{FELT_BYTES, NUM_BYTES_U256, NUM_BYTES_U64, NUM_U64S_FELT},
+    constants::{FELT_BYTES, NUM_BYTES_U64, NUM_U64S_FELT},
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
@@ -228,32 +227,11 @@ impl ScalarSerializable for Address {
 
 impl ScalarSerializable for U256 {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        // Need to split the U256 into two 128-bit chunks to fit into the scalar field,
-        // taking care to reverse each separately to get two little-endian u128s
-        let bytes: [u8; NUM_BYTES_U256] = self.to_le_bytes();
-        let low_bytes: Vec<u8> = bytes
-            .into_iter()
-            .take(NUM_BYTES_U256 / 2)
-            .chain(iter::repeat(0))
-            .take(NUM_BYTES_U256 / 2)
-            .collect();
-        let high_bytes: Vec<u8> = bytes
-            .into_iter()
-            .skip(NUM_BYTES_U256 / 2)
-            .chain(iter::repeat(0))
-            .take(NUM_BYTES_U256 / 2)
-            .collect();
+        // Need to split the U256 into two u128s to fit into the scalar field
 
-        let low_bigint = bigint_from_le_bytes(
-            &low_bytes
-                .try_into()
-                .map_err(|_| SerdeError::InvalidLength)?,
-        )?;
-        let high_bigint = bigint_from_le_bytes(
-            &high_bytes
-                .try_into()
-                .map_err(|_| SerdeError::InvalidLength)?,
-        )?;
+        let limbs = self.as_limbs();
+        let low_bigint = BigInt([limbs[0], limbs[1], 0, 0]);
+        let high_bigint = BigInt([limbs[2], limbs[3], 0, 0]);
 
         Ok(vec![
             ScalarField::from_bigint(high_bigint).ok_or(SerdeError::ScalarConversion)?,
