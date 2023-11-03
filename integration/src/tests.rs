@@ -3,7 +3,6 @@
 use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
-    constants::NUM_BYTES_FELT,
     custom_serde::ScalarSerializable,
     serde_def_types::SerdeScalarField,
     types::{ScalarField, VerificationBundle},
@@ -69,17 +68,18 @@ pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let nullifier_bytes: [u8; NUM_BYTES_FELT] =
-        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?
-            .try_into()
-            .unwrap();
+    let nullifier_bytes: Bytes =
+        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?.into();
 
-    let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
+    let nullifier_spent = contract
+        .is_nullifier_spent(nullifier_bytes.clone())
+        .call()
+        .await?;
 
     assert!(!nullifier_spent, "Nullifier already spent");
 
     contract
-        .mark_nullifier_spent(nullifier_bytes)
+        .mark_nullifier_spent(nullifier_bytes.clone())
         .send()
         .await?
         .await?;
@@ -108,10 +108,8 @@ pub(crate) async fn test_update_wallet(
 
     // Serialize test data into calldata
     let vkey_bytes = postcard::to_allocvec(&vkey)?.into();
-    let wallet_blinder_share_bytes: [u8; NUM_BYTES_FELT] =
-        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?
-            .try_into()
-            .unwrap();
+    let wallet_blinder_share_bytes: Bytes =
+        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?.into();
     let proof_bytes: Bytes = postcard::to_allocvec(&proof)?.into();
     let valid_wallet_update_statement_bytes: Bytes =
         postcard::to_allocvec(&valid_wallet_update_statement)?.into();
@@ -144,11 +142,10 @@ pub(crate) async fn test_update_wallet(
         .await?;
 
     // Assert that correct nullifier is spent
-    let nullifier_bytes: [u8; NUM_BYTES_FELT] = postcard::to_allocvec(&SerdeScalarField(
+    let nullifier_bytes: Bytes = postcard::to_allocvec(&SerdeScalarField(
         valid_wallet_update_statement.old_shares_nullifier,
     ))?
-    .try_into()
-    .unwrap();
+    .into();
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");

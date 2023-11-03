@@ -216,8 +216,12 @@ impl ScalarSerializable for u64 {
 
 impl ScalarSerializable for Address {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let bytes = self.into_word().0;
-        // TODO: Assert address endianness is consistent with relayer-side implementation
+        // `into_word` left-pads the address w/ zeroes to 32 bytes.
+        // For now, we'll call this "big-endian" and reverse it so that the resulting
+        // little-endian `BigInt` fits in the scalar field.
+        // TODO: Ensure scalar representation is consistent with the relayer implementation
+        let mut bytes = self.into_word().0;
+        bytes.reverse();
         let bigint = bigint_from_le_bytes(&bytes)?;
         Ok(vec![
             ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)?
