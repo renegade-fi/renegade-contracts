@@ -6,11 +6,10 @@ use alloc::vec::Vec;
 use ark_ff::PrimeField;
 use common::{
     constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
+    custom_serde::{BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
-
-use crate::custom_serde::{BytesSerializable, TranscriptG1};
 
 use self::errors::TranscriptError;
 

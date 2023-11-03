@@ -19,6 +19,9 @@ pub const FELT_BYTES: usize = 32;
 /// The number of u64s it takes to represent a field element
 pub const NUM_U64S_FELT: usize = 4;
 
+/// The number of bytes it takes to represent a u64
+pub const NUM_BYTES_U64: usize = 8;
+
 /// The number of bytes it takes to represent an unsigned 256-bit integer
 pub const NUM_BYTES_U256: usize = 32;
 

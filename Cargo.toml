@@ -21,6 +21,8 @@ serde_with = { version = "3.4", default-features = false, features = [
     "alloc",
 ] }
 postcard = { version = "1.0.0", default-features = false, features = ["alloc"] }
+rand = "0.8.5"
+num-bigint = { version = "0.4", default-features = false }
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time

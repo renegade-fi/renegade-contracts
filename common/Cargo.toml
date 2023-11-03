@@ -10,3 +10,9 @@ ark-ff = { workspace = true }
 alloy-primitives = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
+ark-serialize = { workspace = true }
+
+[dev-dependencies]
+ark-std = { workspace = true }
+num-bigint = { workspace = true }
+rand = { workspace = true }
