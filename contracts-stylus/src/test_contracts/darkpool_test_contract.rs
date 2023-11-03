@@ -6,7 +6,7 @@ use stylus_sdk::{
     prelude::*,
 };
 
-use crate::darkpool::{DarkpoolContract, SolScalar};
+use crate::darkpool::DarkpoolContract;
 
 // We implement the `CallContext` & `StaticCallContext` traits manually
 // for the `DarkpoolContract` because it is not the entrypoint when
@@ -31,9 +31,10 @@ struct DarkpoolTestContract {
 #[external]
 #[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
-    pub fn mark_nullifier_spent(&mut self, nullifier: SolScalar) -> Result<(), Vec<u8>> {
+    pub fn mark_nullifier_spent(&mut self, nullifier: Bytes) -> Result<(), Vec<u8>> {
         let nullifier: SerdeScalarField = postcard::from_bytes(nullifier.as_slice()).unwrap();
-        self.darkpool.mark_nullifier_spent(nullifier.0)
+        self.darkpool.mark_nullifier_spent(nullifier.0);
+        Ok(())
     }
 
     pub fn verify(
@@ -42,6 +43,6 @@ impl DarkpoolTestContract {
         proof: Bytes,
         public_inputs: Bytes,
     ) -> Result<bool, Vec<u8>> {
-        self.darkpool.verify(circuit_id, proof, public_inputs)
+        Ok(self.darkpool.verify(circuit_id, proof, public_inputs))
     }
 }
