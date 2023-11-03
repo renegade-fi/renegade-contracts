@@ -9,7 +9,7 @@ contracts-core = { path = "../contracts-core" }
 test-helpers = { path = "../test-helpers" }
 tokio = { version = "1.12.0", features = ["full"] }
 ethers = "2.0"
-eyre = "0.6.8"
+eyre = { workspace = true }
 ark-ff = { workspace = true }
 ark-std = { workspace = true }
 rand = { workspace = true }
