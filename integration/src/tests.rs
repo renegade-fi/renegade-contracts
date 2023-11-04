@@ -17,7 +17,7 @@ use test_helpers::{
 use crate::{
     abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract},
     constants::{L, N},
-    utils::{serialize_circuit_bundle, setup_darkpool_test_contract},
+    utils::{get_process_match_settle_data, serialize_to_calldata, setup_darkpool_test_contract},
 };
 
 pub(crate) async fn test_precompile_backend(
@@ -43,7 +43,7 @@ pub(crate) async fn test_verifier(
         proof,
         public_inputs,
     };
-    let bundle_bytes: Bytes = postcard::to_allocvec(&verification_bundle).unwrap().into();
+    let bundle_bytes = serialize_to_calldata(&verification_bundle)?;
 
     let successful_res = contract
         .verify(verifier_address, bundle_bytes)
@@ -53,7 +53,7 @@ pub(crate) async fn test_verifier(
     assert!(successful_res, "Valid proof did not verify");
 
     verification_bundle.proof.z_bar += ScalarField::one();
-    let bundle_bytes: Bytes = postcard::to_allocvec(&verification_bundle).unwrap().into();
+    let bundle_bytes = serialize_to_calldata(&verification_bundle)?;
     let unsuccessful_res = contract
         .verify(verifier_address, bundle_bytes)
         .call()
@@ -68,8 +68,7 @@ pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let nullifier_bytes: Bytes =
-        postcard::to_allocvec(&SerdeScalarField(ScalarField::rand(&mut rng)))?.into();
+    let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(ScalarField::rand(&mut rng)))?;
 
     let nullifier_spent = contract
         .is_nullifier_spent(nullifier_bytes.clone())
@@ -97,32 +96,25 @@ pub(crate) async fn test_update_wallet(
 ) -> Result<()> {
     // Generate test data
     let mut rng = thread_rng();
-    let circuit_bundle = dummy_circuit_bundle(Circuit::ValidWalletUpdate, N, &mut rng)?;
-    let wallet_blinder_share = ScalarField::rand(&mut rng);
-
-    // Serialize test data into calldata
-    let (valid_wallet_update_statement_bytes, vkey_bytes, proof_bytes) =
-        serialize_circuit_bundle(&circuit_bundle)?;
-
-    let wallet_blinder_share_bytes: Bytes =
-        postcard::to_allocvec(&SerdeScalarField(wallet_blinder_share))?.into();
-    let public_inputs_signature_bytes = Bytes::new();
+    let (valid_wallet_update_statement, vkey, proof) =
+        dummy_circuit_bundle(Circuit::ValidWalletUpdate, N, &mut rng)?;
+    let wallet_blinder_share = SerdeScalarField(ScalarField::rand(&mut rng));
 
     // Set up contract
     setup_darkpool_test_contract(
         &contract,
         verifier_address,
-        vec![(Circuit::ValidWalletUpdate, vkey_bytes)],
+        vec![(Circuit::ValidWalletUpdate, serialize_to_calldata(&vkey)?)],
     )
     .await?;
 
     // Call `update_wallet` with valid data
     contract
         .update_wallet(
-            wallet_blinder_share_bytes,
-            proof_bytes,
-            valid_wallet_update_statement_bytes,
-            public_inputs_signature_bytes,
+            serialize_to_calldata(&wallet_blinder_share)?,
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&valid_wallet_update_statement)?,
+            Bytes::new(), /* public_inputs_signature */
         )
         .send()
         .await?
@@ -130,15 +122,85 @@ pub(crate) async fn test_update_wallet(
 
     // Assert that correct nullifier is spent
     let valid_wallet_update_statement =
-        extract_statement!(circuit_bundle.0, Statement::ValidWalletUpdate);
-
-    let nullifier_bytes: Bytes = postcard::to_allocvec(&SerdeScalarField(
+        extract_statement!(valid_wallet_update_statement, Statement::ValidWalletUpdate);
+    let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
         valid_wallet_update_statement.old_shares_nullifier,
-    ))?
-    .into();
+    ))?;
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
+
+    Ok(())
+}
+
+pub(crate) async fn test_process_match_settle(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    verifier_address: Address,
+) -> Result<()> {
+    // Generate test data
+    let mut rng = thread_rng();
+    let data = get_process_match_settle_data(&mut rng)?;
+
+    // Set up contract
+    setup_darkpool_test_contract(
+        &contract,
+        verifier_address,
+        vec![
+            (
+                Circuit::ValidCommitments,
+                serialize_to_calldata(&data.valid_commitments_vkey)?,
+            ),
+            (
+                Circuit::ValidReblind,
+                serialize_to_calldata(&data.valid_reblind_vkey)?,
+            ),
+            (
+                Circuit::ValidMatchSettle,
+                serialize_to_calldata(&data.valid_match_settle_vkey)?,
+            ),
+        ],
+    )
+    .await?;
+
+    // Call `process_match_settle` with valid data
+    contract
+        .process_match_settle(
+            serialize_to_calldata(&data.party_0_match_payload)?,
+            serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
+            serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
+            serialize_to_calldata(&data.party_1_match_payload)?,
+            serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
+            serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
+            serialize_to_calldata(&data.valid_match_settle_proof)?,
+            serialize_to_calldata(&data.valid_match_settle_statement)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert that correct nullifiers are spent
+    let party_0_nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
+        data.party_0_match_payload
+            .valid_reblind_statement
+            .original_shares_nullifier,
+    ))?;
+    let party_1_nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
+        data.party_1_match_payload
+            .valid_reblind_statement
+            .original_shares_nullifier,
+    ))?;
+
+    let party_0_nullifier_spent = contract
+        .is_nullifier_spent(party_0_nullifier_bytes)
+        .call()
+        .await?;
+    assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
+
+    let party_1_nullifier_spent = contract
+        .is_nullifier_spent(party_1_nullifier_bytes)
+        .call()
+        .await?;
+    assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
 
     Ok(())
 }

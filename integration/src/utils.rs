@@ -2,7 +2,8 @@
 
 use std::{fs::File, io::Read, str::FromStr, sync::Arc};
 
-use common::types::{Proof, VerificationKey};
+use ark_std::UniformRand;
+use common::types::{MatchPayload, Proof, ScalarField, ValidMatchSettleStatement, VerificationKey};
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -11,13 +12,15 @@ use ethers::{
     types::Bytes,
 };
 use eyre::{eyre, Result};
-use test_helpers::{Circuit, Statement};
+use rand::Rng;
+use serde::Serialize;
+use test_helpers::{dummy_circuit_bundle, extract_statement, Circuit, Statement};
 
 use crate::{
     abis::DarkpoolTestContract,
     cli::Tests,
     constants::{
-        DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
+        DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, N, PRECOMPILE_TEST_CONTRACT_KEY,
         VERIFIER_TEST_CONTRACT_KEY,
     },
 };
@@ -69,18 +72,14 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -
         Tests::UpdateWallet => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
         }
+        Tests::ProcessMatchSettle => {
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+        }
     })
 }
 
-pub(crate) fn serialize_circuit_bundle(
-    bundle: &(Statement, VerificationKey, Proof),
-) -> Result<(Bytes, Bytes, Bytes)> {
-    let (statement, vkey, proof) = bundle;
-    let statement_bytes: Bytes = postcard::to_allocvec(statement)?.into();
-    let vkey_bytes = postcard::to_allocvec(vkey)?.into();
-    let proof_bytes: Bytes = postcard::to_allocvec(proof)?.into();
-
-    Ok((statement_bytes, vkey_bytes, proof_bytes))
+pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
+    Ok(postcard::to_allocvec(t)?.into())
 }
 
 pub(crate) async fn setup_darkpool_test_contract(
@@ -110,4 +109,78 @@ pub(crate) async fn setup_darkpool_test_contract(
     }
 
     Ok(())
+}
+
+pub struct ProcessMatchSettleData {
+    pub party_0_match_payload: MatchPayload,
+    pub party_0_valid_commitments_proof: Proof,
+    pub party_0_valid_reblind_proof: Proof,
+    pub party_1_match_payload: MatchPayload,
+    pub party_1_valid_commitments_proof: Proof,
+    pub party_1_valid_reblind_proof: Proof,
+    pub valid_match_settle_proof: Proof,
+    pub valid_match_settle_statement: ValidMatchSettleStatement,
+    pub valid_commitments_vkey: VerificationKey,
+    pub valid_reblind_vkey: VerificationKey,
+    pub valid_match_settle_vkey: VerificationKey,
+}
+
+pub(crate) fn get_process_match_settle_data(rng: &mut impl Rng) -> Result<ProcessMatchSettleData> {
+    let (
+        party_0_valid_commitments_statement,
+        valid_commitments_vkey,
+        party_0_valid_commitments_proof,
+    ) = dummy_circuit_bundle(Circuit::ValidCommitments, N, rng)?;
+    let (party_0_valid_reblind_statement, valid_reblind_vkey, party_0_valid_reblind_proof) =
+        dummy_circuit_bundle(Circuit::ValidReblind, N, rng)?;
+    let (party_1_valid_commitments_statement, _, party_1_valid_commitments_proof) =
+        dummy_circuit_bundle(Circuit::ValidCommitments, N, rng)?;
+    let (party_1_valid_reblind_statement, _, party_1_valid_reblind_proof) =
+        dummy_circuit_bundle(Circuit::ValidReblind, N, rng)?;
+    let (valid_match_settle_statement, valid_match_settle_vkey, valid_match_settle_proof) =
+        dummy_circuit_bundle(Circuit::ValidMatchSettle, N, rng)?;
+
+    let party_0_wallet_blinder_share = ScalarField::rand(rng);
+    let party_1_wallet_blinder_share = ScalarField::rand(rng);
+
+    let party_0_match_payload = MatchPayload {
+        wallet_blinder_share: party_0_wallet_blinder_share,
+        valid_commitments_statement: extract_statement!(
+            party_0_valid_commitments_statement,
+            Statement::ValidCommitments
+        ),
+        valid_reblind_statement: extract_statement!(
+            party_0_valid_reblind_statement,
+            Statement::ValidReblind
+        ),
+    };
+
+    let party_1_match_payload = MatchPayload {
+        wallet_blinder_share: party_1_wallet_blinder_share,
+        valid_commitments_statement: extract_statement!(
+            party_1_valid_commitments_statement,
+            Statement::ValidCommitments
+        ),
+        valid_reblind_statement: extract_statement!(
+            party_1_valid_reblind_statement,
+            Statement::ValidReblind
+        ),
+    };
+
+    let valid_match_settle_statement =
+        extract_statement!(valid_match_settle_statement, Statement::ValidMatchSettle);
+
+    Ok(ProcessMatchSettleData {
+        party_0_match_payload,
+        party_0_valid_commitments_proof,
+        party_0_valid_reblind_proof,
+        party_1_match_payload,
+        party_1_valid_commitments_proof,
+        party_1_valid_reblind_proof,
+        valid_match_settle_proof,
+        valid_match_settle_statement,
+        valid_commitments_vkey,
+        valid_reblind_vkey,
+        valid_match_settle_vkey,
+    })
 }
