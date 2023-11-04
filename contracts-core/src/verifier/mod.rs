@@ -14,7 +14,7 @@ use common::{
 };
 use core::result::Result;
 
-use crate::transcript::{Transcript, TranscriptHasher};
+use crate::{crypto::hash::HashBackend, transcript::Transcript};
 
 use self::errors::VerifierError;
 
@@ -62,7 +62,7 @@ pub trait G1ArithmeticBackend {
 }
 
 /// The verifier struct, which encapsulates the verification key, transcript, and backend for elliptic curve arithmetic.
-pub struct Verifier<G: G1ArithmeticBackend, H: TranscriptHasher> {
+pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
     /// The verification key for a specific circuit
     vkey: VerificationKey,
     /// A transcript of the verifier's interaction with the prover,
@@ -72,7 +72,7 @@ pub struct Verifier<G: G1ArithmeticBackend, H: TranscriptHasher> {
     backend: G,
 }
 
-impl<G: G1ArithmeticBackend, H: TranscriptHasher> Verifier<G, H> {
+impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     pub fn new(vkey: VerificationKey, backend: G) -> Self {
         Self {
             vkey,
