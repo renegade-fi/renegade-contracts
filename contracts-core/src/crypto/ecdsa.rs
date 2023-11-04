@@ -12,6 +12,11 @@ use super::hash::HashBackend;
 #[derive(Debug)]
 pub struct EcdsaError;
 
+/// Encapsulates the implementation of recovering an Ethereum address from a
+/// secp256k1 ECDSA signature.
+///
+/// The type that implements this trait should be a unit struct that either calls out to the
+/// `ecRecover` precompile, or calls out to a Rust implementation in the case of testing.
 pub trait EcRecoverBackend {
     /// Recovers an Ethereum address from a signature and a message hash.
     fn ec_recover(
@@ -20,6 +25,9 @@ pub trait EcRecoverBackend {
     ) -> Result<[u8; NUM_BYTES_ADDRESS], EcdsaError>;
 }
 
+/// Verify a secp256k1 ECDSA signature given a public key (extracted from a `VALID_WALLET_UPDATE` statement),
+/// a (un-hashed) message, and a signature (in the format expected by the `ecRecover` precompile, i.e. including a `v`
+/// recovery identifier)
 pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
     pubkey: &PublicSigningKey,
     msg: &[u8],

@@ -12,7 +12,7 @@ use common::{
     constants::NUM_WIRE_TYPES,
     types::{Challenges, G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
-use core::result::Result;
+use core::{marker::PhantomData, result::Result};
 
 use crate::{crypto::hash::HashBackend, transcript::Transcript};
 
@@ -23,18 +23,13 @@ use self::errors::VerifierError;
 ///
 /// The type that implements this trait should be a unit struct that either calls out to precompiles
 /// for EC arithmetic and pairings in a smart contract context, or call out to Arkworks code in a testing context.
-///
-/// The methods on this trait accept a mutable reference to `self` in case the trait needs to be implemented
-/// on some stateful type, i.e. a Stylus contract. For an example of why this is necessary, see the implementation
-/// in `contracts-stylus/src/utils.rs`
 pub trait G1ArithmeticBackend {
     /// Add two points in G1
-    fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError>;
+    fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError>;
     /// Multiply a G1 point by a scalar in its scalar field
-    fn ec_scalar_mul(&mut self, a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError>;
+    fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError>;
     /// Check the pairing identity e(a_1, b_1) == e(a_2, b_2)
     fn ec_pairing_check(
-        &mut self,
         a_1: G1Affine,
         b_1: G2Affine,
         a_2: G1Affine,
@@ -42,11 +37,7 @@ pub trait G1ArithmeticBackend {
     ) -> Result<bool, VerifierError>;
 
     /// A helper for computing multi-scalar multiplications over G1
-    fn msm(
-        &mut self,
-        scalars: &[ScalarField],
-        points: &[G1Affine],
-    ) -> Result<G1Affine, VerifierError> {
+    fn msm(scalars: &[ScalarField], points: &[G1Affine]) -> Result<G1Affine, VerifierError> {
         if scalars.len() != points.len() {
             return Err(VerifierError::MsmLength);
         }
@@ -55,8 +46,8 @@ pub trait G1ArithmeticBackend {
             .iter()
             .zip(points.iter())
             .try_fold(G1Affine::identity(), |acc, (scalar, point)| {
-                let scaled_point = self.ec_scalar_mul(*scalar, *point)?;
-                self.ec_add(acc, scaled_point)
+                let scaled_point = Self::ec_scalar_mul(*scalar, *point)?;
+                Self::ec_add(acc, scaled_point)
             })
     }
 }
@@ -68,16 +59,15 @@ pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
     /// A transcript of the verifier's interaction with the prover,
     /// used for the Fiat-Shamir transform
     transcript: Transcript<H>,
-    /// The backend for elliptic curve arithmetic
-    backend: G,
+    _arithmetic_backend: PhantomData<G>,
 }
 
 impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
-    pub fn new(vkey: VerificationKey, backend: G) -> Self {
+    pub fn new(vkey: VerificationKey) -> Self {
         Self {
             vkey,
             transcript: Transcript::<H>::new(),
-            backend,
+            _arithmetic_backend: PhantomData,
         }
     }
 
@@ -266,7 +256,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             self.step_9_line_4(zero_poly_eval, proof, challenges)?,
         ];
 
-        self.backend.msm(&[ScalarField::one(); 4], &points)
+        G::msm(&[ScalarField::one(); 4], &points)
     }
 
     /// MSM over selector polynomial commitments
@@ -280,7 +270,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         // We hardcode the gate identity used by the Jellyfish implementation here,
         // at the cost of some generality
-        self.backend.msm(
+        G::msm(
             &[
                 wire_evals[0],
                 wire_evals[1],
@@ -334,7 +324,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 + lagrange_1_eval * *alpha * *alpha
                 + *u;
 
-        self.backend.ec_scalar_mul(z_scalar_coeff, *z_comm)
+        G::ec_scalar_mul(z_scalar_coeff, *z_comm)
     }
 
     /// Scalar mul of final permutation polynomial commitment
@@ -366,8 +356,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             * *beta
             * *z_bar;
 
-        self.backend
-            .ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
+        G::ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
     }
 
     /// MSM over split quotient polynomial commitments
@@ -393,10 +382,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             split_quotients_scalars[i] = split_quotients_scalars[i - 1] * zeta_to_n_plus_two;
         }
 
-        let split_quotients_sum = self.backend.msm(&split_quotients_scalars, quotient_comms)?;
+        let split_quotients_sum = G::msm(&split_quotients_scalars, quotient_comms)?;
 
-        self.backend
-            .ec_scalar_mul(-zero_poly_eval, split_quotients_sum)
+        G::ec_scalar_mul(-zero_poly_eval, split_quotients_sum)
     }
 
     /// Compute full batched polynomial commitment [F]1
@@ -415,7 +403,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         points.extend_from_slice(wire_comms);
         points.extend_from_slice(&sigma_comms[..NUM_WIRE_TYPES - 1]);
 
-        self.backend.msm(v_powers, &points)
+        G::msm(v_powers, &points)
     }
 
     /// Compute group-encoded batch evaluation [E]1
@@ -447,7 +435,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 })
             + *u * *z_bar;
 
-        self.backend.ec_scalar_mul(-e, *g)
+        G::ec_scalar_mul(-e, *g)
     }
 
     /// Batch validate all evaluations
@@ -471,12 +459,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         } = proof;
         let Challenges { zeta, u, .. } = challenges;
 
-        let a_1 = self
-            .backend
-            .msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])?;
+        let a_1 = G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])?;
         let b_1 = *x_h;
 
-        let a_2 = self.backend.msm(
+        let a_2 = G::msm(
             &[
                 *zeta,
                 *u * *zeta * *omega,
@@ -492,7 +478,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         // In the form:
         // e(a_1, b_1) * e(-a_2, b_2) == e(g, h)
         // (Where g, h are the generators used for the source groups)
-        self.backend.ec_pairing_check(a_1, b_1, -a_2, b_2)
+        G::ec_pairing_check(a_1, b_1, -a_2, b_2)
     }
 }
 
@@ -513,20 +499,15 @@ mod tests {
 
     pub struct ArkG1ArithmeticBackend;
     impl G1ArithmeticBackend for ArkG1ArithmeticBackend {
-        fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
+        fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
             Ok((a + b).into_affine())
         }
-        fn ec_scalar_mul(
-            &mut self,
-            a: ScalarField,
-            b: G1Affine,
-        ) -> Result<G1Affine, VerifierError> {
+        fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
             let mut b_group = b.into_group();
             b_group *= a;
             Ok(b_group.into_affine())
         }
         fn ec_pairing_check(
-            &mut self,
             a_1: G1Affine,
             b_1: G2Affine,
             a_2: G1Affine,
@@ -546,8 +527,7 @@ mod tests {
         let public_inputs = random_scalars(L);
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs).unwrap();
         let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
-        let mut verifier =
-            Verifier::<ArkG1ArithmeticBackend, TestHasher>::new(vkey, ArkG1ArithmeticBackend);
+        let mut verifier = Verifier::<ArkG1ArithmeticBackend, TestHasher>::new(vkey);
         let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 
         assert!(result, "valid proof did not verify");
@@ -559,8 +539,7 @@ mod tests {
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs).unwrap();
         let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
         proof.z_bar += ScalarField::one();
-        let mut verifier =
-            Verifier::<ArkG1ArithmeticBackend, TestHasher>::new(vkey, ArkG1ArithmeticBackend);
+        let mut verifier = Verifier::<ArkG1ArithmeticBackend, TestHasher>::new(vkey);
         let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 
         assert!(!result, "invalid proof verified");

@@ -23,8 +23,7 @@ pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
         public_inputs,
     } = postcard::from_bytes(verification_bundle_ser.as_slice()).unwrap();
 
-    let mut verifier =
-        Verifier::<EvmPrecompileBackend, StylusHasher>::new(vkey, EvmPrecompileBackend);
+    let mut verifier = Verifier::<EvmPrecompileBackend, StylusHasher>::new(vkey);
 
     let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 
