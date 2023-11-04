@@ -18,7 +18,7 @@ pub struct EvmPrecompileBackend;
 
 impl G1ArithmeticBackend for EvmPrecompileBackend {
     /// Calls the `ecAdd` precompile with the given points, handling de/serialization
-    fn ec_add(&mut self, a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
+    fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
         // Serialize the points
         let a_data = a.serialize_to_bytes();
         let b_data = b.serialize_to_bytes();
@@ -37,7 +37,7 @@ impl G1ArithmeticBackend for EvmPrecompileBackend {
     }
 
     /// Calls the `ecMul` precompile with the given scalar and point, handling de/serialization
-    fn ec_scalar_mul(&mut self, a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
+    fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
         // Serialize the point and scalar
         let a_data = a.serialize_to_bytes();
         let b_data = b.serialize_to_bytes();
@@ -57,7 +57,6 @@ impl G1ArithmeticBackend for EvmPrecompileBackend {
 
     /// Calls the `ecPairing` precompile with the given points, handling de/serialization
     fn ec_pairing_check(
-        &mut self,
         a_1: G1Affine,
         b_1: G2Affine,
         a_2: G1Affine,
