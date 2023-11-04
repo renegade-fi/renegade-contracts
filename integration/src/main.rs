@@ -5,7 +5,7 @@ use clap::Parser;
 use cli::{Cli, Tests};
 use constants::VERIFIER_CONTRACT_KEY;
 use eyre::Result;
-use tests::{test_nullifier_set, test_precompile_backend, test_verifier, test_update_wallet};
+use tests::{test_nullifier_set, test_precompile_backend, test_verifier, test_update_wallet, test_process_match_settle};
 use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
 mod abis;
@@ -50,6 +50,13 @@ async fn main() -> Result<()> {
                 parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
 
             test_update_wallet(contract, verifier_address).await?;
+        },
+        Tests::ProcessMatchSettle => {
+            let contract = DarkpoolTestContract::new(contract_address, client);
+            let verifier_address =
+                parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
+
+            test_process_match_settle(contract, verifier_address).await?;
         },
     }
 

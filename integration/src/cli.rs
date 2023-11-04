@@ -31,4 +31,5 @@ pub(crate) enum Tests {
     NullifierSet,
     Verifier,
     UpdateWallet,
+    ProcessMatchSettle,
 }

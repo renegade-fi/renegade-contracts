@@ -37,10 +37,9 @@ use serde::{Serialize, Serializer};
 
 extern crate alloc;
 
-pub fn random_scalars(n: usize) -> Vec<ScalarField> {
-    let mut rng = thread_rng();
-    (0..n).map(|_| ScalarField::rand(&mut rng)).collect()
-}
+// --------------------------------
+// | GENERAL PROOF SYSTEM HELPERS |
+// --------------------------------
 
 pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircuit<ScalarField>> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
@@ -194,6 +193,10 @@ pub fn get_jf_challenges(
     )
 }
 
+// -----------------------------
+// | RENEGADE CIRCUITS HELPERS |
+// -----------------------------
+
 pub enum Circuit {
     ValidWalletCreate,
     ValidWalletUpdate,
@@ -300,10 +303,46 @@ pub fn dummy_valid_wallet_update_statement(rng: &mut impl Rng) -> ValidWalletUpd
     }
 }
 
+pub fn dummy_valid_commitments_statement(rng: &mut impl Rng) -> ValidCommitmentsStatement {
+    ValidCommitmentsStatement {
+        balance_send_index: rng.gen(),
+        balance_receive_index: rng.gen(),
+        order_index: rng.gen(),
+    }
+}
+
+pub fn dummy_valid_reblind_statement(rng: &mut impl Rng) -> ValidReblindStatement {
+    ValidReblindStatement {
+        original_shares_nullifier: ScalarField::rand(rng),
+        reblinded_private_shares_commitment: ScalarField::rand(rng),
+        merkle_root: ScalarField::rand(rng),
+    }
+}
+
+pub fn dummy_valid_match_settle_statement(rng: &mut impl Rng) -> ValidMatchSettleStatement {
+    ValidMatchSettleStatement {
+        party0_modified_shares: dummy_wallet_shares(rng),
+        party1_modified_shares: dummy_wallet_shares(rng),
+        party0_send_balance_index: rng.gen(),
+        party0_receive_balance_index: rng.gen(),
+        party0_order_index: rng.gen(),
+        party1_send_balance_index: rng.gen(),
+        party1_receive_balance_index: rng.gen(),
+        party1_order_index: rng.gen(),
+    }
+}
+
 pub fn dummy_statement(circuit: Circuit, rng: &mut impl Rng) -> Statement {
     match circuit {
         Circuit::ValidWalletUpdate => {
             Statement::ValidWalletUpdate(dummy_valid_wallet_update_statement(rng))
+        }
+        Circuit::ValidCommitments => {
+            Statement::ValidCommitments(dummy_valid_commitments_statement(rng))
+        }
+        Circuit::ValidReblind => Statement::ValidReblind(dummy_valid_reblind_statement(rng)),
+        Circuit::ValidMatchSettle => {
+            Statement::ValidMatchSettle(dummy_valid_match_settle_statement(rng))
         }
         _ => todo!(),
     }
@@ -322,4 +361,13 @@ pub fn dummy_circuit_bundle(
     let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
 
     Ok((statement, vkey, proof))
+}
+
+// ----------------
+// | MISC HELPERS |
+// ----------------
+
+pub fn random_scalars(n: usize) -> Vec<ScalarField> {
+    let mut rng = thread_rng();
+    (0..n).map(|_| ScalarField::rand(&mut rng)).collect()
 }
