@@ -11,11 +11,11 @@ use common::{
     constants::{
         NUM_BYTES_ADDRESS, NUM_BYTES_U256, NUM_SELECTORS, NUM_WIRE_TYPES, WALLET_SHARES_LEN,
     },
-    custom_serde::{ScalarSerializable, SerdeError},
+    custom_serde::ScalarSerializable,
     types::{
         ExternalTransfer, G1Affine, G2Affine, Proof, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-        ValidWalletCreateStatement, ValidWalletUpdateStatement, VerificationKey,
+        ValidWalletUpdateStatement, VerificationKey,
     },
 };
 use core::iter;
@@ -33,7 +33,7 @@ use jf_plonk::{
 use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
 use jf_relation::{Arithmetization, Circuit as JfCircuit, PlonkCircuit};
 use rand::{thread_rng, Rng};
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 
 extern crate alloc;
 
@@ -205,45 +205,55 @@ pub enum Circuit {
     ValidMatchSettle,
 }
 
-#[allow(clippy::large_enum_variant)]
-pub enum Statement {
-    ValidWalletCreate(ValidWalletCreateStatement),
-    ValidWalletUpdate(ValidWalletUpdateStatement),
-    ValidCommitments(ValidCommitmentsStatement),
-    ValidReblind(ValidReblindStatement),
-    ValidMatchSettle(ValidMatchSettleStatement),
+pub trait RenegadeStatement: Serialize + ScalarSerializable {
+    fn dummy(rng: &mut impl Rng) -> Self;
 }
 
-impl Serialize for Statement {
-    fn serialize<S: Serializer>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error> {
-        match self {
-            Statement::ValidWalletCreate(s) => s.serialize(serializer),
-            Statement::ValidWalletUpdate(s) => s.serialize(serializer),
-            Statement::ValidCommitments(s) => s.serialize(serializer),
-            Statement::ValidReblind(s) => s.serialize(serializer),
-            Statement::ValidMatchSettle(s) => s.serialize(serializer),
+impl RenegadeStatement for ValidWalletUpdateStatement {
+    fn dummy(rng: &mut impl Rng) -> Self {
+        ValidWalletUpdateStatement {
+            old_shares_nullifier: ScalarField::rand(rng),
+            new_private_shares_commitment: ScalarField::rand(rng),
+            new_public_shares: dummy_wallet_shares(rng),
+            merkle_root: ScalarField::rand(rng),
+            external_transfer: dummy_external_transfer(rng),
+            old_pk_root: dummy_public_signing_key(rng),
+            timestamp: rng.gen(),
         }
     }
 }
 
-#[macro_export]
-macro_rules! extract_statement {
-    ($enum:expr, $variant:path) => {
-        match $enum {
-            $variant(s) => s,
-            _ => panic!("wrong statement type"),
+impl RenegadeStatement for ValidCommitmentsStatement {
+    fn dummy(rng: &mut impl Rng) -> Self {
+        ValidCommitmentsStatement {
+            balance_send_index: rng.gen(),
+            balance_receive_index: rng.gen(),
+            order_index: rng.gen(),
         }
-    };
+    }
 }
 
-impl ScalarSerializable for Statement {
-    fn serialize_to_scalars(&self) -> core::result::Result<Vec<ScalarField>, SerdeError> {
-        match self {
-            Statement::ValidWalletCreate(s) => s.serialize_to_scalars(),
-            Statement::ValidWalletUpdate(s) => s.serialize_to_scalars(),
-            Statement::ValidCommitments(s) => s.serialize_to_scalars(),
-            Statement::ValidReblind(s) => s.serialize_to_scalars(),
-            Statement::ValidMatchSettle(s) => s.serialize_to_scalars(),
+impl RenegadeStatement for ValidReblindStatement {
+    fn dummy(rng: &mut impl Rng) -> Self {
+        ValidReblindStatement {
+            original_shares_nullifier: ScalarField::rand(rng),
+            reblinded_private_shares_commitment: ScalarField::rand(rng),
+            merkle_root: ScalarField::rand(rng),
+        }
+    }
+}
+
+impl RenegadeStatement for ValidMatchSettleStatement {
+    fn dummy(rng: &mut impl Rng) -> Self {
+        ValidMatchSettleStatement {
+            party0_modified_shares: dummy_wallet_shares(rng),
+            party1_modified_shares: dummy_wallet_shares(rng),
+            party0_send_balance_index: rng.gen(),
+            party0_receive_balance_index: rng.gen(),
+            party0_order_index: rng.gen(),
+            party1_send_balance_index: rng.gen(),
+            party1_receive_balance_index: rng.gen(),
+            party1_order_index: rng.gen(),
         }
     }
 }
@@ -291,69 +301,11 @@ fn dummy_public_signing_key(rng: &mut impl Rng) -> PublicSigningKey {
     }
 }
 
-pub fn dummy_valid_wallet_update_statement(rng: &mut impl Rng) -> ValidWalletUpdateStatement {
-    ValidWalletUpdateStatement {
-        old_shares_nullifier: ScalarField::rand(rng),
-        new_private_shares_commitment: ScalarField::rand(rng),
-        new_public_shares: dummy_wallet_shares(rng),
-        merkle_root: ScalarField::rand(rng),
-        external_transfer: dummy_external_transfer(rng),
-        old_pk_root: dummy_public_signing_key(rng),
-        timestamp: rng.gen(),
-    }
-}
-
-pub fn dummy_valid_commitments_statement(rng: &mut impl Rng) -> ValidCommitmentsStatement {
-    ValidCommitmentsStatement {
-        balance_send_index: rng.gen(),
-        balance_receive_index: rng.gen(),
-        order_index: rng.gen(),
-    }
-}
-
-pub fn dummy_valid_reblind_statement(rng: &mut impl Rng) -> ValidReblindStatement {
-    ValidReblindStatement {
-        original_shares_nullifier: ScalarField::rand(rng),
-        reblinded_private_shares_commitment: ScalarField::rand(rng),
-        merkle_root: ScalarField::rand(rng),
-    }
-}
-
-pub fn dummy_valid_match_settle_statement(rng: &mut impl Rng) -> ValidMatchSettleStatement {
-    ValidMatchSettleStatement {
-        party0_modified_shares: dummy_wallet_shares(rng),
-        party1_modified_shares: dummy_wallet_shares(rng),
-        party0_send_balance_index: rng.gen(),
-        party0_receive_balance_index: rng.gen(),
-        party0_order_index: rng.gen(),
-        party1_send_balance_index: rng.gen(),
-        party1_receive_balance_index: rng.gen(),
-        party1_order_index: rng.gen(),
-    }
-}
-
-pub fn dummy_statement(circuit: Circuit, rng: &mut impl Rng) -> Statement {
-    match circuit {
-        Circuit::ValidWalletUpdate => {
-            Statement::ValidWalletUpdate(dummy_valid_wallet_update_statement(rng))
-        }
-        Circuit::ValidCommitments => {
-            Statement::ValidCommitments(dummy_valid_commitments_statement(rng))
-        }
-        Circuit::ValidReblind => Statement::ValidReblind(dummy_valid_reblind_statement(rng)),
-        Circuit::ValidMatchSettle => {
-            Statement::ValidMatchSettle(dummy_valid_match_settle_statement(rng))
-        }
-        _ => todo!(),
-    }
-}
-
-pub fn dummy_circuit_bundle(
-    circuit: Circuit,
+pub fn dummy_circuit_bundle<S: RenegadeStatement>(
     num_public_inputs: usize,
     rng: &mut impl Rng,
-) -> Result<(Statement, VerificationKey, Proof)> {
-    let statement = dummy_statement(circuit, rng);
+) -> Result<(S, VerificationKey, Proof)> {
+    let statement = S::dummy(rng);
     let public_inputs = statement
         .serialize_to_scalars()
         .map_err(|_| eyre!("failed to serialize statement to scalars"))?;

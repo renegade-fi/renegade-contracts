@@ -4,14 +4,13 @@ use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
     serde_def_types::SerdeScalarField,
-    types::{ScalarField, VerificationBundle},
+    types::{ScalarField, ValidWalletUpdateStatement, VerificationBundle},
 };
 use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
 use rand::thread_rng;
 use test_helpers::{
-    convert_jf_proof_and_vkey, dummy_circuit_bundle, extract_statement, gen_jf_proof_and_vkey,
-    random_scalars, Circuit, Statement,
+    convert_jf_proof_and_vkey, dummy_circuit_bundle, gen_jf_proof_and_vkey, random_scalars, Circuit,
 };
 
 use crate::{
@@ -97,7 +96,7 @@ pub(crate) async fn test_update_wallet(
     // Generate test data
     let mut rng = thread_rng();
     let (valid_wallet_update_statement, vkey, proof) =
-        dummy_circuit_bundle(Circuit::ValidWalletUpdate, N, &mut rng)?;
+        dummy_circuit_bundle::<ValidWalletUpdateStatement>(N, &mut rng)?;
     let wallet_blinder_share = SerdeScalarField(ScalarField::rand(&mut rng));
 
     // Set up contract
@@ -121,8 +120,6 @@ pub(crate) async fn test_update_wallet(
         .await?;
 
     // Assert that correct nullifier is spent
-    let valid_wallet_update_statement =
-        extract_statement!(valid_wallet_update_statement, Statement::ValidWalletUpdate);
     let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
         valid_wallet_update_statement.old_shares_nullifier,
     ))?;

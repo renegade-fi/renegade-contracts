@@ -3,7 +3,10 @@
 use std::{fs::File, io::Read, str::FromStr, sync::Arc};
 
 use ark_std::UniformRand;
-use common::types::{MatchPayload, Proof, ScalarField, ValidMatchSettleStatement, VerificationKey};
+use common::types::{
+    MatchPayload, Proof, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
+    ValidReblindStatement, VerificationKey,
+};
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -14,7 +17,7 @@ use ethers::{
 use eyre::{eyre, Result};
 use rand::Rng;
 use serde::Serialize;
-use test_helpers::{dummy_circuit_bundle, extract_statement, Circuit, Statement};
+use test_helpers::{dummy_circuit_bundle, Circuit};
 
 use crate::{
     abis::DarkpoolTestContract,
@@ -130,45 +133,30 @@ pub(crate) fn get_process_match_settle_data(rng: &mut impl Rng) -> Result<Proces
         party_0_valid_commitments_statement,
         valid_commitments_vkey,
         party_0_valid_commitments_proof,
-    ) = dummy_circuit_bundle(Circuit::ValidCommitments, N, rng)?;
+    ) = dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
     let (party_0_valid_reblind_statement, valid_reblind_vkey, party_0_valid_reblind_proof) =
-        dummy_circuit_bundle(Circuit::ValidReblind, N, rng)?;
+        dummy_circuit_bundle::<ValidReblindStatement>(N, rng)?;
     let (party_1_valid_commitments_statement, _, party_1_valid_commitments_proof) =
-        dummy_circuit_bundle(Circuit::ValidCommitments, N, rng)?;
+        dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
     let (party_1_valid_reblind_statement, _, party_1_valid_reblind_proof) =
-        dummy_circuit_bundle(Circuit::ValidReblind, N, rng)?;
+        dummy_circuit_bundle::<ValidReblindStatement>(N, rng)?;
     let (valid_match_settle_statement, valid_match_settle_vkey, valid_match_settle_proof) =
-        dummy_circuit_bundle(Circuit::ValidMatchSettle, N, rng)?;
+        dummy_circuit_bundle::<ValidMatchSettleStatement>(N, rng)?;
 
     let party_0_wallet_blinder_share = ScalarField::rand(rng);
     let party_1_wallet_blinder_share = ScalarField::rand(rng);
 
     let party_0_match_payload = MatchPayload {
         wallet_blinder_share: party_0_wallet_blinder_share,
-        valid_commitments_statement: extract_statement!(
-            party_0_valid_commitments_statement,
-            Statement::ValidCommitments
-        ),
-        valid_reblind_statement: extract_statement!(
-            party_0_valid_reblind_statement,
-            Statement::ValidReblind
-        ),
+        valid_commitments_statement: party_0_valid_commitments_statement,
+        valid_reblind_statement: party_0_valid_reblind_statement,
     };
 
     let party_1_match_payload = MatchPayload {
         wallet_blinder_share: party_1_wallet_blinder_share,
-        valid_commitments_statement: extract_statement!(
-            party_1_valid_commitments_statement,
-            Statement::ValidCommitments
-        ),
-        valid_reblind_statement: extract_statement!(
-            party_1_valid_reblind_statement,
-            Statement::ValidReblind
-        ),
+        valid_commitments_statement: party_1_valid_commitments_statement,
+        valid_reblind_statement: party_1_valid_reblind_statement,
     };
-
-    let valid_match_settle_statement =
-        extract_statement!(valid_match_settle_statement, Statement::ValidMatchSettle);
 
     Ok(ProcessMatchSettleData {
         party_0_match_payload,
