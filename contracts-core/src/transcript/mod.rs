@@ -5,25 +5,23 @@ pub mod errors;
 use alloc::vec::Vec;
 use ark_ff::PrimeField;
 use common::{
-    constants::{HASH_OUTPUT_SIZE, TRANSCRIPT_STATE_SIZE},
+    constants::TRANSCRIPT_STATE_SIZE,
     custom_serde::{BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
 
+use crate::crypto::hash::HashBackend;
+
 use self::errors::TranscriptError;
 
-pub trait TranscriptHasher {
-    fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE];
-}
-
-pub struct Transcript<H: TranscriptHasher> {
+pub struct Transcript<H: HashBackend> {
     transcript: Vec<u8>,
     state: [u8; TRANSCRIPT_STATE_SIZE],
     _marker: PhantomData<H>,
 }
 
-impl<H: TranscriptHasher> Transcript<H> {
+impl<H: HashBackend> Transcript<H> {
     /// Creates a new transcript with a zeroed-out hash state
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -143,13 +141,15 @@ pub mod tests {
     use sha3::{Digest, Keccak256};
     use test_helpers::{dummy_proofs, dummy_vkeys, get_jf_challenges};
 
-    use super::{Transcript, TranscriptHasher};
+    use crate::crypto::hash::HashBackend;
+
+    use super::Transcript;
 
     const N: usize = 1024;
     const L: usize = 512;
 
     pub struct TestHasher;
-    impl TranscriptHasher for TestHasher {
+    impl HashBackend for TestHasher {
         fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
             let mut hasher = Keccak256::new();
             hasher.update(input);
