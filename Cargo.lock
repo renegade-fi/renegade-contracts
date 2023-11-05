@@ -929,7 +929,6 @@ dependencies = [
  "ark-bn254",
  "ark-ec",
  "ark-ff",
- "ark-std",
  "common",
  "contracts-core",
  "postcard",
@@ -2265,6 +2264,7 @@ dependencies = [
 name = "integration"
 version = "0.1.0"
 dependencies = [
+ "ark-ec",
  "ark-ff",
  "ark-std",
  "clap",

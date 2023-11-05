@@ -14,9 +14,9 @@ use crate::constants::{
     PAIRING_CHECK_RESULT_LAST_BYTE_INDEX,
 };
 
-pub struct EvmPrecompileBackend;
+pub struct PrecompileG1ArithmeticBackend;
 
-impl G1ArithmeticBackend for EvmPrecompileBackend {
+impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
     /// Calls the `ecAdd` precompile with the given points, handling de/serialization
     fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
         // Serialize the points

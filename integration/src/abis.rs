@@ -34,8 +34,8 @@ abigen!(
 abigen!(
     PrecompileTestContract,
     r#"[
-        function testEcAdd() external view
-        function testEcMul() external view
-        function testEcPairing() external view
+        function testEcAdd(bytes memory a_bytes, bytes memory b_bytes) external view returns (bytes)
+        function testEcMul(bytes memory a_bytes, bytes memory b_bytes) external view returns (bytes)
+        function testEcPairing(bytes memory a_bytes, bytes memory b_bytes) external view returns (bool)
     ]"#
 );
