@@ -493,7 +493,7 @@ mod tests {
     use jf_utils::multi_pairing;
     use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey, random_scalars};
 
-    use crate::transcript::tests::TestHasher;
+    use crate::crypto::hash::test_helpers::TestHasher;
 
     use super::{errors::VerifierError, G1ArithmeticBackend, Verifier};
 

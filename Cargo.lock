@@ -916,9 +916,9 @@ dependencies = [
  "ark-poly",
  "ark-std",
  "common",
+ "ethers",
  "jf-utils",
  "rand",
- "sha3",
  "test-helpers",
 ]
 

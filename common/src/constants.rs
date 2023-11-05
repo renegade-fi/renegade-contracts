@@ -31,9 +31,9 @@ pub const NUM_BYTES_ADDRESS: usize = 20;
 /// The number of bytes it takes to represent a secp256k1 ECDSA signature
 /// as expected by the Ethereum `ecRecover` precompile.
 ///
-/// Concretely, this is the concatenation of `v`, a 32-byte recovery identifier
-/// (whose value is either 27 ot 28), and the `r` and `s` values of the signature.
-pub const NUM_BYTES_SIGNATURE: usize = 96;
+/// Concretely, this is the concatenation of the `r` and `s` values of the signature,
+/// and `v`, a 1-byte recovery identifier (whose value is either 27 or 28)
+pub const NUM_BYTES_SIGNATURE: usize = 65;
 
 /// The number of secret-shared scalars it takes to represent a wallet
 pub const WALLET_SHARES_LEN: usize = 0;
