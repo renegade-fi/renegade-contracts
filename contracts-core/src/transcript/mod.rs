@@ -136,26 +136,16 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 #[cfg(test)]
 pub mod tests {
     use ark_std::UniformRand;
-    use common::{constants::HASH_OUTPUT_SIZE, types::ScalarField};
+    use common::types::ScalarField;
     use rand::thread_rng;
-    use sha3::{Digest, Keccak256};
     use test_helpers::{dummy_proofs, dummy_vkeys, get_jf_challenges};
 
-    use crate::crypto::hash::HashBackend;
+    use crate::crypto::hash::test_helpers::TestHasher;
 
     use super::Transcript;
 
     const N: usize = 1024;
     const L: usize = 512;
-
-    pub struct TestHasher;
-    impl HashBackend for TestHasher {
-        fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
-            let mut hasher = Keccak256::new();
-            hasher.update(input);
-            hasher.finalize().into()
-        }
-    }
 
     #[test]
     fn test_transcript_equivalency() {

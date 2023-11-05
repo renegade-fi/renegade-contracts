@@ -76,3 +76,105 @@ fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> Vec<u8> {
         .skip(NUM_BYTES_FELT / 2)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use ark_ff::PrimeField;
+    use common::{
+        constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
+        types::{PublicSigningKey, ScalarField},
+    };
+    use ethers::{
+        core::k256::ecdsa::SigningKey,
+        types::{RecoveryMessage, Signature, U256},
+        utils::keccak256,
+    };
+    use rand::{thread_rng, CryptoRng, RngCore};
+
+    use crate::crypto::hash::test_helpers::TestHasher;
+
+    use super::{EcRecoverBackend, EcdsaError};
+
+    struct TestEcRecoverBackend;
+    impl EcRecoverBackend for TestEcRecoverBackend {
+        fn ec_recover(
+            message_hash: &[u8; HASH_OUTPUT_SIZE],
+            signature: &[u8; NUM_BYTES_SIGNATURE],
+        ) -> Result<[u8; NUM_BYTES_ADDRESS], EcdsaError> {
+            let signature: Signature = signature.as_slice().try_into().map_err(|_| EcdsaError)?;
+            let message_hash: RecoveryMessage = RecoveryMessage::Hash(message_hash.into());
+            Ok(signature
+                .recover(message_hash)
+                .map_err(|_| EcdsaError)?
+                .into())
+        }
+    }
+
+    fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, PublicSigningKey) {
+        let signing_key = SigningKey::random(rng);
+        let verifying_key = signing_key.verifying_key();
+        let encoded_pubkey_bytes = verifying_key
+            .to_encoded_point(false /* compress */)
+            .to_bytes();
+
+        let num_bytes_u128 = NUM_BYTES_U256 / 2;
+
+        // Start the cursor one byte forward since the first byte of the SEC1 encoding is metadata
+        let mut cursor = 1;
+        let x_high = ScalarField::from_be_bytes_mod_order(
+            &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        );
+
+        cursor += num_bytes_u128;
+        let x_low = ScalarField::from_be_bytes_mod_order(
+            &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        );
+
+        cursor += num_bytes_u128;
+        let y_high = ScalarField::from_be_bytes_mod_order(
+            &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        );
+
+        cursor += num_bytes_u128;
+        let y_low = ScalarField::from_be_bytes_mod_order(
+            &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        );
+
+        let pubkey = PublicSigningKey {
+            x: [x_high, x_low],
+            y: [y_high, y_low],
+        };
+
+        (signing_key, pubkey)
+    }
+
+    fn hash_and_sign_message(signing_key: &SigningKey, msg: &[u8]) -> Signature {
+        let msg_hash = keccak256(msg);
+        let (sig, recovery_id) = signing_key.sign_prehash_recoverable(&msg_hash).unwrap();
+        let r: U256 = U256::from_big_endian(&sig.r().to_bytes());
+        let s: U256 = U256::from_big_endian(&sig.s().to_bytes());
+        Signature {
+            r,
+            s,
+            v: recovery_id.to_byte() as u64,
+        }
+    }
+
+    #[test]
+    fn test_ecdsa_verify() {
+        let mut rng = thread_rng();
+        let (signing_key, pubkey) = random_keypair(&mut rng);
+
+        let mut msg = [0u8; 32];
+        rng.fill_bytes(&mut msg);
+
+        let sig = hash_and_sign_message(&signing_key, &msg);
+
+        assert!(super::ecdsa_verify::<TestHasher, TestEcRecoverBackend>(
+            &pubkey,
+            &msg,
+            &sig.into()
+        )
+        .unwrap());
+    }
+}
