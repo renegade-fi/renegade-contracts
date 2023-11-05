@@ -12,6 +12,7 @@ ethers = { workspace = true }
 eyre = { workspace = true }
 ark-ff = { workspace = true }
 ark-std = { workspace = true }
+ark-ec = { workspace = true }
 rand = { workspace = true }
 clap = { version = "4.4.7", features = ["derive"] }
 json = "0.12"

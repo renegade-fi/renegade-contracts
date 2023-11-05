@@ -5,7 +5,7 @@ use common::{constants::HASH_OUTPUT_SIZE, types::VerificationBundle};
 use contracts_core::{crypto::hash::HashBackend, verifier::Verifier};
 use stylus_sdk::{crypto::keccak, prelude::*, ArbResult};
 
-use crate::utils::EvmPrecompileBackend;
+use crate::utils::PrecompileG1ArithmeticBackend;
 
 pub struct StylusHasher;
 impl HashBackend for StylusHasher {
@@ -23,7 +23,7 @@ pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
         public_inputs,
     } = postcard::from_bytes(verification_bundle_ser.as_slice()).unwrap();
 
-    let mut verifier = Verifier::<EvmPrecompileBackend, StylusHasher>::new(vkey);
+    let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::new(vkey);
 
     let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
 

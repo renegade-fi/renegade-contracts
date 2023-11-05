@@ -84,6 +84,10 @@ impl_serde_as!(G1Affine, G1AffineDef,);
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]
+pub struct SerdeG1Affine(#[serde_as(as = "G1AffineDef")] pub G1Affine);
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
 #[serde(remote = "Affine<G2Config>")]
 pub(crate) struct G2AffineDef {
     #[serde_as(as = "G2BaseFieldDef")]
@@ -94,6 +98,10 @@ pub(crate) struct G2AffineDef {
 }
 
 impl_serde_as!(G2Affine, G2AffineDef,);
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct SerdeG2Affine(#[serde_as(as = "G2AffineDef")] pub G2Affine);
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]

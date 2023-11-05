@@ -1,10 +1,11 @@
 //! Integration tests for the contracts
 
+use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
-    serde_def_types::SerdeScalarField,
-    types::{ScalarField, ValidWalletUpdateStatement, VerificationBundle},
+    serde_def_types::{SerdeG1Affine, SerdeScalarField, SerdeG2Affine},
+    types::{G1Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle, G2Affine},
 };
 use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
@@ -24,9 +25,54 @@ use crate::{
 pub(crate) async fn test_precompile_backend(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
-    contract.test_ec_add().send().await?.await?;
-    contract.test_ec_mul().send().await?.await?;
-    contract.test_ec_pairing().send().await?.await?;
+    let mut rng = thread_rng();
+
+    // EC add
+
+    let a = G1Affine::rand(&mut rng);
+    let b = G1Affine::rand(&mut rng);
+
+    let c_bytes = contract
+        .test_ec_add(
+            serialize_to_calldata(&SerdeG1Affine(a))?,
+            serialize_to_calldata(&SerdeG1Affine(b))?,
+        )
+        .call()
+        .await?;
+    let c: SerdeG1Affine = postcard::from_bytes(&c_bytes)?;
+
+    assert_eq!(c.0, a + b);
+
+    // EC scalar mul
+
+    let a = ScalarField::rand(&mut rng);
+    let b = G1Affine::rand(&mut rng);
+
+    let c_bytes = contract
+        .test_ec_mul(
+            serialize_to_calldata(&SerdeScalarField(a))?,
+            serialize_to_calldata(&SerdeG1Affine(b))?,
+        )
+        .call()
+        .await?;
+    let c: SerdeG1Affine = postcard::from_bytes(&c_bytes)?;
+
+    let mut expected = b.into_group();
+    expected *= a;
+
+    assert_eq!(c.0, expected);
+
+    // EC pairing check
+
+    let a = G1Affine::rand(&mut rng);
+    let b = G2Affine::rand(&mut rng);
+
+    let res = contract.test_ec_pairing(
+        serialize_to_calldata(&SerdeG1Affine(a))?,
+        serialize_to_calldata(&SerdeG2Affine(b))?,
+    ).call().await?;
+
+    assert!(res);
 
     Ok(())
 }
