@@ -3,11 +3,14 @@
 //! in the `integration` crate
 
 use alloc::vec::Vec;
-use common::serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField};
-use contracts_core::verifier::G1ArithmeticBackend;
+use common::{
+    constants::NUM_BYTES_ADDRESS,
+    serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
+};
+use contracts_core::{crypto::ecdsa::EcRecoverBackend, verifier::G1ArithmeticBackend};
 use stylus_sdk::{abi::Bytes, prelude::*};
 
-use crate::utils::PrecompileG1ArithmeticBackend;
+use crate::utils::{PrecompileEcRecoverBackend, PrecompileG1ArithmeticBackend};
 
 #[solidity_storage]
 #[entrypoint]
@@ -34,5 +37,17 @@ impl PrecompileTestContract {
         let b: SerdeG2Affine = postcard::from_bytes(b_bytes.as_slice()).unwrap();
 
         Ok(PrecompileG1ArithmeticBackend::ec_pairing_check(a.0, b.0, -a.0, b.0).unwrap())
+    }
+
+    pub fn test_ec_recover(
+        &self,
+        msg_hash: Bytes,
+        signature: Bytes,
+    ) -> Result<[u8; NUM_BYTES_ADDRESS], Vec<u8>> {
+        Ok(PrecompileEcRecoverBackend::ec_recover(
+            msg_hash.as_slice().try_into().unwrap(),
+            signature.as_slice().try_into().unwrap(),
+        )
+        .unwrap())
     }
 }

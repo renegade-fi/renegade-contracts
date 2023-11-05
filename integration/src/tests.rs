@@ -4,8 +4,8 @@ use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
-    serde_def_types::{SerdeG1Affine, SerdeScalarField, SerdeG2Affine},
-    types::{G1Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle, G2Affine},
+    serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
+    types::{G1Affine, G2Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle},
 };
 use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
@@ -67,10 +67,13 @@ pub(crate) async fn test_precompile_backend(
     let a = G1Affine::rand(&mut rng);
     let b = G2Affine::rand(&mut rng);
 
-    let res = contract.test_ec_pairing(
-        serialize_to_calldata(&SerdeG1Affine(a))?,
-        serialize_to_calldata(&SerdeG2Affine(b))?,
-    ).call().await?;
+    let res = contract
+        .test_ec_pairing(
+            serialize_to_calldata(&SerdeG1Affine(a))?,
+            serialize_to_calldata(&SerdeG2Affine(b))?,
+        )
+        .call()
+        .await?;
 
     assert!(res);
 

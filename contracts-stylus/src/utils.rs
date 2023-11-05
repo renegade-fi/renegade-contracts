@@ -2,16 +2,20 @@
 
 use alloc::vec::Vec;
 use common::{
+    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
     custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
     serde_def_types::SerdeScalarField,
     types::{G1Affine, G2Affine, ScalarField},
 };
-use contracts_core::verifier::{errors::VerifierError, G1ArithmeticBackend};
+use contracts_core::{
+    crypto::ecdsa::{EcRecoverBackend, EcdsaError},
+    verifier::{errors::VerifierError, G1ArithmeticBackend},
+};
 use stylus_sdk::{alloy_primitives::Address, call::RawCall};
 
 use crate::constants::{
     EC_ADD_ADDRESS_LAST_BYTE, EC_MUL_ADDRESS_LAST_BYTE, EC_PAIRING_ADDRESS_LAST_BYTE,
-    PAIRING_CHECK_RESULT_LAST_BYTE_INDEX,
+    EC_RECOVER_ADDRESS_LAST_BYTE, PAIRING_CHECK_RESULT_LAST_BYTE_INDEX,
 };
 
 pub struct PrecompileG1ArithmeticBackend;
@@ -104,4 +108,48 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
             .map(SerdeScalarField)
             .collect::<Vec<_>>(),
     )
+}
+
+pub struct PrecompileEcRecoverBackend;
+
+impl EcRecoverBackend for PrecompileEcRecoverBackend {
+    /// Calls out to the `ecRecover` precompile.
+    ///
+    /// This method expects the following format for the signature:
+    /// ```
+    /// signature[0..32] = r (big-endian)
+    /// signature[32..64] = s (big-endian)
+    /// signature[64] = v
+    /// ```
+    fn ec_recover(
+        message_hash: &[u8; HASH_OUTPUT_SIZE],
+        signature: &[u8; NUM_BYTES_SIGNATURE],
+    ) -> Result<[u8; NUM_BYTES_ADDRESS], EcdsaError> {
+        // Prepare the input data for the `ecRecover` precompile, namely:
+        // input[0..32] = message_hash
+        // input[32..64] = v (big-endian)
+        // input[64..96] = r (big-endian)
+        // input[96..128] = s (big-endian)
+        let mut input = Vec::with_capacity(128);
+        // Add message hash to input
+        input.extend_from_slice(message_hash);
+        // Left-pad `v` with zero-bytes & add to input
+        input.extend_from_slice(&[0_u8; 31]);
+        input.push(signature[64]);
+        // Add `r` & `s` to input
+        input.extend_from_slice(&signature[0..64]);
+
+        // Call the `ecRecover` precompile
+        let res = RawCall::new_static()
+            // Only get the last 20 bytes of the 32-byte return data
+            .limit_return_data(NUM_BYTES_U256 - NUM_BYTES_ADDRESS, NUM_BYTES_ADDRESS)
+            .call(
+                Address::with_last_byte(EC_RECOVER_ADDRESS_LAST_BYTE),
+                &input,
+            )
+            .map_err(|_| EcdsaError)?;
+
+        // Unwrapping is safe here as we've limited the return data to the last 20 bytes
+        Ok(res.try_into().unwrap())
+    }
 }
