@@ -10,7 +10,9 @@ use ethers::{abi::Address, providers::Middleware, types::Bytes};
 use eyre::Result;
 use rand::thread_rng;
 use test_helpers::{
-    convert_jf_proof_and_vkey, dummy_circuit_bundle, gen_jf_proof_and_vkey, random_scalars, Circuit,
+    misc::random_scalars,
+    proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
+    renegade_circuits::{dummy_circuit_bundle, Circuit},
 };
 
 use crate::{

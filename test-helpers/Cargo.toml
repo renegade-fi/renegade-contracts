@@ -7,11 +7,13 @@ edition = "2021"
 common = { path = "../common" }
 rand = { workspace = true }
 ark-bn254 = { workspace = true }
+ark-ff = { workspace = true }
 ark-ec = { workspace = true }
 ark-std = { workspace = true }
 alloy-primitives = { workspace = true }
 eyre = { workspace = true }
 serde = { workspace = true }
+ethers = { workspace = true }
 jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
     "test-srs",
     "test_apis",
