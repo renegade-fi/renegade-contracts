@@ -59,7 +59,7 @@ pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
     /// A transcript of the verifier's interaction with the prover,
     /// used for the Fiat-Shamir transform
     transcript: Transcript<H>,
-    _arithmetic_backend: PhantomData<G>,
+    _phantom: PhantomData<G>,
 }
 
 impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
@@ -67,7 +67,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Self {
             vkey,
             transcript: Transcript::<H>::new(),
-            _arithmetic_backend: PhantomData,
+            _phantom: PhantomData,
         }
     }
 
@@ -491,7 +491,10 @@ mod tests {
     use ark_ff::One;
     use common::types::{G1Affine, G2Affine, ScalarField};
     use jf_utils::multi_pairing;
-    use test_helpers::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey, random_scalars};
+    use test_helpers::{
+        misc::random_scalars,
+        proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
+    };
 
     use crate::crypto::hash::test_helpers::TestHasher;
 

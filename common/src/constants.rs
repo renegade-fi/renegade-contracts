@@ -22,6 +22,9 @@ pub const NUM_U64S_FELT: usize = 4;
 /// The number of bytes it takes to represent a u64
 pub const NUM_BYTES_U64: usize = 8;
 
+/// The number of bytes it takes to represent an unsigned 128-bit integer
+pub const NUM_BYTES_U128: usize = 16;
+
 /// The number of bytes it takes to represent an unsigned 256-bit integer
 pub const NUM_BYTES_U256: usize = 32;
 

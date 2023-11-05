@@ -18,7 +18,7 @@ use self::errors::TranscriptError;
 pub struct Transcript<H: HashBackend> {
     transcript: Vec<u8>,
     state: [u8; TRANSCRIPT_STATE_SIZE],
-    _marker: PhantomData<H>,
+    _phantom: PhantomData<H>,
 }
 
 impl<H: HashBackend> Transcript<H> {
@@ -28,7 +28,7 @@ impl<H: HashBackend> Transcript<H> {
         Transcript {
             transcript: Vec::new(),
             state: [0u8; TRANSCRIPT_STATE_SIZE],
-            _marker: PhantomData,
+            _phantom: PhantomData,
         }
     }
 
@@ -138,7 +138,7 @@ pub mod tests {
     use ark_std::UniformRand;
     use common::types::ScalarField;
     use rand::thread_rng;
-    use test_helpers::{dummy_proofs, dummy_vkeys, get_jf_challenges};
+    use test_helpers::proof_system::{dummy_proofs, dummy_vkeys, get_jf_challenges};
 
     use crate::crypto::hash::test_helpers::TestHasher;
 

@@ -17,7 +17,7 @@ use ethers::{
 use eyre::{eyre, Result};
 use rand::Rng;
 use serde::Serialize;
-use test_helpers::{dummy_circuit_bundle, Circuit};
+use test_helpers::renegade_circuits::{dummy_circuit_bundle, Circuit};
 
 use crate::{
     abis::DarkpoolTestContract,
