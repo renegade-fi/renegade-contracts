@@ -63,7 +63,16 @@ pub(crate) fn parse_addr_from_deployments_file(
 
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -> Result<Address> {
     Ok(match test {
-        Tests::Precompile => {
+        Tests::EcAdd => {
+            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
+        }
+        Tests::EcMul => {
+            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
+        }
+        Tests::EcPairing => {
+            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
+        }
+        Tests::EcRecover => {
             parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
         }
         Tests::NullifierSet => {

@@ -4,11 +4,10 @@
 
 use alloc::vec::Vec;
 use common::{
-    constants::NUM_BYTES_ADDRESS,
+    backends::{EcRecoverBackend, G1ArithmeticBackend},
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
 };
-use contracts_core::{crypto::ecdsa::EcRecoverBackend, verifier::G1ArithmeticBackend};
-use stylus_sdk::{abi::Bytes, prelude::*};
+use stylus_sdk::{abi::Bytes, console, prelude::*};
 
 use crate::utils::{PrecompileEcRecoverBackend, PrecompileG1ArithmeticBackend};
 
@@ -39,15 +38,12 @@ impl PrecompileTestContract {
         Ok(PrecompileG1ArithmeticBackend::ec_pairing_check(a.0, b.0, -a.0, b.0).unwrap())
     }
 
-    pub fn test_ec_recover(
-        &self,
-        msg_hash: Bytes,
-        signature: Bytes,
-    ) -> Result<[u8; NUM_BYTES_ADDRESS], Vec<u8>> {
-        Ok(PrecompileEcRecoverBackend::ec_recover(
+    pub fn test_ec_recover(&self, msg_hash: Bytes, signature: Bytes) -> Result<Bytes, Vec<u8>> {
+        let res = PrecompileEcRecoverBackend::ec_recover(
             msg_hash.as_slice().try_into().unwrap(),
             signature.as_slice().try_into().unwrap(),
         )
-        .unwrap())
+        .unwrap();
+        Ok(res.to_vec().into())
     }
 }

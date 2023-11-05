@@ -37,5 +37,6 @@ abigen!(
         function testEcAdd(bytes memory a_bytes, bytes memory b_bytes) external view returns (bytes)
         function testEcMul(bytes memory a_bytes, bytes memory b_bytes) external view returns (bytes)
         function testEcPairing(bytes memory a_bytes, bytes memory b_bytes) external view returns (bool)
+        function testEcRecover(bytes memory msg_hash, bytes memory signature) external view returns (bytes)
     ]"#
 );
