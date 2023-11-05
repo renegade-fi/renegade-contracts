@@ -2,14 +2,11 @@
 
 use alloc::vec::Vec;
 use common::{
+    backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError},
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
     custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
     serde_def_types::SerdeScalarField,
     types::{G1Affine, G2Affine, ScalarField},
-};
-use contracts_core::{
-    crypto::ecdsa::{EcRecoverBackend, EcdsaError},
-    verifier::{errors::VerifierError, G1ArithmeticBackend},
 };
 use stylus_sdk::{alloy_primitives::Address, call::RawCall};
 
@@ -22,7 +19,7 @@ pub struct PrecompileG1ArithmeticBackend;
 
 impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
     /// Calls the `ecAdd` precompile with the given points, handling de/serialization
-    fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, VerifierError> {
+    fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, G1ArithmeticError> {
         // Serialize the points
         let a_data = a.serialize_to_bytes();
         let b_data = b.serialize_to_bytes();
@@ -33,15 +30,14 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
                 Address::with_last_byte(EC_ADD_ADDRESS_LAST_BYTE),
                 &[a_data, b_data].concat(),
             )
-            .map_err(|_| VerifierError::ArithmeticBackend)?;
+            .map_err(|_| G1ArithmeticError)?;
 
         // Deserialize the affine coordinates returned from the precompile
-        G1Affine::deserialize_from_bytes(&res_xy_bytes)
-            .map_err(|_| VerifierError::ArithmeticBackend)
+        G1Affine::deserialize_from_bytes(&res_xy_bytes).map_err(|_| G1ArithmeticError)
     }
 
     /// Calls the `ecMul` precompile with the given scalar and point, handling de/serialization
-    fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, VerifierError> {
+    fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, G1ArithmeticError> {
         // Serialize the point and scalar
         let a_data = a.serialize_to_bytes();
         let b_data = b.serialize_to_bytes();
@@ -52,11 +48,10 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
                 Address::with_last_byte(EC_MUL_ADDRESS_LAST_BYTE),
                 &[b_data, a_data].concat(),
             )
-            .map_err(|_| VerifierError::ArithmeticBackend)?;
+            .map_err(|_| G1ArithmeticError)?;
 
         // Deserialize the affine coordinates returned from the precompile
-        G1Affine::deserialize_from_bytes(&res_xy_bytes)
-            .map_err(|_| VerifierError::ArithmeticBackend)
+        G1Affine::deserialize_from_bytes(&res_xy_bytes).map_err(|_| G1ArithmeticError)
     }
 
     /// Calls the `ecPairing` precompile with the given points, handling de/serialization
@@ -65,7 +60,7 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         b_1: G2Affine,
         a_2: G1Affine,
         b_2: G2Affine,
-    ) -> Result<bool, VerifierError> {
+    ) -> Result<bool, G1ArithmeticError> {
         // Serialize the points
         let a_1_data = a_1.serialize_to_bytes();
         let b_1_data = b_1.serialize_to_bytes();
@@ -84,7 +79,7 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
                 Address::with_last_byte(EC_PAIRING_ADDRESS_LAST_BYTE),
                 &[a_1_data, b_1_data, a_2_data, b_2_data].concat(),
             )
-            .map_err(|_| VerifierError::ArithmeticBackend)?;
+            .map_err(|_| G1ArithmeticError)?;
 
         // Return the result of the pairing check, which is either a 0 or 1.
         Ok(res[0] == 1)
@@ -119,7 +114,7 @@ impl EcRecoverBackend for PrecompileEcRecoverBackend {
     /// ```
     /// signature[0..32] = r (big-endian)
     /// signature[32..64] = s (big-endian)
-    /// signature[64] = v
+    /// signature[64] = v (0 or 1)
     /// ```
     fn ec_recover(
         message_hash: &[u8; HASH_OUTPUT_SIZE],
@@ -135,7 +130,9 @@ impl EcRecoverBackend for PrecompileEcRecoverBackend {
         input.extend_from_slice(message_hash);
         // Left-pad `v` with zero-bytes & add to input
         input.extend_from_slice(&[0_u8; 31]);
-        input.push(signature[64]);
+        // We expect `v` to be either 0 or 1, but the `ecRecover`
+        // precompile expects either 27 or 28
+        input.push(signature[64] + 27);
         // Add `r` & `s` to input
         input.extend_from_slice(&signature[0..64]);
 

@@ -1,8 +1,8 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use common::{constants::HASH_OUTPUT_SIZE, types::VerificationBundle};
-use contracts_core::{crypto::hash::HashBackend, verifier::Verifier};
+use common::{backends::HashBackend, constants::HASH_OUTPUT_SIZE, types::VerificationBundle};
+use contracts_core::verifier::Verifier;
 use stylus_sdk::{crypto::keccak, prelude::*, ArbResult};
 
 use crate::utils::PrecompileG1ArithmeticBackend;

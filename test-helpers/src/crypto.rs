@@ -2,7 +2,8 @@
 
 use ark_ff::PrimeField;
 use common::{
-    constants::NUM_BYTES_U256,
+    backends::HashBackend,
+    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_U128},
     types::{PublicSigningKey, ScalarField},
 };
 use ethers::{
@@ -12,6 +13,14 @@ use ethers::{
 };
 use rand::{CryptoRng, RngCore};
 
+pub struct NativeHasher;
+
+impl HashBackend for NativeHasher {
+    fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
+        keccak256(input)
+    }
+}
+
 pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, PublicSigningKey) {
     let signing_key = SigningKey::random(rng);
     let verifying_key = signing_key.verifying_key();
@@ -19,27 +28,25 @@ pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, Publi
         .to_encoded_point(false /* compress */)
         .to_bytes();
 
-    let num_bytes_u128 = NUM_BYTES_U256 / 2;
-
     // Start the cursor one byte forward since the first byte of the SEC1 encoding is metadata
     let mut cursor = 1;
     let x_high = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
     );
 
-    cursor += num_bytes_u128;
+    cursor += NUM_BYTES_U128;
     let x_low = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
     );
 
-    cursor += num_bytes_u128;
+    cursor += NUM_BYTES_U128;
     let y_high = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
     );
 
-    cursor += num_bytes_u128;
+    cursor += NUM_BYTES_U128;
     let y_low = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + num_bytes_u128],
+        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
     );
 
     let pubkey = PublicSigningKey {

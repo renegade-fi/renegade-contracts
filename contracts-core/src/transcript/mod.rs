@@ -5,13 +5,12 @@ pub mod errors;
 use alloc::vec::Vec;
 use ark_ff::PrimeField;
 use common::{
+    backends::HashBackend,
     constants::TRANSCRIPT_STATE_SIZE,
     custom_serde::{BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
-
-use crate::crypto::hash::HashBackend;
 
 use self::errors::TranscriptError;
 
@@ -138,9 +137,10 @@ pub mod tests {
     use ark_std::UniformRand;
     use common::types::ScalarField;
     use rand::thread_rng;
-    use test_helpers::proof_system::{dummy_proofs, dummy_vkeys, get_jf_challenges};
-
-    use crate::crypto::hash::test_helpers::TestHasher;
+    use test_helpers::{
+        crypto::NativeHasher,
+        proof_system::{dummy_proofs, dummy_vkeys, get_jf_challenges},
+    };
 
     use super::Transcript;
 
@@ -154,7 +154,7 @@ pub mod tests {
         let (proof, jf_proof) = dummy_proofs();
         let public_inputs = [ScalarField::rand(&mut rng); L];
 
-        let mut stylus_transcript = Transcript::<TestHasher>::new();
+        let mut stylus_transcript = Transcript::<NativeHasher>::new();
         let challenges = stylus_transcript
             .compute_challenges(&vkey, &proof, &public_inputs, &None)
             .unwrap();

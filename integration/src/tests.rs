@@ -7,10 +7,12 @@ use common::{
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle},
 };
-use ethers::{abi::Address, providers::Middleware, types::Bytes};
+use contracts_core::crypto::ecdsa::pubkey_to_address;
+use ethers::{abi::Address, providers::Middleware, types::Bytes, utils::keccak256};
 use eyre::Result;
-use rand::thread_rng;
+use rand::{thread_rng, RngCore};
 use test_helpers::{
+    crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     misc::random_scalars,
     proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
     renegade_circuits::{dummy_circuit_bundle, Circuit},
@@ -22,12 +24,10 @@ use crate::{
     utils::{get_process_match_settle_data, serialize_to_calldata, setup_darkpool_test_contract},
 };
 
-pub(crate) async fn test_precompile_backend(
+pub(crate) async fn test_ec_add(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
-
-    // EC add
 
     let a = G1Affine::rand(&mut rng);
     let b = G1Affine::rand(&mut rng);
@@ -43,7 +43,13 @@ pub(crate) async fn test_precompile_backend(
 
     assert_eq!(c.0, a + b);
 
-    // EC scalar mul
+    Ok(())
+}
+
+pub(crate) async fn test_ec_mul(
+    contract: PrecompileTestContract<impl Middleware + 'static>,
+) -> Result<()> {
+    let mut rng = thread_rng();
 
     let a = ScalarField::rand(&mut rng);
     let b = G1Affine::rand(&mut rng);
@@ -62,7 +68,13 @@ pub(crate) async fn test_precompile_backend(
 
     assert_eq!(c.0, expected);
 
-    // EC pairing check
+    Ok(())
+}
+
+pub(crate) async fn test_ec_pairing(
+    contract: PrecompileTestContract<impl Middleware + 'static>,
+) -> Result<()> {
+    let mut rng = thread_rng();
 
     let a = G1Affine::rand(&mut rng);
     let b = G2Affine::rand(&mut rng);
@@ -76,6 +88,29 @@ pub(crate) async fn test_precompile_backend(
         .await?;
 
     assert!(res);
+
+    Ok(())
+}
+
+pub(crate) async fn test_ec_recover(
+    contract: PrecompileTestContract<impl Middleware + 'static>,
+) -> Result<()> {
+    let mut rng = thread_rng();
+
+    let (signing_key, pubkey) = random_keypair(&mut rng);
+
+    let mut msg = [0u8; 32];
+    rng.fill_bytes(&mut msg);
+
+    let sig = hash_and_sign_message(&signing_key, &msg);
+
+    let msg_hash = keccak256(msg);
+    let res = contract
+        .test_ec_recover(msg_hash.to_vec().into(), sig.to_vec().into())
+        .call()
+        .await?;
+
+    assert_eq!(res, pubkey_to_address::<NativeHasher>(&pubkey).to_vec());
 
     Ok(())
 }
