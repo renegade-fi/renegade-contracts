@@ -9,6 +9,7 @@ use common::{
         ValidWalletUpdateStatement,
     },
 };
+use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
@@ -22,7 +23,7 @@ use crate::{
         VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
-    utils::serialize_statement_for_verification,
+    utils::{serialize_statement_for_verification, PrecompileEcRecoverBackend, StylusHasher},
 };
 
 #[solidity_storage]
@@ -124,7 +125,7 @@ impl DarkpoolContract {
         _wallet_blinder_share: Bytes,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
-        _public_inputs_signature: Bytes,
+        public_inputs_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
@@ -132,7 +133,12 @@ impl DarkpoolContract {
         // TODO: Assert that the Merkle root for which inclusion is proven in `VALID_WALLET_UPDATE`
         // is a valid historical root
 
-        // TODO: Hash public inputs and verify signature (requires parsing pk_root from public inputs)
+        assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+            &valid_wallet_update_statement.old_pk_root,
+            valid_wallet_update_statement_bytes.as_slice(),
+            &public_inputs_signature.to_vec().try_into().unwrap(),
+        )
+        .unwrap());
 
         let public_inputs = serialize_statement_for_verification(&valid_wallet_update_statement)
             .unwrap()

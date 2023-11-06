@@ -1,18 +1,11 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use common::{backends::HashBackend, constants::HASH_OUTPUT_SIZE, types::VerificationBundle};
+use common::types::VerificationBundle;
 use contracts_core::verifier::Verifier;
-use stylus_sdk::{crypto::keccak, prelude::*, ArbResult};
+use stylus_sdk::{prelude::*, ArbResult};
 
-use crate::utils::PrecompileG1ArithmeticBackend;
-
-pub struct StylusHasher;
-impl HashBackend for StylusHasher {
-    fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
-        keccak(input).into()
-    }
-}
+use crate::utils::{PrecompileG1ArithmeticBackend, StylusHasher};
 
 /// Verify the given proof, using the given verification bundle
 #[entrypoint]
