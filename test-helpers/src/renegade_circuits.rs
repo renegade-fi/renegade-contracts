@@ -39,7 +39,7 @@ impl RenegadeStatement for ValidWalletUpdateStatement {
             new_private_shares_commitment: ScalarField::rand(rng),
             new_public_shares: dummy_wallet_shares(rng),
             merkle_root: ScalarField::rand(rng),
-            external_transfer: dummy_external_transfer(rng),
+            external_transfer: Some(dummy_external_transfer(rng)),
             old_pk_root: dummy_public_signing_key(rng),
             timestamp: rng.gen(),
         }

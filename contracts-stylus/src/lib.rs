@@ -2,6 +2,7 @@
 #![no_std]
 
 mod constants;
+mod interfaces;
 mod utils;
 
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]

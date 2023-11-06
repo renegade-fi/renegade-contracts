@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use common::{
     serde_def_types::SerdeScalarField,
     types::{
-        MatchPayload, ScalarField, ValidMatchSettleStatement, ValidWalletCreateStatement,
-        ValidWalletUpdateStatement,
+        ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
@@ -14,6 +14,7 @@ use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
     call::static_call,
+    contract,
     prelude::*,
     storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
 };
@@ -23,6 +24,7 @@ use crate::{
         VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
+    interfaces::IERC20,
     utils::{serialize_statement_for_verification, PrecompileEcRecoverBackend, StylusHasher},
 };
 
@@ -59,27 +61,32 @@ impl DarkpoolContract {
 
     /// Sets the verification key for the `VALID_WALLET_CREATE` circuit
     pub fn set_valid_wallet_create_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.set_vkey(VALID_WALLET_CREATE_CIRCUIT_ID, vkey)
+        self.set_vkey(VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
+        Ok(())
     }
 
     /// Sets the verification key for the `VALID_WALLET_UPDATE` circuit
     pub fn set_valid_wallet_update_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.set_vkey(VALID_WALLET_UPDATE_CIRCUIT_ID, vkey)
+        self.set_vkey(VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
+        Ok(())
     }
 
     /// Sets the verification key for the `VALID_COMMITMENTS` circuit
     pub fn set_valid_commitments_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.set_vkey(VALID_COMMITMENTS_CIRCUIT_ID, vkey)
+        self.set_vkey(VALID_COMMITMENTS_CIRCUIT_ID, vkey);
+        Ok(())
     }
 
     /// Sets the verification key for the `VALID_REBLIND` circuit
     pub fn set_valid_reblind_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.set_vkey(VALID_REBLIND_CIRCUIT_ID, vkey)
+        self.set_vkey(VALID_REBLIND_CIRCUIT_ID, vkey);
+        Ok(())
     }
 
     /// Sets the verification key for the `VALID_MATCH_SETTLE` circuit
     pub fn set_valid_match_settle_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.set_vkey(VALID_MATCH_SETTLE_CIRCUIT_ID, vkey)
+        self.set_vkey(VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
+        Ok(())
     }
 
     // -----------
@@ -150,7 +157,10 @@ impl DarkpoolContract {
 
         self.mark_nullifier_spent(valid_wallet_update_statement.old_shares_nullifier);
 
-        // TODO: Execute external transfers
+        if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
+            self.execute_external_transfer(external_transfer);
+        }
+
         // TODO: Emit wallet updated event w/ wallet blinder share
 
         Ok(())
@@ -245,13 +255,11 @@ impl DarkpoolContract {
 /// Internal helper methods
 impl DarkpoolContract {
     /// Sets the verification key for the given circuit ID
-    pub fn set_vkey(&mut self, circuit_id: u8, vkey: Bytes) -> Result<(), Vec<u8>> {
+    pub fn set_vkey(&mut self, circuit_id: u8, vkey: Bytes) {
         // TODO: Assert well-formedness of the verification key
 
         let mut slot = self.verification_keys.setter(circuit_id);
         slot.set_bytes(vkey);
-
-        Ok(())
     }
 
     /// Marks the given nullifier as spent
@@ -274,5 +282,28 @@ impl DarkpoolContract {
         let result = static_call(self, verifier_address, &verification_bundle_ser).unwrap();
 
         result[0] != 0
+    }
+
+    pub fn execute_external_transfer(&mut self, transfer: ExternalTransfer) {
+        let erc20 = IERC20::new(transfer.mint);
+        if transfer.is_withdrawal {
+            erc20
+                .transfer(self, transfer.account_addr, transfer.amount)
+                .unwrap();
+
+            // TODO: Emit withdrawal event
+        } else {
+            let darkpool_address = contract::address();
+            erc20
+                .transfer_from(
+                    self,
+                    transfer.account_addr,
+                    darkpool_address,
+                    transfer.amount,
+                )
+                .unwrap();
+
+            // TODO: Emit deposit event
+        }
     }
 }

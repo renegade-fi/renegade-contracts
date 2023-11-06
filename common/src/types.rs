@@ -106,7 +106,7 @@ pub struct Challenges {
 
 /// Represents an external transfer of an ERC20 token
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct ExternalTransfer {
     /// The address of the account contract to deposit from or withdraw to
     #[serde_as(as = "AddressDef")]
@@ -163,7 +163,7 @@ pub struct ValidWalletUpdateStatement {
     #[serde_as(as = "ScalarFieldDef")]
     pub merkle_root: ScalarField,
     /// The external transfer associated with this update
-    pub external_transfer: ExternalTransfer,
+    pub external_transfer: Option<ExternalTransfer>,
     /// The public root key of the old wallet, rotated out after this update
     pub old_pk_root: PublicSigningKey,
     /// The timestamp this update was applied at
