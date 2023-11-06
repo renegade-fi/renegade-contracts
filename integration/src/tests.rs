@@ -15,7 +15,7 @@ use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     misc::random_scalars,
     proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
-    renegade_circuits::{dummy_circuit_bundle, Circuit},
+    renegade_circuits::{circuit_bundle_from_statement, Circuit, RenegadeStatement},
 };
 
 use crate::{
@@ -181,8 +181,17 @@ pub(crate) async fn test_update_wallet(
 ) -> Result<()> {
     // Generate test data
     let mut rng = thread_rng();
-    let (valid_wallet_update_statement, vkey, proof) =
-        dummy_circuit_bundle::<ValidWalletUpdateStatement>(N, &mut rng)?;
+    let mut valid_wallet_update_statement = ValidWalletUpdateStatement::dummy(&mut rng);
+    let (signing_key, pubkey) = random_keypair(&mut rng);
+    valid_wallet_update_statement.old_pk_root = pubkey;
+    let (vkey, proof) = circuit_bundle_from_statement(&valid_wallet_update_statement, N)?;
+
+    let valid_wallet_update_statement_bytes =
+        serialize_to_calldata(&valid_wallet_update_statement)?;
+    let public_inputs_signature = Bytes::from(
+        hash_and_sign_message(&signing_key, &valid_wallet_update_statement_bytes).to_vec(),
+    );
+
     let wallet_blinder_share = SerdeScalarField(ScalarField::rand(&mut rng));
 
     // Set up contract
@@ -198,8 +207,8 @@ pub(crate) async fn test_update_wallet(
         .update_wallet(
             serialize_to_calldata(&wallet_blinder_share)?,
             serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&valid_wallet_update_statement)?,
-            Bytes::new(), /* public_inputs_signature */
+            valid_wallet_update_statement_bytes,
+            public_inputs_signature,
         )
         .send()
         .await?

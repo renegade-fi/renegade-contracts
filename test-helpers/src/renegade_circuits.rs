@@ -124,16 +124,24 @@ fn dummy_public_signing_key(rng: &mut impl Rng) -> PublicSigningKey {
     }
 }
 
-pub fn dummy_circuit_bundle<S: RenegadeStatement>(
+pub fn circuit_bundle_from_statement<S: RenegadeStatement>(
+    statement: &S,
     num_public_inputs: usize,
-    rng: &mut impl Rng,
-) -> Result<(S, VerificationKey, Proof)> {
-    let statement = S::dummy(rng);
+) -> Result<(VerificationKey, Proof)> {
     let public_inputs = statement
         .serialize_to_scalars()
         .map_err(|_| eyre!("failed to serialize statement to scalars"))?;
     let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(num_public_inputs, &public_inputs)?;
     let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
 
+    Ok((vkey, proof))
+}
+
+pub fn dummy_circuit_bundle<S: RenegadeStatement>(
+    num_public_inputs: usize,
+    rng: &mut impl Rng,
+) -> Result<(S, VerificationKey, Proof)> {
+    let statement = S::dummy(rng);
+    let (vkey, proof) = circuit_bundle_from_statement(&statement, num_public_inputs)?;
     Ok((statement, vkey, proof))
 }

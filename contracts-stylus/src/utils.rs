@@ -2,18 +2,25 @@
 
 use alloc::vec::Vec;
 use common::{
-    backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError},
+    backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError, HashBackend},
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
     custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
     serde_def_types::SerdeScalarField,
     types::{G1Affine, G2Affine, ScalarField},
 };
-use stylus_sdk::{alloy_primitives::Address, call::RawCall};
+use stylus_sdk::{alloy_primitives::Address, call::RawCall, crypto::keccak};
 
 use crate::constants::{
     EC_ADD_ADDRESS_LAST_BYTE, EC_MUL_ADDRESS_LAST_BYTE, EC_PAIRING_ADDRESS_LAST_BYTE,
     EC_RECOVER_ADDRESS_LAST_BYTE, PAIRING_CHECK_RESULT_LAST_BYTE_INDEX,
 };
+
+pub struct StylusHasher;
+impl HashBackend for StylusHasher {
+    fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
+        keccak(input).into()
+    }
+}
 
 pub struct PrecompileG1ArithmeticBackend;
 
