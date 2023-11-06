@@ -280,7 +280,15 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
         ];
         scalars.extend(self.new_public_shares);
         scalars.push(self.merkle_root);
-        scalars.extend(self.external_transfer.serialize_to_scalars()?);
+
+        let external_transfer_scalars = self
+            .external_transfer
+            .as_ref()
+            .map_or(ExternalTransfer::default().serialize_to_scalars(), |e| {
+                e.serialize_to_scalars()
+            })?;
+        scalars.extend(external_transfer_scalars);
+
         scalars.extend(self.old_pk_root.serialize_to_scalars()?);
         scalars.extend(self.timestamp.serialize_to_scalars()?);
         Ok(scalars)
