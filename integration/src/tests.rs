@@ -1,5 +1,7 @@
 //! Integration tests for the contracts
 
+use std::sync::Arc;
+
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -8,13 +10,16 @@ use common::{
     types::{G1Affine, G2Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle},
 };
 use contracts_core::crypto::ecdsa::pubkey_to_address;
-use ethers::{abi::Address, providers::Middleware, types::Bytes, utils::keccak256};
+use ethers::{
+    abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,
+    types::Bytes, utils::keccak256,
+};
 use eyre::Result;
 use rand::{thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     misc::random_scalars,
-    proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
+    proof_system::{convert_jf_proof_and_vkey, dummy_vkeys, gen_jf_proof_and_vkey},
     renegade_circuits::{circuit_bundle_from_statement, Circuit, RenegadeStatement},
 };
 
@@ -24,9 +29,9 @@ use crate::{
     },
     constants::{L, N, TRANSFER_AMOUNT},
     utils::{
-        dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
-        get_process_match_settle_data, mint_dummy_erc20, serialize_to_calldata,
-        setup_darkpool_test_contract,
+        assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
+        execute_transfer_and_get_balances, get_process_match_settle_data, mint_dummy_erc20,
+        serialize_to_calldata, setup_darkpool_test_contract,
     },
 };
 
@@ -151,6 +156,97 @@ pub(crate) async fn test_verifier(
         .await?;
 
     assert!(!unsuccessful_res, "Invalid proof verified");
+
+    Ok(())
+}
+
+pub(crate) async fn test_ownership(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    darkpool_test_contract_address: Address,
+) -> Result<()> {
+    // Set up contract instance w/ dummy signer
+    let mut rng = thread_rng();
+    let dummy_signer = Arc::new(
+        SignerMiddleware::new_with_provider_chain(contract.client(), LocalWallet::new(&mut rng))
+            .await?,
+    );
+    let contract_with_dummy_signer =
+        DarkpoolTestContract::new(darkpool_test_contract_address, dummy_signer);
+
+    // Set up test data
+    let dummy_verifier_address = Address::random();
+    let dummy_vkey_bytes = Bytes::from(postcard::to_allocvec(&dummy_vkeys(N as u64, L as u64).0)?);
+
+    // Assert that transferring to 0 address fails
+    assert!(
+        contract
+            .transfer_ownership(Address::zero())
+            .send()
+            .await
+            .is_err(),
+        "Transferred ownership to 0 address"
+    );
+
+    // Set the owner to the default sender
+    contract
+        .transfer_ownership(contract.client().default_sender().unwrap())
+        .send()
+        .await?
+        .await?;
+
+    // Assert that `setVerifierAddress` only succeeds for the owner
+    assert_only_owner::<_, Address>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setVerifierAddress",
+        dummy_verifier_address,
+    )
+    .await?;
+
+    // Assert that `setValidWalletCreateVkey` only succeeds for the owner
+    assert_only_owner::<_, Bytes>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setValidWalletCreateVkey",
+        dummy_vkey_bytes.clone(),
+    )
+    .await?;
+
+    // Assert that `setValidWalletUpdateVkey` only succeeds for the owner
+    assert_only_owner::<_, Bytes>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setValidWalletUpdateVkey",
+        dummy_vkey_bytes.clone(),
+    )
+    .await?;
+
+    // Assert that `setValidCommitmentsVkey` only succeeds for the owner
+    assert_only_owner::<_, Bytes>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setValidCommitmentsVkey",
+        dummy_vkey_bytes.clone(),
+    )
+    .await?;
+
+    // Assert that `setValidReblindVkey` only succeeds for the owner
+    assert_only_owner::<_, Bytes>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setValidReblindVkey",
+        dummy_vkey_bytes.clone(),
+    )
+    .await?;
+
+    // Assert that `setValidMatchSettleVkey` only succeeds for the owner
+    assert_only_owner::<_, Bytes>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setValidMatchSettleVkey",
+        dummy_vkey_bytes.clone(),
+    )
+    .await?;
 
     Ok(())
 }

@@ -5,6 +5,8 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
+        function transferOwnership(address memory newOwner) external
+
         function setVerifierAddress(address memory _address) external
 
         function setValidWalletCreateVkey(bytes memory vkey) external

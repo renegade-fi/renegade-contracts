@@ -29,9 +29,14 @@ use crate::utils::{
     interfaces::IERC20,
 };
 
+use super::components::ownable::Ownable;
+
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
+    #[borrow]
+    pub ownable: Ownable,
+
     /// The address of the verifier contract
     verifier_address: StorageAddress,
 
@@ -46,6 +51,7 @@ pub struct DarkpoolContract {
 }
 
 #[external]
+#[inherit(Ownable)]
 impl DarkpoolContract {
     // ----------
     // | CONFIG |
@@ -53,6 +59,7 @@ impl DarkpoolContract {
 
     /// Stores the given address for the verifier contract
     pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.verifier_address.set(address);
         Ok(())
     }
@@ -62,30 +69,35 @@ impl DarkpoolContract {
 
     /// Sets the verification key for the `VALID_WALLET_CREATE` circuit
     pub fn set_valid_wallet_create_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.set_vkey(VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_WALLET_UPDATE` circuit
     pub fn set_valid_wallet_update_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.set_vkey(VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_COMMITMENTS` circuit
     pub fn set_valid_commitments_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.set_vkey(VALID_COMMITMENTS_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_REBLIND` circuit
     pub fn set_valid_reblind_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.set_vkey(VALID_REBLIND_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_MATCH_SETTLE` circuit
     pub fn set_valid_match_settle_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.set_vkey(VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
         Ok(())
     }

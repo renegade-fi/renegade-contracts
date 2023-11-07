@@ -33,6 +33,7 @@ pub(crate) enum Tests {
     EcRecover,
     NullifierSet,
     Verifier,
+    Ownership,
     ExternalTransfer,
     UpdateWallet,
     ProcessMatchSettle,
