@@ -1,3 +1,5 @@
+use core::borrow::{Borrow, BorrowMut};
+
 use alloc::vec::Vec;
 use common::{serde_def_types::SerdeScalarField, types::ExternalTransfer};
 use stylus_sdk::{
@@ -7,7 +9,7 @@ use stylus_sdk::{
     prelude::*,
 };
 
-use crate::contracts::darkpool::DarkpoolContract;
+use crate::contracts::{components::ownable::Ownable, darkpool::DarkpoolContract};
 
 // We implement the `*Context`traits manually for the
 // `DarkpoolContract` because it is not the entrypoint when
@@ -36,9 +38,23 @@ struct DarkpoolTestContract {
     darkpool: DarkpoolContract,
 }
 
+// We manually implement `Borrow<Ownable>` & `BorrowMut<Ownable>` because
+// Stylus can't yet automatically infer multi-level inheritance.
+impl BorrowMut<Ownable> for DarkpoolTestContract {
+    fn borrow_mut(&mut self) -> &mut Ownable {
+        &mut self.darkpool.ownable
+    }
+}
+
+impl Borrow<Ownable> for DarkpoolTestContract {
+    fn borrow(&self) -> &Ownable {
+        &self.darkpool.ownable
+    }
+}
+
 // Expose the internal helper methods of the Darkpool contract as external for testing purposes
 #[external]
-#[inherit(DarkpoolContract)]
+#[inherit(DarkpoolContract, Ownable)]
 impl DarkpoolTestContract {
     pub fn mark_nullifier_spent(&mut self, nullifier: Bytes) -> Result<(), Vec<u8>> {
         let nullifier: SerdeScalarField = postcard::from_bytes(nullifier.as_slice()).unwrap();

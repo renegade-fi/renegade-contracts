@@ -9,7 +9,7 @@ use common::types::{
     ValidMatchSettleStatement, ValidReblindStatement, VerificationKey,
 };
 use ethers::{
-    abi::Address,
+    abi::{Address, Detokenize, Tokenize},
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
     signers::{LocalWallet, Signer},
@@ -81,6 +81,9 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -
         }
         Tests::Verifier => {
             parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
+        }
+        Tests::Ownership => {
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
         }
         Tests::ExternalTransfer => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
@@ -243,4 +246,37 @@ pub(crate) async fn execute_transfer_and_get_balances(
         .await?;
 
     Ok((darkpool_balance, user_balance))
+}
+
+pub(crate) async fn assert_only_owner<T, D>(
+    darkpool_contract: &DarkpoolTestContract<impl Middleware + 'static>,
+    dummy_signer_darkpool_contract: &DarkpoolTestContract<impl Middleware + 'static>,
+    method_name: &str,
+    args: T,
+) -> Result<()>
+where
+    T: Tokenize + Clone,
+    D: Detokenize,
+{
+    assert!(
+        dummy_signer_darkpool_contract
+            .method::<T, D>(method_name, args.clone())?
+            .send()
+            .await
+            .is_err(),
+        "{} succeeded as non-owner",
+        method_name,
+    );
+    assert!(
+        darkpool_contract
+            .method::<T, D>(method_name, args)?
+            .send()
+            .await?
+            .await
+            .is_ok(),
+        "{} failed as owner",
+        method_name
+    );
+
+    Ok(())
 }
