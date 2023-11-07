@@ -19,13 +19,14 @@ use stylus_sdk::{
     storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
 };
 
-use crate::{
+use crate::utils::{
+    backends::{PrecompileEcRecoverBackend, StylusHasher},
     constants::{
         VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
+    helpers::serialize_statement_for_verification,
     interfaces::IERC20,
-    utils::{serialize_statement_for_verification, PrecompileEcRecoverBackend, StylusHasher},
 };
 
 #[solidity_storage]
