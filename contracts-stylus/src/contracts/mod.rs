@@ -13,3 +13,5 @@ mod verifier;
     feature = "dummy-erc20"
 ))]
 mod test_contracts;
+
+mod components;
