@@ -14,7 +14,8 @@ mod verifier;
 #[cfg(any(
     feature = "precompile-test-contract",
     feature = "verifier-test-contract",
-    feature = "darkpool-test-contract"
+    feature = "darkpool-test-contract",
+    feature = "dummy-erc20"
 ))]
 mod test_contracts;
 

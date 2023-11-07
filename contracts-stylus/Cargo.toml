@@ -12,6 +12,7 @@ ark-bn254 = { workspace = true }
 common = { path = "../common" }
 contracts-core = { path = "../contracts-core" }
 postcard = { workspace = true }
+alloy-sol-types = { workspace = true }
 
 [features]
 darkpool = []
@@ -19,6 +20,7 @@ verifier = []
 verifier-test-contract = []
 darkpool-test-contract = []
 precompile-test-contract = []
+dummy-erc20 = []
 export-abi = ["stylus-sdk/export-abi"]
 
 [lib]

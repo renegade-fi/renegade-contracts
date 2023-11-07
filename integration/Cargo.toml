@@ -18,3 +18,4 @@ clap = { version = "4.4.7", features = ["derive"] }
 json = "0.12"
 postcard = { workspace = true }
 serde = { workspace = true }
+alloy-primitives = { workspace = true }

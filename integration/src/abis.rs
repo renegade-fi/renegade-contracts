@@ -21,6 +21,8 @@ abigen!(
         function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_reblind_proof, bytes memory party_1_match_payload, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_reblind_proof, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_statement_bytes,) external
 
         function verify(uint8 memory circuit_id, bytes memory proof, bytes memory public_inputs) external view returns (bool)
+
+        function executeExternalTransfer(bytes memory transfer) external
     ]"#
 );
 
@@ -38,5 +40,13 @@ abigen!(
         function testEcMul(bytes memory a_bytes, bytes memory b_bytes) external view returns (bytes)
         function testEcPairing(bytes memory a_bytes, bytes memory b_bytes) external view returns (bool)
         function testEcRecover(bytes memory msg_hash, bytes memory signature) external view returns (bytes)
+    ]"#
+);
+
+abigen!(
+    DummyErc20Contract,
+    r#"[
+        function mint(address memory _address, uint256 memory value) external
+        function balanceOf(address memory _address) external view returns (uint256)
     ]"#
 );

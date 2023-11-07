@@ -926,6 +926,7 @@ dependencies = [
 name = "contracts-stylus"
 version = "0.1.0"
 dependencies = [
+ "alloy-sol-types",
  "ark-bn254",
  "ark-ec",
  "ark-ff",
@@ -2264,6 +2265,7 @@ dependencies = [
 name = "integration"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "ark-ec",
  "ark-ff",
  "ark-std",

@@ -19,9 +19,15 @@ use test_helpers::{
 };
 
 use crate::{
-    abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract},
-    constants::{L, N},
-    utils::{get_process_match_settle_data, serialize_to_calldata, setup_darkpool_test_contract},
+    abis::{
+        DarkpoolTestContract, DummyErc20Contract, PrecompileTestContract, VerifierTestContract,
+    },
+    constants::{L, N, TRANSFER_AMOUNT},
+    utils::{
+        dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
+        get_process_match_settle_data, mint_dummy_erc20, serialize_to_calldata,
+        setup_darkpool_test_contract,
+    },
 };
 
 pub(crate) async fn test_ec_add(
@@ -171,6 +177,53 @@ pub(crate) async fn test_nullifier_set(
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
 
     assert!(nullifier_spent, "Nullifier not spent");
+
+    Ok(())
+}
+
+pub(crate) async fn test_external_transfer(
+    darkpool_test_contract: DarkpoolTestContract<impl Middleware + 'static>,
+    dummy_erc20_contract: DummyErc20Contract<impl Middleware + 'static>,
+) -> Result<()> {
+    let darkpool_address = darkpool_test_contract.address();
+    let account_address = darkpool_test_contract.client().default_sender().unwrap();
+    let mint = dummy_erc20_contract.address();
+
+    // Deposit initial funds for darkpool & user in dummy erc20 address
+    mint_dummy_erc20(&dummy_erc20_contract, &[darkpool_address, account_address]).await?;
+
+    let darkpool_initial_balance = dummy_erc20_contract
+        .balance_of(darkpool_address)
+        .call()
+        .await?;
+    let user_initial_balance = dummy_erc20_contract
+        .balance_of(account_address)
+        .call()
+        .await?;
+
+    // Create & execute deposit external transfer, check balances
+    let deposit = dummy_erc20_deposit(account_address, mint);
+    let (darkpool_balance, user_balance) = execute_transfer_and_get_balances(
+        &darkpool_test_contract,
+        &dummy_erc20_contract,
+        &deposit,
+        account_address,
+    )
+    .await?;
+    assert_eq!(darkpool_balance, darkpool_initial_balance + TRANSFER_AMOUNT);
+    assert_eq!(user_balance, user_initial_balance - TRANSFER_AMOUNT);
+
+    // Create & execute withdrawal external transfer, check balances
+    let withdrawal = dummy_erc20_withdrawal(account_address, mint);
+    let (darkpool_balance, user_balance) = execute_transfer_and_get_balances(
+        &darkpool_test_contract,
+        &dummy_erc20_contract,
+        &withdrawal,
+        account_address,
+    )
+    .await?;
+    assert_eq!(darkpool_balance, darkpool_initial_balance);
+    assert_eq!(user_balance, user_initial_balance);
 
     Ok(())
 }
