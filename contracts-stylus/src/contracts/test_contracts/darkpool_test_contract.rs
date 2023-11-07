@@ -7,7 +7,7 @@ use stylus_sdk::{
     prelude::*,
 };
 
-use crate::darkpool::DarkpoolContract;
+use crate::contracts::darkpool::DarkpoolContract;
 
 // We implement the `*Context`traits manually for the
 // `DarkpoolContract` because it is not the entrypoint when

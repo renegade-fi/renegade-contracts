@@ -4,13 +4,12 @@ use alloc::vec::Vec;
 use common::{
     backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError, HashBackend},
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
-    custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable},
-    serde_def_types::SerdeScalarField,
+    custom_serde::{BytesDeserializable, BytesSerializable},
     types::{G1Affine, G2Affine, ScalarField},
 };
 use stylus_sdk::{alloy_primitives::Address, call::RawCall, crypto::keccak};
 
-use crate::constants::{
+use crate::utils::constants::{
     EC_ADD_ADDRESS_LAST_BYTE, EC_MUL_ADDRESS_LAST_BYTE, EC_PAIRING_ADDRESS_LAST_BYTE,
     EC_RECOVER_ADDRESS_LAST_BYTE, PAIRING_CHECK_RESULT_LAST_BYTE_INDEX,
 };
@@ -91,25 +90,6 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         // Return the result of the pairing check, which is either a 0 or 1.
         Ok(res[0] == 1)
     }
-}
-
-/// Serializes the given statement into scalars, and then into bytes,
-/// as expected by the verifier contract.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub fn serialize_statement_for_verification<S: ScalarSerializable>(
-    statement: &S,
-) -> postcard::Result<Vec<u8>> {
-    postcard::to_allocvec(
-        &statement
-            .serialize_to_scalars()
-            .map_err(|_| postcard::Error::SerdeSerCustom)?
-            .into_iter()
-            .map(SerdeScalarField)
-            .collect::<Vec<_>>(),
-    )
 }
 
 pub struct PrecompileEcRecoverBackend;

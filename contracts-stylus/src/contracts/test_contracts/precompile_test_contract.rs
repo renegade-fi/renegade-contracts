@@ -9,7 +9,7 @@ use common::{
 };
 use stylus_sdk::{abi::Bytes, console, prelude::*};
 
-use crate::utils::{PrecompileEcRecoverBackend, PrecompileG1ArithmeticBackend};
+use crate::utils::backends::{PrecompileEcRecoverBackend, PrecompileG1ArithmeticBackend};
 
 #[solidity_storage]
 #[entrypoint]

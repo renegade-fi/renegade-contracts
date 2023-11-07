@@ -5,7 +5,7 @@ use common::types::VerificationBundle;
 use contracts_core::verifier::Verifier;
 use stylus_sdk::{prelude::*, ArbResult};
 
-use crate::utils::{PrecompileG1ArithmeticBackend, StylusHasher};
+use crate::utils::backends::{PrecompileG1ArithmeticBackend, StylusHasher};
 
 /// Verify the given proof, using the given verification bundle
 #[entrypoint]
