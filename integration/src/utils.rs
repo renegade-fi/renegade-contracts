@@ -2,17 +2,18 @@
 
 use std::{fs::File, io::Read, str::FromStr, sync::Arc};
 
+use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_std::UniformRand;
 use common::types::{
-    MatchPayload, Proof, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
-    ValidReblindStatement, VerificationKey,
+    ExternalTransfer, MatchPayload, Proof, ScalarField, ValidCommitmentsStatement,
+    ValidMatchSettleStatement, ValidReblindStatement, VerificationKey,
 };
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
     signers::{LocalWallet, Signer},
-    types::Bytes,
+    types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
 use rand::Rng;
@@ -20,11 +21,11 @@ use serde::Serialize;
 use test_helpers::renegade_circuits::{dummy_circuit_bundle, Circuit};
 
 use crate::{
-    abis::DarkpoolTestContract,
+    abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
     constants::{
         DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, N, PRECOMPILE_TEST_CONTRACT_KEY,
-        VERIFIER_TEST_CONTRACT_KEY,
+        TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY,
     },
 };
 
@@ -80,6 +81,9 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -
         }
         Tests::Verifier => {
             parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
+        }
+        Tests::ExternalTransfer => {
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
         }
         Tests::UpdateWallet => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
@@ -180,4 +184,63 @@ pub(crate) fn get_process_match_settle_data(rng: &mut impl Rng) -> Result<Proces
         valid_reblind_vkey,
         valid_match_settle_vkey,
     })
+}
+
+pub(crate) async fn mint_dummy_erc20(
+    contract: &DummyErc20Contract<impl Middleware + 'static>,
+    addresses: &[Address],
+) -> Result<()> {
+    for address in addresses {
+        contract
+            .mint(*address, U256::from(TRANSFER_AMOUNT))
+            .send()
+            .await?
+            .await?;
+    }
+
+    Ok(())
+}
+
+fn dummy_erc20_external_transfer(
+    account_addr: Address,
+    mint: Address,
+    is_withdrawal: bool,
+) -> ExternalTransfer {
+    ExternalTransfer {
+        account_addr: AlloyAddress::from_slice(account_addr.as_bytes()),
+        mint: AlloyAddress::from_slice(mint.as_bytes()),
+        amount: AlloyU256::from(TRANSFER_AMOUNT),
+        is_withdrawal,
+    }
+}
+
+pub(crate) fn dummy_erc20_deposit(account_addr: Address, mint: Address) -> ExternalTransfer {
+    dummy_erc20_external_transfer(account_addr, mint, false)
+}
+
+pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> ExternalTransfer {
+    dummy_erc20_external_transfer(account_addr, mint, true)
+}
+
+pub(crate) async fn execute_transfer_and_get_balances(
+    darkpool_test_contract: &DarkpoolTestContract<impl Middleware + 'static>,
+    dummy_erc20_contract: &DummyErc20Contract<impl Middleware + 'static>,
+    transfer: &ExternalTransfer,
+    account_address: Address,
+) -> Result<(U256, U256)> {
+    darkpool_test_contract
+        .execute_external_transfer(serialize_to_calldata(transfer)?)
+        .send()
+        .await?
+        .await?;
+    let darkpool_balance = dummy_erc20_contract
+        .balance_of(darkpool_test_contract.address())
+        .call()
+        .await?;
+    let user_balance = dummy_erc20_contract
+        .balance_of(account_address)
+        .call()
+        .await?;
+
+    Ok((darkpool_balance, user_balance))
 }

@@ -158,7 +158,7 @@ impl DarkpoolContract {
         self.mark_nullifier_spent(valid_wallet_update_statement.old_shares_nullifier);
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
-            self.execute_external_transfer(external_transfer);
+            self.execute_external_transfer(&external_transfer);
         }
 
         // TODO: Emit wallet updated event w/ wallet blinder share
@@ -284,7 +284,7 @@ impl DarkpoolContract {
         result[0] != 0
     }
 
-    pub fn execute_external_transfer(&mut self, transfer: ExternalTransfer) {
+    pub fn execute_external_transfer(&mut self, transfer: &ExternalTransfer) {
         let erc20 = IERC20::new(transfer.mint);
         if transfer.is_withdrawal {
             erc20

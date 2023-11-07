@@ -8,3 +8,6 @@ mod verifier_test_contract;
 
 #[cfg(feature = "darkpool-test-contract")]
 mod darkpool_test_contract;
+
+#[cfg(feature = "dummy-erc20")]
+mod dummy_erc20;

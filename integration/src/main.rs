@@ -1,13 +1,15 @@
 //! Basic tests for Stylus programs. These assume that a devnet is already running locally.
 
-use abis::{DarkpoolTestContract, PrecompileTestContract, VerifierTestContract};
+use abis::{
+    DarkpoolTestContract, DummyErc20Contract, PrecompileTestContract, VerifierTestContract,
+};
 use clap::Parser;
 use cli::{Cli, Tests};
-use constants::VERIFIER_CONTRACT_KEY;
+use constants::{DUMMY_ERC20_CONTRACT_KEY, VERIFIER_CONTRACT_KEY};
 use eyre::Result;
 use tests::{
-    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_nullifier_set,
-    test_process_match_settle, test_update_wallet, test_verifier,
+    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
+    test_nullifier_set, test_process_match_settle, test_update_wallet, test_verifier,
 };
 use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
@@ -61,6 +63,14 @@ async fn main() -> Result<()> {
                 parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
 
             test_verifier(contract, verifier_address).await?;
+        }
+        Tests::ExternalTransfer => {
+            let contract = DarkpoolTestContract::new(contract_address, client.clone());
+            let dummy_erc20_address =
+                parse_addr_from_deployments_file(deployments_file, DUMMY_ERC20_CONTRACT_KEY)?;
+            let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client);
+
+            test_external_transfer(contract, dummy_erc20_contract).await?;
         }
         Tests::UpdateWallet => {
             let contract = DarkpoolTestContract::new(contract_address, client);

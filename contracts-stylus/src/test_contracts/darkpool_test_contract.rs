@@ -1,15 +1,16 @@
 use alloc::vec::Vec;
-use common::serde_def_types::SerdeScalarField;
+use common::{serde_def_types::SerdeScalarField, types::ExternalTransfer};
 use stylus_sdk::{
     abi::Bytes,
-    call::{CallContext, StaticCallContext},
+    alloy_primitives::U256,
+    call::{CallContext, MutatingCallContext, NonPayableCallContext, StaticCallContext},
     prelude::*,
 };
 
 use crate::darkpool::DarkpoolContract;
 
-// We implement the `CallContext` & `StaticCallContext` traits manually
-// for the `DarkpoolContract` because it is not the entrypoint when
+// We implement the `*Context`traits manually for the
+// `DarkpoolContract` because it is not the entrypoint when
 // building the `DarkpoolTestContract`, and as such doesn't have these
 // traits implemented for it by the `#[entrypoint]` macro.`
 impl CallContext for &mut DarkpoolContract {
@@ -19,6 +20,14 @@ impl CallContext for &mut DarkpoolContract {
 }
 
 impl StaticCallContext for &mut DarkpoolContract {}
+
+unsafe impl MutatingCallContext for &mut DarkpoolContract {
+    fn value(&self) -> U256 {
+        U256::ZERO
+    }
+}
+
+impl NonPayableCallContext for &mut DarkpoolContract {}
 
 #[solidity_storage]
 #[entrypoint]
@@ -44,5 +53,12 @@ impl DarkpoolTestContract {
         public_inputs: Bytes,
     ) -> Result<bool, Vec<u8>> {
         Ok(self.darkpool.verify(circuit_id, proof, public_inputs))
+    }
+
+    pub fn execute_external_transfer(&mut self, transfer: Bytes) -> Result<(), Vec<u8>> {
+        let external_transfer: ExternalTransfer =
+            postcard::from_bytes(transfer.as_slice()).unwrap();
+        self.darkpool.execute_external_transfer(&external_transfer);
+        Ok(())
     }
 }

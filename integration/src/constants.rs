@@ -22,8 +22,14 @@ pub(crate) const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
 /// The darkpool test contract key in the `deployments.json` file
 pub(crate) const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
 
+/// The dummy erc20 contract key in the `deployments.json` file
+pub(crate) const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
+
 /// The domain size to use when testing the verifier contract
 pub(crate) const N: usize = 8192;
 
 /// The number of public inputs to use when testing the verifier contract
 pub(crate) const L: usize = 128;
+
+/// The amount of dummy ERC20 tokens to use when testing external transfers
+pub(crate) const TRANSFER_AMOUNT: u64 = 1000;
