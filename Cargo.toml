@@ -43,7 +43,8 @@ rpath = false            # no run-time search path
 debug-assertions = false # prune debug assertions
 incremental = false      # no incremental builds
 
-[profile.dev]
+[profile.binary-profiling]
+inherits = "dev"
 codegen-units = 1   # prefer efficiency to compile time
 panic = "abort"     # use simple panics
 opt-level = "z"     # optimize for size ("s" may also work)

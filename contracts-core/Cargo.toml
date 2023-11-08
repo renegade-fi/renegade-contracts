@@ -19,3 +19,4 @@ jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 test-helpers = { path = "../test-helpers" }
 rand = { workspace = true }
 ethers = { workspace = true }
+ark-crypto-primitives = { workspace = true }

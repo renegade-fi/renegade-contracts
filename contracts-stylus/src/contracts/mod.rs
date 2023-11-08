@@ -3,9 +3,6 @@
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 mod darkpool;
 
-#[cfg(feature = "merkle")]
-mod merkle;
-
 #[cfg(feature = "verifier")]
 mod verifier;
 

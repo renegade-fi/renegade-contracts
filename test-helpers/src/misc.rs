@@ -3,9 +3,8 @@
 use alloc::vec::Vec;
 use ark_std::UniformRand;
 use common::types::ScalarField;
-use rand::thread_rng;
+use rand::Rng;
 
-pub fn random_scalars(n: usize) -> Vec<ScalarField> {
-    let mut rng = thread_rng();
-    (0..n).map(|_| ScalarField::rand(&mut rng)).collect()
+pub fn random_scalars(n: usize, rng: &mut impl Rng) -> Vec<ScalarField> {
+    (0..n).map(|_| ScalarField::rand(rng)).collect()
 }

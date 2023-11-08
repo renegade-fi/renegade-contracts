@@ -467,6 +467,7 @@ mod tests {
         types::{G1Affine, G2Affine, ScalarField},
     };
     use jf_utils::multi_pairing;
+    use rand::thread_rng;
     use test_helpers::{
         crypto::NativeHasher,
         misc::random_scalars,
@@ -502,7 +503,8 @@ mod tests {
     // Mirrors circuit definition in the Jellyfish benchmarks
     #[test]
     fn test_valid_proof_verification() {
-        let public_inputs = random_scalars(L);
+        let mut rng = thread_rng();
+        let public_inputs = random_scalars(L, &mut rng);
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs).unwrap();
         let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
         let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::new(vkey);
@@ -513,7 +515,8 @@ mod tests {
 
     #[test]
     fn test_invalid_proof_verification() {
-        let public_inputs = random_scalars(L);
+        let mut rng = thread_rng();
+        let public_inputs = random_scalars(L, &mut rng);
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs).unwrap();
         let (mut proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
         proof.z_bar += ScalarField::one();
