@@ -9,6 +9,8 @@ ark-ff = { workspace = true }
 ark-poly = { workspace = true }
 alloy-primitives = { workspace = true }
 renegade-crypto = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
 
 
 [dev-dependencies]

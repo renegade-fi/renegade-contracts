@@ -36,21 +36,21 @@ macro_rules! impl_serde_as {
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "BigInt")]
-pub(crate) struct BigIntDef<const N: usize>(#[serde_as(as = "[_; N]")] pub [u64; N]);
+pub struct BigIntDef<const N: usize>(#[serde_as(as = "[_; N]")] pub [u64; N]);
 
 impl_serde_as!(BigInt<N>, BigIntDef<N>, const N: usize);
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "Fp")]
-pub(crate) struct FpDef<P: FpConfig<N>, const N: usize>(
+pub struct FpDef<P: FpConfig<N>, const N: usize>(
     #[serde_as(as = "BigIntDef<N>")] pub BigInt<N>,
     pub PhantomData<P>,
 );
 
 impl_serde_as!(Fp<P, N>, FpDef<P, N>, P: FpConfig<N>, const N: usize);
 
-pub(crate) type ScalarFieldDef = FpDef<MontBackend<FrConfig, 4>, 4>;
+pub type ScalarFieldDef = FpDef<MontBackend<FrConfig, 4>, 4>;
 pub(crate) type G1BaseFieldDef = FpDef<MontBackend<FqConfig, 4>, 4>;
 
 #[serde_as]
