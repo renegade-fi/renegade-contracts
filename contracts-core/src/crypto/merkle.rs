@@ -2,52 +2,78 @@
 
 use alloc::{vec, vec::Vec};
 use ark_ff::Zero;
-use common::types::{ScalarField, SparseMerkleTree};
+use common::{serde_def_types::ScalarFieldDef, types::ScalarField};
 use renegade_crypto::hash::Poseidon2Sponge;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+
+/// A low-memory, append-only Merkle tree that only stores the current path of siblings
+/// for the next leaf to be inserted.
+///
+/// The `HEIGHT` parameter represents the height of the tree,
+/// inclusive of the root.
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct SparseMerkleTree<const HEIGHT: usize>
+where
+    [(); HEIGHT - 1]:,
+{
+    /// The next index at which to insert a leaf
+    pub next_index: u128,
+    /// The current root of the tree
+    #[serde_as(as = "ScalarFieldDef")]
+    pub root: ScalarField,
+    /// The current path of siblings for the next leaf to be inserted
+    #[serde_as(as = "[ScalarFieldDef; HEIGHT - 1]")]
+    pub sibling_path: [ScalarField; HEIGHT - 1],
+    /// The path of values in an empty tree
+    #[serde_as(as = "[ScalarFieldDef; HEIGHT - 1]")]
+    pub zeros: [ScalarField; HEIGHT - 1],
+}
 
 /// Represents a node in the Merkle tree,
 /// including the height and index "coordinates" along with the value
-pub struct Node {
+pub struct NodeMetadata {
     pub height: usize,
     pub index: u128,
     pub value: ScalarField,
 }
 
-pub trait MerkleTree {
-    /// Create a new Merkle tree of the given height (inclusive of the root),
-    /// w/ zeros as the leaves
-    fn new(height: usize) -> Self;
-    /// Insert a value into the Merkle tree,
-    /// returning the updated opening for the insertion
-    fn insert(&mut self, value: ScalarField) -> Vec<Node>;
-    /// Get the root of the Merkle tree
-    fn root(&self) -> ScalarField;
-}
-
-impl MerkleTree for SparseMerkleTree {
-    fn new(height: usize) -> Self {
+impl<const HEIGHT: usize> Default for SparseMerkleTree<HEIGHT>
+where
+    [(); HEIGHT - 1]:,
+{
+    /// Create a new Merkle tree w/ zeros as the leaves
+    fn default() -> Self {
         let mut tree = SparseMerkleTree {
-            height,
             next_index: 0,
             root: ScalarField::zero(),
-            sibling_path: vec![ScalarField::zero(); height - 1],
-            zeros: vec![ScalarField::zero(); height - 1],
+            sibling_path: [ScalarField::zero(); HEIGHT - 1],
+            zeros: [ScalarField::zero(); HEIGHT - 1],
         };
 
-        let root = setup_empty_tree(&mut tree, height - 1, ScalarField::zero());
+        let root = setup_empty_tree(&mut tree, HEIGHT - 1, ScalarField::zero());
         tree.root = root;
 
         tree
     }
+}
 
-    fn root(&self) -> ScalarField {
+impl<const HEIGHT: usize> SparseMerkleTree<HEIGHT>
+where
+    [(); HEIGHT - 1]:,
+{
+    /// Get the root of the Merkle tree
+    pub fn root(&self) -> ScalarField {
         self.root
     }
 
-    fn insert(&mut self, value: ScalarField) -> Vec<Node> {
-        assert!(self.next_index < 2_u128.pow((self.height - 1) as u32));
-        let node_changes = insert_helper(self, value, self.height - 1, self.next_index, true);
-        self.root = node_changes.last().unwrap().value;
+    /// Insert a value into the Merkle tree,
+    /// returning the updated internal nodes from the insertion
+    pub fn insert(&mut self, value: ScalarField) -> Vec<NodeMetadata> {
+        assert!(self.next_index < 2_u128.pow((HEIGHT - 1) as u32));
+        let node_changes = insert_helper(self, value, HEIGHT - 1, self.next_index, true);
+        self.root = node_changes.first().unwrap().value;
         self.next_index += 1;
         node_changes
     }
@@ -55,11 +81,14 @@ impl MerkleTree for SparseMerkleTree {
 
 /// Recursive helper for computing the root of an empty Merkle tree and
 /// filling in the values for the zeros and sibling pathways
-fn setup_empty_tree(
-    tree: &mut SparseMerkleTree,
+fn setup_empty_tree<const HEIGHT: usize>(
+    tree: &mut SparseMerkleTree<HEIGHT>,
     height: usize,
     current_leaf: ScalarField,
-) -> ScalarField {
+) -> ScalarField
+where
+    [(); HEIGHT - 1]:,
+{
     // Base case (root)
     if height == 0 {
         return current_leaf;
@@ -82,17 +111,20 @@ fn setup_empty_tree(
 
 /// Recursive helper for inserting a value into the Merkle tree,
 /// updating the sibling pathway along the way, and returning
-/// the opening for the insertion
-fn insert_helper(
-    tree: &mut SparseMerkleTree,
+/// the updated internal nodes
+fn insert_helper<const HEIGHT: usize>(
+    tree: &mut SparseMerkleTree<HEIGHT>,
     value: ScalarField,
     height: usize,
     insert_index: u128,
     subtree_filled: bool,
-) -> Vec<Node> {
+) -> Vec<NodeMetadata>
+where
+    [(); HEIGHT - 1]:,
+{
     // Base case
     if height == 0 {
-        return vec![Node {
+        return vec![NodeMetadata {
             height,
             index: insert_index,
             value,
@@ -133,29 +165,23 @@ fn insert_helper(
         sponge.hash(&[current_sibling_value, value])
     };
 
-    let mut node_changes = vec![Node {
+    let mut node_changes =
+        insert_helper(tree, next_value, height - 1, next_index, new_subtree_filled);
+    node_changes.push(NodeMetadata {
         height,
         index: insert_index,
         value,
-    }];
-    node_changes.extend(insert_helper(
-        tree,
-        next_value,
-        height - 1,
-        next_index,
-        new_subtree_filled,
-    ));
+    });
     node_changes
 }
 
 #[cfg(test)]
 mod tests {
     use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
-    use common::types::SparseMerkleTree;
     use rand::thread_rng;
     use test_helpers::{merkle::MerkleConfig, misc::random_scalars};
 
-    use super::MerkleTree;
+    use super::SparseMerkleTree;
 
     const TEST_MERKLE_HEIGHT: usize = 5;
 
@@ -163,7 +189,7 @@ mod tests {
     fn test_against_arkworks() {
         let mut ark_merkle =
             ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
-        let mut renegade_merkle = SparseMerkleTree::new(TEST_MERKLE_HEIGHT);
+        let mut renegade_merkle = SparseMerkleTree::<TEST_MERKLE_HEIGHT>::default();
 
         let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT - 1) as u32);
         let mut rng = thread_rng();

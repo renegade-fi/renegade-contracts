@@ -971,6 +971,8 @@ dependencies = [
  "jf-utils",
  "rand",
  "renegade-crypto",
+ "serde",
+ "serde_with 3.4.0",
  "test-helpers",
 ]
 

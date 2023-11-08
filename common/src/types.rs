@@ -243,23 +243,3 @@ pub struct VerificationBundle {
     #[serde_as(as = "Vec<ScalarFieldDef>")]
     pub public_inputs: Vec<ScalarField>,
 }
-
-/// A low-memory, append-only Merkle tree that only stores the current path of siblings
-/// for the next leaf to be inserted.
-#[serde_as]
-#[derive(Serialize, Deserialize)]
-pub struct SparseMerkleTree {
-    /// The height of the tree, inclusive of the root
-    pub height: usize,
-    /// The next index at which to insert a leaf
-    pub next_index: u128,
-    /// The current root of the tree
-    #[serde_as(as = "ScalarFieldDef")]
-    pub root: ScalarField,
-    /// The current path of siblings for the next leaf to be inserted
-    #[serde_as(as = "Vec<ScalarFieldDef>")]
-    pub sibling_path: Vec<ScalarField>,
-    /// The path of values in an empty tree
-    #[serde_as(as = "Vec<ScalarFieldDef>")]
-    pub zeros: Vec<ScalarField>,
-}
