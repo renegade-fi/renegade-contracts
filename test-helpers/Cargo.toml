@@ -10,6 +10,7 @@ ark-bn254 = { workspace = true }
 ark-ff = { workspace = true }
 ark-ec = { workspace = true }
 ark-std = { workspace = true }
+ark-crypto-primitives = { workspace = true }
 alloy-primitives = { workspace = true }
 eyre = { workspace = true }
 serde = { workspace = true }
@@ -21,3 +22,4 @@ jf-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features 
 jf-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
+renegade-crypto = { workspace = true }
