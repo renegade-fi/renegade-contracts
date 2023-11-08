@@ -130,7 +130,8 @@ pub(crate) async fn test_verifier(
     contract: VerifierTestContract<impl Middleware + 'static>,
     verifier_address: Address,
 ) -> Result<()> {
-    let public_inputs = random_scalars(L);
+    let mut rng = thread_rng();
+    let public_inputs = random_scalars(L, &mut rng);
     let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs)?;
     let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
 

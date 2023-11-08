@@ -961,6 +961,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "ark-bn254",
+ "ark-crypto-primitives",
  "ark-ec",
  "ark-ff",
  "ark-poly",

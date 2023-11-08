@@ -11,14 +11,14 @@ use common::types::ScalarField;
 use rand::Rng;
 use renegade_crypto::hash::Poseidon2Sponge;
 
-struct PoseidonCRH;
-impl CRHScheme for PoseidonCRH {
-    type Input = [ScalarField];
+pub struct IdentityCRH;
+impl CRHScheme for IdentityCRH {
+    type Input = ScalarField;
     type Output = ScalarField;
     type Parameters = ();
 
     fn setup<R: Rng>(_r: &mut R) -> Result<Self::Parameters, ArkError> {
-        // We specify the Poseidon parameters in https://github.com/renegade-fi/renegade/blob/main/renegade-crypto/src/hash/constants.rs
+        // There is no setup required for the identity hash
         unimplemented!()
     }
 
@@ -27,9 +27,7 @@ impl CRHScheme for PoseidonCRH {
         input: T,
     ) -> Result<Self::Output, ArkError> {
         let input = input.borrow();
-
-        let mut sponge = Poseidon2Sponge::new();
-        Ok(sponge.hash(input))
+        Ok(*input)
     }
 }
 
@@ -65,13 +63,15 @@ impl TwoToOneCRHScheme for PoseidonTwoToOneCRH {
     }
 }
 
-struct MerkleConfig;
+pub struct MerkleConfig;
 impl Config for MerkleConfig {
-    type Leaf = [ScalarField];
+    type Leaf = ScalarField;
     type LeafDigest = ScalarField;
     type InnerDigest = ScalarField;
 
-    type LeafHash = PoseidonCRH;
+    // We expect pre-hashed leaves, so the Merkle tree itself should not do any hashing of the leaves
+    // upon setup / insertion
+    type LeafHash = IdentityCRH;
     type TwoToOneHash = PoseidonTwoToOneCRH;
     type LeafInnerDigestConverter = IdentityDigestConverter<ScalarField>;
 }
