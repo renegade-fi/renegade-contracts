@@ -16,6 +16,7 @@ alloy-sol-types = { workspace = true }
 
 [features]
 darkpool = []
+merkle = []
 verifier = []
 verifier-test-contract = []
 darkpool-test-contract = []

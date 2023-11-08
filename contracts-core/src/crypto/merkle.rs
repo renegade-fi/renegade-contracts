@@ -1,77 +1,119 @@
-//! Implementation of a Merkle tree using the Poseidon2 implementation from the relayer codebase.
+//! A sparse Merkle tree implementation, intended to be used in a smart contract context.
 
-use core::borrow::Borrow;
-
-use ark_crypto_primitives::{
-    crh::{CRHScheme, TwoToOneCRHScheme},
-    merkle_tree::{Config, IdentityDigestConverter},
-    Error as ArkError,
-};
-use common::types::ScalarField;
-use rand::Rng;
+use ark_ff::Zero;
+use common::types::{ScalarField, SparseMerkleTree};
 use renegade_crypto::hash::Poseidon2Sponge;
 
-struct PoseidonCRH;
-impl CRHScheme for PoseidonCRH {
-    type Input = [ScalarField];
-    type Output = ScalarField;
-    type Parameters = ();
+pub trait MerkleTree {
+    /// Create a new Merkle tree w/ zeros as the leaves
+    fn new() -> Self;
+    /// Insert a value into the Merkle tree, returning the new root
+    fn insert(&mut self, value: ScalarField) -> ScalarField;
+    /// Get the root of the Merkle tree
+    fn root(&self) -> ScalarField;
+}
 
-    fn setup<R: Rng>(_r: &mut R) -> Result<Self::Parameters, ArkError> {
-        // We specify the Poseidon parameters in https://github.com/renegade-fi/renegade/blob/main/renegade-crypto/src/hash/constants.rs
-        unimplemented!()
+impl<const HEIGHT: usize> MerkleTree for SparseMerkleTree<HEIGHT> {
+    fn new() -> Self {
+        let mut tree = SparseMerkleTree {
+            next_index: 0,
+            root: ScalarField::zero(),
+            sibling_path: [ScalarField::zero(); HEIGHT],
+            zeros: [ScalarField::zero(); HEIGHT],
+        };
+
+        let root = setup_empty_tree(&mut tree, HEIGHT, ScalarField::zero());
+        tree.root = root;
+
+        tree
     }
 
-    fn evaluate<T: Borrow<Self::Input>>(
-        _parameters: &Self::Parameters,
-        input: T,
-    ) -> Result<Self::Output, ArkError> {
-        let input = input.borrow();
+    fn root(&self) -> ScalarField {
+        self.root
+    }
 
-        let mut sponge = Poseidon2Sponge::new();
-        Ok(sponge.hash(input))
+    fn insert(&mut self, value: ScalarField) -> ScalarField {
+        assert!(self.next_index < 2_u128.pow(HEIGHT as u32));
+        let root = insert_helper(self, value, HEIGHT, self.next_index, true);
+        self.next_index += 1;
+        root
     }
 }
 
-pub struct PoseidonTwoToOneCRH;
-impl TwoToOneCRHScheme for PoseidonTwoToOneCRH {
-    type Input = ScalarField;
-    type Output = ScalarField;
-    type Parameters = ();
-
-    fn setup<R: Rng>(_r: &mut R) -> Result<Self::Parameters, ArkError> {
-        // We specify the Poseidon parameters in https://github.com/renegade-fi/renegade/blob/main/renegade-crypto/src/hash/constants.rs
-        unimplemented!()
+/// Recursive helper for computing the root of an empty Merkle tree and
+/// filling in the values for the zeros and sibling pathways
+fn setup_empty_tree<const HEIGHT: usize>(
+    tree: &mut SparseMerkleTree<HEIGHT>,
+    height: usize,
+    current_leaf: ScalarField,
+) -> ScalarField {
+    // Base case (root)
+    if height == 0 {
+        return current_leaf;
     }
 
-    fn evaluate<T: Borrow<Self::Input>>(
-        parameters: &Self::Parameters,
-        left_input: T,
-        right_input: T,
-    ) -> Result<Self::Output, ArkError> {
-        Self::compress(parameters, left_input, right_input)
-    }
+    // Write the zero value at this height to storage
+    tree.zeros[height] = current_leaf;
 
-    fn compress<T: Borrow<Self::Output>>(
-        _parameters: &Self::Parameters,
-        left_input: T,
-        right_input: T,
-    ) -> Result<Self::Output, ArkError> {
-        let left_input = left_input.borrow();
-        let right_input = right_input.borrow();
+    // The next value in the sibling pathway is the current hash, when the first value
+    // is inserted into the Merkle tree, it will be hashed against the same values used
+    // in this recursion
+    tree.sibling_path[height] = current_leaf;
 
-        let mut sponge = Poseidon2Sponge::new();
-        Ok(sponge.hash(&[*left_input, *right_input]))
-    }
+    // Hash the current leaf with itself and recurse
+    let mut sponge = Poseidon2Sponge::new();
+    let next_leaf = sponge.hash(&[current_leaf, current_leaf]);
+
+    setup_empty_tree(tree, height - 1, next_leaf)
 }
 
-struct MerkleConfig;
-impl Config for MerkleConfig {
-    type Leaf = [ScalarField];
-    type LeafDigest = ScalarField;
-    type InnerDigest = ScalarField;
+fn insert_helper<const HEIGHT: usize>(
+    tree: &mut SparseMerkleTree<HEIGHT>,
+    value: ScalarField,
+    height: usize,
+    insert_index: u128,
+    subtree_filled: bool,
+) -> ScalarField {
+    // Base case
+    if height == 0 {
+        return value;
+    }
 
-    type LeafHash = PoseidonCRH;
-    type TwoToOneHash = PoseidonTwoToOneCRH;
-    type LeafInnerDigestConverter = IdentityDigestConverter<ScalarField>;
+    // Fetch the least significant bit of the insertion index, this tells us
+    // whether (at the current height), we are hashing into the left or right
+    // hand value
+    let next_index = insert_index >> 1;
+    let is_left = (insert_index & 1) == 0;
+
+    // If the subtree rooted at the current node is filled, update the sibling value
+    // for the next insertion. There are two cases here:
+    //      1. The current insertion index is a left child; in this case the updated
+    //         sibling value is the newly computed node value.
+    //      2. The current insertion index is a right child; in this case, the subtree
+    //         of the parent is filled as well, meaning we should set the updated sibling
+    //         to the zero value at this height; representing an empty child of the parent's
+    //         sibling
+    let current_sibling_value = tree.sibling_path[height];
+    if subtree_filled {
+        if is_left {
+            tree.sibling_path[height] = value;
+        } else {
+            tree.sibling_path[height] = tree.zeros[height];
+        }
+    }
+
+    // Mux between hashing the current value as the left or right sibling depending on
+    // the index being inserted into
+    let mut sponge = Poseidon2Sponge::new();
+    let mut new_subtree_filled = false;
+    let next_value = if is_left {
+        sponge.hash(&[value, current_sibling_value])
+    } else {
+        new_subtree_filled = subtree_filled;
+        sponge.hash(&[current_sibling_value, value])
+    };
+
+    // TODO: Emit an event indicating that the internal node has changed
+
+    insert_helper(tree, next_value, height - 1, next_index, new_subtree_filled)
 }
