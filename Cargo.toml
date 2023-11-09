@@ -30,7 +30,7 @@ rand = "0.8.5"
 num-bigint = { version = "0.4", default-features = false }
 eyre = "0.6.8"
 ethers = "2.0"
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/circuits-refactor", default-features = false }
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time
