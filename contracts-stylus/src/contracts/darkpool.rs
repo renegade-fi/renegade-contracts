@@ -10,7 +10,7 @@ use common::{
         ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
-use contracts_core::crypto::{ecdsa::ecdsa_verify, poseidon::compute_poseidon_hash};
+use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
@@ -44,6 +44,9 @@ pub struct DarkpoolContract {
     /// The address of the Merkle contract
     merkle_address: StorageAddress,
 
+    /// The address of the Poseidon hashing contract
+    poseidon_address: StorageAddress,
+
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
     /// boolean indicating whether or not the nullifier is spent
@@ -61,6 +64,13 @@ impl DarkpoolContract {
     // | CONFIG |
     // ----------
 
+    /// Stores the given address for the verifier contract
+    pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
+        self.verifier_address.set(address);
+        Ok(())
+    }
+
     // Stores the given address for the Merkle contract
     pub fn set_merkle_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
         self.ownable._check_owner()?;
@@ -68,10 +78,10 @@ impl DarkpoolContract {
         Ok(())
     }
 
-    /// Stores the given address for the verifier contract
-    pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
+    // Stores the given address for the Merkle contract
+    pub fn set_poseidon_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
         self.ownable._check_owner()?;
-        self.verifier_address.set(address);
+        self.poseidon_address.set(address);
         Ok(())
     }
 
@@ -278,11 +288,15 @@ impl DarkpoolContract {
         }
 
         self.insert_wallet_commitment_to_merkle_tree(
-            party_0_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
+            party_0_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party0_modified_shares,
         );
         self.insert_wallet_commitment_to_merkle_tree(
-            party_1_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
+            party_1_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party1_modified_shares,
         );
 
@@ -322,6 +336,18 @@ impl DarkpoolContract {
         self.nullifier_set.insert(nullifier_ser, true);
     }
 
+    pub fn compute_poseidon_hash(&mut self, scalars: &[ScalarField]) -> Vec<u8> {
+        let scalars_ser = postcard::to_allocvec(
+            &scalars
+                .iter()
+                .map(|s| SerdeScalarField(*s))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let poseidon_address = self.poseidon_address.get();
+        static_call(self, poseidon_address, &scalars_ser).unwrap()
+    }
+
     /// Computes the total commitment to both the private and public wallet shares,
     /// and inserts it into the Merkle tree
     pub fn insert_wallet_commitment_to_merkle_tree(
@@ -331,10 +357,7 @@ impl DarkpoolContract {
     ) {
         let mut total_wallet_shares = vec![private_shares_commitment];
         total_wallet_shares.extend(public_wallet_shares);
-        let total_shares_commitment_bytes = postcard::to_allocvec(&SerdeScalarField(
-            compute_poseidon_hash(&total_wallet_shares),
-        ))
-        .unwrap();
+        let total_shares_commitment_bytes = self.compute_poseidon_hash(&total_wallet_shares);
 
         let merkle = IMerkle::new(self.merkle_address.get());
         merkle.insert(self, total_shares_commitment_bytes).unwrap();
