@@ -10,7 +10,7 @@ use common::{
         ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
-use contracts_core::crypto::{ecdsa::ecdsa_verify, poseidon::compute_poseidon_hash};
+use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
@@ -278,11 +278,15 @@ impl DarkpoolContract {
         }
 
         self.insert_wallet_commitment_to_merkle_tree(
-            party_0_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
+            party_0_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party0_modified_shares,
         );
         self.insert_wallet_commitment_to_merkle_tree(
-            party_1_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
+            party_1_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party1_modified_shares,
         );
 
@@ -331,13 +335,18 @@ impl DarkpoolContract {
     ) {
         let mut total_wallet_shares = vec![private_shares_commitment];
         total_wallet_shares.extend(public_wallet_shares);
-        let total_shares_commitment_bytes = postcard::to_allocvec(&SerdeScalarField(
-            compute_poseidon_hash(&total_wallet_shares),
-        ))
+        let total_wallet_shares_bytes = postcard::to_allocvec(
+            &total_wallet_shares
+                .into_iter()
+                .map(SerdeScalarField)
+                .collect::<Vec<_>>(),
+        )
         .unwrap();
 
         let merkle = IMerkle::new(self.merkle_address.get());
-        merkle.insert(self, total_shares_commitment_bytes).unwrap();
+        merkle
+            .insert_shares_commitment(self, total_wallet_shares_bytes)
+            .unwrap();
     }
 
     /// Verifies the given proof using the given public inputs,

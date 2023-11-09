@@ -20,6 +20,6 @@ sol_interface! {
         function init() external;
         function root() external view returns (bytes);
         function rootInHistory(bytes root) external view returns (bool);
-        function insert(bytes value) external;
+        function insertSharesCommitment(bytes shares) external;
     }
 }

@@ -33,7 +33,7 @@ impl TestMerkleContract {
         self.merkle.root_in_history(root)
     }
 
-    fn insert(&mut self, value: Bytes) -> Result<(), Vec<u8>> {
-        self.merkle.insert(value)
+    fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
+        self.merkle.insert_shares_commitment(shares)
     }
 }
