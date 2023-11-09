@@ -2,3 +2,4 @@
 
 pub mod ecdsa;
 pub mod merkle;
+pub mod poseidon;
