@@ -8,6 +8,9 @@ abigen!(
         function transferOwnership(address memory newOwner) external
 
         function setVerifierAddress(address memory _address) external
+        function setMerkleAddress(address memory _address) external
+
+        function initMerkle() external
 
         function setValidWalletCreateVkey(bytes memory vkey) external
         function setValidWalletUpdateVkey(bytes memory vkey) external
@@ -17,6 +20,8 @@ abigen!(
 
         function isNullifierSpent(bytes memory nullifier) external view returns (bool)
         function markNullifierSpent(bytes memory nullifier) external
+
+        function getRoot() external view returns (bytes)
 
         function newWallet(bytes memory wallet_blinder_share, bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
         function updateWallet(bytes memory wallet_blinder_share, bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature) external

@@ -1,16 +1,20 @@
 //! Basic tests for Stylus programs. These assume that a devnet is already running locally.
 
 use abis::{
-    DarkpoolTestContract, DummyErc20Contract, PrecompileTestContract, VerifierTestContract, MerkleContract,
+    DarkpoolTestContract, DummyErc20Contract, MerkleContract, PrecompileTestContract,
+    VerifierTestContract,
 };
 use clap::Parser;
 use cli::{Cli, Tests};
-use constants::{DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, VERIFIER_CONTRACT_KEY};
+use constants::{
+    DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY,
+    VERIFIER_CONTRACT_KEY,
+};
 use eyre::Result;
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
-    test_nullifier_set, test_ownership, test_process_match_settle, test_update_wallet,
-    test_verifier, test_merkle,
+    test_merkle, test_nullifier_set, test_ownership, test_process_match_settle, test_update_wallet,
+    test_verifier,
 };
 use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
@@ -30,7 +34,7 @@ async fn main() -> Result<()> {
     } = Cli::parse();
 
     let client = setup_client(priv_key, rpc_url).await?;
-    let contract_address = get_test_contract_address(test, deployments_file.clone())?;
+    let contract_address = get_test_contract_address(test, &deployments_file)?;
 
     match test {
         Tests::EcAdd => {
@@ -66,21 +70,21 @@ async fn main() -> Result<()> {
         Tests::Verifier => {
             let contract = VerifierTestContract::new(contract_address, client);
             let verifier_address =
-                parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
+                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
 
             test_verifier(contract, verifier_address).await?;
         }
         Tests::Ownership => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
             let darkpool_test_contract_address =
-                parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?;
+                parse_addr_from_deployments_file(&deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?;
 
             test_ownership(contract, darkpool_test_contract_address).await?;
         }
         Tests::ExternalTransfer => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
             let dummy_erc20_address =
-                parse_addr_from_deployments_file(deployments_file, DUMMY_ERC20_CONTRACT_KEY)?;
+                parse_addr_from_deployments_file(&deployments_file, DUMMY_ERC20_CONTRACT_KEY)?;
             let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client);
 
             test_external_transfer(contract, dummy_erc20_contract).await?;
@@ -88,16 +92,20 @@ async fn main() -> Result<()> {
         Tests::UpdateWallet => {
             let contract = DarkpoolTestContract::new(contract_address, client);
             let verifier_address =
-                parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
+                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
+            let merkle_address =
+                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
 
-            test_update_wallet(contract, verifier_address).await?;
+            test_update_wallet(contract, merkle_address, verifier_address).await?;
         }
         Tests::ProcessMatchSettle => {
             let contract = DarkpoolTestContract::new(contract_address, client);
             let verifier_address =
-                parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
+                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
+            let merkle_address =
+                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
 
-            test_process_match_settle(contract, verifier_address).await?;
+            test_process_match_settle(contract, merkle_address, verifier_address).await?;
         }
     }
 

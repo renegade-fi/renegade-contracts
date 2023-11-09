@@ -9,7 +9,7 @@ use ark_std::UniformRand;
 use common::{
     constants::TEST_MERKLE_HEIGHT,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
-    types::{G1Affine, G2Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle},
+    types::{G1Affine, G2Affine, ScalarField, VerificationBundle},
 };
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
@@ -23,7 +23,9 @@ use test_helpers::{
     merkle::MerkleConfig,
     misc::random_scalars,
     proof_system::{convert_jf_proof_and_vkey, dummy_vkeys, gen_jf_proof_and_vkey},
-    renegade_circuits::{circuit_bundle_from_statement, Circuit, RenegadeStatement},
+    renegade_circuits::{
+        circuit_bundle_from_statement, gen_valid_wallet_update_statement, Circuit,
+    },
 };
 
 use crate::{
@@ -56,7 +58,7 @@ pub(crate) async fn test_ec_add(
         .await?;
     let c: SerdeG1Affine = postcard::from_bytes(&c_bytes)?;
 
-    assert_eq!(c.0, a + b);
+    assert_eq!(c.0, a + b, "Incorrect EC addition result");
 
     Ok(())
 }
@@ -81,7 +83,7 @@ pub(crate) async fn test_ec_mul(
     let mut expected = b.into_group();
     expected *= a;
 
-    assert_eq!(c.0, expected);
+    assert_eq!(c.0, expected, "Incorrect EC scalar multiplication result");
 
     Ok(())
 }
@@ -102,7 +104,7 @@ pub(crate) async fn test_ec_pairing(
         .call()
         .await?;
 
-    assert!(res);
+    assert!(res, "Incorrect EC pairing result");
 
     Ok(())
 }
@@ -125,7 +127,11 @@ pub(crate) async fn test_ec_recover(
         .call()
         .await?;
 
-    assert_eq!(res, pubkey_to_address::<NativeHasher>(&pubkey).to_vec());
+    assert_eq!(
+        res,
+        pubkey_to_address::<NativeHasher>(&pubkey).to_vec(),
+        "Incorrect recovered address"
+    );
 
     Ok(())
 }
@@ -152,15 +158,18 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
 
     let contract_root: SerdeScalarField = postcard::from_bytes(&contract.root().call().await?)?;
 
-    assert_eq!(ark_merkle.root(), contract_root.0);
+    assert_eq!(ark_merkle.root(), contract_root.0, "Merkle root incorrect");
 
-    assert!(contract
-        .insert_shares_commitment(serialize_to_calldata(&vec![SerdeScalarField(
-            ScalarField::rand(&mut rng)
-        )])?)
-        .send()
-        .await
-        .is_err());
+    assert!(
+        contract
+            .insert_shares_commitment(serialize_to_calldata(&vec![SerdeScalarField(
+                ScalarField::rand(&mut rng)
+            )])?)
+            .send()
+            .await
+            .is_err(),
+        "Inserted more leaves than allowed"
+    );
 
     Ok(())
 }
@@ -346,8 +355,16 @@ pub(crate) async fn test_external_transfer(
         account_address,
     )
     .await?;
-    assert_eq!(darkpool_balance, darkpool_initial_balance + TRANSFER_AMOUNT);
-    assert_eq!(user_balance, user_initial_balance - TRANSFER_AMOUNT);
+    assert_eq!(
+        darkpool_balance,
+        darkpool_initial_balance + TRANSFER_AMOUNT,
+        "Post-deposit darkpool balance incorrect"
+    );
+    assert_eq!(
+        user_balance,
+        user_initial_balance - TRANSFER_AMOUNT,
+        "Post-deposit user balance incorrect"
+    );
 
     // Create & execute withdrawal external transfer, check balances
     let withdrawal = dummy_erc20_withdrawal(account_address, mint);
@@ -358,21 +375,39 @@ pub(crate) async fn test_external_transfer(
         account_address,
     )
     .await?;
-    assert_eq!(darkpool_balance, darkpool_initial_balance);
-    assert_eq!(user_balance, user_initial_balance);
+    assert_eq!(
+        darkpool_balance, darkpool_initial_balance,
+        "Post-withdrawal darkpool balance incorrect"
+    );
+    assert_eq!(
+        user_balance, user_initial_balance,
+        "Post-withdrawal user balance incorrect"
+    );
 
     Ok(())
 }
 
 pub(crate) async fn test_update_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    merkle_address: Address,
     verifier_address: Address,
 ) -> Result<()> {
     // Generate test data
+    let mut ark_merkle =
+        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+
     let mut rng = thread_rng();
-    let mut valid_wallet_update_statement = ValidWalletUpdateStatement::dummy(&mut rng);
+
     let (signing_key, pubkey) = random_keypair(&mut rng);
-    valid_wallet_update_statement.old_pk_root = pubkey;
+    let merkle_root = ark_merkle.root();
+
+    let valid_wallet_update_statement = gen_valid_wallet_update_statement(
+        &mut rng,
+        None, /* external_transfer */
+        merkle_root,
+        pubkey,
+    );
+
     let (vkey, proof) = circuit_bundle_from_statement(&valid_wallet_update_statement, N)?;
 
     let valid_wallet_update_statement_bytes =
@@ -386,6 +421,7 @@ pub(crate) async fn test_update_wallet(
     // Set up contract
     setup_darkpool_test_contract(
         &contract,
+        merkle_address,
         verifier_address,
         vec![(Circuit::ValidWalletUpdate, serialize_to_calldata(&vkey)?)],
     )
@@ -411,11 +447,27 @@ pub(crate) async fn test_update_wallet(
     let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
 
+    // Assert that Merkle root is correct
+
+    let mut shares = vec![valid_wallet_update_statement.new_private_shares_commitment];
+    shares.extend(valid_wallet_update_statement.new_public_shares);
+    let commitment = compute_poseidon_hash(&shares);
+    ark_merkle.update(0, &commitment).unwrap();
+
+    let ark_root = ark_merkle.root();
+    let contract_root: ScalarField =
+        postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
+            .unwrap()
+            .0;
+
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+
     Ok(())
 }
 
 pub(crate) async fn test_process_match_settle(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    merkle_address: Address,
     verifier_address: Address,
 ) -> Result<()> {
     // Generate test data
@@ -425,6 +477,7 @@ pub(crate) async fn test_process_match_settle(
     // Set up contract
     setup_darkpool_test_contract(
         &contract,
+        merkle_address,
         verifier_address,
         vec![
             (

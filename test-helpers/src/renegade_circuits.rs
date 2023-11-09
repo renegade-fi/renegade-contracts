@@ -145,3 +145,17 @@ pub fn dummy_circuit_bundle<S: RenegadeStatement>(
     let (vkey, proof) = circuit_bundle_from_statement(&statement, num_public_inputs)?;
     Ok((statement, vkey, proof))
 }
+
+pub fn gen_valid_wallet_update_statement(
+    rng: &mut impl Rng,
+    external_transfer: Option<ExternalTransfer>,
+    merkle_root: ScalarField,
+    old_pk_root: PublicSigningKey,
+) -> ValidWalletUpdateStatement {
+    ValidWalletUpdateStatement {
+        external_transfer,
+        merkle_root,
+        old_pk_root,
+        ..ValidWalletUpdateStatement::dummy(rng)
+    }
+}
