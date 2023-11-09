@@ -11,7 +11,7 @@ use common::{
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle},
 };
-use contracts_core::crypto::ecdsa::pubkey_to_address;
+use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
     abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,
     types::Bytes, utils::keccak256,
@@ -140,9 +140,11 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
     let leaves = random_scalars(num_leaves as usize, &mut rng);
 
     for (i, leaf) in leaves.into_iter().enumerate() {
-        ark_merkle.update(i, &leaf).unwrap();
+        ark_merkle
+            .update(i, &compute_poseidon_hash(&[leaf]))
+            .unwrap();
         contract
-            .insert(serialize_to_calldata(&SerdeScalarField(leaf))?)
+            .insert_shares_commitment(serialize_to_calldata(&vec![SerdeScalarField(leaf)])?)
             .send()
             .await?
             .await?;
@@ -153,9 +155,9 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
     assert_eq!(ark_merkle.root(), contract_root.0);
 
     assert!(contract
-        .insert(serialize_to_calldata(&SerdeScalarField(
+        .insert_shares_commitment(serialize_to_calldata(&vec![SerdeScalarField(
             ScalarField::rand(&mut rng)
-        ))?)
+        )])?)
         .send()
         .await
         .is_err());

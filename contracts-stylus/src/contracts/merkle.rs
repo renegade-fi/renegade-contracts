@@ -4,8 +4,8 @@
 use core::marker::PhantomData;
 
 use alloc::vec::Vec;
-use common::{constants::MERKLE_HEIGHT, serde_def_types::SerdeScalarField};
-use contracts_core::crypto::merkle::SparseMerkleTree;
+use common::{constants::MERKLE_HEIGHT, serde_def_types::SerdeScalarField, types::ScalarField};
+use contracts_core::crypto::{merkle::SparseMerkleTree, poseidon::compute_poseidon_hash};
 use stylus_sdk::{
     abi::Bytes,
     prelude::*,
@@ -53,13 +53,21 @@ where
         Ok(self.root_history.get(root.0))
     }
 
-    /// Inserts a value into the Merkle tree at the next available index
-    pub fn insert(&mut self, value: Bytes) -> Result<(), Vec<u8>> {
+    /// Computes a commitment to the given wallet shares & inserts it into the Merkle tree
+    pub fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
         let mut merkle_tree: SparseMerkleTree<{ P::HEIGHT }> =
             postcard::from_bytes(&self.merkle_tree.get_bytes()).unwrap();
-        let value: SerdeScalarField = postcard::from_bytes(value.as_slice()).unwrap();
 
-        let _node_updates = merkle_tree.insert(value.0);
+        let shares: Vec<ScalarField> =
+            postcard::from_bytes::<Vec<SerdeScalarField>>(shares.as_slice())
+                .unwrap()
+                .into_iter()
+                .map(|x| x.0)
+                .collect();
+
+        let shares_commitment = compute_poseidon_hash(&shares);
+
+        let _node_updates = merkle_tree.insert(shares_commitment);
         // TODO: Emit node update events
 
         let root_bytes = postcard::to_allocvec(&SerdeScalarField(merkle_tree.root())).unwrap();
@@ -98,7 +106,7 @@ impl ProdMerkleContract {
         self.merkle.root_in_history(root)
     }
 
-    fn insert(&mut self, value: Bytes) -> Result<(), Vec<u8>> {
-        self.merkle.insert(value)
+    fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
+        self.merkle.insert_shares_commitment(shares)
     }
 }
