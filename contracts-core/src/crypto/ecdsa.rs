@@ -44,8 +44,14 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
         .unwrap()
 }
 
+/// Returns the lower 128 bits of a scalar as a big-endian byte array
 fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> Vec<u8> {
     let bigint = scalar.into_bigint();
+    // The `BigInt` type stores the scalar as an array of 4 u64 limbs in "little-endian" order,
+    // i.e. the least significant limb is stored first.
+    // This means the lower 128 bits of the scalar are stored in the first 2 limbs,
+    // so we access these directly and convert them to big-endian byte arrays.
+    // Note we have to reverse the order of the first and second limbs for big-endian representation.
     let mut lower_128_bytes_be = bigint.0[1].to_be_bytes().to_vec();
     lower_128_bytes_be.extend(bigint.0[0].to_be_bytes().to_vec());
     lower_128_bytes_be
