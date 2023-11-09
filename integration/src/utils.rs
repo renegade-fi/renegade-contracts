@@ -48,8 +48,8 @@ pub(crate) async fn setup_client(
 }
 
 pub(crate) fn parse_addr_from_deployments_file(
-    file_path: String,
-    contract_key: &'static str,
+    file_path: &str,
+    contract_key: &str,
 ) -> Result<Address> {
     let mut file_contents = String::new();
     File::open(file_path)?.read_to_string(&mut file_contents)?;
@@ -62,7 +62,7 @@ pub(crate) fn parse_addr_from_deployments_file(
     )?)
 }
 
-pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -> Result<Address> {
+pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
     Ok(match test {
         Tests::EcAdd => {
             parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
@@ -106,9 +106,27 @@ pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
 
 pub(crate) async fn setup_darkpool_test_contract(
     contract: &DarkpoolTestContract<impl Middleware + 'static>,
+    merkle_address: Address,
     verifier_address: Address,
     vkeys: Vec<(Circuit, Bytes)>,
 ) -> Result<()> {
+    // Set the owner to the default sender
+    contract
+        .transfer_ownership(contract.client().default_sender().unwrap())
+        .send()
+        .await?
+        .await?;
+
+    // Set Merkle address
+    contract
+        .set_merkle_address(merkle_address)
+        .send()
+        .await?
+        .await?;
+
+    // Initialize Merkle tree
+    contract.init_merkle().send().await?.await?;
+
     // Set verifier address
     contract
         .set_verifier_address(verifier_address)

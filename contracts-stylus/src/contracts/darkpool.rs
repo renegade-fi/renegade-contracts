@@ -61,13 +61,6 @@ impl DarkpoolContract {
     // | CONFIG |
     // ----------
 
-    // Stores the given address for the Merkle contract
-    pub fn set_merkle_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.merkle_address.set(address);
-        Ok(())
-    }
-
     /// Stores the given address for the verifier contract
     pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
         self.ownable._check_owner()?;
@@ -75,6 +68,14 @@ impl DarkpoolContract {
         Ok(())
     }
 
+    /// Stores the given address for the Merkle contract
+    pub fn set_merkle_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
+        self.merkle_address.set(address);
+        Ok(())
+    }
+
+    /// Initializes the Merkle tree
     pub fn init_merkle(&mut self) -> Result<(), Vec<u8>> {
         let merkle = IMerkle::new(self.merkle_address.get());
         merkle.init(self).unwrap();
@@ -179,8 +180,13 @@ impl DarkpoolContract {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
 
-        // TODO: Assert that the Merkle root for which inclusion is proven in `VALID_WALLET_UPDATE`
-        // is a valid historical root
+        assert!(self
+            .root_in_history(
+                postcard::to_allocvec(&SerdeScalarField(valid_wallet_update_statement.merkle_root))
+                    .unwrap()
+                    .into()
+            )
+            .unwrap());
 
         assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
             &valid_wallet_update_statement.old_pk_root,

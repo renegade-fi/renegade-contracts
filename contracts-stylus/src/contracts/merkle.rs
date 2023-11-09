@@ -39,6 +39,9 @@ where
     /// Initialize this contract with a blank Merkle tree
     pub fn init(&mut self) -> Result<(), Vec<u8>> {
         let merkle_tree = SparseMerkleTree::<{ P::HEIGHT }>::default();
+
+        self.store_root(&merkle_tree);
+
         let merkle_tree_bytes = postcard::to_allocvec(&merkle_tree).unwrap();
         self.merkle_tree.set_bytes(merkle_tree_bytes);
         Ok(())
@@ -70,12 +73,23 @@ where
         let _node_updates = merkle_tree.insert(shares_commitment);
         // TODO: Emit node update events
 
-        let root_bytes = postcard::to_allocvec(&SerdeScalarField(merkle_tree.root())).unwrap();
-        self.current_root.set_bytes(root_bytes);
+        self.store_root(&merkle_tree);
 
         let merkle_tree_bytes = postcard::to_allocvec(&merkle_tree).unwrap();
         self.merkle_tree.set_bytes(merkle_tree_bytes);
         Ok(())
+    }
+}
+
+impl<P> MerkleContract<P>
+where
+    P: MerkleParams,
+    [(); P::HEIGHT - 1]:,
+{
+    pub fn store_root(&mut self, merkle_tree: &SparseMerkleTree<{ P::HEIGHT }>) {
+        let root_bytes = postcard::to_allocvec(&SerdeScalarField(merkle_tree.root())).unwrap();
+        self.current_root.set_bytes(&root_bytes);
+        self.root_history.insert(root_bytes, true);
     }
 }
 
