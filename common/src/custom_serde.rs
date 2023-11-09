@@ -9,7 +9,7 @@ use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 
 use crate::{
-    constants::{NUM_BYTES_FELT, NUM_BYTES_U64, NUM_U64S_FELT},
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_U64S_FELT},
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
@@ -216,12 +216,10 @@ impl ScalarSerializable for u64 {
 
 impl ScalarSerializable for Address {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        // `into_word` left-pads the address w/ zeroes to 32 bytes.
-        // For now, we'll call this "big-endian" and reverse it so that the resulting
-        // little-endian `BigInt` fits in the scalar field.
+        // Here, we right-pad the 20-byte address w/ zero-bytes
         // TODO: Ensure scalar representation is consistent with the relayer implementation
-        let mut bytes = self.into_word().0;
-        bytes.reverse();
+        let mut bytes = [0; NUM_BYTES_FELT];
+        bytes[..NUM_BYTES_ADDRESS].copy_from_slice(self.as_slice());
         let bigint = bigint_from_le_bytes(&bytes)?;
         Ok(vec![
             ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)?

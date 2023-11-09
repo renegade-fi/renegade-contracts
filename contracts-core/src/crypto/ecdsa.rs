@@ -1,10 +1,10 @@
 //! Gelpers smart contract ECDSA verification using our own types & traits
 
 use alloc::vec::Vec;
-use ark_ff::{BigInteger, PrimeField};
+use ark_ff::PrimeField;
 use common::{
     backends::{EcRecoverBackend, EcdsaError, HashBackend},
-    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_SIGNATURE},
+    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE},
     types::{PublicSigningKey, ScalarField},
 };
 
@@ -33,10 +33,10 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
     // TODO: Assert that the `PublicSigningKey` is indeed formed as expected below, i.e.
     // its affine coordinates are split first into the higher 128 bits, then the lower 128 bits,
     // with each of those interpreted in big-endian order as a scalar field element.
-    let pubkey_bytes: Vec<u8> = [pubkey.x[0], pubkey.x[1], pubkey.y[0], pubkey.y[1]]
-        .iter()
-        .flat_map(scalar_lower_128_bytes_be)
-        .collect();
+    let mut pubkey_bytes = scalar_lower_128_bytes_be(&pubkey.x[0]);
+    pubkey_bytes.extend(scalar_lower_128_bytes_be(&pubkey.x[1]));
+    pubkey_bytes.extend(scalar_lower_128_bytes_be(&pubkey.y[0]));
+    pubkey_bytes.extend(scalar_lower_128_bytes_be(&pubkey.y[1]));
 
     // Unwrapping here is safe because we know that the hash output is 32 bytes long
     H::hash(&pubkey_bytes)[HASH_OUTPUT_SIZE - NUM_BYTES_ADDRESS..]
@@ -45,12 +45,10 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
 }
 
 fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> Vec<u8> {
-    scalar
-        .into_bigint()
-        .to_bytes_be()
-        .into_iter()
-        .skip(NUM_BYTES_FELT / 2)
-        .collect()
+    let bigint = scalar.into_bigint();
+    let mut lower_128_bytes_be = bigint.0[1].to_be_bytes().to_vec();
+    lower_128_bytes_be.extend(bigint.0[0].to_be_bytes().to_vec());
+    lower_128_bytes_be
 }
 
 #[cfg(test)]
