@@ -43,3 +43,7 @@ pub const VALID_REBLIND_CIRCUIT_ID: u8 = 3;
     allow(dead_code)
 )]
 pub const VALID_MATCH_SETTLE_CIRCUIT_ID: u8 = 4;
+
+/// The height of the Merkle tree used in the dark pool
+#[cfg_attr(not(feature = "merkle"), allow(dead_code))]
+pub const MERKLE_HEIGHT: usize = 32;
