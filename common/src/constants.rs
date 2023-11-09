@@ -40,3 +40,9 @@ pub const NUM_BYTES_SIGNATURE: usize = 65;
 
 /// The number of secret-shared scalars it takes to represent a wallet
 pub const WALLET_SHARES_LEN: usize = 0;
+
+/// The height of the Merkle tree
+pub const MERKLE_HEIGHT: usize = 32;
+
+/// The height of the Merkle tree used in testing
+pub const TEST_MERKLE_HEIGHT: usize = 5;

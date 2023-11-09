@@ -177,12 +177,11 @@ where
 #[cfg(test)]
 mod tests {
     use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
+    use common::constants::TEST_MERKLE_HEIGHT;
     use rand::thread_rng;
     use test_helpers::{merkle::MerkleConfig, misc::random_scalars};
 
     use super::SparseMerkleTree;
-
-    const TEST_MERKLE_HEIGHT: usize = 5;
 
     #[test]
     fn test_against_arkworks() {

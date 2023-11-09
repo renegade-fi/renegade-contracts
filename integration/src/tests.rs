@@ -2,10 +2,12 @@
 
 use std::sync::Arc;
 
+use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
 use common::{
+    constants::TEST_MERKLE_HEIGHT,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, ScalarField, ValidWalletUpdateStatement, VerificationBundle},
 };
@@ -18,6 +20,7 @@ use eyre::Result;
 use rand::{thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
+    merkle::MerkleConfig,
     misc::random_scalars,
     proof_system::{convert_jf_proof_and_vkey, dummy_vkeys, gen_jf_proof_and_vkey},
     renegade_circuits::{circuit_bundle_from_statement, Circuit, RenegadeStatement},
@@ -25,7 +28,8 @@ use test_helpers::{
 
 use crate::{
     abis::{
-        DarkpoolTestContract, DummyErc20Contract, PrecompileTestContract, VerifierTestContract,
+        DarkpoolTestContract, DummyErc20Contract, MerkleContract, PrecompileTestContract,
+        VerifierTestContract,
     },
     constants::{L, N, TRANSFER_AMOUNT},
     utils::{
@@ -122,6 +126,39 @@ pub(crate) async fn test_ec_recover(
         .await?;
 
     assert_eq!(res, pubkey_to_address::<NativeHasher>(&pubkey).to_vec());
+
+    Ok(())
+}
+
+pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'static>) -> Result<()> {
+    let mut ark_merkle =
+        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+    contract.init().send().await?.await?;
+
+    let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT - 1) as u32);
+    let mut rng = thread_rng();
+    let leaves = random_scalars(num_leaves as usize, &mut rng);
+
+    for (i, leaf) in leaves.into_iter().enumerate() {
+        ark_merkle.update(i, &leaf).unwrap();
+        contract
+            .insert(serialize_to_calldata(&SerdeScalarField(leaf))?)
+            .send()
+            .await?
+            .await?;
+    }
+
+    let contract_root: SerdeScalarField = postcard::from_bytes(&contract.root().call().await?)?;
+
+    assert_eq!(ark_merkle.root(), contract_root.0);
+
+    assert!(contract
+        .insert(serialize_to_calldata(&SerdeScalarField(
+            ScalarField::rand(&mut rng)
+        ))?)
+        .send()
+        .await
+        .is_err());
 
     Ok(())
 }

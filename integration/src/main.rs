@@ -1,7 +1,7 @@
 //! Basic tests for Stylus programs. These assume that a devnet is already running locally.
 
 use abis::{
-    DarkpoolTestContract, DummyErc20Contract, PrecompileTestContract, VerifierTestContract,
+    DarkpoolTestContract, DummyErc20Contract, PrecompileTestContract, VerifierTestContract, MerkleContract,
 };
 use clap::Parser;
 use cli::{Cli, Tests};
@@ -10,7 +10,7 @@ use eyre::Result;
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
     test_nullifier_set, test_ownership, test_process_match_settle, test_update_wallet,
-    test_verifier,
+    test_verifier, test_merkle,
 };
 use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
@@ -57,6 +57,11 @@ async fn main() -> Result<()> {
             let contract = DarkpoolTestContract::new(contract_address, client);
 
             test_nullifier_set(contract).await?;
+        }
+        Tests::Merkle => {
+            let contract = MerkleContract::new(contract_address, client);
+
+            test_merkle(contract).await?;
         }
         Tests::Verifier => {
             let contract = VerifierTestContract::new(contract_address, client);

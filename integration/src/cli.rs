@@ -32,6 +32,7 @@ pub(crate) enum Tests {
     EcPairing,
     EcRecover,
     NullifierSet,
+    Merkle,
     Verifier,
     Ownership,
     ExternalTransfer,

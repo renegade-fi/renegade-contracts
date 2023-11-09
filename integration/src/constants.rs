@@ -13,6 +13,9 @@ pub(crate) const DEPLOYMENTS_KEY: &str = "deployments";
 /// The precompile test contract key in the `deployments.json` file
 pub(crate) const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract";
 
+/// The Merkle contract key in the `deployments.json` file
+pub(crate) const MERKLE_TEST_CONTRACT_KEY: &str = "merkle_test_contract";
+
 /// The verifier contract key in the `deployments.json` file
 pub(crate) const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
