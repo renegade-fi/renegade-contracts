@@ -12,6 +12,8 @@ use stylus_sdk::{
 
 use crate::utils::constants::MERKLE_HEIGHT;
 
+// TODO: Make `Ownable` + `Initialiizable`
+
 #[solidity_storage]
 #[entrypoint]
 pub struct MerkleContract {
@@ -26,7 +28,6 @@ pub struct MerkleContract {
 #[external]
 impl MerkleContract {
     /// Initialize this contract with a blank Merkle tree
-    // TODO: Make an `Initializable` component
     pub fn init(&mut self) -> Result<(), Vec<u8>> {
         let merkle_tree = SparseMerkleTree::<MERKLE_HEIGHT>::default();
         let merkle_tree_bytes = postcard::to_allocvec(&merkle_tree).unwrap();

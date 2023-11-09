@@ -1,15 +1,16 @@
 //! The darkpool smart contract, responsible for maintaining the set of nullified wallets,
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use common::{
+    constants::WALLET_SHARES_LEN,
     serde_def_types::SerdeScalarField,
     types::{
         ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
         ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
-use contracts_core::crypto::ecdsa::ecdsa_verify;
+use contracts_core::crypto::{ecdsa::ecdsa_verify, poseidon::compute_poseidon_hash};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
@@ -26,7 +27,7 @@ use crate::utils::{
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
     helpers::serialize_statement_for_verification,
-    interfaces::IERC20,
+    interfaces::{IMerkle, IERC20},
 };
 
 use super::components::ownable::Ownable;
@@ -39,6 +40,9 @@ pub struct DarkpoolContract {
 
     /// The address of the verifier contract
     verifier_address: StorageAddress,
+
+    /// The address of the Merkle contract
+    merkle_address: StorageAddress,
 
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
@@ -57,6 +61,13 @@ impl DarkpoolContract {
     // | CONFIG |
     // ----------
 
+    // Stores the given address for the Merkle contract
+    pub fn set_merkle_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
+        self.merkle_address.set(address);
+        Ok(())
+    }
+
     /// Stores the given address for the verifier contract
     pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
         self.ownable._check_owner()?;
@@ -64,8 +75,12 @@ impl DarkpoolContract {
         Ok(())
     }
 
-    // TODO: Remove `set_*_circuit_id` & `add_verification_key` methods in favor of a single
-    // `set_circuit` method after implementing enum ABI
+    pub fn init_merkle(&mut self) -> Result<(), Vec<u8>> {
+        let merkle = IMerkle::new(self.merkle_address.get());
+        merkle.init(self).unwrap();
+
+        Ok(())
+    }
 
     /// Sets the verification key for the `VALID_WALLET_CREATE` circuit
     pub fn set_valid_wallet_create_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
@@ -111,12 +126,23 @@ impl DarkpoolContract {
         Ok(self.nullifier_set.get(nullifier.0))
     }
 
+    /// Returns the current root of the Merkle tree
+    pub fn get_root(&mut self) -> Result<Bytes, Vec<u8>> {
+        let merkle = IMerkle::new(self.merkle_address.get());
+        Ok(merkle.root(self).unwrap().into())
+    }
+
+    /// Returns the current root of the Merkle tree
+    pub fn root_in_history(&mut self, root: Bytes) -> Result<bool, Vec<u8>> {
+        let merkle = IMerkle::new(self.merkle_address.get());
+        Ok(merkle.root_in_history(self, root.0).unwrap())
+    }
+
     // -----------
     // | SETTERS |
     // -----------
 
     /// Adds a new wallet to the commitment tree
-    // TODO: Return new tree root
     pub fn new_wallet(
         &mut self,
         _wallet_blinder_share: Bytes,
@@ -132,14 +158,17 @@ impl DarkpoolContract {
 
         assert!(self.verify(VALID_WALLET_CREATE_CIRCUIT_ID, proof, public_inputs));
 
-        // TODO: Compute wallet commitment and insert to Merkle tree
+        self.insert_wallet_commitment_to_merkle_tree(
+            valid_wallet_create_statement.private_shares_commitment,
+            &valid_wallet_create_statement.public_wallet_shares,
+        );
+
         // TODO: Emit wallet updated event w/ wallet blinder share
 
         Ok(())
     }
 
     /// Update a wallet in the commitment tree
-    // TODO: Return new tree root
     pub fn update_wallet(
         &mut self,
         _wallet_blinder_share: Bytes,
@@ -166,7 +195,10 @@ impl DarkpoolContract {
 
         assert!(self.verify(VALID_WALLET_UPDATE_CIRCUIT_ID, proof, public_inputs));
 
-        // TODO: Compute wallet commitment and insert to Merkle tree
+        self.insert_wallet_commitment_to_merkle_tree(
+            valid_wallet_update_statement.new_private_shares_commitment,
+            &valid_wallet_update_statement.new_public_shares,
+        );
 
         self.mark_nullifier_spent(valid_wallet_update_statement.old_shares_nullifier);
 
@@ -181,7 +213,6 @@ impl DarkpoolContract {
 
     /// Settles a matched order between two parties,
     /// inserting the updated wallets into the commitment tree
-    // TODO: Return new tree root
     #[allow(clippy::too_many_arguments)]
     pub fn process_match_settle(
         &mut self,
@@ -246,7 +277,14 @@ impl DarkpoolContract {
             assert!(self.verify(circuit_id, proof, public_inputs));
         }
 
-        // TODO: Compute wallet commitments and insert to Merkle tree
+        self.insert_wallet_commitment_to_merkle_tree(
+            party_0_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
+            &valid_match_settle_statement.party0_modified_shares,
+        );
+        self.insert_wallet_commitment_to_merkle_tree(
+            party_1_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
+            &valid_match_settle_statement.party1_modified_shares,
+        );
 
         self.mark_nullifier_spent(
             party_0_match_payload
@@ -284,6 +322,24 @@ impl DarkpoolContract {
         self.nullifier_set.insert(nullifier_ser, true);
     }
 
+    /// Computes the total commitment to both the private and public wallet shares,
+    /// and inserts it into the Merkle tree
+    pub fn insert_wallet_commitment_to_merkle_tree(
+        &mut self,
+        private_shares_commitment: ScalarField,
+        public_wallet_shares: &[ScalarField; WALLET_SHARES_LEN],
+    ) {
+        let mut total_wallet_shares = vec![private_shares_commitment];
+        total_wallet_shares.extend(public_wallet_shares);
+        let total_shares_commitment_bytes = postcard::to_allocvec(&SerdeScalarField(
+            compute_poseidon_hash(&total_wallet_shares),
+        ))
+        .unwrap();
+
+        let merkle = IMerkle::new(self.merkle_address.get());
+        merkle.insert(self, total_shares_commitment_bytes).unwrap();
+    }
+
     /// Verifies the given proof using the given public inputs,
     /// and using the stored verification key associated with the circuit ID
     pub fn verify(&mut self, circuit_id: u8, proof: Bytes, public_inputs: Bytes) -> bool {
@@ -297,6 +353,7 @@ impl DarkpoolContract {
         result[0] != 0
     }
 
+    /// Executes the given external transfer (withdrawal / deposit)
     pub fn execute_external_transfer(&mut self, transfer: &ExternalTransfer) {
         let erc20 = IERC20::new(transfer.mint);
         if transfer.is_withdrawal {

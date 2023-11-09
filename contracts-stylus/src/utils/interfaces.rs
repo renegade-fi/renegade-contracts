@@ -15,4 +15,11 @@ sol_interface! {
         function approve(address spender, uint256 value) external returns (bool);
         function transferFrom(address from, address to, uint256 value) external returns (bool);
     }
+
+    interface IMerkle {
+        function init() external;
+        function root() external view returns (bytes);
+        function rootInHistory(bytes root) external view returns (bool);
+        function insert(bytes value) external;
+    }
 }

@@ -3,9 +3,10 @@
 use alloc::{vec, vec::Vec};
 use ark_ff::Zero;
 use common::{serde_def_types::ScalarFieldDef, types::ScalarField};
-use renegade_crypto::hash::Poseidon2Sponge;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+
+use crate::crypto::poseidon::compute_poseidon_hash;
 
 /// A low-memory, append-only Merkle tree that only stores the current path of siblings
 /// for the next leaf to be inserted.
@@ -103,8 +104,7 @@ where
     tree.sibling_path[height - 1] = current_leaf;
 
     // Hash the current leaf with itself and recurse
-    let mut sponge = Poseidon2Sponge::new();
-    let next_leaf = sponge.hash(&[current_leaf, current_leaf]);
+    let next_leaf = compute_poseidon_hash(&[current_leaf, current_leaf]);
 
     setup_empty_tree(tree, height - 1, next_leaf)
 }
@@ -156,13 +156,12 @@ where
 
     // Mux between hashing the current value as the left or right sibling depending on
     // the index being inserted into
-    let mut sponge = Poseidon2Sponge::new();
     let mut new_subtree_filled = false;
     let next_value = if is_left {
-        sponge.hash(&[value, current_sibling_value])
+        compute_poseidon_hash(&[value, current_sibling_value])
     } else {
         new_subtree_filled = subtree_filled;
-        sponge.hash(&[current_sibling_value, value])
+        compute_poseidon_hash(&[current_sibling_value, value])
     };
 
     let mut node_changes =
