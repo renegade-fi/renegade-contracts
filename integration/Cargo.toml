@@ -19,3 +19,4 @@ json = "0.12"
 postcard = { workspace = true }
 serde = { workspace = true }
 alloy-primitives = { workspace = true }
+ark-crypto-primitives = { workspace = true }

@@ -24,8 +24,8 @@ use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
     constants::{
-        DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, N, PRECOMPILE_TEST_CONTRACT_KEY,
-        TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY,
+        DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, MERKLE_TEST_CONTRACT_KEY, N,
+        PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY,
     },
 };
 
@@ -78,6 +78,9 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: String) -
         }
         Tests::NullifierSet => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+        }
+        Tests::Merkle => {
+            parse_addr_from_deployments_file(deployments_file, MERKLE_TEST_CONTRACT_KEY)?
         }
         Tests::Verifier => {
             parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?

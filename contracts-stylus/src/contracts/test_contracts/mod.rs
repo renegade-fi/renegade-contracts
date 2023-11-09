@@ -6,6 +6,9 @@ mod precompile_test_contract;
 #[cfg(feature = "verifier-test-contract")]
 mod verifier_test_contract;
 
+#[cfg(feature = "merkle-test-contract")]
+mod merkle_test_contract;
+
 #[cfg(feature = "darkpool-test-contract")]
 mod darkpool_test_contract;
 

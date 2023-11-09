@@ -3,7 +3,7 @@
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 mod darkpool;
 
-#[cfg(feature = "merkle")]
+#[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
 mod merkle;
 
 #[cfg(feature = "verifier")]
@@ -12,6 +12,7 @@ mod verifier;
 #[cfg(any(
     feature = "precompile-test-contract",
     feature = "verifier-test-contract",
+    feature = "merkle-test-contract",
     feature = "darkpool-test-contract",
     feature = "dummy-erc20"
 ))]

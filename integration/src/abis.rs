@@ -29,6 +29,16 @@ abigen!(
 );
 
 abigen!(
+    MerkleContract,
+    r#"[
+        function init() external
+        function root() external view returns (bytes)
+        function rootInHistory(bytes root) external view returns (bool)
+        function insert(bytes value) external
+    ]"#
+);
+
+abigen!(
     VerifierTestContract,
     r#"[
         function verify(address memory verifier_address, bytes memory verification_bundle_ser) external view returns (bool)
