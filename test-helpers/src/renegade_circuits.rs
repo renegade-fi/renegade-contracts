@@ -159,3 +159,13 @@ pub fn gen_valid_wallet_update_statement(
         ..ValidWalletUpdateStatement::dummy(rng)
     }
 }
+
+pub fn gen_valid_reblind_statement(
+    rng: &mut impl Rng,
+    merkle_root: ScalarField,
+) -> ValidReblindStatement {
+    ValidReblindStatement {
+        merkle_root,
+        ..ValidReblindStatement::dummy(rng)
+    }
+}
