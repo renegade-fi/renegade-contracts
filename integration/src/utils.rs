@@ -120,26 +120,8 @@ pub(crate) async fn setup_darkpool_test_contract(
     verifier_address: Address,
     vkeys: Vec<(Circuit, Bytes)>,
 ) -> Result<()> {
-    // Set the owner to the default sender
     contract
-        .transfer_ownership(contract.client().default_sender().unwrap())
-        .send()
-        .await?
-        .await?;
-
-    // Set Merkle address
-    contract
-        .set_merkle_address(merkle_address)
-        .send()
-        .await?
-        .await?;
-
-    // Initialize Merkle tree
-    contract.init_merkle().send().await?.await?;
-
-    // Set verifier address
-    contract
-        .set_verifier_address(verifier_address)
+        .initialize(verifier_address, merkle_address)
         .send()
         .await?
         .await?;

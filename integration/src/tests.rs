@@ -254,6 +254,15 @@ pub(crate) async fn test_ownership(
     )
     .await?;
 
+    // Assert that `setMerkleAddress` only succeeds for the owner
+    assert_only_owner::<_, Address>(
+        &contract,
+        &contract_with_dummy_signer,
+        "setMerkleAddress",
+        dummy_verifier_address,
+    )
+    .await?;
+
     // Assert that `setValidWalletCreateVkey` only succeeds for the owner
     assert_only_owner::<_, Bytes>(
         &contract,
