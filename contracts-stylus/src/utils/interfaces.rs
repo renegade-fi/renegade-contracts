@@ -22,4 +22,10 @@ sol_interface! {
         function rootInHistory(bytes root) external view returns (bool);
         function insertSharesCommitment(bytes shares) external;
     }
+
+    interface IOwnable {
+        function owner() public view virtual returns (address);
+        function renounceOwnership() public virtual;
+        function transferOwnership(address new_owner) public virtual;
+    }
 }

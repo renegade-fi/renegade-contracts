@@ -1,6 +1,8 @@
 //! The darkpool smart contract, responsible for maintaining the set of nullified wallets,
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
+use core::borrow::{Borrow, BorrowMut};
+
 use alloc::{vec, vec::Vec};
 use common::{
     constants::WALLET_SHARES_LEN,
@@ -14,8 +16,8 @@ use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
-    call::static_call,
-    contract,
+    call::{static_call, Call},
+    contract, msg,
     prelude::*,
     storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
 };
@@ -27,16 +29,19 @@ use crate::utils::{
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
     helpers::serialize_statement_for_verification,
-    interfaces::{IMerkle, IERC20},
+    interfaces::{IMerkle, IOwnable, IERC20},
 };
 
-use super::components::ownable::Ownable;
+use super::components::{initializable::Initializable, ownable::Ownable};
 
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
     #[borrow]
     pub ownable: Ownable,
+
+    #[borrow]
+    pub initializable: Initializable,
 
     /// The address of the verifier contract
     verifier_address: StorageAddress,
@@ -55,66 +60,110 @@ pub struct DarkpoolContract {
 }
 
 #[external]
-#[inherit(Ownable)]
+#[inherit(Ownable, Initializable)]
 impl DarkpoolContract {
     // ----------
     // | CONFIG |
     // ----------
 
+    /// Initializes the Darkpool
+    pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        verifier_address: Address,
+        merkle_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        // Set the darkpool as the Merkle contract owner
+        let merkle_ownable = IOwnable::new(merkle_address);
+        merkle_ownable.transfer_ownership(Call::new_in(storage), contract::address())?;
+
+        // Initialize the Merkle tree
+        let merkle = IMerkle::new(merkle_address);
+        merkle.init(Call::new_in(storage)).unwrap();
+
+        let this = storage.borrow_mut();
+
+        // Set the caller as the owner
+        this.ownable.transfer_ownership(msg::sender())?;
+
+        // Set the verifier & Merkle addresses
+        this.verifier_address.set(verifier_address);
+        this.merkle_address.set(merkle_address);
+
+        // Mark the darkpool as initialized
+        this.initializable._initialize(1);
+
+        Ok(())
+    }
+
     /// Stores the given address for the verifier contract
-    pub fn set_verifier_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.verifier_address.set(address);
+    pub fn set_verifier_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        address: Address,
+    ) -> Result<(), Vec<u8>> {
+        let this = storage.borrow_mut();
+        this.ownable._check_owner()?;
+        this.verifier_address.set(address);
         Ok(())
     }
 
     /// Stores the given address for the Merkle contract
-    pub fn set_merkle_address(&mut self, address: Address) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.merkle_address.set(address);
-        Ok(())
-    }
-
-    /// Initializes the Merkle tree
-    pub fn init_merkle(&mut self) -> Result<(), Vec<u8>> {
-        let merkle = IMerkle::new(self.merkle_address.get());
-        merkle.init(self).unwrap();
-
+    pub fn set_merkle_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        address: Address,
+    ) -> Result<(), Vec<u8>> {
+        let this = storage.borrow_mut();
+        this.ownable._check_owner()?;
+        this.merkle_address.set(address);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_WALLET_CREATE` circuit
-    pub fn set_valid_wallet_create_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.set_vkey(VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
+    pub fn set_valid_wallet_create_vkey<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        vkey: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        storage.borrow_mut().ownable._check_owner()?;
+        DarkpoolContract::set_vkey(storage, VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_WALLET_UPDATE` circuit
-    pub fn set_valid_wallet_update_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.set_vkey(VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
+    pub fn set_valid_wallet_update_vkey<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        vkey: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        storage.borrow_mut().ownable._check_owner()?;
+        DarkpoolContract::set_vkey(storage, VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_COMMITMENTS` circuit
-    pub fn set_valid_commitments_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.set_vkey(VALID_COMMITMENTS_CIRCUIT_ID, vkey);
+    pub fn set_valid_commitments_vkey<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        vkey: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        storage.borrow_mut().ownable._check_owner()?;
+        DarkpoolContract::set_vkey(storage, VALID_COMMITMENTS_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_REBLIND` circuit
-    pub fn set_valid_reblind_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.set_vkey(VALID_REBLIND_CIRCUIT_ID, vkey);
+    pub fn set_valid_reblind_vkey<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        vkey: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        storage.borrow_mut().ownable._check_owner()?;
+        DarkpoolContract::set_vkey(storage, VALID_REBLIND_CIRCUIT_ID, vkey);
         Ok(())
     }
 
     /// Sets the verification key for the `VALID_MATCH_SETTLE` circuit
-    pub fn set_valid_match_settle_vkey(&mut self, vkey: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
-        self.set_vkey(VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
+    pub fn set_valid_match_settle_vkey<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        vkey: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        storage.borrow_mut().ownable._check_owner()?;
+        DarkpoolContract::set_vkey(storage, VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
         Ok(())
     }
 
@@ -123,20 +172,29 @@ impl DarkpoolContract {
     // -----------
 
     /// Checks whether the given nullifier is spent
-    pub fn is_nullifier_spent(&self, nullifier: Bytes) -> Result<bool, Vec<u8>> {
-        Ok(self.nullifier_set.get(nullifier.0))
+    pub fn is_nullifier_spent<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        nullifier: Bytes,
+    ) -> Result<bool, Vec<u8>> {
+        let this = storage.borrow();
+        Ok(this.nullifier_set.get(nullifier.0))
     }
 
     /// Returns the current root of the Merkle tree
-    pub fn get_root(&mut self) -> Result<Bytes, Vec<u8>> {
-        let merkle = IMerkle::new(self.merkle_address.get());
-        Ok(merkle.root(self).unwrap().into())
+    pub fn get_root<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+    ) -> Result<Bytes, Vec<u8>> {
+        let merkle = IMerkle::new(storage.borrow_mut().merkle_address.get());
+        Ok(merkle.root(storage).unwrap().into())
     }
 
     /// Returns the current root of the Merkle tree
-    pub fn root_in_history(&mut self, root: Bytes) -> Result<bool, Vec<u8>> {
-        let merkle = IMerkle::new(self.merkle_address.get());
-        Ok(merkle.root_in_history(self, root.0).unwrap())
+    pub fn root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        root: Bytes,
+    ) -> Result<bool, Vec<u8>> {
+        let merkle = IMerkle::new(storage.borrow_mut().merkle_address.get());
+        Ok(merkle.root_in_history(storage, root.0).unwrap())
     }
 
     // -----------
@@ -144,8 +202,8 @@ impl DarkpoolContract {
     // -----------
 
     /// Adds a new wallet to the commitment tree
-    pub fn new_wallet(
-        &mut self,
+    pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
         _wallet_blinder_share: Bytes,
         proof: Bytes,
         valid_wallet_create_statement_bytes: Bytes,
@@ -157,9 +215,15 @@ impl DarkpoolContract {
             .unwrap()
             .into();
 
-        assert!(self.verify(VALID_WALLET_CREATE_CIRCUIT_ID, proof, public_inputs));
+        assert!(DarkpoolContract::verify(
+            storage,
+            VALID_WALLET_CREATE_CIRCUIT_ID,
+            proof,
+            public_inputs
+        ));
 
-        self.insert_wallet_commitment_to_merkle_tree(
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+            storage,
             valid_wallet_create_statement.private_shares_commitment,
             &valid_wallet_create_statement.public_wallet_shares,
         );
@@ -170,8 +234,8 @@ impl DarkpoolContract {
     }
 
     /// Update a wallet in the commitment tree
-    pub fn update_wallet(
-        &mut self,
+    pub fn update_wallet<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
         _wallet_blinder_share: Bytes,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
@@ -180,7 +244,10 @@ impl DarkpoolContract {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
 
-        self.assert_root_in_history(valid_wallet_update_statement.merkle_root);
+        DarkpoolContract::assert_root_in_history(
+            storage,
+            valid_wallet_update_statement.merkle_root,
+        );
 
         assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
             &valid_wallet_update_statement.old_pk_root,
@@ -193,17 +260,26 @@ impl DarkpoolContract {
             .unwrap()
             .into();
 
-        assert!(self.verify(VALID_WALLET_UPDATE_CIRCUIT_ID, proof, public_inputs));
+        assert!(DarkpoolContract::verify(
+            storage,
+            VALID_WALLET_UPDATE_CIRCUIT_ID,
+            proof,
+            public_inputs
+        ));
 
-        self.insert_wallet_commitment_to_merkle_tree(
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+            storage,
             valid_wallet_update_statement.new_private_shares_commitment,
             &valid_wallet_update_statement.new_public_shares,
         );
 
-        self.mark_nullifier_spent(valid_wallet_update_statement.old_shares_nullifier);
+        DarkpoolContract::mark_nullifier_spent(
+            storage,
+            valid_wallet_update_statement.old_shares_nullifier,
+        );
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
-            self.execute_external_transfer(&external_transfer);
+            DarkpoolContract::execute_external_transfer(storage, &external_transfer);
         }
 
         // TODO: Emit wallet updated event w/ wallet blinder share
@@ -214,8 +290,8 @@ impl DarkpoolContract {
     /// Settles a matched order between two parties,
     /// inserting the updated wallets into the commitment tree
     #[allow(clippy::too_many_arguments)]
-    pub fn process_match_settle(
-        &mut self,
+    pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
         party_0_match_payload: Bytes,
         party_0_valid_commitments_proof: Bytes,
         party_0_valid_reblind_proof: Bytes,
@@ -234,8 +310,14 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
-        self.assert_root_in_history(party_0_match_payload.valid_reblind_statement.merkle_root);
-        self.assert_root_in_history(party_1_match_payload.valid_reblind_statement.merkle_root);
+        DarkpoolContract::assert_root_in_history(
+            storage,
+            party_0_match_payload.valid_reblind_statement.merkle_root,
+        );
+        DarkpoolContract::assert_root_in_history(
+            storage,
+            party_1_match_payload.valid_reblind_statement.merkle_root,
+        );
 
         for (circuit_id, (proof, public_inputs)) in [
             VALID_COMMITMENTS_CIRCUIT_ID,
@@ -274,28 +356,37 @@ impl DarkpoolContract {
                 .map(|s| s.unwrap().into()),
             ),
         ) {
-            assert!(self.verify(circuit_id, proof, public_inputs));
+            assert!(DarkpoolContract::verify(
+                storage,
+                circuit_id,
+                proof,
+                public_inputs
+            ));
         }
 
-        self.insert_wallet_commitment_to_merkle_tree(
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+            storage,
             party_0_match_payload
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party0_modified_shares,
         );
-        self.insert_wallet_commitment_to_merkle_tree(
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+            storage,
             party_1_match_payload
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party1_modified_shares,
         );
 
-        self.mark_nullifier_spent(
+        DarkpoolContract::mark_nullifier_spent(
+            storage,
             party_0_match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier,
         );
-        self.mark_nullifier_spent(
+        DarkpoolContract::mark_nullifier_spent(
+            storage,
             party_1_match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier,
@@ -310,37 +401,49 @@ impl DarkpoolContract {
 /// Internal helper methods
 impl DarkpoolContract {
     /// Sets the verification key for the given circuit ID
-    pub fn set_vkey(&mut self, circuit_id: u8, vkey: Bytes) {
+    pub fn set_vkey<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        circuit_id: u8,
+        vkey: Bytes,
+    ) {
         // TODO: Assert well-formedness of the verification key
-
-        let mut slot = self.verification_keys.setter(circuit_id);
+        let this = storage.borrow_mut();
+        let mut slot = this.verification_keys.setter(circuit_id);
         slot.set_bytes(vkey);
     }
 
     /// Marks the given nullifier as spent
-    pub fn mark_nullifier_spent(&mut self, nullifier: ScalarField) {
+    pub fn mark_nullifier_spent<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        nullifier: ScalarField,
+    ) {
+        let this = storage.borrow_mut();
+
         let nullifier_ser = postcard::to_allocvec(&SerdeScalarField(nullifier)).unwrap();
 
-        assert!(!self.nullifier_set.get(nullifier_ser.clone()));
+        assert!(!this.nullifier_set.get(nullifier_ser.clone()));
 
-        self.nullifier_set.insert(nullifier_ser, true);
+        this.nullifier_set.insert(nullifier_ser, true);
     }
 
     /// Asserts that the given Merkle root is in the root history
-    pub fn assert_root_in_history(&mut self, root: ScalarField) {
-        assert!(self
-            .root_in_history(
-                postcard::to_allocvec(&SerdeScalarField(root))
-                    .unwrap()
-                    .into()
-            )
-            .unwrap());
+    pub fn assert_root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        root: ScalarField,
+    ) {
+        assert!(DarkpoolContract::root_in_history(
+            storage,
+            postcard::to_allocvec(&SerdeScalarField(root))
+                .unwrap()
+                .into()
+        )
+        .unwrap());
     }
 
     /// Computes the total commitment to both the private and public wallet shares,
     /// and inserts it into the Merkle tree
-    pub fn insert_wallet_commitment_to_merkle_tree(
-        &mut self,
+    pub fn insert_wallet_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField; WALLET_SHARES_LEN],
     ) {
@@ -354,31 +457,40 @@ impl DarkpoolContract {
         )
         .unwrap();
 
-        let merkle = IMerkle::new(self.merkle_address.get());
+        let merkle = IMerkle::new(storage.borrow_mut().merkle_address.get());
         merkle
-            .insert_shares_commitment(self, total_wallet_shares_bytes)
+            .insert_shares_commitment(storage, total_wallet_shares_bytes)
             .unwrap();
     }
 
     /// Verifies the given proof using the given public inputs,
     /// and using the stored verification key associated with the circuit ID
-    pub fn verify(&mut self, circuit_id: u8, proof: Bytes, public_inputs: Bytes) -> bool {
-        let vkey_bytes = self.verification_keys.get(circuit_id).get_bytes();
+    pub fn verify<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        circuit_id: u8,
+        proof: Bytes,
+        public_inputs: Bytes,
+    ) -> bool {
+        let this = storage.borrow_mut();
+        let vkey_bytes = this.verification_keys.get(circuit_id).get_bytes();
         assert!(!vkey_bytes.is_empty());
 
-        let verifier_address = self.verifier_address.get();
+        let verifier_address = this.verifier_address.get();
         let verification_bundle_ser = [vkey_bytes, proof.into(), public_inputs.into()].concat();
-        let result = static_call(self, verifier_address, &verification_bundle_ser).unwrap();
+        let result = static_call(storage, verifier_address, &verification_bundle_ser).unwrap();
 
         result[0] != 0
     }
 
     /// Executes the given external transfer (withdrawal / deposit)
-    pub fn execute_external_transfer(&mut self, transfer: &ExternalTransfer) {
+    pub fn execute_external_transfer<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        transfer: &ExternalTransfer,
+    ) {
         let erc20 = IERC20::new(transfer.mint);
         if transfer.is_withdrawal {
             erc20
-                .transfer(self, transfer.account_addr, transfer.amount)
+                .transfer(storage, transfer.account_addr, transfer.amount)
                 .unwrap();
 
             // TODO: Emit withdrawal event
@@ -386,7 +498,7 @@ impl DarkpoolContract {
             let darkpool_address = contract::address();
             erc20
                 .transfer_from(
-                    self,
+                    storage,
                     transfer.account_addr,
                     darkpool_address,
                     transfer.amount,

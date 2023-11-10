@@ -12,11 +12,11 @@ use stylus_sdk::{
     storage::{StorageBool, StorageBytes, StorageMap},
 };
 
+use super::components::ownable::Ownable;
+
 pub trait MerkleParams {
     const HEIGHT: usize;
 }
-
-// TODO: Make `Ownable` + `Initialiizable`
 
 #[solidity_storage]
 pub struct MerkleContract<P: MerkleParams> {
@@ -102,12 +102,15 @@ impl MerkleParams for ProdMerkleParams {
 struct ProdMerkleContract {
     #[borrow]
     merkle: MerkleContract<ProdMerkleParams>,
+    #[borrow]
+    ownable: Ownable,
 }
 
 #[external]
-#[inherit(MerkleContract<ProdMerkleParams>)]
+#[inherit(MerkleContract<ProdMerkleParams>, Ownable)]
 impl ProdMerkleContract {
     fn init(&mut self) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.merkle.init()
     }
 
@@ -120,6 +123,7 @@ impl ProdMerkleContract {
     }
 
     fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
+        self.ownable._check_owner()?;
         self.merkle.insert_shares_commitment(shares)
     }
 }
