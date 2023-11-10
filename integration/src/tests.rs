@@ -36,8 +36,9 @@ use crate::{
     constants::{L, N, TRANSFER_AMOUNT},
     utils::{
         assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
-        execute_transfer_and_get_balances, get_process_match_settle_data, mint_dummy_erc20,
-        serialize_to_calldata, setup_darkpool_test_contract,
+        execute_transfer_and_get_balances, get_process_match_settle_data,
+        insert_shares_and_get_root, mint_dummy_erc20, serialize_to_calldata,
+        setup_darkpool_test_contract,
     },
 };
 
@@ -399,12 +400,11 @@ pub(crate) async fn test_update_wallet(
     let mut rng = thread_rng();
 
     let (signing_key, pubkey) = random_keypair(&mut rng);
-    let merkle_root = ark_merkle.root();
 
     let valid_wallet_update_statement = gen_valid_wallet_update_statement(
         &mut rng,
         None, /* external_transfer */
-        merkle_root,
+        ark_merkle.root(),
         pubkey,
     );
 
@@ -448,13 +448,13 @@ pub(crate) async fn test_update_wallet(
     assert!(nullifier_spent, "Nullifier not spent");
 
     // Assert that Merkle root is correct
-
-    let mut shares = vec![valid_wallet_update_statement.new_private_shares_commitment];
-    shares.extend(valid_wallet_update_statement.new_public_shares);
-    let commitment = compute_poseidon_hash(&shares);
-    ark_merkle.update(0, &commitment).unwrap();
-
-    let ark_root = ark_merkle.root();
+    let ark_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        valid_wallet_update_statement.new_private_shares_commitment,
+        &valid_wallet_update_statement.new_public_shares,
+        0, /* index */
+    )
+    .unwrap();
     let contract_root: ScalarField =
         postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
             .unwrap()
@@ -471,8 +471,11 @@ pub(crate) async fn test_process_match_settle(
     verifier_address: Address,
 ) -> Result<()> {
     // Generate test data
+    let mut ark_merkle =
+        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+
     let mut rng = thread_rng();
-    let data = get_process_match_settle_data(&mut rng)?;
+    let data = get_process_match_settle_data(&mut rng, ark_merkle.root())?;
 
     // Set up contract
     setup_darkpool_test_contract(
@@ -535,6 +538,33 @@ pub(crate) async fn test_process_match_settle(
         .call()
         .await?;
     assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
+
+    // Assert that Merkle root is correct
+    insert_shares_and_get_root(
+        &mut ark_merkle,
+        data.party_0_match_payload
+            .valid_reblind_statement
+            .reblinded_private_shares_commitment,
+        &data.valid_match_settle_statement.party0_modified_shares,
+        0, /* index */
+    )
+    .unwrap();
+    let ark_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        data.party_1_match_payload
+            .valid_reblind_statement
+            .reblinded_private_shares_commitment,
+        &data.valid_match_settle_statement.party1_modified_shares,
+        1, /* index */
+    )
+    .unwrap();
+
+    let contract_root: ScalarField =
+        postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
+            .unwrap()
+            .0;
+
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
 }

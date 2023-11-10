@@ -3,11 +3,13 @@
 use std::{fs::File, io::Read, str::FromStr, sync::Arc};
 
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
+use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use ark_std::UniformRand;
 use common::types::{
     ExternalTransfer, MatchPayload, Proof, ScalarField, ValidCommitmentsStatement,
-    ValidMatchSettleStatement, ValidReblindStatement, VerificationKey,
+    ValidMatchSettleStatement, VerificationKey,
 };
+use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::{
     abi::{Address, Detokenize, Tokenize},
     middleware::SignerMiddleware,
@@ -18,7 +20,12 @@ use ethers::{
 use eyre::{eyre, Result};
 use rand::Rng;
 use serde::Serialize;
-use test_helpers::renegade_circuits::{dummy_circuit_bundle, Circuit};
+use test_helpers::{
+    merkle::MerkleConfig,
+    renegade_circuits::{
+        circuit_bundle_from_statement, dummy_circuit_bundle, gen_valid_reblind_statement, Circuit,
+    },
+};
 
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
@@ -165,18 +172,27 @@ pub struct ProcessMatchSettleData {
     pub valid_match_settle_vkey: VerificationKey,
 }
 
-pub(crate) fn get_process_match_settle_data(rng: &mut impl Rng) -> Result<ProcessMatchSettleData> {
+pub(crate) fn get_process_match_settle_data(
+    rng: &mut impl Rng,
+    merkle_root: ScalarField,
+) -> Result<ProcessMatchSettleData> {
     let (
         party_0_valid_commitments_statement,
         valid_commitments_vkey,
         party_0_valid_commitments_proof,
     ) = dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
-    let (party_0_valid_reblind_statement, valid_reblind_vkey, party_0_valid_reblind_proof) =
-        dummy_circuit_bundle::<ValidReblindStatement>(N, rng)?;
+
+    let party_0_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
+    let (valid_reblind_vkey, party_0_valid_reblind_proof) =
+        circuit_bundle_from_statement(&party_0_valid_reblind_statement, N)?;
+
     let (party_1_valid_commitments_statement, _, party_1_valid_commitments_proof) =
         dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
-    let (party_1_valid_reblind_statement, _, party_1_valid_reblind_proof) =
-        dummy_circuit_bundle::<ValidReblindStatement>(N, rng)?;
+
+    let party_1_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
+    let (_, party_1_valid_reblind_proof) =
+        circuit_bundle_from_statement(&party_1_valid_reblind_statement, N)?;
+
     let (valid_match_settle_statement, valid_match_settle_vkey, valid_match_settle_proof) =
         dummy_circuit_bundle::<ValidMatchSettleStatement>(N, rng)?;
 
@@ -300,4 +316,20 @@ where
     );
 
     Ok(())
+}
+
+pub(crate) fn insert_shares_and_get_root(
+    ark_merkle: &mut ArkMerkleTree<MerkleConfig>,
+    private_shares_commitment: ScalarField,
+    public_shares: &[ScalarField],
+    index: usize,
+) -> Result<ScalarField> {
+    let mut shares = vec![private_shares_commitment];
+    shares.extend(public_shares);
+    let commitment = compute_poseidon_hash(&shares);
+    ark_merkle
+        .update(index, &commitment)
+        .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
+
+    Ok(ark_merkle.root())
 }
