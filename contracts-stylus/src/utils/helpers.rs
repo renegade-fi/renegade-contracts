@@ -15,7 +15,7 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     postcard::to_allocvec(
         &statement
             .serialize_to_scalars()
-            .map_err(|_| postcard::Error::SerdeSerCustom)?
+            .unwrap()
             .into_iter()
             .map(SerdeScalarField)
             .collect::<Vec<_>>(),

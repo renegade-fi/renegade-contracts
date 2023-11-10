@@ -13,6 +13,9 @@ pub const EC_RECOVER_ADDRESS_LAST_BYTE: u8 = 1;
 /// which is a boolean indicating whether the pairing check succeeded
 pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 
+/// The byte length of the input to the `ecRecover` precompile
+pub const EC_RECOVER_INPUT_LEN: usize = 128;
+
 /// The ID of the `VALID_WALLET_CREATE` circuit
 #[cfg_attr(
     not(any(feature = "darkpool", feature = "darkpool-test-contract")),

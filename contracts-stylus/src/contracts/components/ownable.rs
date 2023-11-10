@@ -24,14 +24,14 @@ impl Ownable {
     }
 
     pub fn renounce_ownership(&mut self) -> Result<(), Vec<u8>> {
-        self._check_owner()?;
+        self._check_owner().unwrap();
         self._transfer_ownership(Address::ZERO);
         Ok(())
     }
 
     pub fn transfer_ownership(&mut self, new_owner: Address) -> Result<(), Vec<u8>> {
         if self.owner_initialized.get() {
-            self._check_owner()?;
+            self._check_owner().unwrap();
         } else {
             self.owner_initialized.set(true);
         }
@@ -46,7 +46,7 @@ impl Ownable {
 /// Internal methods
 impl Ownable {
     pub fn _check_owner(&self) -> Result<(), Vec<u8>> {
-        assert_eq!(self.owner()?, msg::sender());
+        assert_eq!(self.owner.get(), msg::sender());
         Ok(())
     }
 

@@ -43,7 +43,7 @@ impl Borrow<Initializable> for DarkpoolTestContract {
     }
 }
 
-// Expose the internal helper methods of the Darkpool contract as external for testing purposes
+// Expose internal helper methods of the Darkpool contract used in testing
 #[external]
 #[inherit(DarkpoolContract, Ownable, Initializable)]
 impl DarkpoolTestContract {
@@ -51,20 +51,6 @@ impl DarkpoolTestContract {
         let nullifier: SerdeScalarField = postcard::from_bytes(nullifier.as_slice()).unwrap();
         DarkpoolContract::mark_nullifier_spent(self, nullifier.0);
         Ok(())
-    }
-
-    pub fn verify(
-        &mut self,
-        circuit_id: u8,
-        proof: Bytes,
-        public_inputs: Bytes,
-    ) -> Result<bool, Vec<u8>> {
-        Ok(DarkpoolContract::verify(
-            self,
-            circuit_id,
-            proof,
-            public_inputs,
-        ))
     }
 
     pub fn execute_external_transfer(&mut self, transfer: Bytes) -> Result<(), Vec<u8>> {

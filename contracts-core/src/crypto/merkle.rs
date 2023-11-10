@@ -1,6 +1,5 @@
 //! A sparse Merkle tree implementation, intended to be used in a smart contract context.
 
-use alloc::{vec, vec::Vec};
 use ark_ff::Zero;
 use common::{serde_def_types::ScalarFieldDef, types::ScalarField};
 use serde::{Deserialize, Serialize};
@@ -34,6 +33,7 @@ where
 
 /// Represents a node in the Merkle tree,
 /// including the height and index "coordinates" along with the value
+#[derive(Clone, Copy, Default)]
 pub struct NodeMetadata {
     pub height: usize,
     pub index: u128,
@@ -71,12 +71,20 @@ where
 
     /// Insert a value into the Merkle tree,
     /// returning the updated internal nodes from the insertion
-    pub fn insert(&mut self, value: ScalarField) -> Vec<NodeMetadata> {
+    pub fn insert(&mut self, value: ScalarField) -> [NodeMetadata; HEIGHT] {
         assert!(self.next_index < 2_u128.pow((HEIGHT - 1) as u32));
-        let node_changes = insert_helper(self, value, HEIGHT - 1, self.next_index, true);
-        self.root = node_changes.first().unwrap().value;
+        let mut updated_nodes = [NodeMetadata::default(); HEIGHT];
+        insert_helper(
+            self,
+            value,
+            HEIGHT - 1,
+            self.next_index,
+            true,
+            &mut updated_nodes,
+        );
+        self.root = updated_nodes[0].value;
         self.next_index += 1;
-        node_changes
+        updated_nodes
     }
 }
 
@@ -118,17 +126,18 @@ fn insert_helper<const HEIGHT: usize>(
     height: usize,
     insert_index: u128,
     subtree_filled: bool,
-) -> Vec<NodeMetadata>
-where
+    updated_nodes: &mut [NodeMetadata; HEIGHT],
+) where
     [(); HEIGHT - 1]:,
 {
     // Base case
     if height == 0 {
-        return vec![NodeMetadata {
+        updated_nodes[height] = NodeMetadata {
             height,
             index: insert_index,
             value,
-        }];
+        };
+        return;
     }
 
     // Fetch the least significant bit of the insertion index, this tells us
@@ -157,21 +166,28 @@ where
     // Mux between hashing the current value as the left or right sibling depending on
     // the index being inserted into
     let mut new_subtree_filled = false;
-    let next_value = if is_left {
-        compute_poseidon_hash(&[value, current_sibling_value])
+    let inputs = if is_left {
+        [value, current_sibling_value]
     } else {
         new_subtree_filled = subtree_filled;
-        compute_poseidon_hash(&[current_sibling_value, value])
+        [current_sibling_value, value]
     };
+    let next_value = compute_poseidon_hash(&inputs);
 
-    let mut node_changes =
-        insert_helper(tree, next_value, height - 1, next_index, new_subtree_filled);
-    node_changes.push(NodeMetadata {
+    insert_helper(
+        tree,
+        next_value,
+        height - 1,
+        next_index,
+        new_subtree_filled,
+        updated_nodes,
+    );
+
+    updated_nodes[height] = NodeMetadata {
         height,
         index: insert_index,
         value,
-    });
-    node_changes
+    };
 }
 
 #[cfg(test)]

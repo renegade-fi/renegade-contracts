@@ -20,7 +20,7 @@ use mpc_plonk::{
     transcript::SolidityTranscript,
 };
 use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
-use mpc_relation::{Arithmetization, Circuit as JfCircuit, PlonkCircuit};
+use mpc_relation::{Arithmetization, Circuit as JfCircuit, PlonkCircuit, ConstraintSystem};
 use rand::thread_rng;
 
 pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircuit<ScalarField>> {

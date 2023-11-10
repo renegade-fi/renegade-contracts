@@ -110,7 +110,7 @@ struct ProdMerkleContract {
 #[inherit(MerkleContract<ProdMerkleParams>, Ownable)]
 impl ProdMerkleContract {
     fn init(&mut self) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
+        self.ownable._check_owner().unwrap();
         self.merkle.init()
     }
 
@@ -123,7 +123,7 @@ impl ProdMerkleContract {
     }
 
     fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner()?;
+        self.ownable._check_owner().unwrap();
         self.merkle.insert_shares_commitment(shares)
     }
 }
