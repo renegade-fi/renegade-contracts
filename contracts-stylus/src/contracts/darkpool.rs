@@ -180,13 +180,7 @@ impl DarkpoolContract {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
 
-        assert!(self
-            .root_in_history(
-                postcard::to_allocvec(&SerdeScalarField(valid_wallet_update_statement.merkle_root))
-                    .unwrap()
-                    .into()
-            )
-            .unwrap());
+        self.assert_root_in_history(valid_wallet_update_statement.merkle_root);
 
         assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
             &valid_wallet_update_statement.old_pk_root,
@@ -240,25 +234,8 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
-        assert!(self
-            .root_in_history(
-                postcard::to_allocvec(&SerdeScalarField(
-                    party_0_match_payload.valid_reblind_statement.merkle_root
-                ))
-                .unwrap()
-                .into()
-            )
-            .unwrap());
-
-        assert!(self
-            .root_in_history(
-                postcard::to_allocvec(&SerdeScalarField(
-                    party_1_match_payload.valid_reblind_statement.merkle_root
-                ))
-                .unwrap()
-                .into()
-            )
-            .unwrap());
+        self.assert_root_in_history(party_0_match_payload.valid_reblind_statement.merkle_root);
+        self.assert_root_in_history(party_1_match_payload.valid_reblind_statement.merkle_root);
 
         for (circuit_id, (proof, public_inputs)) in [
             VALID_COMMITMENTS_CIRCUIT_ID,
@@ -347,6 +324,17 @@ impl DarkpoolContract {
         assert!(!self.nullifier_set.get(nullifier_ser.clone()));
 
         self.nullifier_set.insert(nullifier_ser, true);
+    }
+
+    /// Asserts that the given Merkle root is in the root history
+    pub fn assert_root_in_history(&mut self, root: ScalarField) {
+        assert!(self
+            .root_in_history(
+                postcard::to_allocvec(&SerdeScalarField(root))
+                    .unwrap()
+                    .into()
+            )
+            .unwrap());
     }
 
     /// Computes the total commitment to both the private and public wallet shares,
