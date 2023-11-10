@@ -9,7 +9,7 @@ use ark_std::UniformRand;
 use common::{
     constants::TEST_MERKLE_HEIGHT,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
-    types::{G1Affine, G2Affine, ScalarField, VerificationBundle},
+    types::{G1Affine, G2Affine, ScalarField, ValidWalletCreateStatement, VerificationBundle},
 };
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
@@ -24,7 +24,8 @@ use test_helpers::{
     misc::random_scalars,
     proof_system::{convert_jf_proof_and_vkey, dummy_vkeys, gen_jf_proof_and_vkey},
     renegade_circuits::{
-        circuit_bundle_from_statement, gen_valid_wallet_update_statement, Circuit,
+        circuit_bundle_from_statement, dummy_circuit_bundle, gen_valid_wallet_update_statement,
+        Circuit,
     },
 };
 
@@ -384,6 +385,60 @@ pub(crate) async fn test_external_transfer(
         user_balance, user_initial_balance,
         "Post-withdrawal user balance incorrect"
     );
+
+    Ok(())
+}
+
+pub(crate) async fn test_new_wallet(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    merkle_address: Address,
+    verifier_address: Address,
+) -> Result<()> {
+    // Generate test data
+    let mut rng = thread_rng();
+    let (valid_wallet_create_statement, vkey, proof) =
+        dummy_circuit_bundle::<ValidWalletCreateStatement>(N, &mut rng)?;
+
+    let wallet_blinder_share = SerdeScalarField(ScalarField::rand(&mut rng));
+
+    // Set up contract
+    setup_darkpool_test_contract(
+        &contract,
+        merkle_address,
+        verifier_address,
+        vec![(Circuit::ValidWalletCreate, serialize_to_calldata(&vkey)?)],
+    )
+    .await?;
+
+    // Call `new_wallet` with valid data
+    contract
+        .new_wallet(
+            serialize_to_calldata(&wallet_blinder_share)?,
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&valid_wallet_create_statement)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert that Merkle root is correct
+    let mut ark_merkle =
+        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+
+    let ark_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        valid_wallet_create_statement.private_shares_commitment,
+        &valid_wallet_create_statement.public_wallet_shares,
+        0, /* index */
+    )
+    .unwrap();
+
+    let contract_root: ScalarField =
+        postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
+            .unwrap()
+            .0;
+
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
 }

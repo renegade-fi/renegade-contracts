@@ -9,8 +9,8 @@ use common::{
     custom_serde::ScalarSerializable,
     types::{
         ExternalTransfer, Proof, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
-        ValidMatchSettleStatement, ValidReblindStatement, ValidWalletUpdateStatement,
-        VerificationKey,
+        ValidMatchSettleStatement, ValidReblindStatement, ValidWalletCreateStatement,
+        ValidWalletUpdateStatement, VerificationKey,
     },
 };
 use core::iter;
@@ -30,6 +30,15 @@ pub enum Circuit {
 
 pub trait RenegadeStatement: Serialize + ScalarSerializable {
     fn dummy(rng: &mut impl Rng) -> Self;
+}
+
+impl RenegadeStatement for ValidWalletCreateStatement {
+    fn dummy(rng: &mut impl Rng) -> Self {
+        ValidWalletCreateStatement {
+            private_shares_commitment: ScalarField::rand(rng),
+            public_wallet_shares: dummy_wallet_shares(rng),
+        }
+    }
 }
 
 impl RenegadeStatement for ValidWalletUpdateStatement {

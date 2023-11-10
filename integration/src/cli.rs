@@ -36,6 +36,7 @@ pub(crate) enum Tests {
     Verifier,
     Ownership,
     ExternalTransfer,
+    NewWallet,
     UpdateWallet,
     ProcessMatchSettle,
 }
