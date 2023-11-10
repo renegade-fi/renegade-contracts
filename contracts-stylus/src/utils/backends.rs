@@ -1,6 +1,5 @@
 //! Common utilities used throughout the smart contracts, including testing contracts.
 
-use alloc::vec::Vec;
 use common::{
     backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError, HashBackend},
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
@@ -13,6 +12,8 @@ use crate::utils::constants::{
     EC_ADD_ADDRESS_LAST_BYTE, EC_MUL_ADDRESS_LAST_BYTE, EC_PAIRING_ADDRESS_LAST_BYTE,
     EC_RECOVER_ADDRESS_LAST_BYTE, PAIRING_CHECK_RESULT_LAST_BYTE_INDEX,
 };
+
+use super::constants::EC_RECOVER_INPUT_LEN;
 
 pub struct StylusHasher;
 impl HashBackend for StylusHasher {
@@ -112,16 +113,16 @@ impl EcRecoverBackend for PrecompileEcRecoverBackend {
         // input[32..64] = v (big-endian)
         // input[64..96] = r (big-endian)
         // input[96..128] = s (big-endian)
-        let mut input = Vec::with_capacity(128);
+        let mut input = [0_u8; EC_RECOVER_INPUT_LEN];
         // Add message hash to input
-        input.extend_from_slice(message_hash);
+        input[..NUM_BYTES_U256].copy_from_slice(message_hash);
         // Left-pad `v` with zero-bytes & add to input
-        input.extend_from_slice(&[0_u8; 31]);
+        input[NUM_BYTES_U256..2 * NUM_BYTES_U256 - 1].copy_from_slice(&[0_u8; NUM_BYTES_U256 - 1]);
         // We expect `v` to be either 0 or 1, but the `ecRecover`
         // precompile expects either 27 or 28
-        input.push(signature[64] + 27);
+        input[2 * NUM_BYTES_U256 - 1] = signature[64] + 27;
         // Add `r` & `s` to input
-        input.extend_from_slice(&signature[0..64]);
+        input[2 * NUM_BYTES_U256..].copy_from_slice(&signature[0..2 * NUM_BYTES_U256]);
 
         // Call the `ecRecover` precompile
         let res = RawCall::new_static()

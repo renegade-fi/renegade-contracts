@@ -74,7 +74,9 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         // Set the darkpool as the Merkle contract owner
         let merkle_ownable = IOwnable::new(merkle_address);
-        merkle_ownable.transfer_ownership(Call::new_in(storage), contract::address())?;
+        merkle_ownable
+            .transfer_ownership(Call::new_in(storage), contract::address())
+            .unwrap();
 
         // Initialize the Merkle tree
         let merkle = IMerkle::new(merkle_address);
@@ -83,7 +85,7 @@ impl DarkpoolContract {
         let this = storage.borrow_mut();
 
         // Set the caller as the owner
-        this.ownable.transfer_ownership(msg::sender())?;
+        this.ownable.transfer_ownership(msg::sender()).unwrap();
 
         // Set the verifier & Merkle addresses
         this.verifier_address.set(verifier_address);
@@ -101,7 +103,7 @@ impl DarkpoolContract {
         address: Address,
     ) -> Result<(), Vec<u8>> {
         let this = storage.borrow_mut();
-        this.ownable._check_owner()?;
+        this.ownable._check_owner().unwrap();
         this.verifier_address.set(address);
         Ok(())
     }
@@ -112,7 +114,7 @@ impl DarkpoolContract {
         address: Address,
     ) -> Result<(), Vec<u8>> {
         let this = storage.borrow_mut();
-        this.ownable._check_owner()?;
+        this.ownable._check_owner().unwrap();
         this.merkle_address.set(address);
         Ok(())
     }
@@ -122,7 +124,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner()?;
+        storage.borrow_mut().ownable._check_owner().unwrap();
         DarkpoolContract::set_vkey(storage, VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -132,7 +134,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner()?;
+        storage.borrow_mut().ownable._check_owner().unwrap();
         DarkpoolContract::set_vkey(storage, VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -142,7 +144,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner()?;
+        storage.borrow_mut().ownable._check_owner().unwrap();
         DarkpoolContract::set_vkey(storage, VALID_COMMITMENTS_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -152,7 +154,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner()?;
+        storage.borrow_mut().ownable._check_owner().unwrap();
         DarkpoolContract::set_vkey(storage, VALID_REBLIND_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -162,7 +164,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner()?;
+        storage.borrow_mut().ownable._check_owner().unwrap();
         DarkpoolContract::set_vkey(storage, VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -310,87 +312,30 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
-        DarkpoolContract::assert_root_in_history(
+        DarkpoolContract::process_party(
             storage,
-            party_0_match_payload.valid_reblind_statement.merkle_root,
-        );
-        DarkpoolContract::assert_root_in_history(
-            storage,
-            party_1_match_payload.valid_reblind_statement.merkle_root,
-        );
-
-        for (circuit_id, (proof, public_inputs)) in [
-            VALID_COMMITMENTS_CIRCUIT_ID,
-            VALID_COMMITMENTS_CIRCUIT_ID,
-            VALID_REBLIND_CIRCUIT_ID,
-            VALID_REBLIND_CIRCUIT_ID,
-            VALID_MATCH_SETTLE_CIRCUIT_ID,
-        ]
-        .into_iter()
-        .zip(
-            [
-                party_0_valid_commitments_proof,
-                party_1_valid_commitments_proof,
-                party_0_valid_reblind_proof,
-                party_1_valid_reblind_proof,
-                valid_match_settle_proof,
-            ]
-            .into_iter()
-            .zip(
-                [
-                    serialize_statement_for_verification(
-                        &party_0_match_payload.valid_commitments_statement,
-                    ),
-                    serialize_statement_for_verification(
-                        &party_1_match_payload.valid_commitments_statement,
-                    ),
-                    serialize_statement_for_verification(
-                        &party_0_match_payload.valid_reblind_statement,
-                    ),
-                    serialize_statement_for_verification(
-                        &party_1_match_payload.valid_reblind_statement,
-                    ),
-                    serialize_statement_for_verification(&valid_match_settle_statement),
-                ]
-                .into_iter()
-                .map(|s| s.unwrap().into()),
-            ),
-        ) {
-            assert!(DarkpoolContract::verify(
-                storage,
-                circuit_id,
-                proof,
-                public_inputs
-            ));
-        }
-
-        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
-            storage,
-            party_0_match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment,
+            &party_0_match_payload,
+            party_0_valid_commitments_proof,
+            party_0_valid_reblind_proof,
             &valid_match_settle_statement.party0_modified_shares,
         );
-        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+
+        DarkpoolContract::process_party(
             storage,
-            party_1_match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment,
-            &valid_match_settle_statement.party1_modified_shares,
+            &party_1_match_payload,
+            party_1_valid_commitments_proof,
+            party_1_valid_reblind_proof,
+            &valid_match_settle_statement.party0_modified_shares,
         );
 
-        DarkpoolContract::mark_nullifier_spent(
+        assert!(DarkpoolContract::verify(
             storage,
-            party_0_match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
-        );
-        DarkpoolContract::mark_nullifier_spent(
-            storage,
-            party_1_match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
-        );
+            VALID_MATCH_SETTLE_CIRCUIT_ID,
+            valid_match_settle_proof,
+            serialize_statement_for_verification(&valid_match_settle_statement)
+                .unwrap()
+                .into(),
+        ));
 
         // TODO: Emit wallet updated events w/ wallet blinder shares
 
@@ -507,5 +452,52 @@ impl DarkpoolContract {
 
             // TODO: Emit deposit event
         }
+    }
+
+    /// Handles the post-match-settle logic for a single party
+    pub fn process_party<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        match_payload: &MatchPayload,
+        valid_commitments_proof: Bytes,
+        valid_reblind_proof: Bytes,
+        public_wallet_shares: &[ScalarField; WALLET_SHARES_LEN],
+    ) {
+        DarkpoolContract::assert_root_in_history(
+            storage,
+            match_payload.valid_reblind_statement.merkle_root,
+        );
+
+        assert!(DarkpoolContract::verify(
+            storage,
+            VALID_COMMITMENTS_CIRCUIT_ID,
+            valid_commitments_proof,
+            serialize_statement_for_verification(&match_payload.valid_commitments_statement)
+                .unwrap()
+                .into()
+        ));
+
+        assert!(DarkpoolContract::verify(
+            storage,
+            VALID_REBLIND_CIRCUIT_ID,
+            valid_reblind_proof,
+            serialize_statement_for_verification(&match_payload.valid_reblind_statement)
+                .unwrap()
+                .into()
+        ));
+
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+            storage,
+            match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
+            public_wallet_shares,
+        );
+
+        DarkpoolContract::mark_nullifier_spent(
+            storage,
+            match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier,
+        );
     }
 }

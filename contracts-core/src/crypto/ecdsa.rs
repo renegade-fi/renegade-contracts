@@ -1,10 +1,11 @@
 //! Gelpers smart contract ECDSA verification using our own types & traits
 
-use alloc::vec::Vec;
 use ark_ff::PrimeField;
 use common::{
     backends::{EcRecoverBackend, EcdsaError, HashBackend},
-    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE},
+    constants::{
+        HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U128, NUM_BYTES_U64,
+    },
     types::{PublicSigningKey, ScalarField},
 };
 
@@ -33,10 +34,13 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
     // TODO: Assert that the `PublicSigningKey` is indeed formed as expected below, i.e.
     // its affine coordinates are split first into the higher 128 bits, then the lower 128 bits,
     // with each of those interpreted in big-endian order as a scalar field element.
-    let mut pubkey_bytes = scalar_lower_128_bytes_be(&pubkey.x[0]);
-    pubkey_bytes.extend(scalar_lower_128_bytes_be(&pubkey.x[1]));
-    pubkey_bytes.extend(scalar_lower_128_bytes_be(&pubkey.y[0]));
-    pubkey_bytes.extend(scalar_lower_128_bytes_be(&pubkey.y[1]));
+    let mut pubkey_bytes = [0_u8; 4 * NUM_BYTES_U128];
+    pubkey_bytes[..NUM_BYTES_U128].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.x[0]));
+    pubkey_bytes[NUM_BYTES_U128..2 * NUM_BYTES_U128]
+        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.x[1]));
+    pubkey_bytes[2 * NUM_BYTES_U128..3 * NUM_BYTES_U128]
+        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.y[0]));
+    pubkey_bytes[3 * NUM_BYTES_U128..].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.y[1]));
 
     // Unwrapping here is safe because we know that the hash output is 32 bytes long
     H::hash(&pubkey_bytes)[HASH_OUTPUT_SIZE - NUM_BYTES_ADDRESS..]
@@ -45,15 +49,16 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
 }
 
 /// Returns the lower 128 bits of a scalar as a big-endian byte array
-fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> Vec<u8> {
+fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> [u8; NUM_BYTES_U128] {
     let bigint = scalar.into_bigint();
     // The `BigInt` type stores the scalar as an array of 4 u64 limbs in "little-endian" order,
     // i.e. the least significant limb is stored first.
     // This means the lower 128 bits of the scalar are stored in the first 2 limbs,
     // so we access these directly and convert them to big-endian byte arrays.
     // Note we have to reverse the order of the first and second limbs for big-endian representation.
-    let mut lower_128_bytes_be = bigint.0[1].to_be_bytes().to_vec();
-    lower_128_bytes_be.extend(bigint.0[0].to_be_bytes().to_vec());
+    let mut lower_128_bytes_be = [0_u8; NUM_BYTES_U128];
+    lower_128_bytes_be[..NUM_BYTES_U64].copy_from_slice(&bigint.0[1].to_be_bytes());
+    lower_128_bytes_be[NUM_BYTES_U64..].copy_from_slice(&bigint.0[0].to_be_bytes());
     lower_128_bytes_be
 }
 

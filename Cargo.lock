@@ -919,9 +919,10 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 [[package]]
 name = "constants"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/circuits-refactor#1ed1d034d82ae79777ff47232ad553284dda09f2"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/circuits-refactor#dbdc3304ba7e6da2edac3317d937b94901df67c1"
 dependencies = [
  "ark-bn254",
+ "ark-ec",
 ]
 
 [[package]]
@@ -2116,9 +2117,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd6effc99afb63425aff9b05836f029929e345a6148a14b7ecd5ab67af944482"
+checksum = "f95b9abcae896730d42b78e09c155ed4ddf82c07b4de772c64aee5b2d8b7c150"
 dependencies = [
  "bytes",
  "fnv",
@@ -2350,7 +2351,7 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 [[package]]
 name = "jf-primitives"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#c3cef9ef8a09ba1aa9b96e8e1d627d6a025aa443"
+source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#dd2da0bb6e68f1e42ad90960f4bb2eb3dacc9a43"
 dependencies = [
  "anyhow",
  "ark-bls12-377",
@@ -2394,7 +2395,7 @@ dependencies = [
 [[package]]
 name = "jf-utils"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#c3cef9ef8a09ba1aa9b96e8e1d627d6a025aa443"
+source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#dd2da0bb6e68f1e42ad90960f4bb2eb3dacc9a43"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2635,7 +2636,7 @@ dependencies = [
 [[package]]
 name = "mpc-plonk"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#c3cef9ef8a09ba1aa9b96e8e1d627d6a025aa443"
+source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#dd2da0bb6e68f1e42ad90960f4bb2eb3dacc9a43"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2667,7 +2668,7 @@ dependencies = [
 [[package]]
 name = "mpc-relation"
 version = "0.4.0-pre.0"
-source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#c3cef9ef8a09ba1aa9b96e8e1d627d6a025aa443"
+source = "git+https://github.com/renegade-fi/mpc-jellyfish.git#dd2da0bb6e68f1e42ad90960f4bb2eb3dacc9a43"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
@@ -3170,9 +3171,9 @@ dependencies = [
 
 [[package]]
 name = "proptest"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c003ac8c77cb07bb74f5f198bce836a689bcd5a42574612bf14d17bfd08c20e"
+checksum = "31b476131c3c86cb68032fdc5cb6d5a1045e3e42d96b69fa599fd77701e1f5bf"
 dependencies = [
  "bitflags 2.4.1",
  "lazy_static",
@@ -3180,7 +3181,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_xorshift",
- "regex-syntax 0.7.5",
+ "regex-syntax 0.8.2",
  "unarray",
 ]
 
@@ -3378,7 +3379,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/circuits-refactor#1ed1d034d82ae79777ff47232ad553284dda09f2"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/circuits-refactor#dbdc3304ba7e6da2edac3317d937b94901df67c1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3599,9 +3600,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pemfile"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
+checksum = "1c74cae0a4cf6ccbbf5f359f08efdf8ee7e1dc532573bf0db71968cb56b1448c"
 dependencies = [
  "base64 0.21.5",
 ]
@@ -3934,9 +3935,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.11.1"
+version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "942b4a808e05215192e39f4ab80813e599068285906cc91aa64f923db842bd5a"
+checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
 
 [[package]]
 name = "snafu"
@@ -4334,9 +4335,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.33.0"
+version = "1.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f38200e3ef7995e5ef13baec2f432a6da0aa9ac495b2c0e8f3b7eec2c92d653"
+checksum = "d0c014766411e834f7af5b8f4cf46257aab4036ca95e9d2c144a10f59ad6f5b9"
 dependencies = [
  "backtrace",
  "bytes",
@@ -4353,9 +4354,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
+checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
 dependencies = [
  "proc-macro2",
  "quote",
