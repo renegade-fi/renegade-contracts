@@ -311,6 +311,33 @@ pub(crate) async fn test_ownable(
     Ok(())
 }
 
+pub(crate) async fn test_initializable(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+) -> Result<()> {
+    let dummy_verifier_address = Address::random();
+    let dummy_merkle_address = Address::random();
+
+    contract
+        .initialize(dummy_verifier_address, dummy_merkle_address)
+        .send()
+        .await?
+        .await?;
+
+    assert!(
+        contract
+            .initialize(dummy_verifier_address, dummy_merkle_address)
+            .send()
+            .await
+            .is_err(),
+        "Initialized contract twice"
+    );
+
+    // Clear initializable state for future tests
+    contract.clear_initializable().send().await?.await?;
+
+    Ok(())
+}
+
 pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -449,6 +476,9 @@ pub(crate) async fn test_new_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
+    // Clear initializable state for future tests
+    contract.clear_initializable().send().await?.await?;
+
     Ok(())
 }
 
@@ -525,6 +555,9 @@ pub(crate) async fn test_update_wallet(
             .0;
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+
+    // Clear initializable state for future tests
+    contract.clear_initializable().send().await?.await?;
 
     Ok(())
 }
@@ -629,6 +662,9 @@ pub(crate) async fn test_process_match_settle(
             .0;
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+
+    // Clear initializable state for future tests
+    contract.clear_initializable().send().await?.await?;
 
     Ok(())
 }
