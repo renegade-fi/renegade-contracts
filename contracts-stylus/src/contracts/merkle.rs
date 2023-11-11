@@ -1,5 +1,11 @@
 //! A Merkle tree smart contract, used to accumulate all of the wallet commitments
 //! in the dark pool.
+//! 
+//! NOTE: This contract is `delegatecall`ed by the `DarkpoolContract`. This makes our contract
+//! "topology" a lot simpler: we can apply access controls and upgradability only to the top-level
+//! `DarkpoolContract` and not worry about it here.
+//! However, it is important that we NEVER CALL A `selfdestruct` (or `delegatecall` some other contract
+//! which `selfdestruct`s) WITHIN THE MERKLE CONTRACT, AS THIS WOULD DESTROY THE DARKPOOL.
 
 use core::marker::PhantomData;
 
@@ -11,8 +17,6 @@ use stylus_sdk::{
     prelude::*,
     storage::{StorageBool, StorageBytes, StorageMap},
 };
-
-use super::components::ownable::Ownable;
 
 pub trait MerkleParams {
     const HEIGHT: usize;
@@ -102,15 +106,12 @@ impl MerkleParams for ProdMerkleParams {
 struct ProdMerkleContract {
     #[borrow]
     merkle: MerkleContract<ProdMerkleParams>,
-    #[borrow]
-    ownable: Ownable,
 }
 
 #[external]
-#[inherit(MerkleContract<ProdMerkleParams>, Ownable)]
+#[inherit(MerkleContract<ProdMerkleParams>)]
 impl ProdMerkleContract {
     fn init(&mut self) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner().unwrap();
         self.merkle.init()
     }
 
@@ -123,7 +124,6 @@ impl ProdMerkleContract {
     }
 
     fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
-        self.ownable._check_owner().unwrap();
         self.merkle.insert_shares_commitment(shares)
     }
 }

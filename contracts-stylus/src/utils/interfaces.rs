@@ -1,5 +1,6 @@
 //! Solidity ABI-compatible interface definitions used by the darkpool
 
+use alloy_sol_types::sol;
 use stylus_sdk::stylus_proc::sol_interface;
 
 sol_interface! {
@@ -22,10 +23,12 @@ sol_interface! {
         function rootInHistory(bytes root) external view returns (bool);
         function insertSharesCommitment(bytes shares) external;
     }
+}
 
-    interface IOwnable {
-        function owner() public view virtual returns (address);
-        function renounceOwnership() public virtual;
-        function transferOwnership(address new_owner) public virtual;
-    }
+sol! {
+    // Merkle functions
+    function init() external;
+    function root() external view returns (bytes);
+    function rootInHistory(bytes root) external view returns (bool);
+    function insertSharesCommitment(bytes shares) external;
 }
