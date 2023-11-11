@@ -2,7 +2,7 @@ use core::borrow::{Borrow, BorrowMut};
 
 use alloc::vec::Vec;
 use common::{serde_def_types::SerdeScalarField, types::ExternalTransfer};
-use stylus_sdk::{abi::Bytes, prelude::*};
+use stylus_sdk::{abi::Bytes, alloy_primitives::U64, prelude::*};
 
 use crate::contracts::{
     components::{initializable::Initializable, ownable::Ownable},
@@ -57,6 +57,13 @@ impl DarkpoolTestContract {
         let external_transfer: ExternalTransfer =
             postcard::from_bytes(transfer.as_slice()).unwrap();
         DarkpoolContract::execute_external_transfer(self, &external_transfer);
+        Ok(())
+    }
+
+    pub fn clear_initializable(&mut self) -> Result<(), Vec<u8>> {
+        BorrowMut::<Initializable>::borrow_mut(self)
+            .initialized
+            .set(U64::from_limbs([0]));
         Ok(())
     }
 }

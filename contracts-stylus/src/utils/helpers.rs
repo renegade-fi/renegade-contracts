@@ -37,5 +37,5 @@ pub fn delegate_call_helper<C: SolCall>(
 ) -> C::Return {
     let calldata = C::new(args).encode();
     let res = unsafe { delegate_call(storage, address, &calldata).unwrap() };
-    C::decode_returns(&res, true /* valudate */).unwrap()
+    C::decode_returns(&res, true /* validate */).unwrap()
 }

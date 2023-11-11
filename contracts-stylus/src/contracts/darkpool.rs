@@ -87,6 +87,8 @@ impl DarkpoolContract {
         // Mark the darkpool as initialized
         this.initializable._initialize(1);
 
+        // TODO: Emit intialization event
+
         Ok(())
     }
 
