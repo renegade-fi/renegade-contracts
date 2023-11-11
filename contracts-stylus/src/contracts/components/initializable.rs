@@ -13,6 +13,10 @@ pub struct Initializable {
     /// initialization steps to be added in future versions.
     ///
     /// This is particularly relevant for contracts that are upgradable.
+    #[cfg_attr(
+        not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+        allow(dead_code)
+    )]
     initialized: StorageU64,
 }
 

@@ -4,10 +4,7 @@ use alloc::vec::Vec;
 use common::constants::TEST_MERKLE_HEIGHT;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
-use crate::contracts::{
-    components::ownable::Ownable,
-    merkle::{MerkleContract, MerkleParams},
-};
+use crate::contracts::merkle::{MerkleContract, MerkleParams};
 
 struct TestMerkleParams;
 impl MerkleParams for TestMerkleParams {
@@ -19,12 +16,10 @@ impl MerkleParams for TestMerkleParams {
 struct TestMerkleContract {
     #[borrow]
     merkle: MerkleContract<TestMerkleParams>,
-    #[borrow]
-    ownable: Ownable,
 }
 
 #[external]
-#[inherit(MerkleContract<TestMerkleParams>, Ownable)]
+#[inherit(MerkleContract<TestMerkleParams>)]
 impl TestMerkleContract {
     fn init(&mut self) -> Result<(), Vec<u8>> {
         self.merkle.init()

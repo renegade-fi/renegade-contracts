@@ -16,7 +16,7 @@ use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
-    call::{static_call, Call},
+    call::static_call,
     contract, msg,
     prelude::*,
     storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
@@ -28,8 +28,8 @@ use crate::utils::{
         VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
-    helpers::serialize_statement_for_verification,
-    interfaces::{IMerkle, IOwnable, IERC20},
+    helpers::{delegate_call_helper, serialize_statement_for_verification},
+    interfaces::{initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall, IERC20},
 };
 
 use super::components::{initializable::Initializable, ownable::Ownable};
@@ -72,15 +72,8 @@ impl DarkpoolContract {
         verifier_address: Address,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
-        // Set the darkpool as the Merkle contract owner
-        let merkle_ownable = IOwnable::new(merkle_address);
-        merkle_ownable
-            .transfer_ownership(Call::new_in(storage), contract::address())
-            .unwrap();
-
         // Initialize the Merkle tree
-        let merkle = IMerkle::new(merkle_address);
-        merkle.init(Call::new_in(storage)).unwrap();
+        delegate_call_helper::<initCall>(storage, merkle_address, ());
 
         let this = storage.borrow_mut();
 
@@ -186,8 +179,9 @@ impl DarkpoolContract {
     pub fn get_root<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
     ) -> Result<Bytes, Vec<u8>> {
-        let merkle = IMerkle::new(storage.borrow_mut().merkle_address.get());
-        Ok(merkle.root(storage).unwrap().into())
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+        let (res,) = delegate_call_helper::<rootCall>(storage, merkle_address, ()).into();
+        Ok(res.into())
     }
 
     /// Returns the current root of the Merkle tree
@@ -195,8 +189,11 @@ impl DarkpoolContract {
         storage: &mut S,
         root: Bytes,
     ) -> Result<bool, Vec<u8>> {
-        let merkle = IMerkle::new(storage.borrow_mut().merkle_address.get());
-        Ok(merkle.root_in_history(storage, root.0).unwrap())
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+        let (res,) =
+            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root.0,)).into();
+
+        Ok(res)
     }
 
     // -----------
@@ -402,10 +399,12 @@ impl DarkpoolContract {
         )
         .unwrap();
 
-        let merkle = IMerkle::new(storage.borrow_mut().merkle_address.get());
-        merkle
-            .insert_shares_commitment(storage, total_wallet_shares_bytes)
-            .unwrap();
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+        delegate_call_helper::<insertSharesCommitmentCall>(
+            storage,
+            merkle_address,
+            (total_wallet_shares_bytes,),
+        );
     }
 
     /// Verifies the given proof using the given public inputs,
