@@ -30,6 +30,8 @@ abigen!(
         function verify(uint8 memory circuit_id, bytes memory proof, bytes memory public_inputs) external view returns (bool)
 
         function executeExternalTransfer(bytes memory transfer) external
+
+        function clearInitializable() external
     ]"#
 );
 
