@@ -211,7 +211,7 @@ pub(crate) async fn test_verifier(
     Ok(())
 }
 
-pub(crate) async fn test_ownership(
+pub(crate) async fn test_ownable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     darkpool_test_contract_address: Address,
 ) -> Result<()> {

@@ -34,7 +34,7 @@ pub(crate) enum Tests {
     NullifierSet,
     Merkle,
     Verifier,
-    Ownership,
+    Ownable,
     ExternalTransfer,
     NewWallet,
     UpdateWallet,
