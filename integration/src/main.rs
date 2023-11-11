@@ -13,8 +13,8 @@ use constants::{
 use eyre::Result;
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
-    test_merkle, test_nullifier_set, test_ownership, test_process_match_settle, test_update_wallet,
-    test_verifier, test_new_wallet,
+    test_merkle, test_new_wallet, test_nullifier_set, test_ownable, test_process_match_settle,
+    test_update_wallet, test_verifier,
 };
 use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
 
@@ -74,12 +74,12 @@ async fn main() -> Result<()> {
 
             test_verifier(contract, verifier_address).await?;
         }
-        Tests::Ownership => {
+        Tests::Ownable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
             let darkpool_test_contract_address =
                 parse_addr_from_deployments_file(&deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?;
 
-            test_ownership(contract, darkpool_test_contract_address).await?;
+            test_ownable(contract, darkpool_test_contract_address).await?;
         }
         Tests::ExternalTransfer => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());

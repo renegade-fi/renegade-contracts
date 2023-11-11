@@ -92,7 +92,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         Tests::Verifier => {
             parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
         }
-        Tests::Ownership => {
+        Tests::Ownable => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
         }
         Tests::ExternalTransfer => {
