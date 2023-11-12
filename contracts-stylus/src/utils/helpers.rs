@@ -3,8 +3,7 @@
 use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use common::{
-    constants::WALLET_SHARES_LEN, custom_serde::ScalarSerializable,
-    serde_def_types::SerdeScalarField, types::ScalarField,
+    custom_serde::ScalarSerializable, serde_def_types::SerdeScalarField, types::ScalarField,
 };
 use stylus_sdk::{
     alloy_primitives::{Address, B256},
@@ -51,15 +50,4 @@ pub fn delegate_call_helper<C: SolCall>(
 /// Computes the Keccak-256 hash of the given scalar when serialized to bytes
 pub fn keccak_hash_scalar(scalar: ScalarField) -> B256 {
     keccak(postcard::to_allocvec(&SerdeScalarField(scalar)).unwrap())
-}
-
-pub fn serialize_wallet_shares(scalars: &[ScalarField; WALLET_SHARES_LEN]) -> Vec<u8> {
-    let serde_wallet_shares: [SerdeScalarField; WALLET_SHARES_LEN] = scalars
-        .iter()
-        .map(|s| SerdeScalarField(*s))
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-
-    postcard::to_allocvec(&serde_wallet_shares).unwrap()
 }

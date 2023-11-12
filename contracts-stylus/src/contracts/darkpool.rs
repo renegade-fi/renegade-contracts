@@ -30,12 +30,9 @@ use crate::utils::{
         VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
-    helpers::{
-        delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification,
-        serialize_wallet_shares,
-    },
+    helpers::{delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification},
     solidity::{
-        initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall, Deposit, MatchSettled,
+        initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall, Deposit,
         MerkleAddressSet, VerificationKeySet, VerifierAddressSet, WalletCreated, WalletUpdated,
         Withdrawal, IERC20,
     },
@@ -235,11 +232,8 @@ impl DarkpoolContract {
         );
 
         let wallet_blinder_share_hash = keccak(wallet_blinder_share);
-        let public_wallet_shares =
-            serialize_wallet_shares(&valid_wallet_create_statement.public_wallet_shares);
         evm::log(WalletCreated {
             wallet_blinder_share: wallet_blinder_share_hash.into(),
-            public_wallet_shares,
         });
 
         Ok(())
@@ -295,11 +289,8 @@ impl DarkpoolContract {
         }
 
         let wallet_blinder_share_hash = keccak(wallet_blinder_share);
-        let public_wallet_shares =
-            serialize_wallet_shares(&valid_wallet_update_statement.new_public_shares);
         evm::log(WalletUpdated {
             wallet_blinder_share: wallet_blinder_share_hash.into(),
-            public_wallet_shares,
         });
 
         Ok(())
@@ -357,16 +348,12 @@ impl DarkpoolContract {
             keccak_hash_scalar(party_0_match_payload.wallet_blinder_share);
         let party_1_wallet_blinder_share_hash =
             keccak_hash_scalar(party_1_match_payload.wallet_blinder_share);
-        let party_0_public_wallet_shares =
-            serialize_wallet_shares(&valid_match_settle_statement.party0_modified_shares);
-        let party_1_public_wallet_shares =
-            serialize_wallet_shares(&valid_match_settle_statement.party1_modified_shares);
 
-        evm::log(MatchSettled {
-            party_0_wallet_blinder_share: party_0_wallet_blinder_share_hash.into(),
-            party_1_wallet_blinder_share: party_1_wallet_blinder_share_hash.into(),
-            party_0_public_wallet_shares,
-            party_1_public_wallet_shares,
+        evm::log(WalletUpdated {
+            wallet_blinder_share: party_0_wallet_blinder_share_hash.into(),
+        });
+        evm::log(WalletUpdated {
+            wallet_blinder_share: party_1_wallet_blinder_share_hash.into(),
         });
 
         Ok(())
