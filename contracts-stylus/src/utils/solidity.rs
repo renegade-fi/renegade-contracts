@@ -60,9 +60,8 @@ sol! {
     event VerifierAddressSet(address indexed previous_verifier_address, address indexed new_verifier_address);
     event MerkleAddressSet(address indexed previous_merkle_address, address indexed new_merkle_address);
     event VerificationKeySet(uint8 indexed circuit_id, bytes verification_key);
-    event WalletCreated(bytes indexed wallet_blinder_share, bytes public_wallet_shares);
-    event WalletUpdated(bytes indexed wallet_blinder_share, bytes public_wallet_shares);
-    event MatchSettled(bytes indexed party_0_wallet_blinder_share, bytes indexed party_1_wallet_blinder_share, bytes party_0_public_wallet_shares, bytes party_1_public_wallet_shares);
+    event WalletCreated(bytes indexed wallet_blinder_share);
+    event WalletUpdated(bytes indexed wallet_blinder_share);
     event Deposit(address indexed sender, address indexed mint, uint256 amount);
     event Withdrawal(address indexed recipient, address indexed mint, uint256 amount);
 }
