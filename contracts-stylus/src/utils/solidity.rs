@@ -44,6 +44,13 @@ sol! {
     // Indexed `bytes` event parameters are encoded as their Keccak-256 hash
     // https://docs.soliditylang.org/en/latest/abi-spec.html#encoding-of-indexed-event-parameters
 
+    // Ownable events
+    event InvalidOwner(address owner);
+    event OwnershipTransferred(address indexed previous_owner, address indexed new_owner);
+
+    // Initializable events
+    event Initialized(uint64 version);
+
     // Merkle events
     event RootChanged(bytes indexed prev_root, bytes indexed new_root);
     event ValueInserted(uint128 indexed index, bytes indexed value);
