@@ -4,7 +4,9 @@
 //! But made significantly simpler because the functions defined here are not modifiers, as in Solidity.
 //! Down the road, this may be attempted with the use of procedural macros.
 
-use stylus_sdk::{alloy_primitives::U64, prelude::*, storage::StorageU64};
+use stylus_sdk::{alloy_primitives::U64, prelude::*, storage::StorageU64, evm};
+
+use crate::utils::solidity::Initialized;
 
 #[solidity_storage]
 pub struct Initializable {
@@ -24,9 +26,10 @@ impl Initializable {}
 impl Initializable {
     /// Initializes this contract with the given version.
     pub fn _initialize(&mut self, version: u64) {
-        let version = U64::from_limbs([version]);
-        assert!(self.initialized.get() < version);
-        self.initialized.set(version);
+        let version_uint64 = U64::from_limbs([version]);
+        assert!(self.initialized.get() < version_uint64);
+        self.initialized.set(version_uint64);
+        evm::log(Initialized { version })
     }
 
     /// Gets the highest version that has been initialized.
