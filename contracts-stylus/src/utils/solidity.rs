@@ -1,4 +1,4 @@
-//! Solidity ABI-compatible interface definitions used by the darkpool
+//! Various Solidity definitions, including ABI-compatible interfaces, events, functions, etc.
 
 use alloy_sol_types::sol;
 use stylus_sdk::stylus_proc::sol_interface;

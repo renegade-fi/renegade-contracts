@@ -4,4 +4,4 @@
 pub mod backends;
 pub mod constants;
 pub mod helpers;
-pub mod interfaces;
+pub mod solidity;

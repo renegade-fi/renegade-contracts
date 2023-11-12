@@ -29,7 +29,7 @@ use crate::utils::{
         VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
     helpers::{delegate_call_helper, serialize_statement_for_verification},
-    interfaces::{initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall, IERC20},
+    solidity::{initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall, IERC20},
 };
 
 use super::components::{initializable::Initializable, ownable::Ownable};
