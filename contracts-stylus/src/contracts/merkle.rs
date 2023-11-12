@@ -1,6 +1,6 @@
 //! A Merkle tree smart contract, used to accumulate all of the wallet commitments
 //! in the dark pool.
-//! 
+//!
 //! NOTE: This contract is `delegatecall`ed by the `DarkpoolContract`. This makes our contract
 //! "topology" a lot simpler: we can apply access controls and upgradability only to the top-level
 //! `DarkpoolContract` and not worry about it here.
@@ -14,8 +14,15 @@ use common::{constants::MERKLE_HEIGHT, serde_def_types::SerdeScalarField, types:
 use contracts_core::crypto::{merkle::SparseMerkleTree, poseidon::compute_poseidon_hash};
 use stylus_sdk::{
     abi::Bytes,
+    crypto::keccak,
+    evm,
     prelude::*,
     storage::{StorageBool, StorageBytes, StorageMap},
+};
+
+use crate::utils::{
+    helpers::keccak_hash_scalar,
+    solidity::{InternalNodeChanged, RootChanged, ValueInserted},
 };
 
 pub trait MerkleParams {
@@ -74,13 +81,30 @@ where
 
         let shares_commitment = compute_poseidon_hash(&shares);
 
-        let _node_updates = merkle_tree.insert(shares_commitment);
-        // TODO: Emit node update events
+        let node_updates = merkle_tree.insert(shares_commitment);
 
         self.store_root(merkle_tree.root());
 
         let merkle_tree_bytes = postcard::to_allocvec(&merkle_tree).unwrap();
         self.merkle_tree.set_bytes(merkle_tree_bytes);
+
+        let shares_commitment_hash = keccak_hash_scalar(shares_commitment);
+
+        evm::log(ValueInserted {
+            index: merkle_tree.next_index - 1,
+            value: shares_commitment_hash.into(),
+        });
+
+        for node_update in node_updates {
+            let new_value_hash = keccak_hash_scalar(node_update.value);
+
+            evm::log(InternalNodeChanged {
+                height: node_update.height as u8,
+                index: node_update.index,
+                new_value: new_value_hash.into(),
+            })
+        }
+
         Ok(())
     }
 }
@@ -91,8 +115,17 @@ where
 {
     pub fn store_root(&mut self, root: ScalarField) {
         let root_bytes = postcard::to_allocvec(&SerdeScalarField(root)).unwrap();
+
+        let prev_root_hash = keccak(self.current_root.get_bytes());
+        let new_root_hash = keccak(&root_bytes);
+
         self.current_root.set_bytes(&root_bytes);
         self.root_history.insert(root_bytes, true);
+
+        evm::log(RootChanged {
+            prev_root: prev_root_hash.into(),
+            new_root: new_root_hash.into(),
+        })
     }
 }
 
