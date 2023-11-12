@@ -2,8 +2,15 @@
 
 use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
-use common::{custom_serde::ScalarSerializable, serde_def_types::SerdeScalarField};
-use stylus_sdk::{alloy_primitives::Address, call::delegate_call, storage::TopLevelStorage};
+use common::{
+    custom_serde::ScalarSerializable, serde_def_types::SerdeScalarField, types::ScalarField,
+};
+use stylus_sdk::{
+    alloy_primitives::{Address, B256},
+    call::delegate_call,
+    crypto::keccak,
+    storage::TopLevelStorage,
+};
 
 /// Serializes the given statement into scalars, and then into bytes,
 /// as expected by the verifier contract.
@@ -38,4 +45,9 @@ pub fn delegate_call_helper<C: SolCall>(
     let calldata = C::new(args).encode();
     let res = unsafe { delegate_call(storage, address, &calldata).unwrap() };
     C::decode_returns(&res, true /* validate */).unwrap()
+}
+
+/// Computes the Keccak-256 hash of the given scalar when serialized to bytes
+pub fn keccak_hash_scalar(scalar: ScalarField) -> B256 {
+    keccak(postcard::to_allocvec(&SerdeScalarField(scalar)).unwrap())
 }
