@@ -54,7 +54,7 @@ pub type ScalarFieldDef = FpDef<MontBackend<FrConfig, 4>, 4>;
 pub(crate) type G1BaseFieldDef = FpDef<MontBackend<FqConfig, 4>, 4>;
 
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SerdeScalarField(#[serde_as(as = "ScalarFieldDef")] pub ScalarField);
 
 #[serde_as]
