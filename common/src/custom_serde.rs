@@ -9,11 +9,11 @@ use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 
 use crate::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_U64S_FELT},
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_U64S_FELT, NUM_SCALARS_U256},
     types::{
-        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
-        PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
-        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, ScalarField,
+        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 
@@ -202,66 +202,6 @@ pub trait ScalarSerializable {
 // | TRAIT IMPLEMENTATIONS |
 // -------------------------
 
-impl ScalarSerializable for bool {
-    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        Ok(vec![(*self).into()])
-    }
-}
-
-impl ScalarSerializable for u64 {
-    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        Ok(vec![(*self).into()])
-    }
-}
-
-impl ScalarSerializable for Address {
-    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        // Here, we right-pad the 20-byte address w/ zero-bytes
-        // TODO: Ensure scalar representation is consistent with the relayer implementation
-        let mut bytes = [0; NUM_BYTES_FELT];
-        bytes[..NUM_BYTES_ADDRESS].copy_from_slice(self.as_slice());
-        let bigint = bigint_from_le_bytes(&bytes)?;
-        Ok(vec![
-            ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)?
-        ])
-    }
-}
-
-impl ScalarSerializable for U256 {
-    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        // Need to split the U256 into two u128s to fit into the scalar field
-
-        let limbs = self.as_limbs();
-        let low_bigint = BigInt([limbs[0], limbs[1], 0, 0]);
-        let high_bigint = BigInt([limbs[2], limbs[3], 0, 0]);
-
-        Ok(vec![
-            ScalarField::from_bigint(high_bigint).ok_or(SerdeError::ScalarConversion)?,
-            ScalarField::from_bigint(low_bigint).ok_or(SerdeError::ScalarConversion)?,
-        ])
-    }
-}
-
-impl ScalarSerializable for ExternalTransfer {
-    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = Vec::new();
-        scalars.extend(self.account_addr.serialize_to_scalars()?);
-        scalars.extend(self.mint.serialize_to_scalars()?);
-        scalars.extend(self.amount.serialize_to_scalars()?);
-        scalars.extend(self.is_withdrawal.serialize_to_scalars()?);
-        Ok(scalars)
-    }
-}
-
-impl ScalarSerializable for PublicSigningKey {
-    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = Vec::new();
-        scalars.extend(self.x);
-        scalars.extend(self.y);
-        Ok(scalars)
-    }
-}
-
 impl ScalarSerializable for ValidWalletCreateStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = vec![self.private_shares_commitment];
@@ -279,15 +219,22 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
         scalars.extend(self.new_public_shares);
         scalars.push(self.merkle_root);
 
-        let external_transfer_scalars = self
-            .external_transfer
-            .as_ref()
-            .unwrap_or(&ExternalTransfer::default())
-            .serialize_to_scalars()?;
-        scalars.extend(external_transfer_scalars);
+        if self.external_transfer.is_some() {
+            let external_transfer = self.external_transfer.as_ref().unwrap();
+            scalars.push(address_to_scalar(external_transfer.account_addr)?);
+            scalars.push(address_to_scalar(external_transfer.mint)?);
+            scalars.extend(u256_to_scalars(external_transfer.amount)?);
+            scalars.push(external_transfer.is_withdrawal.into());
+        } else {
+            // If no external transfer, we extend with the serialization of a default ExternalTransfer,
+            // which is 5 zero-scalars:
+            // 1 for the account address, 1 for the mint, 2 for the amount, 1 for the is_withdrawal flag
+            scalars.extend(vec![ScalarField::zero(); 5]);
+        }
 
-        scalars.extend(self.old_pk_root.serialize_to_scalars()?);
-        scalars.extend(self.timestamp.serialize_to_scalars()?);
+        scalars.extend(self.old_pk_root.x);
+        scalars.extend(self.old_pk_root.y);
+        scalars.push(self.timestamp.into());
         Ok(scalars)
     }
 }
@@ -304,11 +251,11 @@ impl ScalarSerializable for ValidReblindStatement {
 
 impl ScalarSerializable for ValidCommitmentsStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = Vec::new();
-        scalars.extend(self.balance_send_index.serialize_to_scalars()?);
-        scalars.extend(self.balance_receive_index.serialize_to_scalars()?);
-        scalars.extend(self.order_index.serialize_to_scalars()?);
-        Ok(scalars)
+        Ok(vec![
+            self.balance_send_index.into(),
+            self.balance_receive_index.into(),
+            self.order_index.into(),
+        ])
     }
 }
 
@@ -317,12 +264,12 @@ impl ScalarSerializable for ValidMatchSettleStatement {
         let mut scalars = Vec::new();
         scalars.extend(self.party0_modified_shares);
         scalars.extend(self.party1_modified_shares);
-        scalars.extend(self.party0_send_balance_index.serialize_to_scalars()?);
-        scalars.extend(self.party0_receive_balance_index.serialize_to_scalars()?);
-        scalars.extend(self.party0_order_index.serialize_to_scalars()?);
-        scalars.extend(self.party0_send_balance_index.serialize_to_scalars()?);
-        scalars.extend(self.party0_receive_balance_index.serialize_to_scalars()?);
-        scalars.extend(self.party0_order_index.serialize_to_scalars()?);
+        scalars.push(self.party0_send_balance_index.into());
+        scalars.push(self.party0_receive_balance_index.into());
+        scalars.push(self.party0_order_index.into());
+        scalars.push(self.party0_send_balance_index.into());
+        scalars.push(self.party0_receive_balance_index.into());
+        scalars.push(self.party0_order_index.into());
         Ok(scalars)
     }
 }
@@ -378,6 +325,28 @@ fn bigint_from_le_bytes(bytes: &[u8; NUM_BYTES_FELT]) -> Result<BigInt<NUM_U64S_
         );
     }
     Ok(BigInt::<NUM_U64S_FELT>(u64s))
+}
+
+fn address_to_scalar(address: Address) -> Result<ScalarField, SerdeError> {
+    // Here, we right-pad the 20-byte address w/ zero-bytes
+    // TODO: Ensure scalar representation is consistent with the relayer implementation
+    let mut bytes = [0; NUM_BYTES_FELT];
+    bytes[..NUM_BYTES_ADDRESS].copy_from_slice(address.as_slice());
+    let bigint = bigint_from_le_bytes(&bytes)?;
+    ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
+}
+
+fn u256_to_scalars(u256: U256) -> Result<[ScalarField; NUM_SCALARS_U256], SerdeError> {
+    // Need to split the U256 into two u128s to fit into the scalar field
+
+    let limbs = u256.as_limbs();
+    let low_bigint = BigInt([limbs[0], limbs[1], 0, 0]);
+    let high_bigint = BigInt([limbs[2], limbs[3], 0, 0]);
+
+    Ok([
+        ScalarField::from_bigint(high_bigint).ok_or(SerdeError::ScalarConversion)?,
+        ScalarField::from_bigint(low_bigint).ok_or(SerdeError::ScalarConversion)?,
+    ])
 }
 
 #[cfg(test)]

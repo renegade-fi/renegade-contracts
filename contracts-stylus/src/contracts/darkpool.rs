@@ -64,7 +64,6 @@ pub struct DarkpoolContract {
 
 #[external]
 impl DarkpoolContract {
-
     // -----------
     // | OWNABLE |
     // -----------
@@ -108,19 +107,12 @@ impl DarkpoolContract {
 
         // Set the verifier & Merkle addresses
         this.verifier_address.set(verifier_address);
-        this.merkle_address.set(verifier_address);
+        this.merkle_address.set(merkle_address);
 
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1);
 
         Ok(())
-    }
-
-    /// Returns the version to which the darkpool has been initialized
-    pub fn get_initialized_version<S: TopLevelStorage + Borrow<Self>>(
-        storage: &S,
-    ) -> Result<u64, Vec<u8>> {
-        Ok(storage.borrow().initialized.get().to())
     }
 
     // ----------
@@ -369,7 +361,6 @@ impl DarkpoolContract {
 
 /// Internal helper methods
 impl DarkpoolContract {
-
     // -----------
     // | OWNABLE |
     // -----------
@@ -398,7 +389,6 @@ impl DarkpoolContract {
         this.initialized.set(version_uint64);
     }
 
-
     // -----------
     // | LOGGING |
     // -----------
@@ -425,10 +415,7 @@ impl DarkpoolContract {
         let mut slot = this.verification_keys.setter(circuit_id);
         slot.set_bytes(vkey.clone());
 
-        evm::log(VerificationKeySet {
-            circuit_id,
-            verification_key: vkey.0,
-        })
+        evm::log(VerificationKeySet {})
     }
 
     // ----------------
