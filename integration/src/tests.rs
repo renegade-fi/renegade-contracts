@@ -226,7 +226,15 @@ pub(crate) async fn test_ownable(
 
     // Set up test data
     let dummy_verifier_address = Address::random();
+    let dummy_merkle_address = Address::random();
     let dummy_vkey_bytes = Bytes::from(postcard::to_allocvec(&dummy_vkeys(N as u64, L as u64).0)?);
+
+    // Initialize contract (sets the default sender to the owner)
+    contract
+        .initialize(dummy_verifier_address, dummy_merkle_address)
+        .send()
+        .await?
+        .await?;
 
     // Assert that transferring to 0 address fails
     assert!(
@@ -237,13 +245,6 @@ pub(crate) async fn test_ownable(
             .is_err(),
         "Transferred ownership to 0 address"
     );
-
-    // Set the owner to the default sender
-    contract
-        .transfer_ownership(contract.client().default_sender().unwrap())
-        .send()
-        .await?
-        .await?;
 
     // Assert that `setVerifierAddress` only succeeds for the owner
     assert_only_owner::<_, Address>(
@@ -307,6 +308,9 @@ pub(crate) async fn test_ownable(
         dummy_vkey_bytes.clone(),
     )
     .await?;
+
+    // Clear initializable state for future tests
+    contract.clear_initializable().send().await?.await?;
 
     Ok(())
 }

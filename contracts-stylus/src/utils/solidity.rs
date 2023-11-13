@@ -48,7 +48,7 @@ sol! {
     event NodeChanged(uint8 indexed height, uint128 indexed index, bytes indexed new_value);
 
     // Darkpool events
-    event VerificationKeySet(uint8 indexed circuit_id, bytes verification_key);
+    event VerificationKeySet();
     event WalletUpdated(bytes indexed wallet_blinder_share);
     event ExternalTransfer(address indexed account, address indexed mint, bool indexed is_withdrawal, uint256 amount);
 }

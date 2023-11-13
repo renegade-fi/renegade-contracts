@@ -28,6 +28,9 @@ pub const NUM_BYTES_U128: usize = 16;
 /// The number of bytes it takes to represent an unsigned 256-bit integer
 pub const NUM_BYTES_U256: usize = 32;
 
+/// The number of scalars it takes to encode an unsigned 256-bit integer
+pub const NUM_SCALARS_U256: usize = 2;
+
 /// The number of bytes it takes to represent an Ethereum address
 pub const NUM_BYTES_ADDRESS: usize = 20;
 
