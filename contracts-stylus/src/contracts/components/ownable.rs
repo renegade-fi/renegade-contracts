@@ -6,12 +6,10 @@
 use alloc::vec::Vec;
 use stylus_sdk::{
     alloy_primitives::Address,
-    evm, msg,
+    msg,
     prelude::*,
     storage::{StorageAddress, StorageBool},
 };
-
-use crate::utils::solidity::{InvalidOwner, OwnershipTransferred};
 
 #[solidity_storage]
 pub struct Ownable {
@@ -38,10 +36,7 @@ impl Ownable {
             self.owner_initialized.set(true);
         }
 
-        if new_owner == Address::ZERO {
-            evm::log(InvalidOwner { owner: Address::ZERO });
-            panic!();
-        }
+        assert_ne!(new_owner, Address::ZERO);
         self._transfer_ownership(new_owner);
 
         Ok(())
@@ -56,12 +51,6 @@ impl Ownable {
     }
 
     pub fn _transfer_ownership(&mut self, new_owner: Address) {
-        let previous_owner = self.owner.get();
         self.owner.set(new_owner);
-
-        evm::log(OwnershipTransferred {
-            previous_owner,
-            new_owner,
-        })
     }
 }

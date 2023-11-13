@@ -4,9 +4,7 @@
 //! But made significantly simpler because the functions defined here are not modifiers, as in Solidity.
 //! Down the road, this may be attempted with the use of procedural macros.
 
-use stylus_sdk::{alloy_primitives::U64, prelude::*, storage::StorageU64, evm};
-
-use crate::utils::solidity::Initialized;
+use stylus_sdk::{alloy_primitives::U64, prelude::*, storage::StorageU64};
 
 #[solidity_storage]
 pub struct Initializable {
@@ -29,7 +27,6 @@ impl Initializable {
         let version_uint64 = U64::from_limbs([version]);
         assert!(self.initialized.get() < version_uint64);
         self.initialized.set(version_uint64);
-        evm::log(Initialized { version })
     }
 
     /// Gets the highest version that has been initialized.
