@@ -15,13 +15,13 @@ use common::{
 use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::Address,
+    alloy_primitives::{Address, U64},
     call::static_call,
     contract,
     crypto::keccak,
     evm, msg,
     prelude::*,
-    storage::{StorageAddress, StorageBool, StorageBytes, StorageMap},
+    storage::{StorageAddress, StorageBool, StorageBytes, StorageMap, StorageU64},
 };
 
 use crate::utils::{
@@ -37,16 +37,14 @@ use crate::utils::{
     },
 };
 
-use super::components::{initializable::Initializable, ownable::Ownable};
-
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
-    #[borrow]
-    pub ownable: Ownable,
+    /// The owner of the darkpool contract
+    owner: StorageAddress,
 
-    #[borrow]
-    pub initializable: Initializable,
+    /// Whether or not the darkpool has been initialized
+    pub initialized: StorageU64,
 
     /// The address of the verifier contract
     verifier_address: StorageAddress,
@@ -65,11 +63,34 @@ pub struct DarkpoolContract {
 }
 
 #[external]
-#[inherit(Ownable, Initializable)]
 impl DarkpoolContract {
-    // ----------
-    // | CONFIG |
-    // ----------
+
+    // -----------
+    // | OWNABLE |
+    // -----------
+
+    pub fn owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<Address, Vec<u8>> {
+        Ok(storage.borrow().owner.get())
+    }
+
+    /// Transfers ownership of the darkpool to the provided address
+    pub fn transfer_ownership<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        new_owner: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage).unwrap();
+
+        assert_ne!(new_owner, Address::ZERO);
+        DarkpoolContract::_transfer_ownership(storage, new_owner);
+
+        Ok(())
+    }
+
+    // TODO: Add `renounce_ownership` method
+
+    // -----------------
+    // | INITIALIZABLE |
+    // -----------------
 
     /// Initializes the Darkpool
     pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
@@ -77,6 +98,9 @@ impl DarkpoolContract {
         verifier_address: Address,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
+        // Set the caller as the owner
+        DarkpoolContract::_transfer_ownership(storage, msg::sender());
+
         // Initialize the Merkle tree
         delegate_call_helper::<initCall>(storage, merkle_address, ());
 
@@ -86,23 +110,30 @@ impl DarkpoolContract {
         this.verifier_address.set(verifier_address);
         this.merkle_address.set(verifier_address);
 
-        // Set the caller as the owner
-        this.ownable.transfer_ownership(msg::sender()).unwrap();
-
         // Mark the darkpool as initialized
-        this.initializable._initialize(1);
+        DarkpoolContract::_initialize(storage, 1);
 
         Ok(())
     }
+
+    /// Returns the version to which the darkpool has been initialized
+    pub fn get_initialized_version<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<u64, Vec<u8>> {
+        Ok(storage.borrow().initialized.get().to())
+    }
+
+    // ----------
+    // | CONFIG |
+    // ----------
 
     /// Stores the given address for the verifier contract
     pub fn set_verifier_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         address: Address,
     ) -> Result<(), Vec<u8>> {
-        let this = storage.borrow_mut();
-        this.ownable._check_owner().unwrap();
-        this.verifier_address.set(address);
+        DarkpoolContract::_check_owner(storage).unwrap();
+        storage.borrow_mut().verifier_address.set(address);
         Ok(())
     }
 
@@ -111,9 +142,8 @@ impl DarkpoolContract {
         storage: &mut S,
         address: Address,
     ) -> Result<(), Vec<u8>> {
-        let this = storage.borrow_mut();
-        this.ownable._check_owner().unwrap();
-        this.merkle_address.set(address);
+        DarkpoolContract::_check_owner(storage).unwrap();
+        storage.borrow_mut().merkle_address.set(address);
         Ok(())
     }
 
@@ -122,7 +152,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
+        DarkpoolContract::_check_owner(storage).unwrap();
         DarkpoolContract::set_vkey(storage, VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -132,7 +162,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
+        DarkpoolContract::_check_owner(storage).unwrap();
         DarkpoolContract::set_vkey(storage, VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -142,7 +172,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
+        DarkpoolContract::_check_owner(storage).unwrap();
         DarkpoolContract::set_vkey(storage, VALID_COMMITMENTS_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -152,7 +182,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
+        DarkpoolContract::_check_owner(storage).unwrap();
         DarkpoolContract::set_vkey(storage, VALID_REBLIND_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -162,7 +192,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
+        DarkpoolContract::_check_owner(storage).unwrap();
         DarkpoolContract::set_vkey(storage, VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
         Ok(())
     }
@@ -339,12 +369,50 @@ impl DarkpoolContract {
 
 /// Internal helper methods
 impl DarkpoolContract {
+
+    // -----------
+    // | OWNABLE |
+    // -----------
+
+    pub fn _transfer_ownership<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        new_owner: Address,
+    ) {
+        storage.borrow_mut().owner.set(new_owner);
+    }
+
+    pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
+        assert_eq!(storage.borrow().owner.get(), msg::sender());
+        Ok(())
+    }
+
+    // -----------------
+    // | INITIALIZABLE |
+    // -----------------
+
+    /// Initializes this contract with the given version.
+    pub fn _initialize<S: TopLevelStorage + BorrowMut<Self>>(storage: &mut S, version: u64) {
+        let version_uint64 = U64::from_limbs([version]);
+        let this = storage.borrow_mut();
+        assert!(this.initialized.get() < version_uint64);
+        this.initialized.set(version_uint64);
+    }
+
+
+    // -----------
+    // | LOGGING |
+    // -----------
+
     pub fn log_wallet_update(wallet_blinder_share: Bytes) {
         let wallet_blinder_share_hash = keccak(wallet_blinder_share);
         evm::log(WalletUpdated {
             wallet_blinder_share: wallet_blinder_share_hash.into(),
         });
     }
+
+    // ----------
+    // | CONFIG |
+    // ----------
 
     /// Sets the verification key for the given circuit ID
     pub fn set_vkey<S: TopLevelStorage + BorrowMut<Self>>(
@@ -362,6 +430,10 @@ impl DarkpoolContract {
             verification_key: vkey.0,
         })
     }
+
+    // ----------------
+    // | CORE HELPERS |
+    // ----------------
 
     /// Marks the given nullifier as spent
     pub fn mark_nullifier_spent<S: TopLevelStorage + BorrowMut<Self>>(
