@@ -9,9 +9,11 @@ use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 
 use crate::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_U64S_FELT, NUM_SCALARS_U256},
+    constants::{
+        NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_U256, NUM_U64S_FELT,
+    },
     types::{
-        G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, ScalarField,
+        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, ScalarField,
         ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
         ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
@@ -219,19 +221,11 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
         scalars.extend(self.new_public_shares);
         scalars.push(self.merkle_root);
 
-        if self.external_transfer.is_some() {
-            let external_transfer = self.external_transfer.as_ref().unwrap();
-            scalars.push(address_to_scalar(external_transfer.account_addr)?);
-            scalars.push(address_to_scalar(external_transfer.mint)?);
-            scalars.extend(u256_to_scalars(external_transfer.amount)?);
-            scalars.push(external_transfer.is_withdrawal.into());
-        } else {
-            // If no external transfer, we extend with the serialization of a default ExternalTransfer,
-            // which is 5 zero-scalars:
-            // 1 for the account address, 1 for the mint, 2 for the amount, 1 for the is_withdrawal flag
-            scalars.extend(vec![ScalarField::zero(); 5]);
-        }
-
+        scalars.extend(external_transfer_to_scalars(
+            self.external_transfer
+                .as_ref()
+                .unwrap_or(&ExternalTransfer::default()),
+        )?);
         scalars.extend(self.old_pk_root.x);
         scalars.extend(self.old_pk_root.y);
         scalars.push(self.timestamp.into());
@@ -347,6 +341,17 @@ fn u256_to_scalars(u256: U256) -> Result<[ScalarField; NUM_SCALARS_U256], SerdeE
         ScalarField::from_bigint(high_bigint).ok_or(SerdeError::ScalarConversion)?,
         ScalarField::from_bigint(low_bigint).ok_or(SerdeError::ScalarConversion)?,
     ])
+}
+
+fn external_transfer_to_scalars(
+    external_transfer: &ExternalTransfer,
+) -> Result<Vec<ScalarField>, SerdeError> {
+    let mut scalars = Vec::new();
+    scalars.push(address_to_scalar(external_transfer.account_addr)?);
+    scalars.push(address_to_scalar(external_transfer.mint)?);
+    scalars.extend(u256_to_scalars(external_transfer.amount)?);
+    scalars.push(external_transfer.is_withdrawal.into());
+    Ok(scalars)
 }
 
 #[cfg(test)]
