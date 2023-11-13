@@ -32,9 +32,8 @@ use crate::utils::{
     },
     helpers::{delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification},
     solidity::{
-        initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall, Deposit,
-        MerkleAddressSet, VerificationKeySet, VerifierAddressSet, WalletCreated, WalletUpdated,
-        Withdrawal, IERC20,
+        initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
+        ExternalTransfer as ExternalTransferEvent, VerificationKeySet, WalletUpdated, IERC20,
     },
 };
 
@@ -81,11 +80,11 @@ impl DarkpoolContract {
         // Initialize the Merkle tree
         delegate_call_helper::<initCall>(storage, merkle_address, ());
 
-        // Set the verifier & Merkle addresses
-        DarkpoolContract::_set_verifier_address(storage, verifier_address);
-        DarkpoolContract::_set_merkle_address(storage, merkle_address);
-
         let this = storage.borrow_mut();
+
+        // Set the verifier & Merkle addresses
+        this.verifier_address.set(verifier_address);
+        this.merkle_address.set(verifier_address);
 
         // Set the caller as the owner
         this.ownable.transfer_ownership(msg::sender()).unwrap();
@@ -101,8 +100,9 @@ impl DarkpoolContract {
         storage: &mut S,
         address: Address,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
-        DarkpoolContract::_set_verifier_address(storage, address);
+        let this = storage.borrow_mut();
+        this.ownable._check_owner().unwrap();
+        this.verifier_address.set(address);
         Ok(())
     }
 
@@ -111,8 +111,9 @@ impl DarkpoolContract {
         storage: &mut S,
         address: Address,
     ) -> Result<(), Vec<u8>> {
-        storage.borrow_mut().ownable._check_owner().unwrap();
-        DarkpoolContract::_set_merkle_address(storage, address);
+        let this = storage.borrow_mut();
+        this.ownable._check_owner().unwrap();
+        this.merkle_address.set(address);
         Ok(())
     }
 
@@ -231,10 +232,7 @@ impl DarkpoolContract {
             &valid_wallet_create_statement.public_wallet_shares,
         );
 
-        let wallet_blinder_share_hash = keccak(wallet_blinder_share);
-        evm::log(WalletCreated {
-            wallet_blinder_share: wallet_blinder_share_hash.into(),
-        });
+        DarkpoolContract::log_wallet_update(wallet_blinder_share);
 
         Ok(())
     }
@@ -288,10 +286,7 @@ impl DarkpoolContract {
             DarkpoolContract::execute_external_transfer(storage, &external_transfer);
         }
 
-        let wallet_blinder_share_hash = keccak(wallet_blinder_share);
-        evm::log(WalletUpdated {
-            wallet_blinder_share: wallet_blinder_share_hash.into(),
-        });
+        DarkpoolContract::log_wallet_update(wallet_blinder_share);
 
         Ok(())
     }
@@ -310,30 +305,8 @@ impl DarkpoolContract {
         valid_match_settle_proof: Bytes,
         valid_match_settle_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let party_0_match_payload: MatchPayload =
-            postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
-
-        let party_1_match_payload: MatchPayload =
-            postcard::from_bytes(party_1_match_payload.as_slice()).unwrap();
-
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
-
-        DarkpoolContract::process_party(
-            storage,
-            &party_0_match_payload,
-            party_0_valid_commitments_proof,
-            party_0_valid_reblind_proof,
-            &valid_match_settle_statement.party0_modified_shares,
-        );
-
-        DarkpoolContract::process_party(
-            storage,
-            &party_1_match_payload,
-            party_1_valid_commitments_proof,
-            party_1_valid_reblind_proof,
-            &valid_match_settle_statement.party0_modified_shares,
-        );
 
         assert!(DarkpoolContract::verify(
             storage,
@@ -344,17 +317,21 @@ impl DarkpoolContract {
                 .into(),
         ));
 
-        let party_0_wallet_blinder_share_hash =
-            keccak_hash_scalar(party_0_match_payload.wallet_blinder_share);
-        let party_1_wallet_blinder_share_hash =
-            keccak_hash_scalar(party_1_match_payload.wallet_blinder_share);
+        DarkpoolContract::process_party(
+            storage,
+            party_0_match_payload,
+            party_0_valid_commitments_proof,
+            party_0_valid_reblind_proof,
+            &valid_match_settle_statement.party0_modified_shares,
+        );
 
-        evm::log(WalletUpdated {
-            wallet_blinder_share: party_0_wallet_blinder_share_hash.into(),
-        });
-        evm::log(WalletUpdated {
-            wallet_blinder_share: party_1_wallet_blinder_share_hash.into(),
-        });
+        DarkpoolContract::process_party(
+            storage,
+            party_1_match_payload,
+            party_1_valid_commitments_proof,
+            party_1_valid_reblind_proof,
+            &valid_match_settle_statement.party0_modified_shares,
+        );
 
         Ok(())
     }
@@ -362,32 +339,11 @@ impl DarkpoolContract {
 
 /// Internal helper methods
 impl DarkpoolContract {
-    pub fn _set_verifier_address<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        new_verifier_address: Address,
-    ) {
-        let this = storage.borrow_mut();
-        let previous_verifier_address = this.verifier_address.get();
-        this.verifier_address.set(new_verifier_address);
-
-        evm::log(VerifierAddressSet {
-            previous_verifier_address,
-            new_verifier_address,
-        })
-    }
-
-    pub fn _set_merkle_address<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        new_merkle_address: Address,
-    ) {
-        let this = storage.borrow_mut();
-        let previous_merkle_address = this.merkle_address.get();
-        this.merkle_address.set(new_merkle_address);
-
-        evm::log(MerkleAddressSet {
-            previous_merkle_address,
-            new_merkle_address,
-        })
+    pub fn log_wallet_update(wallet_blinder_share: Bytes) {
+        let wallet_blinder_share_hash = keccak(wallet_blinder_share);
+        evm::log(WalletUpdated {
+            wallet_blinder_share: wallet_blinder_share_hash.into(),
+        });
     }
 
     /// Sets the verification key for the given circuit ID
@@ -485,43 +441,36 @@ impl DarkpoolContract {
         transfer: &ExternalTransfer,
     ) {
         let erc20 = IERC20::new(transfer.mint);
-        if transfer.is_withdrawal {
-            erc20
-                .transfer(storage, transfer.account_addr, transfer.amount)
-                .unwrap();
-
-            evm::log(Withdrawal {
-                recipient: transfer.account_addr,
-                mint: transfer.mint,
-                amount: transfer.amount,
-            })
+        let darkpool_address = contract::address();
+        let (from, to) = if transfer.is_withdrawal {
+            (darkpool_address, transfer.account_addr)
         } else {
-            let darkpool_address = contract::address();
-            erc20
-                .transfer_from(
-                    storage,
-                    transfer.account_addr,
-                    darkpool_address,
-                    transfer.amount,
-                )
-                .unwrap();
+            (transfer.account_addr, darkpool_address)
+        };
 
-            evm::log(Deposit {
-                sender: transfer.account_addr,
-                mint: transfer.mint,
-                amount: transfer.amount,
-            })
-        }
+        erc20
+            .transfer_from(storage, from, to, transfer.amount)
+            .unwrap();
+
+        evm::log(ExternalTransferEvent {
+            account: transfer.account_addr,
+            mint: transfer.mint,
+            is_withdrawal: transfer.is_withdrawal,
+            amount: transfer.amount,
+        })
     }
 
     /// Handles the post-match-settle logic for a single party
     pub fn process_party<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        match_payload: &MatchPayload,
+        match_payload_bytes: Bytes,
         valid_commitments_proof: Bytes,
         valid_reblind_proof: Bytes,
         public_wallet_shares: &[ScalarField; WALLET_SHARES_LEN],
     ) {
+        let match_payload: MatchPayload =
+            postcard::from_bytes(match_payload_bytes.as_slice()).unwrap();
+
         DarkpoolContract::assert_root_in_history(
             storage,
             match_payload.valid_reblind_statement.merkle_root,
@@ -559,5 +508,10 @@ impl DarkpoolContract {
                 .valid_reblind_statement
                 .original_shares_nullifier,
         );
+
+        let wallet_blinder_share_hash = keccak_hash_scalar(match_payload.wallet_blinder_share);
+        evm::log(WalletUpdated {
+            wallet_blinder_share: wallet_blinder_share_hash.into(),
+        });
     }
 }

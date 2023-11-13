@@ -282,9 +282,8 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
         let external_transfer_scalars = self
             .external_transfer
             .as_ref()
-            .map_or(ExternalTransfer::default().serialize_to_scalars(), |e| {
-                e.serialize_to_scalars()
-            })?;
+            .unwrap_or(&ExternalTransfer::default())
+            .serialize_to_scalars()?;
         scalars.extend(external_transfer_scalars);
 
         scalars.extend(self.old_pk_root.serialize_to_scalars()?);
