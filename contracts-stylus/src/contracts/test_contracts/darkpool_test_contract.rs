@@ -15,7 +15,6 @@ struct DarkpoolTestContract {
 
 // Expose internal helper methods of the Darkpool contract used in testing
 #[external]
-// #[inherit(DarkpoolContract, Ownable, Initializable)]
 #[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
     pub fn mark_nullifier_spent(&mut self, nullifier: Bytes) -> Result<(), Vec<u8>> {
