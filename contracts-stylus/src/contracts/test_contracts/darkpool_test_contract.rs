@@ -1,13 +1,10 @@
-use core::borrow::{Borrow, BorrowMut};
+use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
 use common::{serde_def_types::SerdeScalarField, types::ExternalTransfer};
 use stylus_sdk::{abi::Bytes, alloy_primitives::U64, prelude::*};
 
-use crate::contracts::{
-    components::{initializable::Initializable, ownable::Ownable},
-    darkpool::DarkpoolContract,
-};
+use crate::contracts::darkpool::DarkpoolContract;
 
 #[solidity_storage]
 #[entrypoint]
@@ -16,36 +13,10 @@ struct DarkpoolTestContract {
     darkpool: DarkpoolContract,
 }
 
-// We manually implement `Borrow<_>` & `BorrowMut<_>` because
-// Stylus can't yet automatically infer multi-level inheritance.
-
-impl BorrowMut<Ownable> for DarkpoolTestContract {
-    fn borrow_mut(&mut self) -> &mut Ownable {
-        &mut self.darkpool.ownable
-    }
-}
-
-impl Borrow<Ownable> for DarkpoolTestContract {
-    fn borrow(&self) -> &Ownable {
-        &self.darkpool.ownable
-    }
-}
-
-impl BorrowMut<Initializable> for DarkpoolTestContract {
-    fn borrow_mut(&mut self) -> &mut Initializable {
-        &mut self.darkpool.initializable
-    }
-}
-
-impl Borrow<Initializable> for DarkpoolTestContract {
-    fn borrow(&self) -> &Initializable {
-        &self.darkpool.initializable
-    }
-}
-
 // Expose internal helper methods of the Darkpool contract used in testing
 #[external]
-#[inherit(DarkpoolContract, Ownable, Initializable)]
+// #[inherit(DarkpoolContract, Ownable, Initializable)]
+#[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
     pub fn mark_nullifier_spent(&mut self, nullifier: Bytes) -> Result<(), Vec<u8>> {
         let nullifier: SerdeScalarField = postcard::from_bytes(nullifier.as_slice()).unwrap();
@@ -61,7 +32,7 @@ impl DarkpoolTestContract {
     }
 
     pub fn clear_initializable(&mut self) -> Result<(), Vec<u8>> {
-        BorrowMut::<Initializable>::borrow_mut(self)
+        BorrowMut::<DarkpoolContract>::borrow_mut(self)
             .initialized
             .set(U64::from_limbs([0]));
         Ok(())
