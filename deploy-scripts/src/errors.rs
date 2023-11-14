@@ -7,6 +7,7 @@ use std::{
 
 #[derive(Debug)]
 pub enum DeployError {
+    ArtifactParsing,
     ClientInitialization,
     CalldataConstruction,
     ContractDeployment,
@@ -16,6 +17,7 @@ pub enum DeployError {
 impl Display for DeployError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            DeployError::ArtifactParsing => write!(f, "Error parsing artifact"),
             DeployError::ClientInitialization => write!(f, "Error initializing client"),
             DeployError::CalldataConstruction => write!(f, "Error constructing calldata"),
             DeployError::ContractDeployment => write!(f, "Error deploying contract"),
