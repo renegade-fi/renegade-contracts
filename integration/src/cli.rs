@@ -20,8 +20,8 @@ pub(crate) struct Cli {
     #[arg(short, long, default_value = DEFAULT_DEVNET_PKEY)]
     pub(crate) priv_key: String,
 
-    /// Devnet private key, defaults to default Nitro devnet private key
-    #[arg(long, default_value = DEFAULT_DEVNET_HOSTPORT)]
+    /// Devnet RPC URL, defaults to default Nitro devnet private key
+    #[arg(short, long, default_value = DEFAULT_DEVNET_HOSTPORT)]
     pub(crate) rpc_url: String,
 }
 
