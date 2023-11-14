@@ -7,6 +7,7 @@ edition = "2021"
 common = { path = "../common" }
 contracts-core = { path = "../contracts-core" }
 test-helpers = { path = "../test-helpers" }
+deploy-scripts = { path = "../deploy-scripts" }
 tokio = { version = "1.12.0", features = ["full"] }
 ethers = { workspace = true }
 eyre = { workspace = true }

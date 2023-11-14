@@ -1,0 +1,9 @@
+[package]
+name = "deploy-scripts"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ethers = { workspace = true }
+clap = { version = "4.4.7", features = ["derive"] }
+tokio = { version = "1.12.0", features = ["full"] }

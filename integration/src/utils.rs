@@ -1,6 +1,6 @@
 //! Utilities for running integration tests
 
-use std::{fs::File, io::Read, str::FromStr, sync::Arc};
+use std::{fs::File, io::Read, str::FromStr};
 
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
@@ -12,9 +12,7 @@ use common::types::{
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::{
     abi::{Address, Detokenize, Tokenize},
-    middleware::SignerMiddleware,
-    providers::{Http, Middleware, Provider},
-    signers::{LocalWallet, Signer},
+    providers::Middleware,
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
@@ -35,24 +33,6 @@ use crate::{
         PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY,
     },
 };
-
-/// Sets up the address and client with which to instantiate a contract for testing,
-/// reading in the private key, RPC url, and contract address from the environment.
-pub(crate) async fn setup_client(
-    priv_key: String,
-    rpc_url: String,
-) -> Result<Arc<impl Middleware>> {
-    let provider = Provider::<Http>::try_from(rpc_url)?;
-
-    let wallet = LocalWallet::from_str(&priv_key)?;
-    let chain_id = provider.get_chainid().await?.as_u64();
-    let client = Arc::new(SignerMiddleware::new(
-        provider,
-        wallet.clone().with_chain_id(chain_id),
-    ));
-
-    Ok(client)
-}
 
 pub(crate) fn parse_addr_from_deployments_file(
     file_path: &str,

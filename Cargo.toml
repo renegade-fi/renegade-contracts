@@ -3,6 +3,7 @@ members = [
     "contracts-stylus",
     "contracts-core",
     "common",
+    "deploy-scripts",
     "test-helpers",
     "integration",
 ]

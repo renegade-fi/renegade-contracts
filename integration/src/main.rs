@@ -16,7 +16,8 @@ use tests::{
     test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable,
     test_process_match_settle, test_update_wallet, test_verifier,
 };
-use utils::{get_test_contract_address, parse_addr_from_deployments_file, setup_client};
+use utils::{get_test_contract_address, parse_addr_from_deployments_file};
+use deploy_scripts::utils::setup_client;
 
 mod abis;
 mod cli;
