@@ -29,7 +29,7 @@ use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
     constants::{
-        DARKPOOL_TEST_CONTRACT_KEY, DEPLOYMENTS_KEY, MERKLE_TEST_CONTRACT_KEY, N,
+        DARKPOOL_TEST_PROXY_CONTRACT_KEY, DEPLOYMENTS_KEY, MERKLE_TEST_CONTRACT_KEY, N,
         PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY,
     },
 };
@@ -64,7 +64,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
             parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
         }
         Tests::NullifierSet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
         Tests::Merkle => {
             parse_addr_from_deployments_file(deployments_file, MERKLE_TEST_CONTRACT_KEY)?
@@ -73,22 +73,22 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
             parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
         }
         Tests::Ownable => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
         Tests::Initializable => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
         Tests::ExternalTransfer => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
         Tests::NewWallet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
         Tests::UpdateWallet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
         Tests::ProcessMatchSettle => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, DARKPOOL_TEST_PROXY_CONTRACT_KEY)?
         }
     })
 }
@@ -99,16 +99,8 @@ pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
 
 pub(crate) async fn setup_darkpool_test_contract(
     contract: &DarkpoolTestContract<impl Middleware + 'static>,
-    merkle_address: Address,
-    verifier_address: Address,
     vkeys: Vec<(Circuit, Bytes)>,
 ) -> Result<()> {
-    contract
-        .initialize(verifier_address, merkle_address)
-        .send()
-        .await?
-        .await?;
-
     // Set verification keys
     for (circuit, vkey_bytes) in vkeys {
         match circuit {

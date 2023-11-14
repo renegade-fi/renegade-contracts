@@ -213,7 +213,7 @@ pub(crate) async fn test_verifier(
 
 pub(crate) async fn test_ownable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
-    darkpool_test_contract_address: Address,
+    darkpool_test_proxy_contract_address: Address,
 ) -> Result<()> {
     // Set up contract instance w/ dummy signer
     let mut rng = thread_rng();
@@ -222,19 +222,11 @@ pub(crate) async fn test_ownable(
             .await?,
     );
     let contract_with_dummy_signer =
-        DarkpoolTestContract::new(darkpool_test_contract_address, dummy_signer);
+        DarkpoolTestContract::new(darkpool_test_proxy_contract_address, dummy_signer);
 
     // Set up test data
     let dummy_verifier_address = Address::random();
-    let dummy_merkle_address = Address::random();
     let dummy_vkey_bytes = Bytes::from(postcard::to_allocvec(&dummy_vkeys(N as u64, L as u64).0)?);
-
-    // Initialize contract (sets the default sender to the owner)
-    contract
-        .initialize(dummy_verifier_address, dummy_merkle_address)
-        .send()
-        .await?
-        .await?;
 
     // Assert that transferring to 0 address fails
     assert!(
@@ -309,35 +301,28 @@ pub(crate) async fn test_ownable(
     )
     .await?;
 
-    // Clear initializable state for future tests
-    contract.clear_initializable().send().await?.await?;
-
     Ok(())
 }
 
 pub(crate) async fn test_initializable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
+    let dummy_owner_address = Address::random();
     let dummy_verifier_address = Address::random();
     let dummy_merkle_address = Address::random();
 
-    contract
-        .initialize(dummy_verifier_address, dummy_merkle_address)
-        .send()
-        .await?
-        .await?;
-
     assert!(
         contract
-            .initialize(dummy_verifier_address, dummy_merkle_address)
+            .initialize(
+                dummy_owner_address,
+                dummy_verifier_address,
+                dummy_merkle_address
+            )
             .send()
             .await
             .is_err(),
         "Initialized contract twice"
     );
-
-    // Clear initializable state for future tests
-    contract.clear_initializable().send().await?.await?;
 
     Ok(())
 }
@@ -431,8 +416,6 @@ pub(crate) async fn test_external_transfer(
 
 pub(crate) async fn test_new_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
-    merkle_address: Address,
-    verifier_address: Address,
 ) -> Result<()> {
     // Generate test data
     let mut rng = thread_rng();
@@ -444,8 +427,6 @@ pub(crate) async fn test_new_wallet(
     // Set up contract
     setup_darkpool_test_contract(
         &contract,
-        merkle_address,
-        verifier_address,
         vec![(Circuit::ValidWalletCreate, serialize_to_calldata(&vkey)?)],
     )
     .await?;
@@ -480,16 +461,14 @@ pub(crate) async fn test_new_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    // Clear initializable state for future tests
-    contract.clear_initializable().send().await?.await?;
+    // Clear merkle state for future tests
+    contract.clear_merkle().send().await?.await?;
 
     Ok(())
 }
 
 pub(crate) async fn test_update_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
-    merkle_address: Address,
-    verifier_address: Address,
 ) -> Result<()> {
     // Generate test data
     let mut ark_merkle =
@@ -519,8 +498,6 @@ pub(crate) async fn test_update_wallet(
     // Set up contract
     setup_darkpool_test_contract(
         &contract,
-        merkle_address,
-        verifier_address,
         vec![(Circuit::ValidWalletUpdate, serialize_to_calldata(&vkey)?)],
     )
     .await?;
@@ -560,16 +537,14 @@ pub(crate) async fn test_update_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    // Clear initializable state for future tests
-    contract.clear_initializable().send().await?.await?;
+    // Clear merkle state for future tests
+    contract.clear_merkle().send().await?.await?;
 
     Ok(())
 }
 
 pub(crate) async fn test_process_match_settle(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
-    merkle_address: Address,
-    verifier_address: Address,
 ) -> Result<()> {
     // Generate test data
     let mut ark_merkle =
@@ -581,8 +556,6 @@ pub(crate) async fn test_process_match_settle(
     // Set up contract
     setup_darkpool_test_contract(
         &contract,
-        merkle_address,
-        verifier_address,
         vec![
             (
                 Circuit::ValidCommitments,
@@ -667,8 +640,8 @@ pub(crate) async fn test_process_match_settle(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    // Clear initializable state for future tests
-    contract.clear_initializable().send().await?.await?;
+    // Clear merkle state for future tests
+    contract.clear_merkle().send().await?.await?;
 
     Ok(())
 }

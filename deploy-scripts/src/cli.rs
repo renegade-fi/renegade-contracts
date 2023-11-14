@@ -36,17 +36,22 @@ pub enum Command {
 /// Upgrade calls can only be made to the `TransparentUpgradeableProxy` through the `ProxyAdmin`.
 #[derive(Args)]
 pub struct DeployProxyArgs {
-    /// Implementation contract address in hex
-    #[arg(short, long)]
-    pub implementation: String,
-
-    /// Proxy admin contract owner address in hex
+    /// Address of the owner for both the proxy admin contract
+    /// and the underlying darkpool contract
     #[arg(short, long)]
     pub owner: String,
 
-    /// Implementation contract calldata in hex
+    /// Darkpool implementation contract address in hex
     #[arg(short, long)]
-    pub calldata: Option<String>,
+    pub darkpool: String,
+
+    /// Verifier contract address in hex
+    #[arg(short, long)]
+    pub verifier: String,
+
+    /// Merkle contract address in hex
+    #[arg(short, long)]
+    pub merkle: String,
 }
 
 impl Command {
