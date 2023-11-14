@@ -8,3 +8,5 @@ ethers = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }

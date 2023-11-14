@@ -16,6 +16,7 @@ use crate::{
         PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
     },
     errors::DeployError,
+    utils::darkpool_initialize_calldata,
 };
 
 pub async fn deploy_proxy(
@@ -31,27 +32,23 @@ pub async fn deploy_proxy(
     let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
 
     // Parse proxy contract constructor arguments
-    let implementation_address = Address::from_slice(
-        &hex::decode(args.implementation).map_err(|_| DeployError::CalldataConstruction)?,
+    let darkpool_address = Address::from_slice(
+        &hex::decode(&args.darkpool).map_err(|_| DeployError::CalldataConstruction)?,
     );
 
     let owner_address = Address::from_slice(
-        &hex::decode(args.owner).map_err(|_| DeployError::CalldataConstruction)?,
+        &hex::decode(&args.owner).map_err(|_| DeployError::CalldataConstruction)?,
     );
 
-    let implementation_calldata = if let Some(calldata_hex) = args.calldata {
-        Bytes::from_hex(calldata_hex).map_err(|_| DeployError::CalldataConstruction)?
-    } else {
-        Bytes::new()
-    };
+    let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
+        &args.owner,
+        &args.verifier,
+        &args.merkle,
+    )?);
 
     // Deploy proxy contract
     let proxy_contract = proxy_factory
-        .deploy((
-            implementation_address,
-            owner_address,
-            implementation_calldata,
-        ))
+        .deploy((darkpool_address, owner_address, darkpool_calldata))
         .map_err(|_| DeployError::ContractDeployment)?
         .confirmations(NUM_DEPLOY_CONFIRMATIONS)
         .send()

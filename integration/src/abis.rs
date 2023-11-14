@@ -5,7 +5,7 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
-        function initialize(address memory verifier_address, address memory merkle_address) external
+        function initialize(address memory owner, address memory verifier_address, address memory merkle_address) external
 
         function transferOwnership(address memory new_owner) external
 
@@ -31,7 +31,7 @@ abigen!(
 
         function executeExternalTransfer(bytes memory transfer) external
 
-        function clearInitializable() external
+        function clearMerkle() external
     ]"#
 );
 
@@ -67,5 +67,12 @@ abigen!(
     r#"[
         function mint(address memory _address, uint256 memory value) external
         function balanceOf(address memory _address) external view returns (uint256)
+    ]"#
+);
+
+abigen!(
+    DarkpoolProxyAdminContract,
+    r#"[
+        function upgradeAndCall(address proxy, address implementation, bytes memory data) external
     ]"#
 );

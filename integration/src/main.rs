@@ -7,9 +7,9 @@ use abis::{
 use clap::Parser;
 use cli::{Cli, Tests};
 use constants::{
-    DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY,
-    VERIFIER_CONTRACT_KEY,
+    DARKPOOL_TEST_PROXY_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
 };
+use deploy_scripts::utils::setup_client;
 use eyre::Result;
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
@@ -17,7 +17,6 @@ use tests::{
     test_process_match_settle, test_update_wallet, test_verifier,
 };
 use utils::{get_test_contract_address, parse_addr_from_deployments_file};
-use deploy_scripts::utils::setup_client;
 
 mod abis;
 mod cli;
@@ -77,10 +76,12 @@ async fn main() -> Result<()> {
         }
         Tests::Ownable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
-            let darkpool_test_contract_address =
-                parse_addr_from_deployments_file(&deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?;
+            let darkpool_test_proxy_contract_address = parse_addr_from_deployments_file(
+                &deployments_file,
+                DARKPOOL_TEST_PROXY_CONTRACT_KEY,
+            )?;
 
-            test_ownable(contract, darkpool_test_contract_address).await?;
+            test_ownable(contract, darkpool_test_proxy_contract_address).await?;
         }
         Tests::Initializable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
@@ -97,30 +98,18 @@ async fn main() -> Result<()> {
         }
         Tests::NewWallet => {
             let contract = DarkpoolTestContract::new(contract_address, client);
-            let verifier_address =
-                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
-            let merkle_address =
-                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
 
-            test_new_wallet(contract, merkle_address, verifier_address).await?;
+            test_new_wallet(contract).await?;
         }
         Tests::UpdateWallet => {
             let contract = DarkpoolTestContract::new(contract_address, client);
-            let verifier_address =
-                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
-            let merkle_address =
-                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
 
-            test_update_wallet(contract, merkle_address, verifier_address).await?;
+            test_update_wallet(contract).await?;
         }
         Tests::ProcessMatchSettle => {
             let contract = DarkpoolTestContract::new(contract_address, client);
-            let verifier_address =
-                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
-            let merkle_address =
-                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
 
-            test_process_match_settle(contract, merkle_address, verifier_address).await?;
+            test_process_match_settle(contract).await?;
         }
     }
 

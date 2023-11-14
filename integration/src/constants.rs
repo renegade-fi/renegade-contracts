@@ -23,7 +23,9 @@ pub(crate) const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 pub(crate) const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
 
 /// The darkpool test contract key in the `deployments.json` file
-pub(crate) const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
+pub(crate) const DARKPOOL_TEST_PROXY_CONTRACT_KEY: &str = "darkpool_test_proxy_contract";
+
+pub(crate) const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contract";
 
 /// The dummy erc20 contract key in the `deployments.json` file
 pub(crate) const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";

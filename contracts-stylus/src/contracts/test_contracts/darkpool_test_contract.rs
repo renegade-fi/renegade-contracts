@@ -2,9 +2,12 @@ use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
 use common::{serde_def_types::SerdeScalarField, types::ExternalTransfer};
-use stylus_sdk::{abi::Bytes, alloy_primitives::U64, prelude::*};
+use stylus_sdk::{abi::Bytes, prelude::*};
 
-use crate::contracts::darkpool::DarkpoolContract;
+use crate::{
+    contracts::darkpool::DarkpoolContract,
+    utils::{helpers::delegate_call_helper, solidity::initCall},
+};
 
 #[solidity_storage]
 #[entrypoint]
@@ -30,10 +33,13 @@ impl DarkpoolTestContract {
         Ok(())
     }
 
-    pub fn clear_initializable(&mut self) -> Result<(), Vec<u8>> {
-        BorrowMut::<DarkpoolContract>::borrow_mut(self)
-            .initialized
-            .set(U64::from_limbs([0]));
+    pub fn clear_merkle(&mut self) -> Result<(), Vec<u8>> {
+        let merkle_address = BorrowMut::<DarkpoolContract>::borrow_mut(self)
+            .merkle_address
+            .get();
+
+        delegate_call_helper::<initCall>(self, merkle_address, ());
+
         Ok(())
     }
 }

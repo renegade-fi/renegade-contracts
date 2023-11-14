@@ -44,13 +44,13 @@ pub struct DarkpoolContract {
     owner: StorageAddress,
 
     /// Whether or not the darkpool has been initialized
-    pub initialized: StorageU64,
+    initialized: StorageU64,
 
     /// The address of the verifier contract
     verifier_address: StorageAddress,
 
     /// The address of the Merkle contract
-    merkle_address: StorageAddress,
+    pub(crate) merkle_address: StorageAddress,
 
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
@@ -94,11 +94,12 @@ impl DarkpoolContract {
     /// Initializes the Darkpool
     pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        owner: Address,
         verifier_address: Address,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
-        // Set the caller as the owner
-        DarkpoolContract::_transfer_ownership(storage, msg::sender());
+        // Set the owner address
+        DarkpoolContract::_transfer_ownership(storage, owner);
 
         // Initialize the Merkle tree
         delegate_call_helper::<initCall>(storage, merkle_address, ());
