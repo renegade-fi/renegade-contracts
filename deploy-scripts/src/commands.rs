@@ -7,17 +7,13 @@ use ethers::{
     types::{Bytes, H256},
     utils::hex::{self, FromHex},
 };
-use std::{
-    fs::{self, File},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{str::FromStr, sync::Arc};
 
 use crate::{
     cli::DeployProxyArgs,
     constants::{
-        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
-        PROXY_ADMIN_STORAGE_SLOT,
+        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI,
+        PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
     },
     errors::DeployError,
 };
@@ -27,11 +23,10 @@ pub async fn deploy_proxy(
     client: Arc<impl Middleware>,
 ) -> Result<(), DeployError> {
     // Get proxy contract ABI and bytecode
-    let proxy_abi_file = File::open(args.abi).unwrap();
-    let abi = Contract::load(proxy_abi_file).unwrap();
+    let abi: Contract =
+        serde_json::from_str(PROXY_ABI).map_err(|_| DeployError::ArtifactParsing)?;
 
-    let proxy_bytecode_str = fs::read_to_string(args.bytecode).unwrap();
-    let bytecode = Bytes::from_hex(proxy_bytecode_str).unwrap();
+    let bytecode = Bytes::from_hex(PROXY_BYTECODE).map_err(|_| DeployError::ArtifactParsing)?;
 
     let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
 

@@ -8,14 +8,14 @@ common = { path = "../common" }
 contracts-core = { path = "../contracts-core" }
 test-helpers = { path = "../test-helpers" }
 deploy-scripts = { path = "../deploy-scripts" }
-tokio = { version = "1.12.0", features = ["full"] }
+tokio = { workspace = true }
 ethers = { workspace = true }
 eyre = { workspace = true }
 ark-ff = { workspace = true }
 ark-std = { workspace = true }
 ark-ec = { workspace = true }
 rand = { workspace = true }
-clap = { version = "4.4.7", features = ["derive"] }
+clap = { workspace = true }
 json = "0.12"
 postcard = { workspace = true }
 serde = { workspace = true }

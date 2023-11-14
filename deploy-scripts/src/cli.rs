@@ -27,16 +27,15 @@ pub enum Command {
     DeployProxy(DeployProxyArgs),
 }
 
+/// Deploy the Darkpool upgradeable proxy contract.
+///
+/// Concretely, this is a [`TransparentUpgradeableProxy`](https://docs.openzeppelin.com/contracts/5.x/api/proxy#transparent_proxy),
+/// which itself deploys a `ProxyAdmin` contract.
+///
+/// Calls made directly to the `TransparentUpgradeableProxy` contract will be forwarded to the implementation contract.
+/// Upgrade calls can only be made to the `TransparentUpgradeableProxy` through the `ProxyAdmin`.
 #[derive(Args)]
 pub struct DeployProxyArgs {
-    /// Path to the proxy contract ABI
-    #[arg(short, long)]
-    pub abi: String,
-
-    /// Path to the proxy contract bytecode
-    #[arg(short, long)]
-    pub bytecode: String,
-
     /// Implementation contract address in hex
     #[arg(short, long)]
     pub implementation: String,
