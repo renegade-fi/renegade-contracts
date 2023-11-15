@@ -1,6 +1,6 @@
 /target
 /.env
 /profiling_data
-/deployments.json
+/deployments.*.json
 /.vscode
 /solidity_artifacts

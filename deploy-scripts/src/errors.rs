@@ -7,21 +7,25 @@ use std::{
 
 #[derive(Debug)]
 pub enum DeployError {
-    ArtifactParsing,
-    ClientInitialization,
-    CalldataConstruction,
-    ContractDeployment,
-    ContractInteraction,
+    ArtifactParsing(String),
+    ClientInitialization(String),
+    CalldataConstruction(String),
+    ContractDeployment(String),
+    ContractInteraction(String),
+    ContractCompilation(String),
 }
 
 impl Display for DeployError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            DeployError::ArtifactParsing => write!(f, "Error parsing artifact"),
-            DeployError::ClientInitialization => write!(f, "Error initializing client"),
-            DeployError::CalldataConstruction => write!(f, "Error constructing calldata"),
-            DeployError::ContractDeployment => write!(f, "Error deploying contract"),
-            DeployError::ContractInteraction => write!(f, "Error interacting with contract"),
+            DeployError::ArtifactParsing(s) => write!(f, "error parsing artifact: {}", s),
+            DeployError::ClientInitialization(s) => write!(f, "error initializing client: {}", s),
+            DeployError::CalldataConstruction(s) => write!(f, "error constructing calldata: {}", s),
+            DeployError::ContractDeployment(s) => write!(f, "error deploying contract: {}", s),
+            DeployError::ContractInteraction(s) => {
+                write!(f, "error interacting with contract: {}", s)
+            }
+            DeployError::ContractCompilation(s) => write!(f, "error compiling contract: {}", s),
         }
     }
 }

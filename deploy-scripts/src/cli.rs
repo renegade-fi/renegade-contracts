@@ -1,11 +1,18 @@
 //! Definitions of CLI arguments and commands for deploy scripts
 
-use std::sync::Arc;
+use std::{
+    fmt::{self, Display},
+    sync::Arc,
+};
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
-use crate::{commands::deploy_proxy, errors::DeployError};
+use crate::{
+    commands::deploy_proxy,
+    errors::DeployError,
+    utils::{build_stylus_contract, deploy_stylus_contract},
+};
 
 #[derive(Parser)]
 pub struct Cli {
@@ -25,6 +32,24 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Command {
     DeployProxy(DeployProxyArgs),
+    DeployStylus(DeployStylusArgs),
+}
+
+impl Command {
+    pub async fn run(
+        self,
+        client: Arc<impl Middleware>,
+        rpc_url: &str,
+        priv_key: &str,
+    ) -> Result<(), DeployError> {
+        match self {
+            Command::DeployProxy(args) => deploy_proxy(args, client).await,
+            Command::DeployStylus(args) => {
+                let wasm_file_path = build_stylus_contract(args.contract)?;
+                deploy_stylus_contract(wasm_file_path, rpc_url, priv_key)
+            }
+        }
+    }
 }
 
 /// Deploy the Darkpool upgradeable proxy contract.
@@ -54,10 +79,29 @@ pub struct DeployProxyArgs {
     pub merkle: String,
 }
 
-impl Command {
-    pub async fn run(self, client: Arc<impl Middleware>) -> Result<(), DeployError> {
+#[derive(Args)]
+pub struct DeployStylusArgs {
+    #[arg(short, long)]
+    pub contract: StylusContract,
+}
+
+#[derive(ValueEnum, Copy, Clone)]
+pub enum StylusContract {
+    Darkpool,
+    DarkpoolTestContract,
+    Merkle,
+    MerkleTestContract,
+    Verifier,
+}
+
+impl Display for StylusContract {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Command::DeployProxy(args) => deploy_proxy(args, client).await,
+            StylusContract::Darkpool => write!(f, "darkpool"),
+            StylusContract::DarkpoolTestContract => write!(f, "darkpool-test-contract"),
+            StylusContract::Merkle => write!(f, "merkle"),
+            StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),
+            StylusContract::Verifier => write!(f, "verifier"),
         }
     }
 }

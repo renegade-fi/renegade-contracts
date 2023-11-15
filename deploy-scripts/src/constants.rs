@@ -24,3 +24,51 @@ pub const NUM_BYTES_STORAGE_SLOT: usize = 32;
 
 /// The number of bytes in an Ethereum address
 pub const NUM_BYTES_ADDRESS: usize = 20;
+
+/// The name of the environment variable pointing to the directory containing
+/// the project manifest
+pub const MANIFEST_DIR_ENV_VAR: &str = "CARGO_MANIFEST_DIR";
+
+/// The name of the crate in this workspace in which the Stylus contracts
+/// are defined
+pub const STYLUS_CONTRACTS_CRATE_NAME: &str = "contracts-stylus";
+
+/// The name of the Cargo command
+pub const CARGO_COMMAND: &str = "cargo";
+
+/// The name of the build command
+pub const BUILD_COMMAND: &str = "build";
+
+/// The target triple for the WASM build target
+pub const WASM_TARGET_TRIPLE: &str = "wasm32-unknown-unknown";
+
+/// The nightly toolchain selector
+pub const NIGHTLY_TOOLCHAIN_SELECTOR: &str = "+nightly";
+
+/// Nightly Z flags to add to build command
+pub const Z_FLAGS: [&str; 3] = [
+    "unstable-options",
+    "build-std=std,panic_abort",
+    "build-std-features=panic_immediate_abort",
+];
+
+/// The name of the target directory
+pub const TARGET_PATH_SEGMENT: &str = "target";
+
+/// The name of the release directory
+pub const RELEASE_PATH_SEGMENT: &str = "release";
+
+/// The extension a built WASM file
+pub const WASM_EXTENSION: &str = "wasm";
+
+/// The name of the `wasm-opt` command
+pub const WASM_OPT_COMMAND: &str = "wasm-opt";
+
+/// The size optimization flag for the `wasm-opt` command
+pub const SIZE_OPTIMIZATION_FLAG: &str = "-Oz";
+
+/// The name of the stylus command
+pub const STYLUS_COMMAND: &str = "stylus";
+
+/// The name of the deploy command
+pub const DEPLOY_COMMAND: &str = "deploy";

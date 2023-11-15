@@ -25,19 +25,21 @@ pub async fn deploy_proxy(
 ) -> Result<(), DeployError> {
     // Get proxy contract ABI and bytecode
     let abi: Contract =
-        serde_json::from_str(PROXY_ABI).map_err(|_| DeployError::ArtifactParsing)?;
+        serde_json::from_str(PROXY_ABI).map_err(|e| DeployError::ArtifactParsing(e.to_string()))?;
 
-    let bytecode = Bytes::from_hex(PROXY_BYTECODE).map_err(|_| DeployError::ArtifactParsing)?;
+    let bytecode =
+        Bytes::from_hex(PROXY_BYTECODE).map_err(|e| DeployError::ArtifactParsing(e.to_string()))?;
 
     let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
 
     // Parse proxy contract constructor arguments
     let darkpool_address = Address::from_slice(
-        &hex::decode(&args.darkpool).map_err(|_| DeployError::CalldataConstruction)?,
+        &hex::decode(&args.darkpool)
+            .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?,
     );
 
     let owner_address = Address::from_slice(
-        &hex::decode(&args.owner).map_err(|_| DeployError::CalldataConstruction)?,
+        &hex::decode(&args.owner).map_err(|e| DeployError::CalldataConstruction(e.to_string()))?,
     );
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
@@ -49,11 +51,11 @@ pub async fn deploy_proxy(
     // Deploy proxy contract
     let proxy_contract = proxy_factory
         .deploy((darkpool_address, owner_address, darkpool_calldata))
-        .map_err(|_| DeployError::ContractDeployment)?
+        .map_err(|e| DeployError::ContractDeployment(e.to_string()))?
         .confirmations(NUM_DEPLOY_CONFIRMATIONS)
         .send()
         .await
-        .map_err(|_| DeployError::ContractDeployment)?;
+        .map_err(|e| DeployError::ContractDeployment(e.to_string()))?;
 
     let proxy_address = proxy_contract.address();
 
@@ -69,7 +71,7 @@ pub async fn deploy_proxy(
                 None, /* block */
             )
             .await
-            .map_err(|_| DeployError::ContractInteraction)?
+            .map_err(|e| DeployError::ContractInteraction(e.to_string()))?
             [NUM_BYTES_STORAGE_SLOT - NUM_BYTES_ADDRESS..NUM_BYTES_STORAGE_SLOT],
     );
 
