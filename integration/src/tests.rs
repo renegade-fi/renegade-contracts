@@ -297,6 +297,8 @@ pub(crate) async fn test_upgradeable(
 
 pub(crate) async fn test_ownable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    verifier_address: Address,
+    merkle_address: Address,
 ) -> Result<()> {
     // Set up contract instance w/ dummy signer
     let mut rng = thread_rng();
@@ -382,6 +384,21 @@ pub(crate) async fn test_ownable(
         dummy_vkey_bytes.clone(),
     )
     .await?;
+
+    // Reset proper verifier & merkle addresses.
+    // We don't reset verification keys since other tests are assumed
+    // to set them properly themselves.
+    contract
+        .set_verifier_address(verifier_address)
+        .send()
+        .await?
+        .await?;
+
+    contract
+        .set_merkle_address(merkle_address)
+        .send()
+        .await?
+        .await?;
 
     Ok(())
 }

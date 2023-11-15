@@ -8,7 +8,7 @@ use clap::Parser;
 use cli::{Cli, Tests};
 use constants::{
     DARKPOOL_PROXY_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY,
-    DUMMY_UPGRADE_TARGET_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
+    DUMMY_UPGRADE_TARGET_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY,
 };
 use deploy_scripts::utils::setup_client;
 use eyre::Result;
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
         rpc_url,
     } = Cli::parse();
 
-    let client = setup_client(priv_key, rpc_url).await?;
+    let client = setup_client(&priv_key, &rpc_url).await?;
     let contract_address = get_test_contract_address(test, &deployments_file)?;
 
     match test {
@@ -96,8 +96,12 @@ async fn main() -> Result<()> {
         }
         Tests::Ownable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
+            let verifier_address =
+                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
+            let merkle_address =
+                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
 
-            test_ownable(contract).await?;
+            test_ownable(contract, verifier_address, merkle_address).await?;
         }
         Tests::Initializable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
