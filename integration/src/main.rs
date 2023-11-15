@@ -1,20 +1,21 @@
 //! Basic tests for Stylus programs. These assume that a devnet is already running locally.
 
 use abis::{
-    DarkpoolTestContract, DummyErc20Contract, MerkleContract, PrecompileTestContract,
-    VerifierTestContract,
+    DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract, MerkleContract,
+    PrecompileTestContract, VerifierTestContract,
 };
 use clap::Parser;
 use cli::{Cli, Tests};
 use constants::{
-    DARKPOOL_TEST_PROXY_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
+    DARKPOOL_PROXY_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY,
+    DUMMY_UPGRADE_TARGET_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
 };
 use deploy_scripts::utils::setup_client;
 use eyre::Result;
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
     test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable,
-    test_process_match_settle, test_update_wallet, test_verifier,
+    test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier,
 };
 use utils::{get_test_contract_address, parse_addr_from_deployments_file};
 
@@ -74,14 +75,29 @@ async fn main() -> Result<()> {
 
             test_verifier(contract, verifier_address).await?;
         }
+        Tests::Upgradeable => {
+            let contract = DarkpoolProxyAdminContract::new(contract_address, client.clone());
+            let proxy_address =
+                parse_addr_from_deployments_file(&deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?;
+            let dummy_upgrade_target_address = parse_addr_from_deployments_file(
+                &deployments_file,
+                DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+            )?;
+            let darkpool_address =
+                parse_addr_from_deployments_file(&deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?;
+
+            test_upgradeable(
+                contract,
+                proxy_address,
+                dummy_upgrade_target_address,
+                darkpool_address,
+            )
+            .await?;
+        }
         Tests::Ownable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
-            let darkpool_test_proxy_contract_address = parse_addr_from_deployments_file(
-                &deployments_file,
-                DARKPOOL_TEST_PROXY_CONTRACT_KEY,
-            )?;
 
-            test_ownable(contract, darkpool_test_proxy_contract_address).await?;
+            test_ownable(contract).await?;
         }
         Tests::Initializable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());

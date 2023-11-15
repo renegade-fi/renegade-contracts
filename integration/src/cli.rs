@@ -34,6 +34,7 @@ pub(crate) enum Tests {
     NullifierSet,
     Merkle,
     Verifier,
+    Upgradeable,
     Ownable,
     Initializable,
     ExternalTransfer,

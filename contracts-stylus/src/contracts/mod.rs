@@ -14,6 +14,7 @@ mod verifier;
     feature = "verifier-test-contract",
     feature = "merkle-test-contract",
     feature = "darkpool-test-contract",
-    feature = "dummy-erc20"
+    feature = "dummy-erc20",
+    feature = "dummy-upgrade-target",
 ))]
 mod test_contracts;

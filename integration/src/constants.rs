@@ -23,12 +23,19 @@ pub(crate) const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 pub(crate) const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
 
 /// The darkpool test contract key in the `deployments.json` file
-pub(crate) const DARKPOOL_TEST_PROXY_CONTRACT_KEY: &str = "darkpool_test_proxy_contract";
+pub(crate) const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
 
+/// The darkpool proxy contract key in the `deployments.json` file
+pub(crate) const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
+
+/// The darkpool proxy admin contract key in the `deployments.json` file
 pub(crate) const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contract";
 
 /// The dummy erc20 contract key in the `deployments.json` file
 pub(crate) const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
+
+/// The dummy upgrade target contract key in the `deployments.json` file
+pub(crate) const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target_contract";
 
 /// The domain size to use when testing the verifier contract
 pub(crate) const N: usize = 8192;

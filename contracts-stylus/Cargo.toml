@@ -23,6 +23,7 @@ verifier = []
 verifier-test-contract = []
 precompile-test-contract = []
 dummy-erc20 = []
+dummy-upgrade-target = []
 export-abi = ["stylus-sdk/export-abi"]
 
 [lib]

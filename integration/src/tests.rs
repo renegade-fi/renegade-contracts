@@ -31,8 +31,8 @@ use test_helpers::{
 
 use crate::{
     abis::{
-        DarkpoolTestContract, DummyErc20Contract, MerkleContract, PrecompileTestContract,
-        VerifierTestContract,
+        DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
+        DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
     constants::{L, N, TRANSFER_AMOUNT},
     utils::{
@@ -211,9 +211,92 @@ pub(crate) async fn test_verifier(
     Ok(())
 }
 
+pub(crate) async fn test_upgradeable(
+    proxy_admin_contract: DarkpoolProxyAdminContract<impl Middleware + 'static>,
+    proxy_address: Address,
+    dummy_upgrade_target_address: Address,
+    darkpool_address: Address,
+) -> Result<()> {
+    let client = proxy_admin_contract.client();
+
+    let darkpool = DarkpoolTestContract::new(proxy_address, client.clone());
+
+    // Mark a random nullifier as spent to test that it is not cleared on upgrade
+    let mut rng = thread_rng();
+    let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(ScalarField::rand(&mut rng)))?;
+
+    darkpool
+        .mark_nullifier_spent(nullifier_bytes.clone())
+        .send()
+        .await?
+        .await?;
+
+    // Ensure that only the owner can upgrade the contract
+    let dummy_signer = Arc::new(
+        SignerMiddleware::new_with_provider_chain(
+            proxy_admin_contract.client(),
+            LocalWallet::new(&mut rng),
+        )
+        .await?,
+    );
+    let proxy_admin_contract_with_dummy_signer =
+        DarkpoolProxyAdminContract::new(proxy_admin_contract.address(), dummy_signer);
+
+    assert!(
+        proxy_admin_contract_with_dummy_signer
+            .upgrade_and_call(
+                proxy_address,
+                dummy_upgrade_target_address,
+                Bytes::new(), /* data */
+            )
+            .send()
+            .await
+            .is_err(),
+        "Upgraded contract with non-owner"
+    );
+
+    // Upgrade to dummy upgrade target contract
+    proxy_admin_contract
+        .upgrade_and_call(
+            proxy_address,
+            dummy_upgrade_target_address,
+            Bytes::new(), /* data */
+        )
+        .send()
+        .await?
+        .await?;
+
+    let dummy_upgrade_target_contract = DummyUpgradeTargetContract::new(proxy_address, client);
+
+    // Assert that the proxy now points to the dummy upgrade target
+    // by attempting to call the `is_dummy_upgrade_target` method through
+    // the proxy, which only exists on the dummy upgrade target
+    assert!(
+        dummy_upgrade_target_contract
+            .is_dummy_upgrade_target()
+            .call()
+            .await?,
+        "Upgrade target contract not upgraded"
+    );
+
+    // Upgrade back to darkpool test contract
+    proxy_admin_contract
+        .upgrade_and_call(proxy_address, darkpool_address, Bytes::new())
+        .send()
+        .await?
+        .await?;
+
+    // Assert that the nullifier is still marked spent, and that
+    // we can call the `is_nullifier_spent` method through the proxy,
+    // indicating that the upgrade back to the darkpool test contract
+    // was successful
+    assert!(darkpool.is_nullifier_spent(nullifier_bytes).call().await?);
+
+    Ok(())
+}
+
 pub(crate) async fn test_ownable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
-    darkpool_test_proxy_contract_address: Address,
 ) -> Result<()> {
     // Set up contract instance w/ dummy signer
     let mut rng = thread_rng();
@@ -221,8 +304,7 @@ pub(crate) async fn test_ownable(
         SignerMiddleware::new_with_provider_chain(contract.client(), LocalWallet::new(&mut rng))
             .await?,
     );
-    let contract_with_dummy_signer =
-        DarkpoolTestContract::new(darkpool_test_proxy_contract_address, dummy_signer);
+    let contract_with_dummy_signer = DarkpoolTestContract::new(contract.address(), dummy_signer);
 
     // Set up test data
     let dummy_verifier_address = Address::random();

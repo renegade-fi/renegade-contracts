@@ -76,3 +76,10 @@ abigen!(
         function upgradeAndCall(address proxy, address implementation, bytes memory data) external
     ]"#
 );
+
+abigen!(
+    DummyUpgradeTargetContract,
+    r#"[
+        function isDummyUpgradeTarget() external view returns (bool)
+    ]"#
+);
