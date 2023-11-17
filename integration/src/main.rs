@@ -8,10 +8,10 @@ use clap::Parser;
 use cli::{Cli, Tests};
 use constants::{
     DARKPOOL_PROXY_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY,
-    DUMMY_UPGRADE_TARGET_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY,
+    DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
 };
-use deploy_scripts::utils::setup_client;
 use eyre::Result;
+use scripts::utils::setup_client;
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
     test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable,
