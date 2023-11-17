@@ -1,6 +1,6 @@
 //! Test helpers specific to the Renegade protocol circuits and their statements
 
-use alloc::{vec::Vec, vec};
+use alloc::{vec, vec::Vec};
 use alloy_primitives::{Address, U256};
 
 use ark_std::UniformRand;
