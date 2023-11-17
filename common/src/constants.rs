@@ -41,9 +41,6 @@ pub const NUM_BYTES_ADDRESS: usize = 20;
 /// and `v`, a 1-byte recovery identifier (whose value is either 27 or 28)
 pub const NUM_BYTES_SIGNATURE: usize = 65;
 
-/// The number of secret-shared scalars it takes to represent a wallet
-pub const WALLET_SHARES_LEN: usize = 0;
-
 /// The height of the Merkle tree
 pub const MERKLE_HEIGHT: usize = 32;
 

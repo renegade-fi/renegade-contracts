@@ -5,7 +5,6 @@ use core::borrow::{Borrow, BorrowMut};
 
 use alloc::{vec, vec::Vec};
 use common::{
-    constants::WALLET_SHARES_LEN,
     serde_def_types::SerdeScalarField,
     types::{
         ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
@@ -456,7 +455,7 @@ impl DarkpoolContract {
     pub fn insert_wallet_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         private_shares_commitment: ScalarField,
-        public_wallet_shares: &[ScalarField; WALLET_SHARES_LEN],
+        public_wallet_shares: &[ScalarField],
     ) {
         let mut total_wallet_shares = vec![private_shares_commitment];
         total_wallet_shares.extend(public_wallet_shares);
@@ -526,7 +525,7 @@ impl DarkpoolContract {
         match_payload_bytes: Bytes,
         valid_commitments_proof: Bytes,
         valid_reblind_proof: Bytes,
-        public_wallet_shares: &[ScalarField; WALLET_SHARES_LEN],
+        public_wallet_shares: &[ScalarField],
     ) {
         let match_payload: MatchPayload =
             postcard::from_bytes(match_payload_bytes.as_slice()).unwrap();
