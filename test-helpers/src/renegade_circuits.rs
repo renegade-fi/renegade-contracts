@@ -1,11 +1,11 @@
 //! Test helpers specific to the Renegade protocol circuits and their statements
 
-use alloc::vec::Vec;
+use alloc::{vec::Vec, vec};
 use alloy_primitives::{Address, U256};
 
 use ark_std::UniformRand;
 use common::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256, WALLET_SHARES_LEN},
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256},
     custom_serde::ScalarSerializable,
     types::{
         ExternalTransfer, Proof, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
@@ -36,7 +36,7 @@ impl RenegadeStatement for ValidWalletCreateStatement {
     fn dummy(rng: &mut impl Rng) -> Self {
         ValidWalletCreateStatement {
             private_shares_commitment: ScalarField::rand(rng),
-            public_wallet_shares: dummy_wallet_shares(rng),
+            public_wallet_shares: vec![],
         }
     }
 }
@@ -46,7 +46,7 @@ impl RenegadeStatement for ValidWalletUpdateStatement {
         ValidWalletUpdateStatement {
             old_shares_nullifier: ScalarField::rand(rng),
             new_private_shares_commitment: ScalarField::rand(rng),
-            new_public_shares: dummy_wallet_shares(rng),
+            new_public_shares: vec![],
             merkle_root: ScalarField::rand(rng),
             external_transfer: Some(dummy_external_transfer(rng)),
             old_pk_root: dummy_public_signing_key(rng),
@@ -78,8 +78,8 @@ impl RenegadeStatement for ValidReblindStatement {
 impl RenegadeStatement for ValidMatchSettleStatement {
     fn dummy(rng: &mut impl Rng) -> Self {
         ValidMatchSettleStatement {
-            party0_modified_shares: dummy_wallet_shares(rng),
-            party1_modified_shares: dummy_wallet_shares(rng),
+            party0_modified_shares: vec![],
+            party1_modified_shares: vec![],
             party0_send_balance_index: rng.gen(),
             party0_receive_balance_index: rng.gen(),
             party0_order_index: rng.gen(),
@@ -88,14 +88,6 @@ impl RenegadeStatement for ValidMatchSettleStatement {
             party1_order_index: rng.gen(),
         }
     }
-}
-
-fn dummy_wallet_shares(rng: &mut impl Rng) -> [ScalarField; WALLET_SHARES_LEN] {
-    iter::repeat(ScalarField::rand(rng))
-        .take(WALLET_SHARES_LEN)
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap()
 }
 
 fn dummy_address(rng: &mut impl Rng) -> Address {

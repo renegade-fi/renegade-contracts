@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use crate::{
-    constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES, WALLET_SHARES_LEN},
+    constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
     serde_def_types::*,
 };
 
@@ -141,8 +141,8 @@ pub struct ValidWalletCreateStatement {
     #[serde_as(as = "ScalarFieldDef")]
     pub private_shares_commitment: ScalarField,
     /// The blinded public secret shares of the wallet
-    #[serde_as(as = "[ScalarFieldDef; WALLET_SHARES_LEN]")]
-    pub public_wallet_shares: [ScalarField; WALLET_SHARES_LEN],
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub public_wallet_shares: Vec<ScalarField>,
 }
 
 /// Statement for `VALID_WALLET_UPDATE` circuit
@@ -156,8 +156,8 @@ pub struct ValidWalletUpdateStatement {
     #[serde_as(as = "ScalarFieldDef")]
     pub new_private_shares_commitment: ScalarField,
     /// The blinded public secret shares of the new wallet
-    #[serde_as(as = "[ScalarFieldDef; WALLET_SHARES_LEN]")]
-    pub new_public_shares: [ScalarField; WALLET_SHARES_LEN],
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub new_public_shares: Vec<ScalarField>,
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to the old wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
@@ -202,11 +202,11 @@ pub struct ValidCommitmentsStatement {
 #[derive(Serialize, Deserialize)]
 pub struct ValidMatchSettleStatement {
     /// The modified blinded public secret shares of the first party
-    #[serde_as(as = "[ScalarFieldDef; WALLET_SHARES_LEN]")]
-    pub party0_modified_shares: [ScalarField; WALLET_SHARES_LEN],
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub party0_modified_shares: Vec<ScalarField>,
     /// The modified blinded public secret shares of the second party
-    #[serde_as(as = "[ScalarFieldDef; WALLET_SHARES_LEN]")]
-    pub party1_modified_shares: [ScalarField; WALLET_SHARES_LEN],
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub party1_modified_shares: Vec<ScalarField>,
     /// The index of the balance sent by the first party in the settlement
     pub party0_send_balance_index: u64,
     /// The index of the balance received by the first party in the settlement

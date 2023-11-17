@@ -207,7 +207,7 @@ pub trait ScalarSerializable {
 impl ScalarSerializable for ValidWalletCreateStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = vec![self.private_shares_commitment];
-        scalars.extend(self.public_wallet_shares);
+        scalars.extend(&self.public_wallet_shares);
         Ok(scalars)
     }
 }
@@ -218,7 +218,7 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
             self.old_shares_nullifier,
             self.new_private_shares_commitment,
         ];
-        scalars.extend(self.new_public_shares);
+        scalars.extend(&self.new_public_shares);
         scalars.push(self.merkle_root);
 
         scalars.extend(external_transfer_to_scalars(
@@ -256,8 +256,8 @@ impl ScalarSerializable for ValidCommitmentsStatement {
 impl ScalarSerializable for ValidMatchSettleStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars = Vec::new();
-        scalars.extend(self.party0_modified_shares);
-        scalars.extend(self.party1_modified_shares);
+        scalars.extend(&self.party0_modified_shares);
+        scalars.extend(&self.party1_modified_shares);
         scalars.push(self.party0_send_balance_index.into());
         scalars.push(self.party0_receive_balance_index.into());
         scalars.push(self.party0_order_index.into());
