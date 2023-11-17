@@ -9,9 +9,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::deploy_proxy,
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, upgrade},
     errors::DeployError,
-    utils::{build_stylus_contract, deploy_stylus_contract},
 };
 
 #[derive(Parser)]
@@ -33,6 +32,7 @@ pub struct Cli {
 pub enum Command {
     DeployProxy(DeployProxyArgs),
     DeployStylus(DeployStylusArgs),
+    Upgrade(UpgradeArgs),
 }
 
 impl Command {
@@ -45,9 +45,9 @@ impl Command {
         match self {
             Command::DeployProxy(args) => deploy_proxy(args, client).await,
             Command::DeployStylus(args) => {
-                let wasm_file_path = build_stylus_contract(args.contract)?;
-                deploy_stylus_contract(wasm_file_path, rpc_url, priv_key)
+                build_and_deploy_stylus_contract(args, rpc_url, priv_key)
             }
+            Command::Upgrade(args) => upgrade(args, client).await,
         }
     }
 }
@@ -104,4 +104,24 @@ impl Display for StylusContract {
             StylusContract::Verifier => write!(f, "verifier"),
         }
     }
+}
+
+#[derive(Args)]
+pub struct UpgradeArgs {
+    /// Address of the proxy admin contract
+    #[arg(long)]
+    pub proxy_admin: String,
+
+    /// Address of the proxy contract
+    #[arg(long)]
+    pub proxy: String,
+
+    /// Address of the new implementation contract
+    #[arg(short, long)]
+    pub implementation: String,
+
+    /// Optional calldata, in hex form, with which to
+    /// call the implementation contract when upgrading
+    #[arg(short, long)]
+    pub calldata: Option<String>,
 }

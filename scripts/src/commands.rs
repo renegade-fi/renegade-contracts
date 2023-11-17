@@ -5,18 +5,19 @@ use ethers::{
     middleware::contract::ContractFactory,
     providers::Middleware,
     types::{Bytes, H256},
-    utils::hex::{self, FromHex},
+    utils::hex::FromHex,
 };
 use std::{str::FromStr, sync::Arc};
 
 use crate::{
-    cli::DeployProxyArgs,
+    cli::{DeployProxyArgs, DeployStylusArgs, UpgradeArgs},
     constants::{
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI,
         PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
     },
     errors::DeployError,
-    utils::darkpool_initialize_calldata,
+    solidity::ProxyAdminContract,
+    utils::{build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract},
 };
 
 pub async fn deploy_proxy(
@@ -33,14 +34,11 @@ pub async fn deploy_proxy(
     let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
 
     // Parse proxy contract constructor arguments
-    let darkpool_address = Address::from_slice(
-        &hex::decode(&args.darkpool)
-            .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?,
-    );
+    let darkpool_address = Address::from_str(&args.darkpool)
+        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
 
-    let owner_address = Address::from_slice(
-        &hex::decode(&args.owner).map_err(|e| DeployError::CalldataConstruction(e.to_string()))?,
-    );
+    let owner_address = Address::from_str(&args.owner)
+        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         &args.owner,
@@ -81,6 +79,42 @@ pub async fn deploy_proxy(
         "Proxy admin contract deployed at {:#x}",
         proxy_admin_address
     );
+
+    Ok(())
+}
+
+pub fn build_and_deploy_stylus_contract(
+    args: DeployStylusArgs,
+    rpc_url: &str,
+    priv_key: &str,
+) -> Result<(), DeployError> {
+    let wasm_file_path = build_stylus_contract(args.contract)?;
+    deploy_stylus_contract(wasm_file_path, rpc_url, priv_key)
+}
+
+pub async fn upgrade(args: UpgradeArgs, client: Arc<impl Middleware>) -> Result<(), DeployError> {
+    let proxy_admin_address = Address::from_str(&args.proxy_admin)
+        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
+    let proxy_admin = ProxyAdminContract::new(proxy_admin_address, client);
+
+    let proxy_address = Address::from_str(&args.proxy)
+        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
+    let implementation_address = Address::from_str(&args.implementation)
+        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
+
+    let data = if let Some(calldata) = args.calldata {
+        Bytes::from_hex(calldata).map_err(|e| DeployError::CalldataConstruction(e.to_string()))?
+    } else {
+        Bytes::new()
+    };
+
+    proxy_admin
+        .upgrade_and_call(proxy_address, implementation_address, data)
+        .send()
+        .await
+        .map_err(|e| DeployError::ContractInteraction(e.to_string()))?
+        .await
+        .map_err(|e| DeployError::ContractInteraction(e.to_string()))?;
 
     Ok(())
 }
