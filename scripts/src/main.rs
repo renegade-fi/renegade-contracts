@@ -1,5 +1,5 @@
 use clap::Parser;
-use deploy_scripts::{cli::Cli, errors::DeployError, utils::setup_client};
+use scripts::{cli::Cli, errors::DeployError, utils::setup_client};
 
 #[tokio::main]
 async fn main() -> Result<(), DeployError> {
