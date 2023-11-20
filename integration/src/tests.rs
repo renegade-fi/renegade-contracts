@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -20,7 +19,7 @@ use eyre::Result;
 use rand::{thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
-    merkle::MerkleConfig,
+    merkle::new_ark_merkle_tree,
     misc::random_scalars,
     proof_system::{convert_jf_proof_and_vkey, dummy_vkeys, gen_jf_proof_and_vkey},
     renegade_circuits::{
@@ -139,8 +138,7 @@ pub(crate) async fn test_ec_recover(
 }
 
 pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'static>) -> Result<()> {
-    let mut ark_merkle =
-        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
     contract.init().send().await?.await?;
 
     let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT - 1) as u32);
@@ -542,8 +540,7 @@ pub(crate) async fn test_new_wallet(
         .await?;
 
     // Assert that Merkle root is correct
-    let mut ark_merkle =
-        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
@@ -570,8 +567,7 @@ pub(crate) async fn test_update_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     // Generate test data
-    let mut ark_merkle =
-        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
     let mut rng = thread_rng();
 
@@ -646,8 +642,7 @@ pub(crate) async fn test_process_match_settle(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     // Generate test data
-    let mut ark_merkle =
-        ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
     let mut rng = thread_rng();
     let data = get_process_match_settle_data(&mut rng, ark_merkle.root())?;
