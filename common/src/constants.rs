@@ -1,5 +1,11 @@
 //! Constants that parameterize the Plonk proof system
 
+use core::marker::PhantomData;
+
+use ark_ff::{BigInt, Fp};
+
+use crate::types::ScalarField;
+
 /// The number of wire types in the circuit
 pub const NUM_WIRE_TYPES: usize = 5;
 
@@ -46,3 +52,17 @@ pub const MERKLE_HEIGHT: usize = 32;
 
 /// The height of the Merkle tree used in testing
 pub const TEST_MERKLE_HEIGHT: usize = 5;
+
+/// The value of an empty leaf in the Merkle tree,
+/// computed as the Keccak-256 hash of the string "renegade",
+/// reduced modulo the scalar field order when interpreted as a
+/// big-endian unsigned integer
+pub const EMPTY_LEAF_VALUE: ScalarField = Fp(
+    BigInt([
+        14542100412480080699,
+        1005430062575839833,
+        8810205500711505764,
+        2121377557688093532,
+    ]),
+    PhantomData,
+);

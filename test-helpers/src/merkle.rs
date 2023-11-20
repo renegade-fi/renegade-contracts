@@ -1,13 +1,13 @@
 //! Implementation of a Merkle tree using the Poseidon2 implementation from the relayer codebase.
 
-use core::borrow::Borrow;
-
+use alloc::vec;
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
-    merkle_tree::{Config, IdentityDigestConverter},
+    merkle_tree::{Config, IdentityDigestConverter, MerkleTree},
     Error as ArkError,
 };
-use common::types::ScalarField;
+use common::{constants::EMPTY_LEAF_VALUE, types::ScalarField};
+use core::borrow::Borrow;
 use rand::Rng;
 use renegade_crypto::hash::Poseidon2Sponge;
 
@@ -74,4 +74,11 @@ impl Config for MerkleConfig {
     type LeafHash = IdentityCRH;
     type TwoToOneHash = PoseidonTwoToOneCRH;
     type LeafInnerDigestConverter = IdentityDigestConverter<ScalarField>;
+}
+
+pub fn new_ark_merkle_tree(height: usize) -> MerkleTree<MerkleConfig> {
+    let num_leaves = 2_u128.pow((height - 1) as u32);
+    let leaves = vec![EMPTY_LEAF_VALUE; num_leaves as usize];
+
+    MerkleTree::<MerkleConfig>::new(&(), &(), leaves).unwrap()
 }

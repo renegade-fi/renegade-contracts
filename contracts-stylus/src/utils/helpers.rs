@@ -49,7 +49,7 @@ pub fn delegate_call_helper<C: SolCall>(
 
 /// Computes the Keccak-256 hash of the given scalar when serialized to bytes
 #[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "merkle")),
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
     allow(dead_code)
 )]
 pub fn keccak_hash_scalar(scalar: ScalarField) -> B256 {

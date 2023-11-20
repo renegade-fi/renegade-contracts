@@ -1,7 +1,7 @@
 //! A sparse Merkle tree implementation, intended to be used in a smart contract context.
 
 use ark_ff::Zero;
-use common::{serde_def_types::ScalarFieldDef, types::ScalarField};
+use common::{constants::EMPTY_LEAF_VALUE, serde_def_types::ScalarFieldDef, types::ScalarField};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
@@ -49,11 +49,11 @@ where
         let mut tree = SparseMerkleTree {
             next_index: 0,
             root: ScalarField::zero(),
-            sibling_path: [ScalarField::zero(); HEIGHT - 1],
+            sibling_path: [EMPTY_LEAF_VALUE; HEIGHT - 1],
             zeros: [ScalarField::zero(); HEIGHT - 1],
         };
 
-        let root = setup_empty_tree(&mut tree, HEIGHT - 1, ScalarField::zero());
+        let root = setup_empty_tree(&mut tree, HEIGHT - 1, EMPTY_LEAF_VALUE);
         tree.root = root;
 
         tree
@@ -192,17 +192,15 @@ fn insert_helper<const HEIGHT: usize>(
 
 #[cfg(test)]
 mod tests {
-    use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
     use common::constants::TEST_MERKLE_HEIGHT;
     use rand::thread_rng;
-    use test_helpers::{merkle::MerkleConfig, misc::random_scalars};
+    use test_helpers::{merkle::new_ark_merkle_tree, misc::random_scalars};
 
     use super::SparseMerkleTree;
 
     #[test]
     fn test_against_arkworks() {
-        let mut ark_merkle =
-            ArkMerkleTree::<MerkleConfig>::blank(&(), &(), TEST_MERKLE_HEIGHT).unwrap();
+        let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
         let mut renegade_merkle = SparseMerkleTree::<TEST_MERKLE_HEIGHT>::default();
 
         let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT - 1) as u32);
