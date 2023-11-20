@@ -45,7 +45,7 @@ sol! {
     // https://docs.soliditylang.org/en/latest/abi-spec.html#encoding-of-indexed-event-parameters
 
     // Merkle events
-    event NodeChanged(uint8 indexed height, uint128 indexed index, bytes indexed new_value);
+    event NodeChanged(uint8 indexed height, uint128 indexed index, bytes indexed new_value_hash, bytes new_value);
 
     // Darkpool events
     event VerificationKeySet();

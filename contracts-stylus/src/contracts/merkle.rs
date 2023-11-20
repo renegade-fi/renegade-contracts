@@ -14,12 +14,13 @@ use common::{constants::MERKLE_HEIGHT, serde_def_types::SerdeScalarField, types:
 use contracts_core::crypto::{merkle::SparseMerkleTree, poseidon::compute_poseidon_hash};
 use stylus_sdk::{
     abi::Bytes,
+    crypto::keccak,
     evm,
     prelude::*,
     storage::{StorageBool, StorageBytes, StorageMap},
 };
 
-use crate::utils::{helpers::keccak_hash_scalar, solidity::NodeChanged};
+use crate::utils::solidity::NodeChanged;
 
 pub trait MerkleParams {
     const HEIGHT: usize;
@@ -85,12 +86,15 @@ where
         self.merkle_tree.set_bytes(merkle_tree_bytes);
 
         for node_update in node_updates {
-            let new_value_hash = keccak_hash_scalar(node_update.value);
+            let new_value_bytes =
+                postcard::to_allocvec(&SerdeScalarField(node_update.value)).unwrap();
+            let new_value_hash = keccak(&new_value_bytes);
 
             evm::log(NodeChanged {
                 height: node_update.height as u8,
                 index: node_update.index,
-                new_value: new_value_hash.into(),
+                new_value_hash: new_value_hash.into(),
+                new_value: new_value_bytes,
             })
         }
 
