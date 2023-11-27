@@ -9,8 +9,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, upgrade},
-    errors::DeployError,
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, upgrade, upload_vkey},
+    errors::ScriptError,
 };
 
 #[derive(Parser)]
@@ -33,6 +33,7 @@ pub enum Command {
     DeployProxy(DeployProxyArgs),
     DeployStylus(DeployStylusArgs),
     Upgrade(UpgradeArgs),
+    UploadVkey(UploadVkeyArgs),
 }
 
 impl Command {
@@ -41,13 +42,14 @@ impl Command {
         client: Arc<impl Middleware>,
         rpc_url: &str,
         priv_key: &str,
-    ) -> Result<(), DeployError> {
+    ) -> Result<(), ScriptError> {
         match self {
             Command::DeployProxy(args) => deploy_proxy(args, client).await,
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(args, rpc_url, priv_key)
             }
             Command::Upgrade(args) => upgrade(args, client).await,
+            Command::UploadVkey(args) => upload_vkey(args, client).await,
         }
     }
 }
@@ -79,8 +81,10 @@ pub struct DeployProxyArgs {
     pub merkle: String,
 }
 
+/// Deploy a Stylus contract
 #[derive(Args)]
 pub struct DeployStylusArgs {
+    /// The Stylus contract to deploy
     #[arg(short, long)]
     pub contract: StylusContract,
 }
@@ -106,6 +110,7 @@ impl Display for StylusContract {
     }
 }
 
+/// Upgrade the darkpool implementation
 #[derive(Args)]
 pub struct UpgradeArgs {
     /// Address of the proxy admin contract
@@ -124,4 +129,29 @@ pub struct UpgradeArgs {
     /// call the implementation contract when upgrading
     #[arg(short, long)]
     pub calldata: Option<String>,
+}
+
+/// Upload a new verification key
+#[derive(Args)]
+pub struct UploadVkeyArgs {
+    /// Which circuit to upload the verification key for
+    #[arg(short, long)]
+    pub circuit: Circuit,
+
+    /// The address of the darkpool proxy contract
+    #[arg(short, long)]
+    pub darkpool_address: String,
+
+    /// Whether or not to use the smaller circuit size parameters
+    #[arg(short, long)]
+    pub small: bool,
+}
+
+#[derive(ValueEnum, Copy, Clone)]
+pub enum Circuit {
+    ValidWalletCreate,
+    ValidWalletUpdate,
+    ValidCommitments,
+    ValidReblind,
+    ValidMatchSettle,
 }

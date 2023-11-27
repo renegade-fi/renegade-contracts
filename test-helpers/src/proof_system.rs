@@ -9,6 +9,7 @@ use common::{
     types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
 use eyre::Result;
+use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
 use mpc_plonk::{
     errors::PlonkError,
     proof_system::PlonkKzgSnark,
@@ -19,8 +20,10 @@ use mpc_plonk::{
     },
     transcript::SolidityTranscript,
 };
-use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
-use mpc_relation::{Arithmetization, Circuit as JfCircuit, PlonkCircuit, ConstraintSystem};
+use mpc_relation::{
+    traits::{Arithmetization, Circuit},
+    PlonkCircuit,
+};
 use rand::thread_rng;
 
 pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircuit<ScalarField>> {

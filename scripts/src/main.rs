@@ -1,8 +1,8 @@
 use clap::Parser;
-use scripts::{cli::Cli, errors::DeployError, utils::setup_client};
+use scripts::{cli::Cli, errors::ScriptError, utils::setup_client};
 
 #[tokio::main]
-async fn main() -> Result<(), DeployError> {
+async fn main() -> Result<(), ScriptError> {
     let Cli {
         priv_key,
         rpc_url,
