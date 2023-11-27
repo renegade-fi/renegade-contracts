@@ -13,3 +13,14 @@ abigen!(
         function upgradeAndCall(address proxy, address implementation, bytes memory data) external;
     ]"#,
 );
+
+abigen!(
+    DarkpoolContract,
+    r#"[
+        function setValidWalletCreateVkey(bytes memory vkey) external
+        function setValidWalletUpdateVkey(bytes memory vkey) external
+        function setValidCommitmentsVkey(bytes memory vkey) external
+        function setValidReblindVkey(bytes memory vkey) external
+        function setValidMatchSettleVkey(bytes memory vkey) external
+    ]"#,
+);

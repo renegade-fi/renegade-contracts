@@ -35,7 +35,15 @@ ethers = "2.0"
 clap = { version = "4.4.7", features = ["derive"] }
 tokio = { version = "1.12.0", features = ["full"] }
 renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/circuits-refactor", default-features = false }
+circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/circuits-refactor", features = [
+    "test_helpers",
+] }
+circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/circuits-refactor", features = [
+    "test-helpers",
+] }
 itertools = "0.12"
+mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
+jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time

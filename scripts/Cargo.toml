@@ -11,3 +11,10 @@ serde_json = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 itertools = { workspace = true }
+circuits = { workspace = true }
+circuit-types = { workspace = true }
+mpc-plonk = { workspace = true }
+ark-bn254 = { workspace = true }
+jf-primitives = { workspace = true }
+common = { path = "../common" }
+postcard = { workspace = true }

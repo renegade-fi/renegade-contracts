@@ -15,11 +15,8 @@ alloy-primitives = { workspace = true }
 eyre = { workspace = true }
 serde = { workspace = true }
 ethers = { workspace = true }
-mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", features = [
-    "test-srs",
-    "test_apis",
-] }
+mpc-plonk = { workspace = true, features = ["test-srs", "test_apis"] }
 mpc-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
-jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
+jf-primitives = { workspace = true }
 renegade-crypto = { workspace = true }

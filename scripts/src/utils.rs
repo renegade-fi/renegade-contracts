@@ -10,22 +10,38 @@ use std::{
 
 use alloy_primitives::{hex::FromHex, Address as AlloyAddress};
 use alloy_sol_types::SolCall;
+use ark_bn254::Bn254;
+use circuit_types::traits::SingleProverCircuit;
+use circuits::zk_circuits::{
+    test_helpers::{MAX_BALANCES, MAX_FEES, MAX_ORDERS},
+    valid_commitments::{SizedValidCommitments, ValidCommitments},
+    valid_match_settle::{SizedValidMatchSettle, ValidMatchSettle},
+    valid_reblind::{SizedValidReblind, ValidReblind},
+    valid_wallet_create::{SizedValidWalletCreate, ValidWalletCreate},
+    valid_wallet_update::{SizedValidWalletUpdate, ValidWalletUpdate},
+};
+use common::{
+    constants::TEST_MERKLE_HEIGHT,
+    types::{G1Affine, VerificationKey},
+};
 use ethers::{
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
     signers::{LocalWallet, Signer},
 };
 use itertools::Itertools;
+use jf_primitives::pcs::prelude::Commitment;
+use mpc_plonk::proof_system::structs::VerifyingKey;
 
 use crate::{
-    cli::StylusContract,
+    cli::{Circuit, StylusContract},
     constants::{
         BUILD_COMMAND, CARGO_COMMAND, DEPLOY_COMMAND, MANIFEST_DIR_ENV_VAR,
         NIGHTLY_TOOLCHAIN_SELECTOR, RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND,
         STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, WASM_EXTENSION, WASM_OPT_COMMAND,
         WASM_TARGET_TRIPLE, Z_FLAGS,
     },
-    errors::DeployError,
+    errors::ScriptError,
     solidity::initializeCall,
 };
 
@@ -34,16 +50,16 @@ use crate::{
 pub async fn setup_client(
     priv_key: &str,
     rpc_url: &str,
-) -> Result<Arc<impl Middleware>, DeployError> {
+) -> Result<Arc<impl Middleware>, ScriptError> {
     let provider = Provider::<Http>::try_from(rpc_url)
-        .map_err(|e| DeployError::ClientInitialization(e.to_string()))?;
+        .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?;
 
     let wallet = LocalWallet::from_str(priv_key)
-        .map_err(|e| DeployError::ClientInitialization(e.to_string()))?;
+        .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?;
     let chain_id = provider
         .get_chainid()
         .await
-        .map_err(|e| DeployError::ClientInitialization(e.to_string()))?
+        .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?
         .as_u64();
     let client = Arc::new(SignerMiddleware::new(
         provider,
@@ -58,24 +74,24 @@ pub fn darkpool_initialize_calldata(
     owner_address: &str,
     verifier_address: &str,
     merkle_address: &str,
-) -> Result<Vec<u8>, DeployError> {
+) -> Result<Vec<u8>, ScriptError> {
     let owner_address = AlloyAddress::from_hex(owner_address)
-        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
+        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
     let verifier_address = AlloyAddress::from_hex(verifier_address)
-        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
+        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
     let merkle_address = AlloyAddress::from_hex(merkle_address)
-        .map_err(|e| DeployError::CalldataConstruction(e.to_string()))?;
+        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
     Ok(initializeCall::new((owner_address, verifier_address, merkle_address)).encode())
 }
 
-fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), DeployError> {
+fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {
     if !cmd
         .output()
-        .map_err(|e| DeployError::ContractCompilation(e.to_string()))?
+        .map_err(|e| ScriptError::ContractCompilation(e.to_string()))?
         .status
         .success()
     {
-        Err(DeployError::ContractCompilation(String::from(err_msg)))
+        Err(ScriptError::ContractCompilation(String::from(err_msg)))
     } else {
         Ok(())
     }
@@ -85,11 +101,11 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), DeployError
 /// returning the path to the optimized WASM file.
 ///
 /// Assumes that `cargo`, the `nightly` toolchain, and `wasm-opt` are locally available.
-pub fn build_stylus_contract(contract: StylusContract) -> Result<PathBuf, DeployError> {
+pub fn build_stylus_contract(contract: StylusContract) -> Result<PathBuf, ScriptError> {
     let current_dir = PathBuf::from(env::var(MANIFEST_DIR_ENV_VAR).unwrap());
     let workspace_path = current_dir
         .parent()
-        .ok_or(DeployError::ContractCompilation(String::from(
+        .ok_or(ScriptError::ContractCompilation(String::from(
             "Could not find contracts directory",
         )))?;
 
@@ -129,14 +145,14 @@ pub fn build_stylus_contract(contract: StylusContract) -> Result<PathBuf, Deploy
         .join(RELEASE_PATH_SEGMENT);
 
     let wasm_file_path = fs::read_dir(target_dir)
-        .map_err(|e| DeployError::ContractCompilation(e.to_string()))?
+        .map_err(|e| ScriptError::ContractCompilation(e.to_string()))?
         .find_map(|entry| {
             let path = entry.ok()?.path();
             path.extension()
                 .is_some_and(|ext| ext == WASM_EXTENSION)
                 .then_some(path)
         })
-        .ok_or(DeployError::ContractCompilation(String::from(
+        .ok_or(ScriptError::ContractCompilation(String::from(
             "Could not find contract WASM file",
         )))?;
 
@@ -158,7 +174,7 @@ pub fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
     priv_key: &str,
-) -> Result<(), DeployError> {
+) -> Result<(), ScriptError> {
     let mut deploy_cmd = Command::new(CARGO_COMMAND);
     deploy_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     deploy_cmd.arg(STYLUS_COMMAND);
@@ -174,4 +190,77 @@ pub fn deploy_stylus_contract(
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
 
     Ok(())
+}
+
+fn try_unwrap_commitments<const N: usize>(
+    comms: &[Commitment<Bn254>],
+) -> Result<[G1Affine; N], ScriptError> {
+    comms
+        .iter()
+        .map(|c| c.0)
+        .collect::<Vec<_>>()
+        .try_into()
+        .map_err(|_| ScriptError::ConversionError)
+}
+
+/// Convert a [`mpc_plonk::proof_system::structs::VerifyingKey`] to a [`common::types::VerificationKey`].
+/// This converts the verification key type produced by the relayer codebase to the type used by the contracts,
+/// which can be serialized into calldata.
+pub fn convert_jf_vkey(jf_vkey: VerifyingKey<Bn254>) -> Result<VerificationKey, ScriptError> {
+    Ok(VerificationKey {
+        n: jf_vkey.domain_size as u64,
+        l: jf_vkey.num_inputs as u64,
+        k: jf_vkey
+            .k
+            .try_into()
+            .map_err(|_| ScriptError::ConversionError)?,
+        q_comms: try_unwrap_commitments(&jf_vkey.selector_comms)?,
+        sigma_comms: try_unwrap_commitments(&jf_vkey.sigma_comms)?,
+        g: jf_vkey.open_key.g,
+        h: jf_vkey.open_key.h,
+        x_h: jf_vkey.open_key.beta_h,
+    })
+}
+
+pub fn gen_vkey_bytes(circuit: Circuit, small: bool) -> Result<Vec<u8>, ScriptError> {
+    let jf_vkey = match circuit {
+        Circuit::ValidWalletCreate => {
+            if small {
+                ValidWalletCreate::<MAX_BALANCES, MAX_ORDERS, MAX_FEES>::verifying_key()
+            } else {
+                SizedValidWalletCreate::verifying_key()
+            }
+        }
+        Circuit::ValidWalletUpdate => {
+            if small {
+                ValidWalletUpdate::<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>::verifying_key()
+            } else {
+                SizedValidWalletUpdate::verifying_key()
+            }
+        }
+        Circuit::ValidCommitments => {
+            if small {
+                ValidCommitments::<MAX_BALANCES, MAX_ORDERS, MAX_FEES>::verifying_key()
+            } else {
+                SizedValidCommitments::verifying_key()
+            }
+        }
+        Circuit::ValidReblind => {
+            if small {
+                ValidReblind::<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>::verifying_key()
+            } else {
+                SizedValidReblind::verifying_key()
+            }
+        }
+        Circuit::ValidMatchSettle => {
+            if small {
+                ValidMatchSettle::<MAX_BALANCES, MAX_ORDERS, MAX_FEES>::verifying_key()
+            } else {
+                SizedValidMatchSettle::verifying_key()
+            }
+        }
+    };
+
+    let vkey = convert_jf_vkey((*jf_vkey).clone())?;
+    postcard::to_allocvec(&vkey).map_err(|e| ScriptError::Serde(e.to_string()))
 }
