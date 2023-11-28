@@ -77,7 +77,7 @@ impl Config for MerkleConfig {
 }
 
 pub fn new_ark_merkle_tree(height: usize) -> MerkleTree<MerkleConfig> {
-    let num_leaves = 2_u128.pow((height - 1) as u32);
+    let num_leaves = 2_u128.pow(height as u32);
     let leaves = vec![EMPTY_LEAF_VALUE; num_leaves as usize];
 
     MerkleTree::<MerkleConfig>::new(&(), &(), leaves).unwrap()
