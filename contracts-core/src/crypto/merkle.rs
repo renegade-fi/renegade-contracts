@@ -11,12 +11,12 @@ use crate::crypto::poseidon::compute_poseidon_hash;
 /// for the next leaf to be inserted.
 ///
 /// The `HEIGHT` parameter represents the height of the tree,
-/// inclusive of the root.
+/// exclusive of the root.
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct SparseMerkleTree<const HEIGHT: usize>
 where
-    [(); HEIGHT - 1]:,
+    [(); HEIGHT]:,
 {
     /// The next index at which to insert a leaf
     pub next_index: u128,
@@ -24,11 +24,11 @@ where
     #[serde_as(as = "ScalarFieldDef")]
     pub root: ScalarField,
     /// The current path of siblings for the next leaf to be inserted
-    #[serde_as(as = "[ScalarFieldDef; HEIGHT - 1]")]
-    pub sibling_path: [ScalarField; HEIGHT - 1],
+    #[serde_as(as = "[ScalarFieldDef; HEIGHT]")]
+    pub sibling_path: [ScalarField; HEIGHT],
     /// The path of values in an empty tree
-    #[serde_as(as = "[ScalarFieldDef; HEIGHT - 1]")]
-    pub zeros: [ScalarField; HEIGHT - 1],
+    #[serde_as(as = "[ScalarFieldDef; HEIGHT]")]
+    pub zeros: [ScalarField; HEIGHT],
 }
 
 /// Represents a node in the Merkle tree,
@@ -42,18 +42,18 @@ pub struct NodeMetadata {
 
 impl<const HEIGHT: usize> Default for SparseMerkleTree<HEIGHT>
 where
-    [(); HEIGHT - 1]:,
+    [(); HEIGHT]:,
 {
     /// Create a new Merkle tree w/ zeros as the leaves
     fn default() -> Self {
         let mut tree = SparseMerkleTree {
             next_index: 0,
             root: ScalarField::zero(),
-            sibling_path: [EMPTY_LEAF_VALUE; HEIGHT - 1],
-            zeros: [ScalarField::zero(); HEIGHT - 1],
+            sibling_path: [EMPTY_LEAF_VALUE; HEIGHT],
+            zeros: [ScalarField::zero(); HEIGHT],
         };
 
-        let root = setup_empty_tree(&mut tree, HEIGHT - 1, EMPTY_LEAF_VALUE);
+        let root = setup_empty_tree(&mut tree, HEIGHT, EMPTY_LEAF_VALUE);
         tree.root = root;
 
         tree
@@ -62,7 +62,7 @@ where
 
 impl<const HEIGHT: usize> SparseMerkleTree<HEIGHT>
 where
-    [(); HEIGHT - 1]:,
+    [(); HEIGHT]:,
 {
     /// Get the root of the Merkle tree
     pub fn root(&self) -> ScalarField {
@@ -72,18 +72,16 @@ where
     /// Insert a value into the Merkle tree,
     /// returning the updated internal nodes from the insertion
     pub fn insert(&mut self, value: ScalarField) -> [NodeMetadata; HEIGHT] {
-        assert!(self.next_index < 2_u128.pow((HEIGHT - 1) as u32));
+        assert!(self.next_index < 2_u128.pow((HEIGHT) as u32));
         let mut updated_nodes = [NodeMetadata::default(); HEIGHT];
         insert_helper(
             self,
             value,
-            HEIGHT - 1,
+            HEIGHT,
             self.next_index,
             true,
             &mut updated_nodes,
         );
-        self.root = updated_nodes[0].value;
-        self.next_index += 1;
         updated_nodes
     }
 }
@@ -96,7 +94,7 @@ fn setup_empty_tree<const HEIGHT: usize>(
     current_leaf: ScalarField,
 ) -> ScalarField
 where
-    [(); HEIGHT - 1]:,
+    [(); HEIGHT]:,
 {
     // Base case (root)
     if height == 0 {
@@ -128,15 +126,12 @@ fn insert_helper<const HEIGHT: usize>(
     subtree_filled: bool,
     updated_nodes: &mut [NodeMetadata; HEIGHT],
 ) where
-    [(); HEIGHT - 1]:,
+    [(); HEIGHT]:,
 {
-    // Base case
+    // Base case (root)
     if height == 0 {
-        updated_nodes[height] = NodeMetadata {
-            height,
-            index: insert_index,
-            value,
-        };
+        tree.root = value;
+        tree.next_index += 1;
         return;
     }
 
@@ -183,7 +178,7 @@ fn insert_helper<const HEIGHT: usize>(
         updated_nodes,
     );
 
-    updated_nodes[height] = NodeMetadata {
+    updated_nodes[height - 1] = NodeMetadata {
         height,
         index: insert_index,
         value,
@@ -203,7 +198,7 @@ mod tests {
         let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
         let mut renegade_merkle = SparseMerkleTree::<TEST_MERKLE_HEIGHT>::default();
 
-        let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT - 1) as u32);
+        let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT) as u32);
         let mut rng = thread_rng();
         let leaves = random_scalars(num_leaves as usize, &mut rng);
 
