@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-stylus-sdk = { version = "0.4.1" }
+stylus-sdk = { version = "0.4.2" }
 wee_alloc = "0.4.5"
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
