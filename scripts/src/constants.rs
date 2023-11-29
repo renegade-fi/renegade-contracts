@@ -45,6 +45,10 @@ pub const WASM_TARGET_TRIPLE: &str = "wasm32-unknown-unknown";
 /// The nightly toolchain selector
 pub const NIGHTLY_TOOLCHAIN_SELECTOR: &str = "+nightly";
 
+/// The name of the "no-verify" feature, used to disable
+/// proof & ECDSA verification in the darkpool
+pub const NO_VERIFY_FEATURE: &str = "no-verify";
+
 /// Nightly Z flags to add to build command
 pub const Z_FLAGS: [&str; 3] = [
     "unstable-options",

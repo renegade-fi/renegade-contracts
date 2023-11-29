@@ -37,9 +37,9 @@ use crate::{
     cli::{Circuit, StylusContract},
     constants::{
         BUILD_COMMAND, CARGO_COMMAND, DEPLOY_COMMAND, MANIFEST_DIR_ENV_VAR,
-        NIGHTLY_TOOLCHAIN_SELECTOR, RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND,
-        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, WASM_EXTENSION, WASM_OPT_COMMAND,
-        WASM_TARGET_TRIPLE, Z_FLAGS,
+        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
+        SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
+        WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -101,7 +101,10 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 /// returning the path to the optimized WASM file.
 ///
 /// Assumes that `cargo`, the `nightly` toolchain, and `wasm-opt` are locally available.
-pub fn build_stylus_contract(contract: StylusContract) -> Result<PathBuf, ScriptError> {
+pub fn build_stylus_contract(
+    contract: StylusContract,
+    no_verify: bool,
+) -> Result<PathBuf, ScriptError> {
     let current_dir = PathBuf::from(env::var(MANIFEST_DIR_ENV_VAR).unwrap());
     let workspace_path = current_dir
         .parent()
@@ -126,7 +129,13 @@ pub fn build_stylus_contract(contract: StylusContract) -> Result<PathBuf, Script
     // Set the feature for the given contract,
     // ensuring that the contract gets built
     build_cmd.arg("--features");
-    build_cmd.arg(contract.to_string());
+    let mut features = vec![contract.to_string()];
+    // If the `--no-verify` flag is set, enable the
+    // "no-verify" feature
+    if no_verify {
+        features.push(NO_VERIFY_FEATURE.to_string());
+    }
+    build_cmd.arg(features.join(","));
     // Set the build target to WASM
     build_cmd.arg("--target");
     build_cmd.arg(WASM_TARGET_TRIPLE);

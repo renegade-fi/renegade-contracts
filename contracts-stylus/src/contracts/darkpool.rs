@@ -275,12 +275,16 @@ impl DarkpoolContract {
             valid_wallet_update_statement.merkle_root,
         );
 
-        assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-            &valid_wallet_update_statement.old_pk_root,
-            valid_wallet_update_statement_bytes.as_slice(),
-            &public_inputs_signature.to_vec().try_into().unwrap(),
-        )
-        .unwrap());
+        // Note: the "no-verify" feature is ONLY for testing purposes
+        #[cfg(not(feature = "no-verify"))]
+        {
+            assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+                &valid_wallet_update_statement.old_pk_root,
+                valid_wallet_update_statement_bytes.as_slice(),
+                &public_inputs_signature.to_vec().try_into().unwrap(),
+            )
+            .unwrap());
+        }
 
         let public_inputs = serialize_statement_for_verification(&valid_wallet_update_statement)
             .unwrap()
@@ -483,15 +487,24 @@ impl DarkpoolContract {
         proof: Bytes,
         public_inputs: Bytes,
     ) -> bool {
-        let this = storage.borrow_mut();
-        let vkey_bytes = this.verification_keys.get(circuit_id).get_bytes();
-        assert!(!vkey_bytes.is_empty());
+        #[cfg(not(feature = "no-verify"))]
+        {
+            let this = storage.borrow_mut();
+            let vkey_bytes = this.verification_keys.get(circuit_id).get_bytes();
+            assert!(!vkey_bytes.is_empty());
 
-        let verifier_address = this.verifier_address.get();
-        let verification_bundle_ser = [vkey_bytes, proof.into(), public_inputs.into()].concat();
-        let result = static_call(storage, verifier_address, &verification_bundle_ser).unwrap();
+            let verifier_address = this.verifier_address.get();
+            let verification_bundle_ser = [vkey_bytes, proof.into(), public_inputs.into()].concat();
+            let result = static_call(storage, verifier_address, &verification_bundle_ser).unwrap();
 
-        result[0] != 0
+            result[0] != 0
+        }
+
+        // Note: the "no-verify" feature is ONLY for testing purposes
+        #[cfg(feature = "no-verify")]
+        {
+            true
+        }
     }
 
     /// Executes the given external transfer (withdrawal / deposit)

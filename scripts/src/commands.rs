@@ -90,7 +90,7 @@ pub fn build_and_deploy_stylus_contract(
     rpc_url: &str,
     priv_key: &str,
 ) -> Result<(), ScriptError> {
-    let wasm_file_path = build_stylus_contract(args.contract)?;
+    let wasm_file_path = build_stylus_contract(args.contract, args.no_verify)?;
     deploy_stylus_contract(wasm_file_path, rpc_url, priv_key)
 }
 
