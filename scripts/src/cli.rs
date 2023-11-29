@@ -87,6 +87,11 @@ pub struct DeployStylusArgs {
     /// The Stylus contract to deploy
     #[arg(short, long)]
     pub contract: StylusContract,
+
+    /// Whether or not to enable proof & ECDSA verification.
+    /// This only applies to the darkpool contract.
+    #[arg(long)]
+    pub no_verify: bool,
 }
 
 #[derive(ValueEnum, Copy, Clone)]
