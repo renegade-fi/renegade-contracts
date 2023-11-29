@@ -20,14 +20,17 @@ use stylus_sdk::{
     crypto::keccak,
     evm, msg,
     prelude::*,
-    storage::{StorageAddress, StorageBool, StorageBytes, StorageMap, StorageU64},
+    storage::{
+        StorageAddress, StorageArray, StorageBool, StorageBytes, StorageMap, StorageU256,
+        StorageU64,
+    },
 };
 
 use crate::utils::{
     backends::{PrecompileEcRecoverBackend, StylusHasher},
     constants::{
-        VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID, VALID_REBLIND_CIRCUIT_ID,
-        VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
+        STORAGE_GAP_SIZE, VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID,
+        VALID_REBLIND_CIRCUIT_ID, VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
     },
     helpers::{delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification},
     solidity::{
@@ -39,6 +42,9 @@ use crate::utils::{
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
+    /// Storage gap to prevent collisions with the Merkle contract
+    __gap: StorageArray<StorageU256, STORAGE_GAP_SIZE>,
+
     /// The owner of the darkpool contract
     owner: StorageAddress,
 
