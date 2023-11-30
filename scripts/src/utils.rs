@@ -26,18 +26,21 @@ use ethers::{
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
     signers::{LocalWallet, Signer},
+    utils::get_contract_address,
 };
 use itertools::Itertools;
 use jf_primitives::pcs::prelude::Commitment;
+use json::JsonValue;
 use mpc_plonk::proof_system::structs::VerifyingKey;
 
 use crate::{
     cli::{Circuit, StylusContract},
     constants::{
-        BUILD_COMMAND, CARGO_COMMAND, DEPLOYMENTS_KEY, DEPLOY_COMMAND, MANIFEST_DIR_ENV_VAR,
-        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
-        SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
-        WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
+        MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE,
+        RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
+        TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND,
+        WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -67,29 +70,55 @@ pub async fn setup_client(
     Ok(client)
 }
 
+fn get_deployments_json(file_path: &str) -> Result<JsonValue, ScriptError> {
+    let mut file_contents = String::new();
+    File::open(file_path)
+        .map_err(|e| ScriptError::ReadDeployments(e.to_string()))?
+        .read_to_string(&mut file_contents)
+        .map_err(|e| ScriptError::ReadDeployments(e.to_string()))?;
+
+    json::parse(&file_contents).map_err(|e| ScriptError::ReadDeployments(e.to_string()))
+}
+
 pub fn parse_addr_from_deployments_file(
     file_path: &str,
     contract_key: &str,
 ) -> Result<Address, ScriptError> {
-    let mut file_contents = String::new();
-    File::open(file_path)
-        .map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))?
-        .read_to_string(&mut file_contents)
-        .map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))?;
-
-    let parsed_json =
-        json::parse(&file_contents).map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))?;
+    let parsed_json = get_deployments_json(file_path)?;
 
     Address::from_str(
         parsed_json[DEPLOYMENTS_KEY][contract_key]
             .as_str()
             .ok_or_else(|| {
-                ScriptError::DeploymentsParsing(
+                ScriptError::ReadDeployments(
                     "Could not parse contract address from deployments file".to_string(),
                 )
             })?,
     )
-    .map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))
+    .map_err(|e| ScriptError::ReadDeployments(e.to_string()))
+}
+
+pub fn write_deployed_address(
+    file_path: &str,
+    contract_key: &str,
+    address: Address,
+) -> Result<(), ScriptError> {
+    let mut parsed_json = get_deployments_json(file_path)?;
+
+    parsed_json[DEPLOYMENTS_KEY][contract_key] = JsonValue::String(format!("{address:#x}"));
+
+    fs::write(file_path, json::stringify_pretty(parsed_json, 4))
+        .map_err(|e| ScriptError::WriteDeployments(e.to_string()))?;
+
+    Ok(())
+}
+
+fn get_contract_key(contract: StylusContract) -> &'static str {
+    match contract {
+        StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
+        StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
+        StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
+    }
 }
 
 /// Prepare calldata for the Darkpool contract's `initialize` method
@@ -199,12 +228,27 @@ pub fn build_stylus_contract(
     Ok(opt_wasm_file_path)
 }
 
-pub fn deploy_stylus_contract(
+pub async fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
     priv_key: &str,
-    _deployments_path: &str,
+    client: Arc<impl Middleware>,
+    contract: StylusContract,
+    deployments_path: &str,
 ) -> Result<(), ScriptError> {
+    // Get expected deployment address
+    let deployer_address = client
+        .default_sender()
+        .ok_or(ScriptError::ClientInitialization(
+            "client does not have sender attached".to_string(),
+        ))?;
+    let deployer_nonce = client
+        .get_transaction_count(deployer_address, None /* block */)
+        .await
+        .map_err(|e| ScriptError::NonceFetching(e.to_string()))?;
+    let deployed_address = get_contract_address(deployer_address, deployer_nonce);
+
+    // Run deploy command
     let mut deploy_cmd = Command::new(CARGO_COMMAND);
     deploy_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     deploy_cmd.arg(STYLUS_COMMAND);
@@ -219,7 +263,12 @@ pub fn deploy_stylus_contract(
 
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
 
-    // TODO: Write deployed contract address to deployments file
+    // Write deployed address to deployments file
+    write_deployed_address(
+        deployments_path,
+        get_contract_key(contract),
+        deployed_address,
+    )?;
 
     Ok(())
 }

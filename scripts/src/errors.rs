@@ -8,12 +8,16 @@ use std::{
 /// Errors that can occur during the execution of the contract management scripts
 #[derive(Debug)]
 pub enum ScriptError {
-    /// Error parsing the `deployments.json` file
-    DeploymentsParsing(String),
+    /// Error reading the `deployments.json` file
+    ReadDeployments(String),
+    /// Error writing the `deployments.json` file
+    WriteDeployments(String),
     /// Error parsing a Solidity compilation artifact
     ArtifactParsing(String),
     /// Error initializing the RPC client
     ClientInitialization(String),
+    /// Error fetching the nonce of the deployer
+    NonceFetching(String),
     /// Error constructing calldata for a contract method
     CalldataConstruction(String),
     /// Error deploying a contract
@@ -31,9 +35,11 @@ pub enum ScriptError {
 impl Display for ScriptError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ScriptError::DeploymentsParsing(s) => write!(f, "error parsing deployments: {}", s),
+            ScriptError::ReadDeployments(s) => write!(f, "error reading deployments: {}", s),
+            ScriptError::WriteDeployments(s) => write!(f, "error writing deployments: {}", s),
             ScriptError::ArtifactParsing(s) => write!(f, "error parsing artifact: {}", s),
             ScriptError::ClientInitialization(s) => write!(f, "error initializing client: {}", s),
+            ScriptError::NonceFetching(s) => write!(f, "error fetching nonce: {}", s),
             ScriptError::CalldataConstruction(s) => write!(f, "error constructing calldata: {}", s),
             ScriptError::ContractDeployment(s) => write!(f, "error deploying contract: {}", s),
             ScriptError::ContractInteraction(s) => {

@@ -20,7 +20,7 @@ use crate::{
     solidity::{DarkpoolContract, ProxyAdminContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        gen_vkey_bytes, parse_addr_from_deployments_file,
+        gen_vkey_bytes, parse_addr_from_deployments_file, write_deployed_address,
     },
 };
 
@@ -81,24 +81,34 @@ pub async fn deploy_proxy(
             [NUM_BYTES_STORAGE_SLOT - NUM_BYTES_ADDRESS..NUM_BYTES_STORAGE_SLOT],
     );
 
-    // TODO: Set up better logging
-    println!("Proxy contract deployed at {:#x}", proxy_address);
-    println!(
-        "Proxy admin contract deployed at {:#x}",
-        proxy_admin_address
-    );
+    // Write deployed addresses to deployments file
+    write_deployed_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY, proxy_address)?;
+    write_deployed_address(
+        deployments_path,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
+        proxy_admin_address,
+    )?;
 
     Ok(())
 }
 
-pub fn build_and_deploy_stylus_contract(
+pub async fn build_and_deploy_stylus_contract(
     args: DeployStylusArgs,
     rpc_url: &str,
     priv_key: &str,
+    client: Arc<impl Middleware>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let wasm_file_path = build_stylus_contract(args.contract, args.no_verify)?;
-    deploy_stylus_contract(wasm_file_path, rpc_url, priv_key, deployments_path)
+    deploy_stylus_contract(
+        wasm_file_path,
+        rpc_url,
+        priv_key,
+        client,
+        args.contract,
+        deployments_path,
+    )
+    .await
 }
 
 pub async fn upgrade(
