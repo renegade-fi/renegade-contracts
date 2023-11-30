@@ -55,3 +55,21 @@ pub fn delegate_call_helper<C: SolCall>(
 pub fn keccak_hash_scalar(scalar: ScalarField) -> B256 {
     keccak(postcard::to_allocvec(&SerdeScalarField(scalar)).unwrap())
 }
+
+#[macro_export]
+macro_rules! assert_if_verifying {
+    ($cond:expr $(,)?) => {
+        // Note: the "no-verify" feature is ONLY for testing purposes
+        #[cfg(not(feature = "no-verify"))]
+        {
+            assert!($cond);
+        }
+    };
+    ($cond:expr, $($arg:tt)+) => {
+        // Note: the "no-verify" feature is ONLY for testing purposes
+        #[cfg(not(feature = "no-verify"))]
+        {
+            assert!($cond, $($arg)+);
+        }
+    };
+}
