@@ -10,6 +10,8 @@ async fn main() -> Result<(), ScriptError> {
         deployments_path,
     } = Cli::parse();
 
+    tracing_subscriber::fmt().pretty().init();
+
     let client = setup_client(&priv_key, &rpc_url).await?;
 
     command

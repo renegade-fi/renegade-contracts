@@ -4257,6 +4257,8 @@ dependencies = [
  "postcard",
  "serde_json",
  "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.18",
 ]
 
 [[package]]

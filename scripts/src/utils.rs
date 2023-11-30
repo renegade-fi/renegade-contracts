@@ -103,6 +103,10 @@ pub fn write_deployed_address(
     contract_key: &str,
     address: Address,
 ) -> Result<(), ScriptError> {
+    // If the file doesn't exist, create it
+    if !PathBuf::from(file_path).exists() {
+        fs::write(file_path, "{}").map_err(|e| ScriptError::WriteDeployments(e.to_string()))?;
+    }
     let mut parsed_json = get_deployments_json(file_path)?;
 
     parsed_json[DEPLOYMENTS_KEY][contract_key] = JsonValue::String(format!("{address:#x}"));

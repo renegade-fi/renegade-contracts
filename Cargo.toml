@@ -44,6 +44,8 @@ circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = 
 itertools = "0.12"
 mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = "0.3"
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time
