@@ -129,7 +129,7 @@ pub async fn upload_vkey(
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
     let darkpool = DarkpoolContract::new(darkpool_address, client);
 
-    let vkey_bytes = gen_vkey_bytes(args.circuit, args.small)?;
+    let vkey_bytes = gen_vkey_bytes(args.circuit)?;
 
     let tx = match args.circuit {
         Circuit::ValidWalletCreate => darkpool.set_valid_wallet_create_vkey(vkey_bytes.into()),
