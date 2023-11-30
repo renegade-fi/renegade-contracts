@@ -7,9 +7,12 @@ async fn main() -> Result<(), ScriptError> {
         priv_key,
         rpc_url,
         command,
+        deployments_path,
     } = Cli::parse();
 
     let client = setup_client(&priv_key, &rpc_url).await?;
 
-    command.run(client, &rpc_url, &priv_key).await
+    command
+        .run(client, &rpc_url, &priv_key, &deployments_path)
+        .await
 }

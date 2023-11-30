@@ -24,6 +24,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub rpc_url: String,
 
+    /// Path to a `deployments.json` file
+    #[arg(short, long)]
+    pub deployments_path: String,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -42,14 +46,15 @@ impl Command {
         client: Arc<impl Middleware>,
         rpc_url: &str,
         priv_key: &str,
+        deployments_path: &str,
     ) -> Result<(), ScriptError> {
         match self {
-            Command::DeployProxy(args) => deploy_proxy(args, client).await,
+            Command::DeployProxy(args) => deploy_proxy(args, client, deployments_path).await,
             Command::DeployStylus(args) => {
-                build_and_deploy_stylus_contract(args, rpc_url, priv_key)
+                build_and_deploy_stylus_contract(args, rpc_url, priv_key, deployments_path)
             }
-            Command::Upgrade(args) => upgrade(args, client).await,
-            Command::UploadVkey(args) => upload_vkey(args, client).await,
+            Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
+            Command::UploadVkey(args) => upload_vkey(args, client, deployments_path).await,
         }
     }
 }
@@ -67,18 +72,6 @@ pub struct DeployProxyArgs {
     /// and the underlying darkpool contract
     #[arg(short, long)]
     pub owner: String,
-
-    /// Darkpool implementation contract address in hex
-    #[arg(short, long)]
-    pub darkpool: String,
-
-    /// Verifier contract address in hex
-    #[arg(short, long)]
-    pub verifier: String,
-
-    /// Merkle contract address in hex
-    #[arg(short, long)]
-    pub merkle: String,
 }
 
 /// Deploy a Stylus contract
@@ -118,18 +111,6 @@ impl Display for StylusContract {
 /// Upgrade the darkpool implementation
 #[derive(Args)]
 pub struct UpgradeArgs {
-    /// Address of the proxy admin contract
-    #[arg(long)]
-    pub proxy_admin: String,
-
-    /// Address of the proxy contract
-    #[arg(long)]
-    pub proxy: String,
-
-    /// Address of the new implementation contract
-    #[arg(short, long)]
-    pub implementation: String,
-
     /// Optional calldata, in hex form, with which to
     /// call the implementation contract when upgrading
     #[arg(short, long)]
@@ -142,10 +123,6 @@ pub struct UploadVkeyArgs {
     /// Which circuit to upload the verification key for
     #[arg(short, long)]
     pub circuit: Circuit,
-
-    /// The address of the darkpool proxy contract
-    #[arg(short, long)]
-    pub darkpool_address: String,
 }
 
 #[derive(ValueEnum, Copy, Clone)]
