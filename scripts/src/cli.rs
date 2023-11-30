@@ -51,7 +51,8 @@ impl Command {
         match self {
             Command::DeployProxy(args) => deploy_proxy(args, client, deployments_path).await,
             Command::DeployStylus(args) => {
-                build_and_deploy_stylus_contract(args, rpc_url, priv_key, deployments_path)
+                build_and_deploy_stylus_contract(args, rpc_url, priv_key, client, deployments_path)
+                    .await
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
             Command::UploadVkey(args) => upload_vkey(args, client, deployments_path).await,
