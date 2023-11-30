@@ -8,6 +8,7 @@ use ethers::{
     utils::hex::FromHex,
 };
 use std::{str::FromStr, sync::Arc};
+use tracing::log::info;
 
 use crate::{
     cli::{Circuit, DeployProxyArgs, DeployStylusArgs, UpgradeArgs, UploadVkeyArgs},
@@ -54,6 +55,11 @@ pub async fn deploy_proxy(
         merkle_address,
     )?);
 
+    info!(
+        "Deploying proxy using:\n\tDarkpool address: {:#x}\n\tMerkle address: {:#x}\n\tVerifier address: {:#x}",
+        darkpool_address, merkle_address, verifier_address
+    );
+
     // Deploy proxy contract
     let proxy_contract = proxy_factory
         .deploy((darkpool_address, owner_address, darkpool_calldata))
@@ -64,6 +70,11 @@ pub async fn deploy_proxy(
         .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
 
     let proxy_address = proxy_contract.address();
+
+    info!(
+        "Proxy contract deployed at address:\n\t{:#x}",
+        proxy_address
+    );
 
     // Get proxy admin contract address
     // This is the recommended way to get the proxy admin address:
@@ -79,6 +90,11 @@ pub async fn deploy_proxy(
             .await
             .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
             [NUM_BYTES_STORAGE_SLOT - NUM_BYTES_ADDRESS..NUM_BYTES_STORAGE_SLOT],
+    );
+
+    info!(
+        "Proxy admin contract deployed at address:\n\t{:#x}",
+        proxy_admin_address
     );
 
     // Write deployed addresses to deployments file

@@ -19,3 +19,5 @@ jf-primitives = { workspace = true }
 common = { path = "../common" }
 postcard = { workspace = true }
 json = "0.12"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
