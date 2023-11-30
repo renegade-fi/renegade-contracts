@@ -1,7 +1,5 @@
 //! Utilities for running integration tests
 
-use std::{fs::File, io::Read, str::FromStr};
-
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use ark_std::UniformRand;
@@ -17,6 +15,10 @@ use ethers::{
 };
 use eyre::{eyre, Result};
 use rand::Rng;
+use scripts::{
+    constants::{DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY},
+    utils::parse_addr_from_deployments_file,
+};
 use serde::Serialize;
 use test_helpers::{
     merkle::MerkleConfig,
@@ -29,26 +31,10 @@ use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DEPLOYMENTS_KEY,
         MERKLE_TEST_CONTRACT_KEY, N, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT,
         VERIFIER_TEST_CONTRACT_KEY,
     },
 };
-
-pub(crate) fn parse_addr_from_deployments_file(
-    file_path: &str,
-    contract_key: &str,
-) -> Result<Address> {
-    let mut file_contents = String::new();
-    File::open(file_path)?.read_to_string(&mut file_contents)?;
-
-    let parsed_json = json::parse(&file_contents)?;
-    Ok(Address::from_str(
-        parsed_json[DEPLOYMENTS_KEY][contract_key]
-            .as_str()
-            .ok_or_else(|| eyre!("Could not parse contract address from deployments file"))?,
-    )?)
-}
 
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
     Ok(match test {

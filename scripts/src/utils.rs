@@ -1,14 +1,17 @@
 //! Utilities for the deploy scripts.
 
 use std::{
-    env, fs, iter,
+    env,
+    fs::{self, File},
+    io::Read,
+    iter,
     path::PathBuf,
     process::{Command, Stdio},
     str::FromStr,
     sync::Arc,
 };
 
-use alloy_primitives::{hex::FromHex, Address as AlloyAddress};
+use alloy_primitives::Address as AlloyAddress;
 use alloy_sol_types::SolCall;
 use ark_bn254::Bn254;
 use circuit_types::traits::SingleProverCircuit;
@@ -19,6 +22,7 @@ use circuits::zk_circuits::{
 };
 use common::types::{G1Affine, VerificationKey};
 use ethers::{
+    abi::Address,
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
     signers::{LocalWallet, Signer},
@@ -30,7 +34,7 @@ use mpc_plonk::proof_system::structs::VerifyingKey;
 use crate::{
     cli::{Circuit, StylusContract},
     constants::{
-        BUILD_COMMAND, CARGO_COMMAND, DEPLOY_COMMAND, MANIFEST_DIR_ENV_VAR,
+        BUILD_COMMAND, CARGO_COMMAND, DEPLOYMENTS_KEY, DEPLOY_COMMAND, MANIFEST_DIR_ENV_VAR,
         NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
         SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
         WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
@@ -63,18 +67,40 @@ pub async fn setup_client(
     Ok(client)
 }
 
+pub fn parse_addr_from_deployments_file(
+    file_path: &str,
+    contract_key: &str,
+) -> Result<Address, ScriptError> {
+    let mut file_contents = String::new();
+    File::open(file_path)
+        .map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))?
+        .read_to_string(&mut file_contents)
+        .map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))?;
+
+    let parsed_json =
+        json::parse(&file_contents).map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))?;
+
+    Address::from_str(
+        parsed_json[DEPLOYMENTS_KEY][contract_key]
+            .as_str()
+            .ok_or_else(|| {
+                ScriptError::DeploymentsParsing(
+                    "Could not parse contract address from deployments file".to_string(),
+                )
+            })?,
+    )
+    .map_err(|e| ScriptError::DeploymentsParsing(e.to_string()))
+}
+
 /// Prepare calldata for the Darkpool contract's `initialize` method
 pub fn darkpool_initialize_calldata(
-    owner_address: &str,
-    verifier_address: &str,
-    merkle_address: &str,
+    owner_address: Address,
+    verifier_address: Address,
+    merkle_address: Address,
 ) -> Result<Vec<u8>, ScriptError> {
-    let owner_address = AlloyAddress::from_hex(owner_address)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
-    let verifier_address = AlloyAddress::from_hex(verifier_address)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
-    let merkle_address = AlloyAddress::from_hex(merkle_address)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
+    let owner_address = AlloyAddress::from_slice(owner_address.as_bytes());
+    let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
+    let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
     Ok(initializeCall::new((owner_address, verifier_address, merkle_address)).encode())
 }
 
@@ -177,6 +203,7 @@ pub fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
     priv_key: &str,
+    _deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let mut deploy_cmd = Command::new(CARGO_COMMAND);
     deploy_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -191,6 +218,8 @@ pub fn deploy_stylus_contract(
     deploy_cmd.arg(priv_key);
 
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
+
+    // TODO: Write deployed contract address to deployments file
 
     Ok(())
 }

@@ -76,3 +76,21 @@ pub const STYLUS_COMMAND: &str = "stylus";
 
 /// The name of the deploy command
 pub const DEPLOY_COMMAND: &str = "deploy";
+
+/// The deployments key in the `deployments.json` file
+pub const DEPLOYMENTS_KEY: &str = "deployments";
+
+/// The darkpool implementation contract key in the `deployments.json` file
+pub const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
+
+/// The darkpool proxy contract key in the `deployments.json` file
+pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
+
+/// The darkpool proxy admin contract key in the `deployments.json` file
+pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contract";
+
+/// The merkle contract key in the `deployments.json` file
+pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
+
+/// The verifier contract key in the `deployments.json` file
+pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";

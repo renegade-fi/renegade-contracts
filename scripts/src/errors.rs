@@ -8,6 +8,8 @@ use std::{
 /// Errors that can occur during the execution of the contract management scripts
 #[derive(Debug)]
 pub enum ScriptError {
+    /// Error parsing the `deployments.json` file
+    DeploymentsParsing(String),
     /// Error parsing a Solidity compilation artifact
     ArtifactParsing(String),
     /// Error initializing the RPC client
@@ -29,6 +31,7 @@ pub enum ScriptError {
 impl Display for ScriptError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            ScriptError::DeploymentsParsing(s) => write!(f, "error parsing deployments: {}", s),
             ScriptError::ArtifactParsing(s) => write!(f, "error parsing artifact: {}", s),
             ScriptError::ClientInitialization(s) => write!(f, "error initializing client: {}", s),
             ScriptError::CalldataConstruction(s) => write!(f, "error constructing calldata: {}", s),

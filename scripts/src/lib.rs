@@ -6,7 +6,7 @@
 
 pub mod cli;
 mod commands;
-mod constants;
+pub mod constants;
 pub mod errors;
 mod solidity;
 pub mod utils;

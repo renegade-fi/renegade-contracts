@@ -12,19 +12,22 @@ use std::{str::FromStr, sync::Arc};
 use crate::{
     cli::{Circuit, DeployProxyArgs, DeployStylusArgs, UpgradeArgs, UploadVkeyArgs},
     constants::{
-        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI,
-        PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
+        DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY,
+        MERKLE_CONTRACT_KEY, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
+        PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, VERIFIER_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::{DarkpoolContract, ProxyAdminContract},
     utils::{
-        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_vkey_bytes,
+        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
+        gen_vkey_bytes, parse_addr_from_deployments_file,
     },
 };
 
 pub async fn deploy_proxy(
     args: DeployProxyArgs,
     client: Arc<impl Middleware>,
+    deployments_path: &str,
 ) -> Result<(), ScriptError> {
     // Get proxy contract ABI and bytecode
     let abi: Contract =
@@ -36,16 +39,19 @@ pub async fn deploy_proxy(
     let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
 
     // Parse proxy contract constructor arguments
-    let darkpool_address = Address::from_str(&args.darkpool)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
+    let darkpool_address =
+        parse_addr_from_deployments_file(deployments_path, DARKPOOL_CONTRACT_KEY)?;
+    let merkle_address = parse_addr_from_deployments_file(deployments_path, MERKLE_CONTRACT_KEY)?;
+    let verifier_address =
+        parse_addr_from_deployments_file(deployments_path, VERIFIER_CONTRACT_KEY)?;
 
     let owner_address = Address::from_str(&args.owner)
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
-        &args.owner,
-        &args.verifier,
-        &args.merkle,
+        owner_address,
+        verifier_address,
+        merkle_address,
     )?);
 
     // Deploy proxy contract
@@ -89,20 +95,25 @@ pub fn build_and_deploy_stylus_contract(
     args: DeployStylusArgs,
     rpc_url: &str,
     priv_key: &str,
+    deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let wasm_file_path = build_stylus_contract(args.contract, args.no_verify)?;
-    deploy_stylus_contract(wasm_file_path, rpc_url, priv_key)
+    deploy_stylus_contract(wasm_file_path, rpc_url, priv_key, deployments_path)
 }
 
-pub async fn upgrade(args: UpgradeArgs, client: Arc<impl Middleware>) -> Result<(), ScriptError> {
-    let proxy_admin_address = Address::from_str(&args.proxy_admin)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
+pub async fn upgrade(
+    args: UpgradeArgs,
+    client: Arc<impl Middleware>,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    let proxy_admin_address =
+        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?;
     let proxy_admin = ProxyAdminContract::new(proxy_admin_address, client);
 
-    let proxy_address = Address::from_str(&args.proxy)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
-    let implementation_address = Address::from_str(&args.implementation)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
+    let proxy_address =
+        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
+    let implementation_address =
+        parse_addr_from_deployments_file(deployments_path, DARKPOOL_CONTRACT_KEY)?;
 
     let data = if let Some(calldata) = args.calldata {
         Bytes::from_hex(calldata).map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?
@@ -124,9 +135,10 @@ pub async fn upgrade(args: UpgradeArgs, client: Arc<impl Middleware>) -> Result<
 pub async fn upload_vkey(
     args: UploadVkeyArgs,
     client: Arc<impl Middleware>,
+    deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    let darkpool_address = Address::from_str(&args.darkpool_address)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
+    let darkpool_address =
+        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
     let darkpool = DarkpoolContract::new(darkpool_address, client);
 
     let vkey_bytes = gen_vkey_bytes(args.circuit)?;

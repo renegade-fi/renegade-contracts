@@ -16,7 +16,6 @@ ark-std = { workspace = true }
 ark-ec = { workspace = true }
 rand = { workspace = true }
 clap = { workspace = true }
-json = "0.12"
 postcard = { workspace = true }
 serde = { workspace = true }
 alloy-primitives = { workspace = true }
