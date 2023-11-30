@@ -26,16 +26,20 @@ use stylus_sdk::{
     },
 };
 
-use crate::utils::{
-    backends::{PrecompileEcRecoverBackend, StylusHasher},
-    constants::{
-        STORAGE_GAP_SIZE, VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID,
-        VALID_REBLIND_CIRCUIT_ID, VALID_WALLET_CREATE_CIRCUIT_ID, VALID_WALLET_UPDATE_CIRCUIT_ID,
-    },
-    helpers::{delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification},
-    solidity::{
-        initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
-        ExternalTransfer as ExternalTransferEvent, VerificationKeySet, WalletUpdated, IERC20,
+use crate::{
+    assert_if_verifying,
+    utils::{
+        backends::{PrecompileEcRecoverBackend, StylusHasher},
+        constants::{
+            STORAGE_GAP_SIZE, VALID_COMMITMENTS_CIRCUIT_ID, VALID_MATCH_SETTLE_CIRCUIT_ID,
+            VALID_REBLIND_CIRCUIT_ID, VALID_WALLET_CREATE_CIRCUIT_ID,
+            VALID_WALLET_UPDATE_CIRCUIT_ID,
+        },
+        helpers::{delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification},
+        solidity::{
+            initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
+            ExternalTransfer as ExternalTransferEvent, VerificationKeySet, WalletUpdated, IERC20,
+        },
     },
 };
 
@@ -243,11 +247,12 @@ impl DarkpoolContract {
         let valid_wallet_create_statement: ValidWalletCreateStatement =
             postcard::from_bytes(valid_wallet_create_statement_bytes.as_slice()).unwrap();
 
-        let public_inputs = serialize_statement_for_verification(&valid_wallet_create_statement)
-            .unwrap()
-            .into();
+        let public_inputs: Bytes =
+            serialize_statement_for_verification(&valid_wallet_create_statement)
+                .unwrap()
+                .into();
 
-        assert!(DarkpoolContract::verify(
+        assert_if_verifying!(DarkpoolContract::verify(
             storage,
             VALID_WALLET_CREATE_CIRCUIT_ID,
             proof,
@@ -281,22 +286,19 @@ impl DarkpoolContract {
             valid_wallet_update_statement.merkle_root,
         );
 
-        // Note: the "no-verify" feature is ONLY for testing purposes
-        #[cfg(not(feature = "no-verify"))]
-        {
-            assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-                &valid_wallet_update_statement.old_pk_root,
-                valid_wallet_update_statement_bytes.as_slice(),
-                &public_inputs_signature.to_vec().try_into().unwrap(),
-            )
-            .unwrap());
-        }
+        assert_if_verifying!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+            &valid_wallet_update_statement.old_pk_root,
+            valid_wallet_update_statement_bytes.as_slice(),
+            &public_inputs_signature.to_vec().try_into().unwrap(),
+        )
+        .unwrap());
 
-        let public_inputs = serialize_statement_for_verification(&valid_wallet_update_statement)
-            .unwrap()
-            .into();
+        let public_inputs: Bytes =
+            serialize_statement_for_verification(&valid_wallet_update_statement)
+                .unwrap()
+                .into();
 
-        assert!(DarkpoolContract::verify(
+        assert_if_verifying!(DarkpoolContract::verify(
             storage,
             VALID_WALLET_UPDATE_CIRCUIT_ID,
             proof,
@@ -340,7 +342,7 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
-        assert!(DarkpoolContract::verify(
+        assert_if_verifying!(DarkpoolContract::verify(
             storage,
             VALID_MATCH_SETTLE_CIRCUIT_ID,
             valid_match_settle_proof,
@@ -441,7 +443,7 @@ impl DarkpoolContract {
 
         let nullifier_ser = postcard::to_allocvec(&SerdeScalarField(nullifier)).unwrap();
 
-        assert!(!this.nullifier_set.get(nullifier_ser.clone()));
+        assert_if_verifying!(!this.nullifier_set.get(nullifier_ser.clone()));
 
         this.nullifier_set.insert(nullifier_ser, true);
     }
@@ -451,7 +453,7 @@ impl DarkpoolContract {
         storage: &mut S,
         root: ScalarField,
     ) {
-        assert!(DarkpoolContract::root_in_history(
+        assert_if_verifying!(DarkpoolContract::root_in_history(
             storage,
             postcard::to_allocvec(&SerdeScalarField(root))
                 .unwrap()
@@ -493,24 +495,15 @@ impl DarkpoolContract {
         proof: Bytes,
         public_inputs: Bytes,
     ) -> bool {
-        #[cfg(not(feature = "no-verify"))]
-        {
-            let this = storage.borrow_mut();
-            let vkey_bytes = this.verification_keys.get(circuit_id).get_bytes();
-            assert!(!vkey_bytes.is_empty());
+        let this = storage.borrow_mut();
+        let vkey_bytes = this.verification_keys.get(circuit_id).get_bytes();
+        assert!(!vkey_bytes.is_empty());
 
-            let verifier_address = this.verifier_address.get();
-            let verification_bundle_ser = [vkey_bytes, proof.into(), public_inputs.into()].concat();
-            let result = static_call(storage, verifier_address, &verification_bundle_ser).unwrap();
+        let verifier_address = this.verifier_address.get();
+        let verification_bundle_ser = [vkey_bytes, proof.into(), public_inputs.into()].concat();
+        let result = static_call(storage, verifier_address, &verification_bundle_ser).unwrap();
 
-            result[0] != 0
-        }
-
-        // Note: the "no-verify" feature is ONLY for testing purposes
-        #[cfg(feature = "no-verify")]
-        {
-            true
-        }
+        result[0] != 0
     }
 
     /// Executes the given external transfer (withdrawal / deposit)
@@ -554,7 +547,7 @@ impl DarkpoolContract {
             match_payload.valid_reblind_statement.merkle_root,
         );
 
-        assert!(DarkpoolContract::verify(
+        assert_if_verifying!(DarkpoolContract::verify(
             storage,
             VALID_COMMITMENTS_CIRCUIT_ID,
             valid_commitments_proof,
@@ -563,7 +556,7 @@ impl DarkpoolContract {
                 .into()
         ));
 
-        assert!(DarkpoolContract::verify(
+        assert_if_verifying!(DarkpoolContract::verify(
             storage,
             VALID_REBLIND_CIRCUIT_ID,
             valid_reblind_proof,
