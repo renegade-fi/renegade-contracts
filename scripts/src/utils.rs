@@ -13,17 +13,11 @@ use alloy_sol_types::SolCall;
 use ark_bn254::Bn254;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
-    test_helpers::{MAX_BALANCES, MAX_FEES, MAX_ORDERS},
-    valid_commitments::{SizedValidCommitments, ValidCommitments},
-    valid_match_settle::{SizedValidMatchSettle, ValidMatchSettle},
-    valid_reblind::{SizedValidReblind, ValidReblind},
-    valid_wallet_create::{SizedValidWalletCreate, ValidWalletCreate},
-    valid_wallet_update::{SizedValidWalletUpdate, ValidWalletUpdate},
+    valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
+    valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
+    valid_wallet_update::SizedValidWalletUpdate,
 };
-use common::{
-    constants::TEST_MERKLE_HEIGHT,
-    types::{G1Affine, VerificationKey},
-};
+use common::types::{G1Affine, VerificationKey};
 use ethers::{
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
@@ -231,43 +225,13 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<Bn254>) -> Result<VerificationKey, 
     })
 }
 
-pub fn gen_vkey_bytes(circuit: Circuit, small: bool) -> Result<Vec<u8>, ScriptError> {
+pub fn gen_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
     let jf_vkey = match circuit {
-        Circuit::ValidWalletCreate => {
-            if small {
-                ValidWalletCreate::<MAX_BALANCES, MAX_ORDERS, MAX_FEES>::verifying_key()
-            } else {
-                SizedValidWalletCreate::verifying_key()
-            }
-        }
-        Circuit::ValidWalletUpdate => {
-            if small {
-                ValidWalletUpdate::<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>::verifying_key()
-            } else {
-                SizedValidWalletUpdate::verifying_key()
-            }
-        }
-        Circuit::ValidCommitments => {
-            if small {
-                ValidCommitments::<MAX_BALANCES, MAX_ORDERS, MAX_FEES>::verifying_key()
-            } else {
-                SizedValidCommitments::verifying_key()
-            }
-        }
-        Circuit::ValidReblind => {
-            if small {
-                ValidReblind::<MAX_BALANCES, MAX_ORDERS, MAX_FEES, TEST_MERKLE_HEIGHT>::verifying_key()
-            } else {
-                SizedValidReblind::verifying_key()
-            }
-        }
-        Circuit::ValidMatchSettle => {
-            if small {
-                ValidMatchSettle::<MAX_BALANCES, MAX_ORDERS, MAX_FEES>::verifying_key()
-            } else {
-                SizedValidMatchSettle::verifying_key()
-            }
-        }
+        Circuit::ValidWalletCreate => SizedValidWalletCreate::verifying_key(),
+        Circuit::ValidWalletUpdate => SizedValidWalletUpdate::verifying_key(),
+        Circuit::ValidCommitments => SizedValidCommitments::verifying_key(),
+        Circuit::ValidReblind => SizedValidReblind::verifying_key(),
+        Circuit::ValidMatchSettle => SizedValidMatchSettle::verifying_key(),
     };
 
     let vkey = convert_jf_vkey((*jf_vkey).clone())?;

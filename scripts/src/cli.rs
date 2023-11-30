@@ -146,10 +146,6 @@ pub struct UploadVkeyArgs {
     /// The address of the darkpool proxy contract
     #[arg(short, long)]
     pub darkpool_address: String,
-
-    /// Whether or not to use the smaller circuit size parameters
-    #[arg(short, long)]
-    pub small: bool,
 }
 
 #[derive(ValueEnum, Copy, Clone)]

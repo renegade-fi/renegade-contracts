@@ -50,4 +50,8 @@ pub const VALID_MATCH_SETTLE_CIRCUIT_ID: u8 = 4;
 /// The number of storage slots to use in the Darkpool contract's
 /// storage gap, which ensures that there are no storage collisions
 /// with the Merkle contract to which it delegatecalls
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub const STORAGE_GAP_SIZE: usize = 64;
