@@ -4,21 +4,16 @@
 use core::borrow::{Borrow, BorrowMut};
 
 use alloc::{vec, vec::Vec};
-use common::{
-    serde_def_types::SerdeScalarField,
-    types::{
-        ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
-        ValidWalletCreateStatement, ValidWalletUpdateStatement,
-    },
+use common::types::{
+    ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
+    ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::{Address, U64},
+    alloy_primitives::{Address, U256, U64},
     call::static_call,
-    contract,
-    crypto::keccak,
-    evm, msg,
+    contract, evm,
     prelude::*,
     storage::{
         StorageAddress, StorageArray, StorageBool, StorageBytes, StorageMap, StorageU256,
@@ -35,10 +30,11 @@ use crate::{
             VALID_REBLIND_CIRCUIT_ID, VALID_WALLET_CREATE_CIRCUIT_ID,
             VALID_WALLET_UPDATE_CIRCUIT_ID,
         },
-        helpers::{delegate_call_helper, keccak_hash_scalar, serialize_statement_for_verification},
+        helpers::{delegate_call_helper, scalar_to_u256, serialize_statement_for_verification},
         solidity::{
             initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
-            ExternalTransfer as ExternalTransferEvent, VerificationKeySet, WalletUpdated, IERC20,
+            ExternalTransfer as ExternalTransferEvent, NullifierSpent, VerificationKeySet,
+            WalletUpdated, IERC20,
         },
     },
 };
@@ -48,9 +44,6 @@ use crate::{
 pub struct DarkpoolContract {
     /// Storage gap to prevent collisions with the Merkle contract
     __gap: StorageArray<StorageU256, STORAGE_GAP_SIZE>,
-
-    /// The owner of the darkpool contract
-    owner: StorageAddress,
 
     /// Whether or not the darkpool has been initialized
     initialized: StorageU64,
@@ -64,7 +57,7 @@ pub struct DarkpoolContract {
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
     /// boolean indicating whether or not the nullifier is spent
-    nullifier_set: StorageMap<Vec<u8>, StorageBool>,
+    nullifier_set: StorageMap<U256, StorageBool>,
 
     /// The set of verification keys, representing a mapping from a circuit ID
     /// to a serialized verification key
@@ -73,43 +66,22 @@ pub struct DarkpoolContract {
 
 #[external]
 impl DarkpoolContract {
-    // -----------
-    // | OWNABLE |
-    // -----------
-
-    pub fn owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<Address, Vec<u8>> {
-        Ok(storage.borrow().owner.get())
-    }
-
-    /// Transfers ownership of the darkpool to the provided address
-    pub fn transfer_ownership<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        new_owner: Address,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-
-        assert_ne!(new_owner, Address::ZERO);
-        DarkpoolContract::_transfer_ownership(storage, new_owner);
-
-        Ok(())
-    }
-
-    // TODO: Add `renounce_ownership` method
-
     // -----------------
     // | INITIALIZABLE |
     // -----------------
 
     /// Initializes the Darkpool
+    #[allow(clippy::too_many_arguments)]
     pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        owner: Address,
         verifier_address: Address,
         merkle_address: Address,
+        valid_wallet_create_vkey: Bytes,
+        valid_wallet_update_vkey: Bytes,
+        valid_commitments_vkey: Bytes,
+        valid_reblind_vkey: Bytes,
+        valid_match_settle_vkey: Bytes,
     ) -> Result<(), Vec<u8>> {
-        // Set the owner address
-        DarkpoolContract::_transfer_ownership(storage, owner);
-
         // Initialize the Merkle tree
         delegate_call_helper::<initCall>(storage, merkle_address, ());
 
@@ -119,83 +91,32 @@ impl DarkpoolContract {
         this.verifier_address.set(verifier_address);
         this.merkle_address.set(merkle_address);
 
+        // Set the verification keys
+        DarkpoolContract::set_vkey(
+            storage,
+            VALID_WALLET_CREATE_CIRCUIT_ID,
+            valid_wallet_create_vkey,
+        );
+        DarkpoolContract::set_vkey(
+            storage,
+            VALID_WALLET_UPDATE_CIRCUIT_ID,
+            valid_wallet_update_vkey,
+        );
+        DarkpoolContract::set_vkey(
+            storage,
+            VALID_COMMITMENTS_CIRCUIT_ID,
+            valid_commitments_vkey,
+        );
+        DarkpoolContract::set_vkey(storage, VALID_REBLIND_CIRCUIT_ID, valid_reblind_vkey);
+        DarkpoolContract::set_vkey(
+            storage,
+            VALID_MATCH_SETTLE_CIRCUIT_ID,
+            valid_match_settle_vkey,
+        );
+
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1);
 
-        Ok(())
-    }
-
-    // ----------
-    // | CONFIG |
-    // ----------
-
-    /// Stores the given address for the verifier contract
-    pub fn set_verifier_address<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        address: Address,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        storage.borrow_mut().verifier_address.set(address);
-        Ok(())
-    }
-
-    /// Stores the given address for the Merkle contract
-    pub fn set_merkle_address<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        address: Address,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        storage.borrow_mut().merkle_address.set(address);
-        Ok(())
-    }
-
-    /// Sets the verification key for the `VALID_WALLET_CREATE` circuit
-    pub fn set_valid_wallet_create_vkey<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        vkey: Bytes,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        DarkpoolContract::set_vkey(storage, VALID_WALLET_CREATE_CIRCUIT_ID, vkey);
-        Ok(())
-    }
-
-    /// Sets the verification key for the `VALID_WALLET_UPDATE` circuit
-    pub fn set_valid_wallet_update_vkey<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        vkey: Bytes,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        DarkpoolContract::set_vkey(storage, VALID_WALLET_UPDATE_CIRCUIT_ID, vkey);
-        Ok(())
-    }
-
-    /// Sets the verification key for the `VALID_COMMITMENTS` circuit
-    pub fn set_valid_commitments_vkey<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        vkey: Bytes,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        DarkpoolContract::set_vkey(storage, VALID_COMMITMENTS_CIRCUIT_ID, vkey);
-        Ok(())
-    }
-
-    /// Sets the verification key for the `VALID_REBLIND` circuit
-    pub fn set_valid_reblind_vkey<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        vkey: Bytes,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        DarkpoolContract::set_vkey(storage, VALID_REBLIND_CIRCUIT_ID, vkey);
-        Ok(())
-    }
-
-    /// Sets the verification key for the `VALID_MATCH_SETTLE` circuit
-    pub fn set_valid_match_settle_vkey<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        vkey: Bytes,
-    ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
-        DarkpoolContract::set_vkey(storage, VALID_MATCH_SETTLE_CIRCUIT_ID, vkey);
         Ok(())
     }
 
@@ -206,29 +127,29 @@ impl DarkpoolContract {
     /// Checks whether the given nullifier is spent
     pub fn is_nullifier_spent<S: TopLevelStorage + Borrow<Self>>(
         storage: &S,
-        nullifier: Bytes,
+        nullifier: U256,
     ) -> Result<bool, Vec<u8>> {
         let this = storage.borrow();
-        Ok(this.nullifier_set.get(nullifier.0))
+        Ok(this.nullifier_set.get(nullifier))
     }
 
     /// Returns the current root of the Merkle tree
     pub fn get_root<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-    ) -> Result<Bytes, Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let merkle_address = storage.borrow_mut().merkle_address.get();
         let (res,) = delegate_call_helper::<rootCall>(storage, merkle_address, ()).into();
-        Ok(res.into())
+        Ok(res)
     }
 
     /// Returns the current root of the Merkle tree
     pub fn root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        root: Bytes,
+        root: U256,
     ) -> Result<bool, Vec<u8>> {
         let merkle_address = storage.borrow_mut().merkle_address.get();
         let (res,) =
-            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root.0,)).into();
+            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,)).into();
 
         Ok(res)
     }
@@ -240,7 +161,6 @@ impl DarkpoolContract {
     /// Adds a new wallet to the commitment tree
     pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        wallet_blinder_share: Bytes,
         proof: Bytes,
         valid_wallet_create_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -265,7 +185,12 @@ impl DarkpoolContract {
             &valid_wallet_create_statement.public_wallet_shares,
         );
 
-        DarkpoolContract::log_wallet_update(wallet_blinder_share);
+        DarkpoolContract::log_wallet_update(
+            *valid_wallet_create_statement
+                .public_wallet_shares
+                .last()
+                .unwrap(),
+        );
 
         Ok(())
     }
@@ -273,7 +198,6 @@ impl DarkpoolContract {
     /// Update a wallet in the commitment tree
     pub fn update_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        wallet_blinder_share: Bytes,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
         public_inputs_signature: Bytes,
@@ -320,7 +244,12 @@ impl DarkpoolContract {
             DarkpoolContract::execute_external_transfer(storage, &external_transfer);
         }
 
-        DarkpoolContract::log_wallet_update(wallet_blinder_share);
+        DarkpoolContract::log_wallet_update(
+            *valid_wallet_update_statement
+                .new_public_shares
+                .last()
+                .unwrap(),
+        );
 
         Ok(())
     }
@@ -373,22 +302,6 @@ impl DarkpoolContract {
 
 /// Internal helper methods
 impl DarkpoolContract {
-    // -----------
-    // | OWNABLE |
-    // -----------
-
-    pub fn _transfer_ownership<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        new_owner: Address,
-    ) {
-        storage.borrow_mut().owner.set(new_owner);
-    }
-
-    pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
-        assert_eq!(storage.borrow().owner.get(), msg::sender());
-        Ok(())
-    }
-
     // -----------------
     // | INITIALIZABLE |
     // -----------------
@@ -405,10 +318,10 @@ impl DarkpoolContract {
     // | LOGGING |
     // -----------
 
-    pub fn log_wallet_update(wallet_blinder_share: Bytes) {
-        let wallet_blinder_share_hash = keccak(wallet_blinder_share);
+    pub fn log_wallet_update(wallet_blinder_share: ScalarField) {
+        let wallet_blinder_share = scalar_to_u256(wallet_blinder_share);
         evm::log(WalletUpdated {
-            wallet_blinder_share: wallet_blinder_share_hash.into(),
+            wallet_blinder_share,
         });
     }
 
@@ -441,11 +354,13 @@ impl DarkpoolContract {
     ) {
         let this = storage.borrow_mut();
 
-        let nullifier_ser = postcard::to_allocvec(&SerdeScalarField(nullifier)).unwrap();
+        let nullifier = scalar_to_u256(nullifier);
 
-        assert_if_verifying!(!this.nullifier_set.get(nullifier_ser.clone()));
+        assert_if_verifying!(!this.nullifier_set.get(nullifier));
 
-        this.nullifier_set.insert(nullifier_ser, true);
+        this.nullifier_set.insert(nullifier, true);
+
+        evm::log(NullifierSpent { nullifier })
     }
 
     /// Asserts that the given Merkle root is in the root history
@@ -453,13 +368,8 @@ impl DarkpoolContract {
         storage: &mut S,
         root: ScalarField,
     ) {
-        assert_if_verifying!(DarkpoolContract::root_in_history(
-            storage,
-            postcard::to_allocvec(&SerdeScalarField(root))
-                .unwrap()
-                .into()
-        )
-        .unwrap());
+        let root = scalar_to_u256(root);
+        assert_if_verifying!(DarkpoolContract::root_in_history(storage, root).unwrap());
     }
 
     /// Computes the total commitment to both the private and public wallet shares,
@@ -471,19 +381,16 @@ impl DarkpoolContract {
     ) {
         let mut total_wallet_shares = vec![private_shares_commitment];
         total_wallet_shares.extend(public_wallet_shares);
-        let total_wallet_shares_bytes = postcard::to_allocvec(
-            &total_wallet_shares
-                .into_iter()
-                .map(SerdeScalarField)
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
+        let total_wallet_shares = total_wallet_shares
+            .into_iter()
+            .map(scalar_to_u256)
+            .collect::<Vec<_>>();
 
         let merkle_address = storage.borrow_mut().merkle_address.get();
         delegate_call_helper::<insertSharesCommitmentCall>(
             storage,
             merkle_address,
-            (total_wallet_shares_bytes,),
+            (total_wallet_shares,),
         );
     }
 
@@ -580,9 +487,9 @@ impl DarkpoolContract {
                 .original_shares_nullifier,
         );
 
-        let wallet_blinder_share_hash = keccak_hash_scalar(match_payload.wallet_blinder_share);
+        let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
         evm::log(WalletUpdated {
-            wallet_blinder_share: wallet_blinder_share_hash.into(),
+            wallet_blinder_share,
         });
     }
 }

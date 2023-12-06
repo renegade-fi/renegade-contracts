@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 use common::constants::TEST_MERKLE_HEIGHT;
-use stylus_sdk::{abi::Bytes, prelude::*};
+use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
 use crate::contracts::merkle::{MerkleContract, MerkleParams};
 
@@ -25,15 +25,15 @@ impl TestMerkleContract {
         self.merkle.init()
     }
 
-    fn root(&self) -> Result<Bytes, Vec<u8>> {
+    fn root(&self) -> Result<U256, Vec<u8>> {
         self.merkle.root()
     }
 
-    fn root_in_history(&self, root: Bytes) -> Result<bool, Vec<u8>> {
+    fn root_in_history(&self, root: U256) -> Result<bool, Vec<u8>> {
         self.merkle.root_in_history(root)
     }
 
-    fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
+    fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
     }
 }

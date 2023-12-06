@@ -225,9 +225,6 @@ pub struct ValidMatchSettleStatement {
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct MatchPayload {
-    /// The public secret share of the party's wallet-level blinder
-    #[serde_as(as = "ScalarFieldDef")]
-    pub wallet_blinder_share: ScalarField,
     /// The statement for the party's `VALID_COMMITMENTS` proof
     pub valid_commitments_statement: ValidCommitmentsStatement,
     /// The statement for the party's `VALID_REBLIND` proof
