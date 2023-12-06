@@ -19,9 +19,9 @@ sol_interface! {
 
     interface IMerkle {
         function init() external;
-        function root() external view returns (bytes);
-        function rootInHistory(bytes root) external view returns (bool);
-        function insertSharesCommitment(bytes shares) external;
+        function root() external view returns (uint256);
+        function rootInHistory(uint256 root) external view returns (bool);
+        function insertSharesCommitment(uint256[] shares) external;
     }
 }
 
@@ -33,22 +33,20 @@ sol! {
 
     // Merkle functions
     function init() external;
-    function root() external view returns (bytes);
-    function rootInHistory(bytes root) external view returns (bool);
-    function insertSharesCommitment(bytes shares) external;
+    function root() external view returns (uint256);
+    function rootInHistory(uint256 root) external view returns (bool);
+    function insertSharesCommitment(uint256[] shares) external;
 
     // ----------
     // | EVENTS |
     // ----------
 
-    // Indexed `bytes` event parameters are encoded as their Keccak-256 hash
-    // https://docs.soliditylang.org/en/latest/abi-spec.html#encoding-of-indexed-event-parameters
-
     // Merkle events
-    event NodeChanged(uint8 indexed height, uint128 indexed index, bytes indexed new_value_hash, bytes new_value);
+    event NodeChanged(uint8 indexed height, uint128 indexed index, uint256 indexed new_value);
 
     // Darkpool events
     event VerificationKeySet();
-    event WalletUpdated(bytes indexed wallet_blinder_share);
+    event NullifierSpent(uint256 indexed nullifier);
+    event WalletUpdated(uint256 indexed wallet_blinder_share);
     event ExternalTransfer(address indexed account, address indexed mint, bool indexed is_withdrawal, uint256 amount);
 }

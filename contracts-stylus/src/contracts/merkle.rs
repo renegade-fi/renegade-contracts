@@ -10,17 +10,19 @@
 use core::marker::PhantomData;
 
 use alloc::vec::Vec;
-use common::{constants::MERKLE_HEIGHT, serde_def_types::SerdeScalarField, types::ScalarField};
+use common::{constants::MERKLE_HEIGHT, custom_serde::BytesSerializable, types::ScalarField};
 use contracts_core::crypto::{merkle::SparseMerkleTree, poseidon::compute_poseidon_hash};
 use stylus_sdk::{
-    abi::Bytes,
-    crypto::keccak,
+    alloy_primitives::U256,
     evm,
     prelude::*,
-    storage::{StorageBool, StorageBytes, StorageMap},
+    storage::{StorageBool, StorageBytes, StorageMap, StorageU256},
 };
 
-use crate::utils::solidity::NodeChanged;
+use crate::utils::{
+    helpers::{scalar_to_u256, u256_to_scalar},
+    solidity::NodeChanged,
+};
 
 pub trait MerkleParams {
     const HEIGHT: usize;
@@ -31,9 +33,9 @@ pub struct MerkleContract<P: MerkleParams> {
     /// The serialized merkle tree
     pub merkle_tree: StorageBytes,
     /// The current root of the Merkle tree, cached in storage for efficiency
-    pub current_root: StorageBytes,
+    pub current_root: StorageU256,
     /// The set of historic roots of the Merkle tree
-    pub root_history: StorageMap<Vec<u8>, StorageBool>,
+    pub root_history: StorageMap<U256, StorageBool>,
     /// Used to allow `MerkleParams` to be a generic type parameter
     _phantom: PhantomData<P>,
 }
@@ -55,26 +57,21 @@ where
         Ok(())
     }
     /// Returns the current root of the merkle tree
-    pub fn root(&self) -> Result<Bytes, Vec<u8>> {
-        Ok(self.current_root.get_bytes().into())
+    pub fn root(&self) -> Result<U256, Vec<u8>> {
+        Ok(self.current_root.get())
     }
 
     /// Returns whether or not the given root is in the root history
-    pub fn root_in_history(&self, root: Bytes) -> Result<bool, Vec<u8>> {
-        Ok(self.root_history.get(root.0))
+    pub fn root_in_history(&self, root: U256) -> Result<bool, Vec<u8>> {
+        Ok(self.root_history.get(root))
     }
 
     /// Computes a commitment to the given wallet shares & inserts it into the Merkle tree
-    pub fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
+    pub fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         let mut merkle_tree: SparseMerkleTree<{ P::HEIGHT }> =
             postcard::from_bytes(&self.merkle_tree.get_bytes()).unwrap();
 
-        let shares: Vec<ScalarField> =
-            postcard::from_bytes::<Vec<SerdeScalarField>>(shares.as_slice())
-                .unwrap()
-                .into_iter()
-                .map(|x| x.0)
-                .collect();
+        let shares: Vec<ScalarField> = shares.into_iter().map(u256_to_scalar).collect();
 
         let shares_commitment = compute_poseidon_hash(&shares);
 
@@ -86,15 +83,13 @@ where
         self.merkle_tree.set_bytes(merkle_tree_bytes);
 
         for node_update in node_updates {
-            let new_value_bytes =
-                postcard::to_allocvec(&SerdeScalarField(node_update.value)).unwrap();
-            let new_value_hash = keccak(&new_value_bytes);
+            let new_value_bytes = node_update.value.serialize_to_bytes();
+            let new_value = U256::from_be_slice(&new_value_bytes);
 
             evm::log(NodeChanged {
                 height: node_update.height as u8,
                 index: node_update.index,
-                new_value_hash: new_value_hash.into(),
-                new_value: new_value_bytes,
+                new_value,
             })
         }
 
@@ -107,10 +102,10 @@ where
     P: MerkleParams,
 {
     pub fn store_root(&mut self, root: ScalarField) {
-        let root_bytes = postcard::to_allocvec(&SerdeScalarField(root)).unwrap();
+        let root_u256 = scalar_to_u256(root);
 
-        self.current_root.set_bytes(&root_bytes);
-        self.root_history.insert(root_bytes, true);
+        self.current_root.set(root_u256);
+        self.root_history.insert(root_u256, true);
     }
 }
 
@@ -133,15 +128,15 @@ impl ProdMerkleContract {
         self.merkle.init()
     }
 
-    fn root(&self) -> Result<Bytes, Vec<u8>> {
+    fn root(&self) -> Result<U256, Vec<u8>> {
         self.merkle.root()
     }
 
-    fn root_in_history(&self, root: Bytes) -> Result<bool, Vec<u8>> {
+    fn root_in_history(&self, root: U256) -> Result<bool, Vec<u8>> {
         self.merkle.root_in_history(root)
     }
 
-    fn insert_shares_commitment(&mut self, shares: Bytes) -> Result<(), Vec<u8>> {
+    fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
     }
 }
