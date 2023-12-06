@@ -32,15 +32,16 @@ use itertools::Itertools;
 use jf_primitives::pcs::prelude::Commitment;
 use json::JsonValue;
 use mpc_plonk::proof_system::structs::VerifyingKey;
+use tracing::log::warn;
 
 use crate::{
     cli::{Circuit, StylusContract},
     constants::{
         BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
-        MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE,
-        RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
-        TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND,
-        WASM_TARGET_TRIPLE, Z_FLAGS,
+        DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
+        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
+        SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
+        VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -122,6 +123,7 @@ fn get_contract_key(contract: StylusContract) -> &'static str {
         StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
         StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
+        StylusContract::DummyErc20 => DUMMY_ERC20_CONTRACT_KEY,
     }
 }
 
@@ -240,6 +242,18 @@ pub async fn deploy_stylus_contract(
     contract: StylusContract,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
+    match contract {
+        StylusContract::DarkpoolTestContract
+        | StylusContract::MerkleTestContract
+        | StylusContract::DummyErc20 => {
+            warn!(
+                "Deploying `{}` - THIS SHOULD ONLY BE DONE FOR TESTING",
+                contract
+            );
+        }
+        _ => {}
+    }
+
     // Get expected deployment address
     let deployer_address = client
         .default_sender()

@@ -95,6 +95,7 @@ pub enum StylusContract {
     Merkle,
     MerkleTestContract,
     Verifier,
+    DummyErc20,
 }
 
 impl Display for StylusContract {
@@ -105,6 +106,7 @@ impl Display for StylusContract {
             StylusContract::Merkle => write!(f, "merkle"),
             StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),
             StylusContract::Verifier => write!(f, "verifier"),
+            StylusContract::DummyErc20 => write!(f, "dummy-erc20"),
         }
     }
 }

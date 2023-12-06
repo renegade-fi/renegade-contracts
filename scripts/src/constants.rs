@@ -94,3 +94,6 @@ pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 
 /// The verifier contract key in the `deployments.json` file
 pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
+
+/// The dummy ERC20 contract key in the `deployments.json` file
+pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
