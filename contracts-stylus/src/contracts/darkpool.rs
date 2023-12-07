@@ -295,7 +295,7 @@ impl DarkpoolContract {
             party_1_match_payload,
             party_1_valid_commitments_proof,
             party_1_valid_reblind_proof,
-            &valid_match_settle_statement.party0_modified_shares,
+            &valid_match_settle_statement.party1_modified_shares,
         );
 
         Ok(())

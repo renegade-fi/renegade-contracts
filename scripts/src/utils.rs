@@ -13,14 +13,19 @@ use std::{
 
 use alloy_primitives::Address as AlloyAddress;
 use alloy_sol_types::SolCall;
-use ark_bn254::Bn254;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
     valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
     valid_wallet_update::SizedValidWalletUpdate,
 };
-use common::types::{G1Affine, VerificationKey};
+use common::{
+    custom_serde::ScalarSerializable,
+    types::{
+        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement,
+    },
+};
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -29,18 +34,22 @@ use ethers::{
     utils::get_contract_address,
 };
 use itertools::Itertools;
-use jf_primitives::pcs::prelude::Commitment;
 use json::JsonValue;
-use mpc_plonk::proof_system::structs::VerifyingKey;
+use rand::thread_rng;
+use test_helpers::{
+    proof_system::{convert_jf_vkey, gen_test_circuit_and_keys},
+    renegade_circuits::RenegadeStatement,
+};
 use tracing::log::warn;
 
 use crate::{
     cli::StylusContract,
     constants::{
-        BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
-        DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
-        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
-        SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
+        BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY,
+        DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
+        MERKLE_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR,
+        NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
         VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
@@ -126,10 +135,12 @@ pub fn write_deployed_address(
     Ok(())
 }
 
-fn get_contract_key(contract: StylusContract) -> &'static str {
+pub fn get_contract_key(contract: StylusContract) -> &'static str {
     match contract {
-        StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
-        StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
+        StylusContract::Darkpool => DARKPOOL_CONTRACT_KEY,
+        StylusContract::DarkpoolTestContract => DARKPOOL_TEST_CONTRACT_KEY,
+        StylusContract::Merkle => MERKLE_CONTRACT_KEY,
+        StylusContract::MerkleTestContract => MERKLE_TEST_CONTRACT_KEY,
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
         StylusContract::DummyErc20 => DUMMY_ERC20_CONTRACT_KEY,
     }
@@ -139,15 +150,34 @@ fn get_contract_key(contract: StylusContract) -> &'static str {
 pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     merkle_address: Address,
+    test: bool,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
 
-    let valid_wallet_create_vkey_bytes = gen_vkey_bytes(Circuit::ValidWalletCreate)?;
-    let valid_wallet_update_vkey_bytes = gen_vkey_bytes(Circuit::ValidWalletUpdate)?;
-    let valid_commitments_vkey_bytes = gen_vkey_bytes(Circuit::ValidCommitments)?;
-    let valid_reblind_vkey_bytes = gen_vkey_bytes(Circuit::ValidReblind)?;
-    let valid_match_settle_vkey_bytes = gen_vkey_bytes(Circuit::ValidMatchSettle)?;
+    let (
+        valid_wallet_create_vkey_bytes,
+        valid_wallet_update_vkey_bytes,
+        valid_commitments_vkey_bytes,
+        valid_reblind_vkey_bytes,
+        valid_match_settle_vkey_bytes,
+    ) = if test {
+        (
+            gen_test_vkey_bytes(Circuit::ValidWalletCreate)?,
+            gen_test_vkey_bytes(Circuit::ValidWalletUpdate)?,
+            gen_test_vkey_bytes(Circuit::ValidCommitments)?,
+            gen_test_vkey_bytes(Circuit::ValidReblind)?,
+            gen_test_vkey_bytes(Circuit::ValidMatchSettle)?,
+        )
+    } else {
+        (
+            gen_vkey_bytes(Circuit::ValidWalletCreate)?,
+            gen_vkey_bytes(Circuit::ValidWalletUpdate)?,
+            gen_vkey_bytes(Circuit::ValidCommitments)?,
+            gen_vkey_bytes(Circuit::ValidReblind)?,
+            gen_vkey_bytes(Circuit::ValidMatchSettle)?,
+        )
+    };
 
     Ok(initializeCall::new((
         verifier_address,
@@ -313,34 +343,30 @@ pub async fn deploy_stylus_contract(
     Ok(())
 }
 
-fn try_unwrap_commitments<const N: usize>(
-    comms: &[Commitment<Bn254>],
-) -> Result<[G1Affine; N], ScriptError> {
-    comms
-        .iter()
-        .map(|c| c.0)
-        .collect::<Vec<_>>()
-        .try_into()
-        .map_err(|_| ScriptError::ConversionError)
-}
+pub fn gen_test_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
+    let mut rng = thread_rng();
+    let public_inputs = match circuit {
+        Circuit::ValidWalletCreate => {
+            ValidWalletCreateStatement::dummy(&mut rng).serialize_to_scalars()
+        }
+        Circuit::ValidWalletUpdate => {
+            ValidWalletUpdateStatement::dummy(&mut rng).serialize_to_scalars()
+        }
+        Circuit::ValidCommitments => {
+            ValidCommitmentsStatement::dummy(&mut rng).serialize_to_scalars()
+        }
+        Circuit::ValidReblind => ValidReblindStatement::dummy(&mut rng).serialize_to_scalars(),
+        Circuit::ValidMatchSettle => {
+            ValidMatchSettleStatement::dummy(&mut rng).serialize_to_scalars()
+        }
+    }
+    .map_err(|_| ScriptError::TestCircuitCreation)?;
+    let (_, _, jf_vkey) =
+        gen_test_circuit_and_keys(TEST_CIRCUIT_DOMAIN_SIZE, &public_inputs)
+            .map_err(|_| ScriptError::TestCircuitCreation)?;
 
-/// Convert a [`mpc_plonk::proof_system::structs::VerifyingKey`] to a [`common::types::VerificationKey`].
-/// This converts the verification key type produced by the relayer codebase to the type used by the contracts,
-/// which can be serialized into calldata.
-pub fn convert_jf_vkey(jf_vkey: VerifyingKey<Bn254>) -> Result<VerificationKey, ScriptError> {
-    Ok(VerificationKey {
-        n: jf_vkey.domain_size as u64,
-        l: jf_vkey.num_inputs as u64,
-        k: jf_vkey
-            .k
-            .try_into()
-            .map_err(|_| ScriptError::ConversionError)?,
-        q_comms: try_unwrap_commitments(&jf_vkey.selector_comms)?,
-        sigma_comms: try_unwrap_commitments(&jf_vkey.sigma_comms)?,
-        g: jf_vkey.open_key.g,
-        h: jf_vkey.open_key.h,
-        x_h: jf_vkey.open_key.beta_h,
-    })
+    let vkey = convert_jf_vkey(jf_vkey).map_err(|_| ScriptError::ConversionError)?;
+    postcard::to_allocvec(&vkey).map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
 pub fn gen_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
@@ -352,6 +378,6 @@ pub fn gen_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
         Circuit::ValidMatchSettle => SizedValidMatchSettle::verifying_key(),
     };
 
-    let vkey = convert_jf_vkey((*jf_vkey).clone())?;
+    let vkey = convert_jf_vkey((*jf_vkey).clone()).map_err(|_| ScriptError::ConversionError)?;
     postcard::to_allocvec(&vkey).map_err(|e| ScriptError::Serde(e.to_string()))
 }

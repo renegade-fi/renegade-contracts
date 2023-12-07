@@ -21,7 +21,7 @@ use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     misc::random_scalars,
-    proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
+    proof_system::{convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey},
     renegade_circuits::{
         dummy_circuit_bundle, gen_valid_wallet_update_statement, proof_from_statement,
     },
@@ -177,7 +177,8 @@ pub(crate) async fn test_verifier(
     let mut rng = thread_rng();
     let public_inputs = random_scalars(L, &mut rng);
     let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs)?;
-    let (proof, vkey) = convert_jf_proof_and_vkey(jf_proof, jf_vkey);
+    let proof = convert_jf_proof(jf_proof)?;
+    let vkey = convert_jf_vkey(jf_vkey)?;
 
     let mut verification_bundle = VerificationBundle {
         vkey,
