@@ -35,13 +35,14 @@ use mpc_plonk::proof_system::structs::VerifyingKey;
 use tracing::log::warn;
 
 use crate::{
-    cli::StylusContract,
+    cli::{ContractPreset, StylusContract},
     constants::{
-        BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
-        DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
-        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
-        SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
-        VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY,
+        DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
+        MERKLE_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR,
+        NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY, WASM_EXTENSION,
+        WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -126,10 +127,12 @@ pub fn write_deployed_address(
     Ok(())
 }
 
-fn get_contract_key(contract: StylusContract) -> &'static str {
+pub fn get_contract_key(contract: StylusContract) -> &'static str {
     match contract {
-        StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
-        StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
+        StylusContract::Darkpool => DARKPOOL_CONTRACT_KEY,
+        StylusContract::DarkpoolTestContract => DARKPOOL_TEST_CONTRACT_KEY,
+        StylusContract::Merkle => MERKLE_CONTRACT_KEY,
+        StylusContract::MerkleTestContract => MERKLE_TEST_CONTRACT_KEY,
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
         StylusContract::DummyErc20 => DUMMY_ERC20_CONTRACT_KEY,
     }
@@ -140,15 +143,28 @@ fn get_contract_key(contract: StylusContract) -> &'static str {
 pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     merkle_address: Address,
+    preset: ContractPreset,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
 
-    let valid_wallet_create_vkey_bytes = gen_vkey_bytes(Circuit::ValidWalletCreate)?;
-    let valid_wallet_update_vkey_bytes = gen_vkey_bytes(Circuit::ValidWalletUpdate)?;
-    let valid_commitments_vkey_bytes = gen_vkey_bytes(Circuit::ValidCommitments)?;
-    let valid_reblind_vkey_bytes = gen_vkey_bytes(Circuit::ValidReblind)?;
-    let valid_match_settle_vkey_bytes = gen_vkey_bytes(Circuit::ValidMatchSettle)?;
+    let (
+        valid_wallet_create_vkey_bytes,
+        valid_wallet_update_vkey_bytes,
+        valid_commitments_vkey_bytes,
+        valid_reblind_vkey_bytes,
+        valid_match_settle_vkey_bytes,
+    ) = match preset {
+        ContractPreset::Prod => (
+            gen_vkey_bytes(Circuit::ValidWalletCreate)?,
+            gen_vkey_bytes(Circuit::ValidWalletUpdate)?,
+            gen_vkey_bytes(Circuit::ValidCommitments)?,
+            gen_vkey_bytes(Circuit::ValidReblind)?,
+            gen_vkey_bytes(Circuit::ValidMatchSettle)?,
+        ),
+        ContractPreset::Test => unimplemented!(),
+        ContractPreset::NoVerify => (vec![], vec![], vec![], vec![], vec![]),
+    };
 
     Ok(initializeCall::new((
         verifier_address,

@@ -36,7 +36,7 @@ impl RenegadeStatement for ValidWalletCreateStatement {
     fn dummy(rng: &mut impl Rng) -> Self {
         ValidWalletCreateStatement {
             private_shares_commitment: ScalarField::rand(rng),
-            public_wallet_shares: vec![],
+            public_wallet_shares: vec![ScalarField::rand(rng)],
         }
     }
 }
@@ -46,7 +46,7 @@ impl RenegadeStatement for ValidWalletUpdateStatement {
         ValidWalletUpdateStatement {
             old_shares_nullifier: ScalarField::rand(rng),
             new_private_shares_commitment: ScalarField::rand(rng),
-            new_public_shares: vec![],
+            new_public_shares: vec![ScalarField::rand(rng)],
             merkle_root: ScalarField::rand(rng),
             external_transfer: Some(dummy_external_transfer(rng)),
             old_pk_root: dummy_public_signing_key(rng),
@@ -78,8 +78,8 @@ impl RenegadeStatement for ValidReblindStatement {
 impl RenegadeStatement for ValidMatchSettleStatement {
     fn dummy(rng: &mut impl Rng) -> Self {
         ValidMatchSettleStatement {
-            party0_modified_shares: vec![],
-            party1_modified_shares: vec![],
+            party0_modified_shares: vec![ScalarField::rand(rng)],
+            party1_modified_shares: vec![ScalarField::rand(rng)],
             party0_send_balance_index: rng.gen(),
             party0_receive_balance_index: rng.gen(),
             party0_order_index: rng.gen(),

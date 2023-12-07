@@ -71,6 +71,22 @@ pub struct DeployProxyArgs {
     /// and the underlying darkpool contract
     #[arg(short, long)]
     pub owner: String,
+
+    /// The expected contract preset, informing which contract addresses
+    /// to initialize the proxy with (testing vs prod contracts), and how
+    /// to generate verification keys for the preset
+    #[arg(short, long, default_value = "prod")]
+    pub preset: ContractPreset,
+}
+
+#[derive(ValueEnum, Copy, Clone)]
+pub enum ContractPreset {
+    /// Production contracts
+    Prod,
+    /// Testing contracts
+    Test,
+    /// Testing contracts with verification disabled
+    NoVerify,
 }
 
 /// Deploy a Stylus contract
@@ -116,4 +132,9 @@ pub struct UpgradeArgs {
     /// call the implementation contract when upgrading
     #[arg(short, long)]
     pub calldata: Option<String>,
+
+    /// Whether or not to use the darkpool test contract address
+    /// as the new implementation address
+    #[arg(short, long)]
+    pub test: bool,
 }
