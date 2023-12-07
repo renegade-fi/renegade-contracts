@@ -71,6 +71,11 @@ pub struct DeployProxyArgs {
     /// and the underlying darkpool contract
     #[arg(short, long)]
     pub owner: String,
+
+    /// Whether or not to use the testing contracts.
+    /// This also informs how to generate verification keys.
+    #[arg(short, long)]
+    pub test: bool,
 }
 
 /// Deploy a Stylus contract
@@ -116,4 +121,9 @@ pub struct UpgradeArgs {
     /// call the implementation contract when upgrading
     #[arg(short, long)]
     pub calldata: Option<String>,
+
+    /// Whether or not to use the darkpool test contract address
+    /// as the new implementation address
+    #[arg(short, long)]
+    pub test: bool,
 }

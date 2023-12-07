@@ -4,26 +4,26 @@ use alloc::{vec, vec::Vec};
 use ark_bn254::Bn254;
 use ark_ec::AffineRepr;
 use ark_std::UniformRand;
+use circuit_types::test_helpers::TESTING_SRS;
 use common::{
     constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
-use eyre::Result;
+use eyre::{eyre, Result};
 use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
 use mpc_plonk::{
     errors::PlonkError,
     proof_system::PlonkKzgSnark,
     proof_system::{
-        structs::{BatchProof, Challenges, Proof as JfProof, ProofEvaluations, VerifyingKey},
+        structs::{
+            BatchProof, Challenges, Proof as JfProof, ProofEvaluations, ProvingKey, VerifyingKey,
+        },
         verifier::Verifier,
         UniversalSNARK,
     },
     transcript::SolidityTranscript,
 };
-use mpc_relation::{
-    traits::{Arithmetization, Circuit},
-    PlonkCircuit,
-};
+use mpc_relation::{traits::Circuit, PlonkCircuit};
 use rand::thread_rng;
 
 pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircuit<ScalarField>> {
@@ -43,59 +43,79 @@ pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircu
     Ok(circuit)
 }
 
+pub fn gen_test_circuit_and_keys(
+    n: usize,
+    public_inputs: &[ScalarField],
+) -> Result<(
+    PlonkCircuit<ScalarField>,
+    ProvingKey<Bn254>,
+    VerifyingKey<Bn254>,
+)> {
+    let circuit = gen_circuit(n, public_inputs)?;
+
+    let (pkey, vkey) = PlonkKzgSnark::<Bn254>::preprocess(&TESTING_SRS, &circuit)?;
+
+    Ok((circuit, pkey, vkey))
+}
+
 pub fn gen_jf_proof_and_vkey(
     n: usize,
     public_inputs: &[ScalarField],
 ) -> Result<(JfProof<Bn254>, VerifyingKey<Bn254>)> {
-    let rng = &mut jf_utils::test_rng();
-    let circuit = gen_circuit(n, public_inputs)?;
+    let mut rng = thread_rng();
 
-    let max_degree = circuit.eval_domain_size()? + 2;
-    let srs = PlonkKzgSnark::<Bn254>::universal_setup_for_testing(max_degree, rng)?;
-
-    let (pkey, jf_vkey) = PlonkKzgSnark::<Bn254>::preprocess(&srs, &circuit)?;
+    let (circuit, pkey, jf_vkey) = gen_test_circuit_and_keys(n, public_inputs)?;
 
     let jf_proof =
-        PlonkKzgSnark::<Bn254>::prove::<_, _, SolidityTranscript>(rng, &circuit, &pkey, None)?;
+        PlonkKzgSnark::<Bn254>::prove::<_, _, SolidityTranscript>(&mut rng, &circuit, &pkey, None)?;
 
     Ok((jf_proof, jf_vkey))
 }
 
-pub fn convert_jf_proof_and_vkey(
-    jf_proof: JfProof<Bn254>,
-    jf_vkey: VerifyingKey<Bn254>,
-) -> (Proof, VerificationKey) {
-    (
-        Proof {
-            wire_comms: unwrap_commitments(&jf_proof.wires_poly_comms),
-            z_comm: jf_proof.prod_perm_poly_comm.0,
-            quotient_comms: unwrap_commitments(&jf_proof.split_quot_poly_comms),
-            w_zeta: jf_proof.opening_proof.0,
-            w_zeta_omega: jf_proof.shifted_opening_proof.0,
-            wire_evals: jf_proof.poly_evals.wires_evals.try_into().unwrap(),
-            sigma_evals: jf_proof.poly_evals.wire_sigma_evals.try_into().unwrap(),
-            z_bar: jf_proof.poly_evals.perm_next_eval,
-        },
-        VerificationKey {
-            n: jf_vkey.domain_size as u64,
-            l: jf_vkey.num_inputs as u64,
-            k: jf_vkey.k.try_into().unwrap(),
-            q_comms: unwrap_commitments(&jf_vkey.selector_comms),
-            sigma_comms: unwrap_commitments(&jf_vkey.sigma_comms),
-            g: jf_vkey.open_key.g,
-            h: jf_vkey.open_key.h,
-            x_h: jf_vkey.open_key.beta_h,
-        },
-    )
-}
-
-fn unwrap_commitments<const N: usize>(comms: &[Commitment<Bn254>]) -> [G1Affine; N] {
+fn try_unwrap_commitments<const N: usize>(comms: &[Commitment<Bn254>]) -> Result<[G1Affine; N]> {
     comms
         .iter()
         .map(|c| c.0)
         .collect::<Vec<_>>()
         .try_into()
-        .unwrap()
+        .map_err(|_| eyre!("failed to unwrap commitments"))
+}
+
+pub fn convert_jf_proof(jf_proof: JfProof<Bn254>) -> Result<Proof> {
+    Ok(Proof {
+        wire_comms: try_unwrap_commitments(&jf_proof.wires_poly_comms)?,
+        z_comm: jf_proof.prod_perm_poly_comm.0,
+        quotient_comms: try_unwrap_commitments(&jf_proof.split_quot_poly_comms)?,
+        w_zeta: jf_proof.opening_proof.0,
+        w_zeta_omega: jf_proof.shifted_opening_proof.0,
+        wire_evals: jf_proof
+            .poly_evals
+            .wires_evals
+            .try_into()
+            .map_err(|_| eyre!("failed to unwrap evaluations"))?,
+        sigma_evals: jf_proof
+            .poly_evals
+            .wire_sigma_evals
+            .try_into()
+            .map_err(|_| eyre!("failed to unwrap evaluations"))?,
+        z_bar: jf_proof.poly_evals.perm_next_eval,
+    })
+}
+
+pub fn convert_jf_vkey(jf_vkey: VerifyingKey<Bn254>) -> Result<VerificationKey> {
+    Ok(VerificationKey {
+        n: jf_vkey.domain_size as u64,
+        l: jf_vkey.num_inputs as u64,
+        k: jf_vkey
+            .k
+            .try_into()
+            .map_err(|_| eyre!("failed to unwrap evaluations"))?,
+        q_comms: try_unwrap_commitments(&jf_vkey.selector_comms)?,
+        sigma_comms: try_unwrap_commitments(&jf_vkey.sigma_comms)?,
+        g: jf_vkey.open_key.g,
+        h: jf_vkey.open_key.h,
+        x_h: jf_vkey.open_key.beta_h,
+    })
 }
 
 pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<Bn254>) {

@@ -51,7 +51,7 @@ pub const NUM_BYTES_SIGNATURE: usize = 65;
 pub const MERKLE_HEIGHT: usize = 32;
 
 /// The height of the Merkle tree used in testing
-pub const TEST_MERKLE_HEIGHT: usize = 5;
+pub const TEST_MERKLE_HEIGHT: usize = 3;
 
 /// The value of an empty leaf in the Merkle tree,
 /// computed as the Keccak-256 hash of the string "renegade",

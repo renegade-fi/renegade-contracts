@@ -83,6 +83,9 @@ pub const DEPLOYMENTS_KEY: &str = "deployments";
 /// The darkpool implementation contract key in the `deployments.json` file
 pub const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
 
+/// The darkpool test implementation contract key in the `deployments.json` file
+pub const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
+
 /// The darkpool proxy contract key in the `deployments.json` file
 pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
 
@@ -92,8 +95,14 @@ pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contra
 /// The merkle contract key in the `deployments.json` file
 pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 
+/// The merkle test contract key in the `deployments.json` file
+pub const MERKLE_TEST_CONTRACT_KEY: &str = "merkle_test_contract";
+
 /// The verifier contract key in the `deployments.json` file
 pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
 /// The dummy ERC20 contract key in the `deployments.json` file
 pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
+
+/// The domain size to use for generating test circuits
+pub const TEST_CIRCUIT_DOMAIN_SIZE: usize = 8192;

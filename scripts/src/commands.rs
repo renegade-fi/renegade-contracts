@@ -11,17 +11,17 @@ use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
-    cli::{DeployProxyArgs, DeployStylusArgs, UpgradeArgs},
+    cli::{DeployProxyArgs, DeployStylusArgs, StylusContract, UpgradeArgs},
     constants::{
-        DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY,
-        MERKLE_CONTRACT_KEY, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
-        PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, VERIFIER_CONTRACT_KEY,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
+        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT,
+        PROXY_BYTECODE, VERIFIER_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        parse_addr_from_deployments_file, write_deployed_address,
+        get_contract_key, parse_addr_from_deployments_file, write_deployed_address,
     },
 };
 
@@ -40,9 +40,20 @@ pub async fn deploy_proxy(
     let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
 
     // Parse proxy contract constructor arguments
+
+    let (darkpool_contract, merkle_contract) = if args.test {
+        (
+            StylusContract::DarkpoolTestContract,
+            StylusContract::MerkleTestContract,
+        )
+    } else {
+        (StylusContract::Darkpool, StylusContract::Merkle)
+    };
+
     let darkpool_address =
-        parse_addr_from_deployments_file(deployments_path, DARKPOOL_CONTRACT_KEY)?;
-    let merkle_address = parse_addr_from_deployments_file(deployments_path, MERKLE_CONTRACT_KEY)?;
+        parse_addr_from_deployments_file(deployments_path, get_contract_key(darkpool_contract))?;
+    let merkle_address =
+        parse_addr_from_deployments_file(deployments_path, get_contract_key(merkle_contract))?;
     let verifier_address =
         parse_addr_from_deployments_file(deployments_path, VERIFIER_CONTRACT_KEY)?;
 
@@ -52,6 +63,7 @@ pub async fn deploy_proxy(
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         verifier_address,
         merkle_address,
+        args.test,
     )?);
 
     info!(
@@ -137,8 +149,15 @@ pub async fn upgrade(
 
     let proxy_address =
         parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
+
+    let darkpool_contract = if args.test {
+        StylusContract::DarkpoolTestContract
+    } else {
+        StylusContract::Darkpool
+    };
+
     let implementation_address =
-        parse_addr_from_deployments_file(deployments_path, DARKPOOL_CONTRACT_KEY)?;
+        parse_addr_from_deployments_file(deployments_path, get_contract_key(darkpool_contract))?;
 
     let data = if let Some(calldata) = args.calldata {
         Bytes::from_hex(calldata).map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?
