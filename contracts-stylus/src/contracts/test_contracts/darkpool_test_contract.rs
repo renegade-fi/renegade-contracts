@@ -1,12 +1,15 @@
 use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
-use common::{serde_def_types::SerdeScalarField, types::ExternalTransfer};
-use stylus_sdk::{abi::Bytes, prelude::*};
+use common::types::ExternalTransfer;
+use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
 
 use crate::{
     contracts::darkpool::DarkpoolContract,
-    utils::{helpers::delegate_call_helper, solidity::initCall},
+    utils::{
+        helpers::{delegate_call_helper, u256_to_scalar},
+        solidity::initCall,
+    },
 };
 
 #[solidity_storage]
@@ -20,9 +23,9 @@ struct DarkpoolTestContract {
 #[external]
 #[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
-    pub fn mark_nullifier_spent(&mut self, nullifier: Bytes) -> Result<(), Vec<u8>> {
-        let nullifier: SerdeScalarField = postcard::from_bytes(nullifier.as_slice()).unwrap();
-        DarkpoolContract::mark_nullifier_spent(self, nullifier.0);
+    pub fn mark_nullifier_spent(&mut self, nullifier: U256) -> Result<(), Vec<u8>> {
+        let nullifier = u256_to_scalar(nullifier).unwrap();
+        DarkpoolContract::mark_nullifier_spent(self, nullifier);
         Ok(())
     }
 

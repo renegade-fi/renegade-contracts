@@ -21,10 +21,9 @@ use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     misc::random_scalars,
-    proof_system::{convert_jf_proof_and_vkey, dummy_vkeys, gen_jf_proof_and_vkey},
+    proof_system::{convert_jf_proof_and_vkey, gen_jf_proof_and_vkey},
     renegade_circuits::{
-        circuit_bundle_from_statement, dummy_circuit_bundle, gen_valid_wallet_update_statement,
-        Circuit,
+        dummy_circuit_bundle, gen_valid_wallet_update_statement, proof_from_statement,
     },
 };
 
@@ -35,10 +34,9 @@ use crate::{
     },
     constants::{L, N, TRANSFER_AMOUNT},
     utils::{
-        assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
-        execute_transfer_and_get_balances, get_process_match_settle_data,
-        insert_shares_and_get_root, mint_dummy_erc20, serialize_to_calldata,
-        setup_darkpool_test_contract,
+        dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
+        get_process_match_settle_data, insert_shares_and_get_root, mint_dummy_erc20,
+        scalar_to_u256, serialize_to_calldata, u256_to_scalar,
     },
 };
 
@@ -150,21 +148,19 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
             .update(i, &compute_poseidon_hash(&[leaf]))
             .unwrap();
         contract
-            .insert_shares_commitment(serialize_to_calldata(&vec![SerdeScalarField(leaf)])?)
+            .insert_shares_commitment(vec![scalar_to_u256(leaf)])
             .send()
             .await?
             .await?;
     }
 
-    let contract_root: SerdeScalarField = postcard::from_bytes(&contract.root().call().await?)?;
+    let contract_root = u256_to_scalar(contract.root().call().await?)?;
 
-    assert_eq!(ark_merkle.root(), contract_root.0, "Merkle root incorrect");
+    assert_eq!(ark_merkle.root(), contract_root, "Merkle root incorrect");
 
     assert!(
         contract
-            .insert_shares_commitment(serialize_to_calldata(&vec![SerdeScalarField(
-                ScalarField::rand(&mut rng)
-            )])?)
+            .insert_shares_commitment(vec![scalar_to_u256(ScalarField::rand(&mut rng))])
             .send()
             .await
             .is_err(),
@@ -221,10 +217,10 @@ pub(crate) async fn test_upgradeable(
 
     // Mark a random nullifier as spent to test that it is not cleared on upgrade
     let mut rng = thread_rng();
-    let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(ScalarField::rand(&mut rng)))?;
+    let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
 
     darkpool
-        .mark_nullifier_spent(nullifier_bytes.clone())
+        .mark_nullifier_spent(nullifier)
         .send()
         .await?
         .await?;
@@ -288,115 +284,7 @@ pub(crate) async fn test_upgradeable(
     // we can call the `is_nullifier_spent` method through the proxy,
     // indicating that the upgrade back to the darkpool test contract
     // was successful
-    assert!(darkpool.is_nullifier_spent(nullifier_bytes).call().await?);
-
-    Ok(())
-}
-
-pub(crate) async fn test_ownable(
-    contract: DarkpoolTestContract<impl Middleware + 'static>,
-    verifier_address: Address,
-    merkle_address: Address,
-) -> Result<()> {
-    // Set up contract instance w/ dummy signer
-    let mut rng = thread_rng();
-    let dummy_signer = Arc::new(
-        SignerMiddleware::new_with_provider_chain(contract.client(), LocalWallet::new(&mut rng))
-            .await?,
-    );
-    let contract_with_dummy_signer = DarkpoolTestContract::new(contract.address(), dummy_signer);
-
-    // Set up test data
-    let dummy_verifier_address = Address::random();
-    let dummy_vkey_bytes = Bytes::from(postcard::to_allocvec(&dummy_vkeys(N as u64, L as u64).0)?);
-
-    // Assert that transferring to 0 address fails
-    assert!(
-        contract
-            .transfer_ownership(Address::zero())
-            .send()
-            .await
-            .is_err(),
-        "Transferred ownership to 0 address"
-    );
-
-    // Assert that `setVerifierAddress` only succeeds for the owner
-    assert_only_owner::<_, Address>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setVerifierAddress",
-        dummy_verifier_address,
-    )
-    .await?;
-
-    // Assert that `setMerkleAddress` only succeeds for the owner
-    assert_only_owner::<_, Address>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setMerkleAddress",
-        dummy_verifier_address,
-    )
-    .await?;
-
-    // Assert that `setValidWalletCreateVkey` only succeeds for the owner
-    assert_only_owner::<_, Bytes>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setValidWalletCreateVkey",
-        dummy_vkey_bytes.clone(),
-    )
-    .await?;
-
-    // Assert that `setValidWalletUpdateVkey` only succeeds for the owner
-    assert_only_owner::<_, Bytes>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setValidWalletUpdateVkey",
-        dummy_vkey_bytes.clone(),
-    )
-    .await?;
-
-    // Assert that `setValidCommitmentsVkey` only succeeds for the owner
-    assert_only_owner::<_, Bytes>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setValidCommitmentsVkey",
-        dummy_vkey_bytes.clone(),
-    )
-    .await?;
-
-    // Assert that `setValidReblindVkey` only succeeds for the owner
-    assert_only_owner::<_, Bytes>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setValidReblindVkey",
-        dummy_vkey_bytes.clone(),
-    )
-    .await?;
-
-    // Assert that `setValidMatchSettleVkey` only succeeds for the owner
-    assert_only_owner::<_, Bytes>(
-        &contract,
-        &contract_with_dummy_signer,
-        "setValidMatchSettleVkey",
-        dummy_vkey_bytes.clone(),
-    )
-    .await?;
-
-    // Reset proper verifier & merkle addresses.
-    // We don't reset verification keys since other tests are assumed
-    // to set them properly themselves.
-    contract
-        .set_verifier_address(verifier_address)
-        .send()
-        .await?
-        .await?;
-
-    contract
-        .set_merkle_address(merkle_address)
-        .send()
-        .await?
-        .await?;
+    assert!(darkpool.is_nullifier_spent(nullifier).call().await?);
 
     Ok(())
 }
@@ -404,16 +292,19 @@ pub(crate) async fn test_ownable(
 pub(crate) async fn test_initializable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
-    let dummy_owner_address = Address::random();
     let dummy_verifier_address = Address::random();
     let dummy_merkle_address = Address::random();
 
     assert!(
         contract
             .initialize(
-                dummy_owner_address,
                 dummy_verifier_address,
-                dummy_merkle_address
+                dummy_merkle_address,
+                Bytes::new(), /* valid_wallet_create_vkey */
+                Bytes::new(), /* valid_wallet_update_vkey */
+                Bytes::new(), /* valid_commitments_vkey */
+                Bytes::new(), /* valid_reblind_vkey */
+                Bytes::new(), /* valid_match_settle_vkey */
             )
             .send()
             .await
@@ -428,22 +319,19 @@ pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(ScalarField::rand(&mut rng)))?;
+    let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
 
-    let nullifier_spent = contract
-        .is_nullifier_spent(nullifier_bytes.clone())
-        .call()
-        .await?;
+    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
 
     assert!(!nullifier_spent, "Nullifier already spent");
 
     contract
-        .mark_nullifier_spent(nullifier_bytes.clone())
+        .mark_nullifier_spent(nullifier)
         .send()
         .await?
         .await?;
 
-    let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
+    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
 
     assert!(nullifier_spent, "Nullifier not spent");
 
@@ -516,22 +404,12 @@ pub(crate) async fn test_new_wallet(
 ) -> Result<()> {
     // Generate test data
     let mut rng = thread_rng();
-    let (valid_wallet_create_statement, vkey, proof) =
+    let (valid_wallet_create_statement, proof) =
         dummy_circuit_bundle::<ValidWalletCreateStatement>(N, &mut rng)?;
-
-    let wallet_blinder_share = SerdeScalarField(ScalarField::rand(&mut rng));
-
-    // Set up contract
-    setup_darkpool_test_contract(
-        &contract,
-        vec![(Circuit::ValidWalletCreate, serialize_to_calldata(&vkey)?)],
-    )
-    .await?;
 
     // Call `new_wallet` with valid data
     contract
         .new_wallet(
-            serialize_to_calldata(&wallet_blinder_share)?,
             serialize_to_calldata(&proof)?,
             serialize_to_calldata(&valid_wallet_create_statement)?,
         )
@@ -550,10 +428,7 @@ pub(crate) async fn test_new_wallet(
     )
     .unwrap();
 
-    let contract_root: ScalarField =
-        postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
-            .unwrap()
-            .0;
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
@@ -580,7 +455,7 @@ pub(crate) async fn test_update_wallet(
         pubkey,
     );
 
-    let (vkey, proof) = circuit_bundle_from_statement(&valid_wallet_update_statement, N)?;
+    let proof = proof_from_statement(&valid_wallet_update_statement, N)?;
 
     let valid_wallet_update_statement_bytes =
         serialize_to_calldata(&valid_wallet_update_statement)?;
@@ -588,19 +463,9 @@ pub(crate) async fn test_update_wallet(
         hash_and_sign_message(&signing_key, &valid_wallet_update_statement_bytes).to_vec(),
     );
 
-    let wallet_blinder_share = SerdeScalarField(ScalarField::rand(&mut rng));
-
-    // Set up contract
-    setup_darkpool_test_contract(
-        &contract,
-        vec![(Circuit::ValidWalletUpdate, serialize_to_calldata(&vkey)?)],
-    )
-    .await?;
-
     // Call `update_wallet` with valid data
     contract
         .update_wallet(
-            serialize_to_calldata(&wallet_blinder_share)?,
             serialize_to_calldata(&proof)?,
             valid_wallet_update_statement_bytes,
             public_inputs_signature,
@@ -610,11 +475,9 @@ pub(crate) async fn test_update_wallet(
         .await?;
 
     // Assert that correct nullifier is spent
-    let nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
-        valid_wallet_update_statement.old_shares_nullifier,
-    ))?;
+    let nullifier = scalar_to_u256(valid_wallet_update_statement.old_shares_nullifier);
 
-    let nullifier_spent = contract.is_nullifier_spent(nullifier_bytes).call().await?;
+    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
 
     // Assert that Merkle root is correct
@@ -625,10 +488,8 @@ pub(crate) async fn test_update_wallet(
         0, /* index */
     )
     .unwrap();
-    let contract_root: ScalarField =
-        postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
-            .unwrap()
-            .0;
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
@@ -647,26 +508,6 @@ pub(crate) async fn test_process_match_settle(
     let mut rng = thread_rng();
     let data = get_process_match_settle_data(&mut rng, ark_merkle.root())?;
 
-    // Set up contract
-    setup_darkpool_test_contract(
-        &contract,
-        vec![
-            (
-                Circuit::ValidCommitments,
-                serialize_to_calldata(&data.valid_commitments_vkey)?,
-            ),
-            (
-                Circuit::ValidReblind,
-                serialize_to_calldata(&data.valid_reblind_vkey)?,
-            ),
-            (
-                Circuit::ValidMatchSettle,
-                serialize_to_calldata(&data.valid_match_settle_vkey)?,
-            ),
-        ],
-    )
-    .await?;
-
     // Call `process_match_settle` with valid data
     contract
         .process_match_settle(
@@ -684,25 +525,25 @@ pub(crate) async fn test_process_match_settle(
         .await?;
 
     // Assert that correct nullifiers are spent
-    let party_0_nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
+    let party_0_nullifier = scalar_to_u256(
         data.party_0_match_payload
             .valid_reblind_statement
             .original_shares_nullifier,
-    ))?;
-    let party_1_nullifier_bytes = serialize_to_calldata(&SerdeScalarField(
+    );
+    let party_1_nullifier = scalar_to_u256(
         data.party_1_match_payload
             .valid_reblind_statement
             .original_shares_nullifier,
-    ))?;
+    );
 
     let party_0_nullifier_spent = contract
-        .is_nullifier_spent(party_0_nullifier_bytes)
+        .is_nullifier_spent(party_0_nullifier)
         .call()
         .await?;
     assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
 
     let party_1_nullifier_spent = contract
-        .is_nullifier_spent(party_1_nullifier_bytes)
+        .is_nullifier_spent(party_1_nullifier)
         .call()
         .await?;
     assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
@@ -727,10 +568,7 @@ pub(crate) async fn test_process_match_settle(
     )
     .unwrap();
 
-    let contract_root: ScalarField =
-        postcard::from_bytes::<SerdeScalarField>(&contract.get_root().call().await?)
-            .unwrap()
-            .0;
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 

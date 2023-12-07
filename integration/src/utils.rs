@@ -2,14 +2,17 @@
 
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
-use ark_std::UniformRand;
-use common::types::{
-    ExternalTransfer, MatchPayload, Proof, ScalarField, ValidCommitmentsStatement,
-    ValidMatchSettleStatement, VerificationKey,
+use common::{
+    constants::NUM_BYTES_FELT,
+    custom_serde::{BytesDeserializable, BytesSerializable},
+    types::{
+        ExternalTransfer, MatchPayload, Proof, ScalarField, ValidCommitmentsStatement,
+        ValidMatchSettleStatement,
+    },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::{
-    abi::{Address, Detokenize, Tokenize},
+    abi::Address,
     providers::Middleware,
     types::{Bytes, U256},
 };
@@ -22,9 +25,7 @@ use scripts::{
 use serde::Serialize;
 use test_helpers::{
     merkle::MerkleConfig,
-    renegade_circuits::{
-        circuit_bundle_from_statement, dummy_circuit_bundle, gen_valid_reblind_statement, Circuit,
-    },
+    renegade_circuits::{dummy_circuit_bundle, gen_valid_reblind_statement, proof_from_statement},
 };
 
 use crate::{
@@ -62,9 +63,6 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         Tests::Upgradeable => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?
         }
-        Tests::Ownable => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
-        }
         Tests::Initializable => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
         }
@@ -83,29 +81,21 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
     })
 }
 
-pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
-    Ok(postcard::to_allocvec(t)?.into())
+/// Converts a [`ScalarField`] to a [`ethers::types::U256`]
+pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
+    U256::from_big_endian(&scalar.serialize_to_bytes())
 }
 
-pub(crate) async fn setup_darkpool_test_contract(
-    contract: &DarkpoolTestContract<impl Middleware + 'static>,
-    vkeys: Vec<(Circuit, Bytes)>,
-) -> Result<()> {
-    // Set verification keys
-    for (circuit, vkey_bytes) in vkeys {
-        match circuit {
-            Circuit::ValidWalletCreate => contract.set_valid_wallet_create_vkey(vkey_bytes),
-            Circuit::ValidWalletUpdate => contract.set_valid_wallet_update_vkey(vkey_bytes),
-            Circuit::ValidCommitments => contract.set_valid_commitments_vkey(vkey_bytes),
-            Circuit::ValidReblind => contract.set_valid_reblind_vkey(vkey_bytes),
-            Circuit::ValidMatchSettle => contract.set_valid_match_settle_vkey(vkey_bytes),
-        }
-        .send()
-        .await?
-        .await?;
-    }
+/// Converts a [`ethers::types::U256`] to a [`ScalarField`]
+pub fn u256_to_scalar(u256: U256) -> Result<ScalarField> {
+    let mut scalar_bytes = [0_u8; NUM_BYTES_FELT];
+    u256.to_big_endian(&mut scalar_bytes);
+    ScalarField::deserialize_from_bytes(&scalar_bytes)
+        .map_err(|_| eyre!("failed converting U256 to scalar"))
+}
 
-    Ok(())
+pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
+    Ok(postcard::to_allocvec(t)?.into())
 }
 
 pub struct ProcessMatchSettleData {
@@ -117,46 +107,33 @@ pub struct ProcessMatchSettleData {
     pub party_1_valid_reblind_proof: Proof,
     pub valid_match_settle_proof: Proof,
     pub valid_match_settle_statement: ValidMatchSettleStatement,
-    pub valid_commitments_vkey: VerificationKey,
-    pub valid_reblind_vkey: VerificationKey,
-    pub valid_match_settle_vkey: VerificationKey,
 }
 
 pub(crate) fn get_process_match_settle_data(
     rng: &mut impl Rng,
     merkle_root: ScalarField,
 ) -> Result<ProcessMatchSettleData> {
-    let (
-        party_0_valid_commitments_statement,
-        valid_commitments_vkey,
-        party_0_valid_commitments_proof,
-    ) = dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
+    let (party_0_valid_commitments_statement, party_0_valid_commitments_proof) =
+        dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
 
     let party_0_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
-    let (valid_reblind_vkey, party_0_valid_reblind_proof) =
-        circuit_bundle_from_statement(&party_0_valid_reblind_statement, N)?;
+    let party_0_valid_reblind_proof = proof_from_statement(&party_0_valid_reblind_statement, N)?;
 
-    let (party_1_valid_commitments_statement, _, party_1_valid_commitments_proof) =
+    let (party_1_valid_commitments_statement, party_1_valid_commitments_proof) =
         dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
 
     let party_1_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
-    let (_, party_1_valid_reblind_proof) =
-        circuit_bundle_from_statement(&party_1_valid_reblind_statement, N)?;
+    let party_1_valid_reblind_proof = proof_from_statement(&party_1_valid_reblind_statement, N)?;
 
-    let (valid_match_settle_statement, valid_match_settle_vkey, valid_match_settle_proof) =
+    let (valid_match_settle_statement, valid_match_settle_proof) =
         dummy_circuit_bundle::<ValidMatchSettleStatement>(N, rng)?;
 
-    let party_0_wallet_blinder_share = ScalarField::rand(rng);
-    let party_1_wallet_blinder_share = ScalarField::rand(rng);
-
     let party_0_match_payload = MatchPayload {
-        wallet_blinder_share: party_0_wallet_blinder_share,
         valid_commitments_statement: party_0_valid_commitments_statement,
         valid_reblind_statement: party_0_valid_reblind_statement,
     };
 
     let party_1_match_payload = MatchPayload {
-        wallet_blinder_share: party_1_wallet_blinder_share,
         valid_commitments_statement: party_1_valid_commitments_statement,
         valid_reblind_statement: party_1_valid_reblind_statement,
     };
@@ -170,9 +147,6 @@ pub(crate) fn get_process_match_settle_data(
         party_1_valid_reblind_proof,
         valid_match_settle_proof,
         valid_match_settle_statement,
-        valid_commitments_vkey,
-        valid_reblind_vkey,
-        valid_match_settle_vkey,
     })
 }
 
@@ -233,39 +207,6 @@ pub(crate) async fn execute_transfer_and_get_balances(
         .await?;
 
     Ok((darkpool_balance, user_balance))
-}
-
-pub(crate) async fn assert_only_owner<T, D>(
-    darkpool_contract: &DarkpoolTestContract<impl Middleware + 'static>,
-    dummy_signer_darkpool_contract: &DarkpoolTestContract<impl Middleware + 'static>,
-    method_name: &str,
-    args: T,
-) -> Result<()>
-where
-    T: Tokenize + Clone,
-    D: Detokenize,
-{
-    assert!(
-        dummy_signer_darkpool_contract
-            .method::<T, D>(method_name, args.clone())?
-            .send()
-            .await
-            .is_err(),
-        "{} succeeded as non-owner",
-        method_name,
-    );
-    assert!(
-        darkpool_contract
-            .method::<T, D>(method_name, args)?
-            .send()
-            .await?
-            .await
-            .is_ok(),
-        "{} failed as owner",
-        method_name
-    );
-
-    Ok(())
 }
 
 pub(crate) fn insert_shares_and_get_root(
