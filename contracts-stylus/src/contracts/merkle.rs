@@ -71,7 +71,7 @@ where
         let mut merkle_tree: SparseMerkleTree<{ P::HEIGHT }> =
             postcard::from_bytes(&self.merkle_tree.get_bytes()).unwrap();
 
-        let shares: Vec<ScalarField> = shares.into_iter().map(u256_to_scalar).collect();
+        let shares: Vec<ScalarField> = shares.into_iter().map(|u| u256_to_scalar(u).unwrap()).collect();
 
         let shares_commitment = compute_poseidon_hash(&shares);
 

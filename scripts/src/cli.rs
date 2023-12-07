@@ -9,7 +9,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, upgrade, upload_vkey},
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, upgrade},
     errors::ScriptError,
 };
 
@@ -37,7 +37,6 @@ pub enum Command {
     DeployProxy(DeployProxyArgs),
     DeployStylus(DeployStylusArgs),
     Upgrade(UpgradeArgs),
-    UploadVkey(UploadVkeyArgs),
 }
 
 impl Command {
@@ -55,7 +54,6 @@ impl Command {
                     .await
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
-            Command::UploadVkey(args) => upload_vkey(args, client, deployments_path).await,
         }
     }
 }
@@ -118,21 +116,4 @@ pub struct UpgradeArgs {
     /// call the implementation contract when upgrading
     #[arg(short, long)]
     pub calldata: Option<String>,
-}
-
-/// Upload a new verification key
-#[derive(Args)]
-pub struct UploadVkeyArgs {
-    /// Which circuit to upload the verification key for
-    #[arg(short, long)]
-    pub circuit: Circuit,
-}
-
-#[derive(ValueEnum, Copy, Clone)]
-pub enum Circuit {
-    ValidWalletCreate,
-    ValidWalletUpdate,
-    ValidCommitments,
-    ValidReblind,
-    ValidMatchSettle,
 }

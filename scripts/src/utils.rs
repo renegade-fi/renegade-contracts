@@ -35,7 +35,7 @@ use mpc_plonk::proof_system::structs::VerifyingKey;
 use tracing::log::warn;
 
 use crate::{
-    cli::{Circuit, StylusContract},
+    cli::StylusContract,
     constants::{
         BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
         DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
@@ -46,6 +46,14 @@ use crate::{
     errors::ScriptError,
     solidity::initializeCall,
 };
+
+pub enum Circuit {
+    ValidWalletCreate,
+    ValidWalletUpdate,
+    ValidCommitments,
+    ValidReblind,
+    ValidMatchSettle,
+}
 
 /// Sets up the address and client with which to instantiate a contract for testing,
 /// reading in the private key, RPC url, and contract address from the environment.
@@ -129,14 +137,28 @@ fn get_contract_key(contract: StylusContract) -> &'static str {
 
 /// Prepare calldata for the Darkpool contract's `initialize` method
 pub fn darkpool_initialize_calldata(
-    owner_address: Address,
     verifier_address: Address,
     merkle_address: Address,
 ) -> Result<Vec<u8>, ScriptError> {
-    let owner_address = AlloyAddress::from_slice(owner_address.as_bytes());
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
-    Ok(initializeCall::new((owner_address, verifier_address, merkle_address)).encode())
+
+    let valid_wallet_create_vkey_bytes = gen_vkey_bytes(Circuit::ValidWalletCreate)?;
+    let valid_wallet_update_vkey_bytes = gen_vkey_bytes(Circuit::ValidWalletUpdate)?;
+    let valid_commitments_vkey_bytes = gen_vkey_bytes(Circuit::ValidCommitments)?;
+    let valid_reblind_vkey_bytes = gen_vkey_bytes(Circuit::ValidReblind)?;
+    let valid_match_settle_vkey_bytes = gen_vkey_bytes(Circuit::ValidMatchSettle)?;
+
+    Ok(initializeCall::new((
+        verifier_address,
+        merkle_address,
+        valid_wallet_create_vkey_bytes,
+        valid_wallet_update_vkey_bytes,
+        valid_commitments_vkey_bytes,
+        valid_reblind_vkey_bytes,
+        valid_match_settle_vkey_bytes,
+    ))
+    .encode())
 }
 
 fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {

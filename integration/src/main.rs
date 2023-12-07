@@ -8,7 +8,6 @@ use clap::Parser;
 use cli::{Cli, Tests};
 use constants::{
     DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
-    MERKLE_TEST_CONTRACT_KEY,
 };
 use eyre::Result;
 use scripts::{
@@ -17,7 +16,7 @@ use scripts::{
 };
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
-    test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable,
+    test_initializable, test_merkle, test_new_wallet, test_nullifier_set,
     test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier,
 };
 use utils::get_test_contract_address;
@@ -96,15 +95,6 @@ async fn main() -> Result<()> {
                 darkpool_address,
             )
             .await?;
-        }
-        Tests::Ownable => {
-            let contract = DarkpoolTestContract::new(contract_address, client.clone());
-            let verifier_address =
-                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
-            let merkle_address =
-                parse_addr_from_deployments_file(&deployments_file, MERKLE_TEST_CONTRACT_KEY)?;
-
-            test_ownable(contract, verifier_address, merkle_address).await?;
         }
         Tests::Initializable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());

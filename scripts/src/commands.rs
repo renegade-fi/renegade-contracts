@@ -11,17 +11,17 @@ use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
-    cli::{Circuit, DeployProxyArgs, DeployStylusArgs, UpgradeArgs, UploadVkeyArgs},
+    cli::{DeployProxyArgs, DeployStylusArgs, UpgradeArgs},
     constants::{
         DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY,
         MERKLE_CONTRACT_KEY, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
         PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, VERIFIER_CONTRACT_KEY,
     },
     errors::ScriptError,
-    solidity::{DarkpoolContract, ProxyAdminContract},
+    solidity::ProxyAdminContract,
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        gen_vkey_bytes, parse_addr_from_deployments_file, write_deployed_address,
+        parse_addr_from_deployments_file, write_deployed_address,
     },
 };
 
@@ -50,7 +50,6 @@ pub async fn deploy_proxy(
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
-        owner_address,
         verifier_address,
         merkle_address,
     )?);
@@ -150,34 +149,6 @@ pub async fn upgrade(
     proxy_admin
         .upgrade_and_call(proxy_address, implementation_address, data)
         .send()
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?;
-
-    Ok(())
-}
-
-pub async fn upload_vkey(
-    args: UploadVkeyArgs,
-    client: Arc<impl Middleware>,
-    deployments_path: &str,
-) -> Result<(), ScriptError> {
-    let darkpool_address =
-        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
-    let darkpool = DarkpoolContract::new(darkpool_address, client);
-
-    let vkey_bytes = gen_vkey_bytes(args.circuit)?;
-
-    let tx = match args.circuit {
-        Circuit::ValidWalletCreate => darkpool.set_valid_wallet_create_vkey(vkey_bytes.into()),
-        Circuit::ValidWalletUpdate => darkpool.set_valid_wallet_update_vkey(vkey_bytes.into()),
-        Circuit::ValidCommitments => darkpool.set_valid_commitments_vkey(vkey_bytes.into()),
-        Circuit::ValidReblind => darkpool.set_valid_reblind_vkey(vkey_bytes.into()),
-        Circuit::ValidMatchSettle => darkpool.set_valid_match_settle_vkey(vkey_bytes.into()),
-    };
-
-    tx.send()
         .await
         .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
         .await
