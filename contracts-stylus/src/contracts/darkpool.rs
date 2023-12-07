@@ -186,6 +186,7 @@ impl DarkpoolContract {
         );
 
         DarkpoolContract::log_wallet_update(
+            // We assume the wallet blinder is the last scalar serialized into the wallet shares
             *valid_wallet_create_statement
                 .public_wallet_shares
                 .last()
@@ -245,6 +246,7 @@ impl DarkpoolContract {
         }
 
         DarkpoolContract::log_wallet_update(
+            // We assume the wallet blinder is the last scalar serialized into the wallet shares
             *valid_wallet_update_statement
                 .new_public_shares
                 .last()
@@ -487,6 +489,7 @@ impl DarkpoolContract {
                 .original_shares_nullifier,
         );
 
+        // We assume the wallet blinder is the last scalar serialized into the wallet shares
         let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
         evm::log(WalletUpdated {
             wallet_blinder_share,
