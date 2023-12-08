@@ -4,3 +4,4 @@
 /deployments.*.json
 /.vscode
 /solidity_artifacts
+/srs

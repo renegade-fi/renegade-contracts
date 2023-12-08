@@ -33,8 +33,7 @@ use crate::{
         helpers::{delegate_call_helper, scalar_to_u256, serialize_statement_for_verification},
         solidity::{
             initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
-            ExternalTransfer as ExternalTransferEvent, NullifierSpent, VerificationKeySet,
-            WalletUpdated, IERC20,
+            ExternalTransfer as ExternalTransferEvent, NullifierSpent, WalletUpdated, IERC20,
         },
     },
 };
@@ -341,8 +340,6 @@ impl DarkpoolContract {
         let this = storage.borrow_mut();
         let mut slot = this.verification_keys.setter(circuit_id);
         slot.set_bytes(vkey.clone());
-
-        evm::log(VerificationKeySet {})
     }
 
     // ----------------

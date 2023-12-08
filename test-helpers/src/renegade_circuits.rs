@@ -13,6 +13,8 @@ use common::{
         ValidWalletUpdateStatement,
     },
 };
+use constants::SystemCurve;
+use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use core::iter;
 use eyre::{eyre, Result};
 use rand::Rng;
@@ -118,24 +120,26 @@ fn dummy_public_signing_key(rng: &mut impl Rng) -> PublicSigningKey {
 }
 
 pub fn proof_from_statement<S: RenegadeStatement>(
+    srs: &UnivariateUniversalParams<SystemCurve>,
     statement: &S,
     num_public_inputs: usize,
 ) -> Result<Proof> {
     let public_inputs = statement
         .serialize_to_scalars()
         .map_err(|_| eyre!("failed to serialize statement to scalars"))?;
-    let (jf_proof, _) = gen_jf_proof_and_vkey(num_public_inputs, &public_inputs)?;
+    let (jf_proof, _) = gen_jf_proof_and_vkey(srs, num_public_inputs, &public_inputs)?;
     let proof = convert_jf_proof(jf_proof)?;
 
     Ok(proof)
 }
 
 pub fn dummy_circuit_bundle<S: RenegadeStatement>(
+    srs: &UnivariateUniversalParams<SystemCurve>,
     num_public_inputs: usize,
     rng: &mut impl Rng,
 ) -> Result<(S, Proof)> {
     let statement = S::dummy(rng);
-    let proof = proof_from_statement(&statement, num_public_inputs)?;
+    let proof = proof_from_statement(srs, &statement, num_public_inputs)?;
     Ok((statement, proof))
 }
 

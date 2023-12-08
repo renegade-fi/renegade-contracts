@@ -13,8 +13,12 @@ pub(crate) struct Cli {
     pub(crate) test: Tests,
 
     /// Path to file containing contract deployment info
-    #[arg(short = 'f', long)]
+    #[arg(short, long)]
     pub(crate) deployments_file: String,
+
+    /// Path to file containing SRS
+    #[arg(short, long)]
+    pub(crate) srs_file: String,
 
     /// Devnet private key, defaults to default Nitro devnet private key
     #[arg(short, long, default_value = DEFAULT_DEVNET_PKEY)]

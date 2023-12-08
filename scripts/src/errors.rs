@@ -30,8 +30,10 @@ pub enum ScriptError {
     Serde(String),
     /// Error converting between relayer and contract types
     ConversionError,
-    /// Error creating a test circuit
-    TestCircuitCreation,
+    /// Error creating a circuit
+    CircuitCreation,
+    /// Error generating an SRS
+    SrsGeneration(String),
 }
 
 impl Display for ScriptError {
@@ -50,7 +52,8 @@ impl Display for ScriptError {
             ScriptError::ContractCompilation(s) => write!(f, "error compiling contract: {}", s),
             ScriptError::Serde(s) => write!(f, "error de/serializing calldata: {}", s),
             ScriptError::ConversionError => write!(f, "error converting between types"),
-            ScriptError::TestCircuitCreation => write!(f, "error creating test circuit"),
+            ScriptError::CircuitCreation => write!(f, "error creating circuit"),
+            ScriptError::SrsGeneration(s) => write!(f, "error generating SRS: {}", s),
         }
     }
 }

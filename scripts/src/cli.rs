@@ -9,7 +9,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_vkeys, upgrade},
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_srs, upgrade},
+    constants::DEFAULT_SRS_DEGREE,
     errors::ScriptError,
 };
 
@@ -37,7 +38,7 @@ pub enum Command {
     DeployProxy(DeployProxyArgs),
     DeployStylus(DeployStylusArgs),
     Upgrade(UpgradeArgs),
-    GenVkeys(GenVkeyArgs),
+    GenSrs(GenSrsArgs),
 }
 
 impl Command {
@@ -55,7 +56,7 @@ impl Command {
                     .await
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
-            Command::GenVkeys(args) => gen_vkeys(args),
+            Command::GenSrs(args) => gen_srs(args),
         }
     }
 }
@@ -74,11 +75,13 @@ pub struct DeployProxyArgs {
     #[arg(short, long)]
     pub owner: String,
 
-    /// The file path from which to read the serialized verification keys
+    /// The file path from which to read the serialized SRS.
+    ///
+    /// Can be left unset if verification is disabled in the contracts.
     #[arg(short, long)]
-    pub vkeys_path: String,
+    pub srs_path: Option<String>,
 
-    /// Whether or not to use the testing contracts.
+    /// Whether or not to generate testing verification keys
     #[arg(short, long)]
     pub test: bool,
 }
@@ -126,21 +129,16 @@ pub struct UpgradeArgs {
     /// call the implementation contract when upgrading
     #[arg(short, long)]
     pub calldata: Option<String>,
-
-    /// Whether or not to use the darkpool test contract address
-    /// as the new implementation address
-    #[arg(short, long)]
-    pub test: bool,
 }
 
-/// Generate verification keys for the system circuits
+/// Generate an SRS for proving/verification keys
 #[derive(Args)]
-pub struct GenVkeyArgs {
-    /// The file path at which to write the serialized verification keys
+pub struct GenSrsArgs {
+    /// The file path at which to write the serialized SRS
     #[arg(short, long)]
-    pub vkeys_path: String,
+    pub srs_path: String,
 
-    /// Whether or not to use testing circuits
-    #[arg(short, long)]
-    pub test: bool,
+    /// The degree of the SRS to generate
+    #[arg(short, long, default_value_t = DEFAULT_SRS_DEGREE)]
+    pub degree: usize,
 }

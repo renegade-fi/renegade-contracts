@@ -5,17 +5,20 @@ use std::sync::Arc;
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
+use circuit_types::test_helpers::TESTING_SRS;
 use common::{
     constants::TEST_MERKLE_HEIGHT,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, ScalarField, ValidWalletCreateStatement, VerificationBundle},
 };
+use constants::SystemCurve;
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
     abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,
     types::Bytes, utils::keccak256,
 };
 use eyre::Result;
+use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::{thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
@@ -176,7 +179,7 @@ pub(crate) async fn test_verifier(
 ) -> Result<()> {
     let mut rng = thread_rng();
     let public_inputs = random_scalars(L, &mut rng);
-    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(N, &public_inputs)?;
+    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs)?;
     let proof = convert_jf_proof(jf_proof)?;
     let vkey = convert_jf_vkey(jf_vkey)?;
 
@@ -402,11 +405,12 @@ pub(crate) async fn test_external_transfer(
 
 pub(crate) async fn test_new_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     // Generate test data
     let mut rng = thread_rng();
     let (valid_wallet_create_statement, proof) =
-        dummy_circuit_bundle::<ValidWalletCreateStatement>(N, &mut rng)?;
+        dummy_circuit_bundle::<ValidWalletCreateStatement>(srs, N, &mut rng)?;
 
     // Call `new_wallet` with valid data
     contract
@@ -441,6 +445,7 @@ pub(crate) async fn test_new_wallet(
 
 pub(crate) async fn test_update_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
@@ -456,7 +461,7 @@ pub(crate) async fn test_update_wallet(
         pubkey,
     );
 
-    let proof = proof_from_statement(&valid_wallet_update_statement, N)?;
+    let proof = proof_from_statement(srs, &valid_wallet_update_statement, N)?;
 
     let valid_wallet_update_statement_bytes =
         serialize_to_calldata(&valid_wallet_update_statement)?;
@@ -502,12 +507,13 @@ pub(crate) async fn test_update_wallet(
 
 pub(crate) async fn test_process_match_settle(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
     let mut rng = thread_rng();
-    let data = get_process_match_settle_data(&mut rng, ark_merkle.root())?;
+    let data = get_process_match_settle_data(&mut rng, srs, ark_merkle.root())?;
 
     // Call `process_match_settle` with valid data
     contract
