@@ -10,6 +10,7 @@ use common::{
         ValidMatchSettleStatement,
     },
 };
+use constants::SystemCurve;
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::{
     abi::Address,
@@ -17,10 +18,11 @@ use ethers::{
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
+use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::Rng;
 use scripts::{
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
     },
     utils::parse_addr_from_deployments_file,
 };
@@ -53,9 +55,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         Tests::NullifierSet => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
         }
-        Tests::Merkle => {
-            parse_addr_from_deployments_file(deployments_file, MERKLE_TEST_CONTRACT_KEY)?
-        }
+        Tests::Merkle => parse_addr_from_deployments_file(deployments_file, MERKLE_CONTRACT_KEY)?,
         Tests::Verifier => {
             parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
         }
@@ -110,22 +110,25 @@ pub struct ProcessMatchSettleData {
 
 pub(crate) fn get_process_match_settle_data(
     rng: &mut impl Rng,
+    srs: &UnivariateUniversalParams<SystemCurve>,
     merkle_root: ScalarField,
 ) -> Result<ProcessMatchSettleData> {
     let (party_0_valid_commitments_statement, party_0_valid_commitments_proof) =
-        dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
+        dummy_circuit_bundle::<ValidCommitmentsStatement>(srs, N, rng)?;
 
     let party_0_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
-    let party_0_valid_reblind_proof = proof_from_statement(&party_0_valid_reblind_statement, N)?;
+    let party_0_valid_reblind_proof =
+        proof_from_statement(srs, &party_0_valid_reblind_statement, N)?;
 
     let (party_1_valid_commitments_statement, party_1_valid_commitments_proof) =
-        dummy_circuit_bundle::<ValidCommitmentsStatement>(N, rng)?;
+        dummy_circuit_bundle::<ValidCommitmentsStatement>(srs, N, rng)?;
 
     let party_1_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
-    let party_1_valid_reblind_proof = proof_from_statement(&party_1_valid_reblind_statement, N)?;
+    let party_1_valid_reblind_proof =
+        proof_from_statement(srs, &party_1_valid_reblind_statement, N)?;
 
     let (valid_match_settle_statement, valid_match_settle_proof) =
-        dummy_circuit_bundle::<ValidMatchSettleStatement>(N, rng)?;
+        dummy_circuit_bundle::<ValidMatchSettleStatement>(srs, N, rng)?;
 
     let party_0_match_payload = MatchPayload {
         valid_commitments_statement: party_0_valid_commitments_statement,

@@ -83,9 +83,6 @@ pub const DEPLOYMENTS_KEY: &str = "deployments";
 /// The darkpool implementation contract key in the `deployments.json` file
 pub const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
 
-/// The darkpool test implementation contract key in the `deployments.json` file
-pub const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
-
 /// The darkpool proxy contract key in the `deployments.json` file
 pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
 
@@ -95,35 +92,14 @@ pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contra
 /// The merkle contract key in the `deployments.json` file
 pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 
-/// The merkle test contract key in the `deployments.json` file
-pub const MERKLE_TEST_CONTRACT_KEY: &str = "merkle_test_contract";
-
 /// The verifier contract key in the `deployments.json` file
 pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
 /// The dummy ERC20 contract key in the `deployments.json` file
 pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
 
-/// The key for the field containing production verification keys in the `vkeys.json` file
-pub const PROD_VKEYS_KEY: &str = "prod";
-
-/// The key for the field containing testing verification keys in the `vkeys.json` file
-pub const TEST_VKEYS_KEY: &str = "test";
-
-/// The key for the `VALID WALLET CREATE` field in the `vkeys.json` file
-pub const VALID_WALLET_CREATE_VKEY_KEY: &str = "valid_wallet_create";
-
-/// The key for the `VALID WALLET UPDATE` field in the `vkeys.json` file
-pub const VALID_WALLET_UPDATE_VKEY_KEY: &str = "valid_wallet_update";
-
-/// The key for the `VALID COMMITMENTS` field in the `vkeys.json` file
-pub const VALID_COMMITMENTS_VKEY_KEY: &str = "valid_commitments";
-
-/// The key for the `VALID REBLIND` field in the `vkeys.json` file
-pub const VALID_REBLIND_VKEY_KEY: &str = "valid_reblind";
-
-/// The key for the `VALID MATCH SETTLE` field in the `vkeys.json` file
-pub const VALID_MATCH_SETTLE_VKEY_KEY: &str = "valid_match_settle";
+/// The default degree to use for generating an SRS
+pub const DEFAULT_SRS_DEGREE: usize = 2048;
 
 /// The domain size to use for generating test circuits
-pub const TEST_CIRCUIT_DOMAIN_SIZE: usize = 8192;
+pub const TEST_CIRCUIT_DOMAIN_SIZE: usize = 1024;

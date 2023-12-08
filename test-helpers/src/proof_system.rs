@@ -1,16 +1,17 @@
 //! General PLONK proof system construction test helpers
 
 use alloc::{vec, vec::Vec};
-use ark_bn254::Bn254;
 use ark_ec::AffineRepr;
 use ark_std::UniformRand;
-use circuit_types::test_helpers::TESTING_SRS;
+use circuit_types::traits::{BaseType, CircuitBaseType, SingleProverCircuit};
 use common::{
     constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
+use constants::{Scalar, SystemCurve};
+use core::iter;
 use eyre::{eyre, Result};
-use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
+use jf_primitives::pcs::prelude::{Commitment, UnivariateUniversalParams, UnivariateVerifierParam};
 use mpc_plonk::{
     errors::PlonkError,
     proof_system::PlonkKzgSnark,
@@ -44,35 +45,64 @@ pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircu
 }
 
 pub fn gen_test_circuit_and_keys(
+    srs: &UnivariateUniversalParams<SystemCurve>,
     n: usize,
     public_inputs: &[ScalarField],
 ) -> Result<(
     PlonkCircuit<ScalarField>,
-    ProvingKey<Bn254>,
-    VerifyingKey<Bn254>,
+    ProvingKey<SystemCurve>,
+    VerifyingKey<SystemCurve>,
 )> {
     let circuit = gen_circuit(n, public_inputs)?;
 
-    let (pkey, vkey) = PlonkKzgSnark::<Bn254>::preprocess(&TESTING_SRS, &circuit)?;
+    let (pkey, vkey) = PlonkKzgSnark::<SystemCurve>::preprocess(srs, &circuit)?;
 
     Ok((circuit, pkey, vkey))
 }
 
+pub fn gen_circuit_keys<C: SingleProverCircuit>(
+    srs: &UnivariateUniversalParams<SystemCurve>,
+) -> Result<(ProvingKey<SystemCurve>, VerifyingKey<SystemCurve>)> {
+    // Mirrors `setup_preprocessed_keys` in https://github.com/renegade-fi/renegade/blob/main/circuit-types/src/traits.rs#L634
+
+    // Create a dummy circuit of correct topology to generate the keys
+    // We use zero'd scalars here to give valid boolean types as well as scalar
+    // types
+    let mut scalars = iter::repeat(Scalar::zero());
+    let witness = C::Witness::from_scalars(&mut scalars);
+    let statement = C::Statement::from_scalars(&mut scalars);
+
+    let mut cs = PlonkCircuit::new_turbo_plonk();
+    let witness_var = witness.create_witness(&mut cs);
+    let statement_var = statement.create_public_var(&mut cs);
+
+    // Apply the constraints
+    C::apply_constraints(witness_var, statement_var, &mut cs).unwrap();
+    cs.finalize_for_arithmetization().unwrap();
+
+    // Generate the keys
+    PlonkKzgSnark::<SystemCurve>::preprocess(srs, &cs).map_err(|e| eyre!(e))
+}
+
 pub fn gen_jf_proof_and_vkey(
+    srs: &UnivariateUniversalParams<SystemCurve>,
     n: usize,
     public_inputs: &[ScalarField],
-) -> Result<(JfProof<Bn254>, VerifyingKey<Bn254>)> {
+) -> Result<(JfProof<SystemCurve>, VerifyingKey<SystemCurve>)> {
     let mut rng = thread_rng();
 
-    let (circuit, pkey, jf_vkey) = gen_test_circuit_and_keys(n, public_inputs)?;
+    let (circuit, pkey, jf_vkey) = gen_test_circuit_and_keys(srs, n, public_inputs)?;
 
-    let jf_proof =
-        PlonkKzgSnark::<Bn254>::prove::<_, _, SolidityTranscript>(&mut rng, &circuit, &pkey, None)?;
+    let jf_proof = PlonkKzgSnark::<SystemCurve>::prove::<_, _, SolidityTranscript>(
+        &mut rng, &circuit, &pkey, None,
+    )?;
 
     Ok((jf_proof, jf_vkey))
 }
 
-fn try_unwrap_commitments<const N: usize>(comms: &[Commitment<Bn254>]) -> Result<[G1Affine; N]> {
+fn try_unwrap_commitments<const N: usize>(
+    comms: &[Commitment<SystemCurve>],
+) -> Result<[G1Affine; N]> {
     comms
         .iter()
         .map(|c| c.0)
@@ -81,7 +111,7 @@ fn try_unwrap_commitments<const N: usize>(comms: &[Commitment<Bn254>]) -> Result
         .map_err(|_| eyre!("failed to unwrap commitments"))
 }
 
-pub fn convert_jf_proof(jf_proof: JfProof<Bn254>) -> Result<Proof> {
+pub fn convert_jf_proof(jf_proof: JfProof<SystemCurve>) -> Result<Proof> {
     Ok(Proof {
         wire_comms: try_unwrap_commitments(&jf_proof.wires_poly_comms)?,
         z_comm: jf_proof.prod_perm_poly_comm.0,
@@ -102,7 +132,7 @@ pub fn convert_jf_proof(jf_proof: JfProof<Bn254>) -> Result<Proof> {
     })
 }
 
-pub fn convert_jf_vkey(jf_vkey: VerifyingKey<Bn254>) -> Result<VerificationKey> {
+pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<VerificationKey> {
     Ok(VerificationKey {
         n: jf_vkey.domain_size as u64,
         l: jf_vkey.num_inputs as u64,
@@ -118,7 +148,7 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<Bn254>) -> Result<VerificationKey> 
     })
 }
 
-pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<Bn254>) {
+pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<SystemCurve>) {
     let mut rng = thread_rng();
     let vkey = VerificationKey {
         n,
@@ -149,7 +179,7 @@ pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<Bn254>) {
     (vkey, jf_vkey)
 }
 
-pub fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
+pub fn dummy_proofs() -> (Proof, BatchProof<SystemCurve>) {
     let mut rng = thread_rng();
     let proof = Proof {
         wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
@@ -185,9 +215,9 @@ pub fn dummy_proofs() -> (Proof, BatchProof<Bn254>) {
 }
 
 pub fn get_jf_challenges(
-    vkey: &VerifyingKey<Bn254>,
+    vkey: &VerifyingKey<SystemCurve>,
     public_inputs: &[ScalarField],
-    proof: &BatchProof<Bn254>,
+    proof: &BatchProof<SystemCurve>,
     extra_transcript_init_message: &Option<Vec<u8>>,
 ) -> Result<Challenges<ScalarField>, PlonkError> {
     Verifier::compute_challenges::<SolidityTranscript>(

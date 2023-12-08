@@ -13,8 +13,9 @@ alloy-primitives = { workspace = true }
 itertools = { workspace = true }
 circuits = { workspace = true }
 circuit-types = { workspace = true }
+constants = { workspace = true }
 mpc-plonk = { workspace = true }
-ark-bn254 = { workspace = true }
+ark-serialize = { workspace = true }
 jf-primitives = { workspace = true }
 common = { path = "../common" }
 test-helpers = { path = "../test-helpers" }

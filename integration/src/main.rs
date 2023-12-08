@@ -9,8 +9,8 @@ use cli::{Cli, Tests};
 use constants::{DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY};
 use eyre::Result;
 use scripts::{
-    constants::{DARKPOOL_PROXY_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY},
-    utils::{parse_addr_from_deployments_file, setup_client},
+    constants::{DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, VERIFIER_CONTRACT_KEY},
+    utils::{parse_addr_from_deployments_file, parse_srs_from_file, setup_client},
 };
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
@@ -30,12 +30,14 @@ async fn main() -> Result<()> {
     let Cli {
         test,
         deployments_file,
+        srs_file,
         priv_key,
         rpc_url,
     } = Cli::parse();
 
     let client = setup_client(&priv_key, &rpc_url).await?;
     let contract_address = get_test_contract_address(test, &deployments_file)?;
+    let srs = parse_srs_from_file(&srs_file)?;
 
     match test {
         Tests::EcAdd => {
@@ -84,7 +86,7 @@ async fn main() -> Result<()> {
                 DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
             )?;
             let darkpool_address =
-                parse_addr_from_deployments_file(&deployments_file, DARKPOOL_TEST_CONTRACT_KEY)?;
+                parse_addr_from_deployments_file(&deployments_file, DARKPOOL_CONTRACT_KEY)?;
 
             test_upgradeable(
                 contract,
@@ -110,17 +112,17 @@ async fn main() -> Result<()> {
         Tests::NewWallet => {
             let contract = DarkpoolTestContract::new(contract_address, client);
 
-            test_new_wallet(contract).await?;
+            test_new_wallet(contract, &srs).await?;
         }
         Tests::UpdateWallet => {
             let contract = DarkpoolTestContract::new(contract_address, client);
 
-            test_update_wallet(contract).await?;
+            test_update_wallet(contract, &srs).await?;
         }
         Tests::ProcessMatchSettle => {
             let contract = DarkpoolTestContract::new(contract_address, client);
 
-            test_process_match_settle(contract).await?;
+            test_process_match_settle(contract, &srs).await?;
         }
     }
 

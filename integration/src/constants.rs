@@ -20,7 +20,7 @@ pub(crate) const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
 pub(crate) const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target_contract";
 
 /// The domain size to use when testing the verifier contract
-pub(crate) const N: usize = 8192;
+pub(crate) const N: usize = 1024;
 
 /// The number of public inputs to use when testing the verifier contract
 pub(crate) const L: usize = 128;

@@ -1,6 +1,6 @@
 //! Implementations of the various deploy scripts
 
-use common::types::Circuit;
+use constants::SystemCurve;
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
@@ -8,11 +8,13 @@ use ethers::{
     types::{Bytes, H256},
     utils::hex::FromHex,
 };
+use mpc_plonk::proof_system::{PlonkKzgSnark, UniversalSNARK};
+use rand::thread_rng;
 use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
-    cli::{DeployProxyArgs, DeployStylusArgs, GenVkeyArgs, StylusContract, UpgradeArgs},
+    cli::{DeployProxyArgs, DeployStylusArgs, GenSrsArgs, StylusContract, UpgradeArgs},
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
         NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT,
@@ -21,9 +23,9 @@ use crate::{
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
-        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_test_vkey,
-        gen_vkey, get_contract_key, parse_addr_from_deployments_file, write_deployed_address,
-        write_vkeys,
+        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
+        get_contract_key, parse_addr_from_deployments_file, write_deployed_address,
+        write_srs_to_file,
     },
 };
 
@@ -43,19 +45,14 @@ pub async fn deploy_proxy(
 
     // Parse proxy contract constructor arguments
 
-    let (darkpool_contract, merkle_contract) = if args.test {
-        (
-            StylusContract::DarkpoolTestContract,
-            StylusContract::MerkleTestContract,
-        )
-    } else {
-        (StylusContract::Darkpool, StylusContract::Merkle)
-    };
-
-    let darkpool_address =
-        parse_addr_from_deployments_file(deployments_path, get_contract_key(darkpool_contract))?;
-    let merkle_address =
-        parse_addr_from_deployments_file(deployments_path, get_contract_key(merkle_contract))?;
+    let darkpool_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::Darkpool),
+    )?;
+    let merkle_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::Merkle),
+    )?;
     let verifier_address =
         parse_addr_from_deployments_file(deployments_path, VERIFIER_CONTRACT_KEY)?;
 
@@ -65,7 +62,7 @@ pub async fn deploy_proxy(
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         verifier_address,
         merkle_address,
-        &args.vkeys_path,
+        args.srs_path,
         args.test,
     )?);
 
@@ -153,14 +150,8 @@ pub async fn upgrade(
     let proxy_address =
         parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
 
-    let darkpool_contract = if args.test {
-        StylusContract::DarkpoolTestContract
-    } else {
-        StylusContract::Darkpool
-    };
-
     let implementation_address =
-        parse_addr_from_deployments_file(deployments_path, get_contract_key(darkpool_contract))?;
+        parse_addr_from_deployments_file(deployments_path, get_contract_key(StylusContract::Darkpool))?;
 
     let data = if let Some(calldata) = args.calldata {
         Bytes::from_hex(calldata).map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?
@@ -179,26 +170,12 @@ pub async fn upgrade(
     Ok(())
 }
 
-pub fn gen_vkeys(args: GenVkeyArgs) -> Result<(), ScriptError> {
-    let vkeys = if args.test {
-        [
-            gen_test_vkey(Circuit::ValidWalletCreate)?,
-            gen_test_vkey(Circuit::ValidWalletUpdate)?,
-            gen_test_vkey(Circuit::ValidCommitments)?,
-            gen_test_vkey(Circuit::ValidReblind)?,
-            gen_test_vkey(Circuit::ValidMatchSettle)?,
-        ]
-    } else {
-        [
-            gen_vkey(Circuit::ValidWalletCreate)?,
-            gen_vkey(Circuit::ValidWalletUpdate)?,
-            gen_vkey(Circuit::ValidCommitments)?,
-            gen_vkey(Circuit::ValidReblind)?,
-            gen_vkey(Circuit::ValidMatchSettle)?,
-        ]
-    };
+pub fn gen_srs(args: GenSrsArgs) -> Result<(), ScriptError> {
+    let mut rng = thread_rng();
 
-    write_vkeys(&args.vkeys_path, vkeys, args.test)?;
+    // Generate universal SRS
+    let srs = PlonkKzgSnark::<SystemCurve>::universal_setup_for_testing(args.degree, &mut rng)
+        .map_err(|e| ScriptError::SrsGeneration(e.to_string()))?;
 
-    Ok(())
+    write_srs_to_file(&args.srs_path, &srs)
 }
