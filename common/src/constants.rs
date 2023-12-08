@@ -66,3 +66,6 @@ pub const EMPTY_LEAF_VALUE: ScalarField = Fp(
     ]),
     PhantomData,
 );
+
+/// The number of circuits in the protocol
+pub const NUM_CIRCUITS: usize = 5;

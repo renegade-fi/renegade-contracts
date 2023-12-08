@@ -19,7 +19,9 @@ use ethers::{
 use eyre::{eyre, Result};
 use rand::Rng;
 use scripts::{
-    constants::{DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY},
+    constants::{
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY,
+    },
     utils::parse_addr_from_deployments_file,
 };
 use serde::Serialize;
@@ -31,10 +33,7 @@ use test_helpers::{
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
-    constants::{
-        MERKLE_TEST_CONTRACT_KEY, N, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT,
-        VERIFIER_TEST_CONTRACT_KEY,
-    },
+    constants::{N, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY},
 };
 
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
