@@ -20,10 +20,11 @@ use circuits::zk_circuits::{
     valid_wallet_update::SizedValidWalletUpdate,
 };
 use common::{
+    constants::NUM_CIRCUITS,
     custom_serde::ScalarSerializable,
     types::{
-        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-        ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        Circuit, ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement, VerificationKey,
     },
 };
 use ethers::{
@@ -48,21 +49,15 @@ use crate::{
         BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY,
         DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
         MERKLE_CONTRACT_KEY, MERKLE_TEST_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR,
-        NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND,
-        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
+        NO_VERIFY_FEATURE, PROD_VKEYS_KEY, RELEASE_PATH_SEGMENT, SIZE_OPTIMIZATION_FLAG,
+        STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
+        TEST_VKEYS_KEY, VALID_COMMITMENTS_VKEY_KEY, VALID_MATCH_SETTLE_VKEY_KEY,
+        VALID_REBLIND_VKEY_KEY, VALID_WALLET_CREATE_VKEY_KEY, VALID_WALLET_UPDATE_VKEY_KEY,
         VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
 };
-
-pub enum Circuit {
-    ValidWalletCreate,
-    ValidWalletUpdate,
-    ValidCommitments,
-    ValidReblind,
-    ValidMatchSettle,
-}
 
 /// Sets up the address and client with which to instantiate a contract for testing,
 /// reading in the private key, RPC url, and contract address from the environment.
@@ -88,32 +83,55 @@ pub async fn setup_client(
     Ok(client)
 }
 
-fn get_deployments_json(file_path: &str) -> Result<JsonValue, ScriptError> {
+pub fn get_json_from_file(file_path: &str) -> Result<JsonValue, ScriptError> {
     let mut file_contents = String::new();
     File::open(file_path)
-        .map_err(|e| ScriptError::ReadDeployments(e.to_string()))?
+        .map_err(|e| ScriptError::ReadFile(e.to_string()))?
         .read_to_string(&mut file_contents)
-        .map_err(|e| ScriptError::ReadDeployments(e.to_string()))?;
+        .map_err(|e| ScriptError::ReadFile(e.to_string()))?;
 
-    json::parse(&file_contents).map_err(|e| ScriptError::ReadDeployments(e.to_string()))
+    json::parse(&file_contents).map_err(|e| ScriptError::ReadFile(e.to_string()))
 }
 
 pub fn parse_addr_from_deployments_file(
     file_path: &str,
     contract_key: &str,
 ) -> Result<Address, ScriptError> {
-    let parsed_json = get_deployments_json(file_path)?;
+    let parsed_json = get_json_from_file(file_path)?;
 
     Address::from_str(
         parsed_json[DEPLOYMENTS_KEY][contract_key]
             .as_str()
             .ok_or_else(|| {
-                ScriptError::ReadDeployments(
+                ScriptError::ReadFile(
                     "Could not parse contract address from deployments file".to_string(),
                 )
             })?,
     )
-    .map_err(|e| ScriptError::ReadDeployments(e.to_string()))
+    .map_err(|e| ScriptError::ReadFile(e.to_string()))
+}
+
+pub fn get_vkey_bytes_from_file(
+    file_path: &str,
+    circuit: Circuit,
+    test: bool,
+) -> Result<Vec<u8>, ScriptError> {
+    let parsed_json = get_json_from_file(file_path)?;
+    let env_key = if test { TEST_VKEYS_KEY } else { PROD_VKEYS_KEY };
+
+    let json_key = match circuit {
+        Circuit::ValidWalletCreate => VALID_WALLET_CREATE_VKEY_KEY,
+        Circuit::ValidWalletUpdate => VALID_WALLET_UPDATE_VKEY_KEY,
+        Circuit::ValidCommitments => VALID_COMMITMENTS_VKEY_KEY,
+        Circuit::ValidReblind => VALID_REBLIND_VKEY_KEY,
+        Circuit::ValidMatchSettle => VALID_MATCH_SETTLE_VKEY_KEY,
+    };
+
+    let vkey_hex = parsed_json[env_key][json_key]
+        .as_str()
+        .ok_or_else(|| ScriptError::ReadFile("Could not parse vkey from file".to_string()))?;
+
+    hex::decode(vkey_hex).map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
 pub fn write_deployed_address(
@@ -123,16 +141,47 @@ pub fn write_deployed_address(
 ) -> Result<(), ScriptError> {
     // If the file doesn't exist, create it
     if !PathBuf::from(file_path).exists() {
-        fs::write(file_path, "{}").map_err(|e| ScriptError::WriteDeployments(e.to_string()))?;
+        fs::write(file_path, "{}").map_err(|e| ScriptError::WriteFile(e.to_string()))?;
     }
-    let mut parsed_json = get_deployments_json(file_path)?;
+    let mut parsed_json = get_json_from_file(file_path)?;
 
     parsed_json[DEPLOYMENTS_KEY][contract_key] = JsonValue::String(format!("{address:#x}"));
 
     fs::write(file_path, json::stringify_pretty(parsed_json, 4))
-        .map_err(|e| ScriptError::WriteDeployments(e.to_string()))?;
+        .map_err(|e| ScriptError::WriteFile(e.to_string()))?;
 
     Ok(())
+}
+
+pub fn write_vkeys(
+    file_path: &str,
+    vkeys: [VerificationKey; NUM_CIRCUITS],
+    test: bool,
+) -> Result<(), ScriptError> {
+    // If the file doesn't exist, create it
+    if !PathBuf::from(file_path).exists() {
+        fs::write(file_path, "{}").map_err(|e| ScriptError::WriteFile(e.to_string()))?;
+    }
+    let mut parsed_json = get_json_from_file(file_path)?;
+    let env_key = if test { TEST_VKEYS_KEY } else { PROD_VKEYS_KEY };
+
+    for (json_key, vkey) in [
+        VALID_WALLET_CREATE_VKEY_KEY,
+        VALID_WALLET_UPDATE_VKEY_KEY,
+        VALID_COMMITMENTS_VKEY_KEY,
+        VALID_REBLIND_VKEY_KEY,
+        VALID_MATCH_SETTLE_VKEY_KEY,
+    ]
+    .into_iter()
+    .zip(vkeys.iter())
+    {
+        let vkey_bytes =
+            postcard::to_allocvec(vkey).map_err(|e| ScriptError::Serde(e.to_string()))?;
+        parsed_json[env_key][json_key] = JsonValue::String(hex::encode(vkey_bytes));
+    }
+
+    fs::write(file_path, json::stringify_pretty(parsed_json, 4))
+        .map_err(|e| ScriptError::WriteFile(e.to_string()))
 }
 
 pub fn get_contract_key(contract: StylusContract) -> &'static str {
@@ -150,34 +199,17 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
 pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     merkle_address: Address,
+    vkeys_path: &str,
     test: bool,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
 
-    let (
-        valid_wallet_create_vkey_bytes,
-        valid_wallet_update_vkey_bytes,
-        valid_commitments_vkey_bytes,
-        valid_reblind_vkey_bytes,
-        valid_match_settle_vkey_bytes,
-    ) = if test {
-        (
-            gen_test_vkey_bytes(Circuit::ValidWalletCreate)?,
-            gen_test_vkey_bytes(Circuit::ValidWalletUpdate)?,
-            gen_test_vkey_bytes(Circuit::ValidCommitments)?,
-            gen_test_vkey_bytes(Circuit::ValidReblind)?,
-            gen_test_vkey_bytes(Circuit::ValidMatchSettle)?,
-        )
-    } else {
-        (
-            gen_vkey_bytes(Circuit::ValidWalletCreate)?,
-            gen_vkey_bytes(Circuit::ValidWalletUpdate)?,
-            gen_vkey_bytes(Circuit::ValidCommitments)?,
-            gen_vkey_bytes(Circuit::ValidReblind)?,
-            gen_vkey_bytes(Circuit::ValidMatchSettle)?,
-        )
-    };
+    let valid_wallet_create_vkey_bytes = get_vkey_bytes_from_file(vkeys_path, Circuit::ValidWalletCreate, test)?;
+    let valid_wallet_update_vkey_bytes = get_vkey_bytes_from_file(vkeys_path, Circuit::ValidWalletUpdate, test)?;
+    let valid_commitments_vkey_bytes = get_vkey_bytes_from_file(vkeys_path, Circuit::ValidCommitments, test)?;
+    let valid_reblind_vkey_bytes = get_vkey_bytes_from_file(vkeys_path, Circuit::ValidReblind, test)?;
+    let valid_match_settle_vkey_bytes = get_vkey_bytes_from_file(vkeys_path, Circuit::ValidMatchSettle, test)?;
 
     Ok(initializeCall::new((
         verifier_address,
@@ -343,7 +375,7 @@ pub async fn deploy_stylus_contract(
     Ok(())
 }
 
-pub fn gen_test_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
+pub fn gen_test_vkey(circuit: Circuit) -> Result<VerificationKey, ScriptError> {
     let mut rng = thread_rng();
     let public_inputs = match circuit {
         Circuit::ValidWalletCreate => {
@@ -361,15 +393,13 @@ pub fn gen_test_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
         }
     }
     .map_err(|_| ScriptError::TestCircuitCreation)?;
-    let (_, _, jf_vkey) =
-        gen_test_circuit_and_keys(TEST_CIRCUIT_DOMAIN_SIZE, &public_inputs)
-            .map_err(|_| ScriptError::TestCircuitCreation)?;
+    let (_, _, jf_vkey) = gen_test_circuit_and_keys(TEST_CIRCUIT_DOMAIN_SIZE, &public_inputs)
+        .map_err(|_| ScriptError::TestCircuitCreation)?;
 
-    let vkey = convert_jf_vkey(jf_vkey).map_err(|_| ScriptError::ConversionError)?;
-    postcard::to_allocvec(&vkey).map_err(|e| ScriptError::Serde(e.to_string()))
+    convert_jf_vkey(jf_vkey).map_err(|_| ScriptError::ConversionError)
 }
 
-pub fn gen_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
+pub fn gen_vkey(circuit: Circuit) -> Result<VerificationKey, ScriptError> {
     let jf_vkey = match circuit {
         Circuit::ValidWalletCreate => SizedValidWalletCreate::verifying_key(),
         Circuit::ValidWalletUpdate => SizedValidWalletUpdate::verifying_key(),
@@ -378,6 +408,5 @@ pub fn gen_vkey_bytes(circuit: Circuit) -> Result<Vec<u8>, ScriptError> {
         Circuit::ValidMatchSettle => SizedValidMatchSettle::verifying_key(),
     };
 
-    let vkey = convert_jf_vkey((*jf_vkey).clone()).map_err(|_| ScriptError::ConversionError)?;
-    postcard::to_allocvec(&vkey).map_err(|e| ScriptError::Serde(e.to_string()))
+    convert_jf_vkey((*jf_vkey).clone()).map_err(|_| ScriptError::ConversionError)
 }

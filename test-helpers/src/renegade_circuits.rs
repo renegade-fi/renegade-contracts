@@ -18,15 +18,7 @@ use eyre::{eyre, Result};
 use rand::Rng;
 use serde::Serialize;
 
-use crate::proof_system::{gen_jf_proof_and_vkey, convert_jf_proof};
-
-pub enum Circuit {
-    ValidWalletCreate,
-    ValidWalletUpdate,
-    ValidCommitments,
-    ValidReblind,
-    ValidMatchSettle,
-}
+use crate::proof_system::{convert_jf_proof, gen_jf_proof_and_vkey};
 
 pub trait RenegadeStatement: Serialize + ScalarSerializable {
     fn dummy(rng: &mut impl Rng) -> Self;

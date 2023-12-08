@@ -9,7 +9,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, upgrade},
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_vkeys, upgrade},
     errors::ScriptError,
 };
 
@@ -37,6 +37,7 @@ pub enum Command {
     DeployProxy(DeployProxyArgs),
     DeployStylus(DeployStylusArgs),
     Upgrade(UpgradeArgs),
+    GenVkeys(GenVkeyArgs),
 }
 
 impl Command {
@@ -54,6 +55,7 @@ impl Command {
                     .await
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
+            Command::GenVkeys(args) => gen_vkeys(args),
         }
     }
 }
@@ -72,8 +74,11 @@ pub struct DeployProxyArgs {
     #[arg(short, long)]
     pub owner: String,
 
+    /// The file path from which to read the serialized verification keys
+    #[arg(short, long)]
+    pub vkeys_path: String,
+
     /// Whether or not to use the testing contracts.
-    /// This also informs how to generate verification keys.
     #[arg(short, long)]
     pub test: bool,
 }
@@ -124,6 +129,18 @@ pub struct UpgradeArgs {
 
     /// Whether or not to use the darkpool test contract address
     /// as the new implementation address
+    #[arg(short, long)]
+    pub test: bool,
+}
+
+/// Generate verification keys for the system circuits
+#[derive(Args)]
+pub struct GenVkeyArgs {
+    /// The file path at which to write the serialized verification keys
+    #[arg(short, long)]
+    pub vkeys_path: String,
+
+    /// Whether or not to use testing circuits
     #[arg(short, long)]
     pub test: bool,
 }

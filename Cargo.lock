@@ -4250,6 +4250,7 @@ dependencies = [
  "clap",
  "common",
  "ethers",
+ "hex",
  "itertools 0.12.0",
  "jf-primitives",
  "json",

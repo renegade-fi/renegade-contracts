@@ -10,14 +10,8 @@ pub(crate) const DEFAULT_DEVNET_PKEY: &str =
 /// The precompile test contract key in the `deployments.json` file
 pub(crate) const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract";
 
-/// The Merkle contract key in the `deployments.json` file
-pub(crate) const MERKLE_TEST_CONTRACT_KEY: &str = "merkle_test_contract";
-
 /// The verifier contract key in the `deployments.json` file
 pub(crate) const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
-
-/// The darkpool test contract key in the `deployments.json` file
-pub(crate) const DARKPOOL_TEST_CONTRACT_KEY: &str = "darkpool_test_contract";
 
 /// The dummy erc20 contract key in the `deployments.json` file
 pub(crate) const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";

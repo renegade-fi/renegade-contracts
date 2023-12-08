@@ -1,5 +1,6 @@
 //! Implementations of the various deploy scripts
 
+use common::types::Circuit;
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
@@ -11,7 +12,7 @@ use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
-    cli::{DeployProxyArgs, DeployStylusArgs, StylusContract, UpgradeArgs},
+    cli::{DeployProxyArgs, DeployStylusArgs, GenVkeyArgs, StylusContract, UpgradeArgs},
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
         NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT,
@@ -20,8 +21,9 @@ use crate::{
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
-        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, parse_addr_from_deployments_file, write_deployed_address,
+        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_test_vkey,
+        gen_vkey, get_contract_key, parse_addr_from_deployments_file, write_deployed_address,
+        write_vkeys,
     },
 };
 
@@ -63,6 +65,7 @@ pub async fn deploy_proxy(
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         verifier_address,
         merkle_address,
+        &args.vkeys_path,
         args.test,
     )?);
 
@@ -172,6 +175,30 @@ pub async fn upgrade(
         .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
         .await
         .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?;
+
+    Ok(())
+}
+
+pub fn gen_vkeys(args: GenVkeyArgs) -> Result<(), ScriptError> {
+    let vkeys = if args.test {
+        [
+            gen_test_vkey(Circuit::ValidWalletCreate)?,
+            gen_test_vkey(Circuit::ValidWalletUpdate)?,
+            gen_test_vkey(Circuit::ValidCommitments)?,
+            gen_test_vkey(Circuit::ValidReblind)?,
+            gen_test_vkey(Circuit::ValidMatchSettle)?,
+        ]
+    } else {
+        [
+            gen_vkey(Circuit::ValidWalletCreate)?,
+            gen_vkey(Circuit::ValidWalletUpdate)?,
+            gen_vkey(Circuit::ValidCommitments)?,
+            gen_vkey(Circuit::ValidReblind)?,
+            gen_vkey(Circuit::ValidMatchSettle)?,
+        ]
+    };
+
+    write_vkeys(&args.vkeys_path, vkeys, args.test)?;
 
     Ok(())
 }

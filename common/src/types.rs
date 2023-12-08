@@ -240,3 +240,11 @@ pub struct VerificationBundle {
     #[serde_as(as = "Vec<ScalarFieldDef>")]
     pub public_inputs: Vec<ScalarField>,
 }
+
+pub enum Circuit {
+    ValidWalletCreate,
+    ValidWalletUpdate,
+    ValidCommitments,
+    ValidReblind,
+    ValidMatchSettle,
+}

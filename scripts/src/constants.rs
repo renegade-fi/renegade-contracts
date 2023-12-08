@@ -104,5 +104,26 @@ pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 /// The dummy ERC20 contract key in the `deployments.json` file
 pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
 
+/// The key for the field containing production verification keys in the `vkeys.json` file
+pub const PROD_VKEYS_KEY: &str = "prod";
+
+/// The key for the field containing testing verification keys in the `vkeys.json` file
+pub const TEST_VKEYS_KEY: &str = "test";
+
+/// The key for the `VALID WALLET CREATE` field in the `vkeys.json` file
+pub const VALID_WALLET_CREATE_VKEY_KEY: &str = "valid_wallet_create";
+
+/// The key for the `VALID WALLET UPDATE` field in the `vkeys.json` file
+pub const VALID_WALLET_UPDATE_VKEY_KEY: &str = "valid_wallet_update";
+
+/// The key for the `VALID COMMITMENTS` field in the `vkeys.json` file
+pub const VALID_COMMITMENTS_VKEY_KEY: &str = "valid_commitments";
+
+/// The key for the `VALID REBLIND` field in the `vkeys.json` file
+pub const VALID_REBLIND_VKEY_KEY: &str = "valid_reblind";
+
+/// The key for the `VALID MATCH SETTLE` field in the `vkeys.json` file
+pub const VALID_MATCH_SETTLE_VKEY_KEY: &str = "valid_match_settle";
+
 /// The domain size to use for generating test circuits
 pub const TEST_CIRCUIT_DOMAIN_SIZE: usize = 8192;

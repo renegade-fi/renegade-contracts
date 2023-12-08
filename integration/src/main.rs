@@ -6,12 +6,10 @@ use abis::{
 };
 use clap::Parser;
 use cli::{Cli, Tests};
-use constants::{
-    DARKPOOL_TEST_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
-};
+use constants::{DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY};
 use eyre::Result;
 use scripts::{
-    constants::{DARKPOOL_PROXY_CONTRACT_KEY, VERIFIER_CONTRACT_KEY},
+    constants::{DARKPOOL_PROXY_CONTRACT_KEY, DARKPOOL_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY},
     utils::{parse_addr_from_deployments_file, setup_client},
 };
 use tests::{
