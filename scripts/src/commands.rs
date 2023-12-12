@@ -75,8 +75,6 @@ pub async fn deploy_proxy(
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         verifier_address,
         merkle_address,
-        args.srs_path,
-        args.test,
     )?);
 
     info!(

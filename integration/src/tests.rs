@@ -301,15 +301,7 @@ pub(crate) async fn test_initializable(
 
     assert!(
         contract
-            .initialize(
-                dummy_verifier_address,
-                dummy_merkle_address,
-                Bytes::new(), /* valid_wallet_create_vkey */
-                Bytes::new(), /* valid_wallet_update_vkey */
-                Bytes::new(), /* valid_commitments_vkey */
-                Bytes::new(), /* valid_reblind_vkey */
-                Bytes::new(), /* valid_match_settle_vkey */
-            )
+            .initialize(dummy_verifier_address, dummy_merkle_address,)
             .send()
             .await
             .is_err(),

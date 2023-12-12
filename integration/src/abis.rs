@@ -5,7 +5,7 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
-        function initialize(address memory verifier_address, address memory merkle_address, bytes memory valid_wallet_create_vkey, bytes memory valid_wallet_update_vkey, bytes memory valid_commitments_vkey, bytes memory valid_reblind_vkey, bytes memory valid_match_settle_vkey) external
+        function initialize(address memory verifier_address, address memory merkle_address) external
 
         function isNullifierSpent(uint256 memory nullifier) external view returns (bool)
         function markNullifierSpent(uint256 memory nullifier) external
