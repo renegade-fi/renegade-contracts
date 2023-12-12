@@ -9,7 +9,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_srs, upgrade, gen_vkeys},
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_srs, gen_vkeys, upgrade},
     constants::DEFAULT_SRS_DEGREE,
     errors::ScriptError,
 };
@@ -76,16 +76,6 @@ pub struct DeployProxyArgs {
     /// and the underlying darkpool contract
     #[arg(short, long)]
     pub owner: String,
-
-    /// The file path from which to read the serialized SRS.
-    ///
-    /// Can be left unset if verification is disabled in the contracts.
-    #[arg(short, long)]
-    pub srs_path: Option<String>,
-
-    /// Whether or not to generate testing verification keys
-    #[arg(short, long)]
-    pub test: bool,
 }
 
 /// Deploy a Stylus contract

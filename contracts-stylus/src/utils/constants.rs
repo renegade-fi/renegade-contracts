@@ -16,42 +16,56 @@ pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 /// The byte length of the input to the `ecRecover` precompile
 pub const EC_RECOVER_INPUT_LEN: usize = 128;
 
-/// The ID of the `VALID_WALLET_CREATE` circuit
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub const VALID_WALLET_CREATE_CIRCUIT_ID: u8 = 0;
-/// The ID of the `VALID_WALLET_UPDATE` circuit
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub const VALID_WALLET_UPDATE_CIRCUIT_ID: u8 = 1;
-/// The ID of the `VALID_COMMITMENTS` circuit
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub const VALID_COMMITMENTS_CIRCUIT_ID: u8 = 2;
-/// The ID of the `VALID_REBLIND` circuit
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub const VALID_REBLIND_CIRCUIT_ID: u8 = 3;
-/// The ID of the `VALID_MATCH_SETTLE` circuit
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub const VALID_MATCH_SETTLE_CIRCUIT_ID: u8 = 4;
-
 /// The number of storage slots to use in the Darkpool contract's
 /// storage gap, which ensures that there are no storage collisions
 /// with the Merkle contract to which it delegatecalls
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 pub const STORAGE_GAP_SIZE: usize = 64;
+
+/// The serialized VALID WALLET CREATE verification key
+#[cfg(feature = "darkpool")]
+pub const VALID_WALLET_CREATE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_wallet_create");
+
+/// The serialized testing VALID WALLET CREATE verification key
+#[cfg(feature = "darkpool-test-contract")]
+pub const VALID_WALLET_CREATE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_wallet_create");
+
+/// The serialized VALID WALLET UPDATE verification key
+#[cfg(feature = "darkpool")]
+pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_wallet_update");
+
+/// The serialized testing VALID WALLET UPDATE verification key
+#[cfg(feature = "darkpool-test-contract")]
+pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_wallet_update");
+
+/// The serialized VALID COMMITMENTS verification key
+#[cfg(feature = "darkpool")]
+pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_commitments");
+
+/// The serialized testing VALID COMMITMENTS verification key
+#[cfg(feature = "darkpool-test-contract")]
+pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_commitments");
+
+/// The serialized VALID REBLIND verification key
+#[cfg(feature = "darkpool")]
+pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/prod/valid_reblind");
+
+/// The serialized testing VALID REBLIND verification key
+#[cfg(feature = "darkpool-test-contract")]
+pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/test/valid_reblind");
+
+/// The serialized VALID MATCH SETTLE verification key
+#[cfg(feature = "darkpool")]
+pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_match_settle");
+
+/// The serialized testing VALID MATCH SETTLE verification key
+#[cfg(feature = "darkpool-test-contract")]
+pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_match_settle");

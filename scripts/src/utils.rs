@@ -15,15 +15,7 @@ use alloy_primitives::Address as AlloyAddress;
 use alloy_sol_types::SolCall;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use circuit_types::traits::SingleProverCircuit;
-use circuits::zk_circuits::{
-    valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
-    valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
-    valid_wallet_update::SizedValidWalletUpdate,
-};
-use common::types::{
-    ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-    ValidWalletCreateStatement, ValidWalletUpdateStatement, VerificationKey,
-};
+use common::types::VerificationKey;
 use constants::SystemCurve;
 use ethers::{
     abi::Address,
@@ -176,77 +168,11 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
 pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     merkle_address: Address,
-    srs_path: Option<String>,
-    test: bool,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
 
-    let (
-        valid_wallet_create_vkey_bytes,
-        valid_wallet_update_vkey_bytes,
-        valid_commitments_vkey_bytes,
-        valid_reblind_vkey_bytes,
-        valid_match_settle_vkey_bytes,
-    ) = if let Some(srs_path) = srs_path {
-        let srs = parse_srs_from_file(&srs_path)?;
-
-        let (
-            valid_wallet_create_vkey,
-            valid_wallet_update_vkey,
-            valid_commitments_vkey,
-            valid_reblind_vkey,
-            valid_match_settle_vkey,
-        ) = if test {
-            (
-                gen_test_vkey::<ValidWalletCreateStatement>(&srs)?,
-                gen_test_vkey::<ValidWalletUpdateStatement>(&srs)?,
-                gen_test_vkey::<ValidCommitmentsStatement>(&srs)?,
-                gen_test_vkey::<ValidReblindStatement>(&srs)?,
-                gen_test_vkey::<ValidMatchSettleStatement>(&srs)?,
-            )
-        } else {
-            (
-                gen_vkey::<SizedValidWalletCreate>(&srs)?,
-                gen_vkey::<SizedValidWalletUpdate>(&srs)?,
-                gen_vkey::<SizedValidCommitments>(&srs)?,
-                gen_vkey::<SizedValidReblind>(&srs)?,
-                gen_vkey::<SizedValidMatchSettle>(&srs)?,
-            )
-        };
-
-        let valid_wallet_create_vkey_bytes = postcard::to_allocvec(&valid_wallet_create_vkey)
-            .map_err(|e| ScriptError::Serde(e.to_string()))?;
-        let valid_wallet_update_vkey_bytes = postcard::to_allocvec(&valid_wallet_update_vkey)
-            .map_err(|e| ScriptError::Serde(e.to_string()))?;
-        let valid_commitments_vkey_bytes = postcard::to_allocvec(&valid_commitments_vkey)
-            .map_err(|e| ScriptError::Serde(e.to_string()))?;
-        let valid_reblind_vkey_bytes = postcard::to_allocvec(&valid_reblind_vkey)
-            .map_err(|e| ScriptError::Serde(e.to_string()))?;
-        let valid_match_settle_vkey_bytes = postcard::to_allocvec(&valid_match_settle_vkey)
-            .map_err(|e| ScriptError::Serde(e.to_string()))?;
-
-        (
-            valid_wallet_create_vkey_bytes,
-            valid_wallet_update_vkey_bytes,
-            valid_commitments_vkey_bytes,
-            valid_reblind_vkey_bytes,
-            valid_match_settle_vkey_bytes,
-        )
-    } else {
-        (vec![], vec![], vec![], vec![], vec![])
-    };
-
-    Ok(initializeCall::new((
-        verifier_address,
-        merkle_address,
-        valid_wallet_create_vkey_bytes,
-        valid_wallet_update_vkey_bytes,
-        valid_commitments_vkey_bytes,
-        valid_reblind_vkey_bytes,
-        valid_match_settle_vkey_bytes,
-    ))
-    .encode())
+    Ok(initializeCall::new((verifier_address, merkle_address)).encode())
 }
 
 fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {
