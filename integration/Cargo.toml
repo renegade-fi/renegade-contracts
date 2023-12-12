@@ -20,6 +20,6 @@ postcard = { workspace = true }
 serde = { workspace = true }
 alloy-primitives = { workspace = true }
 ark-crypto-primitives = { workspace = true }
-circuit-types = { workspace = true }
+circuit-types = { workspace = true, features = ["test-helpers"] }
 constants = { workspace = true }
 jf-primitives = { workspace = true }
