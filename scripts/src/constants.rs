@@ -103,3 +103,18 @@ pub const DEFAULT_SRS_DEGREE: usize = 2048;
 
 /// The domain size to use for generating test circuits
 pub const TEST_CIRCUIT_DOMAIN_SIZE: usize = 1024;
+
+/// The file name for the VALID WALLET CREATE verification key
+pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";
+
+/// The file name for the VALID WALLET UPDATE verification key
+pub const VALID_WALLET_UPDATE_VKEY_FILE: &str = "valid_wallet_update";
+
+/// The file name for the VALID COMMITMENTS verification key
+pub const VALID_COMMITMENTS_VKEY_FILE: &str = "valid_commitments";
+
+/// The file name for the VALID REBLIND verification key
+pub const VALID_REBLIND_VKEY_FILE: &str = "valid_reblind";
+
+/// The file name for the VALID MATCH SETTLE verification key
+pub const VALID_MATCH_SETTLE_VKEY_FILE: &str = "valid_match_settle";

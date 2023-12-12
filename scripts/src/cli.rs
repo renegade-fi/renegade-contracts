@@ -9,7 +9,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_srs, upgrade},
+    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_srs, upgrade, gen_vkeys},
     constants::DEFAULT_SRS_DEGREE,
     errors::ScriptError,
 };
@@ -39,6 +39,7 @@ pub enum Command {
     DeployStylus(DeployStylusArgs),
     Upgrade(UpgradeArgs),
     GenSrs(GenSrsArgs),
+    GenVkeys(GenVkeysArgs),
 }
 
 impl Command {
@@ -57,6 +58,7 @@ impl Command {
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
             Command::GenSrs(args) => gen_srs(args),
+            Command::GenVkeys(args) => gen_vkeys(args),
         }
     }
 }
@@ -141,4 +143,20 @@ pub struct GenSrsArgs {
     /// The degree of the SRS to generate
     #[arg(short, long, default_value_t = DEFAULT_SRS_DEGREE)]
     pub degree: usize,
+}
+
+/// Generate verification keys for the system circuits
+#[derive(Args)]
+pub struct GenVkeysArgs {
+    /// The path to the file containing the SRS
+    #[arg(short, long)]
+    pub srs_path: String,
+
+    /// The directory to which to write the verification keys
+    #[arg(short, long)]
+    pub vkeys_dir: String,
+
+    /// Whether or not to create testing verification keys
+    #[arg(short, long)]
+    pub test: bool,
 }
