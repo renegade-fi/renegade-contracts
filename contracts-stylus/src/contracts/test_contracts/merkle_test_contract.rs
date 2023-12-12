@@ -2,10 +2,7 @@
 
 use alloc::vec::Vec;
 use common::constants::TEST_MERKLE_HEIGHT;
-use stylus_sdk::{
-    alloy_primitives::{U128, U256},
-    prelude::*,
-};
+use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
 use crate::contracts::merkle::{MerkleContract, MerkleParams};
 
@@ -38,15 +35,5 @@ impl TestMerkleContract {
 
     fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
-    }
-
-    fn clear(&mut self) -> Result<(), Vec<u8>> {
-        self.merkle.init()?;
-        self.merkle.next_index.set(U128::ZERO);
-
-        // No straightforward way to clear the `root_history` map,
-        // so we just leave it as is.
-
-        Ok(())
     }
 }

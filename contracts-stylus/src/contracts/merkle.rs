@@ -61,6 +61,7 @@ where
 
     /// Initialize this contract with a blank Merkle tree
     pub fn init(&mut self) -> Result<(), Vec<u8>> {
+        self.next_index.set(U128::ZERO);
         let root = self.setup_empty_tree(P::HEIGHT as u8, EMPTY_LEAF_VALUE);
         self.store_root(root);
         Ok(())
