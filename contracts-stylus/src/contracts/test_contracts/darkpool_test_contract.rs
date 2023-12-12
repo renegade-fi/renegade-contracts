@@ -8,7 +8,7 @@ use crate::{
     contracts::darkpool::DarkpoolContract,
     utils::{
         helpers::{delegate_call_helper, u256_to_scalar},
-        solidity::initCall,
+        solidity::clearCall,
     },
 };
 
@@ -41,7 +41,7 @@ impl DarkpoolTestContract {
             .merkle_address
             .get();
 
-        delegate_call_helper::<initCall>(self, merkle_address, ());
+        delegate_call_helper::<clearCall>(self, merkle_address, ());
 
         Ok(())
     }

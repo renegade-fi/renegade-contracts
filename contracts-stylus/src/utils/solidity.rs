@@ -37,6 +37,9 @@ sol! {
     function rootInHistory(uint256 root) external view returns (bool);
     function insertSharesCommitment(uint256[] shares) external;
 
+    // Testing-only Merkle functions
+    function clear() external;
+
     // ----------
     // | EVENTS |
     // ----------
