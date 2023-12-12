@@ -152,6 +152,17 @@ pub fn write_srs_to_file(
         .map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
+pub fn write_vkey_to_file(
+    vkeys_dir: &str,
+    vkey_file_name: &str,
+    vkey_bytes: &[u8],
+) -> Result<(), ScriptError> {
+    let vkeys_dir = PathBuf::from(vkeys_dir);
+    let vkey_file_path = vkeys_dir.join(vkey_file_name);
+
+    fs::write(vkey_file_path, vkey_bytes).map_err(|e| ScriptError::WriteFile(e.to_string()))
+}
+
 pub fn get_contract_key(contract: StylusContract) -> &'static str {
     match contract {
         StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
@@ -390,7 +401,7 @@ pub async fn deploy_stylus_contract(
     Ok(())
 }
 
-fn gen_test_vkey<S: RenegadeStatement>(
+pub fn gen_test_vkey<S: RenegadeStatement>(
     srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<VerificationKey, ScriptError> {
     let public_inputs = S::dummy(&mut thread_rng())
@@ -405,7 +416,7 @@ fn gen_test_vkey<S: RenegadeStatement>(
     Ok(vkey)
 }
 
-fn gen_vkey<C: SingleProverCircuit>(
+pub fn gen_vkey<C: SingleProverCircuit>(
     srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<VerificationKey, ScriptError> {
     let (_, vkey) = gen_circuit_keys::<C>(srs).map_err(|_| ScriptError::CircuitCreation)?;
