@@ -6,7 +6,7 @@
 pub mod errors;
 
 use alloc::vec::Vec;
-use ark_ff::{Field, One, Zero};
+use ark_ff::{batch_inversion_and_mul, Field, One, Zero};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use common::{
     backends::{G1ArithmeticBackend, HashBackend},
@@ -60,22 +60,21 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         let zero_poly_eval = self.step_5(&domain, &challenges);
 
-        // TODO: Precompute evaluations of the first `l` Lagrange polynomials by mirroring
-        // `ark_poly::EvaluationDomain::evaluate_all_lagrange_coefficients`, which makes use of
-        // Montgomery's batch inversion trick
+        // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
+        let domain_elements: Vec<ScalarField> = (0..public_inputs.len())
+            .map(|i| domain.element(i))
+            .collect();
+        let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
+            .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
+            .collect();
+        batch_inversion_and_mul(&mut lagrange_bases, &zero_poly_eval);
 
-        let zero_poly_eval_div_n = ScalarField::from(self.vkey.n)
-            .inverse()
-            .ok_or(VerifierError::Inversion)?
-            * zero_poly_eval;
-
-        let lagrange_1_eval = self.step_6(zero_poly_eval_div_n, &challenges);
+        let lagrange_1_eval = self.step_6(&lagrange_bases, &domain_elements);
 
         let pi_eval = self.step_7(
             lagrange_1_eval,
-            zero_poly_eval_div_n,
-            &domain,
-            &challenges,
+            &lagrange_bases,
+            &domain_elements,
             public_inputs,
         );
 
@@ -140,35 +139,34 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     }
 
     /// Compute first Lagrange polynomial evaluation at challenge point `zeta`
-    fn step_6(&self, zero_poly_eval_div_n: ScalarField, challenges: &Challenges) -> ScalarField {
-        let Challenges { zeta, .. } = challenges;
-
-        // N.B.: Jellyfish begins enumerating Lagrange polynomials at omega^0 = 1,
-        // whereas the paper begins at omega^1 = omega
-        zero_poly_eval_div_n / (*zeta - ScalarField::one())
+    fn step_6(
+        &self,
+        lagrange_bases: &[ScalarField],
+        domain_elements: &[ScalarField],
+    ) -> ScalarField {
+        domain_elements[0] * lagrange_bases[0]
     }
 
     /// Evaluate public inputs polynomial at challenge point `zeta`
     fn step_7(
         &self,
         lagrange_1_eval: ScalarField,
-        zero_poly_eval_div_n: ScalarField,
-        domain: &Radix2EvaluationDomain<ScalarField>,
-        challenges: &Challenges,
+        lagrange_bases: &[ScalarField],
+        domain_elements: &[ScalarField],
         public_inputs: &[ScalarField],
     ) -> ScalarField {
         if public_inputs.is_empty() {
             return ScalarField::zero();
         }
 
-        let Challenges { zeta, .. } = challenges;
-
-        // TODO: Can factor out constant term `zero_poly_eval_div_n` from sum across Lagrange bases
         let mut pi_eval = lagrange_1_eval * public_inputs[0];
-        for (i, pi) in public_inputs.iter().enumerate().skip(1) {
-            let omega_i = domain.element(i);
-            let lagrange_i_eval = zero_poly_eval_div_n * omega_i / (*zeta - omega_i);
-            pi_eval += lagrange_i_eval * pi;
+        for ((o_i, l_i), p_i) in domain_elements
+            .iter()
+            .zip(lagrange_bases.iter())
+            .zip(public_inputs.iter())
+            .skip(1)
+        {
+            pi_eval += o_i * l_i * p_i;
         }
         pi_eval
     }
@@ -470,7 +468,9 @@ mod tests {
     use jf_utils::multi_pairing;
     use rand::thread_rng;
     use test_helpers::{
-        crypto::NativeHasher, misc::random_scalars, proof_system::{gen_jf_proof_and_vkey, convert_jf_proof, convert_jf_vkey},
+        crypto::NativeHasher,
+        misc::random_scalars,
+        proof_system::{convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey},
     };
 
     use super::{G1ArithmeticBackend, Verifier};

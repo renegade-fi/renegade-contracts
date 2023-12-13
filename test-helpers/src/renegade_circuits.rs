@@ -14,13 +14,15 @@ use common::{
     },
 };
 use constants::SystemCurve;
-use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use core::iter;
 use eyre::{eyre, Result};
+use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::Rng;
 use serde::Serialize;
 
 use crate::proof_system::{convert_jf_proof, gen_jf_proof_and_vkey};
+
+const NUM_DUMMY_SHARES: usize = 54;
 
 pub trait RenegadeStatement: Serialize + ScalarSerializable {
     fn dummy(rng: &mut impl Rng) -> Self;
@@ -30,7 +32,7 @@ impl RenegadeStatement for ValidWalletCreateStatement {
     fn dummy(rng: &mut impl Rng) -> Self {
         ValidWalletCreateStatement {
             private_shares_commitment: ScalarField::rand(rng),
-            public_wallet_shares: vec![ScalarField::rand(rng)],
+            public_wallet_shares: vec![ScalarField::rand(rng); NUM_DUMMY_SHARES],
         }
     }
 }
@@ -40,7 +42,7 @@ impl RenegadeStatement for ValidWalletUpdateStatement {
         ValidWalletUpdateStatement {
             old_shares_nullifier: ScalarField::rand(rng),
             new_private_shares_commitment: ScalarField::rand(rng),
-            new_public_shares: vec![ScalarField::rand(rng)],
+            new_public_shares: vec![ScalarField::rand(rng); NUM_DUMMY_SHARES],
             merkle_root: ScalarField::rand(rng),
             external_transfer: Some(dummy_external_transfer(rng)),
             old_pk_root: dummy_public_signing_key(rng),
@@ -72,8 +74,8 @@ impl RenegadeStatement for ValidReblindStatement {
 impl RenegadeStatement for ValidMatchSettleStatement {
     fn dummy(rng: &mut impl Rng) -> Self {
         ValidMatchSettleStatement {
-            party0_modified_shares: vec![ScalarField::rand(rng)],
-            party1_modified_shares: vec![ScalarField::rand(rng)],
+            party0_modified_shares: vec![ScalarField::rand(rng); NUM_DUMMY_SHARES],
+            party1_modified_shares: vec![ScalarField::rand(rng); NUM_DUMMY_SHARES],
             party0_send_balance_index: rng.gen(),
             party0_receive_balance_index: rng.gen(),
             party0_order_index: rng.gen(),

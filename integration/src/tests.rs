@@ -446,10 +446,12 @@ pub(crate) async fn test_update_wallet(
 
     let (signing_key, pubkey) = random_keypair(&mut rng);
 
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+
     let valid_wallet_update_statement = gen_valid_wallet_update_statement(
         &mut rng,
         None, /* external_transfer */
-        ark_merkle.root(),
+        contract_root,
         pubkey,
     );
 
