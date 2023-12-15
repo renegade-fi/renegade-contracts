@@ -29,6 +29,21 @@ pub const NUM_BYTES_ADDRESS: usize = 20;
 /// the project manifest
 pub const MANIFEST_DIR_ENV_VAR: &str = "CARGO_MANIFEST_DIR";
 
+/// The name of the environment variable used to configure the Rust compiler
+pub const RUSTFLAGS_ENV_VAR: &str = "RUSTFLAGS";
+
+/// The optimization level flag for the Rust compiler
+pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";
+
+/// The "z" optimization level (aggressive size optimization)
+pub const OPT_LEVEL_Z: &str = "z";
+
+/// The "s" optimization level (size optimization)
+pub const OPT_LEVEL_S: &str = "s";
+
+/// The 3 optimization level (maximum optimization)
+pub const OPT_LEVEL_3: &str = "3";
+
 /// The name of the crate in this workspace in which the Stylus contracts
 /// are defined
 pub const STYLUS_CONTRACTS_CRATE_NAME: &str = "contracts-stylus";
@@ -68,8 +83,8 @@ pub const WASM_EXTENSION: &str = "wasm";
 /// The name of the `wasm-opt` command
 pub const WASM_OPT_COMMAND: &str = "wasm-opt";
 
-/// The size optimization flag for the `wasm-opt` command
-pub const SIZE_OPTIMIZATION_FLAG: &str = "-Oz";
+/// The most aggressive optimization flag for the `wasm-opt` command
+pub const AGGRESSIVE_OPTIMIZATION_FLAG: &str = "-O4";
 
 /// The name of the stylus command
 pub const STYLUS_COMMAND: &str = "stylus";

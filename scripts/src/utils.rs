@@ -38,12 +38,12 @@ use tracing::log::warn;
 use crate::{
     cli::StylusContract,
     constants::{
-        BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
-        DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
-        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, RELEASE_PATH_SEGMENT,
-        SIZE_OPTIMIZATION_FLAG, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
-        TEST_CIRCUIT_DOMAIN_SIZE, VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND,
-        WASM_TARGET_TRIPLE, Z_FLAGS,
+        AGGRESSIVE_OPTIMIZATION_FLAG, BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY,
+        DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
+        MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
+        OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR,
+        STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
+        VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -188,6 +188,16 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
     }
 }
 
+pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
+    let opt_level = match contract {
+        StylusContract::Verifier => OPT_LEVEL_S,
+        StylusContract::Merkle => OPT_LEVEL_3,
+        _ => OPT_LEVEL_Z,
+    };
+
+    format!("{}{}", OPT_LEVEL_FLAG, opt_level)
+}
+
 /// Compiles the given Stylus contract to WASM and optimizes the resulting binary,
 /// returning the path to the optimized WASM file.
 ///
@@ -237,7 +247,11 @@ pub fn build_stylus_contract(
         .interleave_shortest(Z_FLAGS);
     build_cmd.args(z_flags);
 
+    env::set_var(RUSTFLAGS_ENV_VAR, get_rustflags_for_contract(contract));
+
     command_success_or(build_cmd, "Failed to build contract WASM")?;
+
+    env::remove_var(RUSTFLAGS_ENV_VAR);
 
     let target_dir = workspace_path
         .join(TARGET_PATH_SEGMENT)
@@ -263,7 +277,7 @@ pub fn build_stylus_contract(
     opt_cmd.arg(wasm_file_path);
     opt_cmd.arg("-o");
     opt_cmd.arg(opt_wasm_file_path.clone());
-    opt_cmd.arg(SIZE_OPTIMIZATION_FLAG);
+    opt_cmd.arg(AGGRESSIVE_OPTIMIZATION_FLAG);
 
     command_success_or(opt_cmd, "Failed to optimize contract WASM")?;
 
