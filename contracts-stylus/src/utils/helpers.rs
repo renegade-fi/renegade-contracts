@@ -9,7 +9,7 @@ use common::{
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
-    call::delegate_call,
+    call::{delegate_call, static_call},
     storage::TopLevelStorage,
 };
 
@@ -45,6 +45,16 @@ pub fn delegate_call_helper<C: SolCall>(
 ) -> C::Return {
     let calldata = C::new(args).encode();
     let res = unsafe { delegate_call(storage, address, &calldata).unwrap() };
+    C::decode_returns(&res, true /* validate */).unwrap()
+}
+
+pub fn static_call_helper<C: SolCall>(
+    storage: &mut impl TopLevelStorage,
+    address: Address,
+    args: <C::Arguments<'_> as SolType>::RustType,
+) -> C::Return {
+    let calldata = C::new(args).encode();
+    let res = static_call(storage, address, &calldata).unwrap();
     C::decode_returns(&res, true /* validate */).unwrap()
 }
 

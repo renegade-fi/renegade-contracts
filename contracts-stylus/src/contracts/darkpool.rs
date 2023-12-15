@@ -1,14 +1,13 @@
 //! The darkpool smart contract, responsible for maintaining the set of nullified wallets,
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
-use core::borrow::{Borrow, BorrowMut};
-
 use alloc::{vec, vec::Vec};
 use common::types::{
     ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
     ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
+use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256, U64},
@@ -22,15 +21,16 @@ use crate::{
     assert_if_verifying,
     utils::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
-        constants::{
-            STORAGE_GAP_SIZE, VALID_COMMITMENTS_VKEY_BYTES, VALID_MATCH_SETTLE_VKEY_BYTES,
-            VALID_REBLIND_VKEY_BYTES, VALID_WALLET_CREATE_VKEY_BYTES,
-            VALID_WALLET_UPDATE_VKEY_BYTES,
+        constants::STORAGE_GAP_SIZE,
+        helpers::{
+            delegate_call_helper, scalar_to_u256, serialize_statement_for_verification,
+            static_call_helper,
         },
-        helpers::{delegate_call_helper, scalar_to_u256, serialize_statement_for_verification},
         solidity::{
             initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
-            ExternalTransfer as ExternalTransferEvent, NullifierSpent, WalletUpdated, IERC20,
+            validCommitmentsCall, validMatchSettleCall, validReblindCall, validWalletCreateCall,
+            validWalletUpdateCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
+            WalletUpdated, IERC20,
         },
     },
 };
@@ -46,6 +46,9 @@ pub struct DarkpoolContract {
 
     /// The address of the verifier contract
     verifier_address: StorageAddress,
+
+    /// The address of the vkeys contract
+    vkeys_address: StorageAddress,
 
     /// The address of the Merkle contract
     pub(crate) merkle_address: StorageAddress,
@@ -67,6 +70,7 @@ impl DarkpoolContract {
     pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         verifier_address: Address,
+        vkeys_address: Address,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
         // Initialize the Merkle tree
@@ -74,8 +78,9 @@ impl DarkpoolContract {
 
         let this = storage.borrow_mut();
 
-        // Set the verifier & Merkle addresses
+        // Set the verifier, vkeys, & Merkle addresses
         this.verifier_address.set(verifier_address);
+        this.vkeys_address.set(vkeys_address);
         this.merkle_address.set(merkle_address);
 
         // Mark the darkpool as initialized
@@ -136,9 +141,13 @@ impl DarkpoolContract {
                 .unwrap()
                 .into();
 
+        let vkeys_address = storage.borrow_mut().vkeys_address.get();
+        let (valid_wallet_create_vkey_bytes,) =
+            static_call_helper::<validWalletCreateCall>(storage, vkeys_address, ()).into();
+
         assert_if_verifying!(DarkpoolContract::verify(
             storage,
-            VALID_WALLET_CREATE_VKEY_BYTES,
+            valid_wallet_create_vkey_bytes,
             proof,
             public_inputs
         ));
@@ -187,9 +196,13 @@ impl DarkpoolContract {
                 .unwrap()
                 .into();
 
+        let vkeys_address = storage.borrow_mut().vkeys_address.get();
+        let (valid_wallet_update_vkey_bytes,) =
+            static_call_helper::<validWalletUpdateCall>(storage, vkeys_address, ()).into();
+
         assert_if_verifying!(DarkpoolContract::verify(
             storage,
-            VALID_WALLET_UPDATE_VKEY_BYTES,
+            valid_wallet_update_vkey_bytes,
             proof,
             public_inputs
         ));
@@ -237,9 +250,13 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
+        let vkeys_address = storage.borrow_mut().vkeys_address.get();
+        let (valid_match_settle_vkey_bytes,) =
+            static_call_helper::<validMatchSettleCall>(storage, vkeys_address, ()).into();
+
         assert_if_verifying!(DarkpoolContract::verify(
             storage,
-            VALID_MATCH_SETTLE_VKEY_BYTES,
+            valid_match_settle_vkey_bytes,
             valid_match_settle_proof,
             serialize_statement_for_verification(&valid_match_settle_statement)
                 .unwrap()
@@ -346,7 +363,7 @@ impl DarkpoolContract {
     /// and using the stored verification key associated with the circuit ID
     pub fn verify<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        vkey_bytes: &[u8],
+        vkey_bytes: Vec<u8>,
         proof: Bytes,
         public_inputs: Bytes,
     ) -> bool {
@@ -402,18 +419,26 @@ impl DarkpoolContract {
             match_payload.valid_reblind_statement.merkle_root,
         );
 
+        let vkeys_address = storage.borrow_mut().vkeys_address.get();
+
+        let (valid_commitments_vkey_bytes,) =
+            static_call_helper::<validCommitmentsCall>(storage, vkeys_address, ()).into();
+
         assert_if_verifying!(DarkpoolContract::verify(
             storage,
-            VALID_COMMITMENTS_VKEY_BYTES,
+            valid_commitments_vkey_bytes,
             valid_commitments_proof,
             serialize_statement_for_verification(&match_payload.valid_commitments_statement)
                 .unwrap()
                 .into()
         ));
 
+        let (valid_reblind_vkey_bytes,) =
+            static_call_helper::<validReblindCall>(storage, vkeys_address, ()).into();
+
         assert_if_verifying!(DarkpoolContract::verify(
             storage,
-            VALID_REBLIND_VKEY_BYTES,
+            valid_reblind_vkey_bytes,
             valid_reblind_proof,
             serialize_statement_for_verification(&match_payload.valid_reblind_statement)
                 .unwrap()
