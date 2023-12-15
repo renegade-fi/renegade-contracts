@@ -18,6 +18,9 @@ pub const TRANSCRIPT_STATE_SIZE: usize = 64;
 /// The number of bytes in a hash digest used by the transcript
 pub const HASH_OUTPUT_SIZE: usize = 32;
 
+/// The number of bytes of hash output to sample for a challenge
+pub const HASH_SAMPLE_BYTES: usize = 48;
+
 /// The number of bytes to represent field elements of the base or scalar fields for the G1 curve group,
 /// as well as the base field which is extended for the G2 curve group
 pub const NUM_BYTES_FELT: usize = 32;
