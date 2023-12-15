@@ -506,8 +506,9 @@ pub(crate) async fn test_process_match_settle(
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
     let mut rng = thread_rng();
-    let data = get_process_match_settle_data(&mut rng, srs, ark_merkle.root())?;
+    let data = get_process_match_settle_data(&mut rng, srs, contract_root)?;
 
     // Call `process_match_settle` with valid data
     contract
