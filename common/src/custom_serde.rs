@@ -90,8 +90,7 @@ impl<P: MontConfig<NUM_U64S_FELT>> BytesDeserializable for MontFp256<P> {
         // for `bigint_from_le_bytes`
         let mut bytes = bytes.to_vec();
         bytes.reverse();
-        let bigint =
-            bigint_from_le_bytes(&bytes.try_into().map_err(|_| SerdeError::InvalidLength)?)?;
+        let bigint = bigint_from_le_bytes(&bytes)?;
         Self::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
     }
 }
@@ -309,11 +308,15 @@ fn deserialize_cursor<D: BytesDeserializable>(
     Ok(elem)
 }
 
-fn bigint_from_le_bytes(bytes: &[u8; NUM_BYTES_FELT]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
+pub fn bigint_from_le_bytes(bytes: &[u8]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
+    // This will right-pad the bytes with zero-bytes if the length is less than 8 * NUM_BYTES_U64
+    let mut bytes_to_convert = [0_u8; NUM_BYTES_FELT];
+    bytes_to_convert[..bytes.len()].copy_from_slice(bytes);
+
     let mut u64s = [0u64; NUM_U64S_FELT];
     for i in 0..NUM_U64S_FELT {
         u64s[i] = u64::from_le_bytes(
-            bytes[i * NUM_BYTES_U64..(i + 1) * NUM_BYTES_U64]
+            bytes_to_convert[i * NUM_BYTES_U64..(i + 1) * NUM_BYTES_U64]
                 .try_into()
                 .map_err(|_| SerdeError::InvalidLength)?,
         );

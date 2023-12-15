@@ -6,8 +6,8 @@ use alloc::vec::Vec;
 use ark_ff::PrimeField;
 use common::{
     backends::HashBackend,
-    constants::TRANSCRIPT_STATE_SIZE,
-    custom_serde::{BytesSerializable, TranscriptG1},
+    constants::{HASH_SAMPLE_BYTES, NUM_BYTES_FELT, TRANSCRIPT_STATE_SIZE},
+    custom_serde::{bigint_from_le_bytes, BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
@@ -47,7 +47,27 @@ impl<H: HashBackend> Transcript<H> {
 
         self.state.copy_from_slice(&[buf0, buf1].concat());
 
-        ScalarField::from_le_bytes_mod_order(&self.state[..48])
+        // Sample the first `HASH_SAMPLE_BYTES` bytes of hash output into a scalar.
+        // Follows the implementation of `PrimeField::from_le_bytes_mod_order`
+
+        // We begin by taking the highest `NUM_BYTES_FELT-1` bytes of the hash output in little-endian order
+        // and converting them into a scalar directly, as no reduction is needed.
+        let (remaining_bytes, bytes_to_directly_convert) =
+            self.state[..HASH_SAMPLE_BYTES].split_at(HASH_SAMPLE_BYTES - (NUM_BYTES_FELT - 1));
+        let mut res =
+            ScalarField::from_bigint(bigint_from_le_bytes(bytes_to_directly_convert).unwrap())
+                .unwrap();
+
+        // Update the result, byte by byte.
+        // Here, we have to be sure to reverse the bytes first, so that we iterate backwards from the split point
+        // and continue adding bytes to the lower-order end of the scalar.
+        // We go through existing field arithmetic, which handles the reduction.
+        let window_size = ScalarField::from(256u64);
+        for byte in remaining_bytes.iter().rev() {
+            res *= window_size;
+            res += ScalarField::from(*byte);
+        }
+        res
     }
 
     /// Appends a serializable Arkworks type to the transcript

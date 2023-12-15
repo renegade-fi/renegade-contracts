@@ -15,8 +15,8 @@ postcard = { workspace = true }
 alloy-sol-types = { workspace = true }
 
 [features]
-darkpool = []
-darkpool-test-contract = []
+darkpool = ["ark-ff/bin-opt"]
+darkpool-test-contract = ["ark-ff/bin-opt"]
 no-verify = []
 merkle = []
 merkle-test-contract = []
