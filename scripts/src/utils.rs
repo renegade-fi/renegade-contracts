@@ -41,9 +41,10 @@ use crate::{
         AGGRESSIVE_OPTIMIZATION_FLAG, BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY,
         DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
         MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
-        OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR,
-        STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
-        VERIFIER_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        OPT_LEVEL_FLAG, OPT_LEVEL_S, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
+        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND,
+        WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -160,6 +161,7 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
         StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
         StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
+        StylusContract::Vkeys | StylusContract::TestVkeys => VKEYS_CONTRACT_KEY,
         StylusContract::DummyErc20 => DUMMY_ERC20_CONTRACT_KEY,
     }
 }
@@ -167,12 +169,14 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
 /// Prepare calldata for the Darkpool contract's `initialize` method
 pub fn darkpool_initialize_calldata(
     verifier_address: Address,
+    vkeys_address: Address,
     merkle_address: Address,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
+    let vkeys_address = AlloyAddress::from_slice(vkeys_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
 
-    Ok(initializeCall::new((verifier_address, merkle_address)).encode())
+    Ok(initializeCall::new((verifier_address, vkeys_address, merkle_address)).encode())
 }
 
 fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {
@@ -191,8 +195,7 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     let opt_level = match contract {
         StylusContract::Verifier => OPT_LEVEL_S,
-        StylusContract::Merkle => OPT_LEVEL_3,
-        _ => OPT_LEVEL_Z,
+        _ => OPT_LEVEL_3,
     };
 
     format!("{}{}", OPT_LEVEL_FLAG, opt_level)

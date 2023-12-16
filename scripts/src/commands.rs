@@ -31,7 +31,7 @@ use crate::{
         NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT,
         PROXY_BYTECODE, VALID_COMMITMENTS_VKEY_FILE, VALID_MATCH_SETTLE_VKEY_FILE,
         VALID_REBLIND_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
-        VERIFIER_CONTRACT_KEY,
+        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::ProxyAdminContract,
@@ -69,17 +69,20 @@ pub async fn deploy_proxy(
     let verifier_address =
         parse_addr_from_deployments_file(deployments_path, VERIFIER_CONTRACT_KEY)?;
 
+    let vkeys_address = parse_addr_from_deployments_file(deployments_path, VKEYS_CONTRACT_KEY)?;
+
     let owner_address = Address::from_str(&args.owner)
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         verifier_address,
+        vkeys_address,
         merkle_address,
     )?);
 
     info!(
-        "Deploying proxy using:\n\tDarkpool address: {:#x}\n\tMerkle address: {:#x}\n\tVerifier address: {:#x}",
-        darkpool_address, merkle_address, verifier_address
+        "Deploying proxy using:\n\tDarkpool address: {:#x}\n\tMerkle address: {:#x}\n\tVerifier address: {:#x}\n\tVkeys address: {:#x}",
+        darkpool_address, merkle_address, verifier_address, vkeys_address
     );
 
     // Deploy proxy contract

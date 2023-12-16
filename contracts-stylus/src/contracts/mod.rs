@@ -9,7 +9,7 @@ mod merkle;
 #[cfg(feature = "verifier")]
 mod verifier;
 
-#[cfg(feature = "vkeys")]
+#[cfg(any(feature = "vkeys", feature = "test-vkeys"))]
 mod vkeys;
 
 #[cfg(any(

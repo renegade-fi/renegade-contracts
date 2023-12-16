@@ -62,7 +62,3 @@ opt-level = "z"     # optimize for size ("s" may also work)
 lto = true          # link time optimization
 rpath = false       # no run-time search path
 incremental = false # no incremental builds
-
-[patch.crates-io]
-ark-ff = { git = "https://github.com/renegade-fi/algebra.git", branch = "bin-opt-feature" }
-ark-serialize = { git = "https://github.com/renegade-fi/algebra.git", branch = "bin-opt-feature" }

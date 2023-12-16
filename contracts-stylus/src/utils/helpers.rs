@@ -69,19 +69,11 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
 }
 
 #[macro_export]
-macro_rules! assert_if_verifying {
-    ($cond:expr $(,)?) => {
-        // Note: the "no-verify" feature is ONLY for testing purposes
+macro_rules! if_verifying {
+    ($($logic:tt)*) => {
         #[cfg(not(feature = "no-verify"))]
         {
-            assert!($cond);
-        }
-    };
-    ($cond:expr, $($arg:tt)+) => {
-        // Note: the "no-verify" feature is ONLY for testing purposes
-        #[cfg(not(feature = "no-verify"))]
-        {
-            assert!($cond, $($arg)+);
+            $($logic)*
         }
     };
 }

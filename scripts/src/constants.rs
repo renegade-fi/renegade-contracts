@@ -35,9 +35,6 @@ pub const RUSTFLAGS_ENV_VAR: &str = "RUSTFLAGS";
 /// The optimization level flag for the Rust compiler
 pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";
 
-/// The "z" optimization level (aggressive size optimization)
-pub const OPT_LEVEL_Z: &str = "z";
-
 /// The "s" optimization level (size optimization)
 pub const OPT_LEVEL_S: &str = "s";
 
@@ -109,6 +106,9 @@ pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 
 /// The verifier contract key in the `deployments.json` file
 pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
+
+/// The vkeys contract key in the `deployments.json` file
+pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";
 
 /// The dummy ERC20 contract key in the `deployments.json` file
 pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
