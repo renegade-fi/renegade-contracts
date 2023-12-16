@@ -297,11 +297,16 @@ pub(crate) async fn test_initializable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let dummy_verifier_address = Address::random();
+    let dummy_vkeys_address = Address::random();
     let dummy_merkle_address = Address::random();
 
     assert!(
         contract
-            .initialize(dummy_verifier_address, dummy_merkle_address,)
+            .initialize(
+                dummy_verifier_address,
+                dummy_vkeys_address,
+                dummy_merkle_address
+            )
             .send()
             .await
             .is_err(),

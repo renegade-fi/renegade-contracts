@@ -18,7 +18,7 @@ use stylus_sdk::{
 };
 
 use crate::{
-    assert_if_verifying,
+    if_verifying,
     utils::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
         constants::STORAGE_GAP_SIZE,
@@ -136,21 +136,20 @@ impl DarkpoolContract {
         let valid_wallet_create_statement: ValidWalletCreateStatement =
             postcard::from_bytes(valid_wallet_create_statement_bytes.as_slice()).unwrap();
 
-        let public_inputs: Bytes =
-            serialize_statement_for_verification(&valid_wallet_create_statement)
-                .unwrap()
-                .into();
+        if_verifying!({
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let (valid_wallet_create_vkey_bytes,) =
+                static_call_helper::<validWalletCreateCall>(storage, vkeys_address, ()).into();
 
-        let vkeys_address = storage.borrow_mut().vkeys_address.get();
-        let (valid_wallet_create_vkey_bytes,) =
-            static_call_helper::<validWalletCreateCall>(storage, vkeys_address, ()).into();
-
-        assert_if_verifying!(DarkpoolContract::verify(
-            storage,
-            valid_wallet_create_vkey_bytes,
-            proof,
-            public_inputs
-        ));
+            assert!(DarkpoolContract::verify(
+                storage,
+                valid_wallet_create_vkey_bytes,
+                proof,
+                serialize_statement_for_verification(&valid_wallet_create_statement)
+                    .unwrap()
+                    .into(),
+            ));
+        });
 
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
@@ -179,33 +178,32 @@ impl DarkpoolContract {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
 
-        DarkpoolContract::assert_root_in_history(
-            storage,
-            valid_wallet_update_statement.merkle_root,
-        );
+        if_verifying!({
+            DarkpoolContract::assert_root_in_history(
+                storage,
+                valid_wallet_update_statement.merkle_root,
+            );
 
-        assert_if_verifying!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-            &valid_wallet_update_statement.old_pk_root,
-            valid_wallet_update_statement_bytes.as_slice(),
-            &public_inputs_signature.to_vec().try_into().unwrap(),
-        )
-        .unwrap());
+            assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+                &valid_wallet_update_statement.old_pk_root,
+                valid_wallet_update_statement_bytes.as_slice(),
+                &public_inputs_signature.to_vec().try_into().unwrap(),
+            )
+            .unwrap());
 
-        let public_inputs: Bytes =
-            serialize_statement_for_verification(&valid_wallet_update_statement)
-                .unwrap()
-                .into();
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let (valid_wallet_update_vkey_bytes,) =
+                static_call_helper::<validWalletUpdateCall>(storage, vkeys_address, ()).into();
 
-        let vkeys_address = storage.borrow_mut().vkeys_address.get();
-        let (valid_wallet_update_vkey_bytes,) =
-            static_call_helper::<validWalletUpdateCall>(storage, vkeys_address, ()).into();
-
-        assert_if_verifying!(DarkpoolContract::verify(
-            storage,
-            valid_wallet_update_vkey_bytes,
-            proof,
-            public_inputs
-        ));
+            assert!(DarkpoolContract::verify(
+                storage,
+                valid_wallet_update_vkey_bytes,
+                proof,
+                serialize_statement_for_verification(&valid_wallet_update_statement)
+                    .unwrap()
+                    .into(),
+            ));
+        });
 
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
@@ -250,18 +248,20 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
-        let vkeys_address = storage.borrow_mut().vkeys_address.get();
-        let (valid_match_settle_vkey_bytes,) =
-            static_call_helper::<validMatchSettleCall>(storage, vkeys_address, ()).into();
+        if_verifying!({
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let (valid_match_settle_vkey_bytes,) =
+                static_call_helper::<validMatchSettleCall>(storage, vkeys_address, ()).into();
 
-        assert_if_verifying!(DarkpoolContract::verify(
-            storage,
-            valid_match_settle_vkey_bytes,
-            valid_match_settle_proof,
-            serialize_statement_for_verification(&valid_match_settle_statement)
-                .unwrap()
-                .into(),
-        ));
+            assert!(DarkpoolContract::verify(
+                storage,
+                valid_match_settle_vkey_bytes,
+                valid_match_settle_proof,
+                serialize_statement_for_verification(&valid_match_settle_statement)
+                    .unwrap()
+                    .into(),
+            ))
+        });
 
         DarkpoolContract::process_party(
             storage,
@@ -321,7 +321,7 @@ impl DarkpoolContract {
 
         let nullifier = scalar_to_u256(nullifier);
 
-        assert_if_verifying!(!this.nullifier_set.get(nullifier));
+        if_verifying!(assert!(!this.nullifier_set.get(nullifier)));
 
         this.nullifier_set.insert(nullifier, true);
 
@@ -334,7 +334,7 @@ impl DarkpoolContract {
         root: ScalarField,
     ) {
         let root = scalar_to_u256(root);
-        assert_if_verifying!(DarkpoolContract::root_in_history(storage, root).unwrap());
+        assert!(DarkpoolContract::root_in_history(storage, root).unwrap());
     }
 
     /// Computes the total commitment to both the private and public wallet shares,
@@ -414,36 +414,38 @@ impl DarkpoolContract {
         let match_payload: MatchPayload =
             postcard::from_bytes(match_payload_bytes.as_slice()).unwrap();
 
-        DarkpoolContract::assert_root_in_history(
-            storage,
-            match_payload.valid_reblind_statement.merkle_root,
-        );
+        if_verifying!({
+            DarkpoolContract::assert_root_in_history(
+                storage,
+                match_payload.valid_reblind_statement.merkle_root,
+            );
 
-        let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
 
-        let (valid_commitments_vkey_bytes,) =
-            static_call_helper::<validCommitmentsCall>(storage, vkeys_address, ()).into();
+            let (valid_commitments_vkey_bytes,) =
+                static_call_helper::<validCommitmentsCall>(storage, vkeys_address, ()).into();
 
-        assert_if_verifying!(DarkpoolContract::verify(
-            storage,
-            valid_commitments_vkey_bytes,
-            valid_commitments_proof,
-            serialize_statement_for_verification(&match_payload.valid_commitments_statement)
-                .unwrap()
-                .into()
-        ));
+            assert!(DarkpoolContract::verify(
+                storage,
+                valid_commitments_vkey_bytes,
+                valid_commitments_proof,
+                serialize_statement_for_verification(&match_payload.valid_commitments_statement)
+                    .unwrap()
+                    .into()
+            ));
 
-        let (valid_reblind_vkey_bytes,) =
-            static_call_helper::<validReblindCall>(storage, vkeys_address, ()).into();
+            let (valid_reblind_vkey_bytes,) =
+                static_call_helper::<validReblindCall>(storage, vkeys_address, ()).into();
 
-        assert_if_verifying!(DarkpoolContract::verify(
-            storage,
-            valid_reblind_vkey_bytes,
-            valid_reblind_proof,
-            serialize_statement_for_verification(&match_payload.valid_reblind_statement)
-                .unwrap()
-                .into()
-        ));
+            assert!(DarkpoolContract::verify(
+                storage,
+                valid_reblind_vkey_bytes,
+                valid_reblind_proof,
+                serialize_statement_for_verification(&match_payload.valid_reblind_statement)
+                    .unwrap()
+                    .into()
+            ));
+        });
 
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,

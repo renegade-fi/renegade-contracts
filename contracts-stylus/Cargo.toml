@@ -15,14 +15,15 @@ postcard = { workspace = true }
 alloy-sol-types = { workspace = true }
 
 [features]
-darkpool = ["ark-ff/bin-opt"]
-darkpool-test-contract = ["ark-ff/bin-opt"]
+darkpool = []
+darkpool-test-contract = []
 no-verify = []
 merkle = []
 merkle-test-contract = []
 verifier = []
 verifier-test-contract = []
 vkeys = []
+test-vkeys = []
 precompile-test-contract = []
 dummy-erc20 = []
 dummy-upgrade-target = []

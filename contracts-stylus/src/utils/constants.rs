@@ -23,49 +23,49 @@ pub const EC_RECOVER_INPUT_LEN: usize = 128;
 pub const STORAGE_GAP_SIZE: usize = 64;
 
 /// The serialized VALID WALLET CREATE verification key
-#[cfg(feature = "darkpool")]
+#[cfg(feature = "vkeys")]
 pub const VALID_WALLET_CREATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/prod/valid_wallet_create");
 
 /// The serialized testing VALID WALLET CREATE verification key
-#[cfg(feature = "darkpool-test-contract")]
+#[cfg(feature = "test-vkeys")]
 pub const VALID_WALLET_CREATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_wallet_create");
 
 /// The serialized VALID WALLET UPDATE verification key
-#[cfg(feature = "darkpool")]
+#[cfg(feature = "vkeys")]
 pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/prod/valid_wallet_update");
 
 /// The serialized testing VALID WALLET UPDATE verification key
-#[cfg(feature = "darkpool-test-contract")]
+#[cfg(feature = "test-vkeys")]
 pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_wallet_update");
 
 /// The serialized VALID COMMITMENTS verification key
-#[cfg(feature = "darkpool")]
+#[cfg(feature = "vkeys")]
 pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/prod/valid_commitments");
 
 /// The serialized testing VALID COMMITMENTS verification key
-#[cfg(feature = "darkpool-test-contract")]
+#[cfg(feature = "test-vkeys")]
 pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_commitments");
 
 /// The serialized VALID REBLIND verification key
-#[cfg(feature = "darkpool")]
+#[cfg(feature = "vkeys")]
 pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/prod/valid_reblind");
 
 /// The serialized testing VALID REBLIND verification key
-#[cfg(feature = "darkpool-test-contract")]
+#[cfg(feature = "test-vkeys")]
 pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/test/valid_reblind");
 
 /// The serialized VALID MATCH SETTLE verification key
-#[cfg(feature = "darkpool")]
+#[cfg(feature = "vkeys")]
 pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/prod/valid_match_settle");
 
 /// The serialized testing VALID MATCH SETTLE verification key
-#[cfg(feature = "darkpool-test-contract")]
+#[cfg(feature = "test-vkeys")]
 pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_match_settle");
