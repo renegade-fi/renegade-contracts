@@ -1,5 +1,6 @@
 //! Common utilities used throughout the smart contracts, including testing contracts.
 
+use ark_ff::One;
 use common::{
     backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError, HashBackend},
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
@@ -27,6 +28,12 @@ pub struct PrecompileG1ArithmeticBackend;
 impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
     /// Calls the `ecAdd` precompile with the given points, handling de/serialization
     fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, G1ArithmeticError> {
+        if a == G1Affine::identity() {
+            return Ok(b);
+        } else if b == G1Affine::identity() {
+            return Ok(a);
+        }
+
         // Serialize the points
         let a_data = a.serialize_to_bytes();
         let b_data = b.serialize_to_bytes();
@@ -45,6 +52,10 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
 
     /// Calls the `ecMul` precompile with the given scalar and point, handling de/serialization
     fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, G1ArithmeticError> {
+        if a == ScalarField::one() {
+            return Ok(b);
+        }
+
         // Serialize the point and scalar
         let a_data = a.serialize_to_bytes();
         let b_data = b.serialize_to_bytes();
