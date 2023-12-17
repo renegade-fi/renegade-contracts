@@ -248,6 +248,7 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
+        let (mut valid_commitments_vkey_bytes, mut valid_reblind_vkey_bytes) = (vec![], vec![]);
         if_verifying!({
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
             let (valid_match_settle_vkey_bytes,) =
@@ -260,11 +261,19 @@ impl DarkpoolContract {
                 serialize_statement_for_verification(&valid_match_settle_statement)
                     .unwrap()
                     .into(),
-            ))
+            ));
+
+            (valid_commitments_vkey_bytes,) =
+                static_call_helper::<validCommitmentsCall>(storage, vkeys_address, ()).into();
+
+            (valid_reblind_vkey_bytes,) =
+                static_call_helper::<validReblindCall>(storage, vkeys_address, ()).into();
         });
 
         DarkpoolContract::process_party(
             storage,
+            valid_commitments_vkey_bytes.clone(),
+            valid_reblind_vkey_bytes.clone(),
             party_0_match_payload,
             party_0_valid_commitments_proof,
             party_0_valid_reblind_proof,
@@ -273,6 +282,8 @@ impl DarkpoolContract {
 
         DarkpoolContract::process_party(
             storage,
+            valid_commitments_vkey_bytes,
+            valid_reblind_vkey_bytes,
             party_1_match_payload,
             party_1_valid_commitments_proof,
             party_1_valid_reblind_proof,
@@ -406,6 +417,8 @@ impl DarkpoolContract {
     /// Handles the post-match-settle logic for a single party
     pub fn process_party<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        valid_commitments_vkey_bytes: Vec<u8>,
+        valid_reblind_vkey_bytes: Vec<u8>,
         match_payload_bytes: Bytes,
         valid_commitments_proof: Bytes,
         valid_reblind_proof: Bytes,
@@ -420,11 +433,6 @@ impl DarkpoolContract {
                 match_payload.valid_reblind_statement.merkle_root,
             );
 
-            let vkeys_address = storage.borrow_mut().vkeys_address.get();
-
-            let (valid_commitments_vkey_bytes,) =
-                static_call_helper::<validCommitmentsCall>(storage, vkeys_address, ()).into();
-
             assert!(DarkpoolContract::verify(
                 storage,
                 valid_commitments_vkey_bytes,
@@ -433,9 +441,6 @@ impl DarkpoolContract {
                     .unwrap()
                     .into()
             ));
-
-            let (valid_reblind_vkey_bytes,) =
-                static_call_helper::<validReblindCall>(storage, vkeys_address, ()).into();
 
             assert!(DarkpoolContract::verify(
                 storage,
