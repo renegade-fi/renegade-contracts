@@ -25,6 +25,9 @@ pub const HASH_SAMPLE_BYTES: usize = 48;
 /// as well as the base field which is extended for the G2 curve group
 pub const NUM_BYTES_FELT: usize = 32;
 
+/// The index at which to split a hash output so that it can be directly converted to a field element.
+pub const SPLIT_INDEX: usize = NUM_BYTES_FELT - 1;
+
 /// The number of u64s it takes to represent a field element
 pub const NUM_U64S_FELT: usize = 4;
 

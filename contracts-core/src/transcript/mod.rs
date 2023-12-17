@@ -3,10 +3,10 @@
 pub mod errors;
 
 use alloc::vec::Vec;
-use ark_ff::PrimeField;
+use ark_ff::{BigInt, BigInteger, PrimeField};
 use common::{
     backends::HashBackend,
-    constants::{HASH_SAMPLE_BYTES, NUM_BYTES_FELT, TRANSCRIPT_STATE_SIZE},
+    constants::{HASH_SAMPLE_BYTES, SPLIT_INDEX, TRANSCRIPT_STATE_SIZE},
     custom_serde::{bigint_from_le_bytes, BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
 };
@@ -48,26 +48,32 @@ impl<H: HashBackend> Transcript<H> {
         self.state.copy_from_slice(&[buf0, buf1].concat());
 
         // Sample the first `HASH_SAMPLE_BYTES` bytes of hash output into a scalar.
-        // Follows the implementation of `PrimeField::from_le_bytes_mod_order`
 
-        // We begin by taking the highest `NUM_BYTES_FELT-1` bytes of the hash output in little-endian order
+        // We begin by taking the lowest `NUM_BYTES_FELT-1` bytes of the hash output in little-endian order
         // and converting them into a scalar directly, as no reduction is needed.
-        let (remaining_bytes, bytes_to_directly_convert) =
-            self.state[..HASH_SAMPLE_BYTES].split_at(HASH_SAMPLE_BYTES - (NUM_BYTES_FELT - 1));
-        let mut res =
+        let (bytes_to_directly_convert, remaining_bytes) =
+            self.state[..HASH_SAMPLE_BYTES].split_at(SPLIT_INDEX);
+        let res =
             ScalarField::from_bigint(bigint_from_le_bytes(bytes_to_directly_convert).unwrap())
                 .unwrap();
 
-        // Update the result, byte by byte.
-        // Here, we have to be sure to reverse the bytes first, so that we iterate backwards from the split point
-        // and continue adding bytes to the lower-order end of the scalar.
-        // We go through existing field arithmetic, which handles the reduction.
-        let window_size = ScalarField::from(256u64);
-        for byte in remaining_bytes.iter().rev() {
-            res *= window_size;
-            res += ScalarField::from(*byte);
-        }
-        res
+        // Next, we interpret the remaining bytes in little-endian order as a scalar.
+        // Again, no reduction is needed.
+        let mut rem_scalar =
+            ScalarField::from_bigint(bigint_from_le_bytes(remaining_bytes).unwrap()).unwrap();
+
+        // Now, we shift the latter scalar left by 31 bytes, which is equivalent to multiplying by 2^248.
+        // Reduction is done for us by using modular multiplication for the shift.
+
+        // 2^248 in big endian = 1 followed by 248 zeroes
+        let mut shift_bits = [false; (SPLIT_INDEX) * 8 + 1];
+        shift_bits[0] = true;
+        let shift_by_31_bytes =
+            ScalarField::from_bigint(BigInt::from_bits_be(&shift_bits)).unwrap();
+        rem_scalar *= shift_by_31_bytes;
+
+        // Finally, we add the two scalars together. Again, reduction is done for us by using modular addition.
+        res + rem_scalar
     }
 
     /// Appends a serializable Arkworks type to the transcript
