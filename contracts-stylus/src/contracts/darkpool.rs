@@ -248,6 +248,7 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
 
+        #[allow(unused_assignments)]
         let (mut valid_commitments_vkey_bytes, mut valid_reblind_vkey_bytes) = (vec![], vec![]);
         if_verifying!({
             let vkeys_address = storage.borrow_mut().vkeys_address.get();

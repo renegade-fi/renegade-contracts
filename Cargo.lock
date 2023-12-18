@@ -1005,7 +1005,6 @@ dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
  "ark-ff",
- "ark-poly",
  "ark-std",
  "circuit-types",
  "common",

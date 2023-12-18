@@ -6,8 +6,7 @@
 pub mod errors;
 
 use alloc::vec::Vec;
-use ark_ff::{batch_inversion_and_mul, Field, One, Zero};
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use ark_ff::{batch_inversion_and_mul, FftField, Field, One, Zero};
 use common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
@@ -55,15 +54,26 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         let challenges = self.step_4(&vkey, proof, public_inputs, extra_transcript_init_message)?;
 
-        let domain = Radix2EvaluationDomain::new(self.vkey.n as usize)
-            .ok_or(VerifierError::InvalidInputs)?;
+        let domain_size = if self.vkey.n.is_power_of_two() {
+            self.vkey.n
+        } else {
+            self.vkey
+                .n
+                .checked_next_power_of_two()
+                .ok_or(VerifierError::InvalidInputs)?
+        };
+        let omega =
+            ScalarField::get_root_of_unity(self.vkey.n).ok_or(VerifierError::InvalidInputs)?;
 
-        let zero_poly_eval = self.step_5(&domain, &challenges);
+        let zero_poly_eval = self.step_5(domain_size, &challenges);
 
         // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
-        let domain_elements: Vec<ScalarField> = (0..public_inputs.len())
-            .map(|i| domain.element(i))
-            .collect();
+        let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(public_inputs.len());
+        domain_elements.push(ScalarField::one());
+        for i in 0..public_inputs.len() - 1 {
+            domain_elements.push(domain_elements[i] * omega);
+        }
+
         let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
             .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
             .collect();
@@ -92,7 +102,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         let neg_e_1 = self.step_11(r_0, &v_powers, &vkey, proof, &challenges)?;
 
-        self.step_12(f_1, neg_e_1, &domain, &vkey, proof, &challenges)
+        self.step_12(f_1, neg_e_1, omega, &vkey, proof, &challenges)
     }
 
     /// Validate public inputs
@@ -128,14 +138,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     }
 
     /// Evaluate the zero polynomial at the challenge point `zeta`
-    fn step_5(
-        &self,
-        domain: &Radix2EvaluationDomain<ScalarField>,
-        challenges: &Challenges,
-    ) -> ScalarField {
+    fn step_5(&self, domain_size: u64, challenges: &Challenges) -> ScalarField {
         let Challenges { zeta, .. } = challenges;
 
-        domain.evaluate_vanishing_polynomial(*zeta)
+        zeta.pow([domain_size]) - ScalarField::one()
     }
 
     /// Compute first Lagrange polynomial evaluation at challenge point `zeta`
@@ -412,14 +418,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         &mut self,
         f_1: G1Affine,
         neg_e_1: G1Affine,
-        domain: &Radix2EvaluationDomain<ScalarField>,
+        omega: ScalarField,
         vkey: &VerificationKey,
         proof: &Proof,
         challenges: &Challenges,
     ) -> Result<bool, VerifierError> {
-        let Radix2EvaluationDomain {
-            group_gen: omega, ..
-        } = domain;
         let VerificationKey { h, x_h, .. } = vkey;
         let Proof {
             w_zeta,
@@ -435,7 +438,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let a_2 = G::msm(
             &[
                 *zeta,
-                *u * *zeta * *omega,
+                *u * *zeta * omega,
                 ScalarField::one(),
                 ScalarField::one(),
             ],
