@@ -2,8 +2,9 @@
 
 use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
+use ark_ff::PrimeField;
 use common::{
-    custom_serde::{BytesDeserializable, BytesSerializable, ScalarSerializable, SerdeError},
+    custom_serde::{bigint_from_le_bytes, BytesSerializable, ScalarSerializable, SerdeError},
     serde_def_types::SerdeScalarField,
     types::ScalarField,
 };
@@ -65,7 +66,8 @@ pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
 
 /// Converts a U256 to a scalar
 pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
-    ScalarField::deserialize_from_bytes(&u256.to_be_bytes_vec())
+    let bigint = bigint_from_le_bytes(&u256.to_le_bytes_vec())?;
+    ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
 }
 
 #[macro_export]

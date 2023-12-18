@@ -1,14 +1,18 @@
 //! Testing contract for the Merkle tree which using the test height
 
 use alloc::vec::Vec;
-use common::constants::TEST_MERKLE_HEIGHT;
+use common::{constants::TEST_MERKLE_HEIGHT, types::ScalarField};
 use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
-use crate::contracts::merkle::{MerkleContract, MerkleParams};
+use crate::{
+    utils::constants::TEST_ZEROS,
+    contracts::merkle::{MerkleContract, MerkleParams},
+};
 
 struct TestMerkleParams;
 impl MerkleParams for TestMerkleParams {
     const HEIGHT: usize = TEST_MERKLE_HEIGHT;
+    const ZEROS: &'static [ScalarField] = &TEST_ZEROS;
 }
 
 #[solidity_storage]

@@ -23,12 +23,14 @@ use stylus_sdk::{
 };
 
 use crate::utils::{
+    constants::ZEROS,
     helpers::{scalar_to_u256, u256_to_scalar},
     solidity::NodeChanged,
 };
 
 pub trait MerkleParams {
     const HEIGHT: usize;
+    const ZEROS: &'static [ScalarField];
 }
 
 #[solidity_storage]
@@ -38,9 +40,6 @@ pub struct MerkleContract<P: MerkleParams> {
     /// The current path of siblings for the next leaf to be inserted.
     /// Represented as a mapping from height to sibling value.
     pub sibling_path: StorageMap<u8, StorageU256>,
-    /// The path of values in an empty tree.
-    /// Represented as a mapping from height to empty value.
-    pub zeros: StorageMap<u8, StorageU256>,
     /// The current root of the Merkle tree
     pub root: StorageU256,
     /// The set of historic roots of the Merkle tree
@@ -53,7 +52,6 @@ pub struct MerkleContract<P: MerkleParams> {
 impl<P> MerkleContract<P>
 where
     P: MerkleParams,
-    [(); P::HEIGHT - 1]:,
 {
     // ------------------
     // | INITIALIZATION |
@@ -122,9 +120,6 @@ where
             return current_leaf;
         }
 
-        // Write the zero value at this height
-        self.zeros.insert(height - 1, scalar_to_u256(current_leaf));
-
         // The next value in the sibling pathway is the current hash, when the first value
         // is inserted into the Merkle tree, it will be hashed against the same values used
         // in this recursion
@@ -174,8 +169,8 @@ where
             if is_left {
                 self.sibling_path.insert(height - 1, scalar_to_u256(value));
             } else {
-                self.sibling_path
-                    .insert(height - 1, self.zeros.get(height - 1));
+                let zero_value = scalar_to_u256(P::ZEROS[height as usize - 1]);
+                self.sibling_path.insert(height - 1, zero_value);
             }
         }
 
@@ -199,10 +194,10 @@ where
         });
     }
 }
-
 struct ProdMerkleParams;
 impl MerkleParams for ProdMerkleParams {
     const HEIGHT: usize = MERKLE_HEIGHT;
+    const ZEROS: &'static [ScalarField] = &ZEROS;
 }
 
 #[solidity_storage]
