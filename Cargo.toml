@@ -12,7 +12,6 @@ members = [
 ark-bn254 = "0.4.0"
 ark-ec = "0.4.0"
 ark-ff = "0.4.0"
-ark-poly = "0.4.0"
 ark-std = "0.4.0"
 ark-serialize = "0.4.0"
 ark-crypto-primitives = { version = "0.4", default-features = false, features = [

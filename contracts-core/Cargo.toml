@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 ark-ff = { workspace = true }
-ark-poly = { workspace = true }
 alloy-primitives = { workspace = true }
 renegade-crypto = { workspace = true }
 serde = { workspace = true }
