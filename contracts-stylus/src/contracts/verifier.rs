@@ -11,16 +11,14 @@ use crate::utils::backends::{PrecompileG1ArithmeticBackend, StylusHasher};
 #[entrypoint]
 pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
     let VerificationBundle {
-        vkey,
-        proof,
-        public_inputs,
+        vkeys,
+        proofs,
+        public_inputs_batch,
     } = postcard::from_bytes(verification_bundle_ser.as_slice()).unwrap();
 
     let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
 
-    let result = verifier
-        .verify(&[vkey], &[proof], &[public_inputs])
-        .unwrap();
+    let result = verifier.verify(&vkeys, &proofs, &public_inputs_batch).unwrap();
 
     Ok(vec![result as u8])
 }

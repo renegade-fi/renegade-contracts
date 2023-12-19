@@ -235,8 +235,8 @@ pub struct MatchPayload {
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct VerificationBundle {
-    pub vkey: VerificationKey,
-    pub proof: Proof,
-    #[serde_as(as = "Vec<ScalarFieldDef>")]
-    pub public_inputs: Vec<ScalarField>,
+    pub vkeys: Vec<VerificationKey>,
+    pub proofs: Vec<Proof>,
+    #[serde_as(as = "Vec<Vec<ScalarFieldDef>>")]
+    pub public_inputs_batch: Vec<Vec<ScalarField>>,
 }

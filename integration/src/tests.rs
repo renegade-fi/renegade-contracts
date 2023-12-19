@@ -19,7 +19,7 @@ use ethers::{
 };
 use eyre::Result;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
-use rand::{thread_rng, RngCore};
+use rand::{seq::SliceRandom, thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
@@ -184,9 +184,9 @@ pub(crate) async fn test_verifier(
     let vkey = convert_jf_vkey(jf_vkey)?;
 
     let mut verification_bundle = VerificationBundle {
-        vkey,
-        proof,
-        public_inputs,
+        vkeys: vec![vkey],
+        proofs: vec![proof],
+        public_inputs_batch: vec![public_inputs],
     };
     let bundle_bytes = serialize_to_calldata(&verification_bundle)?;
 
@@ -197,7 +197,8 @@ pub(crate) async fn test_verifier(
 
     assert!(successful_res, "Valid proof did not verify");
 
-    verification_bundle.proof.z_bar += ScalarField::one();
+    let proof = verification_bundle.proofs.choose_mut(&mut rng).unwrap();
+    proof.z_bar += ScalarField::one();
     let bundle_bytes = serialize_to_calldata(&verification_bundle)?;
     let unsuccessful_res = contract
         .verify(verifier_address, bundle_bytes)

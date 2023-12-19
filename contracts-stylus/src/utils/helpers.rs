@@ -1,11 +1,9 @@
 //! Miscellaneous helper functions for the contracts.
 
-use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use common::{
-    custom_serde::{bigint_from_le_bytes, BytesSerializable, ScalarSerializable, SerdeError},
-    serde_def_types::SerdeScalarField,
+    custom_serde::{bigint_from_le_bytes, BytesSerializable, SerdeError},
     types::ScalarField,
 };
 use stylus_sdk::{
@@ -13,25 +11,6 @@ use stylus_sdk::{
     call::{delegate_call, static_call},
     storage::TopLevelStorage,
 };
-
-/// Serializes the given statement into scalars, and then into bytes,
-/// as expected by the verifier contract.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub fn serialize_statement_for_verification<S: ScalarSerializable>(
-    statement: &S,
-) -> postcard::Result<Vec<u8>> {
-    postcard::to_allocvec(
-        &statement
-            .serialize_to_scalars()
-            .unwrap()
-            .into_iter()
-            .map(SerdeScalarField)
-            .collect::<Vec<_>>(),
-    )
-}
 
 /// Performs a `delegatecall` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.

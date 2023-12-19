@@ -195,6 +195,7 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     let opt_level = match contract {
         StylusContract::Verifier => OPT_LEVEL_S,
+        StylusContract::Darkpool | StylusContract::DarkpoolTestContract => "z",
         _ => OPT_LEVEL_3,
     };
 
