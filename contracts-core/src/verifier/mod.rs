@@ -5,16 +5,16 @@
 
 pub mod errors;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use ark_ff::{batch_inversion_and_mul, FftField, Field, One, Zero};
 use common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
-    types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
+    types::{Challenges, G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
 
-use crate::transcript::Transcript;
+use crate::transcript::{serialize_scalars_for_transcript, Transcript};
 
 use self::errors::VerifierError;
 
@@ -34,87 +34,105 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Default for Verifier<G, H> {
 }
 
 impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
-    /// Verify a proof. Follows the algorithm laid out in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf
+    /// Verify a batch of proofs.
+    ///
+    /// Follows the algorithm laid out in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf,
+    /// and applies batch verification as implemented in Jellyfish: https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
+    ///
+    /// This assumes that all the verification keys were generated using the same SRS.
     pub fn verify(
         &mut self,
         vkeys: &[VerificationKey],
         proofs: &[Proof],
         public_inputs: &[Vec<ScalarField>],
     ) -> Result<bool, VerifierError> {
-        vkeys
-            .iter()
-            .zip(proofs.iter())
-            .zip(public_inputs.iter())
-            .map(|((vkey, proof), public_inputs)| {
-                // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
-                // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
-                // elements not in the scalar field, and points not in G1, would cause a panic.
+        assert!(vkeys.len() == proofs.len() && proofs.len() == public_inputs.len());
 
-                self.step_3(public_inputs, vkey)?;
+        let num_proofs = proofs.len();
 
-                let challenges = self.step_4(vkey, proof, public_inputs)?;
+        let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
+        let mut g1_rhs_elems = Vec::with_capacity(num_proofs);
+        let mut final_challenges = Vec::with_capacity(num_proofs);
 
-                let domain_size = if vkey.n.is_power_of_two() {
-                    vkey.n
-                } else {
-                    vkey.n
-                        .checked_next_power_of_two()
-                        .ok_or(VerifierError::InvalidInputs)?
-                };
-                let omega =
-                    ScalarField::get_root_of_unity(vkey.n).ok_or(VerifierError::InvalidInputs)?;
+        for ((vkey, proof), public_inputs) in
+            vkeys.iter().zip(proofs.iter()).zip(public_inputs.iter())
+        {
+            // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
+            // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
+            // elements not in the scalar field, and points not in G1, would cause a panic.
 
-                let zero_poly_eval = self.step_5(domain_size, &challenges);
+            Self::step_3(public_inputs, vkey)?;
 
-                // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
-                let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(public_inputs.len());
-                domain_elements.push(ScalarField::one());
-                for i in 0..public_inputs.len() - 1 {
-                    domain_elements.push(domain_elements[i] * omega);
-                }
+            let challenges = Self::step_4(vkey, proof, public_inputs)?;
 
-                let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
-                    .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
-                    .collect();
-                batch_inversion_and_mul(&mut lagrange_bases, &zero_poly_eval);
+            let domain_size = if vkey.n.is_power_of_two() {
+                vkey.n
+            } else {
+                vkey.n
+                    .checked_next_power_of_two()
+                    .ok_or(VerifierError::InvalidInputs)?
+            };
+            let omega =
+                ScalarField::get_root_of_unity(vkey.n).ok_or(VerifierError::InvalidInputs)?;
 
-                let lagrange_1_eval = self.step_6(&lagrange_bases, &domain_elements);
+            let zero_poly_eval = Self::step_5(domain_size, &challenges);
 
-                let pi_eval = self.step_7(
-                    lagrange_1_eval,
-                    &lagrange_bases,
-                    &domain_elements,
-                    public_inputs,
-                );
+            // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
+            let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(public_inputs.len());
+            domain_elements.push(ScalarField::one());
+            for i in 0..public_inputs.len() - 1 {
+                domain_elements.push(domain_elements[i] * omega);
+            }
 
-                let r_0 = self.step_8(pi_eval, lagrange_1_eval, &challenges, proof);
+            let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
+                .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
+                .collect();
+            batch_inversion_and_mul(&mut lagrange_bases, &zero_poly_eval);
 
-                let d_1 = self.step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
+            let lagrange_1_eval = Self::step_6(&lagrange_bases, &domain_elements);
 
-                // Increasing powers of v, starting w/ 1
-                let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
-                for i in 1..NUM_WIRE_TYPES * 2 {
-                    v_powers[i] = v_powers[i - 1] * challenges.v;
-                }
+            let pi_eval = Self::step_7(
+                lagrange_1_eval,
+                &lagrange_bases,
+                &domain_elements,
+                public_inputs,
+            );
 
-                let f_1 = self.step_10(d_1, &v_powers, vkey, proof)?;
+            let r_0 = Self::step_8(pi_eval, lagrange_1_eval, &challenges, proof);
 
-                let neg_e_1 = self.step_11(r_0, &v_powers, vkey, proof, &challenges)?;
+            let d_1 = Self::step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
 
-                self.step_12(f_1, neg_e_1, omega, vkey, proof, &challenges)
-            })
-            .try_fold(true, |acc, result| result.map(|r| acc && r))
+            // Increasing powers of v, starting w/ 1
+            let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
+            for i in 1..NUM_WIRE_TYPES * 2 {
+                v_powers[i] = v_powers[i - 1] * challenges.v;
+            }
+
+            let f_1 = Self::step_10(d_1, &v_powers, vkey, proof)?;
+
+            let neg_e_1 = Self::step_11(r_0, &v_powers, vkey, proof, &challenges)?;
+
+            let (lhs_g1, rhs_g1) = Self::step_12_part_1(f_1, neg_e_1, omega, proof, &challenges)?;
+
+            g1_lhs_elems.push(lhs_g1);
+            g1_rhs_elems.push(rhs_g1);
+            final_challenges.push(challenges.u);
+        }
+
+        Self::step_12_part_2(
+            &g1_lhs_elems,
+            &g1_rhs_elems,
+            &final_challenges,
+            vkeys[0].x_h,
+            vkeys[0].h,
+        )
     }
 
     /// Validate public inputs
     ///
     /// Similarly to the assumptions for step 2, the membership of the public inputs in the scalar field
     /// should be enforced by the type system.
-    fn step_3(
-        &self,
-        public_inputs: &[ScalarField],
-        vkey: &VerificationKey,
-    ) -> Result<(), VerifierError> {
+    fn step_3(public_inputs: &[ScalarField], vkey: &VerificationKey) -> Result<(), VerifierError> {
         if public_inputs.len() != vkey.l as usize {
             return Err(VerifierError::InvalidInputs);
         }
@@ -123,7 +141,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Compute the challenges
     fn step_4(
-        &mut self,
         vkey: &VerificationKey,
         proof: &Proof,
         public_inputs: &[ScalarField],
@@ -134,24 +151,19 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     }
 
     /// Evaluate the zero polynomial at the challenge point `zeta`
-    fn step_5(&self, domain_size: u64, challenges: &Challenges) -> ScalarField {
+    fn step_5(domain_size: u64, challenges: &Challenges) -> ScalarField {
         let Challenges { zeta, .. } = challenges;
 
         zeta.pow([domain_size]) - ScalarField::one()
     }
 
     /// Compute first Lagrange polynomial evaluation at challenge point `zeta`
-    fn step_6(
-        &self,
-        lagrange_bases: &[ScalarField],
-        domain_elements: &[ScalarField],
-    ) -> ScalarField {
+    fn step_6(lagrange_bases: &[ScalarField], domain_elements: &[ScalarField]) -> ScalarField {
         domain_elements[0] * lagrange_bases[0]
     }
 
     /// Evaluate public inputs polynomial at challenge point `zeta`
     fn step_7(
-        &self,
         lagrange_1_eval: ScalarField,
         lagrange_bases: &[ScalarField],
         domain_elements: &[ScalarField],
@@ -175,7 +187,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Compute linearization polynomial constant term, `r_0`
     fn step_8(
-        &self,
         pi_eval: ScalarField,
         lagrange_1_eval: ScalarField,
         challenges: &Challenges,
@@ -209,7 +220,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Compute first part of batched polynomial commitment [D]1
     fn step_9(
-        &mut self,
         zero_poly_eval: ScalarField,
         lagrange_1_eval: ScalarField,
         vkey: &VerificationKey,
@@ -217,21 +227,17 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         challenges: &Challenges,
     ) -> Result<G1Affine, VerifierError> {
         let points = [
-            self.step_9_line_1(vkey, proof)?,
-            self.step_9_line_2(lagrange_1_eval, vkey, proof, challenges)?,
-            self.step_9_line_3(vkey, proof, challenges)?,
-            self.step_9_line_4(zero_poly_eval, proof, challenges)?,
+            Self::step_9_line_1(vkey, proof)?,
+            Self::step_9_line_2(lagrange_1_eval, vkey, proof, challenges)?,
+            Self::step_9_line_3(vkey, proof, challenges)?,
+            Self::step_9_line_4(zero_poly_eval, proof, challenges)?,
         ];
 
         G::msm(&[ScalarField::one(); 4], &points).map_err(|_| VerifierError::ArithmeticBackend)
     }
 
     /// MSM over selector polynomial commitments
-    fn step_9_line_1(
-        &mut self,
-        vkey: &VerificationKey,
-        proof: &Proof,
-    ) -> Result<G1Affine, VerifierError> {
+    fn step_9_line_1(vkey: &VerificationKey, proof: &Proof) -> Result<G1Affine, VerifierError> {
         let VerificationKey { q_comms, .. } = vkey;
         let Proof { wire_evals, .. } = proof;
 
@@ -260,7 +266,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Scalar mul of grand product polynomial commitment
     fn step_9_line_2(
-        &mut self,
         lagrange_1_eval: ScalarField,
         vkey: &VerificationKey,
         proof: &Proof,
@@ -297,7 +302,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Scalar mul of final permutation polynomial commitment
     fn step_9_line_3(
-        &mut self,
         vkey: &VerificationKey,
         proof: &Proof,
         challenges: &Challenges,
@@ -330,7 +334,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// MSM over split quotient polynomial commitments
     fn step_9_line_4(
-        &mut self,
         zero_poly_eval: ScalarField,
         proof: &Proof,
         challenges: &Challenges,
@@ -360,7 +363,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Compute full batched polynomial commitment [F]1
     fn step_10(
-        &mut self,
         d_1: G1Affine,
         v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
         vkey: &VerificationKey,
@@ -381,7 +383,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     ///
     /// We negate the scalar here to obtain -[E]1 so that we can avoid another EC scalar mul in step 12
     fn step_11(
-        &mut self,
         r_0: ScalarField,
         v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
         vkey: &VerificationKey,
@@ -409,17 +410,18 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         G::ec_scalar_mul(-e, *g).map_err(|_| VerifierError::ArithmeticBackend)
     }
 
-    /// Batch validate all evaluations
-    fn step_12(
-        &mut self,
+    /// Compute G1 elements to be used in the final pairing check
+    /// for the given proof.
+    ///
+    /// This is the final G1 arithmetic done in step 12 of the verifier algorithm
+    /// before the pairing check.
+    fn step_12_part_1(
         f_1: G1Affine,
         neg_e_1: G1Affine,
         omega: ScalarField,
-        vkey: &VerificationKey,
         proof: &Proof,
         challenges: &Challenges,
-    ) -> Result<bool, VerifierError> {
-        let VerificationKey { h, x_h, .. } = vkey;
+    ) -> Result<(G1Affine, G1Affine), VerifierError> {
         let Proof {
             w_zeta,
             w_zeta_omega,
@@ -427,11 +429,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         } = proof;
         let Challenges { zeta, u, .. } = challenges;
 
-        let a_1 = G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])
+        let lhs = G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])
             .map_err(|_| VerifierError::ArithmeticBackend)?;
-        let b_1 = *x_h;
 
-        let a_2 = G::msm(
+        let rhs = G::msm(
             &[
                 *zeta,
                 *u * *zeta * omega,
@@ -441,14 +442,57 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             &[*w_zeta, *w_zeta_omega, f_1, neg_e_1],
         )
         .map_err(|_| VerifierError::ArithmeticBackend)?;
-        let b_2 = *h;
 
-        // We negate a_2 here because we're expressing the check:
-        // e(a_1, b_1) == e(a_2, b_2)
-        // In the form:
-        // e(a_1, b_1) * e(-a_2, b_2) == e(g, h)
-        // (Where g, h are the generators used for the source groups)
-        G::ec_pairing_check(a_1, b_1, -a_2, b_2).map_err(|_| VerifierError::ArithmeticBackend)
+        Ok((lhs, rhs))
+    }
+
+    /// Compute the final pairing check for a batch of proofs.
+    ///
+    /// For the verification of a single proof, we do a pairing check of the form:
+    /// e(A, [x]2) == e(B, [1]2)
+    ///
+    /// Now, for batch verification over `m` proofs, we extend the pairing check to the following:
+    /// e(A0 + ... + r^{m-1} * Am, [x]2) = e(B0 + ... + r^{m-1} * Bm, [1]2)
+    ///
+    /// By the Schwartz-Zippel lemma, for a random `r`, this check will succeed with overwhelming
+    /// probability if and only if the individual pairing checks do.
+    fn step_12_part_2(
+        g1_lhs_elems: &[G1Affine],
+        g1_rhs_elems: &[G1Affine],
+        final_challenges: &[ScalarField],
+        x_h: G2Affine,
+        h: G2Affine,
+    ) -> Result<bool, VerifierError> {
+        let num_proofs = g1_lhs_elems.len();
+
+        let r = if num_proofs == 1 {
+            // No need to incur an extra multiplication when only 1 proof is being verified
+            ScalarField::one()
+        } else {
+            // Compute a pseudorandom `r` used for constructing a random linear combination
+            // of calculated G1 elements for the pairing check.
+            // Computing `r`` this way ensures that it depends on the proofs,
+            // their public inputs, and their verification keys.
+
+            let mut transcript = Transcript::<H>::new();
+
+            transcript.append_message(&serialize_scalars_for_transcript(final_challenges));
+            transcript.get_and_append_challenge()
+        };
+
+        // Compute successive powers of `r`, these are the coefficients in the random linear combination
+        let mut r_powers = vec![ScalarField::one(); num_proofs];
+        for i in 1..num_proofs {
+            r_powers[i] = r_powers[i - 1] * r;
+        }
+
+        // Compute the random linear combinations of G1 elements for the verification instances.
+        let lhs_rlc =
+            G::msm(&r_powers, g1_lhs_elems).map_err(|_| VerifierError::ArithmeticBackend)?;
+        let rhs_rlc =
+            G::msm(&r_powers, g1_rhs_elems).map_err(|_| VerifierError::ArithmeticBackend)?;
+
+        G::ec_pairing_check(lhs_rlc, x_h, -rhs_rlc, h).map_err(|_| VerifierError::ArithmeticBackend)
     }
 }
 
@@ -467,7 +511,7 @@ mod tests {
     };
     use itertools::multiunzip;
     use jf_utils::multi_pairing;
-    use rand::{thread_rng, seq::SliceRandom};
+    use rand::{seq::SliceRandom, thread_rng};
     use test_helpers::{
         crypto::NativeHasher,
         misc::random_scalars,

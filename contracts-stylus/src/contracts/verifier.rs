@@ -19,7 +19,7 @@ pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
     let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
 
     let result = verifier
-        .verify(&[vkey], &[proof], &[&public_inputs])
+        .verify(&[vkey], &[proof], &[public_inputs])
         .unwrap();
 
     Ok(vec![result as u8])
