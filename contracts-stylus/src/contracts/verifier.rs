@@ -16,9 +16,11 @@ pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
         public_inputs,
     } = postcard::from_bytes(verification_bundle_ser.as_slice()).unwrap();
 
-    let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::new(vkey);
+    let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
 
-    let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
+    let result = verifier
+        .verify(&[vkey], &[proof], &[&public_inputs])
+        .unwrap();
 
     Ok(vec![result as u8])
 }
