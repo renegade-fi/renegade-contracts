@@ -52,7 +52,7 @@ pub struct VerificationKey {
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Serialize, Deserialize)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
