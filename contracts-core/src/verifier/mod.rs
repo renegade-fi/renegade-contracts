@@ -6,7 +6,7 @@
 pub mod errors;
 
 use alloc::{vec, vec::Vec};
-use ark_ff::{batch_inversion_and_mul, FftField, Field, One, Zero};
+use ark_ff::{batch_inversion, FftField, Field, One, Zero};
 use common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
@@ -50,9 +50,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         let num_proofs = proofs.len();
 
-        let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
-        let mut g1_rhs_elems = Vec::with_capacity(num_proofs);
-        let mut final_challenges = Vec::with_capacity(num_proofs);
+        let mut challenges_batch = Vec::with_capacity(num_proofs);
+        let mut zero_poly_evals_batch = Vec::with_capacity(num_proofs);
+        let mut domain_elements_batch = Vec::with_capacity(num_proofs);
+        let mut lagrange_bases_batch = Vec::with_capacity(num_proofs);
 
         for ((vkey, proof), public_inputs) in
             vkeys.iter().zip(proofs.iter()).zip(public_inputs.iter())
@@ -84,23 +85,51 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 domain_elements.push(domain_elements[i] * omega);
             }
 
-            let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
+            let lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
                 .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
                 .collect();
-            batch_inversion_and_mul(&mut lagrange_bases, &zero_poly_eval);
 
-            let lagrange_1_eval = Self::step_6(&lagrange_bases, &domain_elements);
+            challenges_batch.push(challenges);
+            zero_poly_evals_batch.push(zero_poly_eval);
+            domain_elements_batch.push(domain_elements);
+            lagrange_bases_batch.extend(lagrange_bases);
+        }
+
+        batch_inversion(&mut lagrange_bases_batch);
+        let mut lagrange_bases_cursor = 0;
+
+        let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
+        let mut g1_rhs_elems = Vec::with_capacity(num_proofs);
+        let mut final_challenges = Vec::with_capacity(num_proofs);
+
+        for (i, ((vkey, proof), public_inputs)) in vkeys
+            .iter()
+            .zip(proofs.iter())
+            .zip(public_inputs.iter())
+            .enumerate()
+        {
+            let challenges = &challenges_batch[i];
+            let zero_poly_eval = zero_poly_evals_batch[i];
+            let domain_elements = &domain_elements_batch[i];
+            let lagrange_bases: Vec<ScalarField> = lagrange_bases_batch
+                [lagrange_bases_cursor..lagrange_bases_cursor + public_inputs.len()]
+                .iter()
+                .map(|l| l * &zero_poly_eval)
+                .collect();
+            lagrange_bases_cursor += public_inputs.len();
+
+            let lagrange_1_eval = Self::step_6(&lagrange_bases, domain_elements);
 
             let pi_eval = Self::step_7(
                 lagrange_1_eval,
                 &lagrange_bases,
-                &domain_elements,
+                domain_elements,
                 public_inputs,
             );
 
-            let r_0 = Self::step_8(pi_eval, lagrange_1_eval, &challenges, proof);
+            let r_0 = Self::step_8(pi_eval, lagrange_1_eval, challenges, proof);
 
-            let d_1 = Self::step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
+            let d_1 = Self::step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, challenges)?;
 
             // Increasing powers of v, starting w/ 1
             let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
@@ -110,9 +139,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             let f_1 = Self::step_10(d_1, &v_powers, vkey, proof)?;
 
-            let neg_e_1 = Self::step_11(r_0, &v_powers, vkey, proof, &challenges)?;
+            let neg_e_1 = Self::step_11(r_0, &v_powers, vkey, proof, challenges)?;
 
-            let (lhs_g1, rhs_g1) = Self::step_12_part_1(f_1, neg_e_1, omega, proof, &challenges)?;
+            let (lhs_g1, rhs_g1) =
+                Self::step_12_part_1(f_1, neg_e_1, domain_elements[1], proof, challenges)?;
 
             g1_lhs_elems.push(lhs_g1);
             g1_rhs_elems.push(rhs_g1);
