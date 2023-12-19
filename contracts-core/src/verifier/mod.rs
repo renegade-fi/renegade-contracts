@@ -42,11 +42,13 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     /// This assumes that all the verification keys were generated using the same SRS.
     pub fn verify(
         &mut self,
-        vkeys: &[VerificationKey],
-        proofs: &[Proof],
+        vkey_batch: &[VerificationKey],
+        proof_batch: &[Proof],
         public_inputs_batch: &[Vec<ScalarField>],
     ) -> Result<bool, VerifierError> {
-        assert!(vkeys.len() == proofs.len() && proofs.len() == public_inputs_batch.len());
+        assert!(
+            vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
+        );
 
         let num_proofs = proof_batch.len();
 
@@ -55,9 +57,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let mut domain_elements_batch = Vec::with_capacity(num_proofs);
         let mut all_lagrange_basis_denominators = Vec::with_capacity(num_proofs);
 
-        for ((vkey, proof), public_inputs) in vkeys
+        for ((vkey, proof), public_inputs) in vkey_batch
             .iter()
-            .zip(proofs.iter())
+            .zip(proof_batch.iter())
             .zip(public_inputs_batch.iter())
         {
             // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
@@ -93,7 +95,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         for (i, ((vkey, proof), public_inputs)) in vkey_batch
             .iter()
-            .zip(proofs.iter())
+            .zip(proof_batch.iter())
             .zip(public_inputs_batch.iter())
             .enumerate()
         {

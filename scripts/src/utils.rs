@@ -145,7 +145,7 @@ pub fn write_srs_to_file(
         .map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
-pub fn write_vkey_to_file(
+pub fn write_vkeys_to_file(
     vkeys_dir: &str,
     vkey_file_name: &str,
     vkey_bytes: &[u8],
@@ -195,7 +195,6 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     let opt_level = match contract {
         StylusContract::Verifier => OPT_LEVEL_S,
-        StylusContract::Darkpool | StylusContract::DarkpoolTestContract => "z",
         _ => OPT_LEVEL_3,
     };
 

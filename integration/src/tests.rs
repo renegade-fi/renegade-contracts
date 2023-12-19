@@ -18,6 +18,7 @@ use ethers::{
     types::Bytes, utils::keccak256,
 };
 use eyre::Result;
+use itertools::multiunzip;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::{seq::SliceRandom, thread_rng, RngCore};
 use test_helpers::{
@@ -35,7 +36,7 @@ use crate::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
-    constants::{L, N, TRANSFER_AMOUNT},
+    constants::{L, N, PROOF_BATCH_SIZE, TRANSFER_AMOUNT},
     utils::{
         dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
         get_process_match_settle_data, insert_shares_and_get_root, mint_dummy_erc20,
@@ -178,15 +179,20 @@ pub(crate) async fn test_verifier(
     verifier_address: Address,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let public_inputs = random_scalars(L, &mut rng);
-    let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs)?;
-    let proof = convert_jf_proof(jf_proof)?;
-    let vkey = convert_jf_vkey(jf_vkey)?;
+    let (vkey_batch, proof_batch, public_inputs_batch): (Vec<_>, Vec<_>, Vec<_>) =
+        multiunzip((0..PROOF_BATCH_SIZE).map(|_| {
+            let public_inputs = random_scalars(L, &mut rng);
+            let (jf_proof, jf_vkey) =
+                gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+            let proof = convert_jf_proof(jf_proof).unwrap();
+            let vkey = convert_jf_vkey(jf_vkey).unwrap();
+            (vkey, proof, public_inputs)
+        }));
 
     let mut verification_bundle = VerificationBundle {
-        vkeys: vec![vkey],
-        proofs: vec![proof],
-        public_inputs_batch: vec![public_inputs],
+        vkey_batch,
+        proof_batch,
+        public_inputs_batch,
     };
     let bundle_bytes = serialize_to_calldata(&verification_bundle)?;
 
@@ -197,7 +203,10 @@ pub(crate) async fn test_verifier(
 
     assert!(successful_res, "Valid proof did not verify");
 
-    let proof = verification_bundle.proofs.choose_mut(&mut rng).unwrap();
+    let proof = verification_bundle
+        .proof_batch
+        .choose_mut(&mut rng)
+        .unwrap();
     proof.z_bar += ScalarField::one();
     let bundle_bytes = serialize_to_calldata(&verification_bundle)?;
     let unsuccessful_res = contract
@@ -413,7 +422,7 @@ pub(crate) async fn test_new_wallet(
     // Call `new_wallet` with valid data
     contract
         .new_wallet(
-            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&vec![proof])?,
             serialize_to_calldata(&valid_wallet_create_statement)?,
         )
         .send()
@@ -472,7 +481,7 @@ pub(crate) async fn test_update_wallet(
     // Call `update_wallet` with valid data
     contract
         .update_wallet(
-            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&vec![proof])?,
             valid_wallet_update_statement_bytes,
             public_inputs_signature,
         )
@@ -516,17 +525,21 @@ pub(crate) async fn test_process_match_settle(
     let mut rng = thread_rng();
     let data = get_process_match_settle_data(&mut rng, srs, contract_root)?;
 
+    let proofs = vec![
+        data.party_0_valid_commitments_proof,
+        data.party_0_valid_reblind_proof,
+        data.party_1_valid_commitments_proof,
+        data.party_1_valid_reblind_proof,
+        data.valid_match_settle_proof,
+    ];
+
     // Call `process_match_settle` with valid data
     contract
         .process_match_settle(
             serialize_to_calldata(&data.party_0_match_payload)?,
-            serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
-            serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
             serialize_to_calldata(&data.party_1_match_payload)?,
-            serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
-            serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
-            serialize_to_calldata(&data.valid_match_settle_proof)?,
             serialize_to_calldata(&data.valid_match_settle_statement)?,
+            serialize_to_calldata(&proofs)?,
         )
         .send()
         .await?
