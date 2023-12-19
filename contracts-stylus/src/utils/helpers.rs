@@ -1,6 +1,6 @@
 //! Miscellaneous helper functions for the contracts.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use common::{
@@ -23,14 +23,25 @@ use stylus_sdk::{
 pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> postcard::Result<Vec<u8>> {
-    postcard::to_allocvec(
-        &statement
-            .serialize_to_scalars()
-            .unwrap()
-            .into_iter()
-            .map(SerdeScalarField)
-            .collect::<Vec<_>>(),
-    )
+    // We serialize the statement as a single-element `Vec<Vec<ScalarField>>`,
+    // as this is what's expected for batch verification
+    postcard::to_allocvec(&vec![statement_to_serializable_scalars(statement)])
+}
+
+/// Converts a statement to a vector of serializable scalars.
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
+pub fn statement_to_serializable_scalars<S: ScalarSerializable>(
+    statement: &S,
+) -> Vec<SerdeScalarField> {
+    statement
+        .serialize_to_scalars()
+        .unwrap()
+        .into_iter()
+        .map(SerdeScalarField)
+        .collect()
 }
 
 /// Performs a `delegatecall` to the given address, calling the function
@@ -49,6 +60,12 @@ pub fn delegate_call_helper<C: SolCall>(
     C::decode_returns(&res, true /* validate */).unwrap()
 }
 
+/// Performs a `staticcall` to the given address, calling the function
+/// defined as a `SolCall` with the given arguments.
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
 pub fn static_call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
@@ -60,11 +77,29 @@ pub fn static_call_helper<C: SolCall>(
 }
 
 /// Converts a scalar to a U256
+#[cfg_attr(
+    not(any(
+        feature = "darkpool",
+        feature = "darkpool-test-contract",
+        feature = "merkle",
+        feature = "merkle-test-contract"
+    )),
+    allow(dead_code)
+)]
 pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
     U256::from_be_slice(&scalar.serialize_to_bytes())
 }
 
 /// Converts a U256 to a scalar
+#[cfg_attr(
+    not(any(
+        feature = "darkpool",
+        feature = "darkpool-test-contract",
+        feature = "merkle",
+        feature = "merkle-test-contract"
+    )),
+    allow(dead_code)
+)]
 pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
     let bigint = bigint_from_le_bytes(&u256.to_le_bytes_vec())?;
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)

@@ -6,7 +6,7 @@ use ark_std::UniformRand;
 use circuit_types::traits::{BaseType, CircuitBaseType, SingleProverCircuit};
 use common::{
     constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
-    types::{G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
+    types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
 use constants::{Scalar, SystemCurve};
 use core::iter;
@@ -27,10 +27,10 @@ use mpc_plonk::{
 use mpc_relation::{traits::Circuit, PlonkCircuit};
 use rand::thread_rng;
 
-pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircuit<ScalarField>> {
+pub fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircuit<ScalarField>> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
 
-    for pi in public_inputs {
+    for pi in &public_inputs.0 {
         circuit.create_public_variable(*pi)?;
     }
 
@@ -47,7 +47,7 @@ pub fn gen_circuit(n: usize, public_inputs: &[ScalarField]) -> Result<PlonkCircu
 pub fn gen_test_circuit_and_keys(
     srs: &UnivariateUniversalParams<SystemCurve>,
     n: usize,
-    public_inputs: &[ScalarField],
+    public_inputs: &PublicInputs,
 ) -> Result<(
     PlonkCircuit<ScalarField>,
     ProvingKey<SystemCurve>,
@@ -87,7 +87,7 @@ pub fn gen_circuit_keys<C: SingleProverCircuit>(
 pub fn gen_jf_proof_and_vkey(
     srs: &UnivariateUniversalParams<SystemCurve>,
     n: usize,
-    public_inputs: &[ScalarField],
+    public_inputs: &PublicInputs,
 ) -> Result<(JfProof<SystemCurve>, VerifyingKey<SystemCurve>)> {
     let mut rng = thread_rng();
 

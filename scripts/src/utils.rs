@@ -15,7 +15,7 @@ use alloy_primitives::Address as AlloyAddress;
 use alloy_sol_types::SolCall;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use circuit_types::traits::SingleProverCircuit;
-use common::types::VerificationKey;
+use common::types::{PublicInputs, VerificationKey};
 use constants::SystemCurve;
 use ethers::{
     abi::Address,
@@ -145,7 +145,7 @@ pub fn write_srs_to_file(
         .map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
-pub fn write_vkey_to_file(
+pub fn write_vkeys_to_file(
     vkeys_dir: &str,
     vkey_file_name: &str,
     vkey_bytes: &[u8],
@@ -347,9 +347,13 @@ pub async fn deploy_stylus_contract(
 pub fn gen_test_vkey<S: RenegadeStatement>(
     srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<VerificationKey, ScriptError> {
-    let public_inputs = S::dummy(&mut thread_rng())
-        .serialize_to_scalars()
-        .map_err(|_| ScriptError::Serde("error serializing statement to scalars".to_string()))?;
+    let public_inputs = PublicInputs(
+        S::dummy(&mut thread_rng())
+            .serialize_to_scalars()
+            .map_err(|_| {
+                ScriptError::Serde("error serializing statement to scalars".to_string())
+            })?,
+    );
 
     let (_, _, jf_vkey) = gen_test_circuit_and_keys(srs, TEST_CIRCUIT_DOMAIN_SIZE, &public_inputs)
         .map_err(|_| ScriptError::CircuitCreation)?;

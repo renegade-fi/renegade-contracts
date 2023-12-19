@@ -8,7 +8,7 @@ use common::{
     backends::HashBackend,
     constants::{HASH_SAMPLE_BYTES, SPLIT_INDEX, TRANSCRIPT_STATE_SIZE},
     custom_serde::{bigint_from_le_bytes, BytesSerializable, TranscriptG1},
-    types::{Challenges, G1Affine, Proof, ScalarField, VerificationKey},
+    types::{Challenges, G1Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
 
@@ -86,7 +86,7 @@ impl<H: HashBackend> Transcript<H> {
         &mut self,
         vkey: &VerificationKey,
         proof: &Proof,
-        public_inputs: &[ScalarField],
+        public_inputs: &PublicInputs,
     ) -> Result<Challenges, TranscriptError> {
         // Absorb verification key & public inputs
         self.append_message(&ScalarField::MODULUS_BIT_SIZE.to_le_bytes());
@@ -97,7 +97,7 @@ impl<H: HashBackend> Transcript<H> {
         self.append_message(&serialize_scalars_for_transcript(&vkey.k));
         self.append_serializable(&to_transcript_g1s(&vkey.q_comms).as_slice());
         self.append_serializable(&to_transcript_g1s(&vkey.sigma_comms).as_slice());
-        self.append_message(&serialize_scalars_for_transcript(public_inputs));
+        self.append_message(&serialize_scalars_for_transcript(&public_inputs.0));
 
         // Prover round 1: absorb wire polynomial commitments
         self.append_serializable(&to_transcript_g1s(&proof.wire_comms).as_slice());
@@ -156,11 +156,11 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 
 #[cfg(test)]
 pub mod tests {
-    use ark_std::UniformRand;
-    use common::types::ScalarField;
+    use common::types::PublicInputs;
     use rand::thread_rng;
     use test_helpers::{
         crypto::NativeHasher,
+        misc::random_scalars,
         proof_system::{dummy_proofs, dummy_vkeys, get_jf_challenges},
     };
 
@@ -174,14 +174,15 @@ pub mod tests {
         let mut rng = thread_rng();
         let (vkey, jf_vkey) = dummy_vkeys(N as u64, L as u64);
         let (proof, jf_proof) = dummy_proofs();
-        let public_inputs = [ScalarField::rand(&mut rng); L];
+        let public_inputs = PublicInputs(random_scalars(L, &mut rng));
 
         let mut stylus_transcript = Transcript::<NativeHasher>::new();
         let challenges = stylus_transcript
             .compute_challenges(&vkey, &proof, &public_inputs)
             .unwrap();
 
-        let jf_challenges = get_jf_challenges(&jf_vkey, &public_inputs, &jf_proof, &None).unwrap();
+        let jf_challenges =
+            get_jf_challenges(&jf_vkey, &public_inputs.0, &jf_proof, &None).unwrap();
 
         assert_eq!(challenges.beta, jf_challenges.beta);
         assert_eq!(challenges.gamma, jf_challenges.gamma);

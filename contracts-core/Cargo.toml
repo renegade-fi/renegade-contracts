@@ -22,4 +22,4 @@ rand = { workspace = true }
 ethers = { workspace = true }
 ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
-itertools = "0.12.0"
+itertools = { workspace = true }
