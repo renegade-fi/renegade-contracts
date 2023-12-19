@@ -23,11 +23,9 @@ sol! {
     function insertSharesCommitment(uint256[] shares) external;
 
     // Vkeys functions
-    function validWalletCreate() external view returns (bytes);
-    function validWalletUpdate() external view returns (bytes);
-    function validCommitments() external view returns (bytes);
-    function validReblind() external view returns (bytes);
-    function validMatchSettle() external view returns (bytes);
+    function validWalletCreateVkey() external view returns (bytes);
+    function validWalletUpdateVkey() external view returns (bytes);
+    function processMatchSettleVkeys() external view returns (bytes);
 
     // ----------
     // | EVENTS |

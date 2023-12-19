@@ -6,8 +6,8 @@ use common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
     types::{
-        ExternalTransfer, MatchPayload, Proof, ScalarField, ValidCommitmentsStatement,
-        ValidMatchSettleStatement,
+        ExternalTransfer, MatchPayload, Proof, PublicInputs, ScalarField,
+        ValidCommitmentsStatement, ValidMatchSettleStatement, VerificationKey,
     },
 };
 use constants::SystemCurve;
@@ -18,6 +18,7 @@ use ethers::{
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
+use itertools::izip;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::Rng;
 use scripts::{
@@ -95,6 +96,32 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField> {
 
 pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
     Ok(postcard::to_allocvec(t)?.into())
+}
+
+pub fn serialize_verification_bundle(
+    vkey_batch: &[VerificationKey],
+    proof_batch: &[Proof],
+    public_inputs_batch: &[PublicInputs],
+) -> Result<Bytes> {
+    let mut serialized_vkeys = Vec::new();
+    let mut serialized_proofs = Vec::new();
+    let mut serialized_public_inputs = Vec::new();
+
+    // We first individually serialize each vkey, proof, and set of public inputs
+    for (vkey, proof, public_inputs) in izip!(vkey_batch, proof_batch, public_inputs_batch) {
+        serialized_vkeys.push(postcard::to_allocvec(&vkey)?);
+        serialized_proofs.push(postcard::to_allocvec(&proof)?);
+        serialized_public_inputs.push(postcard::to_allocvec(&public_inputs)?);
+    }
+
+    // We then serialize these `Vec<Vec<u8>>`s into a single `Vec<u8>`, as expected by the verifier
+    let vkey_batch_ser = postcard::to_allocvec(&serialized_vkeys)?;
+    let proof_batch_ser = postcard::to_allocvec(&serialized_proofs)?;
+    let public_inputs_batch_ser = postcard::to_allocvec(&serialized_public_inputs)?;
+
+    let bundle_bytes = [vkey_batch_ser, proof_batch_ser, public_inputs_batch_ser].concat();
+
+    Ok(bundle_bytes.into())
 }
 
 pub struct ProcessMatchSettleData {

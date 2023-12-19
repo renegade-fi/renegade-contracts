@@ -231,12 +231,6 @@ pub struct MatchPayload {
     pub valid_reblind_statement: ValidReblindStatement,
 }
 
-/// A bundle of all of the inputs to the verifier
 #[serde_as]
 #[derive(Serialize, Deserialize)]
-pub struct VerificationBundle {
-    pub vkey: VerificationKey,
-    pub proof: Proof,
-    #[serde_as(as = "Vec<ScalarFieldDef>")]
-    pub public_inputs: Vec<ScalarField>,
-}
+pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarField>);

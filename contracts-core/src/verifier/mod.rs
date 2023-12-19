@@ -10,7 +10,7 @@ use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zer
 use common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
-    types::{Challenges, G1Affine, G2Affine, Proof, ScalarField, VerificationKey},
+    types::{Challenges, G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
 
@@ -44,7 +44,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         &mut self,
         vkey_batch: &[VerificationKey],
         proof_batch: &[Proof],
-        public_inputs_batch: &[Vec<ScalarField>],
+        public_inputs_batch: &[PublicInputs],
     ) -> Result<bool, VerifierError> {
         assert!(
             vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
@@ -210,8 +210,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     ///
     /// Similarly to the assumptions for step 2, the membership of the public inputs in the scalar field
     /// should be enforced by the type system.
-    fn step_3(public_inputs: &[ScalarField], vkey: &VerificationKey) -> Result<(), VerifierError> {
-        if public_inputs.len() != vkey.l as usize {
+    fn step_3(public_inputs: &PublicInputs, vkey: &VerificationKey) -> Result<(), VerifierError> {
+        if public_inputs.0.len() != vkey.l as usize {
             return Err(VerifierError::InvalidInputs);
         }
         Ok(())
@@ -221,7 +221,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     fn step_4(
         vkey: &VerificationKey,
         proof: &Proof,
-        public_inputs: &[ScalarField],
+        public_inputs: &PublicInputs,
     ) -> Result<Challenges, VerifierError> {
         let mut transcript = Transcript::<H>::new();
         let challenges = transcript.compute_challenges(vkey, proof, public_inputs)?;
@@ -245,17 +245,17 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         lagrange_1_eval: ScalarField,
         lagrange_bases: &[ScalarField],
         domain_elements: &[ScalarField],
-        public_inputs: &[ScalarField],
+        public_inputs: &PublicInputs,
     ) -> ScalarField {
-        if public_inputs.is_empty() {
+        if public_inputs.0.is_empty() {
             return ScalarField::zero();
         }
 
-        let mut pi_eval = lagrange_1_eval * public_inputs[0];
+        let mut pi_eval = lagrange_1_eval * public_inputs.0[0];
         for ((o_i, l_i), p_i) in domain_elements
             .iter()
             .zip(lagrange_bases.iter())
-            .zip(public_inputs.iter())
+            .zip(public_inputs.0.iter())
             .skip(1)
         {
             pi_eval += o_i * l_i * p_i;
@@ -588,7 +588,7 @@ mod tests {
     use circuit_types::test_helpers::TESTING_SRS;
     use common::{
         backends::G1ArithmeticError,
-        types::{G1Affine, G2Affine, ScalarField},
+        types::{G1Affine, G2Affine, PublicInputs, ScalarField},
     };
     use itertools::multiunzip;
     use jf_utils::multi_pairing;
@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
-        let public_inputs = random_scalars(L, &mut rng);
+        let public_inputs = PublicInputs(random_scalars(L, &mut rng));
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
         let proof = convert_jf_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
@@ -646,7 +646,7 @@ mod tests {
         let mut rng = thread_rng();
         let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
             multiunzip((0..NUM_PROOFS).map(|_| {
-                let public_inputs = random_scalars(L, &mut rng);
+                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
                 let (jf_proof, jf_vkey) =
                     gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
                 let proof = convert_jf_proof(jf_proof).unwrap();
@@ -665,7 +665,7 @@ mod tests {
         let mut rng = thread_rng();
         let (vkeys, mut proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
             multiunzip((0..NUM_PROOFS).map(|_| {
-                let public_inputs = random_scalars(L, &mut rng);
+                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
                 let (jf_proof, jf_vkey) =
                     gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
                 let proof = convert_jf_proof(jf_proof).unwrap();
@@ -685,7 +685,7 @@ mod tests {
     #[test]
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
-        let public_inputs = random_scalars(L, &mut rng);
+        let public_inputs = PublicInputs(random_scalars(L, &mut rng));
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
         let mut proof = convert_jf_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();

@@ -8,9 +8,9 @@ use common::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256},
     custom_serde::ScalarSerializable,
     types::{
-        ExternalTransfer, Proof, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
-        ValidMatchSettleStatement, ValidReblindStatement, ValidWalletCreateStatement,
-        ValidWalletUpdateStatement,
+        ExternalTransfer, Proof, PublicInputs, PublicSigningKey, ScalarField,
+        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 use constants::SystemCurve;
@@ -126,9 +126,11 @@ pub fn proof_from_statement<S: RenegadeStatement>(
     statement: &S,
     num_public_inputs: usize,
 ) -> Result<Proof> {
-    let public_inputs = statement
-        .serialize_to_scalars()
-        .map_err(|_| eyre!("failed to serialize statement to scalars"))?;
+    let public_inputs = PublicInputs(
+        statement
+            .serialize_to_scalars()
+            .map_err(|_| eyre!("failed to serialize statement to scalars"))?,
+    );
     let (jf_proof, _) = gen_jf_proof_and_vkey(srs, num_public_inputs, &public_inputs)?;
     let proof = convert_jf_proof(jf_proof)?;
 
