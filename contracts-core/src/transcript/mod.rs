@@ -32,12 +32,12 @@ impl<H: HashBackend> Transcript<H> {
     }
 
     /// Appends a message to the transcript
-    fn append_message(&mut self, message: &[u8]) {
+    pub fn append_message(&mut self, message: &[u8]) {
         self.transcript.extend_from_slice(message);
     }
 
     /// Computes a challenge and updates the transcript state
-    fn get_and_append_challenge(&mut self) -> ScalarField {
+    pub fn get_and_append_challenge(&mut self) -> ScalarField {
         let input0 = [self.state.as_ref(), self.transcript.as_ref(), &[0u8]].concat();
         let input1 = [self.state.as_ref(), self.transcript.as_ref(), &[1u8]].concat();
 
@@ -143,7 +143,7 @@ impl<H: HashBackend> Transcript<H> {
 ///
 /// This is the format expected by the transcript, whereas our serialization format
 /// is big-endian.
-fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
+pub fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
     scalars
         .iter()
         .flat_map(|s| s.serialize_to_bytes().into_iter().rev())
