@@ -87,12 +87,8 @@ impl<H: HashBackend> Transcript<H> {
         vkey: &VerificationKey,
         proof: &Proof,
         public_inputs: &[ScalarField],
-        extra_transcript_init_message: &Option<Vec<u8>>,
     ) -> Result<Challenges, TranscriptError> {
         // Absorb verification key & public inputs
-        if let Some(msg) = extra_transcript_init_message {
-            self.append_message(msg);
-        }
         self.append_message(&ScalarField::MODULUS_BIT_SIZE.to_le_bytes());
         self.append_message(&vkey.n.to_le_bytes());
         self.append_message(&vkey.l.to_le_bytes());
@@ -182,7 +178,7 @@ pub mod tests {
 
         let mut stylus_transcript = Transcript::<NativeHasher>::new();
         let challenges = stylus_transcript
-            .compute_challenges(&vkey, &proof, &public_inputs, &None)
+            .compute_challenges(&vkey, &proof, &public_inputs)
             .unwrap();
 
         let jf_challenges = get_jf_challenges(&jf_vkey, &public_inputs, &jf_proof, &None).unwrap();

@@ -1009,6 +1009,7 @@ dependencies = [
  "circuit-types",
  "common",
  "ethers",
+ "itertools 0.12.0",
  "jf-utils",
  "rand",
  "renegade-crypto",

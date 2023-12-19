@@ -18,91 +18,92 @@ use crate::transcript::Transcript;
 
 use self::errors::VerifierError;
 
-/// The verifier struct, which encapsulates the verification key, transcript, and backend for elliptic curve arithmetic.
+/// The verifier struct, which is colored by the backends used for elliptic curve arithmetic and hashing.
 pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
-    /// The verification key for a specific circuit
-    vkey: VerificationKey,
-    /// A transcript of the verifier's interaction with the prover,
-    /// used for the Fiat-Shamir transform
-    transcript: Transcript<H>,
-    _phantom: PhantomData<G>,
+    _phantom_g: PhantomData<G>,
+    _phantom_h: PhantomData<H>,
+}
+
+impl<G: G1ArithmeticBackend, H: HashBackend> Default for Verifier<G, H> {
+    fn default() -> Self {
+        Self {
+            _phantom_g: PhantomData,
+            _phantom_h: PhantomData,
+        }
+    }
 }
 
 impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
-    pub fn new(vkey: VerificationKey) -> Self {
-        Self {
-            vkey,
-            transcript: Transcript::<H>::new(),
-            _phantom: PhantomData,
-        }
-    }
-
     /// Verify a proof. Follows the algorithm laid out in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf
     pub fn verify(
         &mut self,
-        proof: &Proof,
-        public_inputs: &[ScalarField],
-        extra_transcript_init_message: &Option<Vec<u8>>,
+        vkeys: &[VerificationKey],
+        proofs: &[Proof],
+        public_inputs: &[Vec<ScalarField>],
     ) -> Result<bool, VerifierError> {
-        let vkey = self.vkey;
+        vkeys
+            .iter()
+            .zip(proofs.iter())
+            .zip(public_inputs.iter())
+            .map(|((vkey, proof), public_inputs)| {
+                // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
+                // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
+                // elements not in the scalar field, and points not in G1, would cause a panic.
 
-        // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
-        // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
-        // elements not in the scalar field, and points not in G1, would cause a panic.
+                self.step_3(public_inputs, vkey)?;
 
-        self.step_3(public_inputs, &vkey)?;
+                let challenges = self.step_4(vkey, proof, public_inputs)?;
 
-        let challenges = self.step_4(&vkey, proof, public_inputs, extra_transcript_init_message)?;
+                let domain_size = if vkey.n.is_power_of_two() {
+                    vkey.n
+                } else {
+                    vkey.n
+                        .checked_next_power_of_two()
+                        .ok_or(VerifierError::InvalidInputs)?
+                };
+                let omega =
+                    ScalarField::get_root_of_unity(vkey.n).ok_or(VerifierError::InvalidInputs)?;
 
-        let domain_size = if self.vkey.n.is_power_of_two() {
-            self.vkey.n
-        } else {
-            self.vkey
-                .n
-                .checked_next_power_of_two()
-                .ok_or(VerifierError::InvalidInputs)?
-        };
-        let omega =
-            ScalarField::get_root_of_unity(self.vkey.n).ok_or(VerifierError::InvalidInputs)?;
+                let zero_poly_eval = self.step_5(domain_size, &challenges);
 
-        let zero_poly_eval = self.step_5(domain_size, &challenges);
+                // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
+                let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(public_inputs.len());
+                domain_elements.push(ScalarField::one());
+                for i in 0..public_inputs.len() - 1 {
+                    domain_elements.push(domain_elements[i] * omega);
+                }
 
-        // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
-        let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(public_inputs.len());
-        domain_elements.push(ScalarField::one());
-        for i in 0..public_inputs.len() - 1 {
-            domain_elements.push(domain_elements[i] * omega);
-        }
+                let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
+                    .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
+                    .collect();
+                batch_inversion_and_mul(&mut lagrange_bases, &zero_poly_eval);
 
-        let mut lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
-            .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
-            .collect();
-        batch_inversion_and_mul(&mut lagrange_bases, &zero_poly_eval);
+                let lagrange_1_eval = self.step_6(&lagrange_bases, &domain_elements);
 
-        let lagrange_1_eval = self.step_6(&lagrange_bases, &domain_elements);
+                let pi_eval = self.step_7(
+                    lagrange_1_eval,
+                    &lagrange_bases,
+                    &domain_elements,
+                    public_inputs,
+                );
 
-        let pi_eval = self.step_7(
-            lagrange_1_eval,
-            &lagrange_bases,
-            &domain_elements,
-            public_inputs,
-        );
+                let r_0 = self.step_8(pi_eval, lagrange_1_eval, &challenges, proof);
 
-        let r_0 = self.step_8(pi_eval, lagrange_1_eval, &challenges, proof);
+                let d_1 = self.step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
 
-        let d_1 = self.step_9(zero_poly_eval, lagrange_1_eval, &vkey, proof, &challenges)?;
+                // Increasing powers of v, starting w/ 1
+                let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
+                for i in 1..NUM_WIRE_TYPES * 2 {
+                    v_powers[i] = v_powers[i - 1] * challenges.v;
+                }
 
-        // Increasing powers of v, starting w/ 1
-        let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
-        for i in 1..NUM_WIRE_TYPES * 2 {
-            v_powers[i] = v_powers[i - 1] * challenges.v;
-        }
+                let f_1 = self.step_10(d_1, &v_powers, vkey, proof)?;
 
-        let f_1 = self.step_10(d_1, &v_powers, &vkey, proof)?;
+                let neg_e_1 = self.step_11(r_0, &v_powers, vkey, proof, &challenges)?;
 
-        let neg_e_1 = self.step_11(r_0, &v_powers, &vkey, proof, &challenges)?;
-
-        self.step_12(f_1, neg_e_1, omega, &vkey, proof, &challenges)
+                self.step_12(f_1, neg_e_1, omega, vkey, proof, &challenges)
+            })
+            .try_fold(true, |acc, result| result.map(|r| acc && r))
     }
 
     /// Validate public inputs
@@ -126,14 +127,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         vkey: &VerificationKey,
         proof: &Proof,
         public_inputs: &[ScalarField],
-        extra_transcript_init_message: &Option<Vec<u8>>,
     ) -> Result<Challenges, VerifierError> {
-        let challenges = self.transcript.compute_challenges(
-            vkey,
-            proof,
-            public_inputs,
-            extra_transcript_init_message,
-        )?;
+        let mut transcript = Transcript::<H>::new();
+        let challenges = transcript.compute_challenges(vkey, proof, public_inputs)?;
         Ok(challenges)
     }
 
@@ -458,6 +454,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use core::result::Result;
 
     use ark_bn254::Bn254;
@@ -468,8 +465,9 @@ mod tests {
         backends::G1ArithmeticError,
         types::{G1Affine, G2Affine, ScalarField},
     };
+    use itertools::multiunzip;
     use jf_utils::multi_pairing;
-    use rand::thread_rng;
+    use rand::{thread_rng, seq::SliceRandom};
     use test_helpers::{
         crypto::NativeHasher,
         misc::random_scalars,
@@ -501,8 +499,8 @@ mod tests {
 
     const N: usize = 8192;
     const L: usize = 128;
+    const NUM_PROOFS: usize = 3;
 
-    // Mirrors circuit definition in the Jellyfish benchmarks
     #[test]
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
@@ -510,10 +508,53 @@ mod tests {
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
         let proof = convert_jf_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
-        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::new(vkey);
-        let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
+        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
+        let result = verifier
+            .verify(&[vkey], &[proof], &[public_inputs])
+            .unwrap();
 
         assert!(result, "valid proof did not verify");
+    }
+
+    #[test]
+    fn test_valid_multi_proof_verification() {
+        let mut rng = thread_rng();
+        let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
+            multiunzip((0..NUM_PROOFS).map(|_| {
+                let public_inputs = random_scalars(L, &mut rng);
+                let (jf_proof, jf_vkey) =
+                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+                let proof = convert_jf_proof(jf_proof).unwrap();
+                let vkey = convert_jf_vkey(jf_vkey).unwrap();
+                (vkey, proof, public_inputs)
+            }));
+
+        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
+        let result = verifier.verify(&vkeys, &proofs, &public_inputs).unwrap();
+
+        assert!(result, "valid multi-proof did not verify");
+    }
+
+    #[test]
+    fn test_invalid_multi_proof_verification() {
+        let mut rng = thread_rng();
+        let (vkeys, mut proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
+            multiunzip((0..NUM_PROOFS).map(|_| {
+                let public_inputs = random_scalars(L, &mut rng);
+                let (jf_proof, jf_vkey) =
+                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+                let proof = convert_jf_proof(jf_proof).unwrap();
+                let vkey = convert_jf_vkey(jf_vkey).unwrap();
+                (vkey, proof, public_inputs)
+            }));
+
+        let proof = proofs.choose_mut(&mut rng).unwrap();
+        proof.z_bar += ScalarField::one();
+
+        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
+        let result = verifier.verify(&vkeys, &proofs, &public_inputs).unwrap();
+
+        assert!(!result, "invalid multi-proof verified");
     }
 
     #[test]
@@ -524,8 +565,10 @@ mod tests {
         let mut proof = convert_jf_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
         proof.z_bar += ScalarField::one();
-        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::new(vkey);
-        let result = verifier.verify(&proof, &public_inputs, &None).unwrap();
+        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
+        let result = verifier
+            .verify(&[vkey], &[proof], &[public_inputs])
+            .unwrap();
 
         assert!(!result, "invalid proof verified");
     }
