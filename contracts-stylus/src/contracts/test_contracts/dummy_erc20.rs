@@ -24,6 +24,8 @@ sol_storage! {
     pub struct Erc20<T> {
         /// Maps users to balances
         mapping(address => uint256) balances;
+        /// Maps users to a mapping of each spender's allowance
+        mapping(address => mapping(address => uint256)) allowances;
         /// The total supply of the token
         uint256 total_supply;
         /// Used to allow [`Erc20Params`]
@@ -36,10 +38,12 @@ sol! {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     error InsufficientBalance(address from, uint256 have, uint256 want);
+    error InsufficientAllowance(address owner, address spender, uint256 have, uint256 want);
 }
 
 pub enum Erc20Error {
     InsufficientBalance(InsufficientBalance),
+    InsufficientAllowance(InsufficientAllowance),
 }
 
 // We will soon provide a #[derive(SolidityError)] to clean this up
@@ -47,6 +51,7 @@ impl From<Erc20Error> for Vec<u8> {
     fn from(err: Erc20Error) -> Vec<u8> {
         match err {
             Erc20Error::InsufficientBalance(e) => e.encode(),
+            Erc20Error::InsufficientAllowance(e) => e.encode(),
         }
     }
 }
@@ -135,14 +140,40 @@ impl<T: Erc20Params> Erc20<T> {
         Ok(true)
     }
 
+    pub fn approve(&mut self, spender: Address, value: U256) -> Result<bool, Erc20Error> {
+        self.allowances.setter(msg::sender()).insert(spender, value);
+        Ok(true)
+    }
+
     pub fn transfer_from(
         &mut self,
         from: Address,
         to: Address,
         value: U256,
     ) -> Result<bool, Erc20Error> {
+        // Update allowance if not self-transfer
+        if from != msg::sender() {
+            let mut sender_allowances = self.allowances.setter(from);
+            let mut allowance = sender_allowances.setter(msg::sender());
+            let old_allowance = allowance.get();
+            if old_allowance < value {
+                return Err(Erc20Error::InsufficientAllowance(InsufficientAllowance {
+                    owner: from,
+                    spender: msg::sender(),
+                    have: old_allowance,
+                    want: value,
+                }));
+            }
+
+            allowance.set(old_allowance - value);
+        }
+
         self.transfer_impl(from, to, value)?;
         Ok(true)
+    }
+
+    pub fn allowance(&self, owner: Address, spender: Address) -> Result<U256, Erc20Error> {
+        Ok(self.allowances.getter(owner).get(spender))
     }
 }
 
