@@ -29,43 +29,53 @@ pub const EC_RECOVER_INPUT_LEN: usize = 128;
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 pub const STORAGE_GAP_SIZE: usize = 64;
 
-/// The serialization of a single-element vector consisting of the
-/// `VALID WALLET CREATE` verification key
+/// The serialized VALID WALLET CREATE verification key
 #[cfg(feature = "vkeys")]
 pub const VALID_WALLET_CREATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/prod/valid_wallet_create");
 
-/// The serialization of a single-element vector consisting of the
-/// `VALID WALLET CREATE` testing verification key
+/// The serialized testing VALID WALLET CREATE verification key
 #[cfg(feature = "test-vkeys")]
 pub const VALID_WALLET_CREATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_wallet_create");
 
-/// The serialization of a single-element vector consisting of the
-/// `VALID WALLET UPDATE` verification key
+/// The serialized VALID WALLET UPDATE verification key
 #[cfg(feature = "vkeys")]
 pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/prod/valid_wallet_update");
 
-/// The serialization of a single-element vector consisting of the
-/// `VALID WALLET UPDATE` testing verification key
+/// The serialized testing VALID WALLET UPDATE verification key
 #[cfg(feature = "test-vkeys")]
 pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_wallet_update");
 
-/// The serialization of a vector containing the
-/// `VALID COMMITMENTS`, `VALID REBLIND` and `VALID MATCH SETTLE`
-/// verification keys
+/// The serialized VALID COMMITMENTS verification key
 #[cfg(feature = "vkeys")]
-pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
-    include_bytes!("../../vkeys/prod/process_match_settle");
+pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_commitments");
 
-/// The serialization of a vector containing the
-/// `VALID COMMITMENTS`, `VALID REBLIND` and `VALID MATCH SETTLE`
-/// testing verification keys
+/// The serialized testing VALID COMMITMENTS verification key
 #[cfg(feature = "test-vkeys")]
-pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
-    include_bytes!("../../vkeys/test/process_match_settle");
+pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_commitments");
+
+/// The serialized VALID REBLIND verification key
+#[cfg(feature = "vkeys")]
+pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/prod/valid_reblind");
+
+/// The serialized testing VALID REBLIND verification key
+#[cfg(feature = "test-vkeys")]
+pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/test/valid_reblind");
+
+/// The serialized VALID MATCH SETTLE verification key
+#[cfg(feature = "vkeys")]
+pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_match_settle");
+
+/// The serialized testing VALID MATCH SETTLE verification key
+#[cfg(feature = "test-vkeys")]
+pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_match_settle");
 
 /// The path of values in an empty Merkle tree of height `TEST_MERKLE_HEIGHT`,
 /// going from root to leaf
