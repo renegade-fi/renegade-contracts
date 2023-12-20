@@ -6,7 +6,7 @@
 pub mod errors;
 
 use alloc::{vec, vec::Vec};
-use ark_ff::{batch_inversion, FftField, Field, One, Zero};
+use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zero};
 use common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
@@ -18,7 +18,7 @@ use crate::transcript::{serialize_scalars_for_transcript, Transcript};
 
 use self::errors::VerifierError;
 
-/// The verifier struct, which is colored by the backends used for elliptic curve arithmetic and hashing.
+/// The verifier struct, which is defined generically over elliptic curve arithmetic and hashing backends
 pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
     _phantom_g: PhantomData<G>,
     _phantom_h: PhantomData<H>,
@@ -42,21 +42,25 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     /// This assumes that all the verification keys were generated using the same SRS.
     pub fn verify(
         &mut self,
-        vkeys: &[VerificationKey],
-        proofs: &[Proof],
-        public_inputs: &[Vec<ScalarField>],
+        vkey_batch: &[VerificationKey],
+        proof_batch: &[Proof],
+        public_inputs_batch: &[Vec<ScalarField>],
     ) -> Result<bool, VerifierError> {
-        assert!(vkeys.len() == proofs.len() && proofs.len() == public_inputs.len());
+        assert!(
+            vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
+        );
 
-        let num_proofs = proofs.len();
+        let num_proofs = proof_batch.len();
 
         let mut challenges_batch = Vec::with_capacity(num_proofs);
         let mut zero_poly_evals_batch = Vec::with_capacity(num_proofs);
         let mut domain_elements_batch = Vec::with_capacity(num_proofs);
-        let mut lagrange_bases_batch = Vec::with_capacity(num_proofs);
+        let mut all_lagrange_basis_denominators = Vec::with_capacity(num_proofs);
 
-        for ((vkey, proof), public_inputs) in
-            vkeys.iter().zip(proofs.iter()).zip(public_inputs.iter())
+        for ((vkey, proof), public_inputs) in vkey_batch
+            .iter()
+            .zip(proof_batch.iter())
+            .zip(public_inputs_batch.iter())
         {
             // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
             // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
@@ -66,63 +70,45 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             let challenges = Self::step_4(vkey, proof, public_inputs)?;
 
-            let domain_size = if vkey.n.is_power_of_two() {
-                vkey.n
-            } else {
-                vkey.n
-                    .checked_next_power_of_two()
-                    .ok_or(VerifierError::InvalidInputs)?
-            };
-            let omega =
-                ScalarField::get_root_of_unity(vkey.n).ok_or(VerifierError::InvalidInputs)?;
+            let (domain_size, domain_elements, lagrange_basis_denominators) =
+                Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
 
             let zero_poly_eval = Self::step_5(domain_size, &challenges);
-
-            // Precompute Lagrange bases (zeta^n - 1)/(n*(zeta - omega_i)) using Montgomery's batch inversion trick
-            let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(public_inputs.len());
-            domain_elements.push(ScalarField::one());
-            for i in 0..public_inputs.len() - 1 {
-                domain_elements.push(domain_elements[i] * omega);
-            }
-
-            let lagrange_bases: Vec<ScalarField> = (0..public_inputs.len())
-                .map(|i| ScalarField::from(vkey.n) * (challenges.zeta - domain_elements[i]))
-                .collect();
 
             challenges_batch.push(challenges);
             zero_poly_evals_batch.push(zero_poly_eval);
             domain_elements_batch.push(domain_elements);
-            lagrange_bases_batch.extend(lagrange_bases);
+            all_lagrange_basis_denominators.extend(lagrange_basis_denominators);
         }
 
-        batch_inversion(&mut lagrange_bases_batch);
-        let mut lagrange_bases_cursor = 0;
+        let public_input_lengths: Vec<usize> = vkey_batch.iter().map(|v| v.l as usize).collect();
+
+        let lagrange_bases_batch = Self::batch_invert_lagrange_basis_denominators(
+            &mut all_lagrange_basis_denominators,
+            &zero_poly_evals_batch,
+            &public_input_lengths,
+        );
 
         let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
         let mut g1_rhs_elems = Vec::with_capacity(num_proofs);
         let mut final_challenges = Vec::with_capacity(num_proofs);
 
-        for (i, ((vkey, proof), public_inputs)) in vkeys
+        for (i, ((vkey, proof), public_inputs)) in vkey_batch
             .iter()
-            .zip(proofs.iter())
-            .zip(public_inputs.iter())
+            .zip(proof_batch.iter())
+            .zip(public_inputs_batch.iter())
             .enumerate()
         {
             let challenges = &challenges_batch[i];
             let zero_poly_eval = zero_poly_evals_batch[i];
             let domain_elements = &domain_elements_batch[i];
-            let lagrange_bases: Vec<ScalarField> = lagrange_bases_batch
-                [lagrange_bases_cursor..lagrange_bases_cursor + public_inputs.len()]
-                .iter()
-                .map(|l| l * &zero_poly_eval)
-                .collect();
-            lagrange_bases_cursor += public_inputs.len();
+            let lagrange_bases = &lagrange_bases_batch[i];
 
-            let lagrange_1_eval = Self::step_6(&lagrange_bases, domain_elements);
+            let lagrange_1_eval = Self::step_6(lagrange_bases, domain_elements);
 
             let pi_eval = Self::step_7(
                 lagrange_1_eval,
-                &lagrange_bases,
+                lagrange_bases,
                 domain_elements,
                 public_inputs,
             );
@@ -153,9 +139,71 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             &g1_lhs_elems,
             &g1_rhs_elems,
             &final_challenges,
-            vkeys[0].x_h,
-            vkeys[0].h,
+            vkey_batch[0].x_h,
+            vkey_batch[0].h,
         )
+    }
+
+    fn prep_domain_and_basis_denominators(
+        n: u64,
+        l: usize,
+        zeta: ScalarField,
+    ) -> Result<(u64, Vec<ScalarField>, Vec<ScalarField>), VerifierError> {
+        let domain_size = if n.is_power_of_two() {
+            n
+        } else {
+            n.checked_next_power_of_two()
+                .ok_or(VerifierError::InvalidInputs)?
+        };
+        let omega =
+            ScalarField::get_root_of_unity(domain_size).ok_or(VerifierError::InvalidInputs)?;
+
+        let mut domain_elements: Vec<ScalarField> = Vec::with_capacity(l);
+        domain_elements.push(ScalarField::one());
+        for i in 0..l - 1 {
+            domain_elements.push(domain_elements[i] * omega);
+        }
+
+        let lagrange_basis_denominators: Vec<ScalarField> = (0..l)
+            .map(|i| ScalarField::from(n) * (zeta - domain_elements[i]))
+            .collect();
+
+        Ok((domain_size, domain_elements, lagrange_basis_denominators))
+    }
+
+    fn batch_invert_lagrange_basis_denominators(
+        lagrange_basis_denominators: &mut [ScalarField],
+        zero_poly_evals_batch: &[ScalarField],
+        public_input_lengths: &[usize],
+    ) -> Vec<Vec<ScalarField>> {
+        let batch_size = zero_poly_evals_batch.len();
+        let mut lagrange_bases_batch = Vec::with_capacity(batch_size);
+
+        if batch_size == 1 {
+            // If there is only one proof in the batch, we can do a single multiplication
+            // by its zero polynomial evaluation during the batch inversion
+            batch_inversion_and_mul(lagrange_basis_denominators, &zero_poly_evals_batch[0]);
+            lagrange_bases_batch.push(lagrange_basis_denominators.to_vec());
+        } else {
+            batch_inversion(lagrange_basis_denominators);
+            let mut lagrange_bases_cursor = 0;
+            for (l, zero_poly_eval) in public_input_lengths
+                .iter()
+                .zip(zero_poly_evals_batch.iter())
+            {
+                let lagrange_bases: Vec<ScalarField> = lagrange_basis_denominators
+                    [lagrange_bases_cursor..lagrange_bases_cursor + l]
+                    .iter()
+                    .map(|b| b * zero_poly_eval)
+                    .collect();
+
+                lagrange_bases_cursor += l;
+
+                lagrange_bases_batch.push(lagrange_bases);
+            }
+        }
+
+        lagrange_bases_batch
     }
 
     /// Validate public inputs
@@ -486,6 +534,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     ///
     /// By the Schwartz-Zippel lemma, for a random `r`, this check will succeed with overwhelming
     /// probability if and only if the individual pairing checks do.
+    ///
+    /// This is taken from the Jellyfish implementation:
+    /// https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
     fn step_12_part_2(
         g1_lhs_elems: &[G1Affine],
         g1_rhs_elems: &[G1Affine],
