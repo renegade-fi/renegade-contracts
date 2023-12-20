@@ -25,7 +25,9 @@ sol! {
     // Vkeys functions
     function validWalletCreateVkey() external view returns (bytes);
     function validWalletUpdateVkey() external view returns (bytes);
-    function processMatchSettleVkeys() external view returns (bytes);
+    function validCommitmentsVkey() external view returns (bytes);
+    function validReblindVkey() external view returns (bytes);
+    function validMatchSettleVkey() external view returns (bytes);
 
     // ----------
     // | EVENTS |

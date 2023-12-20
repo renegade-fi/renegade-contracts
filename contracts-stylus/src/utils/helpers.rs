@@ -1,6 +1,6 @@
 //! Miscellaneous helper functions for the contracts.
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use common::{
@@ -23,25 +23,14 @@ use stylus_sdk::{
 pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> postcard::Result<Vec<u8>> {
-    // We serialize the statement as a single-element `Vec<Vec<ScalarField>>`,
-    // as this is what's expected for batch verification
-    postcard::to_allocvec(&vec![statement_to_serializable_scalars(statement)])
-}
-
-/// Converts a statement to a vector of serializable scalars.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub fn statement_to_serializable_scalars<S: ScalarSerializable>(
-    statement: &S,
-) -> Vec<SerdeScalarField> {
-    statement
-        .serialize_to_scalars()
-        .unwrap()
-        .into_iter()
-        .map(SerdeScalarField)
-        .collect()
+    postcard::to_allocvec(
+        &statement
+            .serialize_to_scalars()
+            .unwrap()
+            .into_iter()
+            .map(SerdeScalarField)
+            .collect::<Vec<_>>(),
+    )
 }
 
 /// Performs a `delegatecall` to the given address, calling the function

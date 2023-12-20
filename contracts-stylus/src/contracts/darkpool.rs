@@ -24,11 +24,12 @@ use crate::{
         constants::STORAGE_GAP_SIZE,
         helpers::{
             delegate_call_helper, scalar_to_u256, serialize_statement_for_verification,
-            statement_to_serializable_scalars, static_call_helper,
+            static_call_helper,
         },
         solidity::{
-            initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
-            rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall,
+            initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
+            validCommitmentsVkeyCall, validMatchSettleVkeyCall, validReblindVkeyCall,
+            validWalletCreateVkeyCall, validWalletUpdateVkeyCall,
             ExternalTransfer as ExternalTransferEvent, NullifierSpent, WalletUpdated, IERC20,
         },
     },
@@ -127,9 +128,6 @@ impl DarkpoolContract {
     // -----------
 
     /// Adds a new wallet to the commitment tree
-    ///
-    /// Note: since we do batch verification, the `proof` argument is expected to be
-    /// the serialization of a single-element `Vec<Proof>`
     pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         proof: Bytes,
@@ -145,9 +143,9 @@ impl DarkpoolContract {
 
             assert!(DarkpoolContract::verify(
                 storage,
-                valid_wallet_create_vkey_bytes,
-                proof.into(),
-                serialize_statement_for_verification(&valid_wallet_create_statement).unwrap(),
+                vec![valid_wallet_create_vkey_bytes],
+                vec![proof.into()],
+                vec![serialize_statement_for_verification(&valid_wallet_create_statement).unwrap()],
             ));
         });
 
@@ -169,9 +167,6 @@ impl DarkpoolContract {
     }
 
     /// Update a wallet in the commitment tree
-    ///
-    /// Note: since we do batch verification, the `proof` argument is expected to be
-    /// the serialization of a single-element `Vec<Proof>`
     pub fn update_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         proof: Bytes,
@@ -200,9 +195,9 @@ impl DarkpoolContract {
 
             assert!(DarkpoolContract::verify(
                 storage,
-                valid_wallet_update_vkey_bytes,
-                proof.into(),
-                serialize_statement_for_verification(&valid_wallet_update_statement).unwrap(),
+                vec![valid_wallet_update_vkey_bytes],
+                vec![proof.into()],
+                vec![serialize_statement_for_verification(&valid_wallet_update_statement).unwrap()],
             ));
         });
 
@@ -233,22 +228,18 @@ impl DarkpoolContract {
     }
 
     /// Settles a matched order between two parties,
-    /// inserting the updated wallets into the commitment tree.
-    ///
-    /// The `proof_batch` argument is expected to be the serialization of a
-    /// `Vec<Proof>` containing the following proofs:
-    /// - Party 0's `VALID COMMITMENTS` proof
-    /// - Party 0's `VALID REBLIND` proof
-    /// - Party 1's `VALID COMMITMENTS` proof
-    /// - Party 1's `VALID REBLIND` proof
-    /// - The `VALID MATCH SETTLE` proof
+    /// inserting the updated wallets into the commitment tree
     #[allow(clippy::too_many_arguments)]
     pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         party_0_match_payload: Bytes,
+        party_0_valid_commitments_proof: Bytes,
+        party_0_valid_reblind_proof: Bytes,
         party_1_match_payload: Bytes,
+        party_1_valid_commitments_proof: Bytes,
+        party_1_valid_reblind_proof: Bytes,
+        valid_match_settle_proof: Bytes,
         valid_match_settle_statement_bytes: Bytes,
-        proof_batch: Bytes,
     ) -> Result<(), Vec<u8>> {
         let party_0_match_payload: MatchPayload =
             postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
@@ -262,9 +253,13 @@ impl DarkpoolContract {
         if_verifying!(DarkpoolContract::batch_verify_process_match_settle(
             storage,
             &party_0_match_payload,
+            party_0_valid_commitments_proof,
+            party_0_valid_reblind_proof,
             &party_1_match_payload,
+            party_1_valid_commitments_proof,
+            party_1_valid_reblind_proof,
+            valid_match_settle_proof,
             &valid_match_settle_statement,
-            proof_batch,
         ));
 
         DarkpoolContract::process_party(
@@ -361,20 +356,21 @@ impl DarkpoolContract {
 
     /// Batch-verifies the given proofs using the given public inputs
     /// & verification keys.
-    ///
-    /// The `vkey_batch`, `proof_batch`, and `public_inputs_batch` arguments
-    /// are all expected to be the serialization of a *vector* of the respective
-    /// types, i.e. `Vec<VerificationKey>`, `Vec<Proof>`, and `Vec<Vec<ScalarField>>`.
     pub fn verify<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        vkey_batch: Vec<u8>,
-        proof_batch: Vec<u8>,
-        public_inputs_batch: Vec<u8>,
+        serialized_vkeys: Vec<Vec<u8>>,
+        serialized_proofs: Vec<Vec<u8>>,
+        serialized_public_inputs: Vec<Vec<u8>>,
     ) -> bool {
         let this = storage.borrow_mut();
         let verifier_address = this.verifier_address.get();
 
-        let verification_bundle_ser = [vkey_batch, proof_batch, public_inputs_batch].concat();
+        let vkey_batch_ser = postcard::to_allocvec(&serialized_vkeys).unwrap();
+        let proof_batch_ser = postcard::to_allocvec(&serialized_proofs).unwrap();
+        let public_inputs_batch_ser = postcard::to_allocvec(&serialized_public_inputs).unwrap();
+
+        let verification_bundle_ser =
+            [vkey_batch_ser, proof_batch_ser, public_inputs_batch_ser].concat();
 
         let result = static_call(storage, verifier_address, &verification_bundle_ser).unwrap();
 
@@ -407,29 +403,60 @@ impl DarkpoolContract {
     }
 
     /// Batch-verifies all of the `process_match_settle` proofs
+    #[allow(clippy::too_many_arguments)]
     pub fn batch_verify_process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         party_0_match_payload: &MatchPayload,
+        party_0_valid_commitments_proof: Bytes,
+        party_0_valid_reblind_proof: Bytes,
         party_1_match_payload: &MatchPayload,
+        party_1_valid_commitments_proof: Bytes,
+        party_1_valid_reblind_proof: Bytes,
+        valid_match_settle_proof: Bytes,
         valid_match_settle_statement: &ValidMatchSettleStatement,
-        proof_batch: Bytes,
     ) {
         let vkeys_address = storage.borrow_mut().vkeys_address.get();
-        let (process_match_settle_vkeys,) =
-            static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ()).into();
+        let (valid_commitments_vkey_ser,) =
+            static_call_helper::<validCommitmentsVkeyCall>(storage, vkeys_address, ()).into();
+        let (valid_reblind_vkey_ser,) =
+            static_call_helper::<validReblindVkeyCall>(storage, vkeys_address, ()).into();
+        let (valid_match_settle_vkey_ser,) =
+            static_call_helper::<validMatchSettleVkeyCall>(storage, vkeys_address, ()).into();
 
-        let party_0_valid_commitments_public_inputs =
-            statement_to_serializable_scalars(&party_0_match_payload.valid_commitments_statement);
+        let serialized_vkeys = vec![
+            valid_commitments_vkey_ser.clone(),
+            valid_reblind_vkey_ser.clone(),
+            valid_commitments_vkey_ser,
+            valid_reblind_vkey_ser,
+            valid_match_settle_vkey_ser,
+        ];
+
+        let serialized_proofs = vec![
+            party_0_valid_commitments_proof.into(),
+            party_0_valid_reblind_proof.into(),
+            party_1_valid_commitments_proof.into(),
+            party_1_valid_reblind_proof.into(),
+            valid_match_settle_proof.into(),
+        ];
+
+        let party_0_valid_commitments_public_inputs = serialize_statement_for_verification(
+            &party_0_match_payload.valid_commitments_statement,
+        )
+        .unwrap();
         let party_0_valid_reblind_public_inputs =
-            statement_to_serializable_scalars(&party_0_match_payload.valid_reblind_statement);
-        let party_1_valid_commitments_public_inputs =
-            statement_to_serializable_scalars(&party_1_match_payload.valid_commitments_statement);
+            serialize_statement_for_verification(&party_0_match_payload.valid_reblind_statement)
+                .unwrap();
+        let party_1_valid_commitments_public_inputs = serialize_statement_for_verification(
+            &party_1_match_payload.valid_commitments_statement,
+        )
+        .unwrap();
         let party_1_valid_reblind_public_inputs =
-            statement_to_serializable_scalars(&party_1_match_payload.valid_reblind_statement);
+            serialize_statement_for_verification(&party_1_match_payload.valid_reblind_statement)
+                .unwrap();
         let valid_match_settle_public_inputs =
-            statement_to_serializable_scalars(valid_match_settle_statement);
+            serialize_statement_for_verification(valid_match_settle_statement).unwrap();
 
-        let public_inputs_batch = vec![
+        let serialized_public_inputs = vec![
             party_0_valid_commitments_public_inputs,
             party_0_valid_reblind_public_inputs,
             party_1_valid_commitments_public_inputs,
@@ -437,13 +464,11 @@ impl DarkpoolContract {
             valid_match_settle_public_inputs,
         ];
 
-        let public_inputs_ser = postcard::to_allocvec(&public_inputs_batch).unwrap();
-
         assert!(DarkpoolContract::verify(
             storage,
-            process_match_settle_vkeys,
-            proof_batch.into(),
-            public_inputs_ser,
+            serialized_vkeys,
+            serialized_proofs,
+            serialized_public_inputs,
         ));
     }
 
