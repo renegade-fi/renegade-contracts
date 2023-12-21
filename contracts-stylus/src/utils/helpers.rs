@@ -5,8 +5,7 @@ use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use common::{
     custom_serde::{bigint_from_le_bytes, BytesSerializable, ScalarSerializable, SerdeError},
-    serde_def_types::SerdeScalarField,
-    types::ScalarField,
+    types::{PublicInputs, ScalarField},
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -23,14 +22,7 @@ use stylus_sdk::{
 pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> postcard::Result<Vec<u8>> {
-    postcard::to_allocvec(
-        &statement
-            .serialize_to_scalars()
-            .unwrap()
-            .into_iter()
-            .map(SerdeScalarField)
-            .collect::<Vec<_>>(),
-    )
+    postcard::to_allocvec(&PublicInputs(statement.serialize_to_scalars().unwrap()))
 }
 
 /// Performs a `delegatecall` to the given address, calling the function
@@ -82,7 +74,6 @@ pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
 /// Converts a U256 to a scalar
 #[cfg_attr(
     not(any(
-        feature = "darkpool",
         feature = "darkpool-test-contract",
         feature = "merkle",
         feature = "merkle-test-contract"

@@ -416,7 +416,7 @@ pub(crate) async fn test_new_wallet(
     // Call `new_wallet` with valid data
     contract
         .new_wallet(
-            serialize_to_calldata(&vec![proof])?,
+            serialize_to_calldata(&proof)?,
             serialize_to_calldata(&valid_wallet_create_statement)?,
         )
         .send()
@@ -475,7 +475,7 @@ pub(crate) async fn test_update_wallet(
     // Call `update_wallet` with valid data
     contract
         .update_wallet(
-            serialize_to_calldata(&vec![proof])?,
+            serialize_to_calldata(&proof)?,
             valid_wallet_update_statement_bytes,
             public_inputs_signature,
         )
@@ -519,21 +519,17 @@ pub(crate) async fn test_process_match_settle(
     let mut rng = thread_rng();
     let data = get_process_match_settle_data(&mut rng, srs, contract_root)?;
 
-    let proofs = vec![
-        data.party_0_valid_commitments_proof,
-        data.party_0_valid_reblind_proof,
-        data.party_1_valid_commitments_proof,
-        data.party_1_valid_reblind_proof,
-        data.valid_match_settle_proof,
-    ];
-
     // Call `process_match_settle` with valid data
     contract
         .process_match_settle(
             serialize_to_calldata(&data.party_0_match_payload)?,
+            serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
+            serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
             serialize_to_calldata(&data.party_1_match_payload)?,
+            serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
+            serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
+            serialize_to_calldata(&data.valid_match_settle_proof)?,
             serialize_to_calldata(&data.valid_match_settle_statement)?,
-            serialize_to_calldata(&proofs)?,
         )
         .send()
         .await?

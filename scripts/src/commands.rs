@@ -28,16 +28,17 @@ use crate::{
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
-        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROCESS_MATCH_SETTLE_VKEYS_FILE,
-        PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, VALID_WALLET_CREATE_VKEY_FILE,
-        VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT,
+        PROXY_BYTECODE, VALID_COMMITMENTS_VKEY_FILE, VALID_MATCH_SETTLE_VKEY_FILE,
+        VALID_REBLIND_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
+        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_test_vkey,
         gen_vkey, get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file,
-        write_deployed_address, write_srs_to_file, write_vkeys_to_file,
+        write_deployed_address, write_srs_to_file, write_vkey_to_file,
     },
 };
 
@@ -223,37 +224,41 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
         )
     };
 
-    // We serialize single-element vectors containing the
-    // `VALID WALLET CREATE` & `VALID WALLET UPDATE` verification keys,
-    // as this is what's expected by the verifier contract
-    let valid_wallet_create_vkey_bytes = postcard::to_allocvec(&vec![valid_wallet_create_vkey])
+    let valid_wallet_create_vkey_bytes = postcard::to_allocvec(&valid_wallet_create_vkey)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
-    let valid_wallet_update_vkey_bytes = postcard::to_allocvec(&vec![valid_wallet_update_vkey])
+    let valid_wallet_update_vkey_bytes = postcard::to_allocvec(&valid_wallet_update_vkey)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let valid_commitments_vkey_bytes = postcard::to_allocvec(&valid_commitments_vkey)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let valid_reblind_vkey_bytes = postcard::to_allocvec(&valid_reblind_vkey)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let valid_match_settle_vkey_bytes = postcard::to_allocvec(&valid_match_settle_vkey)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
-    let process_match_settle_vkeys_bytes = postcard::to_allocvec(&vec![
-        valid_commitments_vkey,
-        valid_reblind_vkey,
-        valid_commitments_vkey,
-        valid_reblind_vkey,
-        valid_match_settle_vkey,
-    ])
-    .map_err(|e| ScriptError::Serde(e.to_string()))?;
-
-    write_vkeys_to_file(
+    write_vkey_to_file(
         &args.vkeys_dir,
         VALID_WALLET_CREATE_VKEY_FILE,
         &valid_wallet_create_vkey_bytes,
     )?;
-    write_vkeys_to_file(
+    write_vkey_to_file(
         &args.vkeys_dir,
         VALID_WALLET_UPDATE_VKEY_FILE,
         &valid_wallet_update_vkey_bytes,
     )?;
-    write_vkeys_to_file(
+    write_vkey_to_file(
         &args.vkeys_dir,
-        PROCESS_MATCH_SETTLE_VKEYS_FILE,
-        &process_match_settle_vkeys_bytes,
+        VALID_COMMITMENTS_VKEY_FILE,
+        &valid_commitments_vkey_bytes,
+    )?;
+    write_vkey_to_file(
+        &args.vkeys_dir,
+        VALID_REBLIND_VKEY_FILE,
+        &valid_reblind_vkey_bytes,
+    )?;
+    write_vkey_to_file(
+        &args.vkeys_dir,
+        VALID_MATCH_SETTLE_VKEY_FILE,
+        &valid_match_settle_vkey_bytes,
     )?;
 
     Ok(())
