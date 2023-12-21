@@ -23,6 +23,100 @@ pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 /// The byte length of the input to the `ecRecover` precompile
 pub const EC_RECOVER_INPUT_LEN: usize = 128;
 
+/// The number of public secret shares in a wallet
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const NUM_WALLET_SHARES: usize = 54;
+
+/// The number of scalars into which an external transfer is serialized
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const NUM_SCALARS_EXTERNAL_TRANSFER: usize = 5;
+
+/// The index of the private shares commitment in the scalar-serialization
+/// of the `VALID WALLET CREATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_CREATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX: usize = 0;
+
+/// The index of the public wallet shares in the scalar-serialization
+/// of the `VALID WALLET CREATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_CREATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX: usize =
+    VALID_WALLET_CREATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX + 1;
+
+/// The index of the blinder share in the scalar-serialization
+/// of the `VALID WALLET CREATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_CREATE_STATEMENT_BLINDER_INDEX: usize =
+    VALID_WALLET_CREATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX + NUM_WALLET_SHARES - 1;
+
+/// The index of the old shares nullifier in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_NULLIFIER_INDEX: usize = 0;
+
+/// The index of the private shares commitment in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX: usize =
+    VALID_WALLET_UPDATE_STATEMENT_NULLIFIER_INDEX + 1;
+
+/// The index of the public wallet shares in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX: usize =
+    VALID_WALLET_UPDATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX + 1;
+
+/// The index of the blinder share in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_BLINDER_INDEX: usize =
+    VALID_WALLET_UPDATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX + NUM_WALLET_SHARES - 1;
+
+/// The index of the Merkle root in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_MERKLE_ROOT_INDEX: usize =
+    VALID_WALLET_UPDATE_STATEMENT_BLINDER_INDEX + 1;
+
+/// The index of the external transfer in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_EXTERNAL_TRANSFER_INDEX: usize =
+    VALID_WALLET_UPDATE_STATEMENT_MERKLE_ROOT_INDEX + 1;
+
+/// The index of the root public key in the scalar-serialization
+/// of the `VALID WALLET UPDATE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_WALLET_UPDATE_STATEMENT_PK_ROOT_INDEX: usize =
+    VALID_WALLET_UPDATE_STATEMENT_EXTERNAL_TRANSFER_INDEX + NUM_SCALARS_EXTERNAL_TRANSFER;
+
+/// The index of the original shares nullifier in the scalar-serialization
+/// of the `VALID REBLIND` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_REBLIND_STATEMENT_NULLIFIER_INDEX: usize = 0;
+
+/// The index of the private shares commitment in the scalar-serialization
+/// of the `VALID REBLIND` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_REBLIND_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX: usize =
+    VALID_REBLIND_STATEMENT_NULLIFIER_INDEX + 1;
+
+/// The index of the Merkle root in the scalar-serialization
+/// of the `VALID REBLIND` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_REBLIND_STATEMENT_MERKLE_ROOT_INDEX: usize =
+    VALID_REBLIND_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX + 1;
+
+/// The index of party 0's modified public shares in the scalar-serialization
+/// of the `VALID MATCH SETTLE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_MATCH_SETTLE_STATEMENT_PARTY_0_SHARES_INDEX: usize = 0;
+
+/// The index of party 1's modified public shares in the scalar-serialization
+/// of the `VALID MATCH SETTLE` statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VALID_MATCH_SETTLE_STATEMENT_PARTY_1_SHARES_INDEX: usize =
+    VALID_MATCH_SETTLE_STATEMENT_PARTY_0_SHARES_INDEX + NUM_WALLET_SHARES;
+
 /// The number of storage slots to use in the Darkpool contract's
 /// storage gap, which ensures that there are no storage collisions
 /// with the Merkle contract to which it delegatecalls

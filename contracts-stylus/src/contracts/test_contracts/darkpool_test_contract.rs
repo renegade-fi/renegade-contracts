@@ -1,7 +1,7 @@
 use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
-use common::types::ExternalTransfer;
+use common::types::PublicInputs;
 use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
 
 use crate::{
@@ -29,10 +29,19 @@ impl DarkpoolTestContract {
         Ok(())
     }
 
-    pub fn execute_external_transfer(&mut self, transfer: Bytes) -> Result<(), Vec<u8>> {
-        let external_transfer: ExternalTransfer =
-            postcard::from_bytes(transfer.as_slice()).unwrap();
-        DarkpoolContract::execute_external_transfer(self, &external_transfer);
+    pub fn execute_external_transfer(
+        &mut self,
+        external_transfer_ser: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        let external_transfer_scalars =
+            postcard::from_bytes::<PublicInputs>(&external_transfer_ser)
+                .unwrap()
+                .0;
+
+        DarkpoolContract::execute_external_transfer(
+            self,
+            &external_transfer_scalars.try_into().unwrap(),
+        );
         Ok(())
     }
 

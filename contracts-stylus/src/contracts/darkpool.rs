@@ -2,9 +2,10 @@
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
-use common::types::{
-    ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
-    ValidWalletCreateStatement, ValidWalletUpdateStatement,
+use ark_ff::One;
+use common::{
+    constants::NUM_SCALARS_PK,
+    types::{PublicInputs, ScalarField},
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
 use core::borrow::{Borrow, BorrowMut};
@@ -21,10 +22,26 @@ use crate::{
     if_verifying,
     utils::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
-        constants::STORAGE_GAP_SIZE,
+        constants::{
+            NUM_SCALARS_EXTERNAL_TRANSFER, NUM_WALLET_SHARES, STORAGE_GAP_SIZE,
+            VALID_MATCH_SETTLE_STATEMENT_PARTY_0_SHARES_INDEX,
+            VALID_MATCH_SETTLE_STATEMENT_PARTY_1_SHARES_INDEX,
+            VALID_REBLIND_STATEMENT_MERKLE_ROOT_INDEX, VALID_REBLIND_STATEMENT_NULLIFIER_INDEX,
+            VALID_REBLIND_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX,
+            VALID_WALLET_CREATE_STATEMENT_BLINDER_INDEX,
+            VALID_WALLET_CREATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX,
+            VALID_WALLET_CREATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_BLINDER_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_EXTERNAL_TRANSFER_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_MERKLE_ROOT_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_NULLIFIER_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_PK_ROOT_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX,
+            VALID_WALLET_UPDATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX,
+        },
         helpers::{
-            delegate_call_helper, scalar_to_u256, serialize_statement_for_verification,
-            static_call_helper,
+            address_from_scalar, delegate_call_helper, scalar_to_u256, static_call_helper,
+            u256_from_scalars,
         },
         solidity::{
             initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
@@ -131,10 +148,10 @@ impl DarkpoolContract {
     pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         proof: Bytes,
-        valid_wallet_create_statement_bytes: Bytes,
+        valid_wallet_create_public_inputs_ser: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let valid_wallet_create_statement: ValidWalletCreateStatement =
-            postcard::from_bytes(valid_wallet_create_statement_bytes.as_slice()).unwrap();
+        let public_inputs: PublicInputs =
+            postcard::from_bytes(&valid_wallet_create_public_inputs_ser).unwrap();
 
         if_verifying!({
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
@@ -145,23 +162,28 @@ impl DarkpoolContract {
                 storage,
                 vec![valid_wallet_create_vkey_bytes],
                 vec![proof.into()],
-                vec![serialize_statement_for_verification(&valid_wallet_create_statement).unwrap()],
+                vec![valid_wallet_create_public_inputs_ser.into()],
             ));
         });
 
+        let private_shares_commitment =
+            public_inputs.0[VALID_WALLET_CREATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX];
+
+        let public_wallet_shares = &public_inputs.0
+            [VALID_WALLET_CREATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX
+                ..VALID_WALLET_CREATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX + NUM_WALLET_SHARES]
+            .try_into()
+            .unwrap();
+
+        let wallet_blinder_share = public_inputs.0[VALID_WALLET_CREATE_STATEMENT_BLINDER_INDEX];
+
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
-            valid_wallet_create_statement.private_shares_commitment,
-            &valid_wallet_create_statement.public_wallet_shares,
+            private_shares_commitment,
+            public_wallet_shares,
         );
 
-        DarkpoolContract::log_wallet_update(
-            // We assume the wallet blinder is the last scalar serialized into the wallet shares
-            *valid_wallet_create_statement
-                .public_wallet_shares
-                .last()
-                .unwrap(),
-        );
+        DarkpoolContract::log_wallet_update(wallet_blinder_share);
 
         Ok(())
     }
@@ -170,21 +192,23 @@ impl DarkpoolContract {
     pub fn update_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         proof: Bytes,
-        valid_wallet_update_statement_bytes: Bytes,
+        valid_wallet_update_public_inputs_ser: Bytes,
         public_inputs_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let valid_wallet_update_statement: ValidWalletUpdateStatement =
-            postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
+        let public_inputs: PublicInputs =
+            postcard::from_bytes(&valid_wallet_update_public_inputs_ser).unwrap();
 
         if_verifying!({
-            DarkpoolContract::assert_root_in_history(
-                storage,
-                valid_wallet_update_statement.merkle_root,
-            );
+            let merkle_root = public_inputs.0[VALID_WALLET_UPDATE_STATEMENT_MERKLE_ROOT_INDEX];
+
+            DarkpoolContract::assert_root_in_history(storage, merkle_root);
+
+            let old_pk_root_scalars = &public_inputs.0[VALID_WALLET_UPDATE_STATEMENT_PK_ROOT_INDEX
+                ..VALID_WALLET_UPDATE_STATEMENT_PK_ROOT_INDEX + NUM_SCALARS_PK];
 
             assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-                &valid_wallet_update_statement.old_pk_root,
-                valid_wallet_update_statement_bytes.as_slice(),
+                &old_pk_root_scalars.try_into().unwrap(),
+                &valid_wallet_update_public_inputs_ser,
                 &public_inputs_signature.to_vec().try_into().unwrap(),
             )
             .unwrap());
@@ -197,32 +221,41 @@ impl DarkpoolContract {
                 storage,
                 vec![valid_wallet_update_vkey_bytes],
                 vec![proof.into()],
-                vec![serialize_statement_for_verification(&valid_wallet_update_statement).unwrap()],
+                vec![valid_wallet_update_public_inputs_ser.into()],
             ));
         });
 
+        let new_private_shares_commitment =
+            public_inputs.0[VALID_WALLET_UPDATE_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX];
+
+        let new_public_shares = &public_inputs.0
+            [VALID_WALLET_UPDATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX
+                ..VALID_WALLET_UPDATE_STATEMENT_PUBLIC_WALLET_SHARES_INDEX + NUM_WALLET_SHARES]
+            .try_into()
+            .unwrap();
+
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
-            valid_wallet_update_statement.new_private_shares_commitment,
-            &valid_wallet_update_statement.new_public_shares,
+            new_private_shares_commitment,
+            new_public_shares,
         );
 
-        DarkpoolContract::mark_nullifier_spent(
+        let old_shares_nullifier = public_inputs.0[VALID_WALLET_UPDATE_STATEMENT_NULLIFIER_INDEX];
+
+        DarkpoolContract::mark_nullifier_spent(storage, old_shares_nullifier);
+
+        DarkpoolContract::execute_external_transfer(
             storage,
-            valid_wallet_update_statement.old_shares_nullifier,
-        );
-
-        if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
-            DarkpoolContract::execute_external_transfer(storage, &external_transfer);
-        }
-
-        DarkpoolContract::log_wallet_update(
-            // We assume the wallet blinder is the last scalar serialized into the wallet shares
-            *valid_wallet_update_statement
-                .new_public_shares
-                .last()
+            &public_inputs.0[VALID_WALLET_UPDATE_STATEMENT_EXTERNAL_TRANSFER_INDEX
+                ..VALID_WALLET_UPDATE_STATEMENT_EXTERNAL_TRANSFER_INDEX
+                    + NUM_SCALARS_EXTERNAL_TRANSFER]
+                .try_into()
                 .unwrap(),
         );
+
+        let wallet_blinder_share = public_inputs.0[VALID_WALLET_UPDATE_STATEMENT_BLINDER_INDEX];
+
+        DarkpoolContract::log_wallet_update(wallet_blinder_share);
 
         Ok(())
     }
@@ -232,46 +265,62 @@ impl DarkpoolContract {
     #[allow(clippy::too_many_arguments)]
     pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        party_0_match_payload: Bytes,
         party_0_valid_commitments_proof: Bytes,
+        party_0_valid_commitments_public_inputs_ser: Bytes,
         party_0_valid_reblind_proof: Bytes,
-        party_1_match_payload: Bytes,
+        party_0_valid_reblind_public_inputs_ser: Bytes,
         party_1_valid_commitments_proof: Bytes,
+        party_1_valid_commitments_public_inputs_ser: Bytes,
         party_1_valid_reblind_proof: Bytes,
+        party_1_valid_reblind_public_inputs_ser: Bytes,
         valid_match_settle_proof: Bytes,
-        valid_match_settle_statement_bytes: Bytes,
+        valid_match_settle_public_inputs_ser: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let party_0_match_payload: MatchPayload =
-            postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
+        let party_0_valid_reblind_public_inputs: PublicInputs =
+            postcard::from_bytes(&party_0_valid_reblind_public_inputs_ser).unwrap();
 
-        let party_1_match_payload: MatchPayload =
-            postcard::from_bytes(party_1_match_payload.as_slice()).unwrap();
+        let party_1_valid_reblind_public_inputs: PublicInputs =
+            postcard::from_bytes(&party_1_valid_reblind_public_inputs_ser).unwrap();
 
-        let valid_match_settle_statement: ValidMatchSettleStatement =
-            postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
+        let valid_match_settle_public_inputs: PublicInputs =
+            postcard::from_bytes(&valid_match_settle_public_inputs_ser).unwrap();
 
         if_verifying!(DarkpoolContract::batch_verify_process_match_settle(
             storage,
-            &party_0_match_payload,
             party_0_valid_commitments_proof,
+            party_0_valid_commitments_public_inputs_ser,
             party_0_valid_reblind_proof,
-            &party_1_match_payload,
+            party_0_valid_reblind_public_inputs_ser,
             party_1_valid_commitments_proof,
+            party_1_valid_commitments_public_inputs_ser,
             party_1_valid_reblind_proof,
+            party_1_valid_reblind_public_inputs_ser,
             valid_match_settle_proof,
-            &valid_match_settle_statement,
+            valid_match_settle_public_inputs_ser,
         ));
 
-        DarkpoolContract::process_party(
-            storage,
-            &party_0_match_payload,
-            &valid_match_settle_statement.party0_modified_shares,
-        );
+        let party_0_modified_shares = &valid_match_settle_public_inputs.0
+            [VALID_MATCH_SETTLE_STATEMENT_PARTY_0_SHARES_INDEX
+                ..VALID_MATCH_SETTLE_STATEMENT_PARTY_0_SHARES_INDEX + NUM_WALLET_SHARES]
+            .try_into()
+            .unwrap();
 
         DarkpoolContract::process_party(
             storage,
-            &party_1_match_payload,
-            &valid_match_settle_statement.party1_modified_shares,
+            &party_0_valid_reblind_public_inputs,
+            party_0_modified_shares,
+        );
+
+        let party_1_modified_shares = &valid_match_settle_public_inputs.0
+            [VALID_MATCH_SETTLE_STATEMENT_PARTY_1_SHARES_INDEX
+                ..VALID_MATCH_SETTLE_STATEMENT_PARTY_1_SHARES_INDEX + NUM_WALLET_SHARES]
+            .try_into()
+            .unwrap();
+
+        DarkpoolContract::process_party(
+            storage,
+            &party_1_valid_reblind_public_inputs,
+            party_1_modified_shares,
         );
 
         Ok(())
@@ -337,7 +386,7 @@ impl DarkpoolContract {
     pub fn insert_wallet_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         private_shares_commitment: ScalarField,
-        public_wallet_shares: &[ScalarField],
+        public_wallet_shares: &[ScalarField; NUM_WALLET_SHARES],
     ) {
         let mut total_wallet_shares = vec![private_shares_commitment];
         total_wallet_shares.extend(public_wallet_shares);
@@ -380,25 +429,35 @@ impl DarkpoolContract {
     /// Executes the given external transfer (withdrawal / deposit)
     pub fn execute_external_transfer<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        transfer: &ExternalTransfer,
+        external_transfer_scalars: &[ScalarField; NUM_SCALARS_EXTERNAL_TRANSFER],
     ) {
-        let erc20 = IERC20::new(transfer.mint);
+        let account_addr = address_from_scalar(external_transfer_scalars[0]);
+
+        if account_addr == Address::ZERO {
+            // This implies that the transfer is nonexistent and has been
+            // serialized into default values
+            return;
+        }
+
+        let mint = address_from_scalar(external_transfer_scalars[1]);
+        let amount = u256_from_scalars(&external_transfer_scalars[2..4].try_into().unwrap());
+        let is_withdrawal = external_transfer_scalars[4] == ScalarField::one();
+
+        let erc20 = IERC20::new(mint);
         let darkpool_address = contract::address();
-        let (from, to) = if transfer.is_withdrawal {
-            (darkpool_address, transfer.account_addr)
+        let (from, to) = if is_withdrawal {
+            (darkpool_address, account_addr)
         } else {
-            (transfer.account_addr, darkpool_address)
+            (account_addr, darkpool_address)
         };
 
-        erc20
-            .transfer_from(storage, from, to, transfer.amount)
-            .unwrap();
+        erc20.transfer_from(storage, from, to, amount).unwrap();
 
         evm::log(ExternalTransferEvent {
-            account: transfer.account_addr,
-            mint: transfer.mint,
-            is_withdrawal: transfer.is_withdrawal,
-            amount: transfer.amount,
+            account_addr,
+            mint,
+            is_withdrawal,
+            amount,
         })
     }
 
@@ -406,14 +465,16 @@ impl DarkpoolContract {
     #[allow(clippy::too_many_arguments)]
     pub fn batch_verify_process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        party_0_match_payload: &MatchPayload,
         party_0_valid_commitments_proof: Bytes,
+        party_0_valid_commitments_public_inputs_ser: Bytes,
         party_0_valid_reblind_proof: Bytes,
-        party_1_match_payload: &MatchPayload,
+        party_0_valid_reblind_public_inputs_ser: Bytes,
         party_1_valid_commitments_proof: Bytes,
+        party_1_valid_commitments_public_inputs_ser: Bytes,
         party_1_valid_reblind_proof: Bytes,
+        party_1_valid_reblind_public_inputs_ser: Bytes,
         valid_match_settle_proof: Bytes,
-        valid_match_settle_statement: &ValidMatchSettleStatement,
+        valid_match_settle_public_inputs_ser: Bytes,
     ) {
         let vkeys_address = storage.borrow_mut().vkeys_address.get();
         let (valid_commitments_vkey_ser,) =
@@ -439,29 +500,12 @@ impl DarkpoolContract {
             valid_match_settle_proof.into(),
         ];
 
-        let party_0_valid_commitments_public_inputs = serialize_statement_for_verification(
-            &party_0_match_payload.valid_commitments_statement,
-        )
-        .unwrap();
-        let party_0_valid_reblind_public_inputs =
-            serialize_statement_for_verification(&party_0_match_payload.valid_reblind_statement)
-                .unwrap();
-        let party_1_valid_commitments_public_inputs = serialize_statement_for_verification(
-            &party_1_match_payload.valid_commitments_statement,
-        )
-        .unwrap();
-        let party_1_valid_reblind_public_inputs =
-            serialize_statement_for_verification(&party_1_match_payload.valid_reblind_statement)
-                .unwrap();
-        let valid_match_settle_public_inputs =
-            serialize_statement_for_verification(valid_match_settle_statement).unwrap();
-
         let serialized_public_inputs = vec![
-            party_0_valid_commitments_public_inputs,
-            party_0_valid_reblind_public_inputs,
-            party_1_valid_commitments_public_inputs,
-            party_1_valid_reblind_public_inputs,
-            valid_match_settle_public_inputs,
+            party_0_valid_commitments_public_inputs_ser.into(),
+            party_0_valid_reblind_public_inputs_ser.into(),
+            party_1_valid_commitments_public_inputs_ser.into(),
+            party_1_valid_reblind_public_inputs_ser.into(),
+            valid_match_settle_public_inputs_ser.into(),
         ];
 
         assert!(DarkpoolContract::verify(
@@ -475,30 +519,29 @@ impl DarkpoolContract {
     /// Handles the post-match-settle logic for a single party
     pub fn process_party<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        match_payload: &MatchPayload,
-        public_wallet_shares: &[ScalarField],
+        valid_reblind_public_inputs: &PublicInputs,
+        public_wallet_shares: &[ScalarField; NUM_WALLET_SHARES],
     ) {
         if_verifying!({
-            DarkpoolContract::assert_root_in_history(
-                storage,
-                match_payload.valid_reblind_statement.merkle_root,
-            );
+            let merkle_root =
+                valid_reblind_public_inputs.0[VALID_REBLIND_STATEMENT_MERKLE_ROOT_INDEX];
+
+            DarkpoolContract::assert_root_in_history(storage, merkle_root);
         });
+
+        let reblinded_private_shares_commitment =
+            valid_reblind_public_inputs.0[VALID_REBLIND_STATEMENT_PRIVATE_SHARES_COMMITMENT_INDEX];
 
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
-            match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment,
+            reblinded_private_shares_commitment,
             public_wallet_shares,
         );
 
-        DarkpoolContract::mark_nullifier_spent(
-            storage,
-            match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
-        );
+        let original_shares_nullifier =
+            valid_reblind_public_inputs.0[VALID_REBLIND_STATEMENT_NULLIFIER_INDEX];
+
+        DarkpoolContract::mark_nullifier_spent(storage, original_shares_nullifier);
 
         // We assume the wallet blinder is the last scalar serialized into the wallet shares
         let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());

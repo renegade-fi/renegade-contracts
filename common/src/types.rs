@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use crate::{
-    constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    constants::{NUM_SCALARS_PK, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
     serde_def_types::*,
 };
 
@@ -121,18 +121,6 @@ pub struct ExternalTransfer {
     pub is_withdrawal: bool,
 }
 
-/// Represents the affine coordinates of a secp256k1 ECDSA public key.
-/// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
-/// it takes 2 Bn254 scalar field elements to represent each coordinate.
-#[serde_as]
-#[derive(Serialize, Deserialize)]
-pub struct PublicSigningKey {
-    #[serde_as(as = "[ScalarFieldDef; 2]")]
-    pub x: [ScalarField; 2],
-    #[serde_as(as = "[ScalarFieldDef; 2]")]
-    pub y: [ScalarField; 2],
-}
-
 /// Statement for `VALID_WALLET_CREATE` circuit
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -165,7 +153,11 @@ pub struct ValidWalletUpdateStatement {
     /// The external transfer associated with this update
     pub external_transfer: Option<ExternalTransfer>,
     /// The public root key of the old wallet, rotated out after this update
-    pub old_pk_root: PublicSigningKey,
+    /// Represented by the affine coordinates of a secp256k1 ECDSA public key.
+    /// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
+    /// it takes 2 Bn254 scalar field elements to represent each coordinate.
+    #[serde_as(as = "[ScalarFieldDef; NUM_SCALARS_PK]")]
+    pub old_pk_root: [ScalarField; NUM_SCALARS_PK],
     /// The timestamp this update was applied at
     pub timestamp: u64,
 }
@@ -219,16 +211,6 @@ pub struct ValidMatchSettleStatement {
     pub party1_receive_balance_index: u64,
     /// The index of the second party's matched order
     pub party1_order_index: u64,
-}
-
-/// Represents the outputs produced by one of the parties in a match
-#[serde_as]
-#[derive(Serialize, Deserialize)]
-pub struct MatchPayload {
-    /// The statement for the party's `VALID_COMMITMENTS` proof
-    pub valid_commitments_statement: ValidCommitmentsStatement,
-    /// The statement for the party's `VALID_REBLIND` proof
-    pub valid_reblind_statement: ValidReblindStatement,
 }
 
 #[serde_as]

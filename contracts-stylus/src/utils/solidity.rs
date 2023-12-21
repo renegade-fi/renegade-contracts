@@ -39,5 +39,5 @@ sol! {
     // Darkpool events
     event NullifierSpent(uint256 indexed nullifier);
     event WalletUpdated(uint256 indexed wallet_blinder_share);
-    event ExternalTransfer(address indexed account, address indexed mint, bool indexed is_withdrawal, uint256 amount);
+    event ExternalTransfer(address indexed account_addr, address indexed mint, bool indexed is_withdrawal, uint256 amount);
 }

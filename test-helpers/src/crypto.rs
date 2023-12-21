@@ -4,7 +4,7 @@ use ark_ff::PrimeField;
 use common::{
     backends::HashBackend,
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_U128},
-    types::{PublicSigningKey, ScalarField},
+    types::ScalarField,
 };
 use ethers::{
     core::k256::ecdsa::SigningKey,
@@ -21,7 +21,7 @@ impl HashBackend for NativeHasher {
     }
 }
 
-pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, PublicSigningKey) {
+pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, [ScalarField; 4]) {
     let signing_key = SigningKey::random(rng);
     let verifying_key = signing_key.verifying_key();
     let encoded_pubkey_bytes = verifying_key
@@ -49,12 +49,9 @@ pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, Publi
         &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
     );
 
-    let pubkey = PublicSigningKey {
-        x: [x_high, x_low],
-        y: [y_high, y_low],
-    };
+    let pubkey_scalars = [x_high, x_low, y_high, y_low];
 
-    (signing_key, pubkey)
+    (signing_key, pubkey_scalars)
 }
 
 pub fn hash_and_sign_message(signing_key: &SigningKey, msg: &[u8]) -> Signature {

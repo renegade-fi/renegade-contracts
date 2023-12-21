@@ -4,10 +4,12 @@ use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use common::{
     constants::NUM_BYTES_FELT,
-    custom_serde::{BytesDeserializable, BytesSerializable},
+    custom_serde::{
+        external_transfer_to_scalars, BytesDeserializable, BytesSerializable, ScalarSerializable,
+    },
     types::{
-        ExternalTransfer, MatchPayload, Proof, PublicInputs, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleStatement, VerificationKey,
+        ExternalTransfer, Proof, PublicInputs, ScalarField, ValidCommitmentsStatement,
+        ValidMatchSettleStatement, ValidReblindStatement, VerificationKey,
     },
 };
 use constants::SystemCurve;
@@ -98,6 +100,12 @@ pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
     Ok(postcard::to_allocvec(t)?.into())
 }
 
+pub fn serialize_statement_to_calldata<S: ScalarSerializable>(s: &S) -> Result<Bytes> {
+    serialize_to_calldata(&PublicInputs(
+        s.serialize_to_scalars().map_err(|e| eyre!("{:?}", e))?,
+    ))
+}
+
 pub fn serialize_verification_bundle(
     vkey_batch: &[VerificationKey],
     proof_batch: &[Proof],
@@ -125,12 +133,14 @@ pub fn serialize_verification_bundle(
 }
 
 pub struct ProcessMatchSettleData {
-    pub party_0_match_payload: MatchPayload,
     pub party_0_valid_commitments_proof: Proof,
+    pub party_0_valid_commitments_statement: ValidCommitmentsStatement,
     pub party_0_valid_reblind_proof: Proof,
-    pub party_1_match_payload: MatchPayload,
+    pub party_0_valid_reblind_statement: ValidReblindStatement,
     pub party_1_valid_commitments_proof: Proof,
+    pub party_1_valid_commitments_statement: ValidCommitmentsStatement,
     pub party_1_valid_reblind_proof: Proof,
+    pub party_1_valid_reblind_statement: ValidReblindStatement,
     pub valid_match_settle_proof: Proof,
     pub valid_match_settle_statement: ValidMatchSettleStatement,
 }
@@ -157,23 +167,15 @@ pub(crate) fn get_process_match_settle_data(
     let (valid_match_settle_statement, valid_match_settle_proof) =
         dummy_circuit_bundle::<ValidMatchSettleStatement>(srs, N, rng)?;
 
-    let party_0_match_payload = MatchPayload {
-        valid_commitments_statement: party_0_valid_commitments_statement,
-        valid_reblind_statement: party_0_valid_reblind_statement,
-    };
-
-    let party_1_match_payload = MatchPayload {
-        valid_commitments_statement: party_1_valid_commitments_statement,
-        valid_reblind_statement: party_1_valid_reblind_statement,
-    };
-
     Ok(ProcessMatchSettleData {
-        party_0_match_payload,
         party_0_valid_commitments_proof,
+        party_0_valid_commitments_statement,
         party_0_valid_reblind_proof,
-        party_1_match_payload,
+        party_0_valid_reblind_statement,
         party_1_valid_commitments_proof,
+        party_1_valid_commitments_statement,
         party_1_valid_reblind_proof,
+        party_1_valid_reblind_statement,
         valid_match_settle_proof,
         valid_match_settle_statement,
     })
@@ -221,8 +223,13 @@ pub(crate) async fn execute_transfer_and_get_balances(
     transfer: &ExternalTransfer,
     account_address: Address,
 ) -> Result<(U256, U256)> {
+    let external_transfer_scalars =
+        PublicInputs(external_transfer_to_scalars(transfer).map_err(|e| eyre!("{:?}", e))?);
+
+    let external_transfer_ser = serialize_to_calldata(&external_transfer_scalars)?;
+
     darkpool_test_contract
-        .execute_external_transfer(serialize_to_calldata(transfer)?)
+        .execute_external_transfer(external_transfer_ser)
         .send()
         .await?
         .await?;

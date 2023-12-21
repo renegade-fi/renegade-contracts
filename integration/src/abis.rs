@@ -12,13 +12,11 @@ abigen!(
 
         function getRoot() external view returns (uint256)
 
-        function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
-        function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature) external
-        function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_reblind_proof, bytes memory party_1_match_payload, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_reblind_proof, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_statement_bytes) external
+        function newWallet(bytes memory proof, bytes memory valid_wallet_create_public_inputs_ser) external
+        function updateWallet(bytes memory proof, bytes memory valid_wallet_update_public_inputs_ser, bytes memory public_inputs_signature) external
+        function processMatchSettle(bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_commitments_public_inputs_ser, bytes memory party_0_valid_reblind_proof, bytes memory party_0_valid_reblind_public_inputs_ser, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_commitments_public_inputs_ser, bytes memory party_1_valid_reblind_proof, bytes memory party_1_valid_reblind_public_inputs_ser, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_public_inputs_ser) external
 
-        function verify(uint8 memory circuit_id, bytes memory proof, bytes memory public_inputs) external view returns (bool)
-
-        function executeExternalTransfer(bytes memory transfer) external
+        function executeExternalTransfer(bytes memory external_transfer_ser) external
 
         function clearMerkle() external
     ]"#
@@ -54,6 +52,7 @@ abigen!(
 abigen!(
     DummyErc20Contract,
     r#"[
+        function approve(address memory spender, uint256 memory value) external returns (bool)
         function mint(address memory _address, uint256 memory value) external
         function balanceOf(address memory _address) external view returns (uint256)
     ]"#

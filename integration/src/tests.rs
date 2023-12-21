@@ -14,8 +14,12 @@ use common::{
 use constants::SystemCurve;
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
-    abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,
-    types::Bytes, utils::keccak256,
+    abi::Address,
+    middleware::SignerMiddleware,
+    providers::Middleware,
+    signers::LocalWallet,
+    types::{Bytes, U256},
+    utils::keccak256,
 };
 use eyre::Result;
 use itertools::multiunzip;
@@ -40,7 +44,8 @@ use crate::{
     utils::{
         dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
         get_process_match_settle_data, insert_shares_and_get_root, mint_dummy_erc20,
-        scalar_to_u256, serialize_to_calldata, serialize_verification_bundle, u256_to_scalar,
+        scalar_to_u256, serialize_statement_to_calldata, serialize_to_calldata,
+        serialize_verification_bundle, u256_to_scalar,
     },
 };
 
@@ -354,6 +359,13 @@ pub(crate) async fn test_external_transfer(
     // Deposit initial funds for darkpool & user in dummy erc20 address
     mint_dummy_erc20(&dummy_erc20_contract, &[darkpool_address, account_address]).await?;
 
+    // Approve the darkpool to spend funds on behalf of the user
+    dummy_erc20_contract
+        .approve(darkpool_address, U256::from(TRANSFER_AMOUNT))
+        .send()
+        .await?
+        .await?;
+
     let darkpool_initial_balance = dummy_erc20_contract
         .balance_of(darkpool_address)
         .call()
@@ -413,11 +425,14 @@ pub(crate) async fn test_new_wallet(
     let (valid_wallet_create_statement, proof) =
         dummy_circuit_bundle::<ValidWalletCreateStatement>(srs, N, &mut rng)?;
 
+    let valid_wallet_create_statement_public_inputs_ser =
+        serialize_statement_to_calldata(&valid_wallet_create_statement)?;
+
     // Call `new_wallet` with valid data
     contract
         .new_wallet(
             serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&valid_wallet_create_statement)?,
+            valid_wallet_create_statement_public_inputs_ser,
         )
         .send()
         .await?
@@ -464,19 +479,20 @@ pub(crate) async fn test_update_wallet(
         pubkey,
     );
 
+    let valid_wallet_update_public_inputs_ser =
+        serialize_statement_to_calldata(&valid_wallet_update_statement)?;
+
     let proof = proof_from_statement(srs, &valid_wallet_update_statement, N)?;
 
-    let valid_wallet_update_statement_bytes =
-        serialize_to_calldata(&valid_wallet_update_statement)?;
     let public_inputs_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &valid_wallet_update_statement_bytes).to_vec(),
+        hash_and_sign_message(&signing_key, &valid_wallet_update_public_inputs_ser).to_vec(),
     );
 
     // Call `update_wallet` with valid data
     contract
         .update_wallet(
             serialize_to_calldata(&proof)?,
-            valid_wallet_update_statement_bytes,
+            valid_wallet_update_public_inputs_ser,
             public_inputs_signature,
         )
         .send()
@@ -519,17 +535,37 @@ pub(crate) async fn test_process_match_settle(
     let mut rng = thread_rng();
     let data = get_process_match_settle_data(&mut rng, srs, contract_root)?;
 
+    let party_0_valid_commitments_proof =
+        serialize_to_calldata(&data.party_0_valid_commitments_proof)?;
+    let party_0_valid_commitments_public_inputs_ser =
+        serialize_statement_to_calldata(&data.party_0_valid_commitments_statement)?;
+    let party_0_valid_reblind_proof = serialize_to_calldata(&data.party_0_valid_reblind_proof)?;
+    let party_0_valid_reblind_public_inputs_ser =
+        serialize_statement_to_calldata(&data.party_0_valid_reblind_statement)?;
+    let party_1_valid_commitments_proof =
+        serialize_to_calldata(&data.party_1_valid_commitments_proof)?;
+    let party_1_valid_commitments_public_inputs_ser =
+        serialize_statement_to_calldata(&data.party_1_valid_commitments_statement)?;
+    let party_1_valid_reblind_proof = serialize_to_calldata(&data.party_1_valid_reblind_proof)?;
+    let party_1_valid_reblind_public_inputs_ser =
+        serialize_statement_to_calldata(&data.party_1_valid_reblind_statement)?;
+    let valid_match_settle_proof = serialize_to_calldata(&data.valid_match_settle_proof)?;
+    let valid_match_settle_public_inputs_ser =
+        serialize_statement_to_calldata(&data.valid_match_settle_statement)?;
+
     // Call `process_match_settle` with valid data
     contract
         .process_match_settle(
-            serialize_to_calldata(&data.party_0_match_payload)?,
-            serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
-            serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
-            serialize_to_calldata(&data.party_1_match_payload)?,
-            serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
-            serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
-            serialize_to_calldata(&data.valid_match_settle_proof)?,
-            serialize_to_calldata(&data.valid_match_settle_statement)?,
+            party_0_valid_commitments_proof,
+            party_0_valid_commitments_public_inputs_ser,
+            party_0_valid_reblind_proof,
+            party_0_valid_reblind_public_inputs_ser,
+            party_1_valid_commitments_proof,
+            party_1_valid_commitments_public_inputs_ser,
+            party_1_valid_reblind_proof,
+            party_1_valid_reblind_public_inputs_ser,
+            valid_match_settle_proof,
+            valid_match_settle_public_inputs_ser,
         )
         .send()
         .await?
@@ -537,13 +573,11 @@ pub(crate) async fn test_process_match_settle(
 
     // Assert that correct nullifiers are spent
     let party_0_nullifier = scalar_to_u256(
-        data.party_0_match_payload
-            .valid_reblind_statement
+        data.party_0_valid_reblind_statement
             .original_shares_nullifier,
     );
     let party_1_nullifier = scalar_to_u256(
-        data.party_1_match_payload
-            .valid_reblind_statement
+        data.party_1_valid_reblind_statement
             .original_shares_nullifier,
     );
 
@@ -562,8 +596,7 @@ pub(crate) async fn test_process_match_settle(
     // Assert that Merkle root is correct
     insert_shares_and_get_root(
         &mut ark_merkle,
-        data.party_0_match_payload
-            .valid_reblind_statement
+        data.party_0_valid_reblind_statement
             .reblinded_private_shares_commitment,
         &data.valid_match_settle_statement.party0_modified_shares,
         0, /* index */
@@ -571,8 +604,7 @@ pub(crate) async fn test_process_match_settle(
     .unwrap();
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
-        data.party_1_match_payload
-            .valid_reblind_statement
+        data.party_1_valid_reblind_statement
             .reblinded_private_shares_commitment,
         &data.valid_match_settle_statement.party1_modified_shares,
         1, /* index */

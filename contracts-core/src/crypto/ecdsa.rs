@@ -5,20 +5,21 @@ use common::{
     backends::{EcRecoverBackend, EcdsaError, HashBackend},
     constants::{
         HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U128, NUM_BYTES_U64,
+        NUM_SCALARS_PK,
     },
-    types::{PublicSigningKey, ScalarField},
+    types::ScalarField,
 };
 
 /// Verify a secp256k1 ECDSA signature given a public key (extracted from a `VALID_WALLET_UPDATE` statement),
 /// a (un-hashed) message, and a signature (in the format expected by the `ecRecover` precompile, i.e. including a `v`
 /// recovery identifier)
 pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
-    pubkey: &PublicSigningKey,
+    pubkey_scalars: &[ScalarField; NUM_SCALARS_PK],
     msg: &[u8],
     sig: &[u8; NUM_BYTES_SIGNATURE],
 ) -> Result<bool, EcdsaError> {
     let msg_hash = H::hash(msg);
-    Ok(E::ec_recover(&msg_hash, sig)? == pubkey_to_address::<H>(pubkey))
+    Ok(E::ec_recover(&msg_hash, sig)? == pubkey_to_address::<H>(pubkey_scalars))
 }
 
 // -----------
@@ -27,7 +28,9 @@ pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
 
 /// Converts a public signing key, as expressed in the `VALID_WALLET_UPDATE` statement,
 /// into an Ethereum address.
-pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_BYTES_ADDRESS] {
+pub fn pubkey_to_address<H: HashBackend>(
+    pubkey_scalars: &[ScalarField; NUM_SCALARS_PK],
+) -> [u8; NUM_BYTES_ADDRESS] {
     // An Ethereum address is obtained from the rightmost 20 bytes of the Keccak-256 hash
     // of the public key's x & y affine coordinates, concatenated in big-endian form.
 
@@ -35,12 +38,13 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
     // its affine coordinates are split first into the higher 128 bits, then the lower 128 bits,
     // with each of those interpreted in big-endian order as a scalar field element.
     let mut pubkey_bytes = [0_u8; 4 * NUM_BYTES_U128];
-    pubkey_bytes[..NUM_BYTES_U128].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.x[0]));
+    pubkey_bytes[..NUM_BYTES_U128].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey_scalars[0]));
     pubkey_bytes[NUM_BYTES_U128..2 * NUM_BYTES_U128]
-        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.x[1]));
+        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey_scalars[1]));
     pubkey_bytes[2 * NUM_BYTES_U128..3 * NUM_BYTES_U128]
-        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.y[0]));
-    pubkey_bytes[3 * NUM_BYTES_U128..].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.y[1]));
+        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey_scalars[2]));
+    pubkey_bytes[3 * NUM_BYTES_U128..]
+        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey_scalars[3]));
 
     // Unwrapping here is safe because we know that the hash output is 32 bytes long
     H::hash(&pubkey_bytes)[HASH_OUTPUT_SIZE - NUM_BYTES_ADDRESS..]

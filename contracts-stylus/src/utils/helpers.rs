@@ -1,29 +1,17 @@
 //! Miscellaneous helper functions for the contracts.
 
-use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
-use ark_ff::PrimeField;
+use ark_ff::{BigInteger, PrimeField};
 use common::{
-    custom_serde::{bigint_from_le_bytes, BytesSerializable, ScalarSerializable, SerdeError},
-    types::{PublicInputs, ScalarField},
+    constants::NUM_BYTES_ADDRESS,
+    custom_serde::{bigint_from_le_bytes, BytesSerializable, SerdeError},
+    types::ScalarField,
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
     call::{delegate_call, static_call},
     storage::TopLevelStorage,
 };
-
-/// Serializes the given statement into scalars, and then into bytes,
-/// as expected by the verifier contract.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
-pub fn serialize_statement_for_verification<S: ScalarSerializable>(
-    statement: &S,
-) -> postcard::Result<Vec<u8>> {
-    postcard::to_allocvec(&PublicInputs(statement.serialize_to_scalars().unwrap()))
-}
 
 /// Performs a `delegatecall` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.
@@ -83,6 +71,33 @@ pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
 pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
     let bigint = bigint_from_le_bytes(&u256.to_le_bytes_vec())?;
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
+}
+
+/// Converts a scalar into an Ethereum address.
+/// We interpret the first 20 bytes of the little-endian representation
+/// of the scalar to be the address.
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract",)),
+    allow(dead_code)
+)]
+pub fn address_from_scalar(scalar: ScalarField) -> Address {
+    Address::from_slice(&scalar.into_bigint().to_bytes_le()[..NUM_BYTES_ADDRESS])
+}
+
+/// Converts two scalars into a U256.
+/// We interpret the first scalar as the high 128 bits of the U256,
+/// and the second scalar as the low 128 bits of the U256.
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract",)),
+    allow(dead_code)
+)]
+pub fn u256_from_scalars(scalars: &[ScalarField; 2]) -> U256 {
+    assert!(scalars.len() == 2);
+
+    let high = scalar_to_u256(scalars[0]);
+    let low = scalar_to_u256(scalars[1]);
+
+    high << 128 | low
 }
 
 #[macro_export]

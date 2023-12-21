@@ -5,12 +5,12 @@ use alloy_primitives::{Address, U256};
 
 use ark_std::UniformRand;
 use common::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256},
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256, NUM_SCALARS_PK},
     custom_serde::ScalarSerializable,
     types::{
-        ExternalTransfer, Proof, PublicInputs, PublicSigningKey, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-        ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        ExternalTransfer, Proof, PublicInputs, ScalarField, ValidCommitmentsStatement,
+        ValidMatchSettleStatement, ValidReblindStatement, ValidWalletCreateStatement,
+        ValidWalletUpdateStatement,
     },
 };
 use constants::SystemCurve;
@@ -114,11 +114,13 @@ fn dummy_external_transfer(rng: &mut impl Rng) -> ExternalTransfer {
     }
 }
 
-fn dummy_public_signing_key(rng: &mut impl Rng) -> PublicSigningKey {
-    PublicSigningKey {
-        x: [ScalarField::rand(rng), ScalarField::rand(rng)],
-        y: [ScalarField::rand(rng), ScalarField::rand(rng)],
-    }
+fn dummy_public_signing_key(rng: &mut impl Rng) -> [ScalarField; NUM_SCALARS_PK] {
+    [
+        ScalarField::rand(rng),
+        ScalarField::rand(rng),
+        ScalarField::rand(rng),
+        ScalarField::rand(rng),
+    ]
 }
 
 pub fn proof_from_statement<S: RenegadeStatement>(
@@ -151,7 +153,7 @@ pub fn gen_valid_wallet_update_statement(
     rng: &mut impl Rng,
     external_transfer: Option<ExternalTransfer>,
     merkle_root: ScalarField,
-    old_pk_root: PublicSigningKey,
+    old_pk_root: [ScalarField; NUM_SCALARS_PK],
 ) -> ValidWalletUpdateStatement {
     ValidWalletUpdateStatement {
         external_transfer,

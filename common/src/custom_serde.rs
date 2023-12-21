@@ -225,8 +225,7 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
                 .as_ref()
                 .unwrap_or(&ExternalTransfer::default()),
         )?);
-        scalars.extend(self.old_pk_root.x);
-        scalars.extend(self.old_pk_root.y);
+        scalars.extend(self.old_pk_root);
         scalars.push(self.timestamp.into());
         Ok(scalars)
     }
@@ -346,7 +345,7 @@ fn u256_to_scalars(u256: U256) -> Result<[ScalarField; NUM_SCALARS_U256], SerdeE
     ])
 }
 
-fn external_transfer_to_scalars(
+pub fn external_transfer_to_scalars(
     external_transfer: &ExternalTransfer,
 ) -> Result<Vec<ScalarField>, SerdeError> {
     let mut scalars = Vec::new();
