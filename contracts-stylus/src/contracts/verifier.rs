@@ -3,7 +3,7 @@
 use alloc::{vec, vec::Vec};
 use common::types::{Proof, PublicInputs, VerificationKey};
 use contracts_core::verifier::Verifier;
-use stylus_sdk::prelude::*;
+use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::utils::backends::{PrecompileG1ArithmeticBackend, StylusHasher};
 
@@ -14,7 +14,7 @@ struct VerifierContract;
 /// Verify the given proof, using the given verification bundle
 #[external]
 impl VerifierContract {
-    pub fn verify(&self, verification_bundle: Vec<u8>) -> Result<bool, Vec<u8>> {
+    pub fn verify(&self, verification_bundle: Bytes) -> Result<bool, Vec<u8>> {
         let (vkey, proof, public_inputs) = postcard::from_bytes(&verification_bundle).unwrap();
 
         let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
@@ -26,7 +26,7 @@ impl VerifierContract {
         Ok(result)
     }
 
-    pub fn verify_match_settle(&self, batch_verification_bundle: Vec<u8>) -> Result<bool, Vec<u8>> {
+    pub fn verify_match_settle(&self, batch_verification_bundle: Bytes) -> Result<bool, Vec<u8>> {
         let (
             [valid_commitments_vkey, valid_reblind_vkey, valid_match_settle_vkey],
             proofs,

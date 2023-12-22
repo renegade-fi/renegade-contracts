@@ -29,6 +29,10 @@ sol! {
     function validReblindVkey() external view returns (bytes);
     function validMatchSettleVkey() external view returns (bytes);
 
+    // Verifier functions
+    function verify(bytes memory verification_bundle) external view returns (bool);
+    function verifyMatchSettle(bytes memory batch_verification_bundle) external view returns (bool);
+
     // ----------
     // | EVENTS |
     // ----------
