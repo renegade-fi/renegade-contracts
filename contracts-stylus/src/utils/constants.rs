@@ -49,33 +49,19 @@ pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
 pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_wallet_update");
 
-/// The serialized VALID COMMITMENTS verification key
+/// The serialized
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE]
+/// verification keys
 #[cfg(feature = "vkeys")]
-pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
-    include_bytes!("../../vkeys/prod/valid_commitments");
+pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/process_match_settle");
 
-/// The serialized testing VALID COMMITMENTS verification key
+/// The serialized testing
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE]
+/// verification keys
 #[cfg(feature = "test-vkeys")]
-pub const VALID_COMMITMENTS_VKEY_BYTES: &[u8] =
-    include_bytes!("../../vkeys/test/valid_commitments");
-
-/// The serialized VALID REBLIND verification key
-#[cfg(feature = "vkeys")]
-pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/prod/valid_reblind");
-
-/// The serialized testing VALID REBLIND verification key
-#[cfg(feature = "test-vkeys")]
-pub const VALID_REBLIND_VKEY_BYTES: &[u8] = include_bytes!("../../vkeys/test/valid_reblind");
-
-/// The serialized VALID MATCH SETTLE verification key
-#[cfg(feature = "vkeys")]
-pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
-    include_bytes!("../../vkeys/prod/valid_match_settle");
-
-/// The serialized testing VALID MATCH SETTLE verification key
-#[cfg(feature = "test-vkeys")]
-pub const VALID_MATCH_SETTLE_VKEY_BYTES: &[u8] =
-    include_bytes!("../../vkeys/test/valid_match_settle");
+pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/process_match_settle");
 
 /// The path of values in an empty Merkle tree of height `TEST_MERKLE_HEIGHT`,
 /// going from root to leaf

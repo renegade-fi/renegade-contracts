@@ -26,9 +26,8 @@ use crate::{
             static_call_helper,
         },
         solidity::{
-            initCall, insertSharesCommitmentCall, rootCall, rootInHistoryCall,
-            validCommitmentsVkeyCall, validMatchSettleVkeyCall, validReblindVkeyCall,
-            validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
+            initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
+            rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
             verifyMatchSettleCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
             WalletUpdated, IERC20,
         },
@@ -111,7 +110,7 @@ impl DarkpoolContract {
         Ok(res)
     }
 
-    /// Returns the current root of the Merkle tree
+    /// Returns whether or not the given root is a valid historical Merkle root
     pub fn root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         root: U256,
@@ -155,13 +154,7 @@ impl DarkpoolContract {
             &valid_wallet_create_statement.public_wallet_shares,
         );
 
-        DarkpoolContract::log_wallet_update(
-            // We assume the wallet blinder is the last scalar serialized into the wallet shares
-            *valid_wallet_create_statement
-                .public_wallet_shares
-                .last()
-                .unwrap(),
-        );
+        DarkpoolContract::log_wallet_update(&valid_wallet_create_statement.public_wallet_shares);
 
         Ok(())
     }
@@ -201,14 +194,10 @@ impl DarkpoolContract {
             ));
         });
 
-        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+        DarkpoolContract::commit_wallet_and_mark_spent(
             storage,
             valid_wallet_update_statement.new_private_shares_commitment,
             &valid_wallet_update_statement.new_public_shares,
-        );
-
-        DarkpoolContract::mark_nullifier_spent(
-            storage,
             valid_wallet_update_statement.old_shares_nullifier,
         );
 
@@ -216,13 +205,7 @@ impl DarkpoolContract {
             DarkpoolContract::execute_external_transfer(storage, &external_transfer);
         }
 
-        DarkpoolContract::log_wallet_update(
-            // We assume the wallet blinder is the last scalar serialized into the wallet shares
-            *valid_wallet_update_statement
-                .new_public_shares
-                .last()
-                .unwrap(),
-        );
+        DarkpoolContract::log_wallet_update(&valid_wallet_update_statement.new_public_shares);
 
         Ok(())
     }
@@ -296,8 +279,9 @@ impl DarkpoolContract {
     // | LOGGING |
     // -----------
 
-    pub fn log_wallet_update(wallet_blinder_share: ScalarField) {
-        let wallet_blinder_share = scalar_to_u256(wallet_blinder_share);
+    pub fn log_wallet_update(public_wallet_shares: &[ScalarField]) {
+        // We assume the wallet blinder is the last scalar serialized into the wallet shares
+        let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
         evm::log(WalletUpdated {
             wallet_blinder_share,
         });
@@ -352,6 +336,21 @@ impl DarkpoolContract {
             merkle_address,
             (total_wallet_shares,),
         );
+    }
+
+    pub fn commit_wallet_and_mark_spent<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        private_shares_commitment: ScalarField,
+        public_wallet_shares: &[ScalarField],
+        nullifier: ScalarField,
+    ) {
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+            storage,
+            private_shares_commitment,
+            public_wallet_shares,
+        );
+
+        DarkpoolContract::mark_nullifier_spent(storage, nullifier);
     }
 
     /// Verifies the given proof using the given public inputs
@@ -416,12 +415,8 @@ impl DarkpoolContract {
         let vkeys_address = this.vkeys_address.get();
         let verifier_address = this.verifier_address.get();
 
-        let (valid_commitments_vkey_ser,) =
-            static_call_helper::<validCommitmentsVkeyCall>(storage, vkeys_address, ()).into();
-        let (valid_reblind_vkey_ser,) =
-            static_call_helper::<validReblindVkeyCall>(storage, vkeys_address, ()).into();
-        let (valid_match_settle_vkey_ser,) =
-            static_call_helper::<validMatchSettleVkeyCall>(storage, vkeys_address, ()).into();
+        let (process_match_settle_vkeys_ser,) =
+            static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ()).into();
 
         let party_0_valid_commitments_public_inputs = serialize_statement_for_verification(
             &party_0_match_payload.valid_commitments_statement,
@@ -441,9 +436,7 @@ impl DarkpoolContract {
             serialize_statement_for_verification(valid_match_settle_statement).unwrap();
 
         let batch_verification_bundle_ser = [
-            valid_commitments_vkey_ser,
-            valid_reblind_vkey_ser,
-            valid_match_settle_vkey_ser,
+            process_match_settle_vkeys_ser,
             party_0_valid_commitments_proof.into(),
             party_0_valid_reblind_proof.into(),
             party_1_valid_commitments_proof.into(),
@@ -480,16 +473,12 @@ impl DarkpoolContract {
             );
         });
 
-        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
+        DarkpoolContract::commit_wallet_and_mark_spent(
             storage,
             match_payload
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
             public_wallet_shares,
-        );
-
-        DarkpoolContract::mark_nullifier_spent(
-            storage,
             match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier,

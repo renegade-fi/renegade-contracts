@@ -260,9 +260,9 @@ impl ScalarSerializable for ValidMatchSettleStatement {
         scalars.push(self.party0_send_balance_index.into());
         scalars.push(self.party0_receive_balance_index.into());
         scalars.push(self.party0_order_index.into());
-        scalars.push(self.party0_send_balance_index.into());
-        scalars.push(self.party0_receive_balance_index.into());
-        scalars.push(self.party0_order_index.into());
+        scalars.push(self.party1_send_balance_index.into());
+        scalars.push(self.party1_receive_balance_index.into());
+        scalars.push(self.party1_order_index.into());
         Ok(scalars)
     }
 }

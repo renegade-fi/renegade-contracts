@@ -125,11 +125,7 @@ pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";
 /// The file name for the VALID WALLET UPDATE verification key
 pub const VALID_WALLET_UPDATE_VKEY_FILE: &str = "valid_wallet_update";
 
-/// The file name for the VALID COMMITMENTS verification key
-pub const VALID_COMMITMENTS_VKEY_FILE: &str = "valid_commitments";
-
-/// The file name for the VALID REBLIND verification key
-pub const VALID_REBLIND_VKEY_FILE: &str = "valid_reblind";
-
-/// The file name for the VALID MATCH SETTLE verification key
-pub const VALID_MATCH_SETTLE_VKEY_FILE: &str = "valid_match_settle";
+/// The file name for the concatenated
+/// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE
+/// verification keys
+pub const PROCESS_MATCH_SETTLE_VKEYS_FILE: &str = "process_match_settle";
