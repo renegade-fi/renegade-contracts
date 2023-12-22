@@ -20,7 +20,7 @@ use ethers::{
 use eyre::Result;
 use itertools::multiunzip;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
-use rand::{seq::SliceRandom, thread_rng, RngCore};
+use rand::{thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
@@ -179,7 +179,7 @@ pub(crate) async fn test_verifier(
     verifier_address: Address,
 ) -> Result<()> {
     let mut rng = thread_rng();
-    let (vkey_batch, mut proof_batch, public_inputs_batch): (Vec<_>, Vec<_>, Vec<_>) =
+    let (vkey_batch, mut proof_batch, mut public_inputs_batch): (Vec<_>, Vec<_>, Vec<_>) =
         multiunzip((0..PROOF_BATCH_SIZE).map(|_| {
             let public_inputs = PublicInputs(random_scalars(L, &mut rng));
             let (jf_proof, jf_vkey) =
@@ -189,26 +189,68 @@ pub(crate) async fn test_verifier(
             (vkey, proof, public_inputs)
         }));
 
-    let bundle_bytes =
-        serialize_verification_bundle(&vkey_batch, &proof_batch, &public_inputs_batch)?;
+    // Duplicate the first two proofs/public inputs, this is the structure expected by the
+    // batch verification method (mirrors that of `process_match_settle`)
+    let first_two_proofs = proof_batch[..2].to_vec();
+    let first_two_public_inputs = public_inputs_batch[..2].to_vec();
+    proof_batch.splice(0..0, first_two_proofs);
+    public_inputs_batch.splice(0..0, first_two_public_inputs);
+
+    // First, we test single verification success
+    let single_verification_bundle = serialize_verification_bundle(
+        &[vkey_batch[0]],
+        &[proof_batch[0].clone()],
+        &[public_inputs_batch[0].clone()],
+    )
+    .unwrap();
 
     let successful_res = contract
-        .verify(verifier_address, bundle_bytes)
+        .verify(verifier_address, single_verification_bundle)
         .call()
         .await?;
 
     assert!(successful_res, "Valid proof did not verify");
 
-    let proof = proof_batch.choose_mut(&mut rng).unwrap();
-    proof.z_bar += ScalarField::one();
-    let bundle_bytes =
-        serialize_verification_bundle(&vkey_batch, &proof_batch, &public_inputs_batch)?;
-    let unsuccessful_res = contract
-        .verify(verifier_address, bundle_bytes)
+    // Next, we test batch verification success
+    let batch_verification_bundle =
+        serialize_verification_bundle(&vkey_batch, &proof_batch, &public_inputs_batch).unwrap();
+
+    let successful_res = contract
+        .verify_batch(verifier_address, batch_verification_bundle)
         .call()
         .await?;
 
-    assert!(!unsuccessful_res, "Invalid proof verified");
+    assert!(successful_res, "Valid proof batch did not verify");
+
+    // Now, we check that invalid proofs fail
+
+    let proof = &mut proof_batch[0];
+    proof.z_bar += ScalarField::one();
+
+    // First, for single verification
+    let single_verification_bundle = serialize_verification_bundle(
+        &[vkey_batch[0]],
+        &[proof_batch[0].clone()],
+        &[public_inputs_batch[0].clone()],
+    )
+    .unwrap();
+
+    let unsuccessful_res = contract
+        .verify(verifier_address, single_verification_bundle)
+        .call()
+        .await?;
+
+    assert!(!unsuccessful_res, "Invalid proof did not verified");
+
+    // Next, for batch verification
+    let bundle_bytes =
+        serialize_verification_bundle(&vkey_batch, &proof_batch, &public_inputs_batch)?;
+    let unsuccessful_res = contract
+        .verify_batch(verifier_address, bundle_bytes)
+        .call()
+        .await?;
+
+    assert!(!unsuccessful_res, "Invalid proof batch verified");
 
     Ok(())
 }

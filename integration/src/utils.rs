@@ -18,7 +18,6 @@ use ethers::{
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
-use itertools::izip;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::Rng;
 use scripts::{
@@ -103,21 +102,18 @@ pub fn serialize_verification_bundle(
     proof_batch: &[Proof],
     public_inputs_batch: &[PublicInputs],
 ) -> Result<Bytes> {
-    let mut serialized_vkeys = Vec::new();
-    let mut serialized_proofs = Vec::new();
-    let mut serialized_public_inputs = Vec::new();
-
-    // We first individually serialize each vkey, proof, and set of public inputs
-    for (vkey, proof, public_inputs) in izip!(vkey_batch, proof_batch, public_inputs_batch) {
-        serialized_vkeys.push(postcard::to_allocvec(&vkey)?);
-        serialized_proofs.push(postcard::to_allocvec(&proof)?);
-        serialized_public_inputs.push(postcard::to_allocvec(&public_inputs)?);
-    }
-
-    // We then serialize these `Vec<Vec<u8>>`s into a single `Vec<u8>`, as expected by the verifier
-    let vkey_batch_ser = postcard::to_allocvec(&serialized_vkeys)?;
-    let proof_batch_ser = postcard::to_allocvec(&serialized_proofs)?;
-    let public_inputs_batch_ser = postcard::to_allocvec(&serialized_public_inputs)?;
+    let vkey_batch_ser: Vec<u8> = vkey_batch
+        .iter()
+        .flat_map(|v| postcard::to_allocvec(v).unwrap())
+        .collect();
+    let proof_batch_ser: Vec<u8> = proof_batch
+        .iter()
+        .flat_map(|p| postcard::to_allocvec(p).unwrap())
+        .collect();
+    let public_inputs_batch_ser: Vec<u8> = public_inputs_batch
+        .iter()
+        .flat_map(|i| postcard::to_allocvec(i).unwrap())
+        .collect();
 
     let bundle_bytes = [vkey_batch_ser, proof_batch_ser, public_inputs_batch_ser].concat();
 
