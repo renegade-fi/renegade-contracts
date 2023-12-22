@@ -52,7 +52,7 @@ pub struct VerificationKey {
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
@@ -232,5 +232,5 @@ pub struct MatchPayload {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarField>);
