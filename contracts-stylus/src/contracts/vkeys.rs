@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::utils::constants::{
-    VALID_COMMITMENTS_VKEY_BYTES, VALID_MATCH_SETTLE_VKEY_BYTES, VALID_REBLIND_VKEY_BYTES,
-    VALID_WALLET_CREATE_VKEY_BYTES, VALID_WALLET_UPDATE_VKEY_BYTES,
+    PROCESS_MATCH_SETTLE_VKEYS_BYTES, VALID_WALLET_CREATE_VKEY_BYTES,
+    VALID_WALLET_UPDATE_VKEY_BYTES,
 };
 
 #[solidity_storage]
@@ -25,18 +25,10 @@ impl VkeysContract {
         Ok(VALID_WALLET_UPDATE_VKEY_BYTES.to_vec().into())
     }
 
-    /// Returns the serialized `VALID COMMITMENTS` verification key
-    pub fn valid_commitments_vkey(&self) -> Result<Bytes, Vec<u8>> {
-        Ok(VALID_COMMITMENTS_VKEY_BYTES.to_vec().into())
-    }
-
-    /// Returns the serialized `VALID REBLIND` verification key
-    pub fn valid_reblind_vkey(&self) -> Result<Bytes, Vec<u8>> {
-        Ok(VALID_REBLIND_VKEY_BYTES.to_vec().into())
-    }
-
-    /// Returns the serialized `VALID MATCH SETTLE` verification key
-    pub fn valid_match_settle_vkey(&self) -> Result<Bytes, Vec<u8>> {
-        Ok(VALID_MATCH_SETTLE_VKEY_BYTES.to_vec().into())
+    /// Returns the serialization of the
+    /// [`VALID COMMITMENTS`, `VALID REBLIND`, `VALID MATCH SETTLE`]
+    /// verification keys
+    pub fn process_match_settle_vkeys(&self) -> Result<Bytes, Vec<u8>> {
+        Ok(PROCESS_MATCH_SETTLE_VKEYS_BYTES.to_vec().into())
     }
 }

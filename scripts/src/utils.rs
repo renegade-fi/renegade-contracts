@@ -145,7 +145,7 @@ pub fn write_srs_to_file(
         .map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
-pub fn write_vkey_to_file(
+pub fn write_vkey_file(
     vkeys_dir: &str,
     vkey_file_name: &str,
     vkey_bytes: &[u8],

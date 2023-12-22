@@ -28,17 +28,16 @@ use crate::{
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
-        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT,
-        PROXY_BYTECODE, VALID_COMMITMENTS_VKEY_FILE, VALID_MATCH_SETTLE_VKEY_FILE,
-        VALID_REBLIND_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
-        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROCESS_MATCH_SETTLE_VKEYS_FILE,
+        PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, VALID_WALLET_CREATE_VKEY_FILE,
+        VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_test_vkey,
         gen_vkey, get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file,
-        write_deployed_address, write_srs_to_file, write_vkey_to_file,
+        write_deployed_address, write_srs_to_file, write_vkey_file,
     },
 };
 
@@ -235,30 +234,29 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
     let valid_match_settle_vkey_bytes = postcard::to_allocvec(&valid_match_settle_vkey)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
-    write_vkey_to_file(
+    write_vkey_file(
         &args.vkeys_dir,
         VALID_WALLET_CREATE_VKEY_FILE,
         &valid_wallet_create_vkey_bytes,
     )?;
-    write_vkey_to_file(
+    write_vkey_file(
         &args.vkeys_dir,
         VALID_WALLET_UPDATE_VKEY_FILE,
         &valid_wallet_update_vkey_bytes,
     )?;
-    write_vkey_to_file(
+
+    // The VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE vkeys are serialized together
+    let process_match_settle_vkey_bytes = [
+        valid_commitments_vkey_bytes,
+        valid_reblind_vkey_bytes,
+        valid_match_settle_vkey_bytes,
+    ]
+    .concat();
+
+    write_vkey_file(
         &args.vkeys_dir,
-        VALID_COMMITMENTS_VKEY_FILE,
-        &valid_commitments_vkey_bytes,
-    )?;
-    write_vkey_to_file(
-        &args.vkeys_dir,
-        VALID_REBLIND_VKEY_FILE,
-        &valid_reblind_vkey_bytes,
-    )?;
-    write_vkey_to_file(
-        &args.vkeys_dir,
-        VALID_MATCH_SETTLE_VKEY_FILE,
-        &valid_match_settle_vkey_bytes,
+        PROCESS_MATCH_SETTLE_VKEYS_FILE,
+        &process_match_settle_vkey_bytes,
     )?;
 
     Ok(())
