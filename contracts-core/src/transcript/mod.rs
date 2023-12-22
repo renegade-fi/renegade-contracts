@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use ark_ff::{BigInt, BigInteger, PrimeField};
 use common::{
     backends::HashBackend,
-    constants::{HASH_SAMPLE_BYTES, SPLIT_INDEX, TRANSCRIPT_STATE_SIZE},
+    constants::{HASH_SAMPLE_BYTES, NUM_BYTES_FELT, SPLIT_INDEX, TRANSCRIPT_STATE_SIZE},
     custom_serde::{bigint_from_le_bytes, BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
@@ -144,14 +144,21 @@ impl<H: HashBackend> Transcript<H> {
 /// This is the format expected by the transcript, whereas our serialization format
 /// is big-endian.
 pub fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
-    scalars
-        .iter()
-        .flat_map(|s| s.serialize_to_bytes().into_iter().rev())
-        .collect()
+    let mut bytes = Vec::with_capacity(scalars.len() * NUM_BYTES_FELT);
+    for scalar in scalars {
+        let mut scalar_bytes = scalar.serialize_to_bytes();
+        scalar_bytes.reverse();
+        bytes.append(&mut scalar_bytes);
+    }
+    bytes
 }
 
 fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
-    points.iter().copied().map(TranscriptG1).collect()
+    let mut transcript_points = Vec::with_capacity(points.len());
+    for point in points {
+        transcript_points.push(TranscriptG1(*point))
+    }
+    transcript_points
 }
 
 #[cfg(test)]

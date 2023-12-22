@@ -57,11 +57,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let mut domain_elements_batch = Vec::with_capacity(num_proofs);
         let mut all_lagrange_basis_denominators = Vec::with_capacity(num_proofs);
 
-        for ((vkey, proof), public_inputs) in vkey_batch
-            .iter()
-            .zip(proof_batch.iter())
-            .zip(public_inputs_batch.iter())
-        {
+        for i in 0..num_proofs {
+            let vkey = &vkey_batch[i];
+            let proof = &proof_batch[i];
+            let public_inputs = &public_inputs_batch[i];
+
             // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
             // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
             // elements not in the scalar field, and points not in G1, would cause a panic.
@@ -81,24 +81,21 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             all_lagrange_basis_denominators.extend(lagrange_basis_denominators);
         }
 
-        let public_input_lengths: Vec<usize> = vkey_batch.iter().map(|v| v.l as usize).collect();
-
         let lagrange_bases_batch = Self::batch_invert_lagrange_basis_denominators(
             &mut all_lagrange_basis_denominators,
             &zero_poly_evals_batch,
-            &public_input_lengths,
+            vkey_batch,
         );
 
         let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
         let mut g1_rhs_elems = Vec::with_capacity(num_proofs);
         let mut final_challenges = Vec::with_capacity(num_proofs);
 
-        for (i, ((vkey, proof), public_inputs)) in vkey_batch
-            .iter()
-            .zip(proof_batch.iter())
-            .zip(public_inputs_batch.iter())
-            .enumerate()
-        {
+        for i in 0..num_proofs {
+            let vkey = &vkey_batch[i];
+            let proof = &proof_batch[i];
+            let public_inputs = &public_inputs_batch[i];
+
             let challenges = &challenges_batch[i];
             let zero_poly_eval = zero_poly_evals_batch[i];
             let domain_elements = &domain_elements_batch[i];
@@ -174,7 +171,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     fn batch_invert_lagrange_basis_denominators(
         lagrange_basis_denominators: &mut [ScalarField],
         zero_poly_evals_batch: &[ScalarField],
-        public_input_lengths: &[usize],
+        vkey_batch: &[VerificationKey],
     ) -> Vec<Vec<ScalarField>> {
         let batch_size = zero_poly_evals_batch.len();
         let mut lagrange_bases_batch = Vec::with_capacity(batch_size);
@@ -187,15 +184,16 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         } else {
             batch_inversion(lagrange_basis_denominators);
             let mut lagrange_bases_cursor = 0;
-            for (l, zero_poly_eval) in public_input_lengths
-                .iter()
-                .zip(zero_poly_evals_batch.iter())
-            {
-                let lagrange_bases: Vec<ScalarField> = lagrange_basis_denominators
-                    [lagrange_bases_cursor..lagrange_bases_cursor + l]
-                    .iter()
-                    .map(|b| b * zero_poly_eval)
-                    .collect();
+            for i in 0..batch_size {
+                let l = vkey_batch[i].l as usize;
+                let zero_poly_eval = zero_poly_evals_batch[i];
+
+                let mut lagrange_bases = Vec::with_capacity(l);
+                for d in
+                    &lagrange_basis_denominators[lagrange_bases_cursor..lagrange_bases_cursor + l]
+                {
+                    lagrange_bases.push(d * &zero_poly_eval);
+                }
 
                 lagrange_bases_cursor += l;
 
@@ -252,14 +250,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         }
 
         let mut pi_eval = lagrange_1_eval * public_inputs.0[0];
-        for ((o_i, l_i), p_i) in domain_elements
-            .iter()
-            .zip(lagrange_bases.iter())
-            .zip(public_inputs.0.iter())
-            .skip(1)
-        {
-            pi_eval += o_i * l_i * p_i;
+        for i in 1..public_inputs.0.len() {
+            pi_eval += domain_elements[i] * lagrange_bases[i] * public_inputs.0[i];
         }
+
         pi_eval
     }
 
@@ -281,17 +275,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         } = proof;
 
         let mut r_0 = pi_eval - lagrange_1_eval * *alpha * *alpha;
-        r_0 -= *alpha
-        * *z_bar
-        * wire_evals[..NUM_WIRE_TYPES - 1]
-            .iter()
-            .zip(sigma_evals.iter())
-            .fold(ScalarField::one(), |acc, (wire_bar, sigma_bar)| {
-                // I.e. (a_bar + beta * sigma_1_bar + gamma) * (b_bar + beta * sigma_2_bar + gamma) in the paper
-                acc * (*wire_bar + *beta * *sigma_bar + *gamma)
-            })
-        // I.e. (c_bar + gamma) in the paper
-        * (wire_evals[NUM_WIRE_TYPES - 1] + *gamma);
+        let mut evals_rlc = alpha * z_bar * (wire_evals[NUM_WIRE_TYPES - 1] + gamma);
+        for i in 0..NUM_WIRE_TYPES - 1 {
+            evals_rlc *= wire_evals[i] + beta * &sigma_evals[i] + gamma;
+        }
+        r_0 -= evals_rlc;
 
         r_0
     }
@@ -362,18 +350,13 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             ..
         } = challenges;
 
-        let z_scalar_coeff =
-            wire_evals
-                .iter()
-                .zip(k.iter())
-                .fold(ScalarField::one(), |acc, (wire_bar, k_i)| {
-                    // I.e. (a_bar + beta * k1 * zeta + gamma) * (b_bar + beta * k2 * zeta + gamma) * (c_bar + beta * k3 * zeta + gamma) in the paper,
-                    // where k_1 = 1
-                    acc * (*wire_bar + *beta * *k_i * *zeta + *gamma)
-                })
-                * *alpha
-                + lagrange_1_eval * *alpha * *alpha
-                + *u;
+        let mut z_scalar_coeff = ScalarField::one();
+        for i in 0..wire_evals.len() {
+            z_scalar_coeff *= wire_evals[i] + beta * &k[i] * zeta + gamma
+        }
+        z_scalar_coeff *= alpha;
+        z_scalar_coeff += lagrange_1_eval * alpha * alpha;
+        z_scalar_coeff += u;
 
         G::ec_scalar_mul(z_scalar_coeff, *z_comm).map_err(|_| VerifierError::ArithmeticBackend)
     }
@@ -395,16 +378,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             alpha, beta, gamma, ..
         } = challenges;
 
-        let final_sigma_scalar_coeff = wire_evals[..NUM_WIRE_TYPES - 1]
-            .iter()
-            .zip(sigma_evals.iter())
-            .fold(ScalarField::one(), |acc, (wire_bar, sigma_bar)| {
-                // I.e. (a_bar + beta * sigma_1_bar + gamma) * (b_bar + beta * sigma_2_bar + gamma) in the paper
-                acc * (*wire_bar + *beta * *sigma_bar + *gamma)
-            })
-            * *alpha
-            * *beta
-            * *z_bar;
+        let mut final_sigma_scalar_coeff = ScalarField::one();
+        for i in 0..NUM_WIRE_TYPES - 1 {
+            final_sigma_scalar_coeff *= wire_evals[i] + beta * &sigma_evals[i] + gamma
+        }
+        final_sigma_scalar_coeff *= alpha * beta * z_bar;
 
         G::ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
             .map_err(|_| VerifierError::ArithmeticBackend)
@@ -424,7 +402,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         // This is in order to "achieve better balance among degrees of all splitting
         // polynomials (especially the highest-degree/last one)"
         // (As indicated in the doc comment here: https://github.com/EspressoSystems/jellyfish/blob/main/plonk/src/proof_system/prover.rs#L893)
-        let zeta_to_n_plus_two = (zero_poly_eval + ScalarField::one()) * *zeta * *zeta;
+        let zeta_to_n_plus_two = (zero_poly_eval + ScalarField::one()) * zeta * zeta;
 
         // Increasing powers of zeta^{n+2}, starting w/ 1
         let mut split_quotients_scalars = [ScalarField::one(); NUM_WIRE_TYPES];
@@ -476,14 +454,14 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         } = proof;
         let Challenges { u, .. } = challenges;
 
-        let e = -r_0
-            + v_powers[1..]
-                .iter()
-                .zip(wire_evals.iter().chain(sigma_evals.iter()))
-                .fold(ScalarField::zero(), |acc, (v_power, eval)| {
-                    acc + v_power * eval
-                })
-            + *u * *z_bar;
+        let mut e = -r_0;
+        for i in 0..NUM_WIRE_TYPES {
+            e += v_powers[i + 1] * wire_evals[i];
+        }
+        for i in 0..NUM_WIRE_TYPES - 1 {
+            e += v_powers[i + NUM_WIRE_TYPES + 1] * sigma_evals[i];
+        }
+        e += u * z_bar;
 
         G::ec_scalar_mul(-e, *g).map_err(|_| VerifierError::ArithmeticBackend)
     }

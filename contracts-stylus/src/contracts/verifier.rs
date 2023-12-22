@@ -1,51 +1,55 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use common::types::PublicInputs;
+use common::types::{Proof, PublicInputs, VerificationKey};
 use contracts_core::verifier::Verifier;
-use stylus_sdk::{prelude::*, ArbResult};
+use stylus_sdk::prelude::*;
 
 use crate::utils::backends::{PrecompileG1ArithmeticBackend, StylusHasher};
 
-/// The type we deserialize the `verify` calldata into, containing the serializations of
-/// the verification keys, proofs, and public inputs in the batch
-type SerializedVerificationBundle = (
-    // The vector of serialized verification keys
-    Vec<Vec<u8>>,
-    // The vector of serialized proofs
-    Vec<Vec<u8>>,
-    // The vector of serialized public inputs
-    Vec<Vec<u8>>,
-);
+#[solidity_storage]
+#[entrypoint]
+struct VerifierContract;
 
 /// Verify the given proof, using the given verification bundle
-#[entrypoint]
-pub fn verify(verification_bundle_ser: Vec<u8>) -> ArbResult {
-    let (vkey_batch_ser, proof_batch_ser, public_inputs_batch_ser): SerializedVerificationBundle =
-        postcard::from_bytes(verification_bundle_ser.as_slice()).unwrap();
+#[external]
+impl VerifierContract {
+    pub fn verify(&self, verification_bundle: Vec<u8>) -> Result<bool, Vec<u8>> {
+        let (vkey, proof, public_inputs) = postcard::from_bytes(&verification_bundle).unwrap();
 
-    let vkey_batch = vkey_batch_ser
-        .iter()
-        .map(|vkey_ser| postcard::from_bytes(vkey_ser.as_slice()).unwrap())
-        .collect::<Vec<_>>();
+        let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
 
-    let proof_batch = proof_batch_ser
-        .iter()
-        .map(|proof_ser| postcard::from_bytes(proof_ser.as_slice()).unwrap())
-        .collect::<Vec<_>>();
+        let result = verifier
+            .verify(&[vkey], &[proof], &[public_inputs])
+            .unwrap();
 
-    let public_inputs_batch = public_inputs_batch_ser
-        .iter()
-        .map(|public_inputs_ser| {
-            postcard::from_bytes::<PublicInputs>(public_inputs_ser.as_slice()).unwrap()
-        })
-        .collect::<Vec<_>>();
+        Ok(result)
+    }
 
-    let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
+    pub fn verify_match_settle(&self, batch_verification_bundle: Vec<u8>) -> Result<bool, Vec<u8>> {
+        let (
+            [valid_commitments_vkey, valid_reblind_vkey, valid_match_settle_vkey],
+            proofs,
+            public_inputs,
+        ): ([VerificationKey; 3], [Proof; 5], [PublicInputs; 5]) =
+            postcard::from_bytes(&batch_verification_bundle).unwrap();
 
-    let result = verifier
-        .verify(&vkey_batch, &proof_batch, &public_inputs_batch)
-        .unwrap();
+        let mut verifier = Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::default();
 
-    Ok(vec![result as u8])
+        let result = verifier
+            .verify(
+                &[
+                    valid_commitments_vkey,
+                    valid_reblind_vkey,
+                    valid_commitments_vkey,
+                    valid_reblind_vkey,
+                    valid_match_settle_vkey,
+                ],
+                &proofs,
+                &public_inputs,
+            )
+            .unwrap();
+
+        Ok(result)
+    }
 }
