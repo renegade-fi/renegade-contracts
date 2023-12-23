@@ -1028,9 +1028,9 @@ dependencies = [
  "ark-ff",
  "common",
  "contracts-core",
+ "mini-alloc",
  "postcard",
  "stylus-sdk",
- "wee_alloc",
 ]
 
 [[package]]
@@ -2682,6 +2682,16 @@ name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
+
+[[package]]
+name = "mini-alloc"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd9993556d3850cdbd0da06a3dc81297edcfa050048952d84d75e8b944e8f5af"
+dependencies = [
+ "cfg-if 1.0.0",
+ "wee_alloc",
+]
 
 [[package]]
 name = "miniz_oxide"
