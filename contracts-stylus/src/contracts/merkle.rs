@@ -10,10 +10,7 @@
 use core::marker::PhantomData;
 
 use alloc::vec::Vec;
-use common::{
-    constants::{EMPTY_LEAF_VALUE, MERKLE_HEIGHT},
-    types::ScalarField,
-};
+use common::{constants::MERKLE_HEIGHT, types::ScalarField};
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use stylus_sdk::{
     alloy_primitives::{U128, U256},
@@ -60,8 +57,12 @@ where
     /// Initialize this contract with a blank Merkle tree
     pub fn init(&mut self) -> Result<(), Vec<u8>> {
         self.next_index.set(U128::ZERO);
-        let root = self.setup_empty_tree(P::HEIGHT as u8, EMPTY_LEAF_VALUE);
+        let root = compute_poseidon_hash(&[P::ZEROS[0], P::ZEROS[0]]);
         self.store_root(root);
+        for i in 0..P::HEIGHT {
+            self.sibling_path
+                .insert(i as u8, scalar_to_u256(P::ZEROS[i]));
+        }
         Ok(())
     }
 
@@ -110,26 +111,6 @@ where
 
         self.root.set(root_u256);
         self.root_history.insert(root_u256, true);
-    }
-
-    /// Recursive helper for computing the root of an empty Merkle tree and
-    /// filling in the values for the zeros and sibling pathways
-    pub fn setup_empty_tree(&mut self, height: u8, current_leaf: ScalarField) -> ScalarField {
-        // Base case (root)
-        if height == 0 {
-            return current_leaf;
-        }
-
-        // The next value in the sibling pathway is the current hash, when the first value
-        // is inserted into the Merkle tree, it will be hashed against the same values used
-        // in this recursion
-        self.sibling_path
-            .insert(height - 1, scalar_to_u256(current_leaf));
-
-        // Hash the current leaf with itself and recurse
-        let next_leaf = compute_poseidon_hash(&[current_leaf, current_leaf]);
-
-        self.setup_empty_tree(height - 1, next_leaf)
     }
 
     /// Recursive helper for inserting a value into the Merkle tree,

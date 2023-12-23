@@ -143,6 +143,14 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
     contract.init().send().await?.await?;
 
+    let contract_root = u256_to_scalar(contract.root().call().await?)?;
+
+    assert_eq!(
+        ark_merkle.root(),
+        contract_root,
+        "Initial merkle root incorrect"
+    );
+
     let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT) as u32);
     let mut rng = thread_rng();
     let leaves = random_scalars(num_leaves as usize, &mut rng);
@@ -156,11 +164,11 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
             .send()
             .await?
             .await?;
+
+        let contract_root = u256_to_scalar(contract.root().call().await?)?;
+
+        assert_eq!(ark_merkle.root(), contract_root, "Merkle root incorrect");
     }
-
-    let contract_root = u256_to_scalar(contract.root().call().await?)?;
-
-    assert_eq!(ark_merkle.root(), contract_root, "Merkle root incorrect");
 
     assert!(
         contract
