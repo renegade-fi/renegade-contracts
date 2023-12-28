@@ -24,12 +24,14 @@ pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 /// used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
 #[serde_as]
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct VerificationKey {
     /// The number of gates in the circuit
     pub n: u64,
     /// The number of public inputs to the circuit
     pub l: u64,
+    /// The number of linked inputs in the circuit
+    pub num_linked_inputs: u64,
     /// The constants used to generate the cosets of the evaluation domain
     #[serde_as(as = "[ScalarFieldDef; NUM_WIRE_TYPES]")]
     pub k: [ScalarField; NUM_WIRE_TYPES],
@@ -52,7 +54,7 @@ pub struct VerificationKey {
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
@@ -63,12 +65,18 @@ pub struct Proof {
     /// The commitments to the split quotient polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
     pub quotient_comms: [G1Affine; NUM_WIRE_TYPES],
+    /// The commitment to the linking quotient polynomial
+    #[serde_as(as = "G1AffineDef")]
+    pub linking_quotient_comm: G1Affine,
     /// The opening proof of evaluations at challenge point `zeta`
     #[serde_as(as = "G1AffineDef")]
     pub w_zeta: G1Affine,
     /// The opening proof of evaluations at challenge point `zeta * omega`
     #[serde_as(as = "G1AffineDef")]
     pub w_zeta_omega: G1Affine,
+    /// The opening proof of the linking polynomial at challenge point `eta`
+    #[serde_as(as = "G1AffineDef")]
+    pub linking_poly_opening: G1Affine,
     /// The evaluations of the wire polynomials at the challenge point `zeta`
     #[serde_as(as = "[ScalarFieldDef; NUM_WIRE_TYPES]")]
     pub wire_evals: [ScalarField; NUM_WIRE_TYPES],
@@ -232,5 +240,5 @@ pub struct MatchPayload {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarField>);
