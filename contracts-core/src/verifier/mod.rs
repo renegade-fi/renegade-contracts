@@ -9,7 +9,7 @@ use alloc::{vec, vec::Vec};
 use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zero};
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
-    constants::NUM_WIRE_TYPES,
+    constants::{NUM_MATCH_PROOFS, NUM_WIRE_TYPES},
     types::{Challenges, G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
 use core::{marker::PhantomData, result::Result};
@@ -34,17 +34,69 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Default for Verifier<G, H> {
 }
 
 impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
-    /// Verify a batch of proofs.
+    /// Verify a proof.
     ///
     /// Follows the algorithm laid out in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf,
-    /// and applies batch verification as implemented in Jellyfish: https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
+    pub fn verify(
+        vkey: &VerificationKey,
+        proof: &Proof,
+        public_inputs: &PublicInputs,
+    ) -> Result<bool, VerifierError> {
+        // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
+        // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
+        // elements not in the scalar field, and points not in G1, would cause a panic.
+
+        Self::step_3(public_inputs, vkey)?;
+
+        let challenges = Self::step_4(vkey, proof, public_inputs)?;
+
+        let (domain_size, domain_elements, mut lagrange_basis_denominators) =
+            Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
+
+        let zero_poly_eval = Self::step_5(domain_size, &challenges);
+
+        batch_inversion_and_mul(&mut lagrange_basis_denominators, &zero_poly_eval);
+        // Rename for clarity
+        let lagrange_bases = lagrange_basis_denominators;
+
+        let lagrange_1_eval = Self::step_6(&lagrange_bases, &domain_elements);
+
+        let pi_eval = Self::step_7(
+            lagrange_1_eval,
+            &lagrange_bases,
+            &domain_elements,
+            public_inputs,
+        );
+
+        let r_0 = Self::step_8(pi_eval, lagrange_1_eval, &challenges, proof);
+
+        let d_1 = Self::step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
+
+        // Increasing powers of v, starting w/ 1
+        let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
+        for i in 1..NUM_WIRE_TYPES * 2 {
+            v_powers[i] = v_powers[i - 1] * challenges.v;
+        }
+
+        let f_1 = Self::step_10(d_1, &v_powers, vkey, proof)?;
+
+        let neg_e_1 = Self::step_11(r_0, &v_powers, vkey, proof, &challenges)?;
+
+        let (lhs_g1, rhs_g1) =
+            Self::step_12_part_1(f_1, neg_e_1, domain_elements[1], proof, &challenges)?;
+
+        Self::step_12_part_2(&[lhs_g1], &[rhs_g1], &[challenges.u], vkey.x_h, vkey.h)
+    }
+
+    /// Verify a batch of proofs.
+    ///
+    /// Applies batch verification as implemented in Jellyfish: https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
     ///
     /// This assumes that all the verification keys were generated using the same SRS.
-    pub fn verify(
-        &mut self,
-        vkey_batch: &[VerificationKey],
-        proof_batch: &[Proof],
-        public_inputs_batch: &[PublicInputs],
+    pub fn verify_match_bundle(
+        vkey_batch: &[VerificationKey; NUM_MATCH_PROOFS],
+        proof_batch: &[Proof; NUM_MATCH_PROOFS],
+        public_inputs_batch: &[PublicInputs; NUM_MATCH_PROOFS],
     ) -> Result<bool, VerifierError> {
         assert!(
             vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
@@ -566,7 +618,8 @@ mod tests {
     use circuit_types::test_helpers::TESTING_SRS;
     use contracts_common::{
         backends::G1ArithmeticError,
-        types::{G1Affine, G2Affine, PublicInputs, ScalarField},
+        constants::NUM_MATCH_PROOFS,
+        types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
     };
     use itertools::multiunzip;
     use jf_utils::multi_pairing;
@@ -602,7 +655,6 @@ mod tests {
 
     const N: usize = 8192;
     const L: usize = 128;
-    const NUM_PROOFS: usize = 3;
 
     #[test]
     fn test_valid_proof_verification() {
@@ -611,53 +663,11 @@ mod tests {
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
         let proof = convert_jf_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
-        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
-        let result = verifier
-            .verify(&[vkey], &[proof], &[public_inputs])
-            .unwrap();
+        let result =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
+                .unwrap();
 
         assert!(result, "valid proof did not verify");
-    }
-
-    #[test]
-    fn test_valid_multi_proof_verification() {
-        let mut rng = thread_rng();
-        let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
-            multiunzip((0..NUM_PROOFS).map(|_| {
-                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-                let (jf_proof, jf_vkey) =
-                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-                let proof = convert_jf_proof(jf_proof).unwrap();
-                let vkey = convert_jf_vkey(jf_vkey).unwrap();
-                (vkey, proof, public_inputs)
-            }));
-
-        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
-        let result = verifier.verify(&vkeys, &proofs, &public_inputs).unwrap();
-
-        assert!(result, "valid multi-proof did not verify");
-    }
-
-    #[test]
-    fn test_invalid_multi_proof_verification() {
-        let mut rng = thread_rng();
-        let (vkeys, mut proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
-            multiunzip((0..NUM_PROOFS).map(|_| {
-                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-                let (jf_proof, jf_vkey) =
-                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-                let proof = convert_jf_proof(jf_proof).unwrap();
-                let vkey = convert_jf_vkey(jf_vkey).unwrap();
-                (vkey, proof, public_inputs)
-            }));
-
-        let proof = proofs.choose_mut(&mut rng).unwrap();
-        proof.z_bar += ScalarField::one();
-
-        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
-        let result = verifier.verify(&vkeys, &proofs, &public_inputs).unwrap();
-
-        assert!(!result, "invalid multi-proof verified");
     }
 
     #[test]
@@ -668,11 +678,67 @@ mod tests {
         let mut proof = convert_jf_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
         proof.z_bar += ScalarField::one();
-        let mut verifier = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::default();
-        let result = verifier
-            .verify(&[vkey], &[proof], &[public_inputs])
-            .unwrap();
+        let result =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
+                .unwrap();
 
         assert!(!result, "invalid proof verified");
+    }
+
+    #[test]
+    fn test_valid_multi_proof_verification() {
+        let mut rng = thread_rng();
+        let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
+            multiunzip((0..NUM_MATCH_PROOFS).map(|_| {
+                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
+                let (jf_proof, jf_vkey) =
+                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+                let proof = convert_jf_proof(jf_proof).unwrap();
+                let vkey = convert_jf_vkey(jf_vkey).unwrap();
+                (vkey, proof, public_inputs)
+            }));
+
+        let vkeys: [VerificationKey; NUM_MATCH_PROOFS] = vkeys.try_into().unwrap();
+        let proofs: [Proof; NUM_MATCH_PROOFS] = proofs.try_into().unwrap();
+        let public_inputs: [PublicInputs; NUM_MATCH_PROOFS] = public_inputs.try_into().unwrap();
+
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match_bundle(
+            &vkeys,
+            &proofs,
+            &public_inputs,
+        )
+        .unwrap();
+
+        assert!(result, "valid multi-proof did not verify");
+    }
+
+    #[test]
+    fn test_invalid_multi_proof_verification() {
+        let mut rng = thread_rng();
+        let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
+            multiunzip((0..NUM_MATCH_PROOFS).map(|_| {
+                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
+                let (jf_proof, jf_vkey) =
+                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+                let proof = convert_jf_proof(jf_proof).unwrap();
+                let vkey = convert_jf_vkey(jf_vkey).unwrap();
+                (vkey, proof, public_inputs)
+            }));
+
+        let vkeys: [VerificationKey; NUM_MATCH_PROOFS] = vkeys.try_into().unwrap();
+        let mut proofs: [Proof; NUM_MATCH_PROOFS] = proofs.try_into().unwrap();
+        let public_inputs: [PublicInputs; NUM_MATCH_PROOFS] = public_inputs.try_into().unwrap();
+
+        let proof = proofs.choose_mut(&mut rng).unwrap();
+        proof.z_bar += ScalarField::one();
+
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match_bundle(
+            &vkeys,
+            &proofs,
+            &public_inputs,
+        )
+        .unwrap();
+
+        assert!(!result, "invalid multi-proof verified");
     }
 }

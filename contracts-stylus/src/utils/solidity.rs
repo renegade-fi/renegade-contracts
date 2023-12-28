@@ -30,7 +30,7 @@ sol! {
 
     // Verifier functions
     function verify(bytes memory verification_bundle) external view returns (bool);
-    function verifyMatchSettle(bytes memory batch_verification_bundle) external view returns (bool);
+    function verifyMatchBundle(bytes memory batch_verification_bundle) external view returns (bool);
 
     // ----------
     // | EVENTS |
