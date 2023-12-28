@@ -28,7 +28,7 @@ use crate::{
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
             rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
-            verifyMatchSettleCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
+            verifyMatchBundleCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
             WalletUpdated, IERC20,
         },
     },
@@ -450,7 +450,7 @@ impl DarkpoolContract {
         ]
         .concat();
 
-        let (result,) = static_call_helper::<verifyMatchSettleCall>(
+        let (result,) = static_call_helper::<verifyMatchBundleCall>(
             storage,
             verifier_address,
             (batch_verification_bundle_ser,),

@@ -116,8 +116,10 @@ pub fn convert_jf_proof(jf_proof: JfProof<SystemCurve>) -> Result<Proof> {
         wire_comms: try_unwrap_commitments(&jf_proof.wires_poly_comms)?,
         z_comm: jf_proof.prod_perm_poly_comm.0,
         quotient_comms: try_unwrap_commitments(&jf_proof.split_quot_poly_comms)?,
+        linking_quotient_comm: G1Affine::default(),
         w_zeta: jf_proof.opening_proof.0,
         w_zeta_omega: jf_proof.shifted_opening_proof.0,
+        linking_poly_opening: G1Affine::default(),
         wire_evals: jf_proof
             .poly_evals
             .wires_evals
@@ -136,6 +138,7 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<Verificatio
     Ok(VerificationKey {
         n: jf_vkey.domain_size as u64,
         l: jf_vkey.num_inputs as u64,
+        num_linked_inputs: 0,
         k: jf_vkey
             .k
             .try_into()
@@ -153,6 +156,7 @@ pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<SystemCurve
     let vkey = VerificationKey {
         n,
         l,
+        num_linked_inputs: 0,
         k: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
         q_comms: [G1Affine::rand(&mut rng); NUM_SELECTORS],
         sigma_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
@@ -185,8 +189,10 @@ pub fn dummy_proofs() -> (Proof, BatchProof<SystemCurve>) {
         wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
         z_comm: G1Affine::rand(&mut rng),
         quotient_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
+        linking_quotient_comm: G1Affine::rand(&mut rng),
         w_zeta: G1Affine::rand(&mut rng),
         w_zeta_omega: G1Affine::rand(&mut rng),
+        linking_poly_opening: G1Affine::rand(&mut rng),
         wire_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
         sigma_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES - 1],
         z_bar: ScalarField::rand(&mut rng),
