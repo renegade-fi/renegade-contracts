@@ -21,3 +21,4 @@ jf-primitives = { workspace = true }
 renegade-crypto = { workspace = true }
 circuit-types = { workspace = true }
 constants = { workspace = true }
+itertools = { workspace = true }

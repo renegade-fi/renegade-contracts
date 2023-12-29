@@ -3,14 +3,20 @@
 use alloc::{vec, vec::Vec};
 use ark_ec::AffineRepr;
 use ark_std::UniformRand;
-use circuit_types::traits::{BaseType, CircuitBaseType, SingleProverCircuit};
-use constants::{Scalar, SystemCurve};
-use contracts_common::{
-    constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
-    types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
+use circuit_types::{
+    test_helpers::TESTING_SRS,
+    traits::{BaseType, CircuitBaseType, SingleProverCircuit},
+};
+use common::{
+    constants::{NUM_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
+    types::{
+        G1Affine, G2Affine, MatchLinkingProofs, MatchProofs, MatchPublicInputs, MatchVkeys, Proof,
+        PublicInputs, ScalarField, VerificationKey,
+    },
 };
 use core::iter;
 use eyre::{eyre, Result};
+use itertools::multiunzip;
 use jf_primitives::pcs::prelude::{Commitment, UnivariateUniversalParams, UnivariateVerifierParam};
 use mpc_plonk::{
     errors::PlonkError,
@@ -26,6 +32,8 @@ use mpc_plonk::{
 };
 use mpc_relation::{traits::Circuit, PlonkCircuit};
 use rand::thread_rng;
+
+use crate::misc::random_scalars;
 
 pub fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircuit<ScalarField>> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
@@ -116,10 +124,8 @@ pub fn convert_jf_proof(jf_proof: JfProof<SystemCurve>) -> Result<Proof> {
         wire_comms: try_unwrap_commitments(&jf_proof.wires_poly_comms)?,
         z_comm: jf_proof.prod_perm_poly_comm.0,
         quotient_comms: try_unwrap_commitments(&jf_proof.split_quot_poly_comms)?,
-        linking_quotient_comm: G1Affine::default(),
         w_zeta: jf_proof.opening_proof.0,
         w_zeta_omega: jf_proof.shifted_opening_proof.0,
-        linking_poly_opening: G1Affine::default(),
         wire_evals: jf_proof
             .poly_evals
             .wires_evals
@@ -138,7 +144,6 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<Verificatio
     Ok(VerificationKey {
         n: jf_vkey.domain_size as u64,
         l: jf_vkey.num_inputs as u64,
-        num_linked_inputs: 0,
         k: jf_vkey
             .k
             .try_into()
@@ -151,12 +156,119 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<Verificatio
     })
 }
 
+pub fn generate_match_bundle(
+    n: usize,
+    l: usize,
+) -> Result<(
+    MatchVkeys,
+    MatchProofs,
+    MatchPublicInputs,
+    MatchLinkingProofs,
+)> {
+    let mut rng = thread_rng();
+    let (circuits, pkeys, vkeys, public_inputs): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
+        multiunzip((0..NUM_CIRCUITS).map(|_| {
+            let public_inputs = PublicInputs(random_scalars(l, &mut rng));
+            let (circuit, jf_pkey, jf_vkey) =
+                gen_test_circuit_and_keys(&TESTING_SRS, n, &public_inputs).unwrap();
+            let vkey = convert_jf_vkey(jf_vkey).unwrap();
+            (circuit, jf_pkey, vkey, public_inputs)
+        }));
+
+    let valid_commitments_circuit = &circuits[0];
+    let valid_reblind_circuit = &circuits[1];
+    let valid_match_settle_circuit = &circuits[2];
+
+    let valid_commitments_pkey = &pkeys[0];
+    let valid_reblind_pkey = &pkeys[1];
+    let valid_match_settle_pkey = &pkeys[2];
+
+    let match_bundle_vkeys = MatchVkeys {
+        valid_commitments_vkey: vkeys[0],
+        valid_reblind_vkey: vkeys[1],
+        valid_match_settle_vkey: vkeys[2],
+    };
+
+    let match_bundle_public_inputs = MatchPublicInputs {
+        party_0_valid_commitments_public_inputs: public_inputs[0].clone(),
+        party_0_valid_reblind_public_inputs: public_inputs[1].clone(),
+        party_1_valid_commitments_public_inputs: public_inputs[0].clone(),
+        party_1_valid_reblind_public_inputs: public_inputs[1].clone(),
+        valid_match_settle_public_inputs: public_inputs[2].clone(),
+    };
+
+    let party_0_valid_commitments_proof = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+        _,
+        _,
+        SolidityTranscript,
+    >(
+        &mut rng,
+        valid_commitments_circuit,
+        valid_commitments_pkey,
+        None,
+    )?)?;
+
+    let party_0_valid_reblind_proof =
+        convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+            _,
+            _,
+            SolidityTranscript,
+        >(
+            &mut rng, valid_reblind_circuit, valid_reblind_pkey, None
+        )?)?;
+
+    let party_1_valid_commitments_proof = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+        _,
+        _,
+        SolidityTranscript,
+    >(
+        &mut rng,
+        valid_commitments_circuit,
+        valid_commitments_pkey,
+        None,
+    )?)?;
+
+    let party_1_valid_reblind_proof =
+        convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+            _,
+            _,
+            SolidityTranscript,
+        >(
+            &mut rng, valid_reblind_circuit, valid_reblind_pkey, None
+        )?)?;
+
+    let valid_match_settle_proof = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+        _,
+        _,
+        SolidityTranscript,
+    >(
+        &mut rng,
+        valid_match_settle_circuit,
+        valid_match_settle_pkey,
+        None,
+    )?)?;
+
+    let match_bundle_proofs = MatchProofs {
+        party_0_valid_commitments_proof,
+        party_0_valid_reblind_proof,
+        party_1_valid_commitments_proof,
+        party_1_valid_reblind_proof,
+        valid_match_settle_proof,
+    };
+
+    Ok((
+        match_bundle_vkeys,
+        match_bundle_proofs,
+        match_bundle_public_inputs,
+        MatchLinkingProofs::default(),
+    ))
+}
+
 pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<SystemCurve>) {
     let mut rng = thread_rng();
     let vkey = VerificationKey {
         n,
         l,
-        num_linked_inputs: 0,
         k: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
         q_comms: [G1Affine::rand(&mut rng); NUM_SELECTORS],
         sigma_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
@@ -189,10 +301,8 @@ pub fn dummy_proofs() -> (Proof, BatchProof<SystemCurve>) {
         wire_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
         z_comm: G1Affine::rand(&mut rng),
         quotient_comms: [G1Affine::rand(&mut rng); NUM_WIRE_TYPES],
-        linking_quotient_comm: G1Affine::rand(&mut rng),
         w_zeta: G1Affine::rand(&mut rng),
         w_zeta_omega: G1Affine::rand(&mut rng),
-        linking_poly_opening: G1Affine::rand(&mut rng),
         wire_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES],
         sigma_evals: [ScalarField::rand(&mut rng); NUM_WIRE_TYPES - 1],
         z_bar: ScalarField::rand(&mut rng),

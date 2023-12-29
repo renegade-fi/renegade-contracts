@@ -9,8 +9,11 @@ use alloc::{vec, vec::Vec};
 use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zero};
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
-    constants::{NUM_MATCH_PROOFS, NUM_WIRE_TYPES},
-    types::{Challenges, G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
+    constants::NUM_WIRE_TYPES,
+    types::{
+        Challenges, G1Affine, G2Affine, MatchLinkingProofs, MatchProofs, MatchPublicInputs,
+        MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+    },
 };
 use core::{marker::PhantomData, result::Result};
 
@@ -88,21 +91,51 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Self::step_12_part_2(&[lhs_g1], &[rhs_g1], &[challenges.u], vkey.x_h, vkey.h)
     }
 
-    /// Verify a batch of proofs.
+    /// Batch-verifies:
+    /// - `PARTY 0 VALID COMMITMENTS`
+    /// - `PARTY 0 VALID REBLIND`
+    /// - `PARTY 1 VALID COMMITMENTS`
+    /// - `PARTY 1 VALID REBLIND`
+    /// - `VALID MATCH SETTLE`
+    ///
+    /// And verifies proof linking between:
+    /// - `PARTY 0 VALID REBLIND` <-> `PARTY 0 VALID COMMITMENTS`
+    /// - `PARTY 1 VALID REBLIND` <-> `PARTY 1 VALID COMMITMENTS`
+    /// - `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
+    /// - `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
     ///
     /// Applies batch verification as implemented in Jellyfish: https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
     ///
     /// This assumes that all the verification keys were generated using the same SRS.
-    pub fn verify_match_bundle(
-        vkey_batch: &[VerificationKey; NUM_MATCH_PROOFS],
-        proof_batch: &[Proof; NUM_MATCH_PROOFS],
-        public_inputs_batch: &[PublicInputs; NUM_MATCH_PROOFS],
+    pub fn verify_match(
+        match_vkeys: MatchVkeys,
+        match_proofs: MatchProofs,
+        match_public_inputs: MatchPublicInputs,
+        _match_linking_proofs: MatchLinkingProofs,
     ) -> Result<bool, VerifierError> {
-        assert!(
-            vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
-        );
+        let vkey_batch = [
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_match_settle_vkey,
+        ];
+        let proof_batch = [
+            match_proofs.party_0_valid_commitments_proof,
+            match_proofs.party_0_valid_reblind_proof,
+            match_proofs.party_1_valid_commitments_proof,
+            match_proofs.party_1_valid_reblind_proof,
+            match_proofs.valid_match_settle_proof,
+        ];
+        let public_inputs_batch = [
+            match_public_inputs.party_0_valid_commitments_public_inputs,
+            match_public_inputs.party_0_valid_reblind_public_inputs,
+            match_public_inputs.party_1_valid_commitments_public_inputs,
+            match_public_inputs.party_1_valid_reblind_public_inputs,
+            match_public_inputs.valid_match_settle_public_inputs,
+        ];
 
-        let num_proofs = proof_batch.len();
+        let num_proofs = 5;
 
         let mut challenges_batch = Vec::with_capacity(num_proofs);
         let mut zero_poly_evals_batch = Vec::with_capacity(num_proofs);
@@ -136,7 +169,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let lagrange_bases_batch = Self::batch_invert_lagrange_basis_denominators(
             &mut all_lagrange_basis_denominators,
             &zero_poly_evals_batch,
-            vkey_batch,
+            &vkey_batch,
         );
 
         let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
@@ -609,7 +642,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
     use core::result::Result;
 
     use ark_bn254::Bn254;
@@ -618,16 +650,16 @@ mod tests {
     use circuit_types::test_helpers::TESTING_SRS;
     use contracts_common::{
         backends::G1ArithmeticError,
-        constants::NUM_MATCH_PROOFS,
-        types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
+        types::{G1Affine, G2Affine, PublicInputs, ScalarField},
     };
-    use itertools::multiunzip;
     use jf_utils::multi_pairing;
     use rand::{seq::SliceRandom, thread_rng};
     use test_helpers::{
         crypto::NativeHasher,
         misc::random_scalars,
-        proof_system::{convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey},
+        proof_system::{
+            convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey, generate_match_bundle,
+        },
     };
 
     use super::{G1ArithmeticBackend, Verifier};
@@ -687,25 +719,14 @@ mod tests {
 
     #[test]
     fn test_valid_multi_proof_verification() {
-        let mut rng = thread_rng();
-        let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
-            multiunzip((0..NUM_MATCH_PROOFS).map(|_| {
-                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-                let (jf_proof, jf_vkey) =
-                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-                let proof = convert_jf_proof(jf_proof).unwrap();
-                let vkey = convert_jf_vkey(jf_vkey).unwrap();
-                (vkey, proof, public_inputs)
-            }));
+        let (match_vkeys, match_proofs, match_public_inputs, match_linking_proofs) =
+            generate_match_bundle(N, L).unwrap();
 
-        let vkeys: [VerificationKey; NUM_MATCH_PROOFS] = vkeys.try_into().unwrap();
-        let proofs: [Proof; NUM_MATCH_PROOFS] = proofs.try_into().unwrap();
-        let public_inputs: [PublicInputs; NUM_MATCH_PROOFS] = public_inputs.try_into().unwrap();
-
-        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match_bundle(
-            &vkeys,
-            &proofs,
-            &public_inputs,
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
+            match_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
         )
         .unwrap();
 
@@ -714,28 +735,25 @@ mod tests {
 
     #[test]
     fn test_invalid_multi_proof_verification() {
+        let (match_vkeys, mut match_proofs, match_public_inputs, match_linking_proofs) =
+            generate_match_bundle(N, L).unwrap();
+
         let mut rng = thread_rng();
-        let (vkeys, proofs, public_inputs): (Vec<_>, Vec<_>, Vec<_>) =
-            multiunzip((0..NUM_MATCH_PROOFS).map(|_| {
-                let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-                let (jf_proof, jf_vkey) =
-                    gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-                let proof = convert_jf_proof(jf_proof).unwrap();
-                let vkey = convert_jf_vkey(jf_vkey).unwrap();
-                (vkey, proof, public_inputs)
-            }));
-
-        let vkeys: [VerificationKey; NUM_MATCH_PROOFS] = vkeys.try_into().unwrap();
-        let mut proofs: [Proof; NUM_MATCH_PROOFS] = proofs.try_into().unwrap();
-        let public_inputs: [PublicInputs; NUM_MATCH_PROOFS] = public_inputs.try_into().unwrap();
-
+        let mut proofs = [
+            &mut match_proofs.party_0_valid_commitments_proof,
+            &mut match_proofs.party_0_valid_reblind_proof,
+            &mut match_proofs.party_1_valid_commitments_proof,
+            &mut match_proofs.party_1_valid_reblind_proof,
+            &mut match_proofs.valid_match_settle_proof,
+        ];
         let proof = proofs.choose_mut(&mut rng).unwrap();
         proof.z_bar += ScalarField::one();
 
-        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match_bundle(
-            &vkeys,
-            &proofs,
-            &public_inputs,
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
+            match_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
         )
         .unwrap();
 
