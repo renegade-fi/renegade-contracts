@@ -26,7 +26,7 @@ use crate::{
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
             rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
-            verifyMatchBundleCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
+            verifyMatchCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
             WalletUpdated, IERC20,
         },
     },
@@ -219,6 +219,10 @@ impl DarkpoolContract {
         party_1_valid_reblind_proof: Bytes,
         valid_match_settle_proof: Bytes,
         valid_match_settle_statement_bytes: Bytes,
+        _party_0_valid_commitments_valid_reblind_linking_proof: Bytes,
+        _party_0_valid_commitments_valid_match_settle_linking_proof: Bytes,
+        _party_1_valid_commitments_valid_reblind_linking_proof: Bytes,
+        _party_1_valid_commitments_valid_match_settle_linking_proof: Bytes,
     ) -> Result<(), Vec<u8>> {
         let party_0_match_payload: MatchPayload =
             postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
@@ -471,7 +475,7 @@ impl DarkpoolContract {
         ]
         .concat();
 
-        let (result,) = static_call_helper::<verifyMatchBundleCall>(
+        let (result,) = static_call_helper::<verifyMatchCall>(
             storage,
             verifier_address,
             (batch_verification_bundle_ser,),
