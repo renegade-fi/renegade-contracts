@@ -5,7 +5,7 @@ use stylus_sdk::{abi::Bytes, alloy_primitives::Address, prelude::*};
 
 use crate::utils::{
     helpers::static_call_helper,
-    solidity::{verifyCall, verifyMatchBundleCall},
+    solidity::{verifyCall, verifyMatchCall},
 };
 
 #[solidity_storage]
@@ -34,7 +34,7 @@ impl VerifierTestContract {
         verifier_address: Address,
         batch_verification_bundle_ser: Bytes,
     ) -> Result<bool, Vec<u8>> {
-        let (result,) = static_call_helper::<verifyMatchBundleCall>(
+        let (result,) = static_call_helper::<verifyMatchCall>(
             self,
             verifier_address,
             (batch_verification_bundle_ser.into(),),
