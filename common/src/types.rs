@@ -30,8 +30,6 @@ pub struct VerificationKey {
     pub n: u64,
     /// The number of public inputs to the circuit
     pub l: u64,
-    /// The number of linked inputs in the circuit
-    pub num_linked_inputs: u64,
     /// The constants used to generate the cosets of the evaluation domain
     #[serde_as(as = "[ScalarFieldDef; NUM_WIRE_TYPES]")]
     pub k: [ScalarField; NUM_WIRE_TYPES],
@@ -52,6 +50,17 @@ pub struct VerificationKey {
     pub x_h: G2Affine,
 }
 
+/// The verification keys used when verifying the matching of a trade
+#[derive(Serialize, Deserialize)]
+pub struct MatchVkeys {
+    /// The verification key for `VALID COMMITMENTS`
+    pub valid_commitments_vkey: VerificationKey,
+    /// The verification key for `VALID REBLIND`
+    pub valid_reblind_vkey: VerificationKey,
+    /// The verification key for `VALID MATCH SETTLE`
+    pub valid_match_settle_vkey: VerificationKey,
+}
+
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -65,18 +74,12 @@ pub struct Proof {
     /// The commitments to the split quotient polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
     pub quotient_comms: [G1Affine; NUM_WIRE_TYPES],
-    /// The commitment to the linking quotient polynomial
-    #[serde_as(as = "G1AffineDef")]
-    pub linking_quotient_comm: G1Affine,
     /// The opening proof of evaluations at challenge point `zeta`
     #[serde_as(as = "G1AffineDef")]
     pub w_zeta: G1Affine,
     /// The opening proof of evaluations at challenge point `zeta * omega`
     #[serde_as(as = "G1AffineDef")]
     pub w_zeta_omega: G1Affine,
-    /// The opening proof of the linking polynomial at challenge point `eta`
-    #[serde_as(as = "G1AffineDef")]
-    pub linking_poly_opening: G1Affine,
     /// The evaluations of the wire polynomials at the challenge point `zeta`
     #[serde_as(as = "[ScalarFieldDef; NUM_WIRE_TYPES]")]
     pub wire_evals: [ScalarField; NUM_WIRE_TYPES],
@@ -86,6 +89,55 @@ pub struct Proof {
     /// The evaluation of the grand product polynomial at the challenge point `zeta * omega` (\bar{z})
     #[serde_as(as = "ScalarFieldDef")]
     pub z_bar: ScalarField,
+}
+
+/// The proofs representing the matching of a trade
+#[derive(Serialize, Deserialize)]
+pub struct MatchProofs {
+    /// Party 0's proof of `VALID COMMITMENTS`
+    pub party_0_valid_commitments_proof: Proof,
+    /// Party 0's proof of `VALID REBLIND`
+    pub party_0_valid_reblind_proof: Proof,
+    /// Party 1's proof of `VALID COMMITMENTS`
+    pub party_1_valid_commitments_proof: Proof,
+    /// Party 1's proof of `VALID REBLIND`
+    pub party_1_valid_reblind_proof: Proof,
+    /// The proof of `VALID MATCH SETTLE`
+    pub valid_match_settle_proof: Proof,
+}
+
+/// A proof of a group of linked inputs between two Plonk proofs
+#[serde_as]
+#[derive(Serialize, Deserialize, Default)]
+pub struct LinkingProof {
+    /// The commitment to the linking quotient polynomial
+    #[serde_as(as = "G1AffineDef")]
+    pub linking_quotient_poly_comm: G1Affine,
+    /// The opening proof of the linking polynomial
+    #[serde_as(as = "G1AffineDef")]
+    pub linking_poly_opening: G1Affine,
+    /// The offset into the circuits' domain at which the link group begins
+    pub link_group_offset: usize,
+    /// The size of the link group
+    pub link_group_size: usize,
+}
+
+/// The linking proofs used to ensure input consistency
+/// between the `MatchProofs`
+#[derive(Serialize, Deserialize, Default)]
+pub struct MatchLinkingProofs {
+    /// The proof of linked inputs between
+    /// `PARTY 0 VALID COMMITMENTS` <-> `PARTY 0 VALID REBLIND`
+    pub party_0_valid_commitments_valid_reblind_linking_proof: LinkingProof,
+    /// The proof of linked inputs between
+    /// `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
+    pub party_0_valid_commitments_valid_match_settle_linking_proof: LinkingProof,
+    /// The proof of linked inputs between
+    /// `PARTY 1 VALID COMMITMENTS` <-> `PARTY 1 VALID REBLIND`
+    pub party_1_valid_commitments_valid_reblind_linking_proof: LinkingProof,
+    /// The proof of linked inputs between
+    /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
+    pub party_1_valid_commitments_valid_match_settle_linking_proof: LinkingProof,
 }
 
 /// The public coin challenges used throughout the Plonk protocol, obtained via a Fiat-Shamir transformation.
@@ -239,6 +291,22 @@ pub struct MatchPayload {
     pub valid_reblind_statement: ValidReblindStatement,
 }
 
+/// Represents the public inputs to a Plonk proof
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarField>);
+
+/// The set of public inputs for the `MatchProofs`
+#[derive(Serialize, Deserialize)]
+pub struct MatchPublicInputs {
+    /// The public inputs to `PARTY 0 VALID COMMITMENTS`
+    pub party_0_valid_commitments_public_inputs: PublicInputs,
+    /// The public inputs to `PARTY 0 VALID REBLIND`
+    pub party_0_valid_reblind_public_inputs: PublicInputs,
+    /// The public inputs to `PARTY 1 VALID COMMITMENTS`
+    pub party_1_valid_commitments_public_inputs: PublicInputs,
+    /// The public inputs to `PARTY 1 VALID REBLIND`
+    pub party_1_valid_reblind_public_inputs: PublicInputs,
+    /// The public inputs to `VALID MATCH SETTLE`
+    pub valid_match_settle_public_inputs: PublicInputs,
+}
