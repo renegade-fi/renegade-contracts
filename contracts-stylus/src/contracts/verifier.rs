@@ -1,7 +1,7 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use contracts_common::types::{Proof, PublicInputs, VerificationKey};
+use common::types::{MatchLinkingProofs, MatchProofs, MatchPublicInputs, MatchVkeys};
 use contracts_core::verifier::Verifier;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
@@ -11,9 +11,9 @@ use crate::utils::backends::{PrecompileG1ArithmeticBackend, StylusHasher};
 #[entrypoint]
 struct VerifierContract;
 
-/// Verify the given proof, using the given verification bundle
 #[external]
 impl VerifierContract {
+    /// Verify the given proof, using the given verification bundle
     pub fn verify(&self, verification_bundle: Bytes) -> Result<bool, Vec<u8>> {
         let (vkey, proof, public_inputs) = postcard::from_bytes(&verification_bundle).unwrap();
 
@@ -25,24 +25,20 @@ impl VerifierContract {
         .map_err(|_| vec![])
     }
 
-    pub fn verify_match_bundle(&self, batch_verification_bundle: Bytes) -> Result<bool, Vec<u8>> {
-        let (
-            [valid_commitments_vkey, valid_reblind_vkey, valid_match_settle_vkey],
-            proofs,
-            public_inputs,
-        ): ([VerificationKey; 3], [Proof; 5], [PublicInputs; 5]) =
-            postcard::from_bytes(&batch_verification_bundle).unwrap();
+    /// Batch-verify the proofs involved in matching a trade
+    pub fn verify_match(&self, match_bundle: Bytes) -> Result<bool, Vec<u8>> {
+        let (match_vkeys, match_proofs, match_public_inputs, match_linking_proofs): (
+            MatchVkeys,
+            MatchProofs,
+            MatchPublicInputs,
+            MatchLinkingProofs,
+        ) = postcard::from_bytes(&match_bundle).unwrap();
 
-        Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify_match_bundle(
-            &[
-                valid_commitments_vkey,
-                valid_reblind_vkey,
-                valid_commitments_vkey,
-                valid_reblind_vkey,
-                valid_match_settle_vkey,
-            ],
-            &proofs,
-            &public_inputs,
+        Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify_match(
+            match_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
         )
         .map_err(|_| vec![])
     }
