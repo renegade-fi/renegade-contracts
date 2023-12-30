@@ -10,8 +10,8 @@ use circuit_types::{
 use common::{
     constants::{NUM_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{
-        G1Affine, G2Affine, MatchLinkingProofs, MatchProofs, MatchPublicInputs, MatchVkeys, Proof,
-        PublicInputs, ScalarField, VerificationKey,
+        G1Affine, G2Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
+        MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
     },
 };
 use core::iter;
@@ -161,6 +161,7 @@ pub fn generate_match_bundle(
     l: usize,
 ) -> Result<(
     MatchVkeys,
+    MatchLinkingVkeys,
     MatchProofs,
     MatchPublicInputs,
     MatchLinkingProofs,
@@ -183,21 +184,21 @@ pub fn generate_match_bundle(
     let valid_reblind_pkey = &pkeys[1];
     let valid_match_settle_pkey = &pkeys[2];
 
-    let match_bundle_vkeys = MatchVkeys {
+    let match_vkeys = MatchVkeys {
         valid_commitments_vkey: vkeys[0],
         valid_reblind_vkey: vkeys[1],
         valid_match_settle_vkey: vkeys[2],
     };
 
-    let match_bundle_public_inputs = MatchPublicInputs {
-        party_0_valid_commitments_public_inputs: public_inputs[0].clone(),
-        party_0_valid_reblind_public_inputs: public_inputs[1].clone(),
-        party_1_valid_commitments_public_inputs: public_inputs[0].clone(),
-        party_1_valid_reblind_public_inputs: public_inputs[1].clone(),
-        valid_match_settle_public_inputs: public_inputs[2].clone(),
+    let match_public_inputs = MatchPublicInputs {
+        valid_commitments_0: public_inputs[0].clone(),
+        valid_reblind_0: public_inputs[1].clone(),
+        valid_commitments_1: public_inputs[0].clone(),
+        valid_reblind_1: public_inputs[1].clone(),
+        valid_match_settle: public_inputs[2].clone(),
     };
 
-    let party_0_valid_commitments_proof = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+    let valid_commitments_0 = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
         _,
         _,
         SolidityTranscript,
@@ -208,7 +209,7 @@ pub fn generate_match_bundle(
         None,
     )?)?;
 
-    let party_0_valid_reblind_proof =
+    let valid_reblind_0 =
         convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
             _,
             _,
@@ -217,7 +218,7 @@ pub fn generate_match_bundle(
             &mut rng, valid_reblind_circuit, valid_reblind_pkey, None
         )?)?;
 
-    let party_1_valid_commitments_proof = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+    let valid_commitments_1 = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
         _,
         _,
         SolidityTranscript,
@@ -228,7 +229,7 @@ pub fn generate_match_bundle(
         None,
     )?)?;
 
-    let party_1_valid_reblind_proof =
+    let valid_reblind_1 =
         convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
             _,
             _,
@@ -237,7 +238,7 @@ pub fn generate_match_bundle(
             &mut rng, valid_reblind_circuit, valid_reblind_pkey, None
         )?)?;
 
-    let valid_match_settle_proof = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
+    let valid_match_settle = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
         _,
         _,
         SolidityTranscript,
@@ -248,18 +249,19 @@ pub fn generate_match_bundle(
         None,
     )?)?;
 
-    let match_bundle_proofs = MatchProofs {
-        party_0_valid_commitments_proof,
-        party_0_valid_reblind_proof,
-        party_1_valid_commitments_proof,
-        party_1_valid_reblind_proof,
-        valid_match_settle_proof,
+    let match_proofs = MatchProofs {
+        valid_commitments_0,
+        valid_reblind_0,
+        valid_commitments_1,
+        valid_reblind_1,
+        valid_match_settle,
     };
 
     Ok((
-        match_bundle_vkeys,
-        match_bundle_proofs,
-        match_bundle_public_inputs,
+        match_vkeys,
+        MatchLinkingVkeys::default(),
+        match_proofs,
+        match_public_inputs,
         MatchLinkingProofs::default(),
     ))
 }

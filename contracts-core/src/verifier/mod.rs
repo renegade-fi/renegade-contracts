@@ -11,8 +11,8 @@ use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
     types::{
-        Challenges, G1Affine, G2Affine, MatchLinkingProofs, MatchProofs, MatchPublicInputs,
-        MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+        Challenges, G1Affine, G2Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs,
+        MatchPublicInputs, MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
     },
 };
 use core::{marker::PhantomData, result::Result};
@@ -109,6 +109,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     /// This assumes that all the verification keys were generated using the same SRS.
     pub fn verify_match(
         match_vkeys: MatchVkeys,
+        _match_linking_vkeys: MatchLinkingVkeys,
         match_proofs: MatchProofs,
         match_public_inputs: MatchPublicInputs,
         _match_linking_proofs: MatchLinkingProofs,
@@ -121,18 +122,18 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             match_vkeys.valid_match_settle_vkey,
         ];
         let proof_batch = [
-            match_proofs.party_0_valid_commitments_proof,
-            match_proofs.party_0_valid_reblind_proof,
-            match_proofs.party_1_valid_commitments_proof,
-            match_proofs.party_1_valid_reblind_proof,
-            match_proofs.valid_match_settle_proof,
+            match_proofs.valid_commitments_0,
+            match_proofs.valid_reblind_0,
+            match_proofs.valid_commitments_1,
+            match_proofs.valid_reblind_1,
+            match_proofs.valid_match_settle,
         ];
         let public_inputs_batch = [
-            match_public_inputs.party_0_valid_commitments_public_inputs,
-            match_public_inputs.party_0_valid_reblind_public_inputs,
-            match_public_inputs.party_1_valid_commitments_public_inputs,
-            match_public_inputs.party_1_valid_reblind_public_inputs,
-            match_public_inputs.valid_match_settle_public_inputs,
+            match_public_inputs.valid_commitments_0,
+            match_public_inputs.valid_reblind_0,
+            match_public_inputs.valid_commitments_1,
+            match_public_inputs.valid_reblind_1,
+            match_public_inputs.valid_match_settle,
         ];
 
         let num_proofs = 5;
@@ -719,11 +720,17 @@ mod tests {
 
     #[test]
     fn test_valid_multi_proof_verification() {
-        let (match_vkeys, match_proofs, match_public_inputs, match_linking_proofs) =
-            generate_match_bundle(N, L).unwrap();
+        let (
+            match_vkeys,
+            match_linking_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
+        ) = generate_match_bundle(N, L).unwrap();
 
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
             match_vkeys,
+            match_linking_vkeys,
             match_proofs,
             match_public_inputs,
             match_linking_proofs,
@@ -735,22 +742,28 @@ mod tests {
 
     #[test]
     fn test_invalid_multi_proof_verification() {
-        let (match_vkeys, mut match_proofs, match_public_inputs, match_linking_proofs) =
-            generate_match_bundle(N, L).unwrap();
+        let (
+            match_vkeys,
+            match_linking_vkeys,
+            mut match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
+        ) = generate_match_bundle(N, L).unwrap();
 
         let mut rng = thread_rng();
         let mut proofs = [
-            &mut match_proofs.party_0_valid_commitments_proof,
-            &mut match_proofs.party_0_valid_reblind_proof,
-            &mut match_proofs.party_1_valid_commitments_proof,
-            &mut match_proofs.party_1_valid_reblind_proof,
-            &mut match_proofs.valid_match_settle_proof,
+            &mut match_proofs.valid_commitments_0,
+            &mut match_proofs.valid_reblind_0,
+            &mut match_proofs.valid_commitments_1,
+            &mut match_proofs.valid_reblind_1,
+            &mut match_proofs.valid_match_settle,
         ];
         let proof = proofs.choose_mut(&mut rng).unwrap();
         proof.z_bar += ScalarField::one();
 
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
             match_vkeys,
+            match_linking_vkeys,
             match_proofs,
             match_public_inputs,
             match_linking_proofs,

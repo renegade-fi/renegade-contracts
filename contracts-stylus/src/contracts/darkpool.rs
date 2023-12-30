@@ -440,6 +440,7 @@ impl DarkpoolContract {
         let vkeys_address = this.vkeys_address.get();
         let verifier_address = this.verifier_address.get();
 
+        // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
         let (process_match_settle_vkeys_ser,) =
             static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ()).into();
 

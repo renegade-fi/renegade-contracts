@@ -50,7 +50,7 @@ pub struct VerificationKey {
     pub x_h: G2Affine,
 }
 
-/// The verification keys used when verifying the matching of a trade
+/// The Plonk verification keys used when verifying the matching and settlement of a trade
 #[derive(Serialize, Deserialize)]
 pub struct MatchVkeys {
     /// The verification key for `VALID COMMITMENTS`
@@ -59,6 +59,36 @@ pub struct MatchVkeys {
     pub valid_reblind_vkey: VerificationKey,
     /// The verification key for `VALID MATCH SETTLE`
     pub valid_match_settle_vkey: VerificationKey,
+}
+
+/// Preprocessed information for the verification of a linking proof
+#[serde_as]
+#[derive(Serialize, Deserialize, Default)]
+pub struct LinkingVerificationKey {
+    /// The generator of the subdomain over which the linked inputs are defined
+    #[serde_as(as = "ScalarFieldDef")]
+    link_group_generator: ScalarField,
+    /// The offset into the domain at which the subdomain begins
+    link_group_offset: usize,
+    /// The number of linked inputs, equivalently the size of the subdomain
+    link_group_size: usize,
+}
+
+/// The linking verification keys used when verifying the matching and settlement of a trade
+#[derive(Serialize, Deserialize, Default)]
+pub struct MatchLinkingVkeys {
+    /// The verification key for the
+    /// `PARTY 0 VALID COMMITMENTS` <-> `PARTY 0 VALID REBLIND` link
+    pub valid_reblind_commitments_0: LinkingVerificationKey,
+    /// The verification key for the
+    /// `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
+    pub valid_commitments_match_settle_0: LinkingVerificationKey,
+    /// The verification key for the
+    /// `PARTY 1 VALID COMMITMENTS` <-> `PARTY 1 VALID REBLIND` link
+    pub valid_reblind_commitments_1: LinkingVerificationKey,
+    /// The verification key for the
+    /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
+    pub valid_commitments_match_settle_1: LinkingVerificationKey,
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
@@ -91,19 +121,19 @@ pub struct Proof {
     pub z_bar: ScalarField,
 }
 
-/// The proofs representing the matching of a trade
+/// The proofs representing the matching and settlement of a trade
 #[derive(Serialize, Deserialize)]
 pub struct MatchProofs {
     /// Party 0's proof of `VALID COMMITMENTS`
-    pub party_0_valid_commitments_proof: Proof,
+    pub valid_commitments_0: Proof,
     /// Party 0's proof of `VALID REBLIND`
-    pub party_0_valid_reblind_proof: Proof,
+    pub valid_reblind_0: Proof,
     /// Party 1's proof of `VALID COMMITMENTS`
-    pub party_1_valid_commitments_proof: Proof,
+    pub valid_commitments_1: Proof,
     /// Party 1's proof of `VALID REBLIND`
-    pub party_1_valid_reblind_proof: Proof,
+    pub valid_reblind_1: Proof,
     /// The proof of `VALID MATCH SETTLE`
-    pub valid_match_settle_proof: Proof,
+    pub valid_match_settle: Proof,
 }
 
 /// A proof of a group of linked inputs between two Plonk proofs
@@ -116,10 +146,6 @@ pub struct LinkingProof {
     /// The opening proof of the linking polynomial
     #[serde_as(as = "G1AffineDef")]
     pub linking_poly_opening: G1Affine,
-    /// The offset into the circuits' domain at which the link group begins
-    pub link_group_offset: usize,
-    /// The size of the link group
-    pub link_group_size: usize,
 }
 
 /// The linking proofs used to ensure input consistency
@@ -128,16 +154,16 @@ pub struct LinkingProof {
 pub struct MatchLinkingProofs {
     /// The proof of linked inputs between
     /// `PARTY 0 VALID COMMITMENTS` <-> `PARTY 0 VALID REBLIND`
-    pub party_0_valid_commitments_valid_reblind_linking_proof: LinkingProof,
+    pub valid_reblind_commitments_0: LinkingProof,
     /// The proof of linked inputs between
     /// `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
-    pub party_0_valid_commitments_valid_match_settle_linking_proof: LinkingProof,
+    pub valid_commitments_match_settle_0: LinkingProof,
     /// The proof of linked inputs between
     /// `PARTY 1 VALID COMMITMENTS` <-> `PARTY 1 VALID REBLIND`
-    pub party_1_valid_commitments_valid_reblind_linking_proof: LinkingProof,
+    pub valid_reblind_commitments_1: LinkingProof,
     /// The proof of linked inputs between
     /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
-    pub party_1_valid_commitments_valid_match_settle_linking_proof: LinkingProof,
+    pub valid_commitments_match_settle_1: LinkingProof,
 }
 
 /// The public coin challenges used throughout the Plonk protocol, obtained via a Fiat-Shamir transformation.
@@ -300,13 +326,13 @@ pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarFi
 #[derive(Serialize, Deserialize)]
 pub struct MatchPublicInputs {
     /// The public inputs to `PARTY 0 VALID COMMITMENTS`
-    pub party_0_valid_commitments_public_inputs: PublicInputs,
+    pub valid_commitments_0: PublicInputs,
     /// The public inputs to `PARTY 0 VALID REBLIND`
-    pub party_0_valid_reblind_public_inputs: PublicInputs,
+    pub valid_reblind_0: PublicInputs,
     /// The public inputs to `PARTY 1 VALID COMMITMENTS`
-    pub party_1_valid_commitments_public_inputs: PublicInputs,
+    pub valid_commitments_1: PublicInputs,
     /// The public inputs to `PARTY 1 VALID REBLIND`
-    pub party_1_valid_reblind_public_inputs: PublicInputs,
+    pub valid_reblind_1: PublicInputs,
     /// The public inputs to `VALID MATCH SETTLE`
-    pub valid_match_settle_public_inputs: PublicInputs,
+    pub valid_match_settle: PublicInputs,
 }
