@@ -9,10 +9,13 @@ use alloc::{vec, vec::Vec};
 use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zero};
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
-    constants::NUM_WIRE_TYPES,
+    constants::{NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
+    custom_serde::TranscriptG1,
     types::{
-        Challenges, G1Affine, G2Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs,
-        MatchPublicInputs, MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+        Challenges, G1Affine, G2Affine, LinkingProof, LinkingVerificationKey,
+        MatchLinkingBatchOpeningElems, MatchLinkingProofs, MatchLinkingVkeys,
+        MatchLinkingWirePolyComms, MatchProofs, MatchPublicInputs, MatchVkeys, Proof, PublicInputs,
+        ScalarField, VerificationKey,
     },
 };
 use core::{marker::PhantomData, result::Result};
@@ -227,6 +230,128 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         )
     }
 
+    fn prep_linking_proofs_batch_opening(
+        match_linking_vkeys: MatchLinkingVkeys,
+        match_linking_proofs: MatchLinkingProofs,
+        match_linking_wire_poly_comms: MatchLinkingWirePolyComms,
+    ) -> Result<MatchLinkingBatchOpeningElems, VerifierError> {
+        let linking_vkeys = [
+            match_linking_vkeys.party_0_valid_commitments_valid_match_settle_linking_vkey,
+            match_linking_vkeys.party_0_valid_commitments_valid_reblind_linking_vkey,
+            match_linking_vkeys.party_1_valid_commitments_valid_match_settle_linking_vkey,
+            match_linking_vkeys.party_1_valid_commitments_valid_reblind_linking_vkey,
+        ];
+        let linking_proofs = [
+            match_linking_proofs.party_0_valid_commitments_valid_match_settle_linking_proof,
+            match_linking_proofs.party_0_valid_commitments_valid_reblind_linking_proof,
+            match_linking_proofs.party_1_valid_commitments_valid_match_settle_linking_proof,
+            match_linking_proofs.party_1_valid_commitments_valid_reblind_linking_proof,
+        ];
+        let wire_poly_comm_pairs = [
+            (
+                match_linking_wire_poly_comms.party_0_valid_commitments_wire_poly_comm,
+                match_linking_wire_poly_comms.valid_match_settle_wire_poly_comm,
+            ),
+            (
+                match_linking_wire_poly_comms.party_0_valid_commitments_wire_poly_comm,
+                match_linking_wire_poly_comms.party_0_valid_reblind_wire_poly_comm,
+            ),
+            (
+                match_linking_wire_poly_comms.party_1_valid_commitments_wire_poly_comm,
+                match_linking_wire_poly_comms.valid_match_settle_wire_poly_comm,
+            ),
+            (
+                match_linking_wire_poly_comms.party_1_valid_commitments_wire_poly_comm,
+                match_linking_wire_poly_comms.party_1_valid_reblind_wire_poly_comm,
+            ),
+        ];
+
+        let mut g1_lhs_elems = [G1Affine::default(); NUM_MATCH_LINKING_PROOFS];
+        let mut g1_rhs_elems = [G1Affine::default(); NUM_MATCH_LINKING_PROOFS];
+        let mut eta_challenges = [ScalarField::default(); NUM_MATCH_LINKING_PROOFS];
+
+        for i in 0..NUM_MATCH_LINKING_PROOFS {
+            let (g1_lhs, g1_rhs, eta) = Self::prep_linking_proof_opening_elems(
+                linking_vkeys[i],
+                linking_proofs[i],
+                wire_poly_comm_pairs[i],
+            )?;
+
+            g1_lhs_elems[i] = g1_lhs;
+            g1_rhs_elems[i] = g1_rhs;
+            eta_challenges[i] = eta;
+        }
+
+        Ok(MatchLinkingBatchOpeningElems {
+            g1_lhs_elems,
+            g1_rhs_elems,
+            eta_challenges,
+        })
+    }
+
+    fn prep_linking_proof_opening_elems(
+        linking_vkey: LinkingVerificationKey,
+        linking_proof: LinkingProof,
+        wire_poly_comms: (G1Affine, G1Affine),
+    ) -> Result<(G1Affine, G1Affine, ScalarField), VerifierError> {
+        let LinkingVerificationKey {
+            link_group_generator,
+            link_group_offset,
+            link_group_size,
+        } = linking_vkey;
+        let LinkingProof {
+            linking_poly_opening,
+            linking_quotient_poly_comm,
+        } = linking_proof;
+
+        // Absorb commitments to wiring polynomials and linking quotient polynomial into transcript
+
+        let mut transcript = Transcript::<H>::new();
+        transcript.append_serializable(&TranscriptG1(wire_poly_comms.0));
+        transcript.append_serializable(&TranscriptG1(wire_poly_comms.1));
+        transcript.append_serializable(&TranscriptG1(linking_quotient_poly_comm));
+
+        // Squeeze eta challenge
+
+        let eta = transcript.get_and_append_challenge();
+
+        // Compute vanishing polynomial evaluation at eta
+
+        let mut subdomain = Vec::with_capacity(link_group_size);
+        subdomain.push(link_group_generator.pow([link_group_offset as u64]));
+        for i in 0..link_group_size - 1 {
+            subdomain.push(subdomain[i] * link_group_generator);
+        }
+
+        let mut zero_poly_eval = ScalarField::one();
+        for omega_i in subdomain {
+            zero_poly_eval *= eta - omega_i
+        }
+
+        // Compute commitment to linking polynomial
+        let linking_poly_comm = G::msm(
+            &[ScalarField::one(), -ScalarField::one(), -zero_poly_eval],
+            &[
+                wire_poly_comms.0,
+                wire_poly_comms.1,
+                linking_quotient_poly_comm,
+            ],
+        )?;
+
+        // Prepare LHS & RHS G1 elements for pairing check
+        let g1_lhs = linking_poly_opening;
+        let g1_rhs = G::msm(
+            &[eta, ScalarField::one(), -ScalarField::one()],
+            &[
+                linking_poly_opening,
+                linking_poly_comm,
+                G1Affine::identity(),
+            ],
+        )?;
+
+        Ok((g1_lhs, g1_rhs, eta))
+    }
+
     fn prep_domain_and_basis_denominators(
         n: u64,
         l: usize,
@@ -262,29 +387,21 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let batch_size = zero_poly_evals_batch.len();
         let mut lagrange_bases_batch = Vec::with_capacity(batch_size);
 
-        if batch_size == 1 {
-            // If there is only one proof in the batch, we can do a single multiplication
-            // by its zero polynomial evaluation during the batch inversion
-            batch_inversion_and_mul(lagrange_basis_denominators, &zero_poly_evals_batch[0]);
-            lagrange_bases_batch.push(lagrange_basis_denominators.to_vec());
-        } else {
-            batch_inversion(lagrange_basis_denominators);
-            let mut lagrange_bases_cursor = 0;
-            for i in 0..batch_size {
-                let l = vkey_batch[i].l as usize;
-                let zero_poly_eval = zero_poly_evals_batch[i];
+        batch_inversion(lagrange_basis_denominators);
+        let mut lagrange_bases_cursor = 0;
+        for i in 0..batch_size {
+            let l = vkey_batch[i].l as usize;
+            let zero_poly_eval = zero_poly_evals_batch[i];
 
-                let mut lagrange_bases = Vec::with_capacity(l);
-                for d in
-                    &lagrange_basis_denominators[lagrange_bases_cursor..lagrange_bases_cursor + l]
-                {
-                    lagrange_bases.push(d * &zero_poly_eval);
-                }
-
-                lagrange_bases_cursor += l;
-
-                lagrange_bases_batch.push(lagrange_bases);
+            let mut lagrange_bases = Vec::with_capacity(l);
+            for d in &lagrange_basis_denominators[lagrange_bases_cursor..lagrange_bases_cursor + l]
+            {
+                lagrange_bases.push(d * &zero_poly_eval);
             }
+
+            lagrange_bases_cursor += l;
+
+            lagrange_bases_batch.push(lagrange_bases);
         }
 
         lagrange_bases_batch
@@ -385,7 +502,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             Self::step_9_line_4(zero_poly_eval, proof, challenges)?,
         ];
 
-        G::msm(&[ScalarField::one(); 4], &points).map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::msm(&[ScalarField::one(); 4], &points)?)
     }
 
     /// MSM over selector polynomial commitments
@@ -395,7 +512,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         // We hardcode the gate identity used by the Jellyfish implementation here,
         // at the cost of some generality
-        G::msm(
+        Ok(G::msm(
             &[
                 wire_evals[0],
                 wire_evals[1],
@@ -412,8 +529,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 wire_evals[0] * wire_evals[1] * wire_evals[2] * wire_evals[3] * wire_evals[4],
             ],
             q_comms,
-        )
-        .map_err(|_| VerifierError::ArithmeticBackend)
+        )?)
     }
 
     /// Scalar mul of grand product polynomial commitment
@@ -444,7 +560,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         z_scalar_coeff += lagrange_1_eval * alpha * alpha;
         z_scalar_coeff += u;
 
-        G::ec_scalar_mul(z_scalar_coeff, *z_comm).map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::ec_scalar_mul(z_scalar_coeff, *z_comm)?)
     }
 
     /// Scalar mul of final permutation polynomial commitment
@@ -470,8 +586,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         }
         final_sigma_scalar_coeff *= alpha * beta * z_bar;
 
-        G::ec_scalar_mul(-final_sigma_scalar_coeff, sigma_comms[NUM_WIRE_TYPES - 1])
-            .map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::ec_scalar_mul(
+            -final_sigma_scalar_coeff,
+            sigma_comms[NUM_WIRE_TYPES - 1],
+        )?)
     }
 
     /// MSM over split quotient polynomial commitments
@@ -496,11 +614,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             split_quotients_scalars[i] = split_quotients_scalars[i - 1] * zeta_to_n_plus_two;
         }
 
-        let split_quotients_sum = G::msm(&split_quotients_scalars, quotient_comms)
-            .map_err(|_| VerifierError::ArithmeticBackend)?;
+        let split_quotients_sum = G::msm(&split_quotients_scalars, quotient_comms)?;
 
-        G::ec_scalar_mul(-zero_poly_eval, split_quotients_sum)
-            .map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::ec_scalar_mul(-zero_poly_eval, split_quotients_sum)?)
     }
 
     /// Compute full batched polynomial commitment [F]1
@@ -518,7 +634,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         points.extend_from_slice(wire_comms);
         points.extend_from_slice(&sigma_comms[..NUM_WIRE_TYPES - 1]);
 
-        G::msm(v_powers, &points).map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::msm(v_powers, &points)?)
     }
 
     /// Compute group-encoded batch evaluation [E]1
@@ -549,7 +665,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         }
         e += u * z_bar;
 
-        G::ec_scalar_mul(-e, *g).map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::ec_scalar_mul(-e, *g)?)
     }
 
     /// Compute G1 elements to be used in the final pairing check
@@ -571,8 +687,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         } = proof;
         let Challenges { zeta, u, .. } = challenges;
 
-        let lhs = G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])
-            .map_err(|_| VerifierError::ArithmeticBackend)?;
+        let lhs = G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])?;
 
         let rhs = G::msm(
             &[
@@ -582,8 +697,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 ScalarField::one(),
             ],
             &[*w_zeta, *w_zeta_omega, f_1, neg_e_1],
-        )
-        .map_err(|_| VerifierError::ArithmeticBackend)?;
+        )?;
 
         Ok((lhs, rhs))
     }
@@ -632,12 +746,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         }
 
         // Compute the random linear combinations of G1 elements for the verification instances.
-        let lhs_rlc =
-            G::msm(&r_powers, g1_lhs_elems).map_err(|_| VerifierError::ArithmeticBackend)?;
-        let rhs_rlc =
-            G::msm(&r_powers, g1_rhs_elems).map_err(|_| VerifierError::ArithmeticBackend)?;
+        let lhs_rlc = G::msm(&r_powers, g1_lhs_elems)?;
+        let rhs_rlc = G::msm(&r_powers, g1_rhs_elems)?;
 
-        G::ec_pairing_check(lhs_rlc, x_h, -rhs_rlc, h).map_err(|_| VerifierError::ArithmeticBackend)
+        Ok(G::ec_pairing_check(lhs_rlc, x_h, -rhs_rlc, h)?)
     }
 }
 

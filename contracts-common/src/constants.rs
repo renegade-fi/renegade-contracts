@@ -12,10 +12,11 @@ pub const NUM_WIRE_TYPES: usize = 5;
 /// The number of selectors in the circuit
 pub const NUM_SELECTORS: usize = 13;
 
-/// The number of proofs in a match bundle
-pub const NUM_MATCH_PROOFS: usize = 5;
 /// The number of circuits in a match bundle
-pub const NUM_CIRCUITS: usize = 3;
+pub const NUM_MATCH_CIRCUITS: usize = 3;
+
+/// The number of linking proofs in a match bundle
+pub const NUM_MATCH_LINKING_PROOFS: usize = 4;
 
 /// The transcript has a 64 byte state size to accommodate two hash digests.
 pub const TRANSCRIPT_STATE_SIZE: usize = 64;

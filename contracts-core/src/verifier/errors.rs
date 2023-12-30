@@ -1,5 +1,7 @@
 //! Errors stemming from verifier operations
 
+use common::backends::G1ArithmeticError;
+
 use crate::transcript::errors::TranscriptError;
 
 #[derive(Debug)]
@@ -19,5 +21,11 @@ pub enum VerifierError {
 impl From<TranscriptError> for VerifierError {
     fn from(_value: TranscriptError) -> Self {
         VerifierError::TranscriptBackend
+    }
+}
+
+impl From<G1ArithmeticError> for VerifierError {
+    fn from(_value: G1ArithmeticError) -> Self {
+        VerifierError::ArithmeticBackend
     }
 }

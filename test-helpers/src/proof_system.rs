@@ -8,7 +8,7 @@ use circuit_types::{
     traits::{BaseType, CircuitBaseType, SingleProverCircuit},
 };
 use common::{
-    constants::{NUM_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
+    constants::{NUM_MATCH_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{
         G1Affine, G2Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
         MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
@@ -168,7 +168,7 @@ pub fn generate_match_bundle(
 )> {
     let mut rng = thread_rng();
     let (circuits, pkeys, vkeys, public_inputs): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
-        multiunzip((0..NUM_CIRCUITS).map(|_| {
+        multiunzip((0..NUM_MATCH_CIRCUITS).map(|_| {
             let public_inputs = PublicInputs(random_scalars(l, &mut rng));
             let (circuit, jf_pkey, jf_vkey) =
                 gen_test_circuit_and_keys(&TESTING_SRS, n, &public_inputs).unwrap();
