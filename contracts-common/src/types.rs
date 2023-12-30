@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use crate::{
-    constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    constants::{NUM_MATCH_LINKING_PROOFS, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
     serde_def_types::*,
 };
 
@@ -63,15 +63,15 @@ pub struct MatchVkeys {
 
 /// Preprocessed information for the verification of a linking proof
 #[serde_as]
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Copy, Clone)]
 pub struct LinkingVerificationKey {
     /// The generator of the subdomain over which the linked inputs are defined
     #[serde_as(as = "ScalarFieldDef")]
-    link_group_generator: ScalarField,
+    pub link_group_generator: ScalarField,
     /// The offset into the domain at which the subdomain begins
-    link_group_offset: usize,
+    pub link_group_offset: usize,
     /// The number of linked inputs, equivalently the size of the subdomain
-    link_group_size: usize,
+    pub link_group_size: usize,
 }
 
 /// The linking verification keys used when verifying the matching and settlement of a trade
@@ -138,7 +138,7 @@ pub struct MatchProofs {
 
 /// A proof of a group of linked inputs between two Plonk proofs
 #[serde_as]
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Copy, Clone)]
 pub struct LinkingProof {
     /// The commitment to the linking quotient polynomial
     #[serde_as(as = "G1AffineDef")]
@@ -335,4 +335,43 @@ pub struct MatchPublicInputs {
     pub valid_reblind_1: PublicInputs,
     /// The public inputs to `VALID MATCH SETTLE`
     pub valid_match_settle: PublicInputs,
+}
+
+/// The commitments to the first wiring polynomials in each of the
+/// Plonk proofs being linked during the matching of a trade
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct MatchLinkingWirePolyComms {
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 0 VALID REBLIND`
+    #[serde_as(as = "G1AffineDef")]
+    pub party_0_valid_reblind_wire_poly_comm: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 0 VALID COMMITMENTS`
+    #[serde_as(as = "G1AffineDef")]
+    pub party_0_valid_commitments_wire_poly_comm: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 1 VALID REBLIND`
+    #[serde_as(as = "G1AffineDef")]
+    pub party_1_valid_reblind_wire_poly_comm: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 1 VALID COMMITMENTS`
+    #[serde_as(as = "G1AffineDef")]
+    pub party_1_valid_commitments_wire_poly_comm: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `VALID MATCH SETTLE`
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_match_settle_wire_poly_comm: G1Affine,
+}
+
+/// The computed linking proof elements to be used in a batch opening pairing check
+/// alongside a Plonk batch verification
+pub struct MatchLinkingBatchOpeningElems {
+    /// The LHS G1 elements in the pairing check
+    pub g1_lhs_elems: [G1Affine; NUM_MATCH_LINKING_PROOFS],
+    /// The RHS G1 elements in the pairing check
+    pub g1_rhs_elems: [G1Affine; NUM_MATCH_LINKING_PROOFS],
+    /// The challenges computed for each linking proof,
+    /// used to squeeze a new challenge for the batch opening
+    pub eta_challenges: [ScalarField; NUM_MATCH_LINKING_PROOFS],
 }

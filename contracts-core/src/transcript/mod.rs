@@ -77,7 +77,7 @@ impl<H: HashBackend> Transcript<H> {
     }
 
     /// Appends a serializable Arkworks type to the transcript
-    fn append_serializable<S: BytesSerializable>(&mut self, message: &S) {
+    pub fn append_serializable<S: BytesSerializable>(&mut self, message: &S) {
         self.append_message(&message.serialize_to_bytes());
     }
     /// Computes all the challenges used in the Plonk protocol,
