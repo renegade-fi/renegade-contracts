@@ -27,7 +27,9 @@ impl VkeysContract {
 
     /// Returns the serialization of the
     /// [`VALID COMMITMENTS`, `VALID REBLIND`, `VALID MATCH SETTLE`]
-    /// verification keys
+    /// Plonk verification keys, concatenated with the serialzation of the
+    /// [`VALID REBLIND <-> VALID COMMITMENTS`, `VALID COMMITMENTS <-> VALID MATCH SETTLE`]
+    /// linking verification keys
     pub fn process_match_settle_vkeys(&self) -> Result<Bytes, Vec<u8>> {
         Ok(PROCESS_MATCH_SETTLE_VKEYS_BYTES.to_vec().into())
     }

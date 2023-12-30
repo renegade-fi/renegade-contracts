@@ -1,7 +1,9 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use common::types::{MatchLinkingProofs, MatchProofs, MatchPublicInputs, MatchVkeys};
+use common::types::{
+    MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs, MatchVkeys,
+};
 use contracts_core::verifier::Verifier;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
@@ -27,8 +29,15 @@ impl VerifierContract {
 
     /// Batch-verify the proofs involved in matching a trade
     pub fn verify_match(&self, match_bundle: Bytes) -> Result<bool, Vec<u8>> {
-        let (match_vkeys, match_proofs, match_public_inputs, match_linking_proofs): (
+        let (
+            match_vkeys,
+            match_linking_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
+        ): (
             MatchVkeys,
+            MatchLinkingVkeys,
             MatchProofs,
             MatchPublicInputs,
             MatchLinkingProofs,
@@ -36,6 +45,7 @@ impl VerifierContract {
 
         Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify_match(
             match_vkeys,
+            match_linking_vkeys,
             match_proofs,
             match_public_inputs,
             match_linking_proofs,
