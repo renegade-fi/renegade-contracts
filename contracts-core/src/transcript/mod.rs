@@ -1,7 +1,5 @@
 //! A simple transcript used for computing challenge values via the Fiat-Shamir transformation.
 
-pub mod errors;
-
 use alloc::vec::Vec;
 use ark_ff::{BigInt, BigInteger, PrimeField};
 use contracts_common::{
@@ -10,9 +8,7 @@ use contracts_common::{
     custom_serde::{bigint_from_le_bytes, BytesSerializable, TranscriptG1},
     types::{Challenges, G1Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
-use core::{marker::PhantomData, result::Result};
-
-use self::errors::TranscriptError;
+use core::marker::PhantomData;
 
 pub struct Transcript<H: HashBackend> {
     transcript: Vec<u8>,
@@ -82,12 +78,12 @@ impl<H: HashBackend> Transcript<H> {
     }
     /// Computes all the challenges used in the Plonk protocol,
     /// given a verification key, a proof, and a set of public inputs.
-    pub fn compute_challenges(
+    pub fn compute_plonk_challenges(
         &mut self,
         vkey: &VerificationKey,
         proof: &Proof,
         public_inputs: &PublicInputs,
-    ) -> Result<Challenges, TranscriptError> {
+    ) -> Challenges {
         // Absorb verification key & public inputs
         self.append_message(&ScalarField::MODULUS_BIT_SIZE.to_le_bytes());
         self.append_message(&vkey.n.to_le_bytes());
@@ -128,14 +124,27 @@ impl<H: HashBackend> Transcript<H> {
         // Squeeze u challenge
         let u = self.get_and_append_challenge();
 
-        Ok(Challenges {
+        Challenges {
             beta,
             gamma,
             alpha,
             zeta,
             v,
             u,
-        })
+        }
+    }
+
+    pub fn compute_linking_proof_challenge(
+        &mut self,
+        wire_poly_comm_1: G1Affine,
+        wire_poly_comm_2: G1Affine,
+        linking_quotient_poly_comm: G1Affine,
+    ) -> ScalarField {
+        self.append_serializable(&TranscriptG1(wire_poly_comm_1));
+        self.append_serializable(&TranscriptG1(wire_poly_comm_2));
+        self.append_serializable(&TranscriptG1(linking_quotient_poly_comm));
+
+        self.get_and_append_challenge()
     }
 }
 
@@ -184,9 +193,7 @@ pub mod tests {
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
 
         let mut stylus_transcript = Transcript::<NativeHasher>::new();
-        let challenges = stylus_transcript
-            .compute_challenges(&vkey, &proof, &public_inputs)
-            .unwrap();
+        let challenges = stylus_transcript.compute_plonk_challenges(&vkey, &proof, &public_inputs);
 
         let jf_challenges =
             get_jf_challenges(&jf_vkey, &public_inputs.0, &jf_proof, &None).unwrap();
