@@ -76,6 +76,7 @@ impl<H: HashBackend> Transcript<H> {
     pub fn append_serializable<S: BytesSerializable>(&mut self, message: &S) {
         self.append_message(&message.serialize_to_bytes());
     }
+
     /// Computes all the challenges used in the Plonk protocol,
     /// given a verification key, a proof, and a set of public inputs.
     pub fn compute_plonk_challenges(
@@ -134,6 +135,9 @@ impl<H: HashBackend> Transcript<H> {
         }
     }
 
+    /// Compute the eta challenge used in the proof linking protocol,
+    /// given the commitments to the linked wiring polynomials and the
+    /// linking quotient polynomial.
     pub fn compute_linking_proof_challenge(
         &mut self,
         wire_poly_comm_1: G1Affine,
