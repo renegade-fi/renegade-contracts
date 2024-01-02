@@ -2,9 +2,12 @@
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
-use common::types::{
-    ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
-    ValidWalletCreateStatement, ValidWalletUpdateStatement,
+use common::{
+    custom_serde::BytesSerializable,
+    types::{
+        ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement,
+    },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
 use core::borrow::{Borrow, BorrowMut};
@@ -175,9 +178,17 @@ impl DarkpoolContract {
                 valid_wallet_update_statement.merkle_root,
             );
 
+            let signed_statement_excerpt = [
+                vec![valid_wallet_update_statement.new_private_shares_commitment],
+                valid_wallet_update_statement.new_public_shares.clone(),
+            ]
+            .concat()
+            .as_slice()
+            .serialize_to_bytes();
+
             assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
                 &valid_wallet_update_statement.old_pk_root,
-                valid_wallet_update_statement_bytes.as_slice(),
+                &signed_statement_excerpt,
                 &public_inputs_signature.to_vec().try_into().unwrap(),
             )
             .unwrap());

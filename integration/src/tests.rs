@@ -8,6 +8,7 @@ use ark_std::UniformRand;
 use circuit_types::test_helpers::TESTING_SRS;
 use common::{
     constants::TEST_MERKLE_HEIGHT,
+    custom_serde::BytesSerializable,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, PublicInputs, ScalarField, ValidWalletCreateStatement},
 };
@@ -516,17 +517,23 @@ pub(crate) async fn test_update_wallet(
 
     let proof = proof_from_statement(srs, &valid_wallet_update_statement, N)?;
 
-    let valid_wallet_update_statement_bytes =
-        serialize_to_calldata(&valid_wallet_update_statement)?;
+    let signed_statement_excerpt = [
+        vec![valid_wallet_update_statement.new_private_shares_commitment],
+        valid_wallet_update_statement.new_public_shares.clone(),
+    ]
+    .concat()
+    .as_slice()
+    .serialize_to_bytes();
+
     let public_inputs_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &valid_wallet_update_statement_bytes).to_vec(),
+        hash_and_sign_message(&signing_key, &signed_statement_excerpt).to_vec(),
     );
 
     // Call `update_wallet` with valid data
     contract
         .update_wallet(
             serialize_to_calldata(&proof)?,
-            valid_wallet_update_statement_bytes,
+            serialize_to_calldata(&valid_wallet_update_statement)?,
             public_inputs_signature,
         )
         .send()
