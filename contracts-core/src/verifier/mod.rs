@@ -10,7 +10,6 @@ use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zer
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::{NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
-    custom_serde::TranscriptG1,
     types::{
         Challenges, G1Affine, G2Affine, LinkingProof, LinkingVerificationKey,
         MatchLinkingBatchOpeningElems, MatchLinkingProofs, MatchLinkingVkeys,
@@ -54,7 +53,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         Self::step_3(public_inputs, vkey)?;
 
-        let challenges = Self::step_4(vkey, proof, public_inputs)?;
+        let challenges = Self::step_4(vkey, proof, public_inputs);
 
         let (domain_size, domain_elements, mut lagrange_basis_denominators) =
             Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
@@ -183,7 +182,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             Self::step_3(public_inputs, vkey)?;
 
-            let challenges = Self::step_4(vkey, proof, public_inputs)?;
+            let challenges = Self::step_4(vkey, proof, public_inputs);
 
             let (domain_size, domain_elements, lagrange_basis_denominators) =
                 Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
@@ -260,9 +259,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     ) -> Result<MatchLinkingBatchOpeningElems, VerifierError> {
         let linking_vkeys = [
             match_linking_vkeys.valid_commitments_match_settle_0,
-            match_linking_vkeys.valid_reblind_commitments_0,
+            match_linking_vkeys.valid_reblind_commitments,
             match_linking_vkeys.valid_commitments_match_settle_1,
-            match_linking_vkeys.valid_reblind_commitments_1,
+            match_linking_vkeys.valid_reblind_commitments,
         ];
         let linking_proofs = [
             match_linking_proofs.valid_commitments_match_settle_0,
@@ -276,16 +275,16 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 match_linking_wire_poly_comms.valid_match_settle_wire_poly_comm,
             ),
             (
-                match_linking_wire_poly_comms.party_0_valid_commitments_wire_poly_comm,
                 match_linking_wire_poly_comms.party_0_valid_reblind_wire_poly_comm,
+                match_linking_wire_poly_comms.party_0_valid_commitments_wire_poly_comm,
             ),
             (
                 match_linking_wire_poly_comms.party_1_valid_commitments_wire_poly_comm,
                 match_linking_wire_poly_comms.valid_match_settle_wire_poly_comm,
             ),
             (
-                match_linking_wire_poly_comms.party_1_valid_commitments_wire_poly_comm,
                 match_linking_wire_poly_comms.party_1_valid_reblind_wire_poly_comm,
+                match_linking_wire_poly_comms.party_1_valid_commitments_wire_poly_comm,
             ),
         ];
 
@@ -312,7 +311,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         })
     }
 
-    fn prep_linking_proof_opening_elems(
+    pub fn prep_linking_proof_opening_elems(
         linking_vkey: LinkingVerificationKey,
         linking_proof: LinkingProof,
         wire_poly_comms: (G1Affine, G1Affine),
@@ -327,16 +326,15 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             linking_quotient_poly_comm,
         } = linking_proof;
 
-        // Absorb commitments to wiring polynomials and linking quotient polynomial into transcript
+        // Compute eta challenge after absorbing commitments to wiring polynomials
+        // and linking quotient polynomial into transcript
 
         let mut transcript = Transcript::<H>::new();
-        transcript.append_serializable(&TranscriptG1(wire_poly_comms.0));
-        transcript.append_serializable(&TranscriptG1(wire_poly_comms.1));
-        transcript.append_serializable(&TranscriptG1(linking_quotient_poly_comm));
-
-        // Squeeze eta challenge
-
-        let eta = transcript.get_and_append_challenge();
+        let eta = transcript.compute_linking_proof_challenge(
+            wire_poly_comms.0,
+            wire_poly_comms.1,
+            linking_quotient_poly_comm,
+        );
 
         // Compute vanishing polynomial evaluation at eta
 
@@ -438,14 +436,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     }
 
     /// Compute the challenges
-    fn step_4(
-        vkey: &VerificationKey,
-        proof: &Proof,
-        public_inputs: &PublicInputs,
-    ) -> Result<Challenges, VerifierError> {
+    fn step_4(vkey: &VerificationKey, proof: &Proof, public_inputs: &PublicInputs) -> Challenges {
         let mut transcript = Transcript::<H>::new();
-        let challenges = transcript.compute_challenges(vkey, proof, public_inputs)?;
-        Ok(challenges)
+        transcript.compute_plonk_challenges(vkey, proof, public_inputs)
     }
 
     /// Evaluate the zero polynomial at the challenge point `zeta`
@@ -775,16 +768,31 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
+    use alloc::vec::Vec;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
+    use ark_poly::{
+        univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Polynomial,
+        Radix2EvaluationDomain,
+    };
     use circuit_types::test_helpers::TESTING_SRS;
     use contracts_common::{
         backends::G1ArithmeticError,
-        types::{G1Affine, G2Affine, PublicInputs, ScalarField},
+        types::{
+            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey,
+            MatchLinkingBatchOpeningElems, MatchLinkingProofs, MatchLinkingVkeys,
+            MatchLinkingWirePolyComms, PublicInputs, ScalarField,
+        },
+    };
+    use jf_primitives::pcs::{
+        prelude::UnivariateKzgPCS, PolynomialCommitmentScheme, StructuredReferenceString,
     };
     use jf_utils::multi_pairing;
-    use rand::{seq::SliceRandom, thread_rng};
+    use rand::{
+        seq::{IteratorRandom, SliceRandom},
+        thread_rng, CryptoRng, RngCore,
+    };
     use test_helpers::{
         crypto::NativeHasher,
         misc::random_scalars,
@@ -792,6 +800,8 @@ mod tests {
             convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey, generate_match_bundle,
         },
     };
+
+    use crate::transcript::Transcript;
 
     use super::{G1ArithmeticBackend, Verifier};
 
@@ -818,6 +828,291 @@ mod tests {
 
     const N: usize = 8192;
     const L: usize = 128;
+    const WIRING_POLY_DEGREE: usize = 16;
+    const LINK_GROUP_SIZE: usize = 4;
+
+    fn get_random_wiring_polys<R: CryptoRng + RngCore, const NUM_POLYS: usize>(
+        rng: &mut R,
+    ) -> [DensePolynomial<ScalarField>; NUM_POLYS] {
+        (0..NUM_POLYS)
+            .map(|_| DensePolynomial::<ScalarField>::rand(WIRING_POLY_DEGREE, rng))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+
+    fn compute_subdomain_vanishing_poly(
+        domain: &impl EvaluationDomain<ScalarField>,
+        link_group_offset: usize,
+    ) -> DensePolynomial<ScalarField> {
+        domain
+            .elements()
+            .skip(link_group_offset)
+            .take(LINK_GROUP_SIZE)
+            .map(|omega_i| {
+                DensePolynomial::from_coefficients_slice(&[-omega_i, ScalarField::one()])
+            })
+            .reduce(|acc, factor_poly| &acc * &factor_poly)
+            .unwrap()
+    }
+
+    fn prove_link(
+        domain: &impl EvaluationDomain<ScalarField>,
+        link_group_offset: usize,
+        wire_poly_1: &DensePolynomial<ScalarField>,
+        wire_poly_2: &DensePolynomial<ScalarField>,
+    ) -> (LinkingProof, G1Affine, G1Affine) {
+        // KZG-commit to wiring polys
+        let prover_param = TESTING_SRS.extract_prover_param(N);
+        let wire_poly_comm_1 = UnivariateKzgPCS::commit(&prover_param, wire_poly_1).unwrap();
+        let wire_poly_comm_2 = UnivariateKzgPCS::commit(&prover_param, wire_poly_2).unwrap();
+
+        // Compute vanishing poly over subdomain
+        let subdomain_vanishing_poly = compute_subdomain_vanishing_poly(domain, link_group_offset);
+
+        // Compute linking quotient poly
+        let linking_quotient_poly = &(wire_poly_1 - wire_poly_2) / &subdomain_vanishing_poly;
+
+        // KZG-commit to linking quotient poly
+        let linking_quotient_poly_comm =
+            UnivariateKzgPCS::commit(&prover_param, &linking_quotient_poly).unwrap();
+
+        // Generate eta challenge
+        let mut transcript = Transcript::<NativeHasher>::new();
+        let eta = transcript.compute_linking_proof_challenge(
+            wire_poly_comm_1.0,
+            wire_poly_comm_2.0,
+            linking_quotient_poly_comm.0,
+        );
+
+        // Compute linking poly
+        let vanishing_poly_eval = subdomain_vanishing_poly.evaluate(&eta);
+        let linking_poly =
+            &(wire_poly_1 - wire_poly_2) - &(&linking_quotient_poly * vanishing_poly_eval);
+
+        // Compute opening proof for linking poly at eta
+        let (linking_poly_opening, _) =
+            UnivariateKzgPCS::open(&prover_param, &linking_poly, &eta).unwrap();
+
+        // Construct linking proof
+        (
+            LinkingProof {
+                linking_quotient_poly_comm: linking_quotient_poly_comm.0,
+                linking_poly_opening: linking_poly_opening.proof,
+            },
+            wire_poly_comm_1.0,
+            wire_poly_comm_2.0,
+        )
+    }
+
+    fn add_link_group_to_poly(
+        poly: &mut DensePolynomial<ScalarField>,
+        domain: &impl EvaluationDomain<ScalarField>,
+        link_group_offset: usize,
+        link_group: Vec<ScalarField>,
+    ) {
+        let mut evaluations = domain.fft(&poly.coeffs);
+        evaluations.splice(
+            link_group_offset..link_group_offset + link_group.len(),
+            link_group,
+        );
+        let coeffs = domain.ifft(&evaluations);
+        poly.coeffs = coeffs;
+    }
+
+    fn add_shared_link_group<R: CryptoRng + RngCore>(
+        rng: &mut R,
+        poly_1: &mut DensePolynomial<ScalarField>,
+        poly_2: &mut DensePolynomial<ScalarField>,
+        domain: &impl EvaluationDomain<ScalarField>,
+        link_group_offset: usize,
+    ) {
+        let link_group = random_scalars(LINK_GROUP_SIZE, rng);
+        add_link_group_to_poly(poly_1, domain, link_group_offset, link_group.clone());
+        add_link_group_to_poly(poly_2, domain, link_group_offset, link_group);
+    }
+
+    fn compute_single_link_test_data<R: CryptoRng + RngCore>(
+        rng: &mut R,
+        link_group_offset: usize,
+        link_polys: bool,
+    ) -> (LinkingVerificationKey, LinkingProof, (G1Affine, G1Affine)) {
+        let domain = Radix2EvaluationDomain::new(N).unwrap();
+        let [mut wire_poly_1, mut wire_poly_2] = get_random_wiring_polys(rng);
+
+        if link_polys {
+            add_shared_link_group(
+                rng,
+                &mut wire_poly_1,
+                &mut wire_poly_2,
+                &domain,
+                link_group_offset,
+            );
+        }
+
+        let (linking_proof, wire_poly_comm_1, wire_poly_comm_2) =
+            prove_link(&domain, link_group_offset, &wire_poly_1, &wire_poly_2);
+
+        let linking_vkey = LinkingVerificationKey {
+            link_group_generator: domain.group_gen,
+            link_group_offset,
+            link_group_size: LINK_GROUP_SIZE,
+        };
+
+        (
+            linking_vkey,
+            linking_proof,
+            (wire_poly_comm_1, wire_poly_comm_2),
+        )
+    }
+
+    fn compute_match_link_test_data() -> (
+        MatchLinkingVkeys,
+        MatchLinkingProofs,
+        MatchLinkingWirePolyComms,
+    ) {
+        let mut rng = thread_rng();
+        let domain = Radix2EvaluationDomain::new(N).unwrap();
+
+        // Pick random offsets for the `VALID REBLIND` <-> `VALID COMMITMENTS` &
+        // `VALID COMMITMENTS` <-> `VALID MATCH SETTLE` linkings
+        let valid_reblind_valid_commitments_offset = (0..WIRING_POLY_DEGREE - 3 * LINK_GROUP_SIZE)
+            .choose(&mut rng)
+            .unwrap();
+        let party_0_valid_commitments_valid_match_settle_offset =
+            valid_reblind_valid_commitments_offset + LINK_GROUP_SIZE;
+        let party_1_valid_commitments_valid_match_settle_offset =
+            party_0_valid_commitments_valid_match_settle_offset + LINK_GROUP_SIZE;
+
+        // Construct initially random wiring polynomials for
+        // `PARTY 0 VALID REBLIND`, `PARTY 0 VALID COMMITMENTS`,
+        // `PARTY 1 VALID REBLIND`, `PARTY 1 VALID COMMITMENTS`, &
+        // `VALID MATCH SETTLE`
+        let [mut party_0_valid_reblind_wire_poly, mut party_0_valid_commitments_wire_poly, mut party_1_valid_reblind_wire_poly, mut party_1_valid_commitments_wire_poly, mut valid_match_settle_wire_poly] =
+            get_random_wiring_polys(&mut rng);
+
+        // Add shared link group to `PARTY 0 VALID REBLIND` & `PARTY 0 VALID COMMITMENTS`
+        add_shared_link_group(
+            &mut rng,
+            &mut party_0_valid_reblind_wire_poly,
+            &mut party_0_valid_commitments_wire_poly,
+            &domain,
+            valid_reblind_valid_commitments_offset,
+        );
+
+        // Add shared link group to `PARTY 1 VALID REBLIND` & `PARTY 1 VALID COMMITMENTS`
+        add_shared_link_group(
+            &mut rng,
+            &mut party_1_valid_reblind_wire_poly,
+            &mut party_1_valid_commitments_wire_poly,
+            &domain,
+            valid_reblind_valid_commitments_offset,
+        );
+
+        // Add shared link group to `PARTY 0 VALID COMMITMENTS` & `VALID MATCH SETTLE`
+        add_shared_link_group(
+            &mut rng,
+            &mut party_0_valid_commitments_wire_poly,
+            &mut valid_match_settle_wire_poly,
+            &domain,
+            party_0_valid_commitments_valid_match_settle_offset,
+        );
+
+        // Add shared link group to `PARTY 1 VALID COMMITMENTS` & `VALID MATCH SETTLE`
+        add_shared_link_group(
+            &mut rng,
+            &mut party_1_valid_commitments_wire_poly,
+            &mut valid_match_settle_wire_poly,
+            &domain,
+            party_1_valid_commitments_valid_match_settle_offset,
+        );
+
+        // Prove the `PARTY 0 VALID REBLIND` <-> `PARTY 0 VALID COMMITMENTS` linking
+        let (
+            valid_reblind_commitments_0_proof,
+            party_0_valid_reblind_wire_poly_comm,
+            party_0_valid_commitments_wire_poly_comm,
+        ) = prove_link(
+            &domain,
+            valid_reblind_valid_commitments_offset,
+            &party_0_valid_reblind_wire_poly,
+            &party_0_valid_commitments_wire_poly,
+        );
+
+        let valid_reblind_commitments_vkey = LinkingVerificationKey {
+            link_group_generator: domain.group_gen,
+            link_group_offset: valid_reblind_valid_commitments_offset,
+            link_group_size: LINK_GROUP_SIZE,
+        };
+
+        // Prove the `PARTY 1 VALID REBLIND` <-> `PARTY 1 VALID COMMITMENTS` linking
+        let (
+            valid_reblind_commitments_1_proof,
+            party_1_valid_reblind_wire_poly_comm,
+            party_1_valid_commitments_wire_poly_comm,
+        ) = prove_link(
+            &domain,
+            valid_reblind_valid_commitments_offset,
+            &party_1_valid_reblind_wire_poly,
+            &party_1_valid_commitments_wire_poly,
+        );
+
+        // Prove the `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` linking
+        let (valid_commitments_match_settle_0_proof, _, valid_match_settle_wire_poly_comm) =
+            prove_link(
+                &domain,
+                party_0_valid_commitments_valid_match_settle_offset,
+                &party_0_valid_commitments_wire_poly,
+                &valid_match_settle_wire_poly,
+            );
+
+        let valid_commitments_match_settle_0_vkey = LinkingVerificationKey {
+            link_group_generator: domain.group_gen,
+            link_group_offset: party_0_valid_commitments_valid_match_settle_offset,
+            link_group_size: LINK_GROUP_SIZE,
+        };
+
+        // Prove the `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` linking
+        let (valid_commitments_match_settle_1_proof, _, _) = prove_link(
+            &domain,
+            party_1_valid_commitments_valid_match_settle_offset,
+            &party_1_valid_commitments_wire_poly,
+            &valid_match_settle_wire_poly,
+        );
+
+        let valid_commitments_match_settle_1_vkey = LinkingVerificationKey {
+            link_group_generator: domain.group_gen,
+            link_group_offset: party_1_valid_commitments_valid_match_settle_offset,
+            link_group_size: LINK_GROUP_SIZE,
+        };
+
+        let match_linking_vkeys = MatchLinkingVkeys {
+            valid_reblind_commitments: valid_reblind_commitments_vkey,
+            valid_commitments_match_settle_0: valid_commitments_match_settle_0_vkey,
+            valid_commitments_match_settle_1: valid_commitments_match_settle_1_vkey,
+        };
+
+        let match_linking_proofs = MatchLinkingProofs {
+            valid_commitments_match_settle_0: valid_commitments_match_settle_0_proof,
+            valid_reblind_commitments_0: valid_reblind_commitments_0_proof,
+            valid_commitments_match_settle_1: valid_commitments_match_settle_1_proof,
+            valid_reblind_commitments_1: valid_reblind_commitments_1_proof,
+        };
+
+        let match_linking_wire_poly_comms = MatchLinkingWirePolyComms {
+            party_0_valid_commitments_wire_poly_comm,
+            party_0_valid_reblind_wire_poly_comm,
+            party_1_valid_commitments_wire_poly_comm,
+            party_1_valid_reblind_wire_poly_comm,
+            valid_match_settle_wire_poly_comm,
+        };
+
+        (
+            match_linking_vkeys,
+            match_linking_proofs,
+            match_linking_wire_poly_comms,
+        )
+    }
 
     #[test]
     fn test_valid_proof_verification() {
@@ -846,6 +1141,100 @@ mod tests {
                 .unwrap();
 
         assert!(!result, "invalid proof verified");
+    }
+
+    #[test]
+    fn test_valid_linking_proof_verification() {
+        let mut rng = thread_rng();
+        let link_group_offset = (0..WIRING_POLY_DEGREE - LINK_GROUP_SIZE)
+            .choose(&mut rng)
+            .unwrap();
+
+        let (linking_vkey, linking_proof, (wire_poly_comm_1, wire_poly_comm_2)) =
+            compute_single_link_test_data(&mut rng, link_group_offset, true /* link_polys */);
+
+        // Prep linking proof opening elements
+        let (g1_lhs, g1_rhs, eta) =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_linking_proof_opening_elems(
+                linking_vkey,
+                linking_proof,
+                (wire_poly_comm_1, wire_poly_comm_2),
+            )
+            .unwrap();
+
+        // Verify linking proof opening
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
+            &[g1_lhs],
+            &[g1_rhs],
+            &[eta],
+            TESTING_SRS.beta_h,
+            TESTING_SRS.h,
+        )
+        .unwrap();
+
+        assert!(result);
+    }
+
+    #[test]
+    fn test_invalid_linking_proof_verification() {
+        let mut rng = thread_rng();
+        let link_group_offset = (0..WIRING_POLY_DEGREE - LINK_GROUP_SIZE)
+            .choose(&mut rng)
+            .unwrap();
+
+        let (linking_vkey, linking_proof, (wire_poly_comm_1, wire_poly_comm_2)) =
+            compute_single_link_test_data(&mut rng, link_group_offset, false /* link_polys */);
+
+        // Prep linking proof opening elements
+        let (g1_lhs, g1_rhs, eta) =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_linking_proof_opening_elems(
+                linking_vkey,
+                linking_proof,
+                (wire_poly_comm_1, wire_poly_comm_2),
+            )
+            .unwrap();
+
+        // Verify linking proof opening
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
+            &[g1_lhs],
+            &[g1_rhs],
+            &[eta],
+            TESTING_SRS.beta_h,
+            TESTING_SRS.h,
+        )
+        .unwrap();
+
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_match_linking_proofs_verification() {
+        let (match_linking_vkeys, match_linking_proofs, match_linking_wire_poly_comms) =
+            compute_match_link_test_data();
+
+        // Prep linking proof opening elements
+        let MatchLinkingBatchOpeningElems {
+            g1_lhs_elems,
+            g1_rhs_elems,
+            eta_challenges,
+        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_linking_proofs_batch_opening(
+            match_linking_vkeys,
+            match_linking_proofs,
+            match_linking_wire_poly_comms,
+        )
+        .unwrap();
+
+        // Verify linking proof opening
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
+            &g1_lhs_elems,
+            &g1_rhs_elems,
+            &eta_challenges,
+            TESTING_SRS.beta_h,
+            TESTING_SRS.h,
+        )
+        .unwrap();
+
+        assert!(result)
     }
 
     #[test]

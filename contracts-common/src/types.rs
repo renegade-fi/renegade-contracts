@@ -78,14 +78,11 @@ pub struct LinkingVerificationKey {
 #[derive(Serialize, Deserialize, Default)]
 pub struct MatchLinkingVkeys {
     /// The verification key for the
-    /// `PARTY 0 VALID COMMITMENTS` <-> `PARTY 0 VALID REBLIND` link
-    pub valid_reblind_commitments_0: LinkingVerificationKey,
+    /// `VALID REBLIND` <-> `VALID COMMITMENTS` link
+    pub valid_reblind_commitments: LinkingVerificationKey,
     /// The verification key for the
     /// `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
     pub valid_commitments_match_settle_0: LinkingVerificationKey,
-    /// The verification key for the
-    /// `PARTY 1 VALID COMMITMENTS` <-> `PARTY 1 VALID REBLIND` link
-    pub valid_reblind_commitments_1: LinkingVerificationKey,
     /// The verification key for the
     /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
     pub valid_commitments_match_settle_1: LinkingVerificationKey,
@@ -153,13 +150,13 @@ pub struct LinkingProof {
 #[derive(Serialize, Deserialize, Default)]
 pub struct MatchLinkingProofs {
     /// The proof of linked inputs between
-    /// `PARTY 0 VALID COMMITMENTS` <-> `PARTY 0 VALID REBLIND`
+    /// `PARTY 0 VALID REBLIND` <-> `PARTY 0 VALID COMMITMENTS`
     pub valid_reblind_commitments_0: LinkingProof,
     /// The proof of linked inputs between
     /// `PARTY 0 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
     pub valid_commitments_match_settle_0: LinkingProof,
     /// The proof of linked inputs between
-    /// `PARTY 1 VALID COMMITMENTS` <-> `PARTY 1 VALID REBLIND`
+    /// `PARTY 1 VALID REBLIND` <-> `PARTY 1 VALID COMMITMENTS`
     pub valid_reblind_commitments_1: LinkingProof,
     /// The proof of linked inputs between
     /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
