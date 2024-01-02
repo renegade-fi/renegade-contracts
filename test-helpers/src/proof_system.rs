@@ -10,8 +10,8 @@ use circuit_types::{
 use common::{
     constants::{NUM_MATCH_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{
-        G1Affine, G2Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
-        MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+        G1Affine, G2Affine, MatchProofs, MatchPublicInputs, MatchVkeys, Proof, PublicInputs,
+        ScalarField, VerificationKey,
     },
 };
 use core::iter;
@@ -159,13 +159,7 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<Verificatio
 pub fn generate_match_bundle(
     n: usize,
     l: usize,
-) -> Result<(
-    MatchVkeys,
-    MatchLinkingVkeys,
-    MatchProofs,
-    MatchPublicInputs,
-    MatchLinkingProofs,
-)> {
+) -> Result<(MatchVkeys, MatchProofs, MatchPublicInputs)> {
     let mut rng = thread_rng();
     let (circuits, pkeys, vkeys, public_inputs): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
         multiunzip((0..NUM_MATCH_CIRCUITS).map(|_| {
@@ -257,13 +251,7 @@ pub fn generate_match_bundle(
         valid_match_settle,
     };
 
-    Ok((
-        match_vkeys,
-        MatchLinkingVkeys::default(),
-        match_proofs,
-        match_public_inputs,
-        MatchLinkingProofs::default(),
-    ))
+    Ok((match_vkeys, match_proofs, match_public_inputs))
 }
 
 pub fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<SystemCurve>) {
