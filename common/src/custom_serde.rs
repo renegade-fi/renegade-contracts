@@ -10,12 +10,13 @@ use ark_serialize::Flags;
 
 use crate::{
     constants::{
-        NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_U256, NUM_U64S_FELT,
+        NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_SCALARS_U256,
+        NUM_U64S_FELT,
     },
     types::{
-        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-        ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
+        PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
+        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 
@@ -225,8 +226,7 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
                 .as_ref()
                 .unwrap_or(&ExternalTransfer::default()),
         )?);
-        scalars.extend(self.old_pk_root.x);
-        scalars.extend(self.old_pk_root.y);
+        scalars.extend(pk_to_scalars(&self.old_pk_root));
         scalars.push(self.timestamp.into());
         Ok(scalars)
     }
@@ -355,6 +355,13 @@ fn external_transfer_to_scalars(
     scalars.extend(u256_to_scalars(external_transfer.amount)?);
     scalars.push(external_transfer.is_withdrawal.into());
     Ok(scalars)
+}
+
+pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
+    let mut scalars = Vec::with_capacity(NUM_SCALARS_PK);
+    scalars.extend(pk.x);
+    scalars.extend(pk.y);
+    scalars
 }
 
 #[cfg(test)]

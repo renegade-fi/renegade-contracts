@@ -517,16 +517,16 @@ pub(crate) async fn test_update_wallet(
 
     let proof = proof_from_statement(srs, &valid_wallet_update_statement, N)?;
 
-    let signed_statement_excerpt = [
-        vec![valid_wallet_update_statement.new_private_shares_commitment],
-        valid_wallet_update_statement.new_public_shares.clone(),
-    ]
-    .concat()
-    .as_slice()
-    .serialize_to_bytes();
+    let shares_commitment = compute_poseidon_hash(
+        &[
+            vec![valid_wallet_update_statement.new_private_shares_commitment],
+            valid_wallet_update_statement.new_public_shares.clone(),
+        ]
+        .concat(),
+    );
 
     let public_inputs_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &signed_statement_excerpt).to_vec(),
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
     );
 
     // Call `update_wallet` with valid data

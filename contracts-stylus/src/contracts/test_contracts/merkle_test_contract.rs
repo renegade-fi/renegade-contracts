@@ -1,12 +1,15 @@
 //! Testing contract for the Merkle tree which using the test height
 
 use alloc::vec::Vec;
-use common::{constants::TEST_MERKLE_HEIGHT, types::ScalarField};
-use stylus_sdk::{alloy_primitives::U256, prelude::*};
+use common::{
+    constants::{NUM_SCALARS_PK, TEST_MERKLE_HEIGHT},
+    types::ScalarField,
+};
+use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
 
 use crate::{
-    utils::constants::TEST_ZEROS,
     contracts::merkle::{MerkleContract, MerkleParams},
+    utils::constants::TEST_ZEROS,
 };
 
 struct TestMerkleParams;
@@ -39,5 +42,15 @@ impl TestMerkleContract {
 
     fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
+    }
+
+    pub fn verify_state_sig_and_insert(
+        &mut self,
+        shares: Vec<U256>,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        self.merkle
+            .verify_state_sig_and_insert(shares, sig, old_pk_root)
     }
 }
