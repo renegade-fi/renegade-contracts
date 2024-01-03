@@ -2,14 +2,10 @@
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
-use common::{
-    custom_serde::BytesSerializable,
-    types::{
-        ExternalTransfer, MatchPayload, ScalarField, ValidMatchSettleStatement,
-        ValidWalletCreateStatement, ValidWalletUpdateStatement,
-    },
+use common::types::{
+    ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement,
+    ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
-use contracts_core::crypto::ecdsa::ecdsa_verify;
 use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
     abi::Bytes,
@@ -22,17 +18,16 @@ use stylus_sdk::{
 use crate::{
     if_verifying,
     utils::{
-        backends::{PrecompileEcRecoverBackend, StylusHasher},
         constants::STORAGE_GAP_SIZE,
         helpers::{
-            delegate_call_helper, scalar_to_u256, serialize_statement_for_verification,
-            static_call_helper,
+            delegate_call_helper, pk_to_u256s, scalar_to_u256,
+            serialize_statement_for_verification, static_call_helper,
         },
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
             rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
-            verifyMatchSettleCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
-            WalletUpdated, IERC20,
+            verifyMatchSettleCall, verifyStateSigAndInsertCall,
+            ExternalTransfer as ExternalTransferEvent, NullifierSpent, WalletUpdated, IERC20,
         },
     },
 };
@@ -167,7 +162,7 @@ impl DarkpoolContract {
         storage: &mut S,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
-        public_inputs_signature: Bytes,
+        shares_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
@@ -177,21 +172,6 @@ impl DarkpoolContract {
                 storage,
                 valid_wallet_update_statement.merkle_root,
             );
-
-            let signed_statement_excerpt = [
-                vec![valid_wallet_update_statement.new_private_shares_commitment],
-                valid_wallet_update_statement.new_public_shares.clone(),
-            ]
-            .concat()
-            .as_slice()
-            .serialize_to_bytes();
-
-            assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-                &valid_wallet_update_statement.old_pk_root,
-                &signed_statement_excerpt,
-                &public_inputs_signature.to_vec().try_into().unwrap(),
-            )
-            .unwrap());
 
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
             let (valid_wallet_update_vkey_bytes,) =
@@ -205,10 +185,15 @@ impl DarkpoolContract {
             ));
         });
 
-        DarkpoolContract::commit_wallet_and_mark_spent(
+        DarkpoolContract::insert_wallet_update_commitment_to_merkle_tree(
             storage,
             valid_wallet_update_statement.new_private_shares_commitment,
             &valid_wallet_update_statement.new_public_shares,
+            shares_commitment_signature.into(),
+            &valid_wallet_update_statement.old_pk_root,
+        );
+        DarkpoolContract::mark_nullifier_spent(
+            storage,
             valid_wallet_update_statement.old_shares_nullifier,
         );
 
@@ -327,19 +312,29 @@ impl DarkpoolContract {
         assert!(DarkpoolContract::root_in_history(storage, root).unwrap());
     }
 
-    /// Computes the total commitment to both the private and public wallet shares,
-    /// and inserts it into the Merkle tree
+    pub fn prepare_wallet_shares_for_insertion(
+        private_shares_commitment: ScalarField,
+        public_wallet_shares: &[ScalarField],
+    ) -> Vec<U256> {
+        let mut total_wallet_shares = vec![private_shares_commitment];
+        total_wallet_shares.extend(public_wallet_shares);
+        total_wallet_shares
+            .into_iter()
+            .map(scalar_to_u256)
+            .collect()
+    }
+
+    /// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
+    /// tree and delegate-calls the appropriate method on the Merkle contract
     pub fn insert_wallet_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
     ) {
-        let mut total_wallet_shares = vec![private_shares_commitment];
-        total_wallet_shares.extend(public_wallet_shares);
-        let total_wallet_shares = total_wallet_shares
-            .into_iter()
-            .map(scalar_to_u256)
-            .collect::<Vec<_>>();
+        let total_wallet_shares = Self::prepare_wallet_shares_for_insertion(
+            private_shares_commitment,
+            public_wallet_shares,
+        );
 
         let merkle_address = storage.borrow_mut().merkle_address.get();
         delegate_call_helper::<insertSharesCommitmentCall>(
@@ -349,19 +344,34 @@ impl DarkpoolContract {
         );
     }
 
-    pub fn commit_wallet_and_mark_spent<S: TopLevelStorage + BorrowMut<Self>>(
+    /// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
+    /// tree, as well as the signature & pubkey for verification, and delegate-calls the appropriate
+    /// method on the Merkle contract
+    pub fn insert_wallet_update_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
-        nullifier: ScalarField,
+        shares_commitment_signature: Vec<u8>,
+        old_pk_root: &PublicSigningKey,
     ) {
-        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
-            storage,
+        let total_wallet_shares = Self::prepare_wallet_shares_for_insertion(
             private_shares_commitment,
             public_wallet_shares,
         );
 
-        DarkpoolContract::mark_nullifier_spent(storage, nullifier);
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+
+        let old_pk_root_u256s = pk_to_u256s(old_pk_root);
+
+        delegate_call_helper::<verifyStateSigAndInsertCall>(
+            storage,
+            merkle_address,
+            (
+                total_wallet_shares,
+                shares_commitment_signature,
+                old_pk_root_u256s,
+            ),
+        );
     }
 
     /// Verifies the given proof using the given public inputs
@@ -484,12 +494,15 @@ impl DarkpoolContract {
             );
         });
 
-        DarkpoolContract::commit_wallet_and_mark_spent(
+        DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
             match_payload
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
             public_wallet_shares,
+        );
+        DarkpoolContract::mark_nullifier_spent(
+            storage,
             match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier,

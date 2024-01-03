@@ -86,7 +86,7 @@ pub struct DeployStylusArgs {
     pub contract: StylusContract,
 
     /// Whether or not to enable proof & ECDSA verification.
-    /// This only applies to the darkpool contract.
+    /// This only applies to the darkpool & Merkle contracts.
     #[arg(long)]
     pub no_verify: bool,
 }

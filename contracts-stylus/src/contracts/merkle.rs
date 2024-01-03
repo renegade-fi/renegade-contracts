@@ -10,19 +10,28 @@
 use core::marker::PhantomData;
 
 use alloc::vec::Vec;
-use common::{constants::MERKLE_HEIGHT, types::ScalarField};
-use contracts_core::crypto::poseidon::compute_poseidon_hash;
+use common::{
+    constants::{MERKLE_HEIGHT, NUM_SCALARS_PK},
+    custom_serde::BytesSerializable,
+    types::{PublicSigningKey, ScalarField},
+};
+use contracts_core::crypto::{ecdsa::ecdsa_verify, poseidon::compute_poseidon_hash};
 use stylus_sdk::{
+    abi::Bytes,
     alloy_primitives::{U128, U256},
     evm,
     prelude::*,
     storage::{StorageBool, StorageMap, StorageU128, StorageU256},
 };
 
-use crate::utils::{
-    constants::ZEROS,
-    helpers::{scalar_to_u256, u256_to_scalar},
-    solidity::NodeChanged,
+use crate::{
+    if_verifying,
+    utils::{
+        backends::{PrecompileEcRecoverBackend, StylusHasher},
+        constants::ZEROS,
+        helpers::{scalar_to_u256, u256_to_scalar},
+        solidity::NodeChanged,
+    },
 };
 
 pub trait MerkleParams {
@@ -89,12 +98,51 @@ where
         let insert_index: u128 = self.next_index.get().to();
         assert!(insert_index < 2_u128.pow(P::HEIGHT as u32));
 
-        let shares: Vec<ScalarField> = shares
-            .into_iter()
-            .map(|u| u256_to_scalar(u).unwrap())
-            .collect();
+        let shares_commitment = self.compute_shares_commitment(shares);
 
-        let shares_commitment = compute_poseidon_hash(&shares);
+        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true);
+
+        Ok(())
+    }
+
+    /// Computes a commitment to the given wallet shares,
+    /// verifies the ECDSA signature over this commitment,
+    /// & inserts it into the Merkle tree.
+    ///
+    /// We do ECDSA verification here, as opposed to the Darkpool contract,
+    /// to avoid moving the computation of the commitment there.
+    /// That would require us to link in Poseidon hashing code, increasing the
+    /// binary size beyond what we can reasonably mitigate for the 24kb limit.
+    pub fn verify_state_sig_and_insert(
+        &mut self,
+        shares: Vec<U256>,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        let insert_index: u128 = self.next_index.get().to();
+        assert!(insert_index < 2_u128.pow(P::HEIGHT as u32));
+
+        let shares_commitment = self.compute_shares_commitment(shares);
+
+        if_verifying!({
+            let old_pk_root = PublicSigningKey {
+                x: [
+                    u256_to_scalar(old_pk_root[0]).unwrap(),
+                    u256_to_scalar(old_pk_root[1]).unwrap(),
+                ],
+                y: [
+                    u256_to_scalar(old_pk_root[2]).unwrap(),
+                    u256_to_scalar(old_pk_root[3]).unwrap(),
+                ],
+            };
+
+            assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+                &old_pk_root,
+                &shares_commitment.serialize_to_bytes(),
+                &sig.to_vec().try_into().unwrap(),
+            )
+            .unwrap());
+        });
 
         self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true);
 
@@ -111,6 +159,15 @@ where
 
         self.root.set(root_u256);
         self.root_history.insert(root_u256, true);
+    }
+
+    pub fn compute_shares_commitment(&mut self, shares: Vec<U256>) -> ScalarField {
+        let shares: Vec<ScalarField> = shares
+            .into_iter()
+            .map(|u| u256_to_scalar(u).unwrap())
+            .collect();
+
+        compute_poseidon_hash(&shares)
     }
 
     /// Recursive helper for inserting a value into the Merkle tree,
@@ -205,5 +262,15 @@ impl ProdMerkleContract {
 
     fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
+    }
+
+    pub fn verify_state_sig_and_insert(
+        &mut self,
+        shares: Vec<U256>,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        self.merkle
+            .verify_state_sig_and_insert(shares, sig, old_pk_root)
     }
 }
