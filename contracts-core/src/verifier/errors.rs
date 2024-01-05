@@ -1,6 +1,6 @@
 //! Errors stemming from verifier operations
 
-use common::backends::G1ArithmeticError;
+use contracts_common::backends::G1ArithmeticError;
 
 #[derive(Debug)]
 pub enum VerifierError {

@@ -1,7 +1,7 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use common::types::{
+use contracts_common::types::{
     MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs, MatchVkeys,
 };
 use contracts_core::verifier::Verifier;

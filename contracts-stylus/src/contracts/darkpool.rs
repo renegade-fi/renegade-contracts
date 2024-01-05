@@ -26,8 +26,8 @@ use crate::{
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
             rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
-            verifyMatchCall, ExternalTransfer as ExternalTransferEvent, NullifierSpent,
-            WalletUpdated, IERC20,
+            verifyMatchCall, verifyStateSigAndInsertCall,
+            ExternalTransfer as ExternalTransferEvent, NullifierSpent, WalletUpdated, IERC20,
         },
     },
 };
