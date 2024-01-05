@@ -27,7 +27,7 @@ These changes are encapsulated in a [Plonk](https://eprint.iacr.org/2019/953.pdf
 
 If the change was the settlement of a matched trade, then the `DarkpoolContract` also verifies "proof linking" between the Plonk proofs involved - this is a cryptographic statement attesting that the Plonk proofs use the same public inputs where appropriate. This, too is, done via a `staticcall` to the `VerifierContract` (and also fetches preprocessed information from the `VkeysContract`).
 
-The updated wallet is committed to as a leaf in a global Merkle tree via a `delegatecall` to the `MerkleContract` from the `DarkpoolContract`. The `MerkleContract` also maintains a set of historic roots, to which it adds the newly-computed root.
+The updated wallet is committed to as a leaf in a global Merkle tree via a `delegatecall` to the `MerkleContract` from the `DarkpoolContract`. We also add the newly-computed root to a set of historic roots.
 
 If the change was an update to an existing wallet by the user (this excludes the settlement of a matched trade, which can be done by a relayer), we also verify an ECDSA signature by the user over the commitment to the updated wallet to be inserted into the Merkle tree.
 
@@ -115,45 +115,35 @@ We make the following assumptions about interaction with the protocol:
 - We deploy the contracts correctly (e.g. Merkle tree is correct height, verification keys are correct)
 - The `ProxyAdmin` is initialized with an owner account that we securely control
 - The `initialize` method of the `DarkpoolContract` is called in the deployment of the `TransparentUpgradeableProxy`
-- Management of a wallet is only delegated to a single relayer
+- Management of a wallet is only delegated to a single cluster
 - Calldata is generally available for wallet indexing & recovery
-- Wallet blinders & the keychain are properly derived from their respective hash chains (we don't prove this in-circuit)
-- Users will not authorize a malicious key rotation
 
 ## Protocol Invariants
 
-The following invariants, organized by contract for readability, must hold true in all possible states of the protocol.
+The following invariants must hold true in all possible states of the protocol. They are phrased abstractly, agnostic of the contract topology & implementation, to maintain the proper scope & be future-proof.
 
-`DarkpoolContract`
-- The `DarkpoolContract` can only be initialized once to a given (hardcoded) version number.
-- The `VerifierContract`, `VkeysContract`, and `MerkleContract` addresses can only be set during `DarkpoolContract` initialization
-- All getter methods leave chain state unaffected (i.e. are `view` functions)
-- Scalars passed in via calldata are within the BN254 scalar field modulus
-- Nullified wallets can't be updated in any way, including settling orders they contain.
-- The only nullifiers marked spent are those pertaining to a wallet that has been updated or had one of its orders matched and settled
-- Wallets cannot be tracked across updates by anyone other than the owner/relayer
-- In the case of a deposit / withdrawal of an ERC20 asset, only the user & `DarkpoolContract`'s balances of the asset are affected, and they are (appropriately) incremented/decremented by exactly the amount specified in the deposit / withdrawal[^3]
-- The `DarkpoolContract` initiates an ERC20 transfer only in the event of a valid deposit / withdrawal[^4]
+### Darkpool product invariants
 
-`MerkleContract`
-- The Merkle tree can only be initialized during `DarkpoolContract` initialization
-- All Merkle roots (and only valid Merkle roots) are tracked as historic roots
-- The `MerkleContract` is consistent with the relayer implementation
-    - Height 32, using Poseidon 2 hash w/ the constants defined in the relayer repo
-- Only updated wallets signed by the user should be committed in the Merkle tree
-- Any given leaf in the Merkle tree can only be written once
+- The darkpool can only be initialized during initial deployment or upgrade
+- The logic for wallet state transition validity & global state commitments can only be set during darkpool initialization
+- The darkpool rejects malformed inputs instead of coercing them into an operable form
+- Spent wallets can't be updated in any way, including settling orders they contain
+- Wallets can only be spent by being updated (e.g. modifying orders / fees, depositing / withdrawing), or having one of their orders matched & settled
+- In the case of a deposit / withdrawal, only the user & darkpool's asset balances are affected, and only by the amount expected in the deposit / withdrawal[^3]
+- The darkpool executes an asset transfer only in the event of a valid deposit / withdrawal
 
-`VerifierContract`
-- Verification:
-    - Completeness: all valid proofs should successfully verify
-        - Also meaning no panics during verification
-    - Soundness: invalid proofs should fail verification
-        - Shouldn't be due to panic, but this doesn't pose a risk as long as completeness is satisfied
-- Batch verification:
-    - Completeness: a batch of valid Plonk & linking proofs should successfully verify
-    - Soundness: any number of invalid Plonk or linking proofs in a batch should fail verification
-        - Valid linking proofs between the wrong Plonk proofs should fail batch verification
-- Valid proofs cannot be "replayed"[^5]
+### Global state commitment invariants
+
+- The global state commitment can only be mutated during darkpool initialization, or the successful creation / updating of a wallet
+- During the successful creation / updating of a wallet, the only mutation of the global state commitment is committing to that wallet
+- All valid global state commitments (and nothing else) are tracked as historic global state commitments
+- Only wallets authorized by the user should be committed to in the global state commitment
+- Commitments within the global state commitment cannot be overwritten
+
+### Wallet state transition validity invariants
+
+- All valid wallet state transitions are approved
+- All invalid wallet state transitions are rejected
 
 [^1]: The constants for our instantiation of the Poseidon 2 hash can be found [here](https://github.com/renegade-fi/renegade/blob/main/renegade-crypto/src/hash/constants.rs)
 
@@ -166,7 +156,3 @@ The following invariants, organized by contract for readability, must hold true 
     While it's not safe to state an assumption along the lines of, "any ERC20s in the darkpool do not have transfer side effects outside of incrementing/decrementing sender/recipient balances", we should still constrain this as much as possible - e.g., we should be sure our contracts are reentrant-safe.
     
     With that said, it does mean some ERC20s can get "stuck" in our darkpool. Imagine, for example, an ERC20 that takes a "tax" on all transfers. Withdrawing some of it from your wallet's balances will make future updates fail Plonk verification...
-
-[^4]: This invariant will change after fees are implemented
-
-[^5]: This is possible for `VALID WALLET CREATE`, but creating a bunch of identical new wallets is not a safety concern

@@ -7,7 +7,8 @@ use circuit_types::{
     test_helpers::TESTING_SRS,
     traits::{BaseType, CircuitBaseType, SingleProverCircuit},
 };
-use common::{
+use constants::{Scalar, SystemCurve};
+use contracts_common::{
     constants::{NUM_MATCH_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{
         G1Affine, G2Affine, MatchProofs, MatchPublicInputs, MatchVkeys, Proof, PublicInputs,
