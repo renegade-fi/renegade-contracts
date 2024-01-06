@@ -2,16 +2,21 @@
 
 use std::sync::Arc;
 
+use arbitrum_client::conversion::{
+    to_contract_proof, to_contract_valid_wallet_create_statement,
+    to_contract_valid_wallet_update_statement,
+};
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
-use circuit_types::test_helpers::TESTING_SRS;
-use constants::SystemCurve;
+use circuit_types::{test_helpers::TESTING_SRS, transfers::ExternalTransfer};
+use circuits::zk_circuits::valid_wallet_create::SizedValidWalletCreateStatement;
+use constants::{Scalar, SystemCurve};
 use contracts_common::{
     constants::TEST_MERKLE_HEIGHT,
     custom_serde::BytesSerializable,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
-    types::{G1Affine, G2Affine, PublicInputs, ScalarField, ValidWalletCreateStatement},
+    types::{G1Affine, G2Affine, PublicInputs, ScalarField},
 };
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
@@ -24,12 +29,13 @@ use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::{thread_rng, RngCore};
 use test_helpers::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
+    dummy_renegade_circuits::{
+        dummy_statement, dummy_valid_wallet_update_statement, gen_process_match_settle_data,
+        prove_with_srs, DummyValidWalletCreate, DummyValidWalletUpdate,
+    },
     merkle::new_ark_merkle_tree,
     misc::random_scalars,
-    proof_system::{convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey},
-    renegade_circuits::{
-        dummy_circuit_bundle, gen_valid_wallet_update_statement, proof_from_statement,
-    },
+    proof_system::{convert_jf_vkey, gen_jf_proof_and_vkey},
 };
 
 use crate::{
@@ -40,8 +46,8 @@ use crate::{
     constants::{L, N, PROOF_BATCH_SIZE, TRANSFER_AMOUNT},
     utils::{
         dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
-        get_process_match_settle_data, insert_shares_and_get_root, mint_dummy_erc20,
-        scalar_to_u256, serialize_to_calldata, serialize_verification_bundle, u256_to_scalar,
+        insert_shares_and_get_root, mint_dummy_erc20, scalar_to_u256, serialize_to_calldata,
+        serialize_verification_bundle, to_circuit_pubkey, u256_to_scalar,
     },
 };
 
@@ -193,7 +199,7 @@ pub(crate) async fn test_verifier(
             let public_inputs = PublicInputs(random_scalars(L, &mut rng));
             let (jf_proof, jf_vkey) =
                 gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-            let proof = convert_jf_proof(jf_proof).unwrap();
+            let proof = to_contract_proof(jf_proof).unwrap();
             let vkey = convert_jf_vkey(jf_vkey).unwrap();
             (vkey, proof, public_inputs)
         }));
@@ -459,16 +465,21 @@ pub(crate) async fn test_new_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
-    // Generate test data
     let mut rng = thread_rng();
-    let (valid_wallet_create_statement, proof) =
-        dummy_circuit_bundle::<ValidWalletCreateStatement>(srs, N, &mut rng)?;
 
-    // Call `new_wallet` with valid data
+    // Generate dummy statement & proof
+    let statement: SizedValidWalletCreateStatement = dummy_statement(&mut rng);
+    let proof = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement.clone())?;
+
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement = to_contract_valid_wallet_create_statement(&statement);
+    let contract_proof = to_contract_proof(proof)?;
+
+    // Call `new_wallet`
     contract
         .new_wallet(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&valid_wallet_create_statement)?,
+            serialize_to_calldata(&contract_proof)?,
+            serialize_to_calldata(&contract_statement)?,
         )
         .send()
         .await?
@@ -479,8 +490,8 @@ pub(crate) async fn test_new_wallet(
 
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
-        valid_wallet_create_statement.private_shares_commitment,
-        &valid_wallet_create_statement.public_wallet_shares,
+        contract_statement.private_shares_commitment,
+        &contract_statement.public_wallet_shares,
         0, /* index */
     )
     .unwrap();
@@ -504,23 +515,30 @@ pub(crate) async fn test_update_wallet(
 
     let mut rng = thread_rng();
 
-    let (signing_key, pubkey) = random_keypair(&mut rng);
+    let (signing_key, contract_pubkey) = random_keypair(&mut rng);
+
+    // Convert the public key to the type expected by the circuit
+    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
-    let valid_wallet_update_statement = gen_valid_wallet_update_statement(
+    // Generate dummy statement & proof
+    let statement = dummy_valid_wallet_update_statement(
         &mut rng,
-        None, /* external_transfer */
-        contract_root,
-        pubkey,
+        ExternalTransfer::default(),
+        Scalar::new(contract_root),
+        circuit_pubkey,
     );
+    let proof = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
 
-    let proof = proof_from_statement(srs, &valid_wallet_update_statement, N)?;
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement = to_contract_valid_wallet_update_statement(statement.clone())?;
+    let contract_proof = to_contract_proof(proof)?;
 
     let shares_commitment = compute_poseidon_hash(
         &[
-            vec![valid_wallet_update_statement.new_private_shares_commitment],
-            valid_wallet_update_statement.new_public_shares.clone(),
+            vec![contract_statement.new_private_shares_commitment],
+            contract_statement.new_public_shares.clone(),
         ]
         .concat(),
     );
@@ -529,11 +547,11 @@ pub(crate) async fn test_update_wallet(
         hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
     );
 
-    // Call `update_wallet` with valid data
+    // Call `update_wallet`
     contract
         .update_wallet(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&valid_wallet_update_statement)?,
+            serialize_to_calldata(&contract_proof)?,
+            serialize_to_calldata(&contract_statement)?,
             public_inputs_signature,
         )
         .send()
@@ -541,7 +559,7 @@ pub(crate) async fn test_update_wallet(
         .await?;
 
     // Assert that correct nullifier is spent
-    let nullifier = scalar_to_u256(valid_wallet_update_statement.old_shares_nullifier);
+    let nullifier = scalar_to_u256(contract_statement.old_shares_nullifier);
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
@@ -549,8 +567,8 @@ pub(crate) async fn test_update_wallet(
     // Assert that Merkle root is correct
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
-        valid_wallet_update_statement.new_private_shares_commitment,
-        &valid_wallet_update_statement.new_public_shares,
+        contract_statement.new_private_shares_commitment,
+        &contract_statement.new_public_shares,
         0, /* index */
     )
     .unwrap();
@@ -574,7 +592,7 @@ pub(crate) async fn test_process_match_settle(
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
     let mut rng = thread_rng();
-    let data = get_process_match_settle_data(&mut rng, srs, contract_root)?;
+    let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
 
     // Call `process_match_settle` with valid data
     contract

@@ -6,10 +6,6 @@ use circuits::zk_circuits::{
     valid_wallet_update::SizedValidWalletUpdate,
 };
 use constants::SystemCurve;
-use contracts_common::types::{
-    ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-    ValidWalletCreateStatement, ValidWalletUpdateStatement,
-};
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
@@ -20,6 +16,10 @@ use ethers::{
 use mpc_plonk::proof_system::{PlonkKzgSnark, UniversalSNARK};
 use rand::thread_rng;
 use std::{str::FromStr, sync::Arc};
+use test_helpers::dummy_renegade_circuits::{
+    DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
+    DummyValidWalletUpdate,
+};
 use tracing::log::{info, warn};
 
 use crate::{
@@ -35,8 +35,8 @@ use crate::{
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
-        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_test_vkey,
-        gen_vkey, get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file,
+        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_vkey,
+        get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file,
         write_deployed_address, write_srs_to_file, write_vkey_file,
     },
 };
@@ -207,11 +207,11 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
         valid_match_settle_vkey,
     ) = if args.test {
         (
-            gen_test_vkey::<ValidWalletCreateStatement>(&srs)?,
-            gen_test_vkey::<ValidWalletUpdateStatement>(&srs)?,
-            gen_test_vkey::<ValidCommitmentsStatement>(&srs)?,
-            gen_test_vkey::<ValidReblindStatement>(&srs)?,
-            gen_test_vkey::<ValidMatchSettleStatement>(&srs)?,
+            gen_vkey::<DummyValidWalletCreate>(&srs)?,
+            gen_vkey::<DummyValidWalletUpdate>(&srs)?,
+            gen_vkey::<DummyValidCommitments>(&srs)?,
+            gen_vkey::<DummyValidReblind>(&srs)?,
+            gen_vkey::<DummyValidMatchSettle>(&srs)?,
         )
     } else {
         (

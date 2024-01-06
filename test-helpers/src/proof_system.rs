@@ -1,6 +1,5 @@
 //! General PLONK proof system construction test helpers
 
-use alloc::{vec, vec::Vec};
 use ark_ec::AffineRepr;
 use ark_std::UniformRand;
 use circuit_types::{
@@ -9,15 +8,15 @@ use circuit_types::{
 };
 use constants::{Scalar, SystemCurve};
 use contracts_common::{
-    constants::{NUM_MATCH_CIRCUITS, NUM_SELECTORS, NUM_WIRE_TYPES},
+    constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
+    custom_serde::ScalarSerializable,
     types::{
-        G1Affine, G2Affine, MatchProofs, MatchPublicInputs, MatchVkeys, Proof, PublicInputs,
-        ScalarField, VerificationKey,
+        G1Affine, G2Affine, MatchPayload, MatchProofs, MatchPublicInputs, MatchVkeys, Proof,
+        PublicInputs, ScalarField, VerificationKey,
     },
 };
 use core::iter;
 use eyre::{eyre, Result};
-use itertools::multiunzip;
 use jf_primitives::pcs::prelude::{Commitment, UnivariateUniversalParams, UnivariateVerifierParam};
 use mpc_plonk::{
     errors::PlonkError,
@@ -34,9 +33,12 @@ use mpc_plonk::{
 use mpc_relation::{traits::Circuit, PlonkCircuit};
 use rand::thread_rng;
 
-use crate::misc::random_scalars;
+use crate::dummy_renegade_circuits::{
+    gen_process_match_settle_data, DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind,
+    ProcessMatchSettleData,
+};
 
-pub fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircuit<ScalarField>> {
+fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircuit<ScalarField>> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
 
     for pi in &public_inputs.0 {
@@ -44,7 +46,7 @@ pub fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircui
     }
 
     let mut a = circuit.zero();
-    for _ in 0..n / 2 - 10 {
+    for _ in 0..n / 2 {
         a = circuit.add(a, circuit.one())?;
         a = circuit.mul(a, circuit.one())?;
     }
@@ -120,27 +122,6 @@ fn try_unwrap_commitments<const N: usize>(
         .map_err(|_| eyre!("failed to unwrap commitments"))
 }
 
-pub fn convert_jf_proof(jf_proof: JfProof<SystemCurve>) -> Result<Proof> {
-    Ok(Proof {
-        wire_comms: try_unwrap_commitments(&jf_proof.wires_poly_comms)?,
-        z_comm: jf_proof.prod_perm_poly_comm.0,
-        quotient_comms: try_unwrap_commitments(&jf_proof.split_quot_poly_comms)?,
-        w_zeta: jf_proof.opening_proof.0,
-        w_zeta_omega: jf_proof.shifted_opening_proof.0,
-        wire_evals: jf_proof
-            .poly_evals
-            .wires_evals
-            .try_into()
-            .map_err(|_| eyre!("failed to unwrap evaluations"))?,
-        sigma_evals: jf_proof
-            .poly_evals
-            .wire_sigma_evals
-            .try_into()
-            .map_err(|_| eyre!("failed to unwrap evaluations"))?,
-        z_bar: jf_proof.poly_evals.perm_next_eval,
-    })
-}
-
 pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<VerificationKey> {
     Ok(VerificationKey {
         n: jf_vkey.domain_size as u64,
@@ -157,99 +138,78 @@ pub fn convert_jf_vkey(jf_vkey: VerifyingKey<SystemCurve>) -> Result<Verificatio
     })
 }
 
-pub fn generate_match_bundle(
-    n: usize,
-    l: usize,
-) -> Result<(MatchVkeys, MatchProofs, MatchPublicInputs)> {
+pub fn generate_match_bundle() -> Result<(MatchVkeys, MatchProofs, MatchPublicInputs)> {
     let mut rng = thread_rng();
-    let (circuits, pkeys, vkeys, public_inputs): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
-        multiunzip((0..NUM_MATCH_CIRCUITS).map(|_| {
-            let public_inputs = PublicInputs(random_scalars(l, &mut rng));
-            let (circuit, jf_pkey, jf_vkey) =
-                gen_test_circuit_and_keys(&TESTING_SRS, n, &public_inputs).unwrap();
-            let vkey = convert_jf_vkey(jf_vkey).unwrap();
-            (circuit, jf_pkey, vkey, public_inputs)
-        }));
 
-    let valid_commitments_circuit = &circuits[0];
-    let valid_reblind_circuit = &circuits[1];
-    let valid_match_settle_circuit = &circuits[2];
+    let merkle_root = Scalar::random(&mut rng);
+    let ProcessMatchSettleData {
+        party_0_match_payload:
+            MatchPayload {
+                valid_commitments_statement: party_0_valid_commitments_statement,
+                valid_reblind_statement: party_0_valid_reblind_statement,
+            },
+        party_0_valid_commitments_proof,
+        party_0_valid_reblind_proof,
+        party_1_match_payload:
+            MatchPayload {
+                valid_commitments_statement: party_1_valid_commitments_statement,
+                valid_reblind_statement: party_1_valid_reblind_statement,
+            },
+        party_1_valid_commitments_proof,
+        party_1_valid_reblind_proof,
+        valid_match_settle_statement,
+        valid_match_settle_proof,
+    } = gen_process_match_settle_data(&mut rng, &TESTING_SRS, merkle_root)?;
 
-    let valid_commitments_pkey = &pkeys[0];
-    let valid_reblind_pkey = &pkeys[1];
-    let valid_match_settle_pkey = &pkeys[2];
+    let valid_commitments_vkey =
+        convert_jf_vkey((*DummyValidCommitments::verifying_key()).clone())?;
+    let valid_reblind_vkey = convert_jf_vkey((*DummyValidReblind::verifying_key()).clone())?;
+    let valid_match_settle_vkey =
+        convert_jf_vkey((*DummyValidMatchSettle::verifying_key()).clone())?;
 
     let match_vkeys = MatchVkeys {
-        valid_commitments_vkey: vkeys[0],
-        valid_reblind_vkey: vkeys[1],
-        valid_match_settle_vkey: vkeys[2],
+        valid_commitments_vkey,
+        valid_reblind_vkey,
+        valid_match_settle_vkey,
     };
-
-    let match_public_inputs = MatchPublicInputs {
-        valid_commitments_0: public_inputs[0].clone(),
-        valid_reblind_0: public_inputs[1].clone(),
-        valid_commitments_1: public_inputs[0].clone(),
-        valid_reblind_1: public_inputs[1].clone(),
-        valid_match_settle: public_inputs[2].clone(),
-    };
-
-    let valid_commitments_0 = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
-        _,
-        _,
-        SolidityTranscript,
-    >(
-        &mut rng,
-        valid_commitments_circuit,
-        valid_commitments_pkey,
-        None,
-    )?)?;
-
-    let valid_reblind_0 =
-        convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
-            _,
-            _,
-            SolidityTranscript,
-        >(
-            &mut rng, valid_reblind_circuit, valid_reblind_pkey, None
-        )?)?;
-
-    let valid_commitments_1 = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
-        _,
-        _,
-        SolidityTranscript,
-    >(
-        &mut rng,
-        valid_commitments_circuit,
-        valid_commitments_pkey,
-        None,
-    )?)?;
-
-    let valid_reblind_1 =
-        convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
-            _,
-            _,
-            SolidityTranscript,
-        >(
-            &mut rng, valid_reblind_circuit, valid_reblind_pkey, None
-        )?)?;
-
-    let valid_match_settle = convert_jf_proof(PlonkKzgSnark::<SystemCurve>::prove::<
-        _,
-        _,
-        SolidityTranscript,
-    >(
-        &mut rng,
-        valid_match_settle_circuit,
-        valid_match_settle_pkey,
-        None,
-    )?)?;
 
     let match_proofs = MatchProofs {
-        valid_commitments_0,
-        valid_reblind_0,
-        valid_commitments_1,
-        valid_reblind_1,
-        valid_match_settle,
+        valid_commitments_0: party_0_valid_commitments_proof,
+        valid_reblind_0: party_0_valid_reblind_proof,
+        valid_commitments_1: party_1_valid_commitments_proof,
+        valid_reblind_1: party_1_valid_reblind_proof,
+        valid_match_settle: valid_match_settle_proof,
+    };
+
+    let valid_commitments_0_public_inputs = PublicInputs(
+        party_0_valid_commitments_statement
+            .serialize_to_scalars()
+            .unwrap(),
+    );
+    let valid_reblind_0_public_inputs = PublicInputs(
+        party_0_valid_reblind_statement
+            .serialize_to_scalars()
+            .unwrap(),
+    );
+    let valid_commitments_1_public_inputs = PublicInputs(
+        party_1_valid_commitments_statement
+            .serialize_to_scalars()
+            .unwrap(),
+    );
+    let valid_reblind_1_public_inputs = PublicInputs(
+        party_1_valid_reblind_statement
+            .serialize_to_scalars()
+            .unwrap(),
+    );
+    let valid_match_settle_public_inputs =
+        PublicInputs(valid_match_settle_statement.serialize_to_scalars().unwrap());
+
+    let match_public_inputs = MatchPublicInputs {
+        valid_commitments_0: valid_commitments_0_public_inputs,
+        valid_reblind_0: valid_reblind_0_public_inputs,
+        valid_commitments_1: valid_commitments_1_public_inputs,
+        valid_reblind_1: valid_reblind_1_public_inputs,
+        valid_match_settle: valid_match_settle_public_inputs,
     };
 
     Ok((match_vkeys, match_proofs, match_public_inputs))
