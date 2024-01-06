@@ -1,6 +1,5 @@
 //! Implementation of a Merkle tree using the Poseidon2 implementation from the relayer codebase.
 
-use alloc::vec;
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
     merkle_tree::{Config, IdentityDigestConverter, MerkleTree},

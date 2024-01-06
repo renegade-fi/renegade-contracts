@@ -813,10 +813,9 @@ mod tests {
     use test_helpers::{
         crypto::NativeHasher,
         misc::random_scalars,
-        proof_system::{
-            convert_jf_proof, convert_jf_vkey, gen_jf_proof_and_vkey, generate_match_bundle,
-        },
+        proof_system::{convert_jf_vkey, gen_jf_proof_and_vkey, generate_match_bundle},
     };
+    use arbitrum_client::conversion::to_contract_proof;
 
     use crate::transcript::Transcript;
 
@@ -1139,7 +1138,7 @@ mod tests {
         let mut rng = thread_rng();
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-        let proof = convert_jf_proof(jf_proof).unwrap();
+        let proof = to_contract_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
@@ -1153,7 +1152,7 @@ mod tests {
         let mut rng = thread_rng();
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
         let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
-        let mut proof = convert_jf_proof(jf_proof).unwrap();
+        let mut proof = to_contract_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
         proof.z_bar += ScalarField::one();
         let result =
@@ -1165,7 +1164,7 @@ mod tests {
 
     #[test]
     fn test_valid_match_plonk_proofs_verification() {
-        let (match_vkeys, match_proofs, match_public_inputs) = generate_match_bundle(N, L).unwrap();
+        let (match_vkeys, match_proofs, match_public_inputs) = generate_match_bundle().unwrap();
 
         let MatchOpeningElems {
             g1_lhs_elems,
@@ -1195,8 +1194,7 @@ mod tests {
     fn test_invalid_match_plonk_proofs_verification() {
         let mut rng = thread_rng();
 
-        let (match_vkeys, mut match_proofs, match_public_inputs) =
-            generate_match_bundle(N, L).unwrap();
+        let (match_vkeys, mut match_proofs, match_public_inputs) = generate_match_bundle().unwrap();
 
         let mut proofs = [
             &mut match_proofs.valid_commitments_0,

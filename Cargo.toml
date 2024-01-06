@@ -36,7 +36,10 @@ tokio = { version = "1.12.0", features = ["full"] }
 constants = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
 renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
 circuits = { git = "https://github.com/renegade-fi/renegade.git" }
-circuit-types = { git = "https://github.com/renegade-fi/renegade.git" }
+circuit-types = { git = "https://github.com/renegade-fi/renegade.git", features = [
+    "test-helpers",
+] }
+arbitrum-client = { git = "https://github.com/renegade-fi/renegade.git" }
 itertools = "0.12"
 mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
@@ -61,3 +64,10 @@ opt-level = 3       # optimize for performance (default for most contracts)
 lto = true          # link time optimization
 rpath = false       # no run-time search path
 incremental = false # no incremental builds
+
+[patch."https://github.com/renegade-fi/renegade-contracts.git"]
+# The `arbitrum-client` crate, which we depend on in e.g. `test-helpers`,
+# depends on `contracts-common`, but from the git source.
+# In order to have consistent types in the `arbitrum-client` interfaces,
+# we patch the `contracts-common` dependency to point to the local crate.
+contracts-common = { path = "./contracts-common" }

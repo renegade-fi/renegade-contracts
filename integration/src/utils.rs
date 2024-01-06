@@ -2,13 +2,15 @@
 
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
-use constants::SystemCurve;
+use circuit_types::keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey};
+
+use constants::Scalar;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
     types::{
-        ExternalTransfer, MatchPayload, Proof, PublicInputs, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleStatement, VerificationKey,
+        ExternalTransfer, Proof, PublicInputs, PublicSigningKey as ContractPublicSigningKey,
+        ScalarField, VerificationKey,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -18,8 +20,7 @@ use ethers::{
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
-use jf_primitives::pcs::prelude::UnivariateUniversalParams;
-use rand::Rng;
+use itertools::Itertools;
 use scripts::{
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
@@ -27,15 +28,12 @@ use scripts::{
     utils::parse_addr_from_deployments_file,
 };
 use serde::Serialize;
-use test_helpers::{
-    merkle::MerkleConfig,
-    renegade_circuits::{dummy_circuit_bundle, gen_valid_reblind_statement, proof_from_statement},
-};
+use test_helpers::merkle::MerkleConfig;
 
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
-    constants::{N, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY},
+    constants::{PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY},
 };
 
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
@@ -120,59 +118,28 @@ pub fn serialize_verification_bundle(
     Ok(bundle_bytes.into())
 }
 
-pub struct ProcessMatchSettleData {
-    pub party_0_match_payload: MatchPayload,
-    pub party_0_valid_commitments_proof: Proof,
-    pub party_0_valid_reblind_proof: Proof,
-    pub party_1_match_payload: MatchPayload,
-    pub party_1_valid_commitments_proof: Proof,
-    pub party_1_valid_reblind_proof: Proof,
-    pub valid_match_settle_proof: Proof,
-    pub valid_match_settle_statement: ValidMatchSettleStatement,
-}
-
-pub(crate) fn get_process_match_settle_data(
-    rng: &mut impl Rng,
-    srs: &UnivariateUniversalParams<SystemCurve>,
-    merkle_root: ScalarField,
-) -> Result<ProcessMatchSettleData> {
-    let (party_0_valid_commitments_statement, party_0_valid_commitments_proof) =
-        dummy_circuit_bundle::<ValidCommitmentsStatement>(srs, N, rng)?;
-
-    let party_0_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
-    let party_0_valid_reblind_proof =
-        proof_from_statement(srs, &party_0_valid_reblind_statement, N)?;
-
-    let (party_1_valid_commitments_statement, party_1_valid_commitments_proof) =
-        dummy_circuit_bundle::<ValidCommitmentsStatement>(srs, N, rng)?;
-
-    let party_1_valid_reblind_statement = gen_valid_reblind_statement(rng, merkle_root);
-    let party_1_valid_reblind_proof =
-        proof_from_statement(srs, &party_1_valid_reblind_statement, N)?;
-
-    let (valid_match_settle_statement, valid_match_settle_proof) =
-        dummy_circuit_bundle::<ValidMatchSettleStatement>(srs, N, rng)?;
-
-    let party_0_match_payload = MatchPayload {
-        valid_commitments_statement: party_0_valid_commitments_statement,
-        valid_reblind_statement: party_0_valid_reblind_statement,
+pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPublicSigningKey {
+    let x = NonNativeScalar {
+        scalar_words: contract_pubkey
+            .x
+            .into_iter()
+            .map(Scalar::new)
+            .collect_vec()
+            .try_into()
+            .unwrap(),
     };
 
-    let party_1_match_payload = MatchPayload {
-        valid_commitments_statement: party_1_valid_commitments_statement,
-        valid_reblind_statement: party_1_valid_reblind_statement,
+    let y = NonNativeScalar {
+        scalar_words: contract_pubkey
+            .y
+            .into_iter()
+            .map(Scalar::new)
+            .collect_vec()
+            .try_into()
+            .unwrap(),
     };
 
-    Ok(ProcessMatchSettleData {
-        party_0_match_payload,
-        party_0_valid_commitments_proof,
-        party_0_valid_reblind_proof,
-        party_1_match_payload,
-        party_1_valid_commitments_proof,
-        party_1_valid_reblind_proof,
-        valid_match_settle_proof,
-        valid_match_settle_statement,
-    })
+    CircuitPublicSigningKey { x, y }
 }
 
 pub(crate) async fn mint_dummy_erc20(
