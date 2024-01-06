@@ -20,5 +20,6 @@ jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { workspace = true }
 renegade-crypto = { workspace = true }
 circuit-types = { workspace = true }
+circuits = { workspace = true }
 constants = { workspace = true }
-itertools = { workspace = true }
+arbitrum-client = { workspace = true }

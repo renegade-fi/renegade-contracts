@@ -116,9 +116,6 @@ pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
 /// The default degree to use for generating an SRS
 pub const DEFAULT_SRS_DEGREE: usize = 2048;
 
-/// The domain size to use for generating test circuits
-pub const TEST_CIRCUIT_DOMAIN_SIZE: usize = 1024;
-
 /// The file name for the VALID WALLET CREATE verification key
 pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";
 

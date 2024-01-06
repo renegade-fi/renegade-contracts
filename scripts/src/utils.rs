@@ -16,7 +16,7 @@ use alloy_sol_types::SolCall;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use circuit_types::traits::SingleProverCircuit;
 use constants::SystemCurve;
-use contracts_common::types::{PublicInputs, VerificationKey};
+use contracts_common::types::VerificationKey;
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -27,12 +27,7 @@ use ethers::{
 use itertools::Itertools;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use json::JsonValue;
-
-use rand::thread_rng;
-use test_helpers::{
-    proof_system::{convert_jf_vkey, gen_circuit_keys, gen_test_circuit_and_keys},
-    renegade_circuits::RenegadeStatement,
-};
+use test_helpers::proof_system::{convert_jf_vkey, gen_circuit_keys};
 use tracing::log::warn;
 
 use crate::{
@@ -42,9 +37,8 @@ use crate::{
         DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
         MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
         OPT_LEVEL_FLAG, OPT_LEVEL_S, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
-        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_CIRCUIT_DOMAIN_SIZE,
-        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND,
-        WASM_TARGET_TRIPLE, Z_FLAGS,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -342,25 +336,6 @@ pub async fn deploy_stylus_contract(
     )?;
 
     Ok(())
-}
-
-pub fn gen_test_vkey<S: RenegadeStatement>(
-    srs: &UnivariateUniversalParams<SystemCurve>,
-) -> Result<VerificationKey, ScriptError> {
-    let public_inputs = PublicInputs(
-        S::dummy(&mut thread_rng())
-            .serialize_to_scalars()
-            .map_err(|_| {
-                ScriptError::Serde("error serializing statement to scalars".to_string())
-            })?,
-    );
-
-    let (_, _, jf_vkey) = gen_test_circuit_and_keys(srs, TEST_CIRCUIT_DOMAIN_SIZE, &public_inputs)
-        .map_err(|_| ScriptError::CircuitCreation)?;
-
-    let vkey = convert_jf_vkey(jf_vkey).map_err(|_| ScriptError::ConversionError)?;
-
-    Ok(vkey)
 }
 
 pub fn gen_vkey<C: SingleProverCircuit>(

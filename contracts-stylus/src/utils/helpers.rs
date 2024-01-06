@@ -4,11 +4,8 @@ use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use contracts_common::{
-    constants::NUM_SCALARS_PK,
-    custom_serde::{
-        bigint_from_le_bytes, pk_to_scalars, BytesSerializable, ScalarSerializable, SerdeError,
-    },
-    types::{PublicInputs, PublicSigningKey, ScalarField},
+    custom_serde::{bigint_from_le_bytes, BytesSerializable, ScalarSerializable, SerdeError, pk_to_scalars},
+    types::{PublicInputs, ScalarField, PublicSigningKey}, constants::NUM_SCALARS_PK,
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},

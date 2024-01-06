@@ -1,6 +1,5 @@
 //! Miscellaneous test helpers
 
-use alloc::vec::Vec;
 use ark_std::UniformRand;
 use contracts_common::types::ScalarField;
 use rand::Rng;
