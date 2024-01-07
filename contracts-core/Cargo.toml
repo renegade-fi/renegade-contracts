@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common = { path = "../common" }
+contracts-common = { path = "../contracts-common" }
 ark-ff = { workspace = true }
 alloy-primitives = { workspace = true }
 renegade-crypto = { workspace = true, features = ["inline"] }

@@ -4,7 +4,8 @@ use alloc::{vec, vec::Vec};
 use alloy_primitives::{Address, U256};
 
 use ark_std::UniformRand;
-use common::{
+use constants::SystemCurve;
+use contracts_common::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256},
     custom_serde::ScalarSerializable,
     types::{
@@ -13,7 +14,6 @@ use common::{
         ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
-use constants::SystemCurve;
 use core::iter;
 use eyre::{eyre, Result};
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;

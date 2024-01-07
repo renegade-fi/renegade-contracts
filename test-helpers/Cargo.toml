@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common = { path = "../common" }
+contracts-common = { path = "../contracts-common" }
 rand = { workspace = true }
 ark-ff = { workspace = true }
 ark-ec = { workspace = true }

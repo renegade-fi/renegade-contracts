@@ -950,22 +950,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
-name = "common"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "num-bigint",
- "rand",
- "serde",
- "serde_with",
-]
-
-[[package]]
 name = "const-hex"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1001,6 +985,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "contracts-common"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "num-bigint",
+ "rand",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
 name = "contracts-core"
 version = "0.1.0"
 dependencies = [
@@ -1011,7 +1011,7 @@ dependencies = [
  "ark-ff",
  "ark-std",
  "circuit-types",
- "common",
+ "contracts-common",
  "ethers",
  "itertools 0.12.0",
  "jf-utils",
@@ -1030,7 +1030,7 @@ dependencies = [
  "ark-bn254",
  "ark-ec",
  "ark-ff",
- "common",
+ "contracts-common",
  "contracts-core",
  "mini-alloc",
  "postcard",
@@ -2376,8 +2376,8 @@ dependencies = [
  "ark-std",
  "circuit-types",
  "clap",
- "common",
  "constants",
+ "contracts-common",
  "contracts-core",
  "ethers",
  "eyre",
@@ -3822,8 +3822,8 @@ dependencies = [
  "circuit-types",
  "circuits",
  "clap",
- "common",
  "constants",
+ "contracts-common",
  "ethers",
  "hex",
  "itertools 0.12.0",
@@ -4410,8 +4410,8 @@ dependencies = [
  "ark-ff",
  "ark-std",
  "circuit-types",
- "common",
  "constants",
+ "contracts-common",
  "ethers",
  "eyre",
  "jf-primitives",

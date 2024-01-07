@@ -3,7 +3,7 @@
 //! in the `integration` crate
 
 use alloc::vec::Vec;
-use common::{
+use contracts_common::{
     backends::{EcRecoverBackend, G1ArithmeticBackend},
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
 };

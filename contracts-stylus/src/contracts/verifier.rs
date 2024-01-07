@@ -1,7 +1,7 @@
 //! The verifier smart contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use common::types::{Proof, PublicInputs, VerificationKey};
+use contracts_common::types::{Proof, PublicInputs, VerificationKey};
 use contracts_core::verifier::Verifier;
 use stylus_sdk::{abi::Bytes, prelude::*};
 

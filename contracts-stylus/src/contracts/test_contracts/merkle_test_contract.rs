@@ -1,7 +1,7 @@
 //! Testing contract for the Merkle tree which using the test height
 
 use alloc::vec::Vec;
-use common::{
+use contracts_common::{
     constants::{NUM_SCALARS_PK, TEST_MERKLE_HEIGHT},
     types::ScalarField,
 };

@@ -1,7 +1,7 @@
 //! Helpful cryptographic utilities for testing
 
 use ark_ff::PrimeField;
-use common::{
+use contracts_common::{
     backends::HashBackend,
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_U128},
     types::{PublicSigningKey, ScalarField},

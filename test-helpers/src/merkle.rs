@@ -6,7 +6,7 @@ use ark_crypto_primitives::{
     merkle_tree::{Config, IdentityDigestConverter, MerkleTree},
     Error as ArkError,
 };
-use common::{constants::EMPTY_LEAF_VALUE, types::ScalarField};
+use contracts_common::{constants::EMPTY_LEAF_VALUE, types::ScalarField};
 use core::borrow::Borrow;
 use rand::Rng;
 use renegade_crypto::hash::Poseidon2Sponge;

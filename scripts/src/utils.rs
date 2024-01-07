@@ -15,8 +15,8 @@ use alloy_primitives::Address as AlloyAddress;
 use alloy_sol_types::SolCall;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use circuit_types::traits::SingleProverCircuit;
-use common::types::{PublicInputs, VerificationKey};
 use constants::SystemCurve;
+use contracts_common::types::{PublicInputs, VerificationKey};
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,

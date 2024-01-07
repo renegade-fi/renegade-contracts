@@ -2,7 +2,7 @@
 members = [
     "contracts-stylus",
     "contracts-core",
-    "common",
+    "contracts-common",
     "scripts",
     "test-helpers",
     "integration",

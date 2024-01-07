@@ -17,7 +17,7 @@ constants = { workspace = true }
 mpc-plonk = { workspace = true }
 ark-serialize = { workspace = true }
 jf-primitives = { workspace = true }
-common = { path = "../common" }
+contracts-common = { path = "../contracts-common" }
 test-helpers = { path = "../test-helpers" }
 rand = { workspace = true }
 postcard = { workspace = true }

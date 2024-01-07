@@ -10,7 +10,7 @@
 use core::marker::PhantomData;
 
 use alloc::vec::Vec;
-use common::{
+use contracts_common::{
     constants::{MERKLE_HEIGHT, NUM_SCALARS_PK},
     custom_serde::BytesSerializable,
     types::{PublicSigningKey, ScalarField},

@@ -2,7 +2,7 @@
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
-use common::types::{
+use contracts_common::types::{
     ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement,
     ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };

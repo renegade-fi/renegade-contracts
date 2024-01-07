@@ -1,6 +1,6 @@
 //! Helper functions for computing Poseidon2 hashes
 
-use common::types::ScalarField;
+use contracts_common::types::ScalarField;
 use renegade_crypto::hash::Poseidon2Sponge;
 
 pub fn compute_poseidon_hash(inputs: &[ScalarField]) -> ScalarField {

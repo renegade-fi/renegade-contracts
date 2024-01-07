@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 use ark_std::UniformRand;
-use common::types::ScalarField;
+use contracts_common::types::ScalarField;
 use rand::Rng;
 
 pub fn random_scalars(n: usize, rng: &mut impl Rng) -> Vec<ScalarField> {
