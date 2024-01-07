@@ -1,7 +1,7 @@
 //! Common utilities used throughout the smart contracts, including testing contracts.
 
 use ark_ff::One;
-use common::{
+use contracts_common::{
     backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError, HashBackend},
     constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
     custom_serde::{BytesDeserializable, BytesSerializable},

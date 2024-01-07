@@ -7,7 +7,7 @@ pub mod errors;
 
 use alloc::{vec, vec::Vec};
 use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zero};
-use common::{
+use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::NUM_WIRE_TYPES,
     types::{Challenges, G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
@@ -564,7 +564,7 @@ mod tests {
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
     use circuit_types::test_helpers::TESTING_SRS;
-    use common::{
+    use contracts_common::{
         backends::G1ArithmeticError,
         types::{G1Affine, G2Affine, PublicInputs, ScalarField},
     };

@@ -4,7 +4,7 @@ pub mod errors;
 
 use alloc::vec::Vec;
 use ark_ff::{BigInt, BigInteger, PrimeField};
-use common::{
+use contracts_common::{
     backends::HashBackend,
     constants::{HASH_SAMPLE_BYTES, NUM_BYTES_FELT, SPLIT_INDEX, TRANSCRIPT_STATE_SIZE},
     custom_serde::{bigint_from_le_bytes, BytesSerializable, TranscriptG1},
@@ -163,7 +163,7 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 
 #[cfg(test)]
 pub mod tests {
-    use common::types::PublicInputs;
+    use contracts_common::types::PublicInputs;
     use rand::thread_rng;
     use test_helpers::{
         crypto::NativeHasher,

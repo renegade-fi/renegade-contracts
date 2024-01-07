@@ -1,7 +1,7 @@
 use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
-use common::types::ExternalTransfer;
+use contracts_common::types::ExternalTransfer;
 use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
 
 use crate::{

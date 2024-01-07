@@ -4,11 +4,11 @@ use alloc::{vec, vec::Vec};
 use ark_ec::AffineRepr;
 use ark_std::UniformRand;
 use circuit_types::traits::{BaseType, CircuitBaseType, SingleProverCircuit};
-use common::{
+use constants::{Scalar, SystemCurve};
+use contracts_common::{
     constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
     types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
 };
-use constants::{Scalar, SystemCurve};
 use core::iter;
 use eyre::{eyre, Result};
 use jf_primitives::pcs::prelude::{Commitment, UnivariateUniversalParams, UnivariateVerifierParam};

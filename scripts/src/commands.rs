@@ -5,11 +5,11 @@ use circuits::zk_circuits::{
     valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
     valid_wallet_update::SizedValidWalletUpdate,
 };
-use common::types::{
+use constants::SystemCurve;
+use contracts_common::types::{
     ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
     ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
-use constants::SystemCurve;
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,

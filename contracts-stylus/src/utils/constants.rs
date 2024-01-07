@@ -1,7 +1,7 @@
 //! Constants used throughout the contracts
 
 use ark_ff::{BigInt, Fp};
-use common::{
+use contracts_common::{
     constants::{MERKLE_HEIGHT, TEST_MERKLE_HEIGHT},
     types::ScalarField,
 };

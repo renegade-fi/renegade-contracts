@@ -1,7 +1,7 @@
 //! Gelpers smart contract ECDSA verification using our own types & traits
 
 use ark_ff::PrimeField;
-use common::{
+use contracts_common::{
     backends::{EcRecoverBackend, EcdsaError, HashBackend},
     constants::{
         HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U128, NUM_BYTES_U64,
@@ -64,7 +64,7 @@ fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> [u8; NUM_BYTES_U128] {
 
 #[cfg(test)]
 mod tests {
-    use common::constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE};
+    use contracts_common::constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE};
     use ethers::types::{RecoveryMessage, Signature};
     use rand::{thread_rng, RngCore};
     use test_helpers::crypto::{hash_and_sign_message, random_keypair, NativeHasher};

@@ -6,13 +6,13 @@ use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::test_helpers::TESTING_SRS;
-use common::{
+use constants::SystemCurve;
+use contracts_common::{
     constants::TEST_MERKLE_HEIGHT,
     custom_serde::BytesSerializable,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, PublicInputs, ScalarField, ValidWalletCreateStatement},
 };
-use constants::SystemCurve;
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use ethers::{
     abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,

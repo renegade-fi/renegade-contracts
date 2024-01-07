@@ -2,7 +2,8 @@
 
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
-use common::{
+use constants::SystemCurve;
+use contracts_common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
     types::{
@@ -10,7 +11,6 @@ use common::{
         ValidCommitmentsStatement, ValidMatchSettleStatement, VerificationKey,
     },
 };
-use constants::SystemCurve;
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::{
     abi::Address,
