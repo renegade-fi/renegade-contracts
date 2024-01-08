@@ -22,9 +22,6 @@ pub(crate) const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target
 /// The number of proofs to batch-verify in the verifier test
 pub(crate) const PROOF_BATCH_SIZE: usize = 3;
 
-/// The domain size to use when testing the verifier contract
-pub(crate) const N: usize = 1024;
-
 /// The number of public inputs to use when testing the verifier contract
 pub(crate) const L: usize = 128;
 

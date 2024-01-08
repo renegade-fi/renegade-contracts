@@ -43,7 +43,7 @@ use crate::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
-    constants::{L, N, PROOF_BATCH_SIZE, TRANSFER_AMOUNT},
+    constants::{L, PROOF_BATCH_SIZE, TRANSFER_AMOUNT},
     utils::{
         dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
         insert_shares_and_get_root, mint_dummy_erc20, scalar_to_u256, serialize_to_calldata,
@@ -197,8 +197,7 @@ pub(crate) async fn test_verifier(
     let (vkey_batch, mut proof_batch, mut public_inputs_batch): (Vec<_>, Vec<_>, Vec<_>) =
         multiunzip((0..PROOF_BATCH_SIZE).map(|_| {
             let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-            let (jf_proof, jf_vkey) =
-                gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+            let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, &public_inputs).unwrap();
             let proof = to_contract_proof(jf_proof).unwrap();
             let vkey = convert_jf_vkey(jf_vkey).unwrap();
             (vkey, proof, public_inputs)

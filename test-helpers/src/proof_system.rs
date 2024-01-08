@@ -38,18 +38,13 @@ use crate::dummy_renegade_circuits::{
     ProcessMatchSettleData,
 };
 
-fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircuit<ScalarField>> {
+fn gen_circuit(public_inputs: &PublicInputs) -> Result<PlonkCircuit<ScalarField>> {
     let mut circuit = PlonkCircuit::new_turbo_plonk();
 
     for pi in &public_inputs.0 {
         circuit.create_public_variable(*pi)?;
     }
 
-    let mut a = circuit.zero();
-    for _ in 0..n / 2 {
-        a = circuit.add(a, circuit.one())?;
-        a = circuit.mul(a, circuit.one())?;
-    }
     circuit.finalize_for_arithmetization()?;
 
     Ok(circuit)
@@ -57,14 +52,13 @@ fn gen_circuit(n: usize, public_inputs: &PublicInputs) -> Result<PlonkCircuit<Sc
 
 pub fn gen_test_circuit_and_keys(
     srs: &UnivariateUniversalParams<SystemCurve>,
-    n: usize,
     public_inputs: &PublicInputs,
 ) -> Result<(
     PlonkCircuit<ScalarField>,
     ProvingKey<SystemCurve>,
     VerifyingKey<SystemCurve>,
 )> {
-    let circuit = gen_circuit(n, public_inputs)?;
+    let circuit = gen_circuit(public_inputs)?;
 
     let (pkey, vkey) = PlonkKzgSnark::<SystemCurve>::preprocess(srs, &circuit)?;
 
@@ -97,12 +91,11 @@ pub fn gen_circuit_keys<C: SingleProverCircuit>(
 
 pub fn gen_jf_proof_and_vkey(
     srs: &UnivariateUniversalParams<SystemCurve>,
-    n: usize,
     public_inputs: &PublicInputs,
 ) -> Result<(JfProof<SystemCurve>, VerifyingKey<SystemCurve>)> {
     let mut rng = thread_rng();
 
-    let (circuit, pkey, jf_vkey) = gen_test_circuit_and_keys(srs, n, public_inputs)?;
+    let (circuit, pkey, jf_vkey) = gen_test_circuit_and_keys(srs, public_inputs)?;
 
     let jf_proof = PlonkKzgSnark::<SystemCurve>::prove::<_, _, SolidityTranscript>(
         &mut rng, &circuit, &pkey, None,

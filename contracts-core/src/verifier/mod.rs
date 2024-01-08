@@ -785,6 +785,7 @@ mod tests {
     use core::result::Result;
 
     use alloc::vec::Vec;
+    use arbitrum_client::conversion::to_contract_proof;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
@@ -815,7 +816,6 @@ mod tests {
         misc::random_scalars,
         proof_system::{convert_jf_vkey, gen_jf_proof_and_vkey, generate_match_bundle},
     };
-    use arbitrum_client::conversion::to_contract_proof;
 
     use crate::transcript::Transcript;
 
@@ -1137,7 +1137,7 @@ mod tests {
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, &public_inputs).unwrap();
         let proof = to_contract_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
         let result =
@@ -1151,7 +1151,7 @@ mod tests {
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, N, &public_inputs).unwrap();
+        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, &public_inputs).unwrap();
         let mut proof = to_contract_proof(jf_proof).unwrap();
         let vkey = convert_jf_vkey(jf_vkey).unwrap();
         proof.z_bar += ScalarField::one();
