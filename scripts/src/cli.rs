@@ -76,6 +76,10 @@ pub struct DeployProxyArgs {
     /// and the underlying darkpool contract
     #[arg(short, long)]
     pub owner: String,
+
+    /// The initial protocol fee with which to initialize the darkpool contract
+    #[arg(short, long)]
+    pub fee: u64,
 }
 
 /// Deploy a Stylus contract
