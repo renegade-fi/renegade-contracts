@@ -32,8 +32,12 @@ use contracts_utils::{
     },
 };
 use ethers::{
-    abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,
-    types::Bytes, utils::keccak256,
+    abi::Address,
+    middleware::SignerMiddleware,
+    providers::Middleware,
+    signers::LocalWallet,
+    types::{Bytes, TransactionRequest},
+    utils::{keccak256, parse_ether},
 };
 use eyre::Result;
 use itertools::multiunzip;
@@ -45,11 +49,12 @@ use crate::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
-    constants::{L, PROOF_BATCH_SIZE, TRANSFER_AMOUNT},
+    constants::{L, PROOF_BATCH_SIZE, TRANSFER_AMOUNT, TRANSFER_OWNERSHIP_METHOD_NAME, PAUSE_METHOD_NAME, UNPAUSE_METHOD_NAME},
     utils::{
-        dummy_erc20_deposit, dummy_erc20_withdrawal, execute_transfer_and_get_balances,
-        insert_shares_and_get_root, mint_dummy_erc20, scalar_to_u256, serialize_to_calldata,
-        serialize_verification_bundle, to_circuit_pubkey, u256_to_scalar,
+        assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
+        execute_transfer_and_get_balances, insert_shares_and_get_root, mint_dummy_erc20,
+        scalar_to_u256, serialize_to_calldata, serialize_verification_bundle, to_circuit_pubkey,
+        u256_to_scalar,
     },
 };
 
@@ -374,6 +379,64 @@ pub(crate) async fn test_initializable(
             .is_err(),
         "Initialized contract twice"
     );
+
+    Ok(())
+}
+
+pub(crate) async fn test_ownable(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+) -> Result<()> {
+    let initial_owner = contract.client().default_sender().unwrap();
+
+    // Assert that the owner is set correctly initially
+    assert_eq!(
+        contract.owner().call().await?,
+        initial_owner,
+        "Incorrect initial owner"
+    );
+
+    // Set up a dummy owner account and a contract instance with that account attached as the sender
+    let mut rng = thread_rng();
+    let dummy_owner = Arc::new(
+        SignerMiddleware::new_with_provider_chain(contract.client(), LocalWallet::new(&mut rng))
+            .await?,
+    );
+    let dummy_owner_address = dummy_owner.default_sender().unwrap();
+    let contract_with_dummy_owner = DarkpoolTestContract::new(contract.address(), dummy_owner);
+
+    // Assert that only the owner can transfer ownership
+    assert_only_owner::<_, Address>(&contract, &contract_with_dummy_owner, TRANSFER_OWNERSHIP_METHOD_NAME, dummy_owner_address).await?;
+    
+    // Assert that ownership was properly transferred
+    assert_eq!(
+        contract.owner().call().await?,
+        dummy_owner_address,
+        "Incorrect new owner"
+    );
+
+    // Transfer ownership back so that future tests have the correct owner
+    // To do so, we need to fund the dummy signer with some ETH for gas
+
+    let transfer_tx = TransactionRequest::new()
+        .from(initial_owner)
+        .to(dummy_owner_address)
+        .value(parse_ether(1_u64)?);
+
+    contract
+        .client()
+        .send_transaction(transfer_tx, None)
+        .await?
+        .await?;
+
+    contract_with_dummy_owner
+        .transfer_ownership(initial_owner)
+        .send()
+        .await?
+        .await?;
+
+    // Assert that only the owner can call the `pause`/`unpause` methods
+    assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, PAUSE_METHOD_NAME, ()).await?;
+    assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, UNPAUSE_METHOD_NAME, ()).await?;
 
     Ok(())
 }

@@ -7,6 +7,14 @@ abigen!(
     r#"[
         function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address) external
 
+        function owner() external view returns (address)
+        function transferOwnership(address memory new_owner) external
+
+        function paused() external view returns (bool)
+        function pause() external
+        function unpause() external
+
+
         function isNullifierSpent(uint256 memory nullifier) external view returns (bool)
         function markNullifierSpent(uint256 memory nullifier) external
 
@@ -15,8 +23,6 @@ abigen!(
         function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
         function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature) external
         function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_reblind_proof, bytes memory party_1_match_payload, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_reblind_proof, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_statement_bytes) external
-
-        function verify(uint8 memory circuit_id, bytes memory proof, bytes memory public_inputs) external view returns (bool)
 
         function executeExternalTransfer(bytes memory transfer) external
 
