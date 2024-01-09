@@ -2,7 +2,7 @@
 
 use arbitrum_client::conversion::{
     to_contract_valid_commitments_statement, to_contract_valid_match_settle_statement,
-    to_contract_valid_reblind_statement,
+    to_contract_valid_reblind_statement, to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
 };
 use ark_std::UniformRand;
 use circuit_types::{
@@ -12,24 +12,32 @@ use circuit_types::{
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_match_settle::SizedValidMatchSettleStatement, valid_reblind::ValidReblindStatement,
+    valid_wallet_create::SizedValidWalletCreateStatement,
     valid_wallet_update::SizedValidWalletUpdateStatement,
 };
+use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
-    custom_serde::ScalarSerializable,
+    custom_serde::{ScalarSerializable, BytesSerializable},
     types::{
         G1Affine, MatchPayload, MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
         PublicInputs, ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+        ValidWalletCreateStatement as ContractValidWalletCreateStatement,
+        ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
     },
 };
+use ethers::types::Bytes;
 use eyre::Result;
 use jf_primitives::pcs::prelude::{Commitment, UnivariateUniversalParams};
-
 use rand::{thread_rng, CryptoRng, Rng, RngCore};
 use std::iter;
 
+use crate::{crypto::{random_keypair, hash_and_sign_message}, conversion::to_circuit_pubkey};
+
 use super::{
-    dummy_renegade_circuits::{DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind},
+    dummy_renegade_circuits::{
+        DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate, DummyValidWalletUpdate,
+    },
     gen_circuit_vkey, prove_with_srs,
 };
 
@@ -43,6 +51,58 @@ pub fn random_commitments(n: usize, rng: &mut impl Rng) -> Vec<PolynomialCommitm
 
 pub fn dummy_statement<R: RngCore + CryptoRng, S: CircuitBaseType>(rng: &mut R) -> S {
     S::from_scalars(&mut iter::repeat_with(|| Scalar::random(rng)))
+}
+
+pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    srs: &UnivariateUniversalParams<SystemCurve>,
+) -> Result<(ContractProof, ContractValidWalletCreateStatement)> {
+    // Generate dummy statement & proof
+    let statement: SizedValidWalletCreateStatement = dummy_statement(rng);
+    let (proof, _) = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement.clone())?;
+
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement = to_contract_valid_wallet_create_statement(&statement);
+
+    Ok((proof, contract_statement))
+}
+
+pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    srs: &UnivariateUniversalParams<SystemCurve>,
+    merkle_root: Scalar,
+) -> Result<(ContractProof, ContractValidWalletUpdateStatement, Bytes)> {
+    // Generate signing keypair
+    let (signing_key, contract_pubkey) = random_keypair(rng);
+
+    // Convert the public key to the type expected by the circuit
+    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
+
+    // Generate dummy statement & proof
+    let statement = dummy_valid_wallet_update_statement(
+        rng,
+        ExternalTransfer::default(),
+        merkle_root,
+        circuit_pubkey,
+    );
+    let (proof, _) = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
+
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement = to_contract_valid_wallet_update_statement(statement)?;
+
+    let shares_commitment = compute_poseidon_hash(
+        &[
+            vec![contract_statement.new_private_shares_commitment],
+            contract_statement.new_public_shares.clone(),
+        ]
+        .concat(),
+    );
+
+    let public_inputs_signature = Bytes::from(
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
+    );
+
+    Ok((proof, contract_statement, public_inputs_signature))
 }
 
 pub struct ProcessMatchSettleData {
@@ -197,11 +257,22 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
     merkle_root: Scalar,
     old_pk_root: PublicSigningKey,
 ) -> SizedValidWalletUpdateStatement {
+    // We have to individually generate each field of the statement,
+    // since creating a dummy `ExternalTransfer` from random scalars will panic
+    // due to an invalid value for `ExternalTransferDirection`
+    let old_shares_nullifier = dummy_statement(rng);
+    let new_private_shares_commitment = dummy_statement(rng);
+    let new_public_shares = dummy_statement(rng);
+    let timestamp = dummy_statement(rng);
+
     SizedValidWalletUpdateStatement {
         external_transfer,
         merkle_root,
         old_pk_root,
-        ..dummy_statement(rng)
+        old_shares_nullifier,
+        new_private_shares_commitment,
+        new_public_shares,
+        timestamp,
     }
 }
 

@@ -2,18 +2,13 @@
 
 use std::sync::Arc;
 
-use arbitrum_client::conversion::{
-    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
-};
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
-use circuit_types::{test_helpers::TESTING_SRS, transfers::ExternalTransfer};
-use circuits::zk_circuits::valid_wallet_create::SizedValidWalletCreateStatement;
+use circuit_types::test_helpers::TESTING_SRS;
 use constants::{Scalar, SystemCurve};
 use contracts_common::{
     constants::TEST_MERKLE_HEIGHT,
-    custom_serde::BytesSerializable,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, PublicInputs, ScalarField},
 };
@@ -22,11 +17,9 @@ use contracts_utils::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::{
-        dummy_renegade_circuits::{DummyValidWalletCreate, DummyValidWalletUpdate},
-        prove_with_srs,
         test_circuit::gen_test_circuit_proofs_and_vkeys,
         test_data::{
-            dummy_statement, dummy_valid_wallet_update_statement, gen_process_match_settle_data,
+            gen_new_wallet_data, gen_process_match_settle_data, gen_update_wallet_data,
             random_scalars,
         },
     },
@@ -49,11 +42,14 @@ use crate::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
-    constants::{L, PROOF_BATCH_SIZE, TRANSFER_AMOUNT, TRANSFER_OWNERSHIP_METHOD_NAME, PAUSE_METHOD_NAME, UNPAUSE_METHOD_NAME},
+    constants::{
+        L, PAUSE_METHOD_NAME, PROOF_BATCH_SIZE, TRANSFER_AMOUNT, TRANSFER_OWNERSHIP_METHOD_NAME,
+        UNPAUSE_METHOD_NAME,
+    },
     utils::{
-        assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
-        execute_transfer_and_get_balances, insert_shares_and_get_root, mint_dummy_erc20,
-        scalar_to_u256, serialize_to_calldata, serialize_verification_bundle, to_circuit_pubkey,
+        assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
+        dummy_erc20_withdrawal, execute_transfer_and_get_balances, insert_shares_and_get_root,
+        mint_dummy_erc20, scalar_to_u256, serialize_to_calldata, serialize_verification_bundle,
         u256_to_scalar,
     },
 };
@@ -405,8 +401,14 @@ pub(crate) async fn test_ownable(
     let contract_with_dummy_owner = DarkpoolTestContract::new(contract.address(), dummy_owner);
 
     // Assert that only the owner can transfer ownership
-    assert_only_owner::<_, Address>(&contract, &contract_with_dummy_owner, TRANSFER_OWNERSHIP_METHOD_NAME, dummy_owner_address).await?;
-    
+    assert_only_owner::<_, Address>(
+        &contract,
+        &contract_with_dummy_owner,
+        TRANSFER_OWNERSHIP_METHOD_NAME,
+        dummy_owner_address,
+    )
+    .await?;
+
     // Assert that ownership was properly transferred
     assert_eq!(
         contract.owner().call().await?,
@@ -435,8 +437,103 @@ pub(crate) async fn test_ownable(
         .await?;
 
     // Assert that only the owner can call the `pause`/`unpause` methods
-    assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, PAUSE_METHOD_NAME, ()).await?;
-    assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, UNPAUSE_METHOD_NAME, ()).await?;
+    assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, PAUSE_METHOD_NAME, ())
+        .await?;
+    assert_only_owner::<_, ()>(
+        &contract,
+        &contract_with_dummy_owner,
+        UNPAUSE_METHOD_NAME,
+        (),
+    )
+    .await?;
+
+    Ok(())
+}
+
+pub(crate) async fn test_pausable(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    srs: &UnivariateUniversalParams<SystemCurve>,
+) -> Result<()> {
+    let mut rng = thread_rng();
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+
+    contract.pause().send().await?.await?;
+
+    // Assert that the contract is paused
+    assert!(contract.paused().call().await?, "Contract not paused");
+
+    // Assert that all setters revert when the contract is paused
+    // This requires passing in valid data
+
+    let (new_wallet_proof, new_wallet_statement) = gen_new_wallet_data(&mut rng, srs)?;
+
+    let (update_wallet_proof, update_wallet_statement, public_inputs_signature) =
+        gen_update_wallet_data(&mut rng, srs, Scalar::new(contract_root))?;
+
+    let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
+
+    assert_all_revert(vec![
+        contract
+            .new_wallet(
+                serialize_to_calldata(&new_wallet_proof)?,
+                serialize_to_calldata(&new_wallet_statement)?,
+            )
+            .send(),
+        contract
+            .update_wallet(
+                serialize_to_calldata(&update_wallet_proof)?,
+                serialize_to_calldata(&update_wallet_statement)?,
+                public_inputs_signature.clone(),
+            )
+            .send(),
+        contract
+            .process_match_settle(
+                serialize_to_calldata(&data.party_0_match_payload)?,
+                serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
+                serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
+                serialize_to_calldata(&data.party_1_match_payload)?,
+                serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
+                serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
+                serialize_to_calldata(&data.valid_match_settle_proof)?,
+                serialize_to_calldata(&data.valid_match_settle_statement)?,
+            )
+            .send(),
+        contract.pause().send(),
+    ])
+    .await?;
+
+    // Assert that setters work when the contract is unpaused
+
+    contract.unpause().send().await?.await?;
+
+    assert_all_suceed(vec![
+        contract
+            .new_wallet(
+                serialize_to_calldata(&new_wallet_proof)?,
+                serialize_to_calldata(&new_wallet_statement)?,
+            )
+            .send(),
+        contract
+            .update_wallet(
+                serialize_to_calldata(&update_wallet_proof)?,
+                serialize_to_calldata(&update_wallet_statement)?,
+                public_inputs_signature,
+            )
+            .send(),
+        contract
+            .process_match_settle(
+                serialize_to_calldata(&data.party_0_match_payload)?,
+                serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
+                serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
+                serialize_to_calldata(&data.party_1_match_payload)?,
+                serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
+                serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
+                serialize_to_calldata(&data.valid_match_settle_proof)?,
+                serialize_to_calldata(&data.valid_match_settle_statement)?,
+            )
+            .send(),
+    ])
+    .await?;
 
     Ok(())
 }
@@ -531,18 +628,13 @@ pub(crate) async fn test_new_wallet(
 ) -> Result<()> {
     let mut rng = thread_rng();
 
-    // Generate dummy statement & proof
-    let statement: SizedValidWalletCreateStatement = dummy_statement(&mut rng);
-    let (proof, _) = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement.clone())?;
-
-    // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement = to_contract_valid_wallet_create_statement(&statement);
+    let (proof, statement) = gen_new_wallet_data(&mut rng, srs)?;
 
     // Call `new_wallet`
     contract
         .new_wallet(
             serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&contract_statement)?,
+            serialize_to_calldata(&statement)?,
         )
         .send()
         .await?
@@ -553,8 +645,8 @@ pub(crate) async fn test_new_wallet(
 
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
-        contract_statement.private_shares_commitment,
-        &contract_statement.public_wallet_shares,
+        statement.private_shares_commitment,
+        &statement.public_wallet_shares,
         0, /* index */
     )
     .unwrap();
@@ -578,42 +670,15 @@ pub(crate) async fn test_update_wallet(
 
     let mut rng = thread_rng();
 
-    let (signing_key, contract_pubkey) = random_keypair(&mut rng);
-
-    // Convert the public key to the type expected by the circuit
-    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
-
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
-
-    // Generate dummy statement & proof
-    let statement = dummy_valid_wallet_update_statement(
-        &mut rng,
-        ExternalTransfer::default(),
-        Scalar::new(contract_root),
-        circuit_pubkey,
-    );
-    let (proof, _) = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
-
-    // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement = to_contract_valid_wallet_update_statement(statement.clone())?;
-
-    let shares_commitment = compute_poseidon_hash(
-        &[
-            vec![contract_statement.new_private_shares_commitment],
-            contract_statement.new_public_shares.clone(),
-        ]
-        .concat(),
-    );
-
-    let public_inputs_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
-    );
+    let (proof, statement, public_inputs_signature) =
+        gen_update_wallet_data(&mut rng, srs, Scalar::new(contract_root))?;
 
     // Call `update_wallet`
     contract
         .update_wallet(
             serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&contract_statement)?,
+            serialize_to_calldata(&statement)?,
             public_inputs_signature,
         )
         .send()
@@ -621,7 +686,7 @@ pub(crate) async fn test_update_wallet(
         .await?;
 
     // Assert that correct nullifier is spent
-    let nullifier = scalar_to_u256(contract_statement.old_shares_nullifier);
+    let nullifier = scalar_to_u256(statement.old_shares_nullifier);
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
@@ -629,8 +694,8 @@ pub(crate) async fn test_update_wallet(
     // Assert that Merkle root is correct
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
-        contract_statement.new_private_shares_commitment,
-        &contract_statement.new_public_shares,
+        statement.new_private_shares_commitment,
+        &statement.new_public_shares,
         0, /* index */
     )
     .unwrap();

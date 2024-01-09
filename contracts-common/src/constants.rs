@@ -43,9 +43,6 @@ pub const NUM_BYTES_U128: usize = 16;
 /// The number of bytes it takes to represent an unsigned 256-bit integer
 pub const NUM_BYTES_U256: usize = 32;
 
-/// The number of scalars it takes to encode an unsigned 256-bit integer
-pub const NUM_SCALARS_U256: usize = 2;
-
 /// The number of scalars it takes to encode a secp256k1 public key
 pub const NUM_SCALARS_PK: usize = 4;
 

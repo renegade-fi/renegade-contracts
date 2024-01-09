@@ -14,10 +14,7 @@ use std::{
 use alloy_primitives::Address as AlloyAddress;
 use alloy_sol_types::SolCall;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use circuit_types::traits::SingleProverCircuit;
 use constants::SystemCurve;
-use contracts_common::types::VerificationKey;
-use contracts_utils::proof_system::gen_circuit_vkey;
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -336,12 +333,4 @@ pub async fn deploy_stylus_contract(
     )?;
 
     Ok(())
-}
-
-pub fn gen_vkey<C: SingleProverCircuit>(
-    srs: &UnivariateUniversalParams<SystemCurve>,
-) -> Result<VerificationKey, ScriptError> {
-    let vkey = gen_circuit_vkey::<C>(srs).map_err(|_| ScriptError::CircuitCreation)?;
-
-    Ok(vkey)
 }

@@ -1259,6 +1259,7 @@ dependencies = [
  "circuits",
  "constants",
  "contracts-common",
+ "contracts-core",
  "ethers",
  "eyre",
  "jf-primitives",

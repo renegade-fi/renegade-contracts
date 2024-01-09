@@ -9,10 +9,7 @@ use ark_ff::{BigInt, BigInteger, MontConfig, PrimeField, Zero};
 use ark_serialize::Flags;
 
 use crate::{
-    constants::{
-        NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_SCALARS_U256,
-        NUM_U64S_FELT,
-    },
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
@@ -333,28 +330,20 @@ fn address_to_scalar(address: Address) -> Result<ScalarField, SerdeError> {
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
 }
 
-fn u256_to_scalars(u256: U256) -> Result<[ScalarField; NUM_SCALARS_U256], SerdeError> {
-    // Need to split the U256 into two u128s to fit into the scalar field
-
-    let limbs = u256.as_limbs();
-    let low_bigint = BigInt([limbs[0], limbs[1], 0, 0]);
-    let high_bigint = BigInt([limbs[2], limbs[3], 0, 0]);
-
-    Ok([
-        ScalarField::from_bigint(high_bigint).ok_or(SerdeError::ScalarConversion)?,
-        ScalarField::from_bigint(low_bigint).ok_or(SerdeError::ScalarConversion)?,
-    ])
+fn amount_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
+    let u256_bigint = BigInt(u256.into_limbs());
+    ScalarField::from_bigint(u256_bigint).ok_or(SerdeError::ScalarConversion)
 }
 
 fn external_transfer_to_scalars(
     external_transfer: &ExternalTransfer,
 ) -> Result<Vec<ScalarField>, SerdeError> {
-    let mut scalars = Vec::new();
-    scalars.push(address_to_scalar(external_transfer.account_addr)?);
-    scalars.push(address_to_scalar(external_transfer.mint)?);
-    scalars.extend(u256_to_scalars(external_transfer.amount)?);
-    scalars.push(external_transfer.is_withdrawal.into());
-    Ok(scalars)
+    Ok(vec![
+        address_to_scalar(external_transfer.account_addr)?,
+        address_to_scalar(external_transfer.mint)?,
+        amount_to_scalar(external_transfer.amount)?,
+        external_transfer.is_withdrawal.into(),
+    ])
 }
 
 pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
