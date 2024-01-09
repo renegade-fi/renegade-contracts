@@ -1,15 +1,19 @@
 //! Implementations of the various deploy scripts
 
+use alloy_primitives::U256;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
     valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
     valid_wallet_update::SizedValidWalletUpdate,
 };
 use constants::SystemCurve;
-use contracts_utils::proof_system::{dummy_renegade_circuits::{
-    DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
-    DummyValidWalletUpdate,
-}, gen_circuit_vkey};
+use contracts_utils::proof_system::{
+    dummy_renegade_circuits::{
+        DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
+        DummyValidWalletUpdate,
+    },
+    gen_circuit_vkey,
+};
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
@@ -73,10 +77,13 @@ pub async fn deploy_proxy(
     let owner_address = Address::from_str(&args.owner)
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
 
+    let protocol_fee = U256::from(args.fee);
+
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         verifier_address,
         vkeys_address,
         merkle_address,
+        protocol_fee,
     )?);
 
     info!(
@@ -207,19 +214,29 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
         valid_match_settle_vkey,
     ) = if args.test {
         (
-            gen_circuit_vkey::<DummyValidWalletCreate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidWalletUpdate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidCommitments>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidReblind>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidMatchSettle>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidWalletCreate>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidWalletUpdate>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidCommitments>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidReblind>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidMatchSettle>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
         )
     } else {
         (
-            gen_circuit_vkey::<SizedValidWalletCreate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidWalletUpdate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidCommitments>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidReblind>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidMatchSettle>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidWalletCreate>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidWalletUpdate>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidCommitments>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidReblind>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidMatchSettle>(&srs)
+                .map_err(|_| ScriptError::CircuitCreation)?,
         )
     };
 
