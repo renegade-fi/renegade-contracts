@@ -201,6 +201,36 @@ impl DarkpoolContract {
         Ok(())
     }
 
+    /// Sets the verifier address
+    pub fn set_verifier_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        verifier_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage);
+        storage.borrow_mut().verifier_address.set(verifier_address);
+        Ok(())
+    }
+
+    /// Sets the vkeys address
+    pub fn set_vkeys_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        vkeys_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage);
+        storage.borrow_mut().vkeys_address.set(vkeys_address);
+        Ok(())
+    }
+
+    /// Sets the Merkle address
+    pub fn set_merkle_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        merkle_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage);
+        storage.borrow_mut().merkle_address.set(merkle_address);
+        Ok(())
+    }
+
     /// Adds a new wallet to the commitment tree
     pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
