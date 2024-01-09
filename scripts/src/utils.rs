@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-use alloy_primitives::Address as AlloyAddress;
+use alloy_primitives::{Address as AlloyAddress, U256};
 use alloy_sol_types::SolCall;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use constants::SystemCurve;
@@ -162,12 +162,19 @@ pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     vkeys_address: Address,
     merkle_address: Address,
+    protocol_fee: U256,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let vkeys_address = AlloyAddress::from_slice(vkeys_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
 
-    Ok(initializeCall::new((verifier_address, vkeys_address, merkle_address)).encode())
+    Ok(initializeCall::new((
+        verifier_address,
+        vkeys_address,
+        merkle_address,
+        protocol_fee,
+    ))
+    .encode())
 }
 
 fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {
