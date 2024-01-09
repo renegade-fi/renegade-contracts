@@ -101,7 +101,7 @@ pub struct MatchLinkingVkeys {
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub struct Proof {
     /// The commitments to the wire polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
@@ -130,7 +130,7 @@ pub struct Proof {
 }
 
 /// The proofs representing the matching and settlement of a trade
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct MatchProofs {
     /// Party 0's proof of `VALID COMMITMENTS`
     pub valid_commitments_0: Proof,
@@ -158,7 +158,7 @@ pub struct LinkingProof {
 
 /// The linking proofs used to ensure input consistency
 /// between the `MatchProofs`
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct MatchLinkingProofs {
     /// The proof of linked inputs between
     /// `PARTY 0 VALID REBLIND` <-> `PARTY 0 VALID COMMITMENTS`
