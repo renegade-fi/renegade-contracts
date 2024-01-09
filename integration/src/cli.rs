@@ -40,6 +40,7 @@ pub(crate) enum Tests {
     Verifier,
     Upgradeable,
     Initializable,
+    Ownable,
     ExternalTransfer,
     NewWallet,
     UpdateWallet,

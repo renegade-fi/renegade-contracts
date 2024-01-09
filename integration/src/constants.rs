@@ -27,3 +27,12 @@ pub(crate) const L: usize = 128;
 
 /// The amount of dummy ERC20 tokens to use when testing external transfers
 pub(crate) const TRANSFER_AMOUNT: u64 = 1000;
+
+/// The name of the `transfer_ownership` method on the Darkpool contract
+pub(crate) const TRANSFER_OWNERSHIP_METHOD_NAME: &str = "transferOwnership";
+
+/// The name of the `pause` method on the Darkpool contract
+pub(crate) const PAUSE_METHOD_NAME: &str = "pause";
+
+/// The name of the `unpause` method on the Darkpool contract
+pub(crate) const UNPAUSE_METHOD_NAME: &str = "unpause";
