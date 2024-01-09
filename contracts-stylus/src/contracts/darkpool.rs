@@ -12,7 +12,7 @@ use stylus_sdk::{
     alloy_primitives::{Address, U256, U64},
     contract, evm,
     prelude::*,
-    storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
+    storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64}, msg,
 };
 
 use crate::{
@@ -37,6 +37,9 @@ use crate::{
 pub struct DarkpoolContract {
     /// Storage gap to prevent collisions with the Merkle contract
     __gap: StorageArray<StorageU256, STORAGE_GAP_SIZE>,
+
+    /// The owner of the darkpool contract
+    owner: StorageAddress,
 
     /// Whether or not the darkpool has been initialized
     initialized: StorageU64,
@@ -75,13 +78,36 @@ impl DarkpoolContract {
 
         let this = storage.borrow_mut();
 
-        // Set the verifier, vkeys, & Merkle addresses
+        // Set the owner, verifier, vkeys, & Merkle addresses
+        this.owner.set(msg::sender());
         this.verifier_address.set(verifier_address);
         this.vkeys_address.set(vkeys_address);
         this.merkle_address.set(merkle_address);
 
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1);
+
+        Ok(())
+    }
+
+    // -----------
+    // | OWNABLE |
+    // -----------
+
+    /// Returns the current owner of the darkpool
+    pub fn owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<Address, Vec<u8>> {
+        Ok(storage.borrow().owner.get())
+    }
+
+    /// Transfers ownership of the darkpool to the provided address
+    pub fn transfer_ownership<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        new_owner: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage).unwrap();
+
+        assert_ne!(new_owner, Address::ZERO);
+        DarkpoolContract::_transfer_ownership(storage, new_owner);
 
         Ok(())
     }
@@ -273,6 +299,24 @@ impl DarkpoolContract {
         let this = storage.borrow_mut();
         assert!(this.initialized.get() < version_uint64);
         this.initialized.set(version_uint64);
+    }
+
+    // -----------
+    // | OWNABLE |
+    // -----------
+
+    /// Updates the stored owner address to `new_owner`
+    pub fn _transfer_ownership<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        new_owner: Address,
+    ) {
+        storage.borrow_mut().owner.set(new_owner);
+    }
+
+    /// Reverts if the sender is not the owner
+    pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
+        assert_eq!(storage.borrow().owner.get(), msg::sender());
+        Ok(())
     }
 
     // -----------
