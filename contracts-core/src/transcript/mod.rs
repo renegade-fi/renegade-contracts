@@ -176,18 +176,94 @@ fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
 
 #[cfg(test)]
 pub mod tests {
-    use contracts_common::types::PublicInputs;
-    use rand::thread_rng;
-    use test_helpers::{
-        crypto::NativeHasher,
-        misc::random_scalars,
-        proof_system::{dummy_proofs, dummy_vkeys, get_jf_challenges},
+    use alloc::vec::Vec;
+    use arbitrum_client::conversion::to_contract_proof;
+    use ark_std::UniformRand;
+    use circuit_types::PlonkProof;
+    use constants::SystemCurve;
+    use contracts_common::{
+        constants::{NUM_SELECTORS, NUM_WIRE_TYPES},
+        types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
     };
+    use contracts_utils::{
+        conversion::to_contract_vkey,
+        crypto::NativeHasher,
+        proof_system::test_data::{random_commitments, random_scalars},
+    };
+    use jf_primitives::pcs::prelude::{Commitment, UnivariateVerifierParam};
+    use mpc_plonk::{
+        proof_system::{
+            structs::{BatchProof, Challenges, ProofEvaluations, VerifyingKey},
+            verifier::Verifier,
+        },
+        transcript::SolidityTranscript,
+    };
+    use rand::thread_rng;
 
     use super::Transcript;
 
     const N: usize = 1024;
     const L: usize = 512;
+
+    fn dummy_vkeys(n: u64, l: u64) -> (VerificationKey, VerifyingKey<SystemCurve>) {
+        let mut rng = thread_rng();
+
+        let jf_vkey = VerifyingKey {
+            domain_size: n as usize,
+            num_inputs: l as usize,
+            sigma_comms: random_commitments(NUM_WIRE_TYPES, &mut rng),
+            selector_comms: random_commitments(NUM_SELECTORS, &mut rng),
+            k: random_scalars(NUM_WIRE_TYPES, &mut rng),
+            open_key: UnivariateVerifierParam {
+                g: G1Affine::rand(&mut rng),
+                h: G2Affine::rand(&mut rng),
+                beta_h: G2Affine::rand(&mut rng),
+            },
+            is_merged: false,
+            plookup_vk: None,
+        };
+
+        let vkey = to_contract_vkey(jf_vkey.clone()).unwrap();
+
+        (vkey, jf_vkey)
+    }
+
+    fn dummy_proofs() -> (Proof, BatchProof<SystemCurve>) {
+        let mut rng = thread_rng();
+
+        let jf_proof = PlonkProof {
+            wires_poly_comms: random_commitments(NUM_WIRE_TYPES, &mut rng),
+            prod_perm_poly_comm: Commitment(G1Affine::rand(&mut rng)),
+            poly_evals: ProofEvaluations {
+                wires_evals: random_scalars(NUM_WIRE_TYPES, &mut rng),
+                wire_sigma_evals: random_scalars(NUM_WIRE_TYPES - 1, &mut rng),
+                perm_next_eval: ScalarField::rand(&mut rng),
+            },
+            plookup_proof: None,
+            split_quot_poly_comms: random_commitments(NUM_WIRE_TYPES, &mut rng),
+            opening_proof: Commitment(G1Affine::rand(&mut rng)),
+            shifted_opening_proof: Commitment(G1Affine::rand(&mut rng)),
+        };
+
+        let proof = to_contract_proof(jf_proof.clone()).unwrap();
+
+        (proof, jf_proof.into())
+    }
+
+    fn get_jf_challenges(
+        vkey: &VerifyingKey<SystemCurve>,
+        public_inputs: &[ScalarField],
+        proof: &BatchProof<SystemCurve>,
+        extra_transcript_init_message: &Option<Vec<u8>>,
+    ) -> Challenges<ScalarField> {
+        Verifier::compute_challenges::<SolidityTranscript>(
+            &[vkey],
+            &[public_inputs],
+            proof,
+            extra_transcript_init_message,
+        )
+        .unwrap()
+    }
 
     #[test]
     fn test_transcript_equivalency() {
@@ -199,8 +275,7 @@ pub mod tests {
         let mut stylus_transcript = Transcript::<NativeHasher>::new();
         let challenges = stylus_transcript.compute_plonk_challenges(&vkey, &proof, &public_inputs);
 
-        let jf_challenges =
-            get_jf_challenges(&jf_vkey, &public_inputs.0, &jf_proof, &None).unwrap();
+        let jf_challenges = get_jf_challenges(&jf_vkey, &public_inputs.0, &jf_proof, &None);
 
         assert_eq!(challenges.beta, jf_challenges.beta);
         assert_eq!(challenges.gamma, jf_challenges.gamma);

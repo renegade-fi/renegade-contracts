@@ -1217,15 +1217,17 @@ dependencies = [
  "ark-poly",
  "ark-std 0.4.0",
  "circuit-types",
+ "constants",
  "contracts-common",
+ "contracts-utils",
  "ethers",
  "jf-primitives",
  "jf-utils",
+ "mpc-plonk",
  "rand 0.8.5",
  "renegade-crypto",
  "serde",
  "serde_with",
- "test-helpers",
 ]
 
 [[package]]
@@ -1241,6 +1243,31 @@ dependencies = [
  "mini-alloc",
  "postcard",
  "stylus-sdk",
+]
+
+[[package]]
+name = "contracts-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "arbitrum-client",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-std 0.4.0",
+ "circuit-types",
+ "circuits",
+ "constants",
+ "contracts-common",
+ "ethers",
+ "eyre",
+ "jf-primitives",
+ "jf-utils",
+ "mpc-plonk",
+ "mpc-relation",
+ "rand 0.8.5",
+ "renegade-crypto",
+ "serde",
 ]
 
 [[package]]
@@ -2809,6 +2836,7 @@ dependencies = [
  "constants",
  "contracts-common",
  "contracts-core",
+ "contracts-utils",
  "ethers",
  "eyre",
  "itertools 0.12.0",
@@ -2817,7 +2845,6 @@ dependencies = [
  "rand 0.8.5",
  "scripts",
  "serde",
- "test-helpers",
  "tokio",
 ]
 
@@ -4537,6 +4564,7 @@ dependencies = [
  "clap",
  "constants",
  "contracts-common",
+ "contracts-utils",
  "ethers",
  "hex",
  "itertools 0.12.0",
@@ -4546,7 +4574,6 @@ dependencies = [
  "postcard",
  "rand 0.8.5",
  "serde_json",
- "test-helpers",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -5189,31 +5216,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff1bc3d3f05aff0403e8ac0d92ced918ec05b666a43f83297ccef5bea8a3d449"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "test-helpers"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "arbitrum-client",
- "ark-crypto-primitives",
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-std 0.4.0",
- "circuit-types",
- "circuits",
- "constants",
- "contracts-common",
- "ethers",
- "eyre",
- "jf-primitives",
- "jf-utils",
- "mpc-plonk",
- "mpc-relation",
- "rand 0.8.5",
- "renegade-crypto",
- "serde",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@ members = [
     "contracts-core",
     "contracts-common",
     "scripts",
-    "test-helpers",
+    "contracts-utils",
     "integration",
 ]
 
