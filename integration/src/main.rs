@@ -15,7 +15,7 @@ use scripts::{
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
     test_initializable, test_merkle, test_new_wallet, test_nullifier_set,
-    test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier, test_ownable,
+    test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier, test_ownable, test_pausable,
 };
 use utils::get_test_contract_address;
 
@@ -105,6 +105,11 @@ async fn main() -> Result<()> {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
 
             test_ownable(contract).await?;
+        }
+        Tests::Pausable => {
+            let contract = DarkpoolTestContract::new(contract_address, client.clone());
+
+            test_pausable(contract, &srs).await?;
         }
         Tests::ExternalTransfer => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());

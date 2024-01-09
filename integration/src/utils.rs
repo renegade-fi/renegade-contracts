@@ -1,27 +1,23 @@
 //! Utilities for running integration tests
 
+use std::future::Future;
+
 use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
-use circuit_types::keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey};
-
-use constants::Scalar;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
-    types::{
-        ExternalTransfer, Proof, PublicInputs, PublicSigningKey as ContractPublicSigningKey,
-        ScalarField, VerificationKey,
-    },
+    types::{ExternalTransfer, Proof, PublicInputs, ScalarField, VerificationKey},
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use contracts_utils::merkle::MerkleConfig;
 use ethers::{
     abi::{Address, Detokenize, Tokenize},
-    providers::Middleware,
+    contract::ContractError,
+    providers::{JsonRpcClient, Middleware, PendingTransaction},
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
-use itertools::Itertools;
 use scripts::{
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
@@ -51,6 +47,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         Tests::NullifierSet
         | Tests::Initializable
         | Tests::Ownable
+        | Tests::Pausable
         | Tests::ExternalTransfer
         | Tests::NewWallet
         | Tests::UpdateWallet
@@ -86,6 +83,46 @@ pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
         "Failed to call {} as owner",
         method
     );
+
+    Ok(())
+}
+
+pub async fn assert_all_revert<'a>(
+    txs: Vec<
+        impl Future<
+            Output = Result<
+                PendingTransaction<'a, impl JsonRpcClient + 'a>,
+                ContractError<impl Middleware + 'static>,
+            >,
+        >,
+    >,
+) -> Result<()> {
+    for tx in txs {
+        assert!(
+            tx.await.is_err(),
+            "Expected transaction to revert, but it succeeded"
+        );
+    }
+
+    Ok(())
+}
+
+pub async fn assert_all_suceed<'a>(
+    txs: Vec<
+        impl Future<
+            Output = Result<
+                PendingTransaction<'a, impl JsonRpcClient + 'a>,
+                ContractError<impl Middleware + 'static>,
+            >,
+        >,
+    >,
+) -> Result<()> {
+    for tx in txs {
+        assert!(
+            tx.await?.await.is_ok(),
+            "Expected transaction to succeed, but it reverted"
+        );
+    }
 
     Ok(())
 }
@@ -128,30 +165,6 @@ pub fn serialize_verification_bundle(
     let bundle_bytes = [vkey_batch_ser, proof_batch_ser, public_inputs_batch_ser].concat();
 
     Ok(bundle_bytes.into())
-}
-
-pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPublicSigningKey {
-    let x = NonNativeScalar {
-        scalar_words: contract_pubkey
-            .x
-            .into_iter()
-            .map(Scalar::new)
-            .collect_vec()
-            .try_into()
-            .unwrap(),
-    };
-
-    let y = NonNativeScalar {
-        scalar_words: contract_pubkey
-            .y
-            .into_iter()
-            .map(Scalar::new)
-            .collect_vec()
-            .try_into()
-            .unwrap(),
-    };
-
-    CircuitPublicSigningKey { x, y }
 }
 
 pub(crate) async fn mint_dummy_erc20(
