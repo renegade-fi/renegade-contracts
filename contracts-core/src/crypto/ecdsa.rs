@@ -65,9 +65,9 @@ fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> [u8; NUM_BYTES_U128] {
 #[cfg(test)]
 mod tests {
     use contracts_common::constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE};
+    use contracts_utils::crypto::{hash_and_sign_message, random_keypair, NativeHasher};
     use ethers::types::{RecoveryMessage, Signature};
     use rand::{thread_rng, RngCore};
-    use test_helpers::crypto::{hash_and_sign_message, random_keypair, NativeHasher};
 
     use super::{EcRecoverBackend, EcdsaError};
 

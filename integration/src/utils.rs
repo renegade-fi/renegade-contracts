@@ -14,6 +14,7 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
+use contracts_utils::merkle::MerkleConfig;
 use ethers::{
     abi::Address,
     providers::Middleware,
@@ -28,7 +29,6 @@ use scripts::{
     utils::parse_addr_from_deployments_file,
 };
 use serde::Serialize;
-use test_helpers::merkle::MerkleConfig;
 
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},

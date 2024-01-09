@@ -1,4 +1,4 @@
-//! Helpful cryptographic utilities for testing
+//! Helpful cryptographic utilities
 
 use ark_ff::PrimeField;
 use contracts_common::{
