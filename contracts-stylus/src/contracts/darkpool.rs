@@ -61,7 +61,8 @@ pub struct DarkpoolContract {
     /// boolean indicating whether or not the nullifier is spent
     nullifier_set: StorageMap<U256, StorageBool>,
 
-    /// The protocol fee
+    /// The protocol fee, representing a percentage of the trade volume
+    /// as a fized-point number
     protocol_fee: StorageU256,
 }
 

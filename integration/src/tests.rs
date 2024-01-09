@@ -1,7 +1,5 @@
 //! Integration tests for the contracts
 
-use std::sync::Arc;
-
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -29,13 +27,14 @@ use ethers::{
     middleware::SignerMiddleware,
     providers::Middleware,
     signers::LocalWallet,
-    types::{Bytes, TransactionRequest},
+    types::{Bytes, TransactionRequest, U256},
     utils::{keccak256, parse_ether},
 };
 use eyre::Result;
 use itertools::multiunzip;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::{thread_rng, RngCore};
+use std::sync::Arc;
 
 use crate::{
     abis::{
@@ -43,8 +42,8 @@ use crate::{
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
     constants::{
-        L, PAUSE_METHOD_NAME, PROOF_BATCH_SIZE, TRANSFER_AMOUNT, TRANSFER_OWNERSHIP_METHOD_NAME,
-        UNPAUSE_METHOD_NAME,
+        L, PAUSE_METHOD_NAME, PROOF_BATCH_SIZE, SET_FEE_METHOD_NAME, TRANSFER_AMOUNT,
+        TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
@@ -444,6 +443,15 @@ pub(crate) async fn test_ownable(
         &contract_with_dummy_owner,
         UNPAUSE_METHOD_NAME,
         (),
+    )
+    .await?;
+
+    // Assert that only the owner can call the `set_fee` method
+    assert_only_owner::<_, U256>(
+        &contract,
+        &contract_with_dummy_owner,
+        SET_FEE_METHOD_NAME,
+        U256::default(),
     )
     .await?;
 

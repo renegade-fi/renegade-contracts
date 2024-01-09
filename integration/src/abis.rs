@@ -14,6 +14,7 @@ abigen!(
         function pause() external
         function unpause() external
 
+        function setFee(uint256 memory new_fee) external
 
         function isNullifierSpent(uint256 memory nullifier) external view returns (bool)
         function markNullifierSpent(uint256 memory nullifier) external
