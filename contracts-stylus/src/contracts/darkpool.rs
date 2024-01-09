@@ -60,6 +60,9 @@ pub struct DarkpoolContract {
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
     /// boolean indicating whether or not the nullifier is spent
     nullifier_set: StorageMap<U256, StorageBool>,
+
+    /// The protocol fee
+    protocol_fee: StorageU256,
 }
 
 #[external]
@@ -75,6 +78,7 @@ impl DarkpoolContract {
         verifier_address: Address,
         vkeys_address: Address,
         merkle_address: Address,
+        protocol_fee: U256,
     ) -> Result<(), Vec<u8>> {
         // Initialize the Merkle tree
         delegate_call_helper::<initCall>(storage, merkle_address, ());
@@ -86,6 +90,9 @@ impl DarkpoolContract {
         this.verifier_address.set(verifier_address);
         this.vkeys_address.set(vkeys_address);
         this.merkle_address.set(merkle_address);
+
+        // Set the protocol fee
+        this.protocol_fee.set(protocol_fee);
 
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1);
@@ -174,9 +181,24 @@ impl DarkpoolContract {
         Ok(res)
     }
 
+    /// Returns the protocol fee
+    pub fn get_fee<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<U256, Vec<u8>> {
+        Ok(storage.borrow().protocol_fee.get())
+    }
+
     // -----------
     // | SETTERS |
     // -----------
+
+    /// Set the protocol fee
+    pub fn set_fee<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        fee: U256,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage);
+        storage.borrow_mut().protocol_fee.set(fee);
+        Ok(())
+    }
 
     /// Adds a new wallet to the commitment tree
     pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
