@@ -16,7 +16,7 @@ use contracts_common::{
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use contracts_utils::merkle::MerkleConfig;
 use ethers::{
-    abi::Address,
+    abi::{Address, Detokenize, Tokenize},
     providers::Middleware,
     types::{Bytes, U256},
 };
@@ -38,20 +38,8 @@ use crate::{
 
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
     Ok(match test {
-        Tests::EcAdd => {
+        Tests::EcAdd | Tests::EcMul | Tests::EcPairing | Tests::EcRecover => {
             parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
-        }
-        Tests::EcMul => {
-            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
-        }
-        Tests::EcPairing => {
-            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
-        }
-        Tests::EcRecover => {
-            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
-        }
-        Tests::NullifierSet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
         }
         Tests::Merkle => parse_addr_from_deployments_file(deployments_file, MERKLE_CONTRACT_KEY)?,
         Tests::Verifier => {
@@ -60,22 +48,46 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         Tests::Upgradeable => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?
         }
-        Tests::Initializable => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
-        }
-        Tests::ExternalTransfer => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
-        }
-        Tests::NewWallet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
-        }
-        Tests::UpdateWallet => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
-        }
-        Tests::ProcessMatchSettle => {
+        Tests::NullifierSet
+        | Tests::Initializable
+        | Tests::Ownable
+        | Tests::ExternalTransfer
+        | Tests::NewWallet
+        | Tests::UpdateWallet
+        | Tests::ProcessMatchSettle => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
         }
     })
+}
+
+pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
+    contract: &DarkpoolTestContract<impl Middleware + 'static>,
+    contract_with_dummy_owner: &DarkpoolTestContract<impl Middleware + 'static>,
+    method: &str,
+    args: T,
+) -> Result<()> {
+    assert!(
+        contract_with_dummy_owner
+            .method::<T, D>(method, args.clone())?
+            .send()
+            .await
+            .is_err(),
+        "Called {} as non-owner",
+        method
+    );
+
+    assert!(
+        contract
+            .method::<T, D>(method, args)?
+            .send()
+            .await?
+            .await
+            .is_ok(),
+        "Failed to call {} as owner",
+        method
+    );
+
+    Ok(())
 }
 
 /// Converts a [`ScalarField`] to a [`ethers::types::U256`]
