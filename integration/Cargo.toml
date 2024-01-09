@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 contracts-common = { path = "../contracts-common" }
 contracts-core = { path = "../contracts-core" }
-test-helpers = { path = "../test-helpers" }
+contracts-utils = { path = "../contracts-utils" }
 scripts = { path = "../scripts" }
 tokio = { workspace = true }
 ethers = { workspace = true }

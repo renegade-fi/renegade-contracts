@@ -19,7 +19,9 @@ ark-ec = { workspace = true }
 ark-std = { workspace = true }
 jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { workspace = true }
-test-helpers = { path = "../test-helpers" }
+mpc-plonk = { workspace = true }
+constants = { workspace = true }
+contracts-utils = { path = "../contracts-utils" }
 rand = { workspace = true }
 ethers = { workspace = true }
 ark-crypto-primitives = { workspace = true }

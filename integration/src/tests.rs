@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use arbitrum_client::conversion::{
-    to_contract_proof, to_contract_valid_wallet_create_statement,
-    to_contract_valid_wallet_update_statement,
+    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
 };
 use ark_ec::AffineRepr;
 use ark_ff::One;
@@ -19,6 +18,19 @@ use contracts_common::{
     types::{G1Affine, G2Affine, PublicInputs, ScalarField},
 };
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
+use contracts_utils::{
+    crypto::{hash_and_sign_message, random_keypair, NativeHasher},
+    merkle::new_ark_merkle_tree,
+    proof_system::{
+        dummy_renegade_circuits::{DummyValidWalletCreate, DummyValidWalletUpdate},
+        prove_with_srs,
+        test_circuit::gen_test_circuit_proofs_and_vkeys,
+        test_data::{
+            dummy_statement, dummy_valid_wallet_update_statement, gen_process_match_settle_data,
+            random_scalars,
+        },
+    },
+};
 use ethers::{
     abi::Address, middleware::SignerMiddleware, providers::Middleware, signers::LocalWallet,
     types::Bytes, utils::keccak256,
@@ -27,16 +39,6 @@ use eyre::Result;
 use itertools::multiunzip;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::{thread_rng, RngCore};
-use test_helpers::{
-    crypto::{hash_and_sign_message, random_keypair, NativeHasher},
-    dummy_renegade_circuits::{
-        dummy_statement, dummy_valid_wallet_update_statement, gen_process_match_settle_data,
-        prove_with_srs, DummyValidWalletCreate, DummyValidWalletUpdate,
-    },
-    merkle::new_ark_merkle_tree,
-    misc::random_scalars,
-    proof_system::{convert_jf_vkey, gen_jf_proof_and_vkey},
-};
 
 use crate::{
     abis::{
@@ -197,9 +199,9 @@ pub(crate) async fn test_verifier(
     let (vkey_batch, mut proof_batch, mut public_inputs_batch): (Vec<_>, Vec<_>, Vec<_>) =
         multiunzip((0..PROOF_BATCH_SIZE).map(|_| {
             let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-            let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, &public_inputs).unwrap();
-            let proof = to_contract_proof(jf_proof).unwrap();
-            let vkey = convert_jf_vkey(jf_vkey).unwrap();
+            let (proof, _, vkeys) =
+                gen_test_circuit_proofs_and_vkeys(&TESTING_SRS, &public_inputs, &[]).unwrap();
+            let vkey = vkeys.vkey;
             (vkey, proof, public_inputs)
         }));
 
@@ -468,16 +470,15 @@ pub(crate) async fn test_new_wallet(
 
     // Generate dummy statement & proof
     let statement: SizedValidWalletCreateStatement = dummy_statement(&mut rng);
-    let proof = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement.clone())?;
+    let (proof, _) = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement.clone())?;
 
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement = to_contract_valid_wallet_create_statement(&statement);
-    let contract_proof = to_contract_proof(proof)?;
 
     // Call `new_wallet`
     contract
         .new_wallet(
-            serialize_to_calldata(&contract_proof)?,
+            serialize_to_calldata(&proof)?,
             serialize_to_calldata(&contract_statement)?,
         )
         .send()
@@ -528,11 +529,10 @@ pub(crate) async fn test_update_wallet(
         Scalar::new(contract_root),
         circuit_pubkey,
     );
-    let proof = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
+    let (proof, _) = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
 
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement = to_contract_valid_wallet_update_statement(statement.clone())?;
-    let contract_proof = to_contract_proof(proof)?;
 
     let shares_commitment = compute_poseidon_hash(
         &[
@@ -549,7 +549,7 @@ pub(crate) async fn test_update_wallet(
     // Call `update_wallet`
     contract
         .update_wallet(
-            serialize_to_calldata(&contract_proof)?,
+            serialize_to_calldata(&proof)?,
             serialize_to_calldata(&contract_statement)?,
             public_inputs_signature,
         )

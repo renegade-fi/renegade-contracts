@@ -785,7 +785,6 @@ mod tests {
     use core::result::Result;
 
     use alloc::vec::Vec;
-    use arbitrum_client::conversion::to_contract_proof;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
@@ -803,6 +802,13 @@ mod tests {
             ScalarField,
         },
     };
+    use contracts_utils::{
+        crypto::NativeHasher,
+        proof_system::{
+            test_circuit::gen_test_circuit_proofs_and_vkeys,
+            test_data::{generate_match_bundle, random_scalars},
+        },
+    };
     use jf_primitives::pcs::{
         prelude::UnivariateKzgPCS, PolynomialCommitmentScheme, StructuredReferenceString,
     };
@@ -810,11 +816,6 @@ mod tests {
     use rand::{
         seq::{IteratorRandom, SliceRandom},
         thread_rng, CryptoRng, RngCore,
-    };
-    use test_helpers::{
-        crypto::NativeHasher,
-        misc::random_scalars,
-        proof_system::{convert_jf_vkey, gen_jf_proof_and_vkey, generate_match_bundle},
     };
 
     use crate::transcript::Transcript;
@@ -1137,9 +1138,9 @@ mod tests {
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, &public_inputs).unwrap();
-        let proof = to_contract_proof(jf_proof).unwrap();
-        let vkey = convert_jf_vkey(jf_vkey).unwrap();
+        let (proof, _, vkeys) =
+            gen_test_circuit_proofs_and_vkeys(&TESTING_SRS, &public_inputs, &[]).unwrap();
+        let vkey = vkeys.vkey;
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
                 .unwrap();
@@ -1151,9 +1152,9 @@ mod tests {
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-        let (jf_proof, jf_vkey) = gen_jf_proof_and_vkey(&TESTING_SRS, &public_inputs).unwrap();
-        let mut proof = to_contract_proof(jf_proof).unwrap();
-        let vkey = convert_jf_vkey(jf_vkey).unwrap();
+        let (mut proof, _, vkeys) =
+            gen_test_circuit_proofs_and_vkeys(&TESTING_SRS, &public_inputs, &[]).unwrap();
+        let vkey = vkeys.vkey;
         proof.z_bar += ScalarField::one();
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)

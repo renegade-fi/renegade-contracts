@@ -18,7 +18,7 @@ mpc-plonk = { workspace = true }
 ark-serialize = { workspace = true }
 jf-primitives = { workspace = true }
 contracts-common = { path = "../contracts-common" }
-test-helpers = { path = "../test-helpers" }
+contracts-utils = { path = "../contracts-utils" }
 rand = { workspace = true }
 postcard = { workspace = true }
 json = "0.12"

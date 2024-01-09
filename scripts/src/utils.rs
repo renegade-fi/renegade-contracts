@@ -17,6 +17,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use circuit_types::traits::SingleProverCircuit;
 use constants::SystemCurve;
 use contracts_common::types::VerificationKey;
+use contracts_utils::proof_system::gen_circuit_vkey;
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -27,7 +28,6 @@ use ethers::{
 use itertools::Itertools;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use json::JsonValue;
-use test_helpers::proof_system::{convert_jf_vkey, gen_circuit_keys};
 use tracing::log::warn;
 
 use crate::{
@@ -341,9 +341,7 @@ pub async fn deploy_stylus_contract(
 pub fn gen_vkey<C: SingleProverCircuit>(
     srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<VerificationKey, ScriptError> {
-    let (_, vkey) = gen_circuit_keys::<C>(srs).map_err(|_| ScriptError::CircuitCreation)?;
-
-    let vkey = convert_jf_vkey(vkey).map_err(|_| ScriptError::ConversionError)?;
+    let vkey = gen_circuit_vkey::<C>(srs).map_err(|_| ScriptError::CircuitCreation)?;
 
     Ok(vkey)
 }

@@ -6,6 +6,10 @@ use circuits::zk_circuits::{
     valid_wallet_update::SizedValidWalletUpdate,
 };
 use constants::SystemCurve;
+use contracts_utils::proof_system::dummy_renegade_circuits::{
+    DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
+    DummyValidWalletUpdate,
+};
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
@@ -16,10 +20,6 @@ use ethers::{
 use mpc_plonk::proof_system::{PlonkKzgSnark, UniversalSNARK};
 use rand::thread_rng;
 use std::{str::FromStr, sync::Arc};
-use test_helpers::dummy_renegade_circuits::{
-    DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
-    DummyValidWalletUpdate,
-};
 use tracing::log::{info, warn};
 
 use crate::{
