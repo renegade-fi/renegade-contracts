@@ -10,9 +10,9 @@ use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256, U64},
-    contract, evm,
+    contract, evm, msg,
     prelude::*,
-    storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64}, msg,
+    storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
 };
 
 use crate::{
@@ -43,6 +43,9 @@ pub struct DarkpoolContract {
 
     /// Whether or not the darkpool has been initialized
     initialized: StorageU64,
+
+    /// Whether or not the darkpool is paused
+    paused: StorageBool,
 
     /// The address of the verifier contract
     verifier_address: StorageAddress,
@@ -104,11 +107,36 @@ impl DarkpoolContract {
         storage: &mut S,
         new_owner: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage).unwrap();
+        DarkpoolContract::_check_owner(storage);
 
         assert_ne!(new_owner, Address::ZERO);
         DarkpoolContract::_transfer_ownership(storage, new_owner);
 
+        Ok(())
+    }
+
+    // ------------
+    // | PAUSABLE |
+    // ------------
+
+    /// Returns whether or not the darkpool is paused
+    pub fn paused<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<bool, Vec<u8>> {
+        Ok(storage.borrow().paused.get())
+    }
+
+    /// Pauses the darkpool
+    pub fn pause<S: TopLevelStorage + BorrowMut<Self>>(storage: &mut S) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage);
+        DarkpoolContract::_check_paused_status(storage, false /* paused */);
+        storage.borrow_mut().paused.set(true);
+        Ok(())
+    }
+
+    /// Unpauses the darkpool
+    pub fn unpause<S: TopLevelStorage + BorrowMut<Self>>(storage: &mut S) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage);
+        DarkpoolContract::_check_paused_status(storage, true /* paused */);
+        storage.borrow_mut().paused.set(false);
         Ok(())
     }
 
@@ -156,6 +184,8 @@ impl DarkpoolContract {
         proof: Bytes,
         valid_wallet_create_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_paused_status(storage, false /* paused */);
+
         let valid_wallet_create_statement: ValidWalletCreateStatement =
             postcard::from_bytes(valid_wallet_create_statement_bytes.as_slice()).unwrap();
 
@@ -190,6 +220,8 @@ impl DarkpoolContract {
         valid_wallet_update_statement_bytes: Bytes,
         shares_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_paused_status(storage, false /* paused */);
+
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
 
@@ -250,6 +282,8 @@ impl DarkpoolContract {
         _party_1_valid_commitments_valid_reblind_linking_proof: Bytes,
         _party_1_valid_commitments_valid_match_settle_linking_proof: Bytes,
     ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_paused_status(storage, false /* paused */);
+
         let party_0_match_payload: MatchPayload =
             postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
 
@@ -314,9 +348,17 @@ impl DarkpoolContract {
     }
 
     /// Reverts if the sender is not the owner
-    pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
-        assert_eq!(storage.borrow().owner.get(), msg::sender());
-        Ok(())
+    pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) {
+        assert_eq!(storage.borrow().owner.get(), msg::sender())
+    }
+
+    // ------------
+    // | PAUSABLE |
+    // ------------
+
+    /// Checks whether the darkpool's paused status matches the given `paused` value
+    pub fn _check_paused_status<S: TopLevelStorage + Borrow<Self>>(storage: &S, paused: bool) {
+        assert_eq!(storage.borrow().paused.get(), paused)
     }
 
     // -----------
