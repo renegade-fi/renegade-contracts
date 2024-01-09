@@ -6,10 +6,10 @@ use circuits::zk_circuits::{
     valid_wallet_update::SizedValidWalletUpdate,
 };
 use constants::SystemCurve;
-use contracts_utils::proof_system::dummy_renegade_circuits::{
+use contracts_utils::proof_system::{dummy_renegade_circuits::{
     DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
     DummyValidWalletUpdate,
-};
+}, gen_circuit_vkey};
 use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
@@ -35,7 +35,7 @@ use crate::{
     errors::ScriptError,
     solidity::ProxyAdminContract,
     utils::{
-        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract, gen_vkey,
+        build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file,
         write_deployed_address, write_srs_to_file, write_vkey_file,
     },
@@ -207,19 +207,19 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
         valid_match_settle_vkey,
     ) = if args.test {
         (
-            gen_vkey::<DummyValidWalletCreate>(&srs)?,
-            gen_vkey::<DummyValidWalletUpdate>(&srs)?,
-            gen_vkey::<DummyValidCommitments>(&srs)?,
-            gen_vkey::<DummyValidReblind>(&srs)?,
-            gen_vkey::<DummyValidMatchSettle>(&srs)?,
+            gen_circuit_vkey::<DummyValidWalletCreate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidWalletUpdate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidCommitments>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidReblind>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<DummyValidMatchSettle>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
         )
     } else {
         (
-            gen_vkey::<SizedValidWalletCreate>(&srs)?,
-            gen_vkey::<SizedValidWalletUpdate>(&srs)?,
-            gen_vkey::<SizedValidCommitments>(&srs)?,
-            gen_vkey::<SizedValidReblind>(&srs)?,
-            gen_vkey::<SizedValidMatchSettle>(&srs)?,
+            gen_circuit_vkey::<SizedValidWalletCreate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidWalletUpdate>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidCommitments>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidReblind>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
+            gen_circuit_vkey::<SizedValidMatchSettle>(&srs).map_err(|_| ScriptError::CircuitCreation)?,
         )
     };
 

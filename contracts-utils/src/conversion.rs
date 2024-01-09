@@ -1,9 +1,14 @@
 //! Type conversion utilities
 
 use arbitrum_client::errors::ConversionError;
-use circuit_types::PolynomialCommitment;
-use constants::SystemCurve;
-use contracts_common::types::{G1Affine, LinkingVerificationKey, VerificationKey};
+use circuit_types::{
+    keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
+    PolynomialCommitment,
+};
+use constants::{Scalar, SystemCurve};
+use contracts_common::types::{
+    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, VerificationKey,
+};
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
 
@@ -42,4 +47,28 @@ pub fn to_contract_vkey(
         h: jf_vkey.open_key.h,
         x_h: jf_vkey.open_key.beta_h,
     })
+}
+
+pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPublicSigningKey {
+    let x = NonNativeScalar {
+        scalar_words: contract_pubkey
+            .x
+            .into_iter()
+            .map(Scalar::new)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap(),
+    };
+
+    let y = NonNativeScalar {
+        scalar_words: contract_pubkey
+            .y
+            .into_iter()
+            .map(Scalar::new)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap(),
+    };
+
+    CircuitPublicSigningKey { x, y }
 }
