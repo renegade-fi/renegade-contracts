@@ -36,3 +36,6 @@ pub(crate) const PAUSE_METHOD_NAME: &str = "pause";
 
 /// The name of the `unpause` method on the Darkpool contract
 pub(crate) const UNPAUSE_METHOD_NAME: &str = "unpause";
+
+/// The name of the `set_fee` method on the Darkpool contract
+pub(crate) const SET_FEE_METHOD_NAME: &str = "setFee";
