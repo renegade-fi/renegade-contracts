@@ -11,14 +11,16 @@ use circuit_types::{
     errors::ProverError,
     traits::{BaseType, CircuitBaseType, SingleProverCircuit},
     PlonkCircuit,
+    ProofLinkingHint,
 };
 use constants::{Scalar, SystemCurve};
 use contracts_common::types::{Proof, VerificationKey};
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use mpc_plonk::{
-    proof_system::{structs::LinkingHint, PlonkKzgSnark, UniversalSNARK},
+    proof_system::{PlonkKzgSnark, UniversalSNARK},
     transcript::SolidityTranscript,
 };
+use mpc_relation::proof_linking::LinkableCircuit;
 use rand::thread_rng;
 
 use crate::conversion::to_contract_vkey;
@@ -45,6 +47,13 @@ pub fn gen_circuit_vkey<C: SingleProverCircuit>(
     let statement = C::Statement::from_scalars(&mut scalars);
 
     let mut cs = PlonkCircuit::new_turbo_plonk();
+
+    // Add proof linking groups to the circuit
+    let layout = C::get_circuit_layout().map_err(ProverError::Plonk).unwrap();
+    for (id, layout) in layout.group_layouts.into_iter() {
+        cs.create_link_group(id, Some(layout));
+    }
+
     let witness_var = witness.create_witness(&mut cs);
     let statement_var = statement.create_public_var(&mut cs);
 
@@ -59,17 +68,24 @@ pub fn gen_circuit_vkey<C: SingleProverCircuit>(
     to_contract_vkey(jf_vkey).map_err(Into::into)
 }
 
-/// Generates a proof for a circuit using the given SRS, statement, and witness
+/// Generates a proof and linking hint for a circuit using the given SRS, statement, and witness
 pub fn prove_with_srs<C: SingleProverCircuit>(
     srs: &UnivariateUniversalParams<SystemCurve>,
     witness: C::Witness,
     statement: C::Statement,
-) -> Result<(Proof, LinkingHint<SystemCurve>), ProofSystemError> {
+) -> Result<(Proof, ProofLinkingHint), ProofSystemError> {
     // Mirrors https://github.com/renegade-fi/renegade/blob/main/circuit-types/src/traits.rs#L719,
     // but uses the passed-in SRS instead of `Self::proving_key()`
 
-    // Allocate the witness and statement in the constraint system
     let mut circuit = PlonkCircuit::new_turbo_plonk();
+
+    // Add proof linking groups to the circuit
+    let layout = C::get_circuit_layout().map_err(ProverError::Plonk)?;
+    for (id, layout) in layout.group_layouts.into_iter() {
+        circuit.create_link_group(id, Some(layout));
+    }
+
+    // Allocate the witness and statement in the constraint system
     let witness_var = witness.create_witness(&mut circuit);
     let statement_var = statement.create_public_var(&mut circuit);
 

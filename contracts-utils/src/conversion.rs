@@ -3,14 +3,26 @@
 use arbitrum_client::errors::ConversionError;
 use circuit_types::{
     keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
-    PolynomialCommitment,
+    PlonkLinkProof, PolynomialCommitment,
 };
 use constants::{Scalar, SystemCurve};
-use contracts_common::types::{
-    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, VerificationKey,
+use contracts_common::{
+    custom_serde::ScalarSerializable,
+    types::{
+        G1Affine, LinkingProof as ContractLinkingProof, LinkingVerificationKey, PublicInputs,
+        PublicSigningKey as ContractPublicSigningKey, VerificationKey,
+    },
 };
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
+
+/// Converts a [`PlonkLinkProof`] (from prover-side code) to a [`ContractLinkingProof`]
+pub fn to_contract_linking_proof(link_proof: PlonkLinkProof) -> ContractLinkingProof {
+    ContractLinkingProof {
+        linking_quotient_poly_comm: link_proof.quotient_commitment.0,
+        linking_poly_opening: link_proof.opening_proof.proof,
+    }
+}
 
 /// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
 pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
@@ -33,7 +45,6 @@ fn try_unwrap_commitments<const N: usize>(
         .try_into()
         .map_err(|_| ConversionError::InvalidLength)
 }
-
 
 /// Converts a [`VerifyingKey`] (from prover-side code) to a [`VerificationKey`]
 pub fn to_contract_vkey(
@@ -77,4 +88,9 @@ pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPu
     };
 
     CircuitPublicSigningKey { x, y }
+}
+
+/// Serializes a statement type into a vector of `[ScalarField]` and wraps it in a [`PublicInputs`]
+pub fn statement_to_public_inputs<S: ScalarSerializable>(statement: &S) -> PublicInputs {
+    PublicInputs(statement.serialize_to_scalars().unwrap())
 }
