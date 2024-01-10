@@ -46,6 +46,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         }
         Tests::NullifierSet
         | Tests::Initializable
+        | Tests::ImplSetters
         | Tests::Ownable
         | Tests::Pausable
         | Tests::ExternalTransfer
@@ -74,11 +75,7 @@ pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
     );
 
     assert!(
-        contract
-            .method::<T, D>(method, args)?
-            .send()
-            .await
-            .is_ok(),
+        contract.method::<T, D>(method, args)?.send().await.is_ok(),
         "Failed to call {} as owner",
         method
     );

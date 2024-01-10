@@ -48,10 +48,10 @@ pub struct DarkpoolContract {
     paused: StorageBool,
 
     /// The address of the verifier contract
-    verifier_address: StorageAddress,
+    pub(crate) verifier_address: StorageAddress,
 
     /// The address of the vkeys contract
-    vkeys_address: StorageAddress,
+    pub(crate) vkeys_address: StorageAddress,
 
     /// The address of the Merkle contract
     pub(crate) merkle_address: StorageAddress,
@@ -196,7 +196,7 @@ impl DarkpoolContract {
         storage: &mut S,
         fee: U256,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage);
+        DarkpoolContract::_assert_owner(storage);
         assert_ne!(fee, U256::ZERO);
         storage.borrow_mut().protocol_fee.set(fee);
         Ok(())
@@ -207,7 +207,7 @@ impl DarkpoolContract {
         storage: &mut S,
         verifier_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage);
+        DarkpoolContract::_assert_owner(storage);
         assert_ne!(verifier_address, Address::ZERO);
         storage.borrow_mut().verifier_address.set(verifier_address);
         Ok(())
@@ -218,7 +218,7 @@ impl DarkpoolContract {
         storage: &mut S,
         vkeys_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage);
+        DarkpoolContract::_assert_owner(storage);
         assert_ne!(vkeys_address, Address::ZERO);
         storage.borrow_mut().vkeys_address.set(vkeys_address);
         Ok(())
@@ -229,7 +229,7 @@ impl DarkpoolContract {
         storage: &mut S,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage);
+        DarkpoolContract::_assert_owner(storage);
         assert_ne!(merkle_address, Address::ZERO);
         storage.borrow_mut().merkle_address.set(merkle_address);
         Ok(())

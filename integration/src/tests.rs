@@ -6,7 +6,10 @@ use ark_std::UniformRand;
 use circuit_types::test_helpers::TESTING_SRS;
 use constants::{Scalar, SystemCurve};
 use contracts_common::{
-    constants::TEST_MERKLE_HEIGHT,
+    constants::{
+        MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, VERIFIER_ADDRESS_SELECTOR,
+        VKEYS_ADDRESS_SELECTOR,
+    },
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, PublicInputs, ScalarField},
 };
@@ -353,6 +356,67 @@ pub(crate) async fn test_upgradeable(
     // indicating that the upgrade back to the darkpool test contract
     // was successful
     assert!(darkpool.is_nullifier_spent(nullifier).call().await?);
+
+    Ok(())
+}
+
+pub(crate) async fn test_implementation_address_setters(
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    verifier_address: Address,
+    vkeys_address: Address,
+    merkle_address: Address,
+    dummy_upgrade_target_address: Address,
+) -> Result<()> {
+    for (method, address_selector, original_address) in [
+        (
+            SET_VERIFIER_ADDRESS_METHOD_NAME,
+            VERIFIER_ADDRESS_SELECTOR,
+            verifier_address,
+        ),
+        (
+            SET_VKEYS_ADDRESS_METHOD_NAME,
+            VKEYS_ADDRESS_SELECTOR,
+            vkeys_address,
+        ),
+        (
+            SET_MERKLE_ADDRESS_METHOD_NAME,
+            MERKLE_ADDRESS_SELECTOR,
+            merkle_address,
+        ),
+    ] {
+        // Set the new implementation address as the dummy upgrade target address
+        contract
+            .method::<Address, ()>(method, dummy_upgrade_target_address)?
+            .send()
+            .await?
+            .await?;
+
+        // Check that the implementation address was set
+        assert!(
+            contract
+                .is_implementation_upgraded(address_selector)
+                .call()
+                .await?,
+            "Implementation address not set"
+        );
+
+        // Set the implementation address back to the original address
+        contract
+            .method::<Address, ()>(method, original_address)?
+            .send()
+            .await?
+            .await?;
+
+        // Check that the implementation address was unset
+        assert!(
+            contract
+                .is_implementation_upgraded(address_selector)
+                .call()
+                .await
+                .is_err(),
+            "Implementation address not unset"
+        );
+    }
 
     Ok(())
 }

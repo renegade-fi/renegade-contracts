@@ -20,7 +20,6 @@ abigen!(
         function setMerkleAddress(address memory merkle_address) external
 
         function isNullifierSpent(uint256 memory nullifier) external view returns (bool)
-        function markNullifierSpent(uint256 memory nullifier) external
 
         function getRoot() external view returns (uint256)
 
@@ -28,8 +27,9 @@ abigen!(
         function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature) external
         function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_reblind_proof, bytes memory party_1_match_payload, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_reblind_proof, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_statement_bytes) external
 
+        function markNullifierSpent(uint256 memory nullifier) external
         function executeExternalTransfer(bytes memory transfer) external
-
+        function isImplementationUpgraded(uint8 memory address_selector) external view returns (bool)
         function clearMerkle() external
     ]"#
 );
