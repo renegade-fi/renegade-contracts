@@ -36,7 +36,7 @@ use crate::{
         NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S,
         OPT_LEVEL_Z, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
         STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY,
-        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS, VERIFIER_TEST_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -153,8 +153,11 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
         StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
         StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
+        StylusContract::VerifierTestContract => VERIFIER_TEST_CONTRACT_KEY,
         StylusContract::Vkeys | StylusContract::TestVkeys => VKEYS_CONTRACT_KEY,
         StylusContract::DummyErc20 => DUMMY_ERC20_CONTRACT_KEY,
+        StylusContract::DummyUpgradeTarget => DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+        StylusContract::PrecompileTestContract => PRECOMPILE_TEST_CONTRACT_KEY,
     }
 }
 
