@@ -104,9 +104,12 @@ pub enum StylusContract {
     Merkle,
     MerkleTestContract,
     Verifier,
+    VerifierTestContract,
     Vkeys,
     TestVkeys,
     DummyErc20,
+    DummyUpgradeTarget,
+    PrecompileTestContract,
 }
 
 impl Display for StylusContract {
@@ -117,9 +120,12 @@ impl Display for StylusContract {
             StylusContract::Merkle => write!(f, "merkle"),
             StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),
             StylusContract::Verifier => write!(f, "verifier"),
+            StylusContract::VerifierTestContract => write!(f, "verifier-test-contract"),
             StylusContract::Vkeys => write!(f, "vkeys"),
             StylusContract::TestVkeys => write!(f, "test-vkeys"),
             StylusContract::DummyErc20 => write!(f, "dummy-erc20"),
+            StylusContract::DummyUpgradeTarget => write!(f, "dummy-upgrade-target"),
+            StylusContract::PrecompileTestContract => write!(f, "precompile-test-contract"),
         }
     }
 }
