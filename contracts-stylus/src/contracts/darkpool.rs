@@ -197,6 +197,7 @@ impl DarkpoolContract {
         fee: U256,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage);
+        assert_ne!(fee, U256::ZERO);
         storage.borrow_mut().protocol_fee.set(fee);
         Ok(())
     }
@@ -207,6 +208,7 @@ impl DarkpoolContract {
         verifier_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage);
+        assert_ne!(verifier_address, Address::ZERO);
         storage.borrow_mut().verifier_address.set(verifier_address);
         Ok(())
     }
@@ -217,6 +219,7 @@ impl DarkpoolContract {
         vkeys_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage);
+        assert_ne!(vkeys_address, Address::ZERO);
         storage.borrow_mut().vkeys_address.set(vkeys_address);
         Ok(())
     }
@@ -227,6 +230,7 @@ impl DarkpoolContract {
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage);
+        assert_ne!(merkle_address, Address::ZERO);
         storage.borrow_mut().merkle_address.set(merkle_address);
         Ok(())
     }

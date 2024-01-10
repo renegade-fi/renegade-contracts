@@ -77,7 +77,6 @@ pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
         contract
             .method::<T, D>(method, args)?
             .send()
-            .await?
             .await
             .is_ok(),
         "Failed to call {} as owner",
@@ -119,7 +118,7 @@ pub async fn assert_all_suceed<'a>(
 ) -> Result<()> {
     for tx in txs {
         assert!(
-            tx.await?.await.is_ok(),
+            tx.await.is_ok(),
             "Expected transaction to succeed, but it reverted"
         );
     }

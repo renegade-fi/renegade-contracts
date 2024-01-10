@@ -42,8 +42,10 @@ use crate::{
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
     },
     constants::{
-        L, PAUSE_METHOD_NAME, PROOF_BATCH_SIZE, SET_FEE_METHOD_NAME, TRANSFER_AMOUNT,
-        TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
+        L, PAUSE_METHOD_NAME, PROOF_BATCH_SIZE, SET_FEE_METHOD_NAME,
+        SET_MERKLE_ADDRESS_METHOD_NAME, SET_VERIFIER_ADDRESS_METHOD_NAME,
+        SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_AMOUNT, TRANSFER_OWNERSHIP_METHOD_NAME,
+        UNPAUSE_METHOD_NAME,
     },
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
@@ -451,7 +453,31 @@ pub(crate) async fn test_ownable(
         &contract,
         &contract_with_dummy_owner,
         SET_FEE_METHOD_NAME,
-        U256::default(),
+        U256::from(1),
+    )
+    .await?;
+
+    // Assert that only the owner can call the implementation address setters
+    let dummy_impl_address = Address::random();
+    assert_only_owner::<_, Address>(
+        &contract,
+        &contract_with_dummy_owner,
+        SET_VERIFIER_ADDRESS_METHOD_NAME,
+        dummy_impl_address,
+    )
+    .await?;
+    assert_only_owner::<_, Address>(
+        &contract,
+        &contract_with_dummy_owner,
+        SET_VKEYS_ADDRESS_METHOD_NAME,
+        dummy_impl_address,
+    )
+    .await?;
+    assert_only_owner::<_, Address>(
+        &contract,
+        &contract_with_dummy_owner,
+        SET_MERKLE_ADDRESS_METHOD_NAME,
+        dummy_impl_address,
     )
     .await?;
 
