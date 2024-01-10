@@ -27,7 +27,9 @@ use crate::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
             rootInHistoryCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall,
             verifyMatchCall, verifyStateSigAndInsertCall,
-            ExternalTransfer as ExternalTransferEvent, NullifierSpent, WalletUpdated, IERC20,
+            ExternalTransfer as ExternalTransferEvent, FeeChanged, MerkleAddressChanged,
+            NullifierSpent, OwnershipTransferred, Paused, Unpaused, VerifierAddressChanged,
+            VkeysAddressChanged, WalletUpdated, IERC20,
         },
     },
 };
@@ -84,16 +86,14 @@ impl DarkpoolContract {
         // Initialize the Merkle tree
         delegate_call_helper::<initCall>(storage, merkle_address, ());
 
-        let this = storage.borrow_mut();
-
         // Set the owner, verifier, vkeys, & Merkle addresses
-        this.owner.set(msg::sender());
-        this.verifier_address.set(verifier_address);
-        this.vkeys_address.set(vkeys_address);
-        this.merkle_address.set(merkle_address);
+        DarkpoolContract::_transfer_ownership(storage, msg::sender());
+        DarkpoolContract::set_verifier_address(storage, verifier_address).unwrap();
+        DarkpoolContract::set_vkeys_address(storage, vkeys_address).unwrap();
+        DarkpoolContract::set_merkle_address(storage, merkle_address).unwrap();
 
         // Set the protocol fee
-        this.protocol_fee.set(protocol_fee);
+        DarkpoolContract::set_fee(storage, protocol_fee).unwrap();
 
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1);
@@ -137,6 +137,7 @@ impl DarkpoolContract {
         DarkpoolContract::_assert_owner(storage);
         DarkpoolContract::_assert_not_paused(storage);
         storage.borrow_mut().paused.set(true);
+        evm::log(Paused {});
         Ok(())
     }
 
@@ -145,6 +146,7 @@ impl DarkpoolContract {
         DarkpoolContract::_assert_owner(storage);
         DarkpoolContract::_assert_paused(storage);
         storage.borrow_mut().paused.set(false);
+        evm::log(Unpaused {});
         Ok(())
     }
 
@@ -194,11 +196,12 @@ impl DarkpoolContract {
     /// Set the protocol fee
     pub fn set_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        fee: U256,
+        new_fee: U256,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_assert_owner(storage);
-        assert_ne!(fee, U256::ZERO);
-        storage.borrow_mut().protocol_fee.set(fee);
+        assert_ne!(new_fee, U256::ZERO);
+        storage.borrow_mut().protocol_fee.set(new_fee);
+        evm::log(FeeChanged { new_fee });
         Ok(())
     }
 
@@ -210,6 +213,9 @@ impl DarkpoolContract {
         DarkpoolContract::_assert_owner(storage);
         assert_ne!(verifier_address, Address::ZERO);
         storage.borrow_mut().verifier_address.set(verifier_address);
+        evm::log(VerifierAddressChanged {
+            new_address: verifier_address,
+        });
         Ok(())
     }
 
@@ -221,6 +227,9 @@ impl DarkpoolContract {
         DarkpoolContract::_assert_owner(storage);
         assert_ne!(vkeys_address, Address::ZERO);
         storage.borrow_mut().vkeys_address.set(vkeys_address);
+        evm::log(VkeysAddressChanged {
+            new_address: vkeys_address,
+        });
         Ok(())
     }
 
@@ -232,6 +241,9 @@ impl DarkpoolContract {
         DarkpoolContract::_assert_owner(storage);
         assert_ne!(merkle_address, Address::ZERO);
         storage.borrow_mut().merkle_address.set(merkle_address);
+        evm::log(MerkleAddressChanged {
+            new_address: merkle_address,
+        });
         Ok(())
     }
 
@@ -402,6 +414,7 @@ impl DarkpoolContract {
         new_owner: Address,
     ) {
         storage.borrow_mut().owner.set(new_owner);
+        evm::log(OwnershipTransferred { new_owner })
     }
 
     /// Asserts that the sender is the owner
