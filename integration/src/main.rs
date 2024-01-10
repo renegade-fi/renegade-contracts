@@ -9,13 +9,17 @@ use cli::{Cli, Tests};
 use constants::{DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY};
 use eyre::Result;
 use scripts::{
-    constants::{DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, VERIFIER_CONTRACT_KEY},
+    constants::{
+        DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
+        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+    },
     utils::{parse_addr_from_deployments_file, parse_srs_from_file, setup_client},
 };
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
-    test_initializable, test_merkle, test_new_wallet, test_nullifier_set,
-    test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier, test_ownable, test_pausable,
+    test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet,
+    test_nullifier_set, test_ownable, test_pausable, test_process_match_settle, test_update_wallet,
+    test_upgradeable, test_verifier,
 };
 use utils::get_test_contract_address;
 
@@ -93,6 +97,28 @@ async fn main() -> Result<()> {
                 proxy_address,
                 dummy_upgrade_target_address,
                 darkpool_address,
+            )
+            .await?;
+        }
+        Tests::ImplSetters => {
+            let contract = DarkpoolTestContract::new(contract_address, client.clone());
+            let verifier_address =
+                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
+            let vkeys_address =
+                parse_addr_from_deployments_file(&deployments_file, VKEYS_CONTRACT_KEY)?;
+            let merkle_address =
+                parse_addr_from_deployments_file(&deployments_file, MERKLE_CONTRACT_KEY)?;
+            let dummy_upgrade_target_address = parse_addr_from_deployments_file(
+                &deployments_file,
+                DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+            )?;
+
+            test_implementation_address_setters(
+                contract,
+                verifier_address,
+                vkeys_address,
+                merkle_address,
+                dummy_upgrade_target_address,
             )
             .await?;
         }
