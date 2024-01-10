@@ -113,11 +113,20 @@ pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 /// The verifier contract key in the `deployments.json` file
 pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
+/// The verifier test contract key in the `deployments.json` file
+pub const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
+
 /// The vkeys contract key in the `deployments.json` file
 pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";
 
 /// The dummy ERC20 contract key in the `deployments.json` file
 pub const DUMMY_ERC20_CONTRACT_KEY: &str = "dummy_erc20_contract";
+
+/// The dummy upgrade target contract key in the `deployments.json` file
+pub const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target_contract";
+
+/// The precompile test contract key in the `deployments.json` file
+pub const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract";
 
 /// The default degree to use for generating an SRS
 pub const DEFAULT_SRS_DEGREE: usize = 2048;
