@@ -32,6 +32,9 @@ sol! {
     function verify(bytes memory verification_bundle) external view returns (bool);
     function verifyMatch(bytes memory match_bundle) external view returns (bool);
 
+    // Testing functions
+    function isDummyUpgradeTarget() external view returns (bool);
+
     // ----------
     // | EVENTS |
     // ----------

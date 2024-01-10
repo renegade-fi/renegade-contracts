@@ -39,6 +39,7 @@ pub(crate) enum Tests {
     Merkle,
     Verifier,
     Upgradeable,
+    ImplSetters,
     Initializable,
     Ownable,
     Pausable,
