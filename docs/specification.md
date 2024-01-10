@@ -52,6 +52,24 @@ The high-level state elements are the following:
     - Preprocessed information for the Plonk circuits & proof linking statements being proven[^2]
 - Contract addresses
     - The `DarkpoolContract` must know the addresses for the `MerkleContract`, `VerifierContract`, and aforementioned `VkeysContract` so that it can `delegatecall` / `staticcall` them appropriately
+- Protocol fee
+    - A global parameter indicating the fee taken by the protocol. This is a fixed percentage of each trade's volume represented as a fixed-point number
+
+## Access Controls
+
+The on-chain protocol has the following access controls securing it:
+- Upgradeability
+    - We use OpenZeppelin's transparent upgradeable proxy pattern, as mentioned above. As such, the `DarkpoolContract` has all calls proxied to it through the `TransparentUpgradeableProxy` via a `delegatecall`, and can be upgraded via the `ProxyAdmin`.
+        - In using the OpenZeppelin contract implementations, we also adopt their access controls for the `TransparentUpgradeableProxy` and `ProxyAdmin`. Namely, the `ProxyAdmin` has a dedicated owner that can call its upgrade method, and the `TransparentUpgradeableProxy` only accepts upgrade calls from the `ProxyAdmin`
+    - Separately from the high-level transparent upgradeable proxy pattern being used for managing the version of the `DarkpoolContract`, we have individual, access-controlled methods for upgrading the implementations of the `VerifierContract`, `VkeysContract`, and `MerkleContract`, defined on the `DarkpoolContract`
+        - This allows us to scope individual upgrades to these components, without requiring upgrades to the entire `DarkpoolContract`
+- Ownership
+    - The `DarkpoolContract` also has a dedicated owner, potentially separate from the owner of the `ProxyAdmin`. This owner can be set during initialization, or ownership can be transferred from the current owner to another.
+    - Only the `DarkpoolContract` owner can call certain protected setter methods, such as setting the protocol fee, pausing the contract, or upgrading implementations of the `VerifierContract`, `VkeysContract`, and `MerkleContract`
+- Pausing
+    - The `DarkpoolContract` can be paused, meaning that any user-accessible, state mutating methods (i.e., those that are not scoped to just the owner, such as settling matched orders) will revert.
+    - This is meant as an emergency measure, to give us time to upgrade any faulty or compromised implementations in the case of an attack or other unintended contract functionality.
+
 
 ## Contract Interfaces
 
@@ -59,19 +77,40 @@ Let's take a closer, detailed look at the contract functionality. The following 
 
 `DarkpoolContract`:
 - `initialize`
-    - Initializes the smart contract system, storing the contract addresses needed by the `DarkpoolContract` (described above), and instantiating an empty Merkle tree by `delegatecall`ing the `MerkleContract`. Intended to be called by the `ProxyAdmin` as a nested call of the `upgradeToAndCall` method.
+    - Initializes the smart contract system, storing the contract addresses needed by the `DarkpoolContract` (described above), and instantiating an empty Merkle tree by `delegatecall`ing the `MerkleContract`. This also sets the caller to be the `DarkpoolContract` owner. Intended to be called by the `ProxyAdmin` as a nested call of the `upgradeToAndCall` method.
+- `owner`
+    - Returns the `DarkpoolContract` owner
+- `transfer_ownership`
+    - Transfers ownership of the `DarkpoolContract` to the passed-in address. May only be called by the owner.
+- `paused`
+    - Returns whether or not the `DarkpoolContract` is paused
+- `pause`
+    - Pauses the `DarkpoolContract`, causing all calls to user-accesible, mutating functions to revert. May only be called by the owner and when the contract is unpaused.
+- `unpause`
+    - Unpauses the `DarkpoolContract`, making all user-accessible, mutating functions available to be called. May only be called by the owner and when the contract is paused.
 - `is_nullifier_spent`
     - Checks whether the passed-in nullifier is present in the set maintained by the contract (i.e., if the wallet associated with this nullifier is spent).
 - `get_root`
     - Returns the current root of the Merkle tree by `delegatecall`ing the `MerkleContract`.
 - `root_in_history`
     - Checks whether or not the passed-in candidate Merkle root is a valid historical root by `delegatecall`ing the `MerkleContract`.
+- `get_fee`
+    - Returns the current protocol fee
+- `set_fee`
+    - Sets the protocol fee to the passed-in value. Can only be called by the owner.
+- `set_verifier_address`
+    - Sets the address of the `VerifierContract`. Can only be called by the owner.
+- `set_vkeys_address`
+    - Sets the address of the `VkeysContract`. Can only be called by the owner.
+- `set_merkle_address`
+    - Sets the address of the `MerkleContract`. Can only be called by the owner.
 - `new_wallet`
     - Adds a new wallet to the protocol state. This includes:
         1. Fetching the verification key for the `VALID WALLET CREATE` statement by `staticcall`ing the `VkeysContract`
         2. Verifying a Plonk proof of the `VALID WALLET CREATE` statement by `staticcall`ing the `VerifierContract`
         3. Inserting the commitment to the new wallet's state into the Merkle tree by `delegatecall`ing the `MerkleContract`
         4. Emitting a `WalletUpdated` event with a public identifier of the new wallet
+    - May only be called when the contract is unpaused
 - `update_wallet`
     - Updates an existing wallet, e.g. depositing / withdrawing funds to / from the wallet, or creating / cancelling an order. This includes:
         1. Asserting that the Merkle root included in the passed-in Plonk proof of `VALID WALLET UPDATE` is a valid historical root
@@ -82,6 +121,7 @@ Let's take a closer, detailed look at the contract functionality. The following 
         6. Marking the old wallet's nullifier as spent
         7. If the update was a deposit / withdrawal of an ERC20 asset, executing an ERC20 transfer for the asset between the user & contract in the appropriate direction
         8. Emitting a `WalletUpdated` event with a public identifier of the wallet
+    - May only be called when the contract is unpaused
 - `process_match_settle`
     - Settles a matched trade between two wallets. This includes:
         1. Asserting that the Merkle roots inlcuded in the passed-in Plonk proofs of `VALID REBLIND` for each party are valid historical roots
@@ -90,6 +130,7 @@ Let's take a closer, detailed look at the contract functionality. The following 
         4. Batch-verifying linking proofs of the `VALID REBLIND <-> VALID COMMITMENTS`, `PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE`, & `PARTY 1 VALID COMMITMENTS <-> VALID MATCH SETTLE` links by `staticcall`ing the `VerifierContract`
         5. Inserting commitments to each party's post-trade wallets into the Merkle tree by `delegatecall`ing the `MerkleContract`
         6. Marking each party's old wallet's nullifier as spent
+    - May only be called when the contract is unpaused
 
 `MerkleContract`
 - `init`
@@ -124,8 +165,11 @@ The following invariants must hold true in all possible states of the protocol. 
 
 ### Darkpool product invariants
 
+- The darkpool contract is the sole entrypoint to any methods that may alter the on-chain protocol's state
 - The darkpool can only be initialized during initial deployment or upgrade
-- The logic for wallet state transition validity & global state commitments can only be set during darkpool initialization
+- The logic for wallet state transition validity & global state commitments can only be set by the darkpool contract owner
+- Global parameters can only be set by the darkpool contract owner
+- Any state-mutating methods that can be called by users other than the darkpool contract owner can only be called when the contract is unpaused
 - The darkpool rejects malformed inputs instead of coercing them into an operable form
 - Spent wallets can't be updated in any way, including settling orders they contain
 - Wallets can only be spent by being updated (e.g. modifying orders / fees, depositing / withdrawing), or having one of their orders matched & settled
