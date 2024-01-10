@@ -129,8 +129,14 @@ async fn main() -> Result<()> {
         }
         Tests::Ownable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());
+            let verifier_address =
+                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
+            let vkeys_address =
+                parse_addr_from_deployments_file(&deployments_file, VKEYS_CONTRACT_KEY)?;
+            let merkle_address =
+                parse_addr_from_deployments_file(&deployments_file, MERKLE_CONTRACT_KEY)?;
 
-            test_ownable(contract).await?;
+            test_ownable(contract, verifier_address, vkeys_address, merkle_address).await?;
         }
         Tests::Pausable => {
             let contract = DarkpoolTestContract::new(contract_address, client.clone());

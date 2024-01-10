@@ -38,6 +38,9 @@ pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";
 /// The "s" optimization level (size optimization)
 pub const OPT_LEVEL_S: &str = "s";
 
+/// The "z" optimization level (aggressive size optimization)
+pub const OPT_LEVEL_Z: &str = "z";
+
 /// The 3 optimization level (maximum optimization)
 pub const OPT_LEVEL_3: &str = "3";
 
@@ -82,6 +85,9 @@ pub const WASM_OPT_COMMAND: &str = "wasm-opt";
 
 /// The most aggressive optimization flag for the `wasm-opt` command
 pub const AGGRESSIVE_OPTIMIZATION_FLAG: &str = "-O4";
+
+/// The most aggressive size optimization flag for the `wasm-opt` command
+pub const AGGRESSIVE_SIZE_OPTIMIZATION_FLAG: &str = "-Oz";
 
 /// The name of the stylus command
 pub const STYLUS_COMMAND: &str = "stylus";

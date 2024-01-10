@@ -30,10 +30,11 @@ use tracing::log::warn;
 use crate::{
     cli::StylusContract,
     constants::{
-        AGGRESSIVE_OPTIMIZATION_FLAG, BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY,
-        DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
-        MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
-        OPT_LEVEL_FLAG, OPT_LEVEL_S, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
+        AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
+        CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
+        DUMMY_ERC20_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
+        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S,
+        OPT_LEVEL_Z, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
         STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY,
         VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
@@ -193,10 +194,20 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     let opt_level = match contract {
         StylusContract::Verifier => OPT_LEVEL_S,
+        StylusContract::DarkpoolTestContract => OPT_LEVEL_Z,
         _ => OPT_LEVEL_3,
     };
 
     format!("{}{}", OPT_LEVEL_FLAG, opt_level)
+}
+
+pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str {
+    match contract {
+        StylusContract::Verifier | StylusContract::DarkpoolTestContract => {
+            AGGRESSIVE_SIZE_OPTIMIZATION_FLAG
+        }
+        _ => AGGRESSIVE_OPTIMIZATION_FLAG,
+    }
 }
 
 /// Compiles the given Stylus contract to WASM and optimizes the resulting binary,
@@ -278,7 +289,7 @@ pub fn build_stylus_contract(
     opt_cmd.arg(wasm_file_path);
     opt_cmd.arg("-o");
     opt_cmd.arg(opt_wasm_file_path.clone());
-    opt_cmd.arg(AGGRESSIVE_OPTIMIZATION_FLAG);
+    opt_cmd.arg(get_wasm_opt_flags_for_contract(contract));
 
     command_success_or(opt_cmd, "Failed to optimize contract WASM")?;
 

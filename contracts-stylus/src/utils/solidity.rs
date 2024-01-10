@@ -42,8 +42,17 @@ sol! {
     // Merkle events
     event NodeChanged(uint8 indexed height, uint128 indexed index, uint256 indexed new_value);
 
-    // Darkpool events
+    // Darkpool user interaction events
     event NullifierSpent(uint256 indexed nullifier);
     event WalletUpdated(uint256 indexed wallet_blinder_share);
     event ExternalTransfer(address indexed account, address indexed mint, bool indexed is_withdrawal, uint256 amount);
+
+    // Darkpool controls events
+    event FeeChanged(uint256 indexed new_fee);
+    event OwnershipTransferred(address indexed new_owner);
+    event Paused();
+    event Unpaused();
+    event VerifierAddressChanged(address indexed new_address);
+    event VkeysAddressChanged(address indexed new_address);
+    event MerkleAddressChanged(address indexed new_address);
 }
