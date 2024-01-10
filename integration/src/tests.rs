@@ -427,13 +427,15 @@ pub(crate) async fn test_initializable(
     let dummy_verifier_address = Address::random();
     let dummy_vkeys_address = Address::random();
     let dummy_merkle_address = Address::random();
+    let dummy_protocol_fee = U256::from(1);
 
     assert!(
         contract
             .initialize(
                 dummy_verifier_address,
                 dummy_vkeys_address,
-                dummy_merkle_address
+                dummy_merkle_address,
+                dummy_protocol_fee,
             )
             .send()
             .await
@@ -446,6 +448,9 @@ pub(crate) async fn test_initializable(
 
 pub(crate) async fn test_ownable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
+    verifier_address: Address,
+    vkeys_address: Address,
+    merkle_address: Address,
 ) -> Result<()> {
     let initial_owner = contract.client().default_sender().unwrap();
 
@@ -522,26 +527,27 @@ pub(crate) async fn test_ownable(
     .await?;
 
     // Assert that only the owner can call the implementation address setters
-    let dummy_impl_address = Address::random();
+    // We set the implementation addresses to the original addresses to ensure
+    // that future tests have the correct implementation addresses
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_VERIFIER_ADDRESS_METHOD_NAME,
-        dummy_impl_address,
+        verifier_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_VKEYS_ADDRESS_METHOD_NAME,
-        dummy_impl_address,
+        vkeys_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_MERKLE_ADDRESS_METHOD_NAME,
-        dummy_impl_address,
+        merkle_address,
     )
     .await?;
 
