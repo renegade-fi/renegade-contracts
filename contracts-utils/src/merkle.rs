@@ -10,6 +10,7 @@ use core::borrow::Borrow;
 use rand::Rng;
 use renegade_crypto::hash::Poseidon2Sponge;
 
+/// Collision-resistant hash representing the identity function
 pub struct IdentityCRH;
 impl CRHScheme for IdentityCRH {
     type Input = ScalarField;
@@ -30,6 +31,7 @@ impl CRHScheme for IdentityCRH {
     }
 }
 
+/// Two-to-one collision-resistant hash using the Poseidon2 sponge
 pub struct PoseidonTwoToOneCRH;
 impl TwoToOneCRHScheme for PoseidonTwoToOneCRH {
     type Input = ScalarField;
@@ -62,6 +64,7 @@ impl TwoToOneCRHScheme for PoseidonTwoToOneCRH {
     }
 }
 
+/// Configuration for Poseidon2 Merkle tree as used in the Stylus contracts
 pub struct MerkleConfig;
 impl Config for MerkleConfig {
     type Leaf = ScalarField;
@@ -75,6 +78,7 @@ impl Config for MerkleConfig {
     type LeafInnerDigestConverter = IdentityDigestConverter<ScalarField>;
 }
 
+/// Create an empty Merkle tree with the given height
 pub fn new_ark_merkle_tree(height: usize) -> MerkleTree<MerkleConfig> {
     let num_leaves = 2_u128.pow(height as u32);
     let leaves = vec![EMPTY_LEAF_VALUE; num_leaves as usize];

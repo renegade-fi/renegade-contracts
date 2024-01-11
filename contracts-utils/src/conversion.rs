@@ -12,6 +12,7 @@ use contracts_common::types::{
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
 
+/// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
 pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
     LinkingVerificationKey {
         link_group_generator: group_layout.get_domain_generator(),
@@ -20,6 +21,8 @@ pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
     }
 }
 
+/// Attempts to convert a slice of [`PolynomialCommitment`]s (from prover-side code)
+/// to a fixed-size array of [`G1Affine`]z
 fn try_unwrap_commitments<const N: usize>(
     comms: &[PolynomialCommitment],
 ) -> Result<[G1Affine; N], ConversionError> {
@@ -31,6 +34,8 @@ fn try_unwrap_commitments<const N: usize>(
         .map_err(|_| ConversionError::InvalidLength)
 }
 
+
+/// Converts a [`VerifyingKey`] (from prover-side code) to a [`VerificationKey`]
 pub fn to_contract_vkey(
     jf_vkey: VerifyingKey<SystemCurve>,
 ) -> Result<VerificationKey, ConversionError> {
@@ -49,6 +54,7 @@ pub fn to_contract_vkey(
     })
 }
 
+/// Converts a [`ContractPublicSigningKey`] (from contract-side code) to a [`CircuitPublicSigningKey`]
 pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPublicSigningKey {
     let x = NonNativeScalar {
         scalar_words: contract_pubkey

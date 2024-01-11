@@ -1,6 +1,5 @@
-//! Defines mock versions of the Renegade protocol circuits that expect the same
-//! statements & link groups, but expect no witness, abd have trivially satisfiable
-//! dummy constraints.
+//! Defines a mock circuit that is generic over the same statements as the Renegade
+//! protocol circuits, but is trivially satisfiable
 
 use core::marker::PhantomData;
 
@@ -19,7 +18,11 @@ use eyre::Result;
 
 use mpc_plonk::errors::PlonkError;
 
+/// A simple circuit that is trivially satisfiable in that it applies no constraints.
+///
+/// Defined generically over an application-level statement type.
 pub struct DummyCircuit<S: CircuitBaseType> {
+    #[doc(hidden)]
     _phantom: PhantomData<S>,
 }
 
@@ -40,32 +43,17 @@ impl<S: CircuitBaseType> SingleProverCircuit for DummyCircuit<S> {
     }
 }
 
-// -----------------------
-// | VALID WALLET CREATE |
-// -----------------------
-
+/// The dummy version of the `VALID WALLET CREATE` circuit
 pub type DummyValidWalletCreate = DummyCircuit<SizedValidWalletCreateStatement>;
 
-// -----------------------
-// | VALID WALLET UPDATE |
-// -----------------------
-
+/// The dummy version of the `VALID WALLET UPDATE` circuit
 pub type DummyValidWalletUpdate = DummyCircuit<SizedValidWalletUpdateStatement>;
 
-// -----------------
-// | VALID REBLIND |
-// -----------------
-
+/// The dummy version of the `VALID REBLIND` circuit
 pub type DummyValidReblind = DummyCircuit<ValidReblindStatement>;
 
-// ---------------------
-// | VALID COMMITMENTS |
-// ---------------------
-
+/// The dummy version of the `VALID COMMITMENTS` circuit
 pub type DummyValidCommitments = DummyCircuit<ValidCommitmentsStatement>;
 
-// ----------------------
-// | VALID MATCH SETTLE |
-// ----------------------
-
+/// The dummy version of the `VALID MATCH SETTLE` circuit
 pub type DummyValidMatchSettle = DummyCircuit<SizedValidMatchSettleStatement>;

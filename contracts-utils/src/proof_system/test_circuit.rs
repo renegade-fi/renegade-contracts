@@ -25,17 +25,28 @@ use rand::thread_rng;
 
 use crate::conversion::{to_contract_vkey, to_linking_vkey};
 
+/// Encapsulates the information needed to add a link group to a circuit
 pub struct LinkGroupInfo {
+    /// The elements of the link group
     pub linked_inputs: Vec<ScalarField>,
+    /// The optional predefined layout of the link group
     pub layout: Option<GroupLayout>,
+    /// The link group ID
     pub id: String,
 }
 
+/// The verification keys for a circuit
 pub struct CircuitVkeys {
+    /// The Plonk verification key
     pub vkey: VerificationKey,
+    /// The linking verification keys
     pub linking_vkeys: HashMap<String, LinkingVerificationKey>,
 }
 
+/// Generates a proof for a trivially constrained circuit using the given SRS, public inputs, and
+/// link groups.
+///
+/// Returns the proof, the linking hint, and the circuit verification keys.
 pub fn gen_test_circuit_proofs_and_vkeys(
     srs: &UnivariateUniversalParams<SystemCurve>,
     public_inputs: &PublicInputs,
@@ -56,6 +67,9 @@ pub fn gen_test_circuit_proofs_and_vkeys(
     Ok((proof, link_hint, circuit_vkeys))
 }
 
+/// Generates a trivially constrained circuit using the given SRS, public inputs, and link groups.
+///
+/// Returns the circuit, the proving key, and the circuit verification keys.
 fn gen_test_circuit_and_keys(
     srs: &UnivariateUniversalParams<SystemCurve>,
     public_inputs: &PublicInputs,
@@ -81,6 +95,7 @@ fn gen_test_circuit_and_keys(
     Ok((circuit, pkey, circuit_vkeys))
 }
 
+/// Generates a trivially constrained circuit using the given public inputs and link groups.
 fn gen_circuit(
     public_inputs: &PublicInputs,
     link_groups: &[LinkGroupInfo],
