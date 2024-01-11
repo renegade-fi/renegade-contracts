@@ -29,22 +29,40 @@ pub(crate) struct Cli {
     pub(crate) rpc_url: String,
 }
 
+/// The possible test cases
 #[derive(ValueEnum, Clone, Copy)]
 pub(crate) enum Tests {
+    /// Test how the contracts call the `ecAdd` precompile
     EcAdd,
+    /// Test how the contracts call the `ecMul` precompile
     EcMul,
+    /// Test how the contracts call the `ecPairing` precompile
     EcPairing,
+    /// Test how the contracts call the `ecRecover` precompile
     EcRecover,
+    /// Test the nullifier set functionality
     NullifierSet,
+    /// Test the Merkle tree functionality
     Merkle,
+    /// Test the verifier functionality
     Verifier,
+    /// Test the upgradeability of the darkpool
     Upgradeable,
+    /// Test the upgradeability of the contracts the darkpool calls
+    /// (verifier, vkeys, & Merkle)
     ImplSetters,
+    /// Test the initialization of the darkpool
     Initializable,
+    /// Test the ownership of the darkpool
     Ownable,
+    /// Test the pausability of the darkpool
     Pausable,
+    /// Test deposit / withdrawal functionality of the darkpool
     ExternalTransfer,
+    /// Test the `new_wallet` method on the darkpool
     NewWallet,
+    /// Test the `update_wallet` method on the darkpool
     UpdateWallet,
+    /// Test the `process_match_settle` method on the darkpool
     ProcessMatchSettle,
 }
