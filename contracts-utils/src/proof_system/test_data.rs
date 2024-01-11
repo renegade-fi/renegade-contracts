@@ -2,7 +2,8 @@
 
 use arbitrum_client::conversion::{
     to_contract_valid_commitments_statement, to_contract_valid_match_settle_statement,
-    to_contract_valid_reblind_statement, to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
+    to_contract_valid_reblind_statement, to_contract_valid_wallet_create_statement,
+    to_contract_valid_wallet_update_statement,
 };
 use ark_std::UniformRand;
 use circuit_types::{
@@ -15,10 +16,9 @@ use circuits::zk_circuits::{
     valid_wallet_create::SizedValidWalletCreateStatement,
     valid_wallet_update::SizedValidWalletUpdateStatement,
 };
-use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
-    custom_serde::{ScalarSerializable, BytesSerializable},
+    custom_serde::{BytesSerializable, ScalarSerializable},
     types::{
         G1Affine, MatchPayload, MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
         PublicInputs, ValidMatchSettleStatement as ContractValidMatchSettleStatement,
@@ -26,33 +26,43 @@ use contracts_common::{
         ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
     },
 };
+use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::types::Bytes;
 use eyre::Result;
 use jf_primitives::pcs::prelude::{Commitment, UnivariateUniversalParams};
 use rand::{thread_rng, CryptoRng, Rng, RngCore};
 use std::iter;
 
-use crate::{crypto::{random_keypair, hash_and_sign_message}, conversion::to_circuit_pubkey};
+use crate::{
+    conversion::to_circuit_pubkey,
+    crypto::{hash_and_sign_message, random_keypair},
+};
 
 use super::{
     dummy_renegade_circuits::{
-        DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate, DummyValidWalletUpdate,
+        DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
+        DummyValidWalletUpdate,
     },
     gen_circuit_vkey, prove_with_srs,
 };
 
+/// Generates a vector of random scalars
 pub fn random_scalars(n: usize, rng: &mut impl Rng) -> Vec<ScalarField> {
     (0..n).map(|_| ScalarField::rand(rng)).collect()
 }
 
+/// Generates a vector of random commitments
 pub fn random_commitments(n: usize, rng: &mut impl Rng) -> Vec<PolynomialCommitment> {
     (0..n).map(|_| Commitment(G1Affine::rand(rng))).collect()
 }
 
+/// Generates a statement type with random scalars
 pub fn dummy_statement<R: RngCore + CryptoRng, S: CircuitBaseType>(rng: &mut R) -> S {
     S::from_scalars(&mut iter::repeat_with(|| Scalar::random(rng)))
 }
 
+/// Generates the inputs for the `new_wallet` darkpool method, namely
+/// a dummy statement and associated proof for the `VALID WALLET CREATE` circuit
 pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -67,6 +77,9 @@ pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
     Ok((proof, contract_statement))
 }
 
+/// Generates the inputs for the `update_wallet` darkpool method, namely
+/// a dummy statement and associated proof for the `VALID WALLET UPDATE` circuit,
+/// along with a signature over the commitment to the wallet shares
 pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -105,17 +118,28 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     Ok((proof, contract_statement, public_inputs_signature))
 }
 
+/// The inputs for the `process_match_settle` darkpool method
 pub struct ProcessMatchSettleData {
+    /// The first party's match payload
     pub party_0_match_payload: MatchPayload,
+    /// The first party's `VALID COMMITMENTS` proof
     pub party_0_valid_commitments_proof: ContractProof,
+    /// The first party's `VALID REBLIND` proof
     pub party_0_valid_reblind_proof: ContractProof,
+    /// The second party's match payload
     pub party_1_match_payload: MatchPayload,
+    /// The second party's `VALID COMMITMENTS` proof
     pub party_1_valid_commitments_proof: ContractProof,
+    /// The second party's `VALID REBLIND` proof
     pub party_1_valid_reblind_proof: ContractProof,
+    /// The `VALID MATCH SETTLE` proof
     pub valid_match_settle_proof: ContractProof,
+    /// The `VALID MATCH SETTLE` statement
     pub valid_match_settle_statement: ContractValidMatchSettleStatement,
 }
 
+/// Generates a dummy [`MatchPayload`] and associated proofs for the
+/// statements contained within it
 fn dummy_match_payload_and_proofs<R: CryptoRng + RngCore>(
     rng: &mut R,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -144,6 +168,8 @@ fn dummy_match_payload_and_proofs<R: CryptoRng + RngCore>(
     ))
 }
 
+/// Generates the inputs for the `process_match_settle` darkpool method,
+/// listed out in the [`ProcessMatchSettleData`] struct
 pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -173,6 +199,7 @@ pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     })
 }
 
+/// Generates the bundle of inputs expected by the verifier in its `verify_match` method
 pub fn generate_match_bundle() -> Result<(MatchVkeys, MatchProofs, MatchPublicInputs)> {
     let mut rng = thread_rng();
 
@@ -251,6 +278,8 @@ pub fn generate_match_bundle() -> Result<(MatchVkeys, MatchProofs, MatchPublicIn
     Ok((match_vkeys, match_proofs, match_public_inputs))
 }
 
+/// Generates a dummy [`SizedValidWalletUpdateStatement`] with the given
+/// external transfer, merkle root, and old root public key
 pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
     rng: &mut R,
     external_transfer: ExternalTransfer,
@@ -276,6 +305,7 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
     }
 }
 
+/// Generates a dummy [`ValidReblindStatement`] with the given merkle root
 pub fn dummy_valid_reblind_statement<R: RngCore + CryptoRng>(
     rng: &mut R,
     merkle_root: Scalar,
