@@ -2,6 +2,7 @@
 
 use contracts_common::backends::G1ArithmeticError;
 
+/// Errors that can occur during Plonk verification
 #[derive(Debug)]
 pub enum VerifierError {
     /// An error that occurred when interpreting the verification inputs
