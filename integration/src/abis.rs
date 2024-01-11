@@ -45,10 +45,10 @@ abigen!(
 );
 
 abigen!(
-    VerifierTestContract,
+    VerifierContract,
     r#"[
-        function verify(address memory verifier_address, bytes memory verification_bundle_ser) external view returns (bool)
-        function verifyBatch(address memory verifier_address, bytes memory batch_verification_bundle_ser) external view returns (bool)
+        function verify(bytes memory verification_bundle) external view returns (bool)
+    function verifyMatch(bytes memory match_bundle) external view returns (bool)
     ]"#
 );
 

@@ -34,6 +34,7 @@ use crate::{
     },
 };
 
+/// The darkpool contract's storage layout
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
@@ -440,6 +441,7 @@ impl DarkpoolContract {
     // | LOGGING |
     // -----------
 
+    /// Emits a `WalletUpdated` event with the wallet's public blinder share
     pub fn log_wallet_update(public_wallet_shares: &[ScalarField]) {
         // We assume the wallet blinder is the last scalar serialized into the wallet shares
         let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
@@ -477,6 +479,8 @@ impl DarkpoolContract {
         assert!(DarkpoolContract::root_in_history(storage, root).unwrap());
     }
 
+    /// Prepares the wallet shares for insertion into the Merkle tree by converting them
+    /// to a vector of [`U256`]
     pub fn prepare_wallet_shares_for_insertion(
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
