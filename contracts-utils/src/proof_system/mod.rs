@@ -31,6 +31,7 @@ pub mod test_data;
 // | HIGH-LEVEL UTILITIES |
 // ------------------------
 
+/// Generates a verification key for a circuit using the given SRS
 pub fn gen_circuit_vkey<C: SingleProverCircuit>(
     srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<VerificationKey, ProofSystemError> {
@@ -58,7 +59,7 @@ pub fn gen_circuit_vkey<C: SingleProverCircuit>(
     to_contract_vkey(jf_vkey).map_err(Into::into)
 }
 
-// TODO: prove_with_link_hint
+/// Generates a proof for a circuit using the given SRS, statement, and witness
 pub fn prove_with_srs<C: SingleProverCircuit>(
     srs: &UnivariateUniversalParams<SystemCurve>,
     witness: C::Witness,
@@ -96,9 +97,12 @@ pub fn prove_with_srs<C: SingleProverCircuit>(
 // | ERROR TYPE |
 // --------------
 
+/// An error that occured when interacting with the proof system
 #[derive(Debug)]
 pub enum ProofSystemError {
+    /// An error that occurred when converting between prover and contract types
     ConversionError(ConversionError),
+    /// An error that occurred when computing a proof
     ProverError(ProverError),
 }
 
