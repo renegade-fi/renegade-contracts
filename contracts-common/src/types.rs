@@ -13,11 +13,22 @@ use crate::{
     serde_def_types::*,
 };
 
+/// Type alias for an element of the scalar field of the Bn254 curve
 pub type ScalarField = Fr;
+
+/// Type alias for an element of the Bn254 curve's G1 pairing group
 pub type G1Affine = Affine<G1Config>;
+
+/// Type alias for an element of the Bn254 curve's G2 pairing group
 pub type G2Affine = Affine<G2Config>;
+
+/// Type alias for an element of the Bn254 curve's G1 pairing group's base field
 pub type G1BaseField = Fq;
+
+/// Type alias for an element of the Bn254 curve's G2 pairing group's base field
 pub type G2BaseField = Fq2;
+
+/// Type alias for a 256-bit prime field element in Montgomery form
 pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 
 /// Preprocessed information derived from the circuit definition and universal SRS
@@ -210,8 +221,10 @@ pub struct ExternalTransfer {
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct PublicSigningKey {
+    /// The affine x-coordinate of the public key
     #[serde_as(as = "[ScalarFieldDef; 2]")]
     pub x: [ScalarField; 2],
+    /// The affine y-coordinate of the public key
     #[serde_as(as = "[ScalarFieldDef; 2]")]
     pub y: [ScalarField; 2],
 }

@@ -17,9 +17,12 @@ use crate::{
     },
 };
 
+/// An error that occurs during de/serialization
 #[derive(Debug)]
 pub enum SerdeError {
+    /// A sequence of deserialized elements is not the expected length
     InvalidLength,
+    /// An error in the conversion of a type into a BN254 scalar field element
     ScalarConversion,
 }
 
@@ -27,13 +30,16 @@ pub enum SerdeError {
 // | BYTE SERDE TRAIT DEFINITION |
 // -------------------------------
 
+/// A trait for serializing types into byte arrays
 pub trait BytesSerializable {
     /// Serializes a type into a vector of bytes,
     /// for use in precompiles or the transcript
     fn serialize_to_bytes(&self) -> Vec<u8>;
 }
 
+/// A trait for deserializing types from byte arrays
 pub trait BytesDeserializable {
+    /// The number of bytes expected to be deserialized
     const SER_LEN: usize;
 
     /// Deserializes a type from a slice of bytes,
@@ -192,6 +198,7 @@ impl BytesDeserializable for G2Affine {
 // | SCALAR SERDE TRAIT DEFINITION |
 // ---------------------------------
 
+/// A trait for serializing types into arrays of scalars
 pub trait ScalarSerializable {
     /// Serializes a type into a vector of scalars
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError>;
@@ -296,6 +303,8 @@ impl<D: BytesDeserializable, const N: usize> BytesDeserializable for [D; N] {
 // | HELPERS |
 // -----------
 
+/// Deserializes a type from a slice of bytes starting at the cursor position,
+/// and increments the cursor by the number of bytes deserialized.
 fn deserialize_cursor<D: BytesDeserializable>(
     bytes: &[u8],
     cursor: &mut usize,
@@ -305,6 +314,7 @@ fn deserialize_cursor<D: BytesDeserializable>(
     Ok(elem)
 }
 
+/// Converts a little-endian byte array into a [`BigInt`]
 pub fn bigint_from_le_bytes(bytes: &[u8]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
     // This will right-pad the bytes with zero-bytes if the length is less than 8 * NUM_BYTES_U64
     let mut bytes_to_convert = [0_u8; NUM_BYTES_FELT];
@@ -321,6 +331,7 @@ pub fn bigint_from_le_bytes(bytes: &[u8]) -> Result<BigInt<NUM_U64S_FELT>, Serde
     Ok(BigInt::<NUM_U64S_FELT>(u64s))
 }
 
+/// Converts an [`Address`] into a [`ScalarField`]
 fn address_to_scalar(address: Address) -> Result<ScalarField, SerdeError> {
     // Here, we right-pad the 20-byte address w/ zero-bytes
     // TODO: Ensure scalar representation is consistent with the relayer implementation
@@ -330,11 +341,13 @@ fn address_to_scalar(address: Address) -> Result<ScalarField, SerdeError> {
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
 }
 
+/// Converts a [`U256`] into a [`ScalarField`]
 fn amount_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
     let u256_bigint = BigInt(u256.into_limbs());
     ScalarField::from_bigint(u256_bigint).ok_or(SerdeError::ScalarConversion)
 }
 
+/// Converts an [`ExternalTransfer`] into a vector of [`ScalarField`]s
 fn external_transfer_to_scalars(
     external_transfer: &ExternalTransfer,
 ) -> Result<Vec<ScalarField>, SerdeError> {
@@ -346,6 +359,7 @@ fn external_transfer_to_scalars(
     ])
 }
 
+/// Converts a [`PublicSigningKey`] into a vector of [`ScalarField`]s
 pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
     let mut scalars = Vec::with_capacity(NUM_SCALARS_PK);
     scalars.extend(pk.x);

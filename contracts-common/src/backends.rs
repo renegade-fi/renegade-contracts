@@ -11,9 +11,11 @@ use crate::{
 /// A hashing backend for muxing between VM-accelerated hashing
 /// and native Rust hashing
 pub trait HashBackend {
+    /// Compute the Keccak-256 hash of the input
     fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE];
 }
 
+/// An error that occurs when performing elliptic curve arithmetic
 #[derive(Debug)]
 pub struct G1ArithmeticError;
 
@@ -51,6 +53,7 @@ pub trait G1ArithmeticBackend {
     }
 }
 
+/// An error that occurs during ECDSA verification
 #[derive(Debug)]
 pub struct EcdsaError;
 
