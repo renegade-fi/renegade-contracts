@@ -1,4 +1,7 @@
 //! Common modules used throughout the project, including contracts & testing code
+
+#![deny(missing_docs)]
+#![deny(clippy::missing_docs_in_private_items)]
 #![no_std]
 
 extern crate alloc;
