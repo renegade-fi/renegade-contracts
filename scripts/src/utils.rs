@@ -67,6 +67,7 @@ pub async fn setup_client(
     Ok(client)
 }
 
+/// Parses the JSON file at the given path
 pub fn get_json_from_file(file_path: &str) -> Result<JsonValue, ScriptError> {
     let mut file_contents = String::new();
     File::open(file_path)
@@ -77,6 +78,8 @@ pub fn get_json_from_file(file_path: &str) -> Result<JsonValue, ScriptError> {
     json::parse(&file_contents).map_err(|e| ScriptError::ReadFile(e.to_string()))
 }
 
+/// Parses a the given contract's deployment address from the
+/// deployments file at the given path
 pub fn parse_addr_from_deployments_file(
     file_path: &str,
     contract_key: &str,
@@ -95,6 +98,7 @@ pub fn parse_addr_from_deployments_file(
     .map_err(|e| ScriptError::ReadFile(e.to_string()))
 }
 
+/// Parses a structured reference string from the file at the given path
 pub fn parse_srs_from_file(
     file_path: &str,
 ) -> Result<UnivariateUniversalParams<SystemCurve>, ScriptError> {
@@ -106,6 +110,8 @@ pub fn parse_srs_from_file(
     Ok(srs)
 }
 
+/// Writes the given address for the deployed contract
+/// to the deployments file at the given path
 pub fn write_deployed_address(
     file_path: &str,
     contract_key: &str,
@@ -125,6 +131,7 @@ pub fn write_deployed_address(
     Ok(())
 }
 
+/// Writes the structured reference string to the file at the given path
 pub fn write_srs_to_file(
     file_path: &str,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -138,6 +145,7 @@ pub fn write_srs_to_file(
         .map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
+/// Writes the verification key to the file at the given directory & path
 pub fn write_vkey_file(
     vkeys_dir: &str,
     vkey_file_name: &str,
@@ -149,6 +157,7 @@ pub fn write_vkey_file(
     fs::write(vkey_file_path, vkey_bytes).map_err(|e| ScriptError::WriteFile(e.to_string()))
 }
 
+/// Returns the JSON key used in the deployments file for the given contract
 pub fn get_contract_key(contract: StylusContract) -> &'static str {
     match contract {
         StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
@@ -181,6 +190,7 @@ pub fn darkpool_initialize_calldata(
     .encode())
 }
 
+/// Executes a command, returning an error if the command fails
 fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {
     if !cmd
         .output()
@@ -194,6 +204,8 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
     }
 }
 
+/// Returns the RUSTFLAGS environment variable to use in the
+/// compilation of the given contract
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     let opt_level = match contract {
         StylusContract::Verifier => OPT_LEVEL_S,
@@ -204,6 +216,8 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     format!("{}{}", OPT_LEVEL_FLAG, opt_level)
 }
 
+/// Returns the wasm-opt flags to use in the optimization of the
+/// given contract
 pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str {
     match contract {
         StylusContract::Verifier | StylusContract::DarkpoolTestContract => {
@@ -299,6 +313,7 @@ pub fn build_stylus_contract(
     Ok(opt_wasm_file_path)
 }
 
+/// Deploys the given compiled Stylus contract, saving its deployment address
 pub async fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
