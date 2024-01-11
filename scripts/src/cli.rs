@@ -14,6 +14,7 @@ use crate::{
     errors::ScriptError,
 };
 
+/// Top-level CLI arguments
 #[derive(Parser)]
 pub struct Cli {
     /// Private key of the deployer
@@ -29,20 +30,28 @@ pub struct Cli {
     #[arg(short, long)]
     pub deployments_path: String,
 
+    /// The command to run
     #[command(subcommand)]
     pub command: Command,
 }
 
+/// The possible CLI commands
 #[derive(Subcommand)]
 pub enum Command {
+    /// Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
     DeployProxy(DeployProxyArgs),
+    /// Deploy a Stylus contract
     DeployStylus(DeployStylusArgs),
+    /// Upgrade the darkpool implementation
     Upgrade(UpgradeArgs),
+    /// Generate a structured reference string
     GenSrs(GenSrsArgs),
+    /// Generate verification keys for the protocol circuits
     GenVkeys(GenVkeysArgs),
 }
 
 impl Command {
+    /// Run the command
     pub async fn run(
         self,
         client: Arc<impl Middleware>,
@@ -97,17 +106,28 @@ pub struct DeployStylusArgs {
     pub no_verify: bool,
 }
 
+/// The possible Stylus contracts to deploy
 #[derive(ValueEnum, Copy, Clone)]
 pub enum StylusContract {
+    /// The darkpool contract
     Darkpool,
+    /// The darkpool test contract
     DarkpoolTestContract,
+    /// The Merkle contract
     Merkle,
+    /// The Merkle test contract
     MerkleTestContract,
+    /// The verifier contract
     Verifier,
+    /// The verification keys contract
     Vkeys,
+    /// The test verification keys contract
     TestVkeys,
+    /// The dummy ERC20 contract
     DummyErc20,
+    /// The dummy upgrade target contract
     DummyUpgradeTarget,
+    /// The precompile test contract
     PrecompileTestContract,
 }
 
