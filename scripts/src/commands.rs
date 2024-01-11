@@ -45,6 +45,7 @@ use crate::{
     },
 };
 
+/// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
 pub async fn deploy_proxy(
     args: DeployProxyArgs,
     client: Arc<impl Middleware>,
@@ -139,6 +140,7 @@ pub async fn deploy_proxy(
     Ok(())
 }
 
+/// Builds and deploys a Stylus contract
 pub async fn build_and_deploy_stylus_contract(
     args: DeployStylusArgs,
     rpc_url: &str,
@@ -158,6 +160,7 @@ pub async fn build_and_deploy_stylus_contract(
     .await
 }
 
+/// Upgrades the darkpool implementation
 pub async fn upgrade(
     args: UpgradeArgs,
     client: Arc<impl Middleware>,
@@ -192,6 +195,7 @@ pub async fn upgrade(
     Ok(())
 }
 
+/// Generates a structured reference string
 pub fn gen_srs(args: GenSrsArgs) -> Result<(), ScriptError> {
     let mut rng = thread_rng();
 
@@ -203,6 +207,7 @@ pub fn gen_srs(args: GenSrsArgs) -> Result<(), ScriptError> {
     write_srs_to_file(&args.srs_path, &srs)
 }
 
+/// Generates verification keys for the protocol circuits
 pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
     let srs = parse_srs_from_file(&args.srs_path)?;
 
