@@ -32,6 +32,7 @@ use crate::{
     constants::{PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY},
 };
 
+/// Returns the deployed address of the contract to be tested
 pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
     Ok(match test {
         Tests::EcAdd | Tests::EcMul | Tests::EcPairing | Tests::EcRecover => {
@@ -58,6 +59,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
     })
 }
 
+/// Asserts that the given method can only be called by the owner of the darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
     contract: &DarkpoolTestContract<impl Middleware + 'static>,
     contract_with_dummy_owner: &DarkpoolTestContract<impl Middleware + 'static>,
@@ -83,6 +85,7 @@ pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
     Ok(())
 }
 
+/// Asserts that all the given transactions revert
 pub async fn assert_all_revert<'a>(
     txs: Vec<
         impl Future<
@@ -103,6 +106,7 @@ pub async fn assert_all_revert<'a>(
     Ok(())
 }
 
+/// Asserts that all of the given transactions successfully execute
 pub async fn assert_all_suceed<'a>(
     txs: Vec<
         impl Future<
@@ -136,10 +140,14 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField> {
         .map_err(|_| eyre!("failed converting U256 to scalar"))
 }
 
+/// Serialiez the given serializable type into a [`Bytes`] object
+/// that can be passed in as calldata
 pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
     Ok(postcard::to_allocvec(t)?.into())
 }
 
+/// Serializes the given bundle of verification keys, proofs, and public inputs
+/// into a [`Bytes`] object that can be passed in as calldata
 pub fn serialize_verification_bundle(
     vkey_batch: &[VerificationKey],
     proof_batch: &[Proof],
@@ -163,6 +171,7 @@ pub fn serialize_verification_bundle(
     Ok(bundle_bytes.into())
 }
 
+/// Mints [`TRANSFER_AMOUNT`] of the dummy ERC20 token to the given addresses
 pub(crate) async fn mint_dummy_erc20(
     contract: &DummyErc20Contract<impl Middleware + 'static>,
     addresses: &[Address],
@@ -178,6 +187,8 @@ pub(crate) async fn mint_dummy_erc20(
     Ok(())
 }
 
+/// Creates an [`ExternalTransfer`] object for the given account address,
+/// mint address, and transfer direction
 fn dummy_erc20_external_transfer(
     account_addr: Address,
     mint: Address,
@@ -191,14 +202,17 @@ fn dummy_erc20_external_transfer(
     }
 }
 
+/// Creates an [`ExternalTransfer`] object representing a deposit
 pub(crate) fn dummy_erc20_deposit(account_addr: Address, mint: Address) -> ExternalTransfer {
     dummy_erc20_external_transfer(account_addr, mint, false)
 }
 
+/// Creates an [`ExternalTransfer`] object representing a withdrawal
 pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> ExternalTransfer {
     dummy_erc20_external_transfer(account_addr, mint, true)
 }
 
+/// Executes the given transfer and returns the resulting balances of the darkpool and user
 pub(crate) async fn execute_transfer_and_get_balances(
     darkpool_test_contract: &DarkpoolTestContract<impl Middleware + 'static>,
     dummy_erc20_contract: &DummyErc20Contract<impl Middleware + 'static>,
@@ -222,6 +236,8 @@ pub(crate) async fn execute_transfer_and_get_balances(
     Ok((darkpool_balance, user_balance))
 }
 
+/// Computes a commitment to the given wallet shares, inserts them
+/// into the given Arkworks Merkle tree, and returns the new root
 pub(crate) fn insert_shares_and_get_root(
     ark_merkle: &mut ArkMerkleTree<MerkleConfig>,
     private_shares_commitment: ScalarField,

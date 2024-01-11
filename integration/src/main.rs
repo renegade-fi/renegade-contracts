@@ -1,5 +1,8 @@
 //! Basic tests for Stylus programs. These assume that a devnet is already running locally.
 
+#![deny(missing_docs)]
+#![deny(clippy::missing_docs_in_private_items)]
+
 use abis::{
     DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract, MerkleContract,
     PrecompileTestContract, VerifierContract,
