@@ -42,7 +42,7 @@ use std::sync::Arc;
 use crate::{
     abis::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
-        DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierTestContract,
+        DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierContract,
     },
     constants::{
         L, PAUSE_METHOD_NAME, PROOF_BATCH_SIZE, SET_FEE_METHOD_NAME,
@@ -197,8 +197,7 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
 }
 
 pub(crate) async fn test_verifier(
-    contract: VerifierTestContract<impl Middleware + 'static>,
-    verifier_address: Address,
+    contract: VerifierContract<impl Middleware + 'static>,
 ) -> Result<()> {
     let mut rng = thread_rng();
     let (vkey_batch, mut proof_batch, mut public_inputs_batch): (Vec<_>, Vec<_>, Vec<_>) =
@@ -225,10 +224,7 @@ pub(crate) async fn test_verifier(
     )
     .unwrap();
 
-    let successful_res = contract
-        .verify(verifier_address, single_verification_bundle)
-        .call()
-        .await?;
+    let successful_res = contract.verify(single_verification_bundle).call().await?;
 
     assert!(successful_res, "Valid proof did not verify");
 
@@ -237,7 +233,7 @@ pub(crate) async fn test_verifier(
         serialize_verification_bundle(&vkey_batch, &proof_batch, &public_inputs_batch).unwrap();
 
     let successful_res = contract
-        .verify_batch(verifier_address, batch_verification_bundle)
+        .verify_match(batch_verification_bundle)
         .call()
         .await?;
 
@@ -256,20 +252,14 @@ pub(crate) async fn test_verifier(
     )
     .unwrap();
 
-    let unsuccessful_res = contract
-        .verify(verifier_address, single_verification_bundle)
-        .call()
-        .await?;
+    let unsuccessful_res = contract.verify(single_verification_bundle).call().await?;
 
     assert!(!unsuccessful_res, "Invalid proof did not verified");
 
     // Next, for batch verification
     let bundle_bytes =
         serialize_verification_bundle(&vkey_batch, &proof_batch, &public_inputs_batch)?;
-    let unsuccessful_res = contract
-        .verify_batch(verifier_address, bundle_bytes)
-        .call()
-        .await?;
+    let unsuccessful_res = contract.verify_match(bundle_bytes).call().await?;
 
     assert!(!unsuccessful_res, "Invalid proof batch verified");
 

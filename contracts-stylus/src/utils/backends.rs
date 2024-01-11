@@ -16,6 +16,8 @@ use crate::utils::constants::{
 
 use super::constants::EC_RECOVER_INPUT_LEN;
 
+/// The hashing backend used in the Stylus VM,
+/// which uses the VM-accelerated Keccak-256 implementation
 pub struct StylusHasher;
 impl HashBackend for StylusHasher {
     fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
@@ -23,6 +25,8 @@ impl HashBackend for StylusHasher {
     }
 }
 
+/// The G1 arithmetic backend used in the Stylus VM,
+/// which calls out to the EC arithmetic EVM precompiles
 pub struct PrecompileG1ArithmeticBackend;
 
 impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
@@ -104,6 +108,8 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
     }
 }
 
+/// The ECDSA recovery backend used in the Stylus VM,
+/// which calls out to the `ecRecover` EVM precompile
 pub struct PrecompileEcRecoverBackend;
 
 impl EcRecoverBackend for PrecompileEcRecoverBackend {

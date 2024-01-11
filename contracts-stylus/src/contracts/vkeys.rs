@@ -9,6 +9,9 @@ use crate::utils::constants::{
     VALID_WALLET_UPDATE_VKEY_BYTES,
 };
 
+/// The verification keys contract, which itself is stateless
+/// 
+/// The keys themselves are hardcoded into the contract
 #[solidity_storage]
 #[entrypoint]
 pub struct VkeysContract;

@@ -1,3 +1,5 @@
+//! A test contract inheriting from the Darkpool contract, and exposing some of its internal helper methods
+
 use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
@@ -15,23 +17,26 @@ use crate::{
     },
 };
 
+/// The Darkpool test contract
 #[solidity_storage]
 #[entrypoint]
 struct DarkpoolTestContract {
+    /// The Darkpool contract
     #[borrow]
     darkpool: DarkpoolContract,
 }
 
-// Expose internal helper methods of the Darkpool contract used in testing
 #[external]
 #[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
+    /// Marks the given nullifier as spent
     pub fn mark_nullifier_spent(&mut self, nullifier: U256) -> Result<(), Vec<u8>> {
         let nullifier = u256_to_scalar(nullifier).unwrap();
         DarkpoolContract::mark_nullifier_spent(self, nullifier);
         Ok(())
     }
 
+    /// Executes the given external transfer
     pub fn execute_external_transfer(&mut self, transfer: Bytes) -> Result<(), Vec<u8>> {
         let external_transfer: ExternalTransfer =
             postcard::from_bytes(transfer.as_slice()).unwrap();
@@ -39,6 +44,11 @@ impl DarkpoolTestContract {
         Ok(())
     }
 
+    /// Attempts to call [`DummyUpgradeTarget::is_dummy_upgrade_target`] on either
+    /// the verifier, vkeys, or Merkle contract, depending on the given address selector.
+    /// 
+    /// A succesful call implies that the verifier / vkeys / Merkle contract has been upgraded
+    /// to the dummy upgrade target.
     pub fn is_implementation_upgraded(&mut self, address_selector: u8) -> Result<bool, Vec<u8>> {
         let this = BorrowMut::<DarkpoolContract>::borrow_mut(self);
         let implementation_address = match address_selector {
@@ -55,6 +65,7 @@ impl DarkpoolTestContract {
         Ok(is_dummy_upgrade_target)
     }
 
+    /// Re-initializes the Merkle tree, resetting it to an empty tree
     pub fn clear_merkle(&mut self) -> Result<(), Vec<u8>> {
         let merkle_address = BorrowMut::<DarkpoolContract>::borrow_mut(self)
             .merkle_address

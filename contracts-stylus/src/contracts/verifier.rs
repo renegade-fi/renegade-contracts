@@ -9,6 +9,7 @@ use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::utils::backends::{PrecompileG1ArithmeticBackend, StylusHasher};
 
+/// The verifier contract, which itself is stateless
 #[solidity_storage]
 #[entrypoint]
 struct VerifierContract;

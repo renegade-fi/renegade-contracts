@@ -34,11 +34,15 @@ use crate::{
     },
 };
 
+/// The Merkle contract parameters
 pub trait MerkleParams {
+    /// The height of the Merkle tree, exclusive of the root
     const HEIGHT: usize;
+    /// The values of a node at each height of an empty Merkle tree
     const ZEROS: &'static [ScalarField];
 }
 
+/// The Merkle contract's storage layout
 #[solidity_storage]
 pub struct MerkleContract<P: MerkleParams> {
     /// The next index at which to insert a leaf
@@ -50,7 +54,8 @@ pub struct MerkleContract<P: MerkleParams> {
     pub root: StorageU256,
     /// The set of historic roots of the Merkle tree
     pub root_history: StorageMap<U256, StorageBool>,
-    /// Used to allow `MerkleParams` to be a generic type parameter
+
+    #[doc(hidden)]
     _phantom: PhantomData<P>,
 }
 
@@ -154,6 +159,7 @@ impl<P> MerkleContract<P>
 where
     P: MerkleParams,
 {
+    /// Stores a new root, also adding it to the root history
     pub fn store_root(&mut self, root: ScalarField) {
         let root_u256 = scalar_to_u256(root);
 
@@ -161,6 +167,7 @@ where
         self.root_history.insert(root_u256, true);
     }
 
+    /// Computes a commitment to the given wallet shares
     pub fn compute_shares_commitment(&mut self, shares: Vec<U256>) -> ScalarField {
         let shares: Vec<ScalarField> = shares
             .into_iter()
@@ -232,15 +239,19 @@ where
         });
     }
 }
+
+/// The parameters for the production Merkle contract
 struct ProdMerkleParams;
 impl MerkleParams for ProdMerkleParams {
     const HEIGHT: usize = MERKLE_HEIGHT;
     const ZEROS: &'static [ScalarField] = &ZEROS;
 }
 
+/// The production Merkle contract, inheriting from the generic Merkle contract
 #[solidity_storage]
 #[cfg_attr(feature = "merkle", entrypoint)]
 struct ProdMerkleContract {
+    /// The parameterized Merkle contract
     #[borrow]
     merkle: MerkleContract<ProdMerkleParams>,
 }
@@ -248,22 +259,27 @@ struct ProdMerkleContract {
 #[external]
 #[inherit(MerkleContract<ProdMerkleParams>)]
 impl ProdMerkleContract {
+    #[doc(hidden)]
     fn init(&mut self) -> Result<(), Vec<u8>> {
         self.merkle.init()
     }
 
+    #[doc(hidden)]
     fn root(&self) -> Result<U256, Vec<u8>> {
         self.merkle.root()
     }
 
+    #[doc(hidden)]
     fn root_in_history(&self, root: U256) -> Result<bool, Vec<u8>> {
         self.merkle.root_in_history(root)
     }
 
+    #[doc(hidden)]
     fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
     }
 
+    #[doc(hidden)]
     pub fn verify_state_sig_and_insert(
         &mut self,
         shares: Vec<U256>,

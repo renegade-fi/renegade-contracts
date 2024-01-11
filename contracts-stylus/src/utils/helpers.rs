@@ -4,8 +4,11 @@ use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use contracts_common::{
-    custom_serde::{bigint_from_le_bytes, BytesSerializable, ScalarSerializable, SerdeError, pk_to_scalars},
-    types::{PublicInputs, ScalarField, PublicSigningKey}, constants::NUM_SCALARS_PK,
+    constants::NUM_SCALARS_PK,
+    custom_serde::{
+        bigint_from_le_bytes, pk_to_scalars, BytesSerializable, ScalarSerializable, SerdeError,
+    },
+    types::{PublicInputs, PublicSigningKey, ScalarField},
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -85,6 +88,7 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, SerdeError> {
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
 }
 
+/// Converts a [`PublicSigningKey`] into the [`U256`] array representing its scalar serialization
 #[cfg_attr(
     not(any(feature = "darkpool", feature = "darkpool-test-contract")),
     allow(dead_code)
@@ -99,6 +103,7 @@ pub fn pk_to_u256s(pk: &PublicSigningKey) -> [U256; NUM_SCALARS_PK] {
         .unwrap()
 }
 
+/// Expands to the given code block if the `no-verify` feature is not enabled.
 #[macro_export]
 macro_rules! if_verifying {
     ($($logic:tt)*) => {

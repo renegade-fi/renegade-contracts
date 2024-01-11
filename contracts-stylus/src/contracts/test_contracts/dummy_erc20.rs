@@ -4,6 +4,9 @@
 //!
 //! Adapted from https://github.com/OffchainLabs/stylus-sdk-rs/tree/stylus/examples/erc20
 
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
+
 use alloc::{string::String, vec::Vec};
 use core::marker::PhantomData;
 use stylus_sdk::{
