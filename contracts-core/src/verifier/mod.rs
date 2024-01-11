@@ -795,32 +795,35 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
-    use alloc::{string::ToString, vec};
+    use arbitrum_client::conversion::to_contract_valid_wallet_create_statement;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
     use ark_std::UniformRand;
-    use circuit_types::{test_helpers::TESTING_SRS, ProofLinkingHint};
+    use circuit_types::{test_helpers::TESTING_SRS, traits::SingleProverCircuit, ProofLinkingHint};
+    use circuits::zk_circuits::VALID_REBLIND_COMMITMENTS_LINK;
     use constants::{Scalar, SystemCurve};
     use contracts_common::{
         backends::G1ArithmeticError,
         types::{
             G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
             MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchOpeningElems, MatchProofs,
-            MatchPublicInputs, MatchVkeys, PublicInputs, ScalarField,
+            MatchPublicInputs, MatchVkeys, Proof, ScalarField, ValidWalletCreateStatement,
+            VerificationKey,
         },
     };
     use contracts_utils::{
+        constants::DUMMY_CIRCUIT_SRS_DEGREE,
         conversion::{statement_to_public_inputs, to_contract_linking_proof, to_linking_vkey},
         crypto::NativeHasher,
         proof_system::{
             dummy_renegade_circuits::{
-                DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind,
+                DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
+                DummyValidReblind, DummyValidReblindWitness, DummyValidWalletCreate,
             },
-            gen_circuit_vkey,
-            test_circuit::{gen_test_circuit_proofs_and_vkeys, LinkGroupInfo},
+            gen_circuit_vkey, prove_with_srs,
             test_data::{
-                gen_match_layouts, gen_process_match_settle_data, random_scalars,
+                dummy_circuit_type, gen_match_layouts, gen_process_match_settle_data,
                 ProcessMatchSettleData,
             },
         },
@@ -853,11 +856,28 @@ mod tests {
         }
     }
 
-    const N: usize = 8192;
-    const L: usize = 128;
-    const LINK_GROUP_SIZE: usize = 4;
-    const LINK_GROUP_NAME: &str = "test_link_group";
+    /// Creates a dummy statement, uses it to compute a valid proof,
+    /// and generates its associated verification key.
+    ///
+    /// The simplest way to do this is to use the dummy `VALID WALLET CREATE` circuit.
+    fn gen_verification_bundle<R: CryptoRng + RngCore>(
+        rng: &mut R,
+    ) -> (ValidWalletCreateStatement, Proof, VerificationKey) {
+        let statement = dummy_circuit_type(rng);
+        let contract_statement = to_contract_valid_wallet_create_statement(&statement);
 
+        let (proof, _) =
+            prove_with_srs::<DummyValidWalletCreate>(&TESTING_SRS, (), statement).unwrap();
+        let vkey = gen_circuit_vkey::<DummyValidWalletCreate>(&TESTING_SRS).unwrap();
+
+        (contract_statement, proof, vkey)
+    }
+
+    /// Generate a single linking proof and the associated data needed
+    /// to verify it.
+    ///
+    /// The simplest way to do this is to use the dummy `VALID REBLIND` and `VALID COMMITMENTS`
+    /// circuits.
     fn gen_single_link_proof_and_vkey<R: CryptoRng + RngCore>(
         rng: &mut R,
     ) -> (
@@ -865,49 +885,50 @@ mod tests {
         LinkingVerificationKey,
         (ProofLinkingHint, ProofLinkingHint),
     ) {
-        let link_group_info = LinkGroupInfo {
-            linked_inputs: random_scalars(LINK_GROUP_SIZE, rng),
-            id: LINK_GROUP_NAME.to_string(),
-            layout: None,
+        let valid_commitments_statement = dummy_circuit_type(rng);
+        let valid_reblind_statement = dummy_circuit_type(rng);
+
+        let valid_commitments_witness: DummyValidCommitmentsWitness = dummy_circuit_type(rng);
+        let valid_reblind_witness = DummyValidReblindWitness {
+            valid_reblind_commitments: valid_commitments_witness.valid_reblind_commitments,
         };
 
-        let (_, lhs_link_hint, _) = gen_test_circuit_proofs_and_vkeys(
+        let (_, valid_reblind_hint) = prove_with_srs::<DummyValidReblind>(
             &TESTING_SRS,
-            &PublicInputs(vec![]),
-            &[link_group_info.clone()],
+            valid_reblind_witness,
+            valid_reblind_statement,
         )
         .unwrap();
-
-        let (_, rhs_link_hint, verification_info) = gen_test_circuit_proofs_and_vkeys(
+        let (_, valid_commitments_hint) = prove_with_srs::<DummyValidCommitments>(
             &TESTING_SRS,
-            &PublicInputs(vec![]),
-            &[link_group_info],
+            valid_commitments_witness,
+            valid_commitments_statement,
         )
         .unwrap();
 
-        let layout = verification_info
-            .layouts
-            .get(LINK_GROUP_NAME)
-            .copied()
-            .unwrap();
-        let linking_vkey = to_linking_vkey(&layout);
+        let valid_reblind_commitments_layout = DummyValidCommitments::get_circuit_layout()
+            .unwrap()
+            .get_group_layout(VALID_REBLIND_COMMITMENTS_LINK);
 
-        let commit_key = TESTING_SRS.extract_prover_param(N);
+        let valid_reblind_commitments_linking_vkey =
+            to_linking_vkey(&valid_reblind_commitments_layout);
 
-        let link_proof = PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
-            &lhs_link_hint,
-            &rhs_link_hint,
-            &layout,
-            &commit_key,
-        )
-        .unwrap();
+        let commit_key = TESTING_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
 
-        let contract_link_proof = to_contract_linking_proof(link_proof);
+        let valid_reblind_commitments_proof = to_contract_linking_proof(
+            PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+                &valid_reblind_hint,
+                &valid_commitments_hint,
+                &valid_reblind_commitments_layout,
+                &commit_key,
+            )
+            .unwrap(),
+        );
 
         (
-            contract_link_proof,
-            linking_vkey,
-            (lhs_link_hint, rhs_link_hint),
+            valid_reblind_commitments_proof,
+            valid_reblind_commitments_linking_vkey,
+            (valid_reblind_hint, valid_commitments_hint),
         )
     }
 
@@ -999,10 +1020,8 @@ mod tests {
     #[test]
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
-        let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-        let (proof, _, verification_info) =
-            gen_test_circuit_proofs_and_vkeys(&TESTING_SRS, &public_inputs, &[]).unwrap();
-        let vkey = verification_info.vkey;
+        let (statement, proof, vkey) = gen_verification_bundle(&mut rng);
+        let public_inputs = statement_to_public_inputs(&statement);
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
                 .unwrap();
@@ -1013,10 +1032,8 @@ mod tests {
     #[test]
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
-        let public_inputs = PublicInputs(random_scalars(L, &mut rng));
-        let (mut proof, _, verification_info) =
-            gen_test_circuit_proofs_and_vkeys(&TESTING_SRS, &public_inputs, &[]).unwrap();
-        let vkey = verification_info.vkey;
+        let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng);
+        let public_inputs = statement_to_public_inputs(&statement);
         proof.z_bar += ScalarField::one();
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)

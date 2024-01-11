@@ -10,8 +10,7 @@ use arbitrum_client::{conversion::to_contract_proof, errors::ConversionError};
 use circuit_types::{
     errors::ProverError,
     traits::{BaseType, CircuitBaseType, SingleProverCircuit},
-    PlonkCircuit,
-    ProofLinkingHint,
+    PlonkCircuit, ProofLinkingHint,
 };
 use constants::{Scalar, SystemCurve};
 use contracts_common::types::{Proof, VerificationKey};
@@ -26,7 +25,6 @@ use rand::thread_rng;
 use crate::conversion::to_contract_vkey;
 
 pub mod dummy_renegade_circuits;
-pub mod test_circuit;
 pub mod test_data;
 
 // ------------------------

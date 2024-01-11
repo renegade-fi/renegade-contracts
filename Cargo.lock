@@ -1216,6 +1216,7 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
  "circuit-types",
+ "circuits",
  "constants",
  "contracts-common",
  "contracts-utils",

@@ -25,4 +25,5 @@ rand = { workspace = true }
 ethers = { workspace = true }
 ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
+circuits = { workspace = true }
 arbitrum-client = { workspace = true }
