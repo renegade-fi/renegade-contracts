@@ -10,9 +10,15 @@ use contracts_common::{
 };
 use core::marker::PhantomData;
 
+/// The Fiat-Shamir transcript used in the Plonk protocol.
+/// 
+/// Defined generically over the hashing implementation.
 pub struct Transcript<H: HashBackend> {
+    /// The running protocol transcript, containing all data absorbed so far
     transcript: Vec<u8>,
+    /// The current hash state of the transcript
     state: [u8; TRANSCRIPT_STATE_SIZE],
+    #[doc(hidden)]
     _phantom: PhantomData<H>,
 }
 
@@ -166,6 +172,7 @@ pub fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
     bytes
 }
 
+/// Wraps each [`G1Affine`] in the given slice in a [`TranscriptG1`], returning a vector of the results.
 fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
     let mut transcript_points = Vec::with_capacity(points.len());
     for point in points {

@@ -24,7 +24,9 @@ use self::errors::VerifierError;
 
 /// The verifier struct, which is defined generically over elliptic curve arithmetic and hashing backends
 pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
+    #[doc(hidden)]
     _phantom_g: PhantomData<G>,
+    #[doc(hidden)]
     _phantom_h: PhantomData<H>,
 }
 
@@ -152,6 +154,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Self::batch_opening(&g1_lhs_elems, &g1_rhs_elems, &transcript_elements, x_h, h)
     }
 
+    /// Computes the elements used in the final KZG batch opening pairing check
+    /// for the Plonk proofs involved in the matching and settlement of a trade.
     fn prep_match_plonk_proofs_opening(
         match_vkeys: MatchVkeys,
         match_proofs: MatchProofs,
@@ -268,6 +272,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         })
     }
 
+    /// Computes the elements used in the final KZG batch opening pairing check
+    /// for the linking proofs involved in the matching and settlement of a trade.
     fn prep_match_linking_proofs_opening(
         match_linking_vkeys: MatchLinkingVkeys,
         match_linking_proofs: MatchLinkingProofs,
@@ -327,6 +333,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         })
     }
 
+    /// Computes the KZG opening pairing check elements for a single linking proof
     pub fn prep_linking_proof_opening_elems(
         linking_vkey: LinkingVerificationKey,
         linking_proof: LinkingProof,
@@ -385,6 +392,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Ok((g1_lhs, g1_rhs, eta))
     }
 
+    /// Computes the evaluation domain elements and denominators of the 
+    /// Lagrange basis polynomials for a proof
     fn prep_domain_and_basis_denominators(
         n: u64,
         l: usize,
@@ -412,6 +421,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Ok((domain_size, domain_elements, lagrange_basis_denominators))
     }
 
+    /// Performs Montgomery batch inversion on the denominators of the Lagrange basis polynomials
+    /// for a batch of proofs
     fn batch_invert_lagrange_basis_denominators(
         lagrange_basis_denominators: &mut [ScalarField],
         zero_poly_evals_batch: &[ScalarField],
