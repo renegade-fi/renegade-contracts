@@ -58,6 +58,7 @@ use crate::{
     },
 };
 
+/// Test how the contracts call the `ecAdd` precompile
 pub(crate) async fn test_ec_add(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -80,6 +81,7 @@ pub(crate) async fn test_ec_add(
     Ok(())
 }
 
+/// Test how the contracts call the `ecMul` precompile
 pub(crate) async fn test_ec_mul(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -105,6 +107,7 @@ pub(crate) async fn test_ec_mul(
     Ok(())
 }
 
+/// Test how the contracts call the `ecPairing` precompile
 pub(crate) async fn test_ec_pairing(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -126,6 +129,7 @@ pub(crate) async fn test_ec_pairing(
     Ok(())
 }
 
+/// Test how the contracts call the `ecRecover` precompile
 pub(crate) async fn test_ec_recover(
     contract: PrecompileTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -153,6 +157,7 @@ pub(crate) async fn test_ec_recover(
     Ok(())
 }
 
+/// Test the Merkle tree functionality
 pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'static>) -> Result<()> {
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
     contract.init().send().await?.await?;
@@ -196,6 +201,7 @@ pub(crate) async fn test_merkle(contract: MerkleContract<impl Middleware + 'stat
     Ok(())
 }
 
+/// Test the upgradeability of the darkpool
 pub(crate) async fn test_verifier(
     contract: VerifierContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -266,6 +272,7 @@ pub(crate) async fn test_verifier(
     Ok(())
 }
 
+/// Test the upgradeability of the darkpool
 pub(crate) async fn test_upgradeable(
     proxy_admin_contract: DarkpoolProxyAdminContract<impl Middleware + 'static>,
     proxy_address: Address,
@@ -350,6 +357,8 @@ pub(crate) async fn test_upgradeable(
     Ok(())
 }
 
+/// Test the upgradeability of the contracts the darkpool calls
+/// (verifier, vkeys, & Merkle)
 pub(crate) async fn test_implementation_address_setters(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     verifier_address: Address,
@@ -411,6 +420,7 @@ pub(crate) async fn test_implementation_address_setters(
     Ok(())
 }
 
+/// Test the initialization of the darkpool
 pub(crate) async fn test_initializable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -436,6 +446,7 @@ pub(crate) async fn test_initializable(
     Ok(())
 }
 
+/// Test the ownership of the darkpool
 pub(crate) async fn test_ownable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     verifier_address: Address,
@@ -544,6 +555,7 @@ pub(crate) async fn test_ownable(
     Ok(())
 }
 
+/// Test the pausability of the darkpool
 pub(crate) async fn test_pausable(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -632,6 +644,7 @@ pub(crate) async fn test_pausable(
     Ok(())
 }
 
+/// Test the nullifier set functionality
 pub(crate) async fn test_nullifier_set(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
 ) -> Result<()> {
@@ -655,6 +668,7 @@ pub(crate) async fn test_nullifier_set(
     Ok(())
 }
 
+/// Test deposit / withdrawal functionality of the darkpool
 pub(crate) async fn test_external_transfer(
     darkpool_test_contract: DarkpoolTestContract<impl Middleware + 'static>,
     dummy_erc20_contract: DummyErc20Contract<impl Middleware + 'static>,
@@ -716,6 +730,7 @@ pub(crate) async fn test_external_transfer(
     Ok(())
 }
 
+/// Test the `new_wallet` method on the darkpool
 pub(crate) async fn test_new_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -755,6 +770,7 @@ pub(crate) async fn test_new_wallet(
     Ok(())
 }
 
+/// Test the `update_wallet` method on the darkpool
 pub(crate) async fn test_update_wallet(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -804,6 +820,7 @@ pub(crate) async fn test_update_wallet(
     Ok(())
 }
 
+/// Test the `process_match_settle` method on the darkpool
 pub(crate) async fn test_process_match_settle(
     contract: DarkpoolTestContract<impl Middleware + 'static>,
     srs: &UnivariateUniversalParams<SystemCurve>,
