@@ -208,9 +208,6 @@ Some integration tests require auxiliary contracts to be deployed, either to uni
 Deploy those contracts by running:
 
 ```shell
-# Deploy the verifier test contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c verifier-test-contract
-
 # Deploy the dummy ERC-20 contract
 cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c dummy-erc20
 

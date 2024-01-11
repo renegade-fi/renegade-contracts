@@ -2,7 +2,7 @@
 
 use abis::{
     DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract, MerkleContract,
-    PrecompileTestContract, VerifierTestContract,
+    PrecompileTestContract, VerifierContract,
 };
 use clap::Parser;
 use cli::{Cli, Tests};
@@ -75,11 +75,9 @@ async fn main() -> Result<()> {
             test_merkle(contract).await?;
         }
         Tests::Verifier => {
-            let contract = VerifierTestContract::new(contract_address, client);
-            let verifier_address =
-                parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
+            let contract = VerifierContract::new(contract_address, client);
 
-            test_verifier(contract, verifier_address).await?;
+            test_verifier(contract).await?;
         }
         Tests::Upgradeable => {
             let contract = DarkpoolProxyAdminContract::new(contract_address, client.clone());

@@ -113,9 +113,6 @@ pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 /// The verifier contract key in the `deployments.json` file
 pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 
-/// The verifier test contract key in the `deployments.json` file
-pub const VERIFIER_TEST_CONTRACT_KEY: &str = "verifier_test_contract";
-
 /// The vkeys contract key in the `deployments.json` file
 pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";
 

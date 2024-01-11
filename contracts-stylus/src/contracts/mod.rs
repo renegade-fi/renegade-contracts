@@ -14,7 +14,6 @@ mod vkeys;
 
 #[cfg(any(
     feature = "precompile-test-contract",
-    feature = "verifier-test-contract",
     feature = "merkle-test-contract",
     feature = "darkpool-test-contract",
     feature = "dummy-erc20",
