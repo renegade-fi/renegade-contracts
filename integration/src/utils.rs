@@ -7,7 +7,10 @@ use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
-    types::{ExternalTransfer, Proof, PublicInputs, ScalarField, VerificationKey},
+    types::{
+        ExternalTransfer, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
+        MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+    },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use contracts_utils::merkle::MerkleConfig;
@@ -21,6 +24,7 @@ use eyre::{eyre, Result};
 use scripts::{
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
+        PRECOMPILE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
     },
     utils::parse_addr_from_deployments_file,
 };
@@ -29,7 +33,7 @@ use serde::Serialize;
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
     cli::Tests,
-    constants::{PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_AMOUNT, VERIFIER_TEST_CONTRACT_KEY},
+    constants::TRANSFER_AMOUNT,
 };
 
 /// Returns the deployed address of the contract to be tested
@@ -40,7 +44,7 @@ pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> 
         }
         Tests::Merkle => parse_addr_from_deployments_file(deployments_file, MERKLE_CONTRACT_KEY)?,
         Tests::Verifier => {
-            parse_addr_from_deployments_file(deployments_file, VERIFIER_TEST_CONTRACT_KEY)?
+            parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?
         }
         Tests::Upgradeable => {
             parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?
@@ -146,27 +150,45 @@ pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
     Ok(postcard::to_allocvec(t)?.into())
 }
 
-/// Serializes the given bundle of verification keys, proofs, and public inputs
+/// Serializes the given bundle of verification key, proof, and public inputs
 /// into a [`Bytes`] object that can be passed in as calldata
 pub fn serialize_verification_bundle(
-    vkey_batch: &[VerificationKey],
-    proof_batch: &[Proof],
-    public_inputs_batch: &[PublicInputs],
+    vkey: &VerificationKey,
+    proof: &Proof,
+    public_inputs: &PublicInputs,
 ) -> Result<Bytes> {
-    let vkey_batch_ser: Vec<u8> = vkey_batch
-        .iter()
-        .flat_map(|v| postcard::to_allocvec(v).unwrap())
-        .collect();
-    let proof_batch_ser: Vec<u8> = proof_batch
-        .iter()
-        .flat_map(|p| postcard::to_allocvec(p).unwrap())
-        .collect();
-    let public_inputs_batch_ser: Vec<u8> = public_inputs_batch
-        .iter()
-        .flat_map(|i| postcard::to_allocvec(i).unwrap())
-        .collect();
+    let vkey_ser: Vec<u8> = postcard::to_allocvec(vkey)?;
+    let proof_ser: Vec<u8> = postcard::to_allocvec(proof)?;
+    let public_inputs_ser: Vec<u8> = postcard::to_allocvec(public_inputs)?;
 
-    let bundle_bytes = [vkey_batch_ser, proof_batch_ser, public_inputs_batch_ser].concat();
+    let bundle_bytes = [vkey_ser, proof_ser, public_inputs_ser].concat();
+
+    Ok(bundle_bytes.into())
+}
+
+/// Serializes the given bundle of verification key, proof, and public inputs
+/// used in a match into a [`Bytes`] object that can be passed in as calldata
+pub fn serialize_match_verification_bundle(
+    match_vkeys: &MatchVkeys,
+    match_linking_vkeys: &MatchLinkingVkeys,
+    match_proofs: &MatchProofs,
+    match_public_inputs: &MatchPublicInputs,
+    match_linking_proofs: &MatchLinkingProofs,
+) -> Result<Bytes> {
+    let match_vkeys_ser: Vec<u8> = postcard::to_allocvec(match_vkeys)?;
+    let match_linking_vkeys_ser: Vec<u8> = postcard::to_allocvec(match_linking_vkeys)?;
+    let match_proofs_ser: Vec<u8> = postcard::to_allocvec(match_proofs)?;
+    let match_public_inputs_ser: Vec<u8> = postcard::to_allocvec(match_public_inputs)?;
+    let match_linking_proofs_ser: Vec<u8> = postcard::to_allocvec(match_linking_proofs)?;
+
+    let bundle_bytes = [
+        match_vkeys_ser,
+        match_linking_vkeys_ser,
+        match_proofs_ser,
+        match_public_inputs_ser,
+        match_linking_proofs_ser,
+    ]
+    .concat();
 
     Ok(bundle_bytes.into())
 }

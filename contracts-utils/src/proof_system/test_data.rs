@@ -5,6 +5,7 @@ use arbitrum_client::conversion::{
     to_contract_valid_reblind_statement, to_contract_valid_wallet_create_statement,
     to_contract_valid_wallet_update_statement,
 };
+use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
     keychain::PublicSigningKey, traits::CircuitBaseType, transfers::ExternalTransfer,
@@ -20,10 +21,11 @@ use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
     custom_serde::BytesSerializable,
     types::{
-        G1Affine, MatchLinkingProofs, MatchPayload, MatchProofs, Proof as ContractProof,
+        G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
+        MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
         ValidWalletCreateStatement as ContractValidWalletCreateStatement,
-        ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
+        ValidWalletUpdateStatement as ContractValidWalletUpdateStatement, VerificationKey,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -35,12 +37,12 @@ use jf_primitives::pcs::{
 };
 
 use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
-use rand::{CryptoRng, Rng, RngCore};
+use rand::{seq::SliceRandom, CryptoRng, Rng, RngCore};
 use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{to_circuit_pubkey, to_contract_linking_proof},
+    conversion::{statement_to_public_inputs, to_circuit_pubkey, to_contract_linking_proof},
     crypto::{hash_and_sign_message, random_keypair},
 };
 
@@ -50,7 +52,8 @@ use super::{
         DummyValidMatchSettleWitness, DummyValidReblind, DummyValidReblindWitness,
         DummyValidWalletCreate, DummyValidWalletUpdate,
     },
-    gen_match_layouts, prove_with_srs, MatchGroupLayouts,
+    gen_circuit_vkey, gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, prove_with_srs,
+    MatchGroupLayouts,
 };
 
 /// Generates a vector of random scalars
@@ -66,6 +69,65 @@ pub fn random_commitments(n: usize, rng: &mut impl Rng) -> Vec<PolynomialCommitm
 /// Generates a circuit type type with random scalars
 pub fn dummy_circuit_type<R: RngCore + CryptoRng, C: CircuitBaseType>(rng: &mut R) -> C {
     C::from_scalars(&mut iter::repeat_with(|| Scalar::random(rng)))
+}
+
+/// Generates a dummy [`ValidReblindStatement`] with the given merkle root
+pub fn dummy_valid_reblind_statement<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    merkle_root: Scalar,
+) -> ValidReblindStatement {
+    ValidReblindStatement {
+        merkle_root,
+        ..dummy_circuit_type(rng)
+    }
+}
+
+/// Generates a dummy [`SizedValidWalletUpdateStatement`] with the given
+/// external transfer, merkle root, and old root public key
+pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    external_transfer: ExternalTransfer,
+    merkle_root: Scalar,
+    old_pk_root: PublicSigningKey,
+) -> SizedValidWalletUpdateStatement {
+    // We have to individually generate each field of the statement,
+    // since creating a dummy `ExternalTransfer` from random scalars will panic
+    // due to an invalid value for `ExternalTransferDirection`
+    let old_shares_nullifier = dummy_circuit_type(rng);
+    let new_private_shares_commitment = dummy_circuit_type(rng);
+    let new_public_shares = dummy_circuit_type(rng);
+    let timestamp = dummy_circuit_type(rng);
+
+    SizedValidWalletUpdateStatement {
+        external_transfer,
+        merkle_root,
+        old_pk_root,
+        old_shares_nullifier,
+        new_private_shares_commitment,
+        new_public_shares,
+        timestamp,
+    }
+}
+
+/// Creates a dummy statement, uses it to compute a valid proof,
+/// and generates its associated verification key.
+///
+/// The simplest way to do this is to use the dummy `VALID WALLET CREATE` circuit.
+pub fn gen_verification_bundle<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    srs: &UnivariateUniversalParams<SystemCurve>,
+) -> (
+    ContractValidWalletCreateStatement,
+    ContractProof,
+    VerificationKey,
+) {
+    let statement = dummy_circuit_type(rng);
+    let contract_statement = to_contract_valid_wallet_create_statement(&statement);
+
+    let (proof, _) = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement).unwrap();
+    let vkey = gen_circuit_vkey::<DummyValidWalletCreate>(srs).unwrap();
+
+    (contract_statement, proof, vkey)
 }
 
 /// Generates the inputs for the `new_wallet` darkpool method, namely
@@ -363,40 +425,89 @@ pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     })
 }
 
-/// Generates a dummy [`SizedValidWalletUpdateStatement`] with the given
-/// external transfer, merkle root, and old root public key
-pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
-    rng: &mut R,
-    external_transfer: ExternalTransfer,
-    merkle_root: Scalar,
-    old_pk_root: PublicSigningKey,
-) -> SizedValidWalletUpdateStatement {
-    // We have to individually generate each field of the statement,
-    // since creating a dummy `ExternalTransfer` from random scalars will panic
-    // due to an invalid value for `ExternalTransferDirection`
-    let old_shares_nullifier = dummy_circuit_type(rng);
-    let new_private_shares_commitment = dummy_circuit_type(rng);
-    let new_public_shares = dummy_circuit_type(rng);
-    let timestamp = dummy_circuit_type(rng);
-
-    SizedValidWalletUpdateStatement {
-        external_transfer,
-        merkle_root,
-        old_pk_root,
-        old_shares_nullifier,
-        new_private_shares_commitment,
-        new_public_shares,
-        timestamp,
+/// Extract the public inputs from the [`ProcessMatchSettleData`] test data struct
+fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInputs {
+    MatchPublicInputs {
+        valid_commitments_0: statement_to_public_inputs(
+            &data.match_payload_0.valid_commitments_statement,
+        ),
+        valid_commitments_1: statement_to_public_inputs(
+            &data.match_payload_1.valid_commitments_statement,
+        ),
+        valid_reblind_0: statement_to_public_inputs(&data.match_payload_0.valid_reblind_statement),
+        valid_reblind_1: statement_to_public_inputs(&data.match_payload_1.valid_reblind_statement),
+        valid_match_settle: statement_to_public_inputs(&data.valid_match_settle_statement),
     }
 }
 
-/// Generates a dummy [`ValidReblindStatement`] with the given merkle root
-pub fn dummy_valid_reblind_statement<R: RngCore + CryptoRng>(
+/// Generate the bundle of data needed to verify a match
+pub fn generate_match_bundle<R: CryptoRng + RngCore>(
     rng: &mut R,
-    merkle_root: Scalar,
-) -> ValidReblindStatement {
-    ValidReblindStatement {
-        merkle_root,
-        ..dummy_circuit_type(rng)
-    }
+    srs: &UnivariateUniversalParams<SystemCurve>,
+) -> Result<(
+    MatchVkeys,
+    MatchProofs,
+    MatchPublicInputs,
+    MatchLinkingVkeys,
+    MatchLinkingProofs,
+    MatchLinkingWirePolyComms,
+)> {
+    // Generate random `process_match_settle` test data & destructure
+    let merkle_root = Scalar::random(rng);
+    let data = gen_process_match_settle_data(rng, srs, merkle_root)?;
+
+    let match_vkeys =
+        gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(srs)?;
+    let match_proofs = data.match_proofs;
+    let match_public_inputs = extract_match_public_inputs(&data);
+
+    let match_linking_vkeys = gen_match_linking_vkeys::<DummyValidCommitments>()?;
+    let match_linking_proofs = data.match_linking_proofs;
+    let match_linking_wire_poly_comms = MatchLinkingWirePolyComms {
+        valid_reblind_0: match_proofs.valid_reblind_0.wire_comms[0],
+        valid_commitments_0: match_proofs.valid_commitments_0.wire_comms[0],
+        valid_reblind_1: match_proofs.valid_reblind_1.wire_comms[0],
+        valid_commitments_1: match_proofs.valid_commitments_1.wire_comms[0],
+        valid_match_settle: match_proofs.valid_match_settle.wire_comms[0],
+    };
+
+    Ok((
+        match_vkeys,
+        match_proofs,
+        match_public_inputs,
+        match_linking_vkeys,
+        match_linking_proofs,
+        match_linking_wire_poly_comms,
+    ))
+}
+
+/// Picks a random Plonk proof from the batch of proofs verified in `verify_match` and mutates it
+pub fn mutate_random_plonk_proof<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    match_proofs: &mut MatchProofs,
+) {
+    let mut proofs = [
+        &mut match_proofs.valid_commitments_0,
+        &mut match_proofs.valid_reblind_0,
+        &mut match_proofs.valid_commitments_1,
+        &mut match_proofs.valid_reblind_1,
+        &mut match_proofs.valid_match_settle,
+    ];
+    let proof = proofs.choose_mut(rng).unwrap();
+    proof.z_bar += ScalarField::one();
+}
+
+/// Picks a random linking proof from the batch of proofs verified in `verify_match` and mutates it
+pub fn mutate_random_linking_proof<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    match_linking_proofs: &mut MatchLinkingProofs,
+) {
+    let mut proofs = [
+        &mut match_linking_proofs.valid_reblind_commitments_0,
+        &mut match_linking_proofs.valid_reblind_commitments_1,
+        &mut match_linking_proofs.valid_commitments_match_settle_0,
+        &mut match_linking_proofs.valid_commitments_match_settle_1,
+    ];
+    let proof = proofs.choose_mut(rng).unwrap();
+    proof.linking_quotient_poly_comm = G1Affine::rand(rng);
 }
