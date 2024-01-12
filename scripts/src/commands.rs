@@ -28,7 +28,8 @@ use tracing::log::{info, warn};
 
 use crate::{
     cli::{
-        DeployProxyArgs, DeployStylusArgs, GenSrsArgs, GenVkeysArgs, StylusContract, UpgradeArgs,
+        DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenSrsArgs, GenVkeysArgs,
+        StylusContract, UpgradeArgs,
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
@@ -44,6 +45,119 @@ use crate::{
         write_deployed_address, write_srs_to_file, write_vkey_file,
     },
 };
+
+/// Builds & deploys all of the contracts necessary for running the integration testing suite.
+///
+/// This includes generating fresh verification keys for testing.
+pub async fn deploy_test_contracts(
+    args: DeployTestContractsArgs,
+    rpc_url: &str,
+    priv_key: &str,
+    client: Arc<impl Middleware>,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    info!("Generating testing verification keys");
+    let gen_vkeys_args = GenVkeysArgs {
+        srs_path: args.srs_path.clone(),
+        vkeys_dir: args.vkeys_dir.clone(),
+        test: true,
+    };
+    gen_vkeys(gen_vkeys_args)?;
+
+    let mut deploy_stylus_args = DeployStylusArgs {
+        contract: StylusContract::TestVkeys,
+        no_verify: args.no_verify,
+    };
+
+    info!("Deploying testing verification keys");
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    // Deploy the auxiliary testing contracts.
+    // We do this first because they use the same compiler flags,
+    // so we make use of the cached build artifacts.
+
+    info!("Deploying dummy ERC-20 contract");
+    deploy_stylus_args.contract = StylusContract::DummyErc20;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying dummy upgrade target contract");
+    deploy_stylus_args.contract = StylusContract::DummyUpgradeTarget;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying precompiles testing contract");
+    deploy_stylus_args.contract = StylusContract::PrecompileTestContract;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying Merkle testing contract");
+    deploy_stylus_args.contract = StylusContract::MerkleTestContract;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying verifier contract");
+    deploy_stylus_args.contract = StylusContract::Verifier;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying darkpool testing contract");
+    deploy_stylus_args.contract = StylusContract::DarkpoolTestContract;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying proxy contract");
+    let deploy_proxy_args = DeployProxyArgs {
+        owner: args.owner,
+        fee: args.fee,
+    };
+    deploy_proxy(deploy_proxy_args, client, deployments_path).await?;
+
+    Ok(())
+}
 
 /// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
 pub async fn deploy_proxy(
