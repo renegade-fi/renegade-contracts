@@ -182,7 +182,7 @@ pub fn prove_with_srs<C: SingleProverCircuit>(
         PlonkKzgSnark::prove_with_link_hint::<_, _, SolidityTranscript>(&mut rng, &circuit, &pk)
             .map_err(ProverError::Plonk)?;
 
-    let proof = to_contract_proof(jf_proof)?;
+    let proof = to_contract_proof(&jf_proof)?;
 
     Ok((proof, link_hint))
 }

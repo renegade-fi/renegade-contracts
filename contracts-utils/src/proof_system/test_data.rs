@@ -19,7 +19,7 @@ use circuits::zk_circuits::{
 };
 use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
-    custom_serde::{BytesSerializable, statement_to_public_inputs},
+    custom_serde::{statement_to_public_inputs, BytesSerializable},
     types::{
         G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
         MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
@@ -170,7 +170,7 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     let (proof, _) = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
 
     // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement = to_contract_valid_wallet_update_statement(statement)?;
+    let contract_statement = to_contract_valid_wallet_update_statement(&statement)?;
 
     let shares_commitment = compute_poseidon_hash(
         &[
