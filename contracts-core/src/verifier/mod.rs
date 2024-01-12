@@ -821,7 +821,7 @@ mod tests {
                 DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
                 DummyValidReblind, DummyValidReblindWitness, DummyValidWalletCreate,
             },
-            gen_circuit_vkey, gen_match_linking_vkeys, prove_with_srs,
+            gen_circuit_vkey, gen_match_linking_vkeys, gen_match_vkeys, prove_with_srs,
             test_data::{
                 dummy_circuit_type, gen_process_match_settle_data, ProcessMatchSettleData,
             },
@@ -931,21 +931,6 @@ mod tests {
         )
     }
 
-    /// Generate the verification keys for the circuits verified in `verify_match`
-    fn gen_match_vkeys() -> MatchVkeys {
-        let valid_commitments_vkey =
-            gen_circuit_vkey::<DummyValidCommitments>(&TESTING_SRS).unwrap();
-        let valid_reblind_vkey = gen_circuit_vkey::<DummyValidReblind>(&TESTING_SRS).unwrap();
-        let valid_match_settle_vkey =
-            gen_circuit_vkey::<DummyValidMatchSettle>(&TESTING_SRS).unwrap();
-
-        MatchVkeys {
-            valid_commitments_vkey,
-            valid_reblind_vkey,
-            valid_match_settle_vkey,
-        }
-    }
-
     /// Extract the public inputs from the [`ProcessMatchSettleData`] test data struct
     fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInputs {
         MatchPublicInputs {
@@ -980,7 +965,10 @@ mod tests {
         let merkle_root = Scalar::random(&mut rng);
         let data = gen_process_match_settle_data(&mut rng, &TESTING_SRS, merkle_root).unwrap();
 
-        let match_vkeys = gen_match_vkeys();
+        let match_vkeys =
+            gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(
+                &TESTING_SRS,
+            ).unwrap();
         let match_proofs = data.match_proofs;
         let match_public_inputs = extract_match_public_inputs(&data);
 
