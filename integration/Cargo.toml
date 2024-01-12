@@ -26,3 +26,5 @@ constants = { workspace = true }
 arbitrum-client = { workspace = true }
 jf-primitives = { workspace = true }
 itertools = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

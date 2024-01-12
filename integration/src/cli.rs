@@ -32,6 +32,8 @@ pub(crate) struct Cli {
 /// The possible test cases
 #[derive(ValueEnum, Clone, Copy)]
 pub(crate) enum Tests {
+    /// Run all of the integration tests
+    All,
     /// Test how the contracts call the `ecAdd` precompile
     EcAdd,
     /// Test how the contracts call the `ecMul` precompile
