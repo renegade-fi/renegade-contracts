@@ -20,12 +20,8 @@ impl VerifierContract {
     pub fn verify(&self, verification_bundle: Bytes) -> Result<bool, Vec<u8>> {
         let (vkey, proof, public_inputs) = postcard::from_bytes(&verification_bundle).unwrap();
 
-        Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify(
-            &vkey,
-            &proof,
-            &public_inputs,
-        )
-        .map_err(|_| vec![])
+        Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify(vkey, proof, public_inputs)
+            .map_err(|_| vec![])
     }
 
     /// Batch-verify the proofs involved in matching a trade
