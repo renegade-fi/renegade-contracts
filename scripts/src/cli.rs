@@ -9,7 +9,10 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ethers::providers::Middleware;
 
 use crate::{
-    commands::{build_and_deploy_stylus_contract, deploy_proxy, gen_srs, gen_vkeys, upgrade},
+    commands::{
+        build_and_deploy_stylus_contract, deploy_proxy, deploy_test_contracts, gen_srs, gen_vkeys,
+        upgrade,
+    },
     constants::DEFAULT_SRS_DEGREE,
     errors::ScriptError,
 };
@@ -38,6 +41,8 @@ pub struct Cli {
 /// The possible CLI commands
 #[derive(Subcommand)]
 pub enum Command {
+    /// Deploy all the testing contracts (includes generating testing verification keys)
+    DeployTestContracts(DeployTestContractsArgs),
     /// Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
     DeployProxy(DeployProxyArgs),
     /// Deploy a Stylus contract
@@ -60,6 +65,9 @@ impl Command {
         deployments_path: &str,
     ) -> Result<(), ScriptError> {
         match self {
+            Command::DeployTestContracts(args) => {
+                deploy_test_contracts(args, rpc_url, priv_key, client, deployments_path).await
+            }
             Command::DeployProxy(args) => deploy_proxy(args, client, deployments_path).await,
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(args, rpc_url, priv_key, client, deployments_path)
@@ -70,6 +78,34 @@ impl Command {
             Command::GenVkeys(args) => gen_vkeys(args),
         }
     }
+}
+
+/// Deploy all the testing contracts (includes generating testing verification keys)
+#[derive(Args)]
+pub struct DeployTestContractsArgs {
+    /// Address of the owner for both the proxy admin contract
+    /// and the underlying darkpool contract
+    #[arg(short, long)]
+    pub owner: String,
+
+    /// The initial protocol fee with which to initialize the darkpool contract.
+    /// The fee is a percentage of the trade volume, represented as a fixed-point number.
+    /// The `u64` used here should accommodate any fee we'd want to set.
+    #[arg(short, long)]
+    pub fee: u64,
+
+    /// Whether or not to enable proof & ECDSA verification.
+    /// This only applies to the darkpool & Merkle contracts.
+    #[arg(long)]
+    pub no_verify: bool,
+
+    /// The path to the file containing the SRS
+    #[arg(short, long)]
+    pub srs_path: String,
+
+    /// The directory to which to write the testing verification keys
+    #[arg(short, long)]
+    pub vkeys_dir: String,
 }
 
 /// Deploy the Darkpool upgradeable proxy contract.
@@ -94,7 +130,7 @@ pub struct DeployProxyArgs {
 }
 
 /// Deploy a Stylus contract
-#[derive(Args)]
+#[derive(Args, Clone, Copy)]
 pub struct DeployStylusArgs {
     /// The Stylus contract to deploy
     #[arg(short, long)]
