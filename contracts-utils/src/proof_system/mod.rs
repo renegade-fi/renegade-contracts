@@ -17,7 +17,7 @@ use circuits::zk_circuits::{
     VALID_REBLIND_COMMITMENTS_LINK,
 };
 use constants::{Scalar, SystemCurve};
-use contracts_common::types::{MatchLinkingVkeys, Proof, VerificationKey};
+use contracts_common::types::{MatchLinkingVkeys, MatchVkeys, Proof, VerificationKey};
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use mpc_plonk::{
     proof_system::{PlonkKzgSnark, UniversalSNARK},
@@ -68,6 +68,29 @@ pub fn gen_circuit_vkey<C: SingleProverCircuit>(
         PlonkKzgSnark::<SystemCurve>::preprocess(srs, &cs).map_err(ProverError::Plonk)?;
 
     to_contract_vkey(jf_vkey).map_err(Into::into)
+}
+
+/// Generate the verification keys for the circuits involved in settling a matched trade.
+///
+/// Defined generically over the `VALID COMMITMENTS`, `VALID REBLIND`, and `VALID MATCH SETTLE`
+/// circuits, so that this can be used in both testing and production setings.
+pub fn gen_match_vkeys<C, R, M>(
+    srs: &UnivariateUniversalParams<SystemCurve>,
+) -> Result<MatchVkeys, ProofSystemError>
+where
+    C: SingleProverCircuit,
+    R: SingleProverCircuit,
+    M: SingleProverCircuit,
+{
+    let valid_commitments_vkey = gen_circuit_vkey::<C>(srs)?;
+    let valid_reblind_vkey = gen_circuit_vkey::<R>(srs)?;
+    let valid_match_settle_vkey = gen_circuit_vkey::<M>(srs)?;
+
+    Ok(MatchVkeys {
+        valid_commitments_vkey,
+        valid_reblind_vkey,
+        valid_match_settle_vkey,
+    })
 }
 
 /// The link group layouts involved in settling a matched trade
