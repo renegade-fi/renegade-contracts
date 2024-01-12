@@ -9,12 +9,12 @@ use abis::{
 };
 use clap::Parser;
 use cli::{Cli, Tests};
-use constants::{DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY};
 use eyre::Result;
 use scripts::{
     constants::{
-        DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
-        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_CONTRACT_KEY,
+        DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, parse_srs_from_file, setup_client},
 };
@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
         Tests::Verifier => {
             let contract = VerifierContract::new(contract_address, client);
 
-            test_verifier(contract).await?;
+            test_verifier(contract, &srs).await?;
         }
         Tests::Upgradeable => {
             let contract = DarkpoolProxyAdminContract::new(contract_address, client.clone());

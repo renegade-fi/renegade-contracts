@@ -48,7 +48,7 @@ abigen!(
     VerifierContract,
     r#"[
         function verify(bytes memory verification_bundle) external view returns (bool)
-    function verifyMatch(bytes memory match_bundle) external view returns (bool)
+        function verifyMatch(bytes memory match_bundle) external view returns (bool)
     ]"#
 );
 
