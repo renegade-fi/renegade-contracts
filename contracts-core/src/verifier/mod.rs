@@ -821,10 +821,9 @@ mod tests {
                 DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
                 DummyValidReblind, DummyValidReblindWitness, DummyValidWalletCreate,
             },
-            gen_circuit_vkey, prove_with_srs,
+            gen_circuit_vkey, gen_match_linking_vkeys, prove_with_srs,
             test_data::{
-                dummy_circuit_type, gen_match_layouts, gen_process_match_settle_data,
-                ProcessMatchSettleData,
+                dummy_circuit_type, gen_process_match_settle_data, ProcessMatchSettleData,
             },
         },
     };
@@ -947,22 +946,6 @@ mod tests {
         }
     }
 
-    /// Generate the linking verification keys for the link groups verified in `verify_match`
-    fn gen_match_linking_vkeys() -> MatchLinkingVkeys {
-        let [valid_reblind_commitments_layout, valid_commitments_match_settle_0_layout, valid_commitments_match_settle_1_layout] =
-            gen_match_layouts().unwrap();
-
-        MatchLinkingVkeys {
-            valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments_layout),
-            valid_commitments_match_settle_0: to_linking_vkey(
-                &valid_commitments_match_settle_0_layout,
-            ),
-            valid_commitments_match_settle_1: to_linking_vkey(
-                &valid_commitments_match_settle_1_layout,
-            ),
-        }
-    }
-
     /// Extract the public inputs from the [`ProcessMatchSettleData`] test data struct
     fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInputs {
         MatchPublicInputs {
@@ -1001,7 +984,7 @@ mod tests {
         let match_proofs = data.match_proofs;
         let match_public_inputs = extract_match_public_inputs(&data);
 
-        let match_linking_vkeys = gen_match_linking_vkeys();
+        let match_linking_vkeys = gen_match_linking_vkeys::<DummyValidCommitments>().unwrap();
         let match_linking_proofs = data.match_linking_proofs;
         let match_linking_wire_poly_comms = MatchLinkingWirePolyComms {
             valid_reblind_0: match_proofs.valid_reblind_0.wire_comms[0],
