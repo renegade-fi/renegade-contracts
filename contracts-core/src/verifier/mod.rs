@@ -6,7 +6,7 @@
 pub mod errors;
 
 use alloc::{vec, vec::Vec};
-use ark_ff::{batch_inversion, batch_inversion_and_mul, FftField, Field, One, Zero};
+use ark_ff::{batch_inversion, FftField, Field, One, Zero};
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::{NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
@@ -44,54 +44,24 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     ///
     /// Follows the algorithm laid out in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf,
     pub fn verify(
-        vkey: &VerificationKey,
-        proof: &Proof,
-        public_inputs: &PublicInputs,
+        vkey: VerificationKey,
+        proof: Proof,
+        public_inputs: PublicInputs,
     ) -> Result<bool, VerifierError> {
-        // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
-        // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
-        // elements not in the scalar field, and points not in G1, would cause a panic.
+        // Prepare Plonk proofs for batch verification
+        let MatchOpeningElems {
+            g1_lhs_elems,
+            g1_rhs_elems,
+            transcript_elements,
+        } = Self::prep_batch_plonk_proofs_opening(&[vkey], &[proof], &[public_inputs])?;
 
-        Self::step_3(public_inputs, vkey)?;
-
-        let challenges = Self::step_4(vkey, proof, public_inputs);
-
-        let (domain_size, domain_elements, mut lagrange_basis_denominators) =
-            Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
-
-        let zero_poly_eval = Self::step_5(domain_size, &challenges);
-
-        batch_inversion_and_mul(&mut lagrange_basis_denominators, &zero_poly_eval);
-        // Rename for clarity
-        let lagrange_bases = lagrange_basis_denominators;
-
-        let lagrange_1_eval = Self::step_6(&lagrange_bases, &domain_elements);
-
-        let pi_eval = Self::step_7(
-            lagrange_1_eval,
-            &lagrange_bases,
-            &domain_elements,
-            public_inputs,
-        );
-
-        let r_0 = Self::step_8(pi_eval, lagrange_1_eval, &challenges, proof);
-
-        let d_1 = Self::step_9(zero_poly_eval, lagrange_1_eval, vkey, proof, &challenges)?;
-
-        // Increasing powers of v, starting w/ 1
-        let mut v_powers = [ScalarField::one(); NUM_WIRE_TYPES * 2];
-        for i in 1..NUM_WIRE_TYPES * 2 {
-            v_powers[i] = v_powers[i - 1] * challenges.v;
-        }
-
-        let f_1 = Self::step_10(d_1, &v_powers, vkey, proof)?;
-
-        let neg_e_1 = Self::step_11(r_0, &v_powers, vkey, proof, &challenges)?;
-
-        let (lhs_g1, rhs_g1) =
-            Self::step_12_part_1(f_1, neg_e_1, domain_elements[1], proof, &challenges)?;
-
-        Self::batch_opening(&[lhs_g1], &[rhs_g1], &[challenges.u], vkey.x_h, vkey.h)
+        Self::batch_opening(
+            &g1_lhs_elems,
+            &g1_rhs_elems,
+            &transcript_elements,
+            vkey.x_h,
+            vkey.h,
+        )
     }
 
     /// Batch-verifies:
@@ -139,28 +109,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             match_linking_wire_poly_comms,
         )?;
 
-        // Prepare Plonk proofs for batch verification
-        let MatchOpeningElems {
-            g1_lhs_elems: plonk_g1_lhs_elems,
-            g1_rhs_elems: plonk_g1_rhs_elems,
-            transcript_elements: plonk_transcript_elements,
-        } = Self::prep_match_plonk_proofs_opening(match_vkeys, match_proofs, match_public_inputs)?;
-
-        let g1_lhs_elems = [linking_g1_lhs_elems, plonk_g1_lhs_elems].concat();
-        let g1_rhs_elems = [linking_g1_rhs_elems, plonk_g1_rhs_elems].concat();
-        let transcript_elements = [linking_transcript_elements, plonk_transcript_elements].concat();
-
-        // Batch-open all of the linking & Plonk proofs together
-        Self::batch_opening(&g1_lhs_elems, &g1_rhs_elems, &transcript_elements, x_h, h)
-    }
-
-    /// Computes the elements used in the final KZG batch opening pairing check
-    /// for the Plonk proofs involved in the matching and settlement of a trade.
-    fn prep_match_plonk_proofs_opening(
-        match_vkeys: MatchVkeys,
-        match_proofs: MatchProofs,
-        match_public_inputs: MatchPublicInputs,
-    ) -> Result<MatchOpeningElems, VerifierError> {
         let vkey_batch = [
             match_vkeys.valid_commitments_vkey,
             match_vkeys.valid_reblind_vkey,
@@ -183,7 +131,33 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             match_public_inputs.valid_match_settle,
         ];
 
-        let num_proofs = 5;
+        // Prepare Plonk proofs for batch verification
+        let MatchOpeningElems {
+            g1_lhs_elems: plonk_g1_lhs_elems,
+            g1_rhs_elems: plonk_g1_rhs_elems,
+            transcript_elements: plonk_transcript_elements,
+        } = Self::prep_batch_plonk_proofs_opening(&vkey_batch, &proof_batch, &public_inputs_batch)?;
+
+        let g1_lhs_elems = [linking_g1_lhs_elems, plonk_g1_lhs_elems].concat();
+        let g1_rhs_elems = [linking_g1_rhs_elems, plonk_g1_rhs_elems].concat();
+        let transcript_elements = [linking_transcript_elements, plonk_transcript_elements].concat();
+
+        // Batch-open all of the linking & Plonk proofs together
+        Self::batch_opening(&g1_lhs_elems, &g1_rhs_elems, &transcript_elements, x_h, h)
+    }
+
+    /// Computes the elements used in the final KZG batch opening pairing check
+    /// for the Plonk proofs involved in the matching and settlement of a trade.
+    fn prep_batch_plonk_proofs_opening(
+        vkey_batch: &[VerificationKey],
+        proof_batch: &[Proof],
+        public_inputs_batch: &[PublicInputs],
+    ) -> Result<MatchOpeningElems, VerifierError> {
+        assert!(
+            vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
+        );
+
+        let num_proofs = vkey_batch.len();
 
         let mut challenges_batch = Vec::with_capacity(num_proofs);
         let mut zero_poly_evals_batch = Vec::with_capacity(num_proofs);
@@ -217,7 +191,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let lagrange_bases_batch = Self::batch_invert_lagrange_basis_denominators(
             &mut all_lagrange_basis_denominators,
             &zero_poly_evals_batch,
-            &vkey_batch,
+            vkey_batch,
         );
 
         let mut g1_lhs_elems = Vec::with_capacity(num_proofs);
@@ -968,7 +942,8 @@ mod tests {
         let match_vkeys =
             gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(
                 &TESTING_SRS,
-            ).unwrap();
+            )
+            .unwrap();
         let match_proofs = data.match_proofs;
         let match_public_inputs = extract_match_public_inputs(&data);
 
@@ -1029,7 +1004,7 @@ mod tests {
         let (statement, proof, vkey) = gen_verification_bundle(&mut rng);
         let public_inputs = statement_to_public_inputs(&statement);
         let result =
-            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(vkey, proof, public_inputs)
                 .unwrap();
 
         assert!(result, "valid proof did not verify");
@@ -1042,7 +1017,7 @@ mod tests {
         let public_inputs = statement_to_public_inputs(&statement);
         proof.z_bar += ScalarField::one();
         let result =
-            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(&vkey, &proof, &public_inputs)
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(vkey, proof, public_inputs)
                 .unwrap();
 
         assert!(!result, "invalid proof verified");
@@ -1052,14 +1027,36 @@ mod tests {
     fn test_valid_match_plonk_proofs_verification() {
         let (match_vkeys, match_proofs, match_public_inputs, _, _, _) = generate_match_bundle();
 
+        let vkey_batch = [
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_match_settle_vkey,
+        ];
+        let proof_batch = [
+            match_proofs.valid_commitments_0,
+            match_proofs.valid_reblind_0,
+            match_proofs.valid_commitments_1,
+            match_proofs.valid_reblind_1,
+            match_proofs.valid_match_settle,
+        ];
+        let public_inputs_batch = [
+            match_public_inputs.valid_commitments_0,
+            match_public_inputs.valid_reblind_0,
+            match_public_inputs.valid_commitments_1,
+            match_public_inputs.valid_reblind_1,
+            match_public_inputs.valid_match_settle,
+        ];
+
         let MatchOpeningElems {
             g1_lhs_elems,
             g1_rhs_elems,
             transcript_elements: eta_challenges,
-        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_plonk_proofs_opening(
-            match_vkeys,
-            match_proofs,
-            match_public_inputs,
+        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
+            &vkey_batch,
+            &proof_batch,
+            &public_inputs_batch,
         )
         .unwrap();
 
@@ -1081,17 +1078,38 @@ mod tests {
         let mut rng = thread_rng();
 
         let (match_vkeys, mut match_proofs, match_public_inputs, _, _, _) = generate_match_bundle();
-
         mutate_random_plonk_proof(&mut rng, &mut match_proofs);
+
+        let vkey_batch = [
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_match_settle_vkey,
+        ];
+        let proof_batch = [
+            match_proofs.valid_commitments_0,
+            match_proofs.valid_reblind_0,
+            match_proofs.valid_commitments_1,
+            match_proofs.valid_reblind_1,
+            match_proofs.valid_match_settle,
+        ];
+        let public_inputs_batch = [
+            match_public_inputs.valid_commitments_0,
+            match_public_inputs.valid_reblind_0,
+            match_public_inputs.valid_commitments_1,
+            match_public_inputs.valid_reblind_1,
+            match_public_inputs.valid_match_settle,
+        ];
 
         let MatchOpeningElems {
             g1_lhs_elems,
             g1_rhs_elems,
             transcript_elements: eta_challenges,
-        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_plonk_proofs_opening(
-            match_vkeys,
-            match_proofs,
-            match_public_inputs,
+        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
+            &vkey_batch,
+            &proof_batch,
+            &public_inputs_batch,
         )
         .unwrap();
 
