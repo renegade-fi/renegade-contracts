@@ -7,16 +7,14 @@ use arbitrum_client::conversion::{
 };
 use ark_std::UniformRand;
 use circuit_types::{
-    keychain::PublicSigningKey,
-    traits::{CircuitBaseType, SingleProverCircuit},
-    transfers::ExternalTransfer,
+    keychain::PublicSigningKey, traits::CircuitBaseType, transfers::ExternalTransfer,
     PolynomialCommitment, ProofLinkingHint,
 };
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_match_settle::SizedValidMatchSettleStatement, valid_reblind::ValidReblindStatement,
     valid_wallet_create::SizedValidWalletCreateStatement,
-    valid_wallet_update::SizedValidWalletUpdateStatement, VALID_REBLIND_COMMITMENTS_LINK, VALID_COMMITMENTS_MATCH_SETTLE_LINK1, VALID_COMMITMENTS_MATCH_SETTLE_LINK0,
+    valid_wallet_update::SizedValidWalletUpdateStatement,
 };
 use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
@@ -37,7 +35,6 @@ use jf_primitives::pcs::{
 };
 
 use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
-use mpc_relation::proof_linking::GroupLayout;
 use rand::{CryptoRng, Rng, RngCore};
 use std::iter;
 
@@ -53,7 +50,7 @@ use super::{
         DummyValidMatchSettleWitness, DummyValidReblind, DummyValidReblindWitness,
         DummyValidWalletCreate, DummyValidWalletUpdate,
     },
-    prove_with_srs,
+    gen_match_layouts, prove_with_srs, MatchGroupLayouts,
 };
 
 /// Generates a vector of random scalars
@@ -256,26 +253,6 @@ fn match_proofs_and_hints(
     ))
 }
 
-/// Generates the group layouts for the linked circuits involved in settling a matched trade
-pub fn gen_match_layouts() -> Result<[GroupLayout; 3]> {
-    let valid_commitments_layout = DummyValidCommitments::get_circuit_layout()?;
-
-    let valid_reblind_commitments_layout =
-        valid_commitments_layout.get_group_layout(VALID_REBLIND_COMMITMENTS_LINK);
-
-    let valid_commitments_match_settle_0_layout = valid_commitments_layout
-        .get_group_layout(VALID_COMMITMENTS_MATCH_SETTLE_LINK0);
-
-    let valid_commitments_match_settle_1_layout = valid_commitments_layout
-        .get_group_layout(VALID_COMMITMENTS_MATCH_SETTLE_LINK1);
-
-    Ok([
-        valid_reblind_commitments_layout,
-        valid_commitments_match_settle_0_layout,
-        valid_commitments_match_settle_1_layout,
-    ])
-}
-
 /// Generates the linking proofs to be submitted to `process_match_settle`
 fn match_link_proofs(
     srs: &UnivariateUniversalParams<SystemCurve>,
@@ -283,8 +260,11 @@ fn match_link_proofs(
 ) -> Result<MatchLinkingProofs> {
     let commit_key = srs.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
 
-    let [valid_reblind_commitments_layout, valid_commitments_match_settle_0_layout, valid_commitments_match_settle_1_layout] =
-        gen_match_layouts()?;
+    let MatchGroupLayouts {
+        valid_reblind_commitments: valid_reblind_commitments_layout,
+        valid_commitments_match_settle_0: valid_commitments_match_settle_0_layout,
+        valid_commitments_match_settle_1: valid_commitments_match_settle_1_layout,
+    } = gen_match_layouts::<DummyValidCommitments>()?;
 
     let (valid_reblind_hint_0, valid_commitments_hint_0) = &link_hints[0];
     let valid_reblind_commitments_0 =
