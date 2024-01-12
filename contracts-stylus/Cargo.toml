@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-stylus-sdk = { version = "0.4.2" }
+stylus-sdk = { version = "0.4.2", default-features = false }
 mini-alloc = "0.4.2"
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
@@ -15,10 +15,10 @@ postcard = { workspace = true }
 alloy-sol-types = { workspace = true }
 
 [features]
-darkpool = []
+darkpool = ["stylus-sdk/storage-cache"]
 darkpool-test-contract = []
 no-verify = []
-merkle = []
+merkle = ["stylus-sdk/storage-cache"]
 merkle-test-contract = []
 verifier = []
 vkeys = []
