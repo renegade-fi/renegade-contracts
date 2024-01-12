@@ -9,12 +9,12 @@ use contracts_common::{
         MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, VERIFIER_ADDRESS_SELECTOR,
         VKEYS_ADDRESS_SELECTOR,
     },
+    custom_serde::statement_to_public_inputs,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
     types::{G1Affine, G2Affine, ScalarField},
 };
 use contracts_core::crypto::{ecdsa::pubkey_to_address, poseidon::compute_poseidon_hash};
 use contracts_utils::{
-    conversion::statement_to_public_inputs,
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{

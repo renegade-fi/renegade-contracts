@@ -49,13 +49,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         public_inputs: PublicInputs,
     ) -> Result<bool, VerifierError> {
         // Prepare Plonk proofs for batch verification
-        let opening_elems = Self::prep_batch_plonk_proofs_opening(&[vkey], &[proof], &[public_inputs])?;
+        let opening_elems =
+            Self::prep_batch_plonk_proofs_opening(&[vkey], &[proof], &[public_inputs])?;
 
-        Self::batch_opening(
-            &opening_elems,
-            vkey.x_h,
-            vkey.h,
-        )
+        Self::batch_opening(&opening_elems, vkey.x_h, vkey.h)
     }
 
     /// Batch-verifies:
@@ -769,6 +766,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
+    use alloc::vec;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
@@ -778,14 +776,14 @@ mod tests {
     use constants::SystemCurve;
     use contracts_common::{
         backends::G1ArithmeticError,
+        custom_serde::statement_to_public_inputs,
         types::{
-            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchOpeningElems,
-            ScalarField,
+            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, OpeningElems, ScalarField,
         },
     };
     use contracts_utils::{
         constants::DUMMY_CIRCUIT_SRS_DEGREE,
-        conversion::{statement_to_public_inputs, to_contract_linking_proof, to_linking_vkey},
+        conversion::{to_contract_linking_proof, to_linking_vkey},
         crypto::NativeHasher,
         proof_system::{
             dummy_renegade_circuits::{
@@ -939,12 +937,13 @@ mod tests {
             match_public_inputs.valid_match_settle,
         ];
 
-        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
-            &vkey_batch,
-            &proof_batch,
-            &public_inputs_batch,
-        )
-        .unwrap();
+        let opening_elems =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
+                &vkey_batch,
+                &proof_batch,
+                &public_inputs_batch,
+            )
+            .unwrap();
 
         // Verify Plonk proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
@@ -988,12 +987,13 @@ mod tests {
             match_public_inputs.valid_match_settle,
         ];
 
-        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
-            &vkey_batch,
-            &proof_batch,
-            &public_inputs_batch,
-        )
-        .unwrap();
+        let opening_elems =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
+                &vkey_batch,
+                &proof_batch,
+                &public_inputs_batch,
+            )
+            .unwrap();
 
         // Verify Plonk proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
@@ -1085,12 +1085,13 @@ mod tests {
             generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
 
         // Prep linking proof opening elements
-        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
-            match_linking_vkeys,
-            match_linking_proofs,
-            match_linking_wire_poly_comms,
-        )
-        .unwrap();
+        let opening_elems =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
+                match_linking_vkeys,
+                match_linking_proofs,
+                match_linking_wire_poly_comms,
+            )
+            .unwrap();
 
         // Verify linking proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
@@ -1113,12 +1114,13 @@ mod tests {
         mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
 
         // Prep linking proof opening elements
-        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
-            match_linking_vkeys,
-            match_linking_proofs,
-            match_linking_wire_poly_comms,
-        )
-        .unwrap();
+        let opening_elems =
+            Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
+                match_linking_vkeys,
+                match_linking_proofs,
+                match_linking_wire_poly_comms,
+            )
+            .unwrap();
 
         // Verify linking proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(

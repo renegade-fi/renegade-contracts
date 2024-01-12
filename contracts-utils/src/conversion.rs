@@ -6,12 +6,9 @@ use circuit_types::{
     PlonkLinkProof, PolynomialCommitment,
 };
 use constants::{Scalar, SystemCurve};
-use contracts_common::{
-    custom_serde::ScalarSerializable,
-    types::{
-        G1Affine, LinkingProof as ContractLinkingProof, LinkingVerificationKey, PublicInputs,
-        PublicSigningKey as ContractPublicSigningKey, VerificationKey,
-    },
+use contracts_common::types::{
+    G1Affine, LinkingProof as ContractLinkingProof, LinkingVerificationKey,
+    PublicSigningKey as ContractPublicSigningKey, VerificationKey,
 };
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
@@ -88,9 +85,4 @@ pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPu
     };
 
     CircuitPublicSigningKey { x, y }
-}
-
-/// Serializes a statement type into a vector of `[ScalarField]` and wraps it in a [`PublicInputs`]
-pub fn statement_to_public_inputs<S: ScalarSerializable>(statement: &S) -> PublicInputs {
-    PublicInputs(statement.serialize_to_scalars().unwrap())
 }
