@@ -375,7 +375,7 @@ pub struct MatchLinkingWirePolyComms {
 }
 
 /// The elements to be used in a KZG batch opening pairing check
-pub struct MatchOpeningElems {
+pub struct OpeningElems {
     /// The LHS G1 elements in the pairing check
     pub g1_lhs_elems: Vec<G1Affine>,
     /// The RHS G1 elements in the pairing check

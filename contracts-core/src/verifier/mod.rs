@@ -12,8 +12,8 @@ use contracts_common::{
     constants::{NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
     types::{
         Challenges, G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
-        MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchOpeningElems, MatchProofs,
-        MatchPublicInputs, MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+        MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchProofs, MatchPublicInputs, MatchVkeys,
+        OpeningElems, Proof, PublicInputs, ScalarField, VerificationKey,
     },
 };
 use core::{marker::PhantomData, result::Result};
@@ -49,16 +49,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         public_inputs: PublicInputs,
     ) -> Result<bool, VerifierError> {
         // Prepare Plonk proofs for batch verification
-        let MatchOpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements,
-        } = Self::prep_batch_plonk_proofs_opening(&[vkey], &[proof], &[public_inputs])?;
+        let opening_elems = Self::prep_batch_plonk_proofs_opening(&[vkey], &[proof], &[public_inputs])?;
 
         Self::batch_opening(
-            &g1_lhs_elems,
-            &g1_rhs_elems,
-            &transcript_elements,
+            &opening_elems,
             vkey.x_h,
             vkey.h,
         )
@@ -99,7 +93,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             valid_match_settle: match_proofs.valid_match_settle.wire_comms[0],
         };
 
-        let MatchOpeningElems {
+        let OpeningElems {
             g1_lhs_elems: linking_g1_lhs_elems,
             g1_rhs_elems: linking_g1_rhs_elems,
             transcript_elements: linking_transcript_elements,
@@ -132,7 +126,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         ];
 
         // Prepare Plonk proofs for batch verification
-        let MatchOpeningElems {
+        let OpeningElems {
             g1_lhs_elems: plonk_g1_lhs_elems,
             g1_rhs_elems: plonk_g1_rhs_elems,
             transcript_elements: plonk_transcript_elements,
@@ -142,17 +136,23 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let g1_rhs_elems = [linking_g1_rhs_elems, plonk_g1_rhs_elems].concat();
         let transcript_elements = [linking_transcript_elements, plonk_transcript_elements].concat();
 
+        let final_opening_elems = OpeningElems {
+            g1_lhs_elems,
+            g1_rhs_elems,
+            transcript_elements,
+        };
+
         // Batch-open all of the linking & Plonk proofs together
-        Self::batch_opening(&g1_lhs_elems, &g1_rhs_elems, &transcript_elements, x_h, h)
+        Self::batch_opening(&final_opening_elems, x_h, h)
     }
 
     /// Computes the elements used in the final KZG batch opening pairing check
-    /// for the Plonk proofs involved in the matching and settlement of a trade.
+    /// for a batch of Plonk proofs
     fn prep_batch_plonk_proofs_opening(
         vkey_batch: &[VerificationKey],
         proof_batch: &[Proof],
         public_inputs_batch: &[PublicInputs],
-    ) -> Result<MatchOpeningElems, VerifierError> {
+    ) -> Result<OpeningElems, VerifierError> {
         assert!(
             vkey_batch.len() == proof_batch.len() && proof_batch.len() == public_inputs_batch.len()
         );
@@ -239,7 +239,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript_elements.push(challenges.u);
         }
 
-        Ok(MatchOpeningElems {
+        Ok(OpeningElems {
             g1_lhs_elems,
             g1_rhs_elems,
             transcript_elements,
@@ -252,7 +252,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         match_linking_vkeys: MatchLinkingVkeys,
         match_linking_proofs: MatchLinkingProofs,
         match_linking_wire_poly_comms: MatchLinkingWirePolyComms,
-    ) -> Result<MatchOpeningElems, VerifierError> {
+    ) -> Result<OpeningElems, VerifierError> {
         let linking_vkeys = [
             match_linking_vkeys.valid_commitments_match_settle_0,
             match_linking_vkeys.valid_reblind_commitments,
@@ -300,7 +300,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript_elements.push(eta);
         }
 
-        Ok(MatchOpeningElems {
+        Ok(OpeningElems {
             g1_lhs_elems,
             g1_rhs_elems,
             transcript_elements,
@@ -728,13 +728,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     /// This is taken from the Jellyfish implementation:
     /// https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
     fn batch_opening(
-        g1_lhs_elems: &[G1Affine],
-        g1_rhs_elems: &[G1Affine],
-        transcript_elements: &[ScalarField],
+        opening_elems: &OpeningElems,
         x_h: G2Affine,
         h: G2Affine,
     ) -> Result<bool, VerifierError> {
-        let num_proofs = g1_lhs_elems.len();
+        let num_proofs = opening_elems.g1_lhs_elems.len();
 
         let r = if num_proofs == 1 {
             // No need to incur an extra multiplication when only 1 proof is being verified
@@ -747,7 +745,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             let mut transcript = Transcript::<H>::new();
 
-            transcript.append_message(&serialize_scalars_for_transcript(transcript_elements));
+            transcript.append_message(&serialize_scalars_for_transcript(
+                &opening_elems.transcript_elements,
+            ));
             transcript.get_and_append_challenge()
         };
 
@@ -758,8 +758,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         }
 
         // Compute the random linear combinations of G1 elements for the verification instances.
-        let lhs_rlc = G::msm(&r_powers, g1_lhs_elems)?;
-        let rhs_rlc = G::msm(&r_powers, g1_rhs_elems)?;
+        let lhs_rlc = G::msm(&r_powers, &opening_elems.g1_lhs_elems)?;
+        let rhs_rlc = G::msm(&r_powers, &opening_elems.g1_rhs_elems)?;
 
         G::ec_pairing_check(lhs_rlc, x_h, -rhs_rlc, h).map_err(Into::into)
     }
@@ -769,6 +769,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
+    use alloc::vec;
     use arbitrum_client::conversion::to_contract_valid_wallet_create_statement;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
@@ -781,8 +782,8 @@ mod tests {
         backends::G1ArithmeticError,
         types::{
             G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
-            MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchOpeningElems, MatchProofs,
-            MatchPublicInputs, MatchVkeys, Proof, ScalarField, ValidWalletCreateStatement,
+            MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchProofs, MatchPublicInputs,
+            MatchVkeys, OpeningElems, Proof, ScalarField, ValidWalletCreateStatement,
             VerificationKey,
         },
     };
@@ -1049,11 +1050,7 @@ mod tests {
             match_public_inputs.valid_match_settle,
         ];
 
-        let MatchOpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements: eta_challenges,
-        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
+        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
             &vkey_batch,
             &proof_batch,
             &public_inputs_batch,
@@ -1062,9 +1059,7 @@ mod tests {
 
         // Verify Plonk proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
-            &g1_lhs_elems,
-            &g1_rhs_elems,
-            &eta_challenges,
+            &opening_elems,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
         )
@@ -1102,11 +1097,7 @@ mod tests {
             match_public_inputs.valid_match_settle,
         ];
 
-        let MatchOpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements: eta_challenges,
-        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
+        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_batch_plonk_proofs_opening(
             &vkey_batch,
             &proof_batch,
             &public_inputs_batch,
@@ -1115,9 +1106,7 @@ mod tests {
 
         // Verify Plonk proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
-            &g1_lhs_elems,
-            &g1_rhs_elems,
-            &eta_challenges,
+            &opening_elems,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
         )
@@ -1144,11 +1133,15 @@ mod tests {
             )
             .unwrap();
 
+        let opening_elems = OpeningElems {
+            g1_lhs_elems: vec![g1_lhs],
+            g1_rhs_elems: vec![g1_rhs],
+            transcript_elements: vec![eta],
+        };
+
         // Verify linking proof opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
-            &[g1_lhs],
-            &[g1_rhs],
-            &[eta],
+            &opening_elems,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
         )
@@ -1176,11 +1169,15 @@ mod tests {
             )
             .unwrap();
 
+        let opening_elems = OpeningElems {
+            g1_lhs_elems: vec![g1_lhs],
+            g1_rhs_elems: vec![g1_rhs],
+            transcript_elements: vec![eta],
+        };
+
         // Verify linking proof opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
-            &[g1_lhs],
-            &[g1_rhs],
-            &[eta],
+            &opening_elems,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
         )
@@ -1195,11 +1192,7 @@ mod tests {
             generate_match_bundle();
 
         // Prep linking proof opening elements
-        let MatchOpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements,
-        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
+        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
             match_linking_vkeys,
             match_linking_proofs,
             match_linking_wire_poly_comms,
@@ -1208,9 +1201,7 @@ mod tests {
 
         // Verify linking proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
-            &g1_lhs_elems,
-            &g1_rhs_elems,
-            &transcript_elements,
+            &opening_elems,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
         )
@@ -1229,11 +1220,7 @@ mod tests {
         mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
 
         // Prep linking proof opening elements
-        let MatchOpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements,
-        } = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
+        let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
             match_linking_vkeys,
             match_linking_proofs,
             match_linking_wire_poly_comms,
@@ -1242,9 +1229,7 @@ mod tests {
 
         // Verify linking proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
-            &g1_lhs_elems,
-            &g1_rhs_elems,
-            &transcript_elements,
+            &opening_elems,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
         )
