@@ -580,7 +580,7 @@ pub(crate) async fn test_pausable(
     let (update_wallet_proof, update_wallet_statement, public_inputs_signature) =
         gen_update_wallet_data(&mut rng, srs, Scalar::new(contract_root))?;
 
-    let _data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
+    let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
 
     assert_all_revert(vec![
         contract
@@ -596,18 +596,15 @@ pub(crate) async fn test_pausable(
                 public_inputs_signature.clone(),
             )
             .send(),
-        // contract
-        //     .process_match_settle(
-        //         serialize_to_calldata(&data.party_0_match_payload)?,
-        //         serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
-        //         serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
-        //         serialize_to_calldata(&data.party_1_match_payload)?,
-        //         serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
-        //         serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
-        //         serialize_to_calldata(&data.valid_match_settle_proof)?,
-        //         serialize_to_calldata(&data.valid_match_settle_statement)?,
-        //     )
-        //     .send(),
+        contract
+            .process_match_settle(
+                serialize_to_calldata(&data.match_payload_0)?,
+                serialize_to_calldata(&data.match_payload_1)?,
+                serialize_to_calldata(&data.valid_match_settle_statement)?,
+                serialize_to_calldata(&data.match_proofs)?,
+                serialize_to_calldata(&data.match_linking_proofs)?,
+            )
+            .send(),
         contract.pause().send(),
     ])
     .await?;
@@ -630,20 +627,20 @@ pub(crate) async fn test_pausable(
                 public_inputs_signature,
             )
             .send(),
-        // contract
-        //     .process_match_settle(
-        //         serialize_to_calldata(&data.party_0_match_payload)?,
-        //         serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
-        //         serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
-        //         serialize_to_calldata(&data.party_1_match_payload)?,
-        //         serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
-        //         serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
-        //         serialize_to_calldata(&data.valid_match_settle_proof)?,
-        //         serialize_to_calldata(&data.valid_match_settle_statement)?,
-        //     )
-        //     .send(),
+        contract
+            .process_match_settle(
+                serialize_to_calldata(&data.match_payload_0)?,
+                serialize_to_calldata(&data.match_payload_1)?,
+                serialize_to_calldata(&data.valid_match_settle_statement)?,
+                serialize_to_calldata(&data.match_proofs)?,
+                serialize_to_calldata(&data.match_linking_proofs)?,
+            )
+            .send(),
     ])
     .await?;
+
+    // Clear merkle state for future tests
+    contract.clear_merkle().send().await?.await?;
 
     Ok(())
 }
@@ -826,82 +823,79 @@ pub(crate) async fn test_update_wallet(
 
 /// Test the `process_match_settle` method on the darkpool
 pub(crate) async fn test_process_match_settle(
-    _contract: DarkpoolTestContract<impl Middleware + 'static>,
-    _srs: &UnivariateUniversalParams<SystemCurve>,
+    contract: DarkpoolTestContract<impl Middleware + 'static>,
+    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
-    // // Generate test data
-    // let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+    // Generate test data
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
-    // let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
-    // let mut rng = thread_rng();
-    // let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let mut rng = thread_rng();
+    let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
 
-    // // Call `process_match_settle` with valid data
-    // contract
-    //     .process_match_settle(
-    //         serialize_to_calldata(&data.party_0_match_payload)?,
-    //         serialize_to_calldata(&data.party_0_valid_commitments_proof)?,
-    //         serialize_to_calldata(&data.party_0_valid_reblind_proof)?,
-    //         serialize_to_calldata(&data.party_1_match_payload)?,
-    //         serialize_to_calldata(&data.party_1_valid_commitments_proof)?,
-    //         serialize_to_calldata(&data.party_1_valid_reblind_proof)?,
-    //         serialize_to_calldata(&data.valid_match_settle_proof)?,
-    //         serialize_to_calldata(&data.valid_match_settle_statement)?,
-    //     )
-    //     .send()
-    //     .await?
-    //     .await?;
+    // Call `process_match_settle` with valid data
+    contract
+        .process_match_settle(
+            serialize_to_calldata(&data.match_payload_0)?,
+            serialize_to_calldata(&data.match_payload_1)?,
+            serialize_to_calldata(&data.valid_match_settle_statement)?,
+            serialize_to_calldata(&data.match_proofs)?,
+            serialize_to_calldata(&data.match_linking_proofs)?,
+        )
+        .send()
+        .await?
+        .await?;
 
-    // // Assert that correct nullifiers are spent
-    // let party_0_nullifier = scalar_to_u256(
-    //     data.party_0_match_payload
-    //         .valid_reblind_statement
-    //         .original_shares_nullifier,
-    // );
-    // let party_1_nullifier = scalar_to_u256(
-    //     data.party_1_match_payload
-    //         .valid_reblind_statement
-    //         .original_shares_nullifier,
-    // );
+    // Assert that correct nullifiers are spent
+    let party_0_nullifier = scalar_to_u256(
+        data.match_payload_0
+            .valid_reblind_statement
+            .original_shares_nullifier,
+    );
+    let party_1_nullifier = scalar_to_u256(
+        data.match_payload_1
+            .valid_reblind_statement
+            .original_shares_nullifier,
+    );
 
-    // let party_0_nullifier_spent = contract
-    //     .is_nullifier_spent(party_0_nullifier)
-    //     .call()
-    //     .await?;
-    // assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
+    let party_0_nullifier_spent = contract
+        .is_nullifier_spent(party_0_nullifier)
+        .call()
+        .await?;
+    assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
 
-    // let party_1_nullifier_spent = contract
-    //     .is_nullifier_spent(party_1_nullifier)
-    //     .call()
-    //     .await?;
-    // assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
+    let party_1_nullifier_spent = contract
+        .is_nullifier_spent(party_1_nullifier)
+        .call()
+        .await?;
+    assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
 
-    // // Assert that Merkle root is correct
-    // insert_shares_and_get_root(
-    //     &mut ark_merkle,
-    //     data.party_0_match_payload
-    //         .valid_reblind_statement
-    //         .reblinded_private_shares_commitment,
-    //     &data.valid_match_settle_statement.party0_modified_shares,
-    //     0, /* index */
-    // )
-    // .unwrap();
-    // let ark_root = insert_shares_and_get_root(
-    //     &mut ark_merkle,
-    //     data.party_1_match_payload
-    //         .valid_reblind_statement
-    //         .reblinded_private_shares_commitment,
-    //     &data.valid_match_settle_statement.party1_modified_shares,
-    //     1, /* index */
-    // )
-    // .unwrap();
+    // Assert that Merkle root is correct
+    insert_shares_and_get_root(
+        &mut ark_merkle,
+        data.match_payload_0
+            .valid_reblind_statement
+            .reblinded_private_shares_commitment,
+        &data.valid_match_settle_statement.party0_modified_shares,
+        0, /* index */
+    )
+    .unwrap();
+    let ark_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        data.match_payload_1
+            .valid_reblind_statement
+            .reblinded_private_shares_commitment,
+        &data.valid_match_settle_statement.party1_modified_shares,
+        1, /* index */
+    )
+    .unwrap();
 
-    // let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
-    // assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    // // Clear merkle state for future tests
-    // contract.clear_merkle().send().await?.await?;
+    // Clear merkle state for future tests
+    contract.clear_merkle().send().await?.await?;
 
     Ok(())
 }
