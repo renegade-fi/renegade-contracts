@@ -19,7 +19,7 @@ use circuits::zk_circuits::{
 };
 use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
-    custom_serde::BytesSerializable,
+    custom_serde::{BytesSerializable, statement_to_public_inputs},
     types::{
         G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
         MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
@@ -42,7 +42,7 @@ use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{statement_to_public_inputs, to_circuit_pubkey, to_contract_linking_proof},
+    conversion::{to_circuit_pubkey, to_contract_linking_proof},
     crypto::{hash_and_sign_message, random_keypair},
 };
 
