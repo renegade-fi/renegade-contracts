@@ -17,7 +17,7 @@ use crate::{
     errors::ScriptError,
 };
 
-/// Top-level CLI arguments
+/// Scripts for deploying & upgrading the Renegade Stylus contracts
 #[derive(Parser)]
 pub struct Cli {
     /// Private key of the deployer
