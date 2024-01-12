@@ -729,6 +729,13 @@ pub(crate) async fn test_external_transfer(
     // Deposit initial funds for darkpool & user in dummy erc20 address
     mint_dummy_erc20(&dummy_erc20_contract, &[darkpool_address, account_address]).await?;
 
+    // Approve the darkpool to spend the user's funds
+    dummy_erc20_contract
+        .approve(darkpool_address, U256::from(TRANSFER_AMOUNT))
+        .send()
+        .await?
+        .await?;
+
     let darkpool_initial_balance = dummy_erc20_contract
         .balance_of(darkpool_address)
         .call()
