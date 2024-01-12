@@ -6,9 +6,10 @@ use ark_ff::PrimeField;
 use contracts_common::{
     constants::NUM_SCALARS_PK,
     custom_serde::{
-        bigint_from_le_bytes, pk_to_scalars, BytesSerializable, ScalarSerializable, SerdeError,
+        bigint_from_le_bytes, pk_to_scalars, statement_to_public_inputs, BytesSerializable,
+        ScalarSerializable, SerdeError,
     },
-    types::{PublicInputs, PublicSigningKey, ScalarField},
+    types::{MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidReblindStatement, ValidMatchSettleStatement},
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -25,7 +26,31 @@ use stylus_sdk::{
 pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> postcard::Result<Vec<u8>> {
-    postcard::to_allocvec(&PublicInputs(statement.serialize_to_scalars().unwrap()))
+    postcard::to_allocvec(&statement_to_public_inputs(statement))
+}
+
+/// Serializes the statements used in verifying the settlement of a
+/// matched trade into scalars, builds the [`MatchPublicInputs`] struct,
+/// and then serialized it into bytes, as expected by the verifier contract.
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
+pub fn serialize_match_statements_for_verification(
+    valid_commitments_0: &ValidCommitmentsStatement,
+    valid_commitments_1: &ValidCommitmentsStatement,
+    valid_reblind_0: &ValidReblindStatement,
+    valid_reblind_1: &ValidReblindStatement,
+    valid_match_settle: &ValidMatchSettleStatement,
+) -> postcard::Result<Vec<u8>> {
+    let match_public_inputs = MatchPublicInputs {
+        valid_commitments_0: statement_to_public_inputs(valid_commitments_0),
+        valid_commitments_1: statement_to_public_inputs(valid_commitments_1),
+        valid_reblind_0: statement_to_public_inputs(valid_reblind_0),
+        valid_reblind_1: statement_to_public_inputs(valid_reblind_1),
+        valid_match_settle: statement_to_public_inputs(valid_match_settle),
+    };
+    postcard::to_allocvec(&match_public_inputs)
 }
 
 /// Performs a `delegatecall` to the given address, calling the function

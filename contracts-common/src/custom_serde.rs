@@ -13,7 +13,7 @@ use crate::{
     types::{
         ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
-        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement, PublicInputs,
     },
 };
 
@@ -365,6 +365,11 @@ pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
     scalars.extend(pk.x);
     scalars.extend(pk.y);
     scalars
+}
+
+/// Serializes a statement type into a vector of `[ScalarField]` and wraps it in a [`PublicInputs`]
+pub fn statement_to_public_inputs<S: ScalarSerializable>(statement: &S) -> PublicInputs {
+    PublicInputs(statement.serialize_to_scalars().unwrap())
 }
 
 #[cfg(test)]

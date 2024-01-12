@@ -21,7 +21,8 @@ use crate::{
         constants::STORAGE_GAP_SIZE,
         helpers::{
             delegate_call_helper, pk_to_u256s, scalar_to_u256,
-            serialize_statement_for_verification, static_call_helper,
+            serialize_match_statements_for_verification, serialize_statement_for_verification,
+            static_call_helper,
         },
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
@@ -335,22 +336,18 @@ impl DarkpoolContract {
     }
 
     /// Settles a matched order between two parties,
-    /// inserting the updated wallets into the commitment tree
-    #[allow(clippy::too_many_arguments)]
+    /// inserting the updated wallets into the commitment tree.
+    ///
+    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::MatchProofs`]
+    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// [`contracts_common::types::MatchLinkingProofs`] struct
     pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         party_0_match_payload: Bytes,
-        party_0_valid_commitments_proof: Bytes,
-        party_0_valid_reblind_proof: Bytes,
         party_1_match_payload: Bytes,
-        party_1_valid_commitments_proof: Bytes,
-        party_1_valid_reblind_proof: Bytes,
-        valid_match_settle_proof: Bytes,
-        valid_match_settle_statement_bytes: Bytes,
-        _party_0_valid_commitments_valid_reblind_linking_proof: Bytes,
-        _party_0_valid_commitments_valid_match_settle_linking_proof: Bytes,
-        _party_1_valid_commitments_valid_reblind_linking_proof: Bytes,
-        _party_1_valid_commitments_valid_match_settle_linking_proof: Bytes,
+        valid_match_settle_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_assert_not_paused(storage);
 
@@ -361,18 +358,15 @@ impl DarkpoolContract {
             postcard::from_bytes(party_1_match_payload.as_slice()).unwrap();
 
         let valid_match_settle_statement: ValidMatchSettleStatement =
-            postcard::from_bytes(valid_match_settle_statement_bytes.as_slice()).unwrap();
+            postcard::from_bytes(valid_match_settle_statement.as_slice()).unwrap();
 
         if_verifying!(DarkpoolContract::batch_verify_process_match_settle(
             storage,
             &party_0_match_payload,
-            party_0_valid_commitments_proof,
-            party_0_valid_reblind_proof,
             &party_1_match_payload,
-            party_1_valid_commitments_proof,
-            party_1_valid_reblind_proof,
-            valid_match_settle_proof,
             &valid_match_settle_statement,
+            match_proofs,
+            match_linking_proofs,
         ));
 
         DarkpoolContract::process_party(
@@ -593,51 +587,33 @@ impl DarkpoolContract {
     pub fn batch_verify_process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         party_0_match_payload: &MatchPayload,
-        party_0_valid_commitments_proof: Bytes,
-        party_0_valid_reblind_proof: Bytes,
         party_1_match_payload: &MatchPayload,
-        party_1_valid_commitments_proof: Bytes,
-        party_1_valid_reblind_proof: Bytes,
-        valid_match_settle_proof: Bytes,
         valid_match_settle_statement: &ValidMatchSettleStatement,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
     ) {
         let this = storage.borrow_mut();
         let vkeys_address = this.vkeys_address.get();
         let verifier_address = this.verifier_address.get();
 
         // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
-        let (process_match_settle_vkeys_ser,) =
+        let (process_match_settle_vkeys,) =
             static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ()).into();
 
-        let party_0_valid_commitments_public_inputs = serialize_statement_for_verification(
+        let match_public_inputs = serialize_match_statements_for_verification(
             &party_0_match_payload.valid_commitments_statement,
-        )
-        .unwrap();
-        let party_0_valid_reblind_public_inputs =
-            serialize_statement_for_verification(&party_0_match_payload.valid_reblind_statement)
-                .unwrap();
-        let party_1_valid_commitments_public_inputs = serialize_statement_for_verification(
             &party_1_match_payload.valid_commitments_statement,
+            &party_0_match_payload.valid_reblind_statement,
+            &party_1_match_payload.valid_reblind_statement,
+            valid_match_settle_statement,
         )
         .unwrap();
-        let party_1_valid_reblind_public_inputs =
-            serialize_statement_for_verification(&party_1_match_payload.valid_reblind_statement)
-                .unwrap();
-        let valid_match_settle_public_inputs =
-            serialize_statement_for_verification(valid_match_settle_statement).unwrap();
 
         let batch_verification_bundle_ser = [
-            process_match_settle_vkeys_ser,
-            party_0_valid_commitments_proof.into(),
-            party_0_valid_reblind_proof.into(),
-            party_1_valid_commitments_proof.into(),
-            party_1_valid_reblind_proof.into(),
-            valid_match_settle_proof.into(),
-            party_0_valid_commitments_public_inputs,
-            party_0_valid_reblind_public_inputs,
-            party_1_valid_commitments_public_inputs,
-            party_1_valid_reblind_public_inputs,
-            valid_match_settle_public_inputs,
+            process_match_settle_vkeys,
+            match_proofs.into(),
+            match_public_inputs,
+            match_linking_proofs.into(),
         ]
         .concat();
 

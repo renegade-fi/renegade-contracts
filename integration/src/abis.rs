@@ -25,7 +25,7 @@ abigen!(
 
         function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
         function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature) external
-        function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_0_valid_commitments_proof, bytes memory party_0_valid_reblind_proof, bytes memory party_1_match_payload, bytes memory party_1_valid_commitments_proof, bytes memory party_1_valid_reblind_proof, bytes memory valid_match_settle_proof, bytes memory valid_match_settle_statement_bytes) external
+        function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external
 
         function markNullifierSpent(uint256 memory nullifier) external
         function executeExternalTransfer(bytes memory transfer) external
@@ -48,7 +48,7 @@ abigen!(
     VerifierContract,
     r#"[
         function verify(bytes memory verification_bundle) external view returns (bool)
-        function verifyMatch(bytes memory match_bundle) external view returns (bool)
+    function verifyMatch(bytes memory match_bundle) external view returns (bool)
     ]"#
 );
 
