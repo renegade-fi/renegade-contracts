@@ -12,7 +12,7 @@ use contracts_utils::proof_system::{
         DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
         DummyValidWalletUpdate,
     },
-    gen_circuit_vkey,
+    gen_circuit_vkey, gen_match_linking_vkeys, gen_match_vkeys,
 };
 use ethers::{
     abi::{Address, Contract},
@@ -211,49 +211,43 @@ pub fn gen_srs(args: GenSrsArgs) -> Result<(), ScriptError> {
 pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
     let srs = parse_srs_from_file(&args.srs_path)?;
 
-    let (
-        valid_wallet_create_vkey,
-        valid_wallet_update_vkey,
-        valid_commitments_vkey,
-        valid_reblind_vkey,
-        valid_match_settle_vkey,
-    ) = if args.test {
-        (
-            gen_circuit_vkey::<DummyValidWalletCreate>(&srs)
+    let (valid_wallet_create_vkey, valid_wallet_update_vkey, match_vkeys, match_linking_vkeys) =
+        if args.test {
+            (
+                gen_circuit_vkey::<DummyValidWalletCreate>(&srs)
+                    .map_err(|_| ScriptError::CircuitCreation)?,
+                gen_circuit_vkey::<DummyValidWalletUpdate>(&srs)
+                    .map_err(|_| ScriptError::CircuitCreation)?,
+                gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(
+                    &srs,
+                )
                 .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidWalletUpdate>(&srs)
+                gen_match_linking_vkeys::<DummyValidCommitments>()
+                    .map_err(|_| ScriptError::CircuitCreation)?,
+            )
+        } else {
+            (
+                gen_circuit_vkey::<SizedValidWalletCreate>(&srs)
+                    .map_err(|_| ScriptError::CircuitCreation)?,
+                gen_circuit_vkey::<SizedValidWalletUpdate>(&srs)
+                    .map_err(|_| ScriptError::CircuitCreation)?,
+                gen_match_vkeys::<SizedValidCommitments, SizedValidReblind, SizedValidMatchSettle>(
+                    &srs,
+                )
                 .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidCommitments>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidReblind>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<DummyValidMatchSettle>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-        )
-    } else {
-        (
-            gen_circuit_vkey::<SizedValidWalletCreate>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidWalletUpdate>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidCommitments>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidReblind>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-            gen_circuit_vkey::<SizedValidMatchSettle>(&srs)
-                .map_err(|_| ScriptError::CircuitCreation)?,
-        )
-    };
+                gen_match_linking_vkeys::<SizedValidCommitments>()
+                    .map_err(|_| ScriptError::CircuitCreation)?,
+            )
+        };
 
     let valid_wallet_create_vkey_bytes = postcard::to_allocvec(&valid_wallet_create_vkey)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
     let valid_wallet_update_vkey_bytes = postcard::to_allocvec(&valid_wallet_update_vkey)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
-    let valid_commitments_vkey_bytes = postcard::to_allocvec(&valid_commitments_vkey)
-        .map_err(|e| ScriptError::Serde(e.to_string()))?;
-    let valid_reblind_vkey_bytes = postcard::to_allocvec(&valid_reblind_vkey)
-        .map_err(|e| ScriptError::Serde(e.to_string()))?;
-    let valid_match_settle_vkey_bytes = postcard::to_allocvec(&valid_match_settle_vkey)
+
+    let match_vkeys_bytes =
+        postcard::to_allocvec(&match_vkeys).map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let match_linking_vkeys_bytes = postcard::to_allocvec(&match_linking_vkeys)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
     write_vkey_file(
@@ -267,13 +261,8 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
         &valid_wallet_update_vkey_bytes,
     )?;
 
-    // The VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE vkeys are serialized together
-    let process_match_settle_vkey_bytes = [
-        valid_commitments_vkey_bytes,
-        valid_reblind_vkey_bytes,
-        valid_match_settle_vkey_bytes,
-    ]
-    .concat();
+    // The match vkeys & linking vkeys are serialized together
+    let process_match_settle_vkey_bytes = [match_vkeys_bytes, match_linking_vkeys_bytes].concat();
 
     write_vkey_file(
         &args.vkeys_dir,
