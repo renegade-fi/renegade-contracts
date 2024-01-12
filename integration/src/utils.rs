@@ -21,47 +21,12 @@ use ethers::{
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
-use scripts::{
-    constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
-        PRECOMPILE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
-    },
-    utils::parse_addr_from_deployments_file,
-};
 use serde::Serialize;
 
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract},
-    cli::Tests,
     constants::TRANSFER_AMOUNT,
 };
-
-/// Returns the deployed address of the contract to be tested
-pub(crate) fn get_test_contract_address(test: Tests, deployments_file: &str) -> Result<Address> {
-    Ok(match test {
-        Tests::EcAdd | Tests::EcMul | Tests::EcPairing | Tests::EcRecover => {
-            parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?
-        }
-        Tests::Merkle => parse_addr_from_deployments_file(deployments_file, MERKLE_CONTRACT_KEY)?,
-        Tests::Verifier => {
-            parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?
-        }
-        Tests::Upgradeable => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?
-        }
-        Tests::NullifierSet
-        | Tests::Initializable
-        | Tests::ImplSetters
-        | Tests::Ownable
-        | Tests::Pausable
-        | Tests::ExternalTransfer
-        | Tests::NewWallet
-        | Tests::UpdateWallet
-        | Tests::ProcessMatchSettle => {
-            parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?
-        }
-    })
-}
 
 /// Asserts that the given method can only be called by the owner of the darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
