@@ -831,7 +831,7 @@ mod tests {
     use jf_primitives::pcs::StructuredReferenceString;
     use jf_utils::multi_pairing;
     use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
-    use rand::{seq::SliceRandom, thread_rng, CryptoRng, RngCore};
+    use rand::{seq::SliceRandom, thread_rng, CryptoRng, Rng, RngCore};
 
     use super::{G1ArithmeticBackend, Verifier};
 
@@ -932,6 +932,7 @@ mod tests {
         )
     }
 
+    /// Generate the verification keys for the circuits verified in `verify_match`
     fn gen_match_vkeys() -> MatchVkeys {
         let valid_commitments_vkey =
             gen_circuit_vkey::<DummyValidCommitments>(&TESTING_SRS).unwrap();
@@ -946,6 +947,7 @@ mod tests {
         }
     }
 
+    /// Generate the linking verification keys for the link groups verified in `verify_match`
     fn gen_match_linking_vkeys() -> MatchLinkingVkeys {
         let [valid_reblind_commitments_layout, valid_commitments_match_settle_0_layout, valid_commitments_match_settle_1_layout] =
             gen_match_layouts().unwrap();
@@ -961,6 +963,7 @@ mod tests {
         }
     }
 
+    /// Extract the public inputs from the [`ProcessMatchSettleData`] test data struct
     fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInputs {
         MatchPublicInputs {
             valid_commitments_0: statement_to_public_inputs(
@@ -979,6 +982,7 @@ mod tests {
         }
     }
 
+    /// Generate the bundle of data needed to verify a match
     fn generate_match_bundle() -> (
         MatchVkeys,
         MatchProofs,
@@ -1015,6 +1019,37 @@ mod tests {
             match_linking_proofs,
             match_linking_wire_poly_comms,
         )
+    }
+
+    /// Picks a random Plonk proof from the batch of proofs verified in `verify_match` and mutates it
+    fn mutate_random_plonk_proof<R: CryptoRng + RngCore>(
+        rng: &mut R,
+        match_proofs: &mut MatchProofs,
+    ) {
+        let mut proofs = [
+            &mut match_proofs.valid_commitments_0,
+            &mut match_proofs.valid_reblind_0,
+            &mut match_proofs.valid_commitments_1,
+            &mut match_proofs.valid_reblind_1,
+            &mut match_proofs.valid_match_settle,
+        ];
+        let proof = proofs.choose_mut(rng).unwrap();
+        proof.z_bar += ScalarField::one();
+    }
+
+    /// Picks a random linking proof from the batch of proofs verified in `verify_match` and mutates it
+    fn mutate_random_linking_proof<R: CryptoRng + RngCore>(
+        rng: &mut R,
+        match_linking_proofs: &mut MatchLinkingProofs,
+    ) {
+        let mut proofs = [
+            &mut match_linking_proofs.valid_reblind_commitments_0,
+            &mut match_linking_proofs.valid_reblind_commitments_1,
+            &mut match_linking_proofs.valid_commitments_match_settle_0,
+            &mut match_linking_proofs.valid_commitments_match_settle_1,
+        ];
+        let proof = proofs.choose_mut(rng).unwrap();
+        proof.linking_quotient_poly_comm = G1Affine::rand(rng);
     }
 
     #[test]
@@ -1076,15 +1111,7 @@ mod tests {
 
         let (match_vkeys, mut match_proofs, match_public_inputs, _, _, _) = generate_match_bundle();
 
-        let mut proofs = [
-            &mut match_proofs.valid_commitments_0,
-            &mut match_proofs.valid_reblind_0,
-            &mut match_proofs.valid_commitments_1,
-            &mut match_proofs.valid_reblind_1,
-            &mut match_proofs.valid_match_settle,
-        ];
-        let proof = proofs.choose_mut(&mut rng).unwrap();
-        proof.z_bar += ScalarField::one();
+        mutate_random_plonk_proof(&mut rng, &mut match_proofs);
 
         let MatchOpeningElems {
             g1_lhs_elems,
@@ -1210,14 +1237,7 @@ mod tests {
         let (_, _, _, match_linking_vkeys, mut match_linking_proofs, match_linking_wire_poly_comms) =
             generate_match_bundle();
 
-        let mut proofs = [
-            &mut match_linking_proofs.valid_commitments_match_settle_0,
-            &mut match_linking_proofs.valid_reblind_commitments_0,
-            &mut match_linking_proofs.valid_commitments_match_settle_1,
-            &mut match_linking_proofs.valid_reblind_commitments_1,
-        ];
-        let proof = proofs.choose_mut(&mut rng).unwrap();
-        proof.linking_poly_opening = G1Affine::rand(&mut rng);
+        mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
 
         // Prep linking proof opening elements
         let MatchOpeningElems {
@@ -1238,6 +1258,61 @@ mod tests {
             &transcript_elements,
             TESTING_SRS.beta_h,
             TESTING_SRS.h,
+        )
+        .unwrap();
+
+        assert!(!result)
+    }
+
+    #[test]
+    fn test_valid_match() {
+        let (
+            match_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_vkeys,
+            match_linking_proofs,
+            _,
+        ) = generate_match_bundle();
+
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
+            match_vkeys,
+            match_linking_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
+        )
+        .unwrap();
+
+        assert!(result)
+    }
+
+    #[test]
+    fn test_invalid_match() {
+        let (
+            match_vkeys,
+            mut match_proofs,
+            match_public_inputs,
+            match_linking_vkeys,
+            mut match_linking_proofs,
+            _,
+        ) = generate_match_bundle();
+
+        let mut rng = thread_rng();
+
+        let mutate_plonk_proof = rng.gen_bool(0.5);
+        if mutate_plonk_proof {
+            mutate_random_plonk_proof(&mut rng, &mut match_proofs);
+        } else {
+            mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
+        }
+
+        let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
+            match_vkeys,
+            match_linking_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
         )
         .unwrap();
 
