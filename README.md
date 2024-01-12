@@ -108,15 +108,18 @@ cargo run -p scripts -- -h
 Which will show:
 
 ```shell
+Scripts for deploying & upgrading the Renegade Stylus contracts
+
 Usage: scripts --priv-key <PRIV_KEY> --rpc-url <RPC_URL> --deployments-path <DEPLOYMENTS_PATH> <COMMAND>
 
 Commands:
-  deploy-proxy   Deploy the Darkpool upgradeable proxy contract
-  deploy-stylus  Deploy a Stylus contract
-  upgrade        Upgrade the darkpool implementation
-  gen-srs        Generate an SRS for proving/verification keys
-  gen-vkeys      Generate verification keys for the system circuits
-  help           Print this message or the help of the given subcommand(s)
+  deploy-test-contracts  Deploy all the testing contracts (includes generating testing verification keys)
+  deploy-proxy           Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
+  deploy-stylus          Deploy a Stylus contract
+  upgrade                Upgrade the darkpool implementation
+  gen-srs                Generate a structured reference string
+  gen-vkeys              Generate verification keys for the protocol circuits
+  help                   Print this message or the help of the given subcommand(s)
 
 Options:
   -p, --priv-key <PRIV_KEY>                  Private key of the deployer
@@ -158,65 +161,17 @@ cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH gen-srs -s
 
 A degree of `4096` is sufficient for `<DEGREE>`.
 
-#### Deploying verification keys
+#### Deploying the contracts themselves
 
-Next, generate verification keys for the test circuits by running:
-
+All of the contracts used in integration testing can be deployed by running the following command:
 ```shell
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH gen-vkeys -s $SRS_PATH -v contracts-stylus/vkeys/test -t
+cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-test-contracts -o 0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E -f <FEE> -s $SRS_PATH -v contracts-stylus/vkeys/test
 ```
+_Note: The address `0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E` is the address associated with the predeployed dev account, whose private key we've been using._
 
-_Note: Be sure to use `contracts-stylus/vkeys/test` as the argument for the `-v` flag, indicating where the verification keys should be stored, as the verification keys contract expects to find them at this path._
+_Be sure to use `contracts-stylus/vkeys/test` as the argument for the `-v` flag, indicating where the verification keys should be stored, as the verification keys contract expects to find them at this path._
 
-Deploy the verification keys contract by running:
-
-```shell
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c test-vkeys
-```
-
-#### Deploying core contracts
-
-The contracts comprising the core of the on-chain portion of the Renegade protocol are the darkpool, the verifier, and the Merkle tree.
-
-Deploy them by running:
-
-```shell
-# Deploy the Merkle test contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c merkle-test-contract
-
-# Deploy the verifier contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c verifier
-
-# Deploy the darkpool test contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c darkpool-test-contract
-```
-
-#### Deploying the proxy
-
-The darkpool contract sits behind an upgradeable proxy, which must also be deployed. This is done by running:
-
-```shell
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-proxy -o 0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E -f <FEE>
-```
-
-_Note: The address `0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E` is the address associated with the predeployed dev account, whose private key we've been using. The `<FEE>` parameter is the initial protocol fee to set in the darkpool contract, and is largely irrelevant for testing, so you can set it to anything (other than 0)._
-
-#### Deploying auxiliary testing contracts
-
-Some integration tests require auxiliary contracts to be deployed, either to unit-test some on-chain functionality (e.g. calling EVM precompiles from the Stylus VM), mock out other contracts to interact with (e.g. ERC-20s), or wrap contract functionality more expressively.
-
-Deploy those contracts by running:
-
-```shell
-# Deploy the dummy ERC-20 contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c dummy-erc20
-
-# Deploy the dummy upgrade target contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c dummy-upgrade-target
-
-# Deploy the precompiles testing contract
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-stylus -c precompile-test-contract
-```
+_The `<FEE>` parameter is the initial protocol fee to set in the darkpool contract, and is largely irrelevant for testing, so you can set it to anything (other than 0)._
 
 ### Running tests
 
@@ -235,7 +190,7 @@ Usage: integration [OPTIONS] --test <TEST> --deployments-file <DEPLOYMENTS_FILE>
 
 Options:
   -t, --test <TEST>
-          Test to run [possible values: ec-add, ec-mul, ec-pairing, ec-recover, nullifier-set, merkle, verifier, upgradeable, impl-setters, initializable, ownable, pausable, external-transfer, new-wallet, update-wallet, process-match-settle]
+          Test to run [possible values: all, ec-add, ec-mul, ec-pairing, ec-recover, nullifier-set, merkle, verifier, upgradeable, impl-setters, initializable, ownable, pausable, external-transfer, new-wallet, update-wallet, process-match-settle]
   -d, --deployments-file <DEPLOYMENTS_FILE>
           Path to file containing contract deployment info
   -s, --srs-file <SRS_FILE>
@@ -252,8 +207,8 @@ As you can see, `<PRIV_KEY>` and `<RPC_URL>` have their defaults set to the expe
 
 You should use the same `$SRS_PATH` and `$DEPLOYMENTS_PATH` that you used when deploying the contracts.
 
-From there, you can run any of the tests enumerated above by running:
+From there, you can run the entire integration testing suite using:
 
 ```shell
-cargo run -p integration -- -t <TEST> -s $SRS_PATH -d $DEPLOYMENTS_PATH
+cargo run -p integration -- -t all -s $SRS_PATH -d $DEPLOYMENTS_PATH
 ```
