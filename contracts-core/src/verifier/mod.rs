@@ -769,22 +769,18 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
-    use alloc::vec;
-    use arbitrum_client::conversion::to_contract_valid_wallet_create_statement;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
     use ark_std::UniformRand;
     use circuit_types::{test_helpers::TESTING_SRS, traits::SingleProverCircuit, ProofLinkingHint};
     use circuits::zk_circuits::VALID_REBLIND_COMMITMENTS_LINK;
-    use constants::{Scalar, SystemCurve};
+    use constants::SystemCurve;
     use contracts_common::{
         backends::G1ArithmeticError,
         types::{
-            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
-            MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchProofs, MatchPublicInputs,
-            MatchVkeys, OpeningElems, Proof, ScalarField, ValidWalletCreateStatement,
-            VerificationKey,
+            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchOpeningElems,
+            ScalarField,
         },
     };
     use contracts_utils::{
@@ -793,19 +789,20 @@ mod tests {
         crypto::NativeHasher,
         proof_system::{
             dummy_renegade_circuits::{
-                DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
-                DummyValidReblind, DummyValidReblindWitness, DummyValidWalletCreate,
+                DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidReblind,
+                DummyValidReblindWitness,
             },
-            gen_circuit_vkey, gen_match_linking_vkeys, gen_match_vkeys, prove_with_srs,
+            prove_with_srs,
             test_data::{
-                dummy_circuit_type, gen_process_match_settle_data, ProcessMatchSettleData,
+                dummy_circuit_type, gen_verification_bundle, generate_match_bundle,
+                mutate_random_linking_proof, mutate_random_plonk_proof,
             },
         },
     };
     use jf_primitives::pcs::StructuredReferenceString;
     use jf_utils::multi_pairing;
     use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
-    use rand::{seq::SliceRandom, thread_rng, CryptoRng, Rng, RngCore};
+    use rand::{thread_rng, CryptoRng, Rng, RngCore};
 
     use super::{G1ArithmeticBackend, Verifier};
 
@@ -828,23 +825,6 @@ mod tests {
             Ok(multi_pairing::<Bn254>(&[a_1, a_2], &[b_1, b_2]).0
                 == <Bn254 as Pairing>::TargetField::one())
         }
-    }
-
-    /// Creates a dummy statement, uses it to compute a valid proof,
-    /// and generates its associated verification key.
-    ///
-    /// The simplest way to do this is to use the dummy `VALID WALLET CREATE` circuit.
-    fn gen_verification_bundle<R: CryptoRng + RngCore>(
-        rng: &mut R,
-    ) -> (ValidWalletCreateStatement, Proof, VerificationKey) {
-        let statement = dummy_circuit_type(rng);
-        let contract_statement = to_contract_valid_wallet_create_statement(&statement);
-
-        let (proof, _) =
-            prove_with_srs::<DummyValidWalletCreate>(&TESTING_SRS, (), statement).unwrap();
-        let vkey = gen_circuit_vkey::<DummyValidWalletCreate>(&TESTING_SRS).unwrap();
-
-        (contract_statement, proof, vkey)
     }
 
     /// Generate a single linking proof and the associated data needed
@@ -906,103 +886,10 @@ mod tests {
         )
     }
 
-    /// Extract the public inputs from the [`ProcessMatchSettleData`] test data struct
-    fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInputs {
-        MatchPublicInputs {
-            valid_commitments_0: statement_to_public_inputs(
-                &data.match_payload_0.valid_commitments_statement,
-            ),
-            valid_commitments_1: statement_to_public_inputs(
-                &data.match_payload_1.valid_commitments_statement,
-            ),
-            valid_reblind_0: statement_to_public_inputs(
-                &data.match_payload_0.valid_reblind_statement,
-            ),
-            valid_reblind_1: statement_to_public_inputs(
-                &data.match_payload_1.valid_reblind_statement,
-            ),
-            valid_match_settle: statement_to_public_inputs(&data.valid_match_settle_statement),
-        }
-    }
-
-    /// Generate the bundle of data needed to verify a match
-    fn generate_match_bundle() -> (
-        MatchVkeys,
-        MatchProofs,
-        MatchPublicInputs,
-        MatchLinkingVkeys,
-        MatchLinkingProofs,
-        MatchLinkingWirePolyComms,
-    ) {
-        let mut rng = thread_rng();
-
-        // Generate random `process_match_settle` test data & destructure
-        let merkle_root = Scalar::random(&mut rng);
-        let data = gen_process_match_settle_data(&mut rng, &TESTING_SRS, merkle_root).unwrap();
-
-        let match_vkeys =
-            gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(
-                &TESTING_SRS,
-            )
-            .unwrap();
-        let match_proofs = data.match_proofs;
-        let match_public_inputs = extract_match_public_inputs(&data);
-
-        let match_linking_vkeys = gen_match_linking_vkeys::<DummyValidCommitments>().unwrap();
-        let match_linking_proofs = data.match_linking_proofs;
-        let match_linking_wire_poly_comms = MatchLinkingWirePolyComms {
-            valid_reblind_0: match_proofs.valid_reblind_0.wire_comms[0],
-            valid_commitments_0: match_proofs.valid_commitments_0.wire_comms[0],
-            valid_reblind_1: match_proofs.valid_reblind_1.wire_comms[0],
-            valid_commitments_1: match_proofs.valid_commitments_1.wire_comms[0],
-            valid_match_settle: match_proofs.valid_match_settle.wire_comms[0],
-        };
-
-        (
-            match_vkeys,
-            match_proofs,
-            match_public_inputs,
-            match_linking_vkeys,
-            match_linking_proofs,
-            match_linking_wire_poly_comms,
-        )
-    }
-
-    /// Picks a random Plonk proof from the batch of proofs verified in `verify_match` and mutates it
-    fn mutate_random_plonk_proof<R: CryptoRng + RngCore>(
-        rng: &mut R,
-        match_proofs: &mut MatchProofs,
-    ) {
-        let mut proofs = [
-            &mut match_proofs.valid_commitments_0,
-            &mut match_proofs.valid_reblind_0,
-            &mut match_proofs.valid_commitments_1,
-            &mut match_proofs.valid_reblind_1,
-            &mut match_proofs.valid_match_settle,
-        ];
-        let proof = proofs.choose_mut(rng).unwrap();
-        proof.z_bar += ScalarField::one();
-    }
-
-    /// Picks a random linking proof from the batch of proofs verified in `verify_match` and mutates it
-    fn mutate_random_linking_proof<R: CryptoRng + RngCore>(
-        rng: &mut R,
-        match_linking_proofs: &mut MatchLinkingProofs,
-    ) {
-        let mut proofs = [
-            &mut match_linking_proofs.valid_reblind_commitments_0,
-            &mut match_linking_proofs.valid_reblind_commitments_1,
-            &mut match_linking_proofs.valid_commitments_match_settle_0,
-            &mut match_linking_proofs.valid_commitments_match_settle_1,
-        ];
-        let proof = proofs.choose_mut(rng).unwrap();
-        proof.linking_quotient_poly_comm = G1Affine::rand(rng);
-    }
-
     #[test]
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
-        let (statement, proof, vkey) = gen_verification_bundle(&mut rng);
+        let (statement, proof, vkey) = gen_verification_bundle(&mut rng, &TESTING_SRS);
         let public_inputs = statement_to_public_inputs(&statement);
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(vkey, proof, public_inputs)
@@ -1014,7 +901,7 @@ mod tests {
     #[test]
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
-        let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng);
+        let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng, &TESTING_SRS);
         let public_inputs = statement_to_public_inputs(&statement);
         proof.z_bar += ScalarField::one();
         let result =
@@ -1026,7 +913,9 @@ mod tests {
 
     #[test]
     fn test_valid_match_plonk_proofs_verification() {
-        let (match_vkeys, match_proofs, match_public_inputs, _, _, _) = generate_match_bundle();
+        let mut rng = thread_rng();
+        let (match_vkeys, match_proofs, match_public_inputs, _, _, _) =
+            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
 
         let vkey_batch = [
             match_vkeys.valid_commitments_vkey,
@@ -1072,7 +961,9 @@ mod tests {
     fn test_invalid_match_plonk_proofs_verification() {
         let mut rng = thread_rng();
 
-        let (match_vkeys, mut match_proofs, match_public_inputs, _, _, _) = generate_match_bundle();
+        let (match_vkeys, mut match_proofs, match_public_inputs, _, _, _) =
+            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+
         mutate_random_plonk_proof(&mut rng, &mut match_proofs);
 
         let vkey_batch = [
@@ -1188,8 +1079,10 @@ mod tests {
 
     #[test]
     fn test_valid_match_linking_proofs_verification() {
+        let mut rng = thread_rng();
+
         let (_, _, _, match_linking_vkeys, match_linking_proofs, match_linking_wire_poly_comms) =
-            generate_match_bundle();
+            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
 
         // Prep linking proof opening elements
         let opening_elems = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_match_linking_proofs_opening(
@@ -1215,7 +1108,7 @@ mod tests {
         let mut rng = thread_rng();
 
         let (_, _, _, match_linking_vkeys, mut match_linking_proofs, match_linking_wire_poly_comms) =
-            generate_match_bundle();
+            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
 
         mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
 
@@ -1240,6 +1133,8 @@ mod tests {
 
     #[test]
     fn test_valid_match() {
+        let mut rng = thread_rng();
+
         let (
             match_vkeys,
             match_proofs,
@@ -1247,7 +1142,7 @@ mod tests {
             match_linking_vkeys,
             match_linking_proofs,
             _,
-        ) = generate_match_bundle();
+        ) = generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
 
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
             match_vkeys,
@@ -1263,6 +1158,8 @@ mod tests {
 
     #[test]
     fn test_invalid_match() {
+        let mut rng = thread_rng();
+
         let (
             match_vkeys,
             mut match_proofs,
@@ -1270,7 +1167,7 @@ mod tests {
             match_linking_vkeys,
             mut match_linking_proofs,
             _,
-        ) = generate_match_bundle();
+        ) = generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
 
         let mut rng = thread_rng();
 
