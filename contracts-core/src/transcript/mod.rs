@@ -11,7 +11,7 @@ use contracts_common::{
 use core::marker::PhantomData;
 
 /// The Fiat-Shamir transcript used in the Plonk protocol.
-/// 
+///
 /// Defined generically over the hashing implementation.
 pub struct Transcript<H: HashBackend> {
     /// The running protocol transcript, containing all data absorbed so far
@@ -252,7 +252,7 @@ pub mod tests {
             shifted_opening_proof: Commitment(G1Affine::rand(&mut rng)),
         };
 
-        let proof = to_contract_proof(jf_proof.clone()).unwrap();
+        let proof = to_contract_proof(&jf_proof).unwrap();
 
         (proof, jf_proof.into())
     }
