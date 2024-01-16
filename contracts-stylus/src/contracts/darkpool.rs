@@ -16,9 +16,14 @@ use stylus_sdk::{
 };
 
 use crate::{
-    if_verifying,
+    assert_result, if_verifying,
     utils::{
-        constants::STORAGE_GAP_SIZE,
+        constants::{
+            INVALID_VERSION_ERROR_MESSAGE, NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE,
+            PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, STORAGE_GAP_SIZE,
+            UNPAUSED_ERROR_MESSAGE, VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE,
+            ZERO_FEE_ERROR_MESSAGE,
+        },
         helpers::{
             delegate_call_helper, pk_to_u256s, scalar_to_u256,
             serialize_match_statements_for_verification, serialize_statement_for_verification,
@@ -86,19 +91,19 @@ impl DarkpoolContract {
         protocol_fee: U256,
     ) -> Result<(), Vec<u8>> {
         // Initialize the Merkle tree
-        delegate_call_helper::<initCall>(storage, merkle_address, ());
+        delegate_call_helper::<initCall>(storage, merkle_address, ())?;
 
         // Set the owner, verifier, vkeys, & Merkle addresses
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
-        DarkpoolContract::set_verifier_address(storage, verifier_address).unwrap();
-        DarkpoolContract::set_vkeys_address(storage, vkeys_address).unwrap();
-        DarkpoolContract::set_merkle_address(storage, merkle_address).unwrap();
+        DarkpoolContract::set_verifier_address(storage, verifier_address)?;
+        DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
+        DarkpoolContract::set_merkle_address(storage, merkle_address)?;
 
         // Set the protocol fee
-        DarkpoolContract::set_fee(storage, protocol_fee).unwrap();
+        DarkpoolContract::set_fee(storage, protocol_fee)?;
 
         // Mark the darkpool as initialized
-        DarkpoolContract::_initialize(storage, 1);
+        DarkpoolContract::_initialize(storage, 1)?;
 
         Ok(())
     }
@@ -117,9 +122,9 @@ impl DarkpoolContract {
         storage: &mut S,
         new_owner: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
+        DarkpoolContract::_check_owner(storage)?;
 
-        assert_ne!(new_owner, Address::ZERO);
+        DarkpoolContract::check_address_not_zero(new_owner)?;
         DarkpoolContract::_transfer_ownership(storage, new_owner);
 
         Ok(())
@@ -136,8 +141,8 @@ impl DarkpoolContract {
 
     /// Pauses the darkpool
     pub fn pause<S: TopLevelStorage + BorrowMut<Self>>(storage: &mut S) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
-        DarkpoolContract::_assert_not_paused(storage);
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::_check_not_paused(storage)?;
         storage.borrow_mut().paused.set(true);
         evm::log(Paused {});
         Ok(())
@@ -145,8 +150,8 @@ impl DarkpoolContract {
 
     /// Unpauses the darkpool
     pub fn unpause<S: TopLevelStorage + BorrowMut<Self>>(storage: &mut S) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
-        DarkpoolContract::_assert_paused(storage);
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::_check_paused(storage)?;
         storage.borrow_mut().paused.set(false);
         evm::log(Unpaused {});
         Ok(())
@@ -170,7 +175,7 @@ impl DarkpoolContract {
         storage: &mut S,
     ) -> Result<U256, Vec<u8>> {
         let merkle_address = storage.borrow_mut().merkle_address.get();
-        let (res,) = delegate_call_helper::<rootCall>(storage, merkle_address, ()).into();
+        let (res,) = delegate_call_helper::<rootCall>(storage, merkle_address, ())?.into();
         Ok(res)
     }
 
@@ -181,7 +186,7 @@ impl DarkpoolContract {
     ) -> Result<bool, Vec<u8>> {
         let merkle_address = storage.borrow_mut().merkle_address.get();
         let (res,) =
-            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,)).into();
+            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,))?.into();
 
         Ok(res)
     }
@@ -200,8 +205,8 @@ impl DarkpoolContract {
         storage: &mut S,
         new_fee: U256,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
-        assert_ne!(new_fee, U256::ZERO);
+        DarkpoolContract::_check_owner(storage)?;
+        assert_result!(new_fee != U256::ZERO, ZERO_FEE_ERROR_MESSAGE)?;
         storage.borrow_mut().protocol_fee.set(new_fee);
         evm::log(FeeChanged { new_fee });
         Ok(())
@@ -212,8 +217,8 @@ impl DarkpoolContract {
         storage: &mut S,
         verifier_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
-        assert_ne!(verifier_address, Address::ZERO);
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::check_address_not_zero(verifier_address)?;
         storage.borrow_mut().verifier_address.set(verifier_address);
         evm::log(VerifierAddressChanged {
             new_address: verifier_address,
@@ -226,8 +231,8 @@ impl DarkpoolContract {
         storage: &mut S,
         vkeys_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
-        assert_ne!(vkeys_address, Address::ZERO);
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::check_address_not_zero(vkeys_address)?;
         storage.borrow_mut().vkeys_address.set(vkeys_address);
         evm::log(VkeysAddressChanged {
             new_address: vkeys_address,
@@ -240,8 +245,8 @@ impl DarkpoolContract {
         storage: &mut S,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_owner(storage);
-        assert_ne!(merkle_address, Address::ZERO);
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::check_address_not_zero(merkle_address)?;
         storage.borrow_mut().merkle_address.set(merkle_address);
         evm::log(MerkleAddressChanged {
             new_address: merkle_address,
@@ -255,7 +260,7 @@ impl DarkpoolContract {
         proof: Bytes,
         valid_wallet_create_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_not_paused(storage);
+        DarkpoolContract::_check_not_paused(storage)?;
 
         let valid_wallet_create_statement: ValidWalletCreateStatement =
             postcard::from_bytes(valid_wallet_create_statement_bytes.as_slice()).unwrap();
@@ -265,19 +270,22 @@ impl DarkpoolContract {
             let (valid_wallet_create_vkey_bytes,) =
                 static_call_helper::<validWalletCreateVkeyCall>(storage, vkeys_address, ()).into();
 
-            assert!(DarkpoolContract::verify(
-                storage,
-                valid_wallet_create_vkey_bytes,
-                proof.into(),
-                serialize_statement_for_verification(&valid_wallet_create_statement).unwrap(),
-            ));
+            assert_result!(
+                DarkpoolContract::verify(
+                    storage,
+                    valid_wallet_create_vkey_bytes,
+                    proof.into(),
+                    serialize_statement_for_verification(&valid_wallet_create_statement).unwrap(),
+                ),
+                VERIFICATION_FAILED_ERROR_MESSAGE
+            )?;
         });
 
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
             valid_wallet_create_statement.private_shares_commitment,
             &valid_wallet_create_statement.public_wallet_shares,
-        );
+        )?;
 
         DarkpoolContract::log_wallet_update(&valid_wallet_create_statement.public_wallet_shares);
 
@@ -291,27 +299,30 @@ impl DarkpoolContract {
         valid_wallet_update_statement_bytes: Bytes,
         shares_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_not_paused(storage);
+        DarkpoolContract::_check_not_paused(storage)?;
 
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
 
         if_verifying!({
-            DarkpoolContract::assert_root_in_history(
+            DarkpoolContract::check_root_in_history(
                 storage,
                 valid_wallet_update_statement.merkle_root,
-            );
+            )?;
 
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
             let (valid_wallet_update_vkey_bytes,) =
                 static_call_helper::<validWalletUpdateVkeyCall>(storage, vkeys_address, ()).into();
 
-            assert!(DarkpoolContract::verify(
-                storage,
-                valid_wallet_update_vkey_bytes,
-                proof.into(),
-                serialize_statement_for_verification(&valid_wallet_update_statement).unwrap(),
-            ));
+            assert_result!(
+                DarkpoolContract::verify(
+                    storage,
+                    valid_wallet_update_vkey_bytes,
+                    proof.into(),
+                    serialize_statement_for_verification(&valid_wallet_update_statement).unwrap(),
+                ),
+                VERIFICATION_FAILED_ERROR_MESSAGE
+            )?;
         });
 
         DarkpoolContract::insert_wallet_update_commitment_to_merkle_tree(
@@ -320,11 +331,11 @@ impl DarkpoolContract {
             &valid_wallet_update_statement.new_public_shares,
             shares_commitment_signature.into(),
             &valid_wallet_update_statement.old_pk_root,
-        );
+        )?;
         DarkpoolContract::mark_nullifier_spent(
             storage,
             valid_wallet_update_statement.old_shares_nullifier,
-        );
+        )?;
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
             DarkpoolContract::execute_external_transfer(storage, &external_transfer);
@@ -349,7 +360,7 @@ impl DarkpoolContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_assert_not_paused(storage);
+        DarkpoolContract::_check_not_paused(storage)?;
 
         let party_0_match_payload: MatchPayload =
             postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
@@ -367,19 +378,19 @@ impl DarkpoolContract {
             &valid_match_settle_statement,
             match_proofs,
             match_linking_proofs,
-        ));
+        )?);
 
         DarkpoolContract::process_party(
             storage,
             &party_0_match_payload,
             &valid_match_settle_statement.party0_modified_shares,
-        );
+        )?;
 
         DarkpoolContract::process_party(
             storage,
             &party_1_match_payload,
             &valid_match_settle_statement.party1_modified_shares,
-        );
+        )?;
 
         Ok(())
     }
@@ -392,11 +403,18 @@ impl DarkpoolContract {
     // -----------------
 
     /// Initializes this contract with the given version.
-    pub fn _initialize<S: TopLevelStorage + BorrowMut<Self>>(storage: &mut S, version: u64) {
+    pub fn _initialize<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        version: u64,
+    ) -> Result<(), Vec<u8>> {
         let version_uint64 = U64::from_limbs([version]);
         let this = storage.borrow_mut();
-        assert!(this.initialized.get() < version_uint64);
+        assert_result!(
+            this.initialized.get() < version_uint64,
+            INVALID_VERSION_ERROR_MESSAGE
+        )?;
         this.initialized.set(version_uint64);
+        Ok(())
     }
 
     // -----------
@@ -412,23 +430,28 @@ impl DarkpoolContract {
         evm::log(OwnershipTransferred { new_owner })
     }
 
-    /// Asserts that the sender is the owner
-    pub fn _assert_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) {
-        assert_eq!(storage.borrow().owner.get(), msg::sender())
+    /// Checks that the sender is the owner
+    pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
+        assert_result!(
+            storage.borrow().owner.get() == msg::sender(),
+            NOT_OWNER_ERROR_MESSAGE
+        )
     }
 
     // ------------
     // | PAUSABLE |
     // ------------
 
-    /// Asserts that the darkpool is paused
-    pub fn _assert_paused<S: TopLevelStorage + Borrow<Self>>(storage: &S) {
-        assert!(storage.borrow().paused.get())
+    /// Checks that the darkpool is paused
+    pub fn _check_paused<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
+        assert_result!(storage.borrow().paused.get(), PAUSED_ERROR_MESSAGE)
     }
 
-    /// Asserts that the darkpool is not paused
-    pub fn _assert_not_paused<S: TopLevelStorage + Borrow<Self>>(storage: &S) {
-        assert!(!storage.borrow().paused.get())
+    /// Checks that the darkpool is not paused
+    pub fn _check_not_paused<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<(), Vec<u8>> {
+        assert_result!(!storage.borrow().paused.get(), UNPAUSED_ERROR_MESSAGE)
     }
 
     // -----------
@@ -448,29 +471,41 @@ impl DarkpoolContract {
     // | CORE HELPERS |
     // ----------------
 
+    /// Checks that the given address is not the zero address
+    pub fn check_address_not_zero(address: Address) -> Result<(), Vec<u8>> {
+        assert_result!(address != Address::ZERO, ZERO_ADDRESS_ERROR_MESSAGE)
+    }
+
     /// Marks the given nullifier as spent
     pub fn mark_nullifier_spent<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         nullifier: ScalarField,
-    ) {
+    ) -> Result<(), Vec<u8>> {
         let this = storage.borrow_mut();
 
         let nullifier = scalar_to_u256(nullifier);
 
-        if_verifying!(assert!(!this.nullifier_set.get(nullifier)));
+        if_verifying!(assert_result!(
+            !this.nullifier_set.get(nullifier),
+            NULLIFIER_SPENT_ERROR_MESSAGE
+        )?);
 
         this.nullifier_set.insert(nullifier, true);
 
-        evm::log(NullifierSpent { nullifier })
+        evm::log(NullifierSpent { nullifier });
+        Ok(())
     }
 
-    /// Asserts that the given Merkle root is in the root history
-    pub fn assert_root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
+    /// Checks that the given Merkle root is in the root history
+    pub fn check_root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         root: ScalarField,
-    ) {
+    ) -> Result<(), Vec<u8>> {
         let root = scalar_to_u256(root);
-        assert!(DarkpoolContract::root_in_history(storage, root).unwrap());
+        assert_result!(
+            DarkpoolContract::root_in_history(storage, root)?,
+            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE
+        )
     }
 
     /// Prepares the wallet shares for insertion into the Merkle tree by converting them
@@ -493,7 +528,7 @@ impl DarkpoolContract {
         storage: &mut S,
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
-    ) {
+    ) -> Result<(), Vec<u8>> {
         let total_wallet_shares = Self::prepare_wallet_shares_for_insertion(
             private_shares_commitment,
             public_wallet_shares,
@@ -504,7 +539,8 @@ impl DarkpoolContract {
             storage,
             merkle_address,
             (total_wallet_shares,),
-        );
+        )
+        .map(|_| ())
     }
 
     /// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
@@ -516,7 +552,7 @@ impl DarkpoolContract {
         public_wallet_shares: &[ScalarField],
         shares_commitment_signature: Vec<u8>,
         old_pk_root: &PublicSigningKey,
-    ) {
+    ) -> Result<(), Vec<u8>> {
         let total_wallet_shares = Self::prepare_wallet_shares_for_insertion(
             private_shares_commitment,
             public_wallet_shares,
@@ -534,7 +570,8 @@ impl DarkpoolContract {
                 shares_commitment_signature,
                 old_pk_root_u256s,
             ),
-        );
+        )
+        .map(|_| ())
     }
 
     /// Verifies the given proof using the given public inputs
@@ -591,7 +628,7 @@ impl DarkpoolContract {
         valid_match_settle_statement: &ValidMatchSettleStatement,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-    ) {
+    ) -> Result<(), Vec<u8>> {
         let this = storage.borrow_mut();
         let vkeys_address = this.vkeys_address.get();
         let verifier_address = this.verifier_address.get();
@@ -624,7 +661,7 @@ impl DarkpoolContract {
         )
         .into();
 
-        assert!(result)
+        assert_result!(result, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
     /// Handles the post-match-settle logic for a single party
@@ -632,12 +669,12 @@ impl DarkpoolContract {
         storage: &mut S,
         match_payload: &MatchPayload,
         public_wallet_shares: &[ScalarField],
-    ) {
+    ) -> Result<(), Vec<u8>> {
         if_verifying!({
-            DarkpoolContract::assert_root_in_history(
+            DarkpoolContract::check_root_in_history(
                 storage,
                 match_payload.valid_reblind_statement.merkle_root,
-            );
+            )?;
         });
 
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
@@ -646,18 +683,20 @@ impl DarkpoolContract {
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
             public_wallet_shares,
-        );
+        )?;
         DarkpoolContract::mark_nullifier_spent(
             storage,
             match_payload
                 .valid_reblind_statement
                 .original_shares_nullifier,
-        );
+        )?;
 
         // We assume the wallet blinder is the last scalar serialized into the wallet shares
         let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
         evm::log(WalletUpdated {
             wallet_blinder_share,
         });
+
+        Ok(())
     }
 }

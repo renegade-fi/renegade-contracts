@@ -32,8 +32,7 @@ impl DarkpoolTestContract {
     /// Marks the given nullifier as spent
     pub fn mark_nullifier_spent(&mut self, nullifier: U256) -> Result<(), Vec<u8>> {
         let nullifier = u256_to_scalar(nullifier).unwrap();
-        DarkpoolContract::mark_nullifier_spent(self, nullifier);
-        Ok(())
+        DarkpoolContract::mark_nullifier_spent(self, nullifier)
     }
 
     /// Executes the given external transfer
@@ -46,7 +45,7 @@ impl DarkpoolTestContract {
 
     /// Attempts to call [`DummyUpgradeTarget::is_dummy_upgrade_target`] on either
     /// the verifier, vkeys, or Merkle contract, depending on the given address selector.
-    /// 
+    ///
     /// A succesful call implies that the verifier / vkeys / Merkle contract has been upgraded
     /// to the dummy upgrade target.
     pub fn is_implementation_upgraded(&mut self, address_selector: u8) -> Result<bool, Vec<u8>> {
@@ -59,7 +58,7 @@ impl DarkpoolTestContract {
         };
 
         let (is_dummy_upgrade_target,) =
-            delegate_call_helper::<isDummyUpgradeTargetCall>(self, implementation_address, ())
+            delegate_call_helper::<isDummyUpgradeTargetCall>(self, implementation_address, ())?
                 .into();
 
         Ok(is_dummy_upgrade_target)
@@ -71,8 +70,6 @@ impl DarkpoolTestContract {
             .merkle_address
             .get();
 
-        delegate_call_helper::<initCall>(self, merkle_address, ());
-
-        Ok(())
+        delegate_call_helper::<initCall>(self, merkle_address, ()).map(|_| ())
     }
 }
