@@ -232,7 +232,7 @@ pub(crate) async fn test_verifier(
 
     // Test valid single proof verification
     let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng, srs);
-    let public_inputs = statement_to_public_inputs(&statement);
+    let public_inputs = statement_to_public_inputs(&statement).unwrap();
 
     let verification_bundle_calldata =
         serialize_verification_bundle(&vkey, &proof, &public_inputs).unwrap();

@@ -10,6 +10,7 @@ use ark_ff::{batch_inversion, FftField, Field, One, Zero};
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
     constants::{NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
+    custom_serde::SerdeError,
     types::{
         Challenges, G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
         MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchProofs, MatchPublicInputs, MatchVkeys,
@@ -172,7 +173,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             Self::step_3(public_inputs, vkey)?;
 
-            let challenges = Self::step_4(vkey, proof, public_inputs);
+            let challenges = Self::step_4(vkey, proof, public_inputs)?;
 
             let (domain_size, domain_elements, lagrange_basis_denominators) =
                 Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
@@ -328,7 +329,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             wire_poly_comms.0,
             wire_poly_comms.1,
             linking_quotient_poly_comm,
-        );
+        )?;
 
         // Compute vanishing polynomial evaluation at eta
 
@@ -434,7 +435,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     }
 
     /// Compute the challenges
-    fn step_4(vkey: &VerificationKey, proof: &Proof, public_inputs: &PublicInputs) -> Challenges {
+    fn step_4(
+        vkey: &VerificationKey,
+        proof: &Proof,
+        public_inputs: &PublicInputs,
+    ) -> Result<Challenges, SerdeError> {
         let mut transcript = Transcript::<H>::new();
         transcript.compute_plonk_challenges(vkey, proof, public_inputs)
     }
@@ -745,7 +750,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript.append_message(&serialize_scalars_for_transcript(
                 &opening_elems.transcript_elements,
             ));
-            transcript.get_and_append_challenge()
+            transcript.get_and_append_challenge()?
         };
 
         // Compute successive powers of `r`, these are the coefficients in the random linear combination
@@ -888,7 +893,7 @@ mod tests {
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
         let (statement, proof, vkey) = gen_verification_bundle(&mut rng, &TESTING_SRS);
-        let public_inputs = statement_to_public_inputs(&statement);
+        let public_inputs = statement_to_public_inputs(&statement).unwrap();
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(vkey, proof, public_inputs)
                 .unwrap();
@@ -900,7 +905,7 @@ mod tests {
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
         let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng, &TESTING_SRS);
-        let public_inputs = statement_to_public_inputs(&statement);
+        let public_inputs = statement_to_public_inputs(&statement).unwrap();
         proof.z_bar += ScalarField::one();
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(vkey, proof, public_inputs)
