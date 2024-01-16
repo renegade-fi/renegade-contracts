@@ -1242,6 +1242,7 @@ dependencies = [
  "contracts-core",
  "mini-alloc",
  "postcard",
+ "serde",
  "stylus-sdk",
 ]
 

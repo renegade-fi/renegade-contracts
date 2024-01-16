@@ -28,7 +28,10 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
-        constants::{ZEROS, TREE_FULL_ERROR_MESSAGE, ECDSA_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE},
+        constants::{
+            ECDSA_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE,
+            TREE_FULL_ERROR_MESSAGE, ZEROS,
+        },
         helpers::{scalar_to_u256, u256_to_scalar},
         solidity::NodeChanged,
     },
@@ -106,9 +109,9 @@ where
             TREE_FULL_ERROR_MESSAGE
         )?;
 
-        let shares_commitment = self.compute_shares_commitment(shares);
+        let shares_commitment = self.compute_shares_commitment(shares)?;
 
-        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true);
+        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true)?;
 
         Ok(())
     }
@@ -133,17 +136,17 @@ where
             TREE_FULL_ERROR_MESSAGE
         )?;
 
-        let shares_commitment = self.compute_shares_commitment(shares);
+        let shares_commitment = self.compute_shares_commitment(shares)?;
 
         if_verifying!({
             let old_pk_root = PublicSigningKey {
                 x: [
-                    u256_to_scalar(old_pk_root[0]).unwrap(),
-                    u256_to_scalar(old_pk_root[1]).unwrap(),
+                    u256_to_scalar(old_pk_root[0])?,
+                    u256_to_scalar(old_pk_root[1])?,
                 ],
                 y: [
-                    u256_to_scalar(old_pk_root[2]).unwrap(),
-                    u256_to_scalar(old_pk_root[3]).unwrap(),
+                    u256_to_scalar(old_pk_root[2])?,
+                    u256_to_scalar(old_pk_root[3])?,
                 ],
             };
 
@@ -151,13 +154,16 @@ where
                 ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
                     &old_pk_root,
                     &shares_commitment.serialize_to_bytes(),
-                    &sig.to_vec().try_into().unwrap(),
-                ).map_err(|_| ECDSA_ERROR_MESSAGE.to_vec())?,
+                    &sig.to_vec()
+                        .try_into()
+                        .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())?,
+                )
+                .map_err(|_| ECDSA_ERROR_MESSAGE.to_vec())?,
                 INVALID_SIGNATURE_ERROR_MESSAGE
             )?;
         });
 
-        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true);
+        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true)?;
 
         Ok(())
     }
@@ -176,13 +182,13 @@ where
     }
 
     /// Computes a commitment to the given wallet shares
-    pub fn compute_shares_commitment(&mut self, shares: Vec<U256>) -> ScalarField {
+    pub fn compute_shares_commitment(&mut self, shares: Vec<U256>) -> Result<ScalarField, Vec<u8>> {
         let shares: Vec<ScalarField> = shares
             .into_iter()
-            .map(|u| u256_to_scalar(u).unwrap())
-            .collect();
+            .map(u256_to_scalar)
+            .collect::<Result<Vec<ScalarField>, Vec<u8>>>()?;
 
-        compute_poseidon_hash(&shares)
+        Ok(compute_poseidon_hash(&shares))
     }
 
     /// Recursive helper for inserting a value into the Merkle tree,
@@ -194,13 +200,13 @@ where
         height: u8,
         insert_index: u128,
         subtree_filled: bool,
-    ) {
+    ) -> Result<(), Vec<u8>> {
         // Base case (root)
         if height == 0 {
             self.store_root(value);
             let current_index = self.next_index.get();
             self.next_index.set(current_index + U128::from(1));
-            return;
+            return Ok(());
         }
 
         // Fetch the least significant bit of the insertion index, this tells us
@@ -217,7 +223,7 @@ where
         //         of the parent is filled as well, meaning we should set the updated sibling
         //         to the zero value at this height; representing an empty child of the parent's
         //         sibling
-        let current_sibling_value = u256_to_scalar(self.sibling_path.get(height - 1)).unwrap();
+        let current_sibling_value = u256_to_scalar(self.sibling_path.get(height - 1))?;
         if subtree_filled {
             if is_left {
                 self.sibling_path.insert(height - 1, scalar_to_u256(value));
@@ -238,13 +244,15 @@ where
         };
         let next_value = compute_poseidon_hash(&inputs);
 
-        self.insert_helper(next_value, height - 1, next_index, new_subtree_filled);
+        self.insert_helper(next_value, height - 1, next_index, new_subtree_filled)?;
 
         evm::log(NodeChanged {
             height,
             index: insert_index,
             new_value: scalar_to_u256(value),
         });
+
+        Ok(())
     }
 }
 

@@ -25,9 +25,9 @@ use crate::{
             ZERO_FEE_ERROR_MESSAGE,
         },
         helpers::{
-            delegate_call_helper, pk_to_u256s, scalar_to_u256,
-            serialize_match_statements_for_verification, serialize_statement_for_verification,
-            static_call_helper,
+            delegate_call_helper, deserialize_from_calldata, map_call_error, pk_to_u256s,
+            scalar_to_u256, serialize_match_statements_for_verification,
+            serialize_statement_for_verification, static_call_helper,
         },
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
@@ -263,20 +263,20 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let valid_wallet_create_statement: ValidWalletCreateStatement =
-            postcard::from_bytes(valid_wallet_create_statement_bytes.as_slice()).unwrap();
+            deserialize_from_calldata(&valid_wallet_create_statement_bytes)?;
 
         if_verifying!({
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
             let (valid_wallet_create_vkey_bytes,) =
-                static_call_helper::<validWalletCreateVkeyCall>(storage, vkeys_address, ()).into();
+                static_call_helper::<validWalletCreateVkeyCall>(storage, vkeys_address, ())?.into();
 
             assert_result!(
                 DarkpoolContract::verify(
                     storage,
                     valid_wallet_create_vkey_bytes,
                     proof.into(),
-                    serialize_statement_for_verification(&valid_wallet_create_statement).unwrap(),
-                ),
+                    serialize_statement_for_verification(&valid_wallet_create_statement)?,
+                )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
             )?;
         });
@@ -302,7 +302,7 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
-            postcard::from_bytes(valid_wallet_update_statement_bytes.as_slice()).unwrap();
+            deserialize_from_calldata(&valid_wallet_update_statement_bytes)?;
 
         if_verifying!({
             DarkpoolContract::check_root_in_history(
@@ -312,15 +312,15 @@ impl DarkpoolContract {
 
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
             let (valid_wallet_update_vkey_bytes,) =
-                static_call_helper::<validWalletUpdateVkeyCall>(storage, vkeys_address, ()).into();
+                static_call_helper::<validWalletUpdateVkeyCall>(storage, vkeys_address, ())?.into();
 
             assert_result!(
                 DarkpoolContract::verify(
                     storage,
                     valid_wallet_update_vkey_bytes,
                     proof.into(),
-                    serialize_statement_for_verification(&valid_wallet_update_statement).unwrap(),
-                ),
+                    serialize_statement_for_verification(&valid_wallet_update_statement)?,
+                )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
             )?;
         });
@@ -338,7 +338,7 @@ impl DarkpoolContract {
         )?;
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
-            DarkpoolContract::execute_external_transfer(storage, &external_transfer);
+            DarkpoolContract::execute_external_transfer(storage, &external_transfer)?;
         }
 
         DarkpoolContract::log_wallet_update(&valid_wallet_update_statement.new_public_shares);
@@ -363,13 +363,13 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let party_0_match_payload: MatchPayload =
-            postcard::from_bytes(party_0_match_payload.as_slice()).unwrap();
+            deserialize_from_calldata(&party_0_match_payload)?;
 
         let party_1_match_payload: MatchPayload =
-            postcard::from_bytes(party_1_match_payload.as_slice()).unwrap();
+            deserialize_from_calldata(&party_1_match_payload)?;
 
         let valid_match_settle_statement: ValidMatchSettleStatement =
-            postcard::from_bytes(valid_match_settle_statement.as_slice()).unwrap();
+            deserialize_from_calldata(&valid_match_settle_statement)?;
 
         if_verifying!(DarkpoolContract::batch_verify_process_match_settle(
             storage,
@@ -460,7 +460,8 @@ impl DarkpoolContract {
 
     /// Emits a `WalletUpdated` event with the wallet's public blinder share
     pub fn log_wallet_update(public_wallet_shares: &[ScalarField]) {
-        // We assume the wallet blinder is the last scalar serialized into the wallet shares
+        // We assume the wallet blinder is the last scalar serialized into the wallet shares.
+        // Unwrapping here is safe because we know the wallet shares are non-empty.
         let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
         evm::log(WalletUpdated {
             wallet_blinder_share,
@@ -560,7 +561,7 @@ impl DarkpoolContract {
 
         let merkle_address = storage.borrow_mut().merkle_address.get();
 
-        let old_pk_root_u256s = pk_to_u256s(old_pk_root);
+        let old_pk_root_u256s = pk_to_u256s(old_pk_root)?;
 
         delegate_call_helper::<verifyStateSigAndInsertCall>(
             storage,
@@ -581,24 +582,27 @@ impl DarkpoolContract {
         vkey_ser: Vec<u8>,
         proof_ser: Vec<u8>,
         public_inputs_ser: Vec<u8>,
-    ) -> bool {
+    ) -> Result<bool, Vec<u8>> {
         let this = storage.borrow_mut();
         let verifier_address = this.verifier_address.get();
 
         let verification_bundle_ser = [vkey_ser, proof_ser, public_inputs_ser].concat();
 
-        let (result,) =
-            static_call_helper::<verifyCall>(storage, verifier_address, (verification_bundle_ser,))
-                .into();
+        let (result,) = static_call_helper::<verifyCall>(
+            storage,
+            verifier_address,
+            (verification_bundle_ser,),
+        )?
+        .into();
 
-        result
+        Ok(result)
     }
 
     /// Executes the given external transfer (withdrawal / deposit)
     pub fn execute_external_transfer<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         transfer: &ExternalTransfer,
-    ) {
+    ) -> Result<(), Vec<u8>> {
         let erc20 = IERC20::new(transfer.mint);
         let darkpool_address = contract::address();
         let (from, to) = if transfer.is_withdrawal {
@@ -609,14 +613,16 @@ impl DarkpoolContract {
 
         erc20
             .transfer_from(storage, from, to, transfer.amount)
-            .unwrap();
+            .map_err(map_call_error)?;
 
         evm::log(ExternalTransferEvent {
             account: transfer.account_addr,
             mint: transfer.mint,
             is_withdrawal: transfer.is_withdrawal,
             amount: transfer.amount,
-        })
+        });
+
+        Ok(())
     }
 
     /// Batch-verifies all of the `process_match_settle` proofs
@@ -635,7 +641,7 @@ impl DarkpoolContract {
 
         // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
         let (process_match_settle_vkeys,) =
-            static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ()).into();
+            static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ())?.into();
 
         let match_public_inputs = serialize_match_statements_for_verification(
             &party_0_match_payload.valid_commitments_statement,
@@ -643,8 +649,7 @@ impl DarkpoolContract {
             &party_0_match_payload.valid_reblind_statement,
             &party_1_match_payload.valid_reblind_statement,
             valid_match_settle_statement,
-        )
-        .unwrap();
+        )?;
 
         let batch_verification_bundle_ser = [
             process_match_settle_vkeys,
@@ -658,7 +663,7 @@ impl DarkpoolContract {
             storage,
             verifier_address,
             (batch_verification_bundle_ser,),
-        )
+        )?
         .into();
 
         assert_result!(result, VERIFICATION_FAILED_ERROR_MESSAGE)
@@ -692,6 +697,7 @@ impl DarkpoolContract {
         )?;
 
         // We assume the wallet blinder is the last scalar serialized into the wallet shares
+        // Unwrapping here is safe because we know the wallet shares are non-empty.
         let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
         evm::log(WalletUpdated {
             wallet_blinder_share,
