@@ -65,6 +65,26 @@ pub const ECDSA_ERROR_MESSAGE: &[u8] = b"ecdsa error";
 #[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
 pub const INVALID_SIGNATURE_ERROR_MESSAGE: &[u8] = b"invalid signature";
 
+/// The revert message when trying to coerce an
+/// incorrectly-sized vector into a fixed-size array
+pub const INVALID_ARR_LEN_ERROR_MESSAGE: &[u8] = b"invalid array length";
+
+/// The revert message when failing to deserialize a byte-serialized
+/// type from calldata
+pub const CALLDATA_DESER_ERROR_MESSAGE: &[u8] = b"calldata deser error";
+
+/// The revert message when failing to serialize a
+/// type for calldata
+pub const CALLDATA_SER_ERROR_MESSAGE: &[u8] = b"calldata ser error";
+
+/// The revert message when failing to decode the data
+/// returned by an external contract call
+pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata";
+
+/// The revert message when failing to convert a
+/// u256 to a scalar
+pub const SCALAR_CONVERSION_ERROR_MESSAGE: &[u8] = b"scalar conversion error";
+
 /// The last byte of the `ecAdd` precompile address, 0x06
 pub const EC_ADD_ADDRESS_LAST_BYTE: u8 = 6;
 /// The last byte of the `ecMul` precompile address, 0x07
