@@ -7,6 +7,64 @@ use contracts_common::{
 };
 use core::marker::PhantomData;
 
+/// The revert message when a contract/owner address
+/// is attempted to be set to the zero address
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const ZERO_ADDRESS_ERROR_MESSAGE: &[u8] = b"zero address";
+
+/// The revert message when the protocol fee
+/// is attempted to be set to zero
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const ZERO_FEE_ERROR_MESSAGE: &[u8] = b"zero fee";
+
+/// The revert message when verification fails
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const VERIFICATION_FAILED_ERROR_MESSAGE: &[u8] = b"verification failed";
+
+/// The revert message when attempting to initialize
+/// the darkpool contract to a past version
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const INVALID_VERSION_ERROR_MESSAGE: &[u8] = b"invalid version";
+
+/// The revert message when calling an owner-only method
+/// when the caller is not the owner
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const NOT_OWNER_ERROR_MESSAGE: &[u8] = b"not owner";
+
+/// The revert message when calling an unpaused-only method
+/// when the contract is paused
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const PAUSED_ERROR_MESSAGE: &[u8] = b"paused";
+
+/// The revert message when calling an paused-only method
+/// when the contract is unpaused
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const UNPAUSED_ERROR_MESSAGE: &[u8] = b"unpaused";
+
+/// The revert message when attempting to mark
+/// a spent nullifier as spent again
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const NULLIFIER_SPENT_ERROR_MESSAGE: &[u8] = b"nullifier spent";
+
+/// The revert message when checking an invalid
+/// historic root
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const ROOT_NOT_IN_HISTORY_ERROR_MESSAGE: &[u8] = b"root not in history";
+
+/// The revert message when attempting to insert
+/// into a full Merkle tree
+#[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
+pub const TREE_FULL_ERROR_MESSAGE: &[u8] = b"tree full";
+
+/// The revert message when invoking the ecRecover precompile
+/// reverts
+#[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
+pub const ECDSA_ERROR_MESSAGE: &[u8] = b"ecdsa error";
+
+/// The revert message when an ECDSA signature is invalid
+#[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
+pub const INVALID_SIGNATURE_ERROR_MESSAGE: &[u8] = b"invalid signature";
+
 /// The last byte of the `ecAdd` precompile address, 0x06
 pub const EC_ADD_ADDRESS_LAST_BYTE: u8 = 6;
 /// The last byte of the `ecMul` precompile address, 0x07

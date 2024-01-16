@@ -9,7 +9,10 @@ use contracts_common::{
         bigint_from_le_bytes, pk_to_scalars, statement_to_public_inputs, BytesSerializable,
         ScalarSerializable, SerdeError,
     },
-    types::{MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidReblindStatement, ValidMatchSettleStatement},
+    types::{
+        MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
+        ValidMatchSettleStatement, ValidReblindStatement,
+    },
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -63,10 +66,15 @@ pub fn delegate_call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
     args: <C::Arguments<'_> as SolType>::RustType,
-) -> C::Return {
+) -> Result<C::Return, Vec<u8>> {
     let calldata = C::new(args).encode();
-    let res = unsafe { delegate_call(storage, address, &calldata).unwrap() };
-    C::decode_returns(&res, true /* validate */).unwrap()
+    let res = unsafe {
+        delegate_call(storage, address, &calldata).map_err(|e| match e {
+            stylus_sdk::call::Error::Revert(msg) => msg,
+            stylus_sdk::call::Error::AbiDecodingFailed(_) => b"abi decoding failed".to_vec(),
+        })?
+    };
+    Ok(C::decode_returns(&res, true /* validate */).unwrap())
 }
 
 /// Performs a `staticcall` to the given address, calling the function
@@ -135,6 +143,19 @@ macro_rules! if_verifying {
         #[cfg(not(feature = "no-verify"))]
         {
             $($logic)*
+        }
+    };
+}
+/// Asserts the given condition, and returns an error if it fails.
+/// The "type" this macro returns is `Result<(), Vec<u8>>`, matching
+/// the return type of external contract methods.
+#[macro_export]
+macro_rules! assert_result {
+    ($x:expr, $msg:tt) => {
+        if $x {
+            Ok(())
+        } else {
+            Err($msg.to_vec())
         }
     };
 }

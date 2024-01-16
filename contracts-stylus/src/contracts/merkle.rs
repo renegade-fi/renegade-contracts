@@ -25,10 +25,10 @@ use stylus_sdk::{
 };
 
 use crate::{
-    if_verifying,
+    assert_result, if_verifying,
     utils::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
-        constants::ZEROS,
+        constants::{ZEROS, TREE_FULL_ERROR_MESSAGE, ECDSA_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE},
         helpers::{scalar_to_u256, u256_to_scalar},
         solidity::NodeChanged,
     },
@@ -101,7 +101,10 @@ where
     /// Computes a commitment to the given wallet shares & inserts it into the Merkle tree
     pub fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         let insert_index: u128 = self.next_index.get().to();
-        assert!(insert_index < 2_u128.pow(P::HEIGHT as u32));
+        assert_result!(
+            insert_index < 2_u128.pow(P::HEIGHT as u32),
+            TREE_FULL_ERROR_MESSAGE
+        )?;
 
         let shares_commitment = self.compute_shares_commitment(shares);
 
@@ -125,7 +128,10 @@ where
         old_pk_root: [U256; NUM_SCALARS_PK],
     ) -> Result<(), Vec<u8>> {
         let insert_index: u128 = self.next_index.get().to();
-        assert!(insert_index < 2_u128.pow(P::HEIGHT as u32));
+        assert_result!(
+            insert_index < 2_u128.pow(P::HEIGHT as u32),
+            TREE_FULL_ERROR_MESSAGE
+        )?;
 
         let shares_commitment = self.compute_shares_commitment(shares);
 
@@ -141,12 +147,14 @@ where
                 ],
             };
 
-            assert!(ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-                &old_pk_root,
-                &shares_commitment.serialize_to_bytes(),
-                &sig.to_vec().try_into().unwrap(),
-            )
-            .unwrap());
+            assert_result!(
+                ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+                    &old_pk_root,
+                    &shares_commitment.serialize_to_bytes(),
+                    &sig.to_vec().try_into().unwrap(),
+                ).map_err(|_| ECDSA_ERROR_MESSAGE.to_vec())?,
+                INVALID_SIGNATURE_ERROR_MESSAGE
+            )?;
         });
 
         self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true);

@@ -151,7 +151,6 @@ impl EcRecoverBackend for PrecompileEcRecoverBackend {
             )
             .map_err(|_| EcdsaError)?;
 
-        // Unwrapping is safe here as we've limited the return data to the last 20 bytes
-        Ok(res.try_into().unwrap())
+        res.try_into().map_err(|_| EcdsaError)
     }
 }
