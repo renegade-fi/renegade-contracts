@@ -87,3 +87,15 @@ pub const VKEYS_ADDRESS_SELECTOR: u8 = 1;
 /// The selector for the merkle address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
 pub const MERKLE_ADDRESS_SELECTOR: u8 = 2;
+
+/// The revert message when failing to convert a
+/// u256 to a scalar
+pub const SCALAR_CONVERSION_ERROR_MESSAGE: &[u8] = b"scalar conversion error";
+
+/// The revert message when attempting to verify a proof
+/// with malformed inputs
+pub const INVALID_INPUTS_ERROR_MESSAGE: &[u8] = b"invalid inputs";
+
+/// The revert message when an EC arithmetic backend
+/// operation fails
+pub const ARITHMETIC_BACKEND_ERROR_MESSAGE: &[u8] = b"arithmetic backend error";

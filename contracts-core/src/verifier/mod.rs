@@ -173,7 +173,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             Self::step_3(public_inputs, vkey)?;
 
-            let challenges = Self::step_4(vkey, proof, public_inputs)?;
+            let challenges = Self::step_4(vkey, proof, public_inputs)
+                .map_err(|_| VerifierError::ScalarConversion)?;
 
             let (domain_size, domain_elements, lagrange_basis_denominators) =
                 Self::prep_domain_and_basis_denominators(vkey.n, vkey.l as usize, challenges.zeta)?;
@@ -251,52 +252,61 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         match_linking_proofs: MatchLinkingProofs,
         match_linking_wire_poly_comms: MatchLinkingWirePolyComms,
     ) -> Result<OpeningElems, VerifierError> {
-        let linking_vkeys = [
-            match_linking_vkeys.valid_commitments_match_settle_0,
-            match_linking_vkeys.valid_reblind_commitments,
-            match_linking_vkeys.valid_commitments_match_settle_1,
-            match_linking_vkeys.valid_reblind_commitments,
-        ];
-        let linking_proofs = [
-            match_linking_proofs.valid_commitments_match_settle_0,
-            match_linking_proofs.valid_reblind_commitments_0,
-            match_linking_proofs.valid_commitments_match_settle_1,
-            match_linking_proofs.valid_reblind_commitments_1,
-        ];
-        let wire_poly_comm_pairs = [
-            (
-                match_linking_wire_poly_comms.valid_commitments_0,
-                match_linking_wire_poly_comms.valid_match_settle,
-            ),
-            (
-                match_linking_wire_poly_comms.valid_reblind_0,
-                match_linking_wire_poly_comms.valid_commitments_0,
-            ),
-            (
-                match_linking_wire_poly_comms.valid_commitments_1,
-                match_linking_wire_poly_comms.valid_match_settle,
-            ),
-            (
-                match_linking_wire_poly_comms.valid_reblind_1,
-                match_linking_wire_poly_comms.valid_commitments_1,
-            ),
-        ];
-
         let mut g1_lhs_elems = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
         let mut g1_rhs_elems = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
         let mut transcript_elements = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
 
-        for i in 0..NUM_MATCH_LINKING_PROOFS {
-            let (g1_lhs, g1_rhs, eta) = Self::prep_linking_proof_opening_elems(
-                linking_vkeys[i],
-                linking_proofs[i],
-                wire_poly_comm_pairs[i],
-            )?;
+        // Prep the PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE linking proof opening elements
+        let (g1_lhs_0, g1_rhs_0, eta_0) = Self::prep_linking_proof_opening_elems(
+            match_linking_vkeys.valid_commitments_match_settle_0,
+            match_linking_proofs.valid_commitments_match_settle_0,
+            (
+                match_linking_wire_poly_comms.valid_commitments_0,
+                match_linking_wire_poly_comms.valid_match_settle,
+            ),
+        )?;
+        g1_lhs_elems.push(g1_lhs_0);
+        g1_rhs_elems.push(g1_rhs_0);
+        transcript_elements.push(eta_0);
 
-            g1_lhs_elems.push(g1_lhs);
-            g1_rhs_elems.push(g1_rhs);
-            transcript_elements.push(eta);
-        }
+        // Prep the PARTY 0 VALID REBLIND <-> PARTY 0 VALID COMMITMENTS linking proof opening elements
+        let (g1_lhs_1, g1_rhs_1, eta_1) = Self::prep_linking_proof_opening_elems(
+            match_linking_vkeys.valid_reblind_commitments,
+            match_linking_proofs.valid_reblind_commitments_0,
+            (
+                match_linking_wire_poly_comms.valid_reblind_0,
+                match_linking_wire_poly_comms.valid_commitments_0,
+            ),
+        )?;
+        g1_lhs_elems.push(g1_lhs_1);
+        g1_rhs_elems.push(g1_rhs_1);
+        transcript_elements.push(eta_1);
+
+        // Prep the PARTY 1 VALID COMMITMENTS <-> VALID MATCH SETTLE linking proof opening elements
+        let (g1_lhs_2, g1_rhs_2, eta_2) = Self::prep_linking_proof_opening_elems(
+            match_linking_vkeys.valid_commitments_match_settle_1,
+            match_linking_proofs.valid_commitments_match_settle_1,
+            (
+                match_linking_wire_poly_comms.valid_commitments_1,
+                match_linking_wire_poly_comms.valid_match_settle,
+            ),
+        )?;
+        g1_lhs_elems.push(g1_lhs_2);
+        g1_rhs_elems.push(g1_rhs_2);
+        transcript_elements.push(eta_2);
+
+        // Prep the PARTY 1 VALID REBLIND <-> PARTY 1 VALID COMMITMENTS linking proof opening elements
+        let (g1_lhs_3, g1_rhs_3, eta_3) = Self::prep_linking_proof_opening_elems(
+            match_linking_vkeys.valid_reblind_commitments,
+            match_linking_proofs.valid_reblind_commitments_1,
+            (
+                match_linking_wire_poly_comms.valid_reblind_1,
+                match_linking_wire_poly_comms.valid_commitments_1,
+            ),
+        )?;
+        g1_lhs_elems.push(g1_lhs_3);
+        g1_rhs_elems.push(g1_rhs_3);
+        transcript_elements.push(eta_3);
 
         Ok(OpeningElems {
             g1_lhs_elems,
@@ -320,20 +330,23 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             linking_poly_opening,
             linking_quotient_poly_comm,
         } = linking_proof;
+        let one = ScalarField::one();
 
         // Compute eta challenge after absorbing commitments to wiring polynomials
         // and linking quotient polynomial into transcript
 
         let mut transcript = Transcript::<H>::new();
-        let eta = transcript.compute_linking_proof_challenge(
-            wire_poly_comms.0,
-            wire_poly_comms.1,
-            linking_quotient_poly_comm,
-        )?;
+        let eta = transcript
+            .compute_linking_proof_challenge(
+                wire_poly_comms.0,
+                wire_poly_comms.1,
+                linking_quotient_poly_comm,
+            )
+            .map_err(|_| VerifierError::ScalarConversion)?;
 
         // Compute vanishing polynomial evaluation at eta
 
-        let mut subdomain_zero_poly_eval = ScalarField::one();
+        let mut subdomain_zero_poly_eval = one;
         let mut subdomain_element = link_group_generator.pow([link_group_offset as u64]);
         for _ in 0..link_group_size {
             subdomain_zero_poly_eval *= eta - subdomain_element;
@@ -342,11 +355,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         // Compute commitment to linking polynomial
         let linking_poly_comm = G::msm(
-            &[
-                ScalarField::one(),
-                -ScalarField::one(),
-                -subdomain_zero_poly_eval,
-            ],
+            &[one, -one, -subdomain_zero_poly_eval],
             &[
                 wire_poly_comms.0,
                 wire_poly_comms.1,
@@ -356,10 +365,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         // Prepare LHS & RHS G1 elements for pairing check
         let g1_lhs = linking_poly_opening;
-        let g1_rhs = G::msm(
-            &[eta, ScalarField::one()],
-            &[linking_poly_opening, linking_poly_comm],
-        )?;
+        let g1_rhs = G::msm(&[eta, one], &[linking_poly_opening, linking_poly_comm])?;
 
         Ok((g1_lhs, g1_rhs, eta))
     }
@@ -568,13 +574,11 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             ..
         } = challenges;
 
-        let mut z_scalar_coeff = ScalarField::one();
+        let mut z_scalar_coeff = *alpha;
         for i in 0..wire_evals.len() {
             z_scalar_coeff *= wire_evals[i] + beta * &k[i] * zeta + gamma
         }
-        z_scalar_coeff *= alpha;
-        z_scalar_coeff += lagrange_1_eval * alpha * alpha;
-        z_scalar_coeff += u;
+        z_scalar_coeff += lagrange_1_eval * alpha * alpha + u;
 
         G::ec_scalar_mul(z_scalar_coeff, *z_comm).map_err(Into::into)
     }
@@ -614,16 +618,17 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     ) -> Result<G1Affine, VerifierError> {
         let Proof { quotient_comms, .. } = proof;
         let Challenges { zeta, .. } = challenges;
+        let one = ScalarField::one();
 
         // In the Jellyfish implementation, they multiply each split quotient commtiment by increaseing powers of
         // zeta^{n+2}, as opposed to zeta^n, as in the paper.
         // This is in order to "achieve better balance among degrees of all splitting
         // polynomials (especially the highest-degree/last one)"
         // (As indicated in the doc comment here: https://github.com/EspressoSystems/jellyfish/blob/main/plonk/src/proof_system/prover.rs#L893)
-        let zeta_to_n_plus_two = (zero_poly_eval + ScalarField::one()) * zeta * zeta;
+        let zeta_to_n_plus_two = (zero_poly_eval + one) * zeta * zeta;
 
         // Increasing powers of zeta^{n+2}, starting w/ 1
-        let mut split_quotients_scalars = [ScalarField::one(); NUM_WIRE_TYPES];
+        let mut split_quotients_scalars = [one; NUM_WIRE_TYPES];
         for i in 1..NUM_WIRE_TYPES {
             split_quotients_scalars[i] = split_quotients_scalars[i - 1] * zeta_to_n_plus_two;
         }
@@ -700,16 +705,12 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             ..
         } = proof;
         let Challenges { zeta, u, .. } = challenges;
+        let one = ScalarField::one();
 
-        let lhs = G::msm(&[ScalarField::one(), *u], &[*w_zeta, *w_zeta_omega])?;
+        let lhs = G::msm(&[one, *u], &[*w_zeta, *w_zeta_omega])?;
 
         let rhs = G::msm(
-            &[
-                *zeta,
-                *u * *zeta * omega,
-                ScalarField::one(),
-                ScalarField::one(),
-            ],
+            &[*zeta, *u * *zeta * omega, one, one],
             &[*w_zeta, *w_zeta_omega, f_1, neg_e_1],
         )?;
 
@@ -750,7 +751,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript.append_message(&serialize_scalars_for_transcript(
                 &opening_elems.transcript_elements,
             ));
-            transcript.get_and_append_challenge()?
+            transcript
+                .get_and_append_challenge()
+                .map_err(|_| VerifierError::ScalarConversion)?
         };
 
         // Compute successive powers of `r`, these are the coefficients in the random linear combination

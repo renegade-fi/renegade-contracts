@@ -21,7 +21,7 @@ impl VerifierContract {
         let (vkey, proof, public_inputs) = deserialize_from_calldata(&verification_bundle)?;
 
         Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify(vkey, proof, public_inputs)
-            .map_err(|_| vec![])
+            .map_err(Into::into)
     }
 
     /// Batch-verify the proofs involved in matching a trade
@@ -41,6 +41,6 @@ impl VerifierContract {
             match_public_inputs,
             match_linking_proofs,
         )
-        .map_err(|_| vec![])
+        .map_err(Into::into)
     }
 }

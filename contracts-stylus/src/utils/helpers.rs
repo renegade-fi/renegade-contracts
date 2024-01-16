@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use contracts_common::{
-    constants::NUM_SCALARS_PK,
+    constants::{NUM_SCALARS_PK, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{
         bigint_from_le_bytes, pk_to_scalars, statement_to_public_inputs, BytesSerializable,
         ScalarSerializable,
@@ -24,7 +24,7 @@ use stylus_sdk::{
 
 use super::constants::{
     CALLDATA_DESER_ERROR_MESSAGE, CALLDATA_SER_ERROR_MESSAGE, CALL_RETDATA_DECODING_ERROR_MESSAGE,
-    INVALID_ARR_LEN_ERROR_MESSAGE, SCALAR_CONVERSION_ERROR_MESSAGE,
+    INVALID_ARR_LEN_ERROR_MESSAGE,
 };
 
 /// Deserializes a byte-serialized type from calldata

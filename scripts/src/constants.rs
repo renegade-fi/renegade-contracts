@@ -32,6 +32,12 @@ pub const MANIFEST_DIR_ENV_VAR: &str = "CARGO_MANIFEST_DIR";
 /// The name of the environment variable used to configure the Rust compiler
 pub const RUSTFLAGS_ENV_VAR: &str = "RUSTFLAGS";
 
+/// The default flags to add to RUSTFLAGS for all contract compilations
+pub const DEFAULT_RUSTFLAGS: &str = "-Clink-arg=-zstack-size=65536 -Zlocation-detail=none";
+
+/// The inline threshold flag for the Rust compiler
+pub const INLINE_THRESHOLD_FLAG: &str = "-Cinline-threshold=0";
+
 /// The optimization level flag for the Rust compiler
 pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";
 
@@ -40,6 +46,9 @@ pub const OPT_LEVEL_S: &str = "s";
 
 /// The "z" optimization level (aggressive size optimization)
 pub const OPT_LEVEL_Z: &str = "z";
+
+/// The 2 optimization level (aggressive optimization)
+pub const OPT_LEVEL_2: &str = "2";
 
 /// The 3 optimization level (maximum optimization)
 pub const OPT_LEVEL_3: &str = "3";

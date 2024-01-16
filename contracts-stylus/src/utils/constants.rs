@@ -81,10 +81,6 @@ pub const CALLDATA_SER_ERROR_MESSAGE: &[u8] = b"calldata ser error";
 /// returned by an external contract call
 pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata";
 
-/// The revert message when failing to convert a
-/// u256 to a scalar
-pub const SCALAR_CONVERSION_ERROR_MESSAGE: &[u8] = b"scalar conversion error";
-
 /// The last byte of the `ecAdd` precompile address, 0x06
 pub const EC_ADD_ADDRESS_LAST_BYTE: u8 = 6;
 /// The last byte of the `ecMul` precompile address, 0x07

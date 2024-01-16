@@ -11,9 +11,9 @@ use ark_serialize::Flags;
 use crate::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
-        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
+        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, PublicInputs,
         PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
-        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement, PublicInputs,
+        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 
@@ -108,10 +108,10 @@ impl BytesSerializable for G1Affine {
     fn serialize_to_bytes(&self) -> Vec<u8> {
         let zero = G1BaseField::zero();
         let (x, y) = self.xy().unwrap_or((&zero, &zero));
-        [x, y]
-            .into_iter()
-            .flat_map(BytesSerializable::serialize_to_bytes)
-            .collect()
+        let mut bytes = Vec::with_capacity(NUM_BYTES_FELT * 2);
+        bytes.extend(x.serialize_to_bytes());
+        bytes.extend(y.serialize_to_bytes());
+        bytes
     }
 }
 
@@ -166,10 +166,12 @@ impl BytesSerializable for G2Affine {
     fn serialize_to_bytes(&self) -> Vec<u8> {
         let zero = G2BaseField::zero();
         let (x, y) = self.xy().unwrap_or((&zero, &zero));
-        [x.c1, x.c0, y.c1, y.c0]
-            .iter()
-            .flat_map(|f| f.into_bigint().to_bytes_be())
-            .collect()
+        let mut bytes = Vec::with_capacity(NUM_BYTES_FELT * 4);
+        bytes.extend(x.c1.serialize_to_bytes());
+        bytes.extend(x.c0.serialize_to_bytes());
+        bytes.extend(y.c1.serialize_to_bytes());
+        bytes.extend(y.c0.serialize_to_bytes());
+        bytes
     }
 }
 
@@ -271,34 +273,6 @@ impl ScalarSerializable for ValidMatchSettleStatement {
     }
 }
 
-// ---------------------------
-// | GENERIC IMPLEMENTATIONS |
-// ---------------------------
-
-impl<S: BytesSerializable> BytesSerializable for &[S] {
-    fn serialize_to_bytes(&self) -> Vec<u8> {
-        self.iter()
-            .flat_map(BytesSerializable::serialize_to_bytes)
-            .collect()
-    }
-}
-
-impl<D: BytesDeserializable, const N: usize> BytesDeserializable for [D; N] {
-    const SER_LEN: usize = N * D::SER_LEN;
-
-    fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
-        let mut elems = Vec::with_capacity(N);
-        let mut offset = 0;
-        for _ in 0..N {
-            let elem = D::deserialize_from_bytes(&bytes[offset..offset + D::SER_LEN])?;
-            elems.push(elem);
-            offset += D::SER_LEN;
-        }
-
-        elems.try_into().map_err(|_| SerdeError::InvalidLength)
-    }
-}
-
 // -----------
 // | HELPERS |
 // -----------
@@ -325,7 +299,9 @@ pub fn bigint_from_le_bytes(bytes: &[u8]) -> Result<BigInt<NUM_U64S_FELT>, Serde
         u64s[i] = u64::from_le_bytes(
             bytes_to_convert[i * NUM_BYTES_U64..(i + 1) * NUM_BYTES_U64]
                 .try_into()
-                .map_err(|_| SerdeError::InvalidLength)?,
+                // Unwrapping here is safe because we index by the exact number of bytes
+                // in a u64
+                .unwrap(),
         );
     }
     Ok(BigInt::<NUM_U64S_FELT>(u64s))
@@ -368,7 +344,9 @@ pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
 }
 
 /// Serializes a statement type into a vector of `[ScalarField]` and wraps it in a [`PublicInputs`]
-pub fn statement_to_public_inputs<S: ScalarSerializable>(statement: &S) -> Result<PublicInputs, SerdeError> {
+pub fn statement_to_public_inputs<S: ScalarSerializable>(
+    statement: &S,
+) -> Result<PublicInputs, SerdeError> {
     Ok(PublicInputs(statement.serialize_to_scalars()?))
 }
 

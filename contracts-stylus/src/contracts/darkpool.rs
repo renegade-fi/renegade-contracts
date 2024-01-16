@@ -515,12 +515,11 @@ impl DarkpoolContract {
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
     ) -> Vec<U256> {
-        let mut total_wallet_shares = vec![private_shares_commitment];
-        total_wallet_shares.extend(public_wallet_shares);
+        let mut total_wallet_shares = vec![scalar_to_u256(private_shares_commitment)];
+        for share in public_wallet_shares {
+            total_wallet_shares.push(scalar_to_u256(*share));
+        }
         total_wallet_shares
-            .into_iter()
-            .map(scalar_to_u256)
-            .collect()
     }
 
     /// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
