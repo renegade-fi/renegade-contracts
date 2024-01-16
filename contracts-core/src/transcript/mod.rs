@@ -77,11 +77,6 @@ impl<H: HashBackend> Transcript<H> {
         Ok(res + rem_scalar)
     }
 
-    /// Appends a serializable Arkworks type to the transcript
-    pub fn append_serializable<S: BytesSerializable>(&mut self, message: &S) {
-        self.append_message(&message.serialize_to_bytes());
-    }
-
     /// Computes all the challenges used in the Plonk protocol,
     /// given a verification key, a proof, and a set of public inputs.
     pub fn compute_plonk_challenges(
@@ -97,12 +92,12 @@ impl<H: HashBackend> Transcript<H> {
         // For equivalency with Jellyfish, which expects as many coset constants as there are wire types,
         // we inject an identity constant, which generates the first coset
         self.append_message(&serialize_scalars_for_transcript(&vkey.k));
-        self.append_serializable(&to_transcript_g1s(&vkey.q_comms).as_slice());
-        self.append_serializable(&to_transcript_g1s(&vkey.sigma_comms).as_slice());
+        self.append_message(&serialize_g1s_for_transcript(&vkey.q_comms));
+        self.append_message(&serialize_g1s_for_transcript(&vkey.sigma_comms));
         self.append_message(&serialize_scalars_for_transcript(&public_inputs.0));
 
         // Prover round 1: absorb wire polynomial commitments
-        self.append_serializable(&to_transcript_g1s(&proof.wire_comms).as_slice());
+        self.append_message(&serialize_g1s_for_transcript(&proof.wire_comms));
         // Here, for consistency with the Jellyfish implementation, we squeeze an unused challenge
         // `tau`, which would be used for Plookup
         self.get_and_append_challenge()?;
@@ -110,11 +105,11 @@ impl<H: HashBackend> Transcript<H> {
         // Prover round 2: squeeze beta & gamma challenges, absorb grand product polynomial commitment
         let beta = self.get_and_append_challenge()?;
         let gamma = self.get_and_append_challenge()?;
-        self.append_serializable(&TranscriptG1(proof.z_comm));
+        self.append_message(&serialize_g1s_for_transcript(&[proof.z_comm]));
 
         // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial commitments
         let alpha = self.get_and_append_challenge()?;
-        self.append_serializable(&to_transcript_g1s(&proof.quotient_comms).as_slice());
+        self.append_message(&serialize_g1s_for_transcript(&proof.quotient_comms));
 
         // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand product polynomial evaluations
         let zeta = self.get_and_append_challenge()?;
@@ -124,8 +119,8 @@ impl<H: HashBackend> Transcript<H> {
 
         // Prover round 5: squeeze v challenge, absorb opening proofs
         let v = self.get_and_append_challenge()?;
-        self.append_serializable(&TranscriptG1(proof.w_zeta));
-        self.append_serializable(&TranscriptG1(proof.w_zeta_omega));
+        self.append_message(&serialize_g1s_for_transcript(&[proof.w_zeta]));
+        self.append_message(&serialize_g1s_for_transcript(&[proof.w_zeta_omega]));
 
         // Squeeze u challenge
         let u = self.get_and_append_challenge()?;
@@ -149,15 +144,15 @@ impl<H: HashBackend> Transcript<H> {
         wire_poly_comm_2: G1Affine,
         linking_quotient_poly_comm: G1Affine,
     ) -> Result<ScalarField, SerdeError> {
-        self.append_serializable(&TranscriptG1(wire_poly_comm_1));
-        self.append_serializable(&TranscriptG1(wire_poly_comm_2));
-        self.append_serializable(&TranscriptG1(linking_quotient_poly_comm));
+        self.append_message(&serialize_g1s_for_transcript(&[wire_poly_comm_1]));
+        self.append_message(&serialize_g1s_for_transcript(&[wire_poly_comm_2]));
+        self.append_message(&serialize_g1s_for_transcript(&[linking_quotient_poly_comm]));
 
         self.get_and_append_challenge()
     }
 }
 
-/// Serializes a vector of scalars into a little-endian byte array.
+/// Serializes a slice of scalars into a little-endian byte array.
 ///
 /// This is the format expected by the transcript, whereas our serialization format
 /// is big-endian.
@@ -171,13 +166,13 @@ pub fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
     bytes
 }
 
-/// Wraps each [`G1Affine`] in the given slice in a [`TranscriptG1`], returning a vector of the results.
-fn to_transcript_g1s(points: &[G1Affine]) -> Vec<TranscriptG1> {
-    let mut transcript_points = Vec::with_capacity(points.len());
+/// Serializes a slice of [`G1Affine`]s into a the format expected by the transcript
+pub fn serialize_g1s_for_transcript(points: &[G1Affine]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(points.len() * NUM_BYTES_FELT * 2);
     for point in points {
-        transcript_points.push(TranscriptG1(*point))
+        bytes.append(&mut TranscriptG1(*point).serialize_to_bytes());
     }
-    transcript_points
+    bytes
 }
 
 #[cfg(test)]
@@ -279,7 +274,9 @@ pub mod tests {
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
 
         let mut stylus_transcript = Transcript::<NativeHasher>::new();
-        let challenges = stylus_transcript.compute_plonk_challenges(&vkey, &proof, &public_inputs);
+        let challenges = stylus_transcript
+            .compute_plonk_challenges(&vkey, &proof, &public_inputs)
+            .unwrap();
 
         let jf_challenges = get_jf_challenges(&jf_vkey, &public_inputs.0, &jf_proof, &None);
 

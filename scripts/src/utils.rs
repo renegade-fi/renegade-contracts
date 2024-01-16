@@ -31,13 +31,13 @@ use crate::{
     cli::StylusContract,
     constants::{
         AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
-        CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
-        DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MANIFEST_DIR_ENV_VAR,
-        MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
-        OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY,
-        RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
-        TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION,
-        WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
+        DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, INLINE_THRESHOLD_FLAG,
+        MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE,
+        OPT_LEVEL_2, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z,
+        PRECOMPILE_TEST_CONTRACT_KEY, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -207,13 +207,19 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 /// Returns the RUSTFLAGS environment variable to use in the
 /// compilation of the given contract
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
-    let opt_level = match contract {
-        StylusContract::Verifier => OPT_LEVEL_S,
-        StylusContract::DarkpoolTestContract => OPT_LEVEL_Z,
-        _ => OPT_LEVEL_3,
+    let rustflags = match contract {
+        StylusContract::Verifier => {
+            format!(
+                "{}{} {}",
+                OPT_LEVEL_FLAG, OPT_LEVEL_S, INLINE_THRESHOLD_FLAG
+            )
+        }
+        StylusContract::Darkpool => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_2),
+        StylusContract::DarkpoolTestContract => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_Z),
+        _ => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_3),
     };
 
-    format!("{}{}", OPT_LEVEL_FLAG, opt_level)
+    format!("{} {}", rustflags, DEFAULT_RUSTFLAGS)
 }
 
 /// Returns the wasm-opt flags to use in the optimization of the
