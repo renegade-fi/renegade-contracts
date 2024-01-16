@@ -43,8 +43,8 @@ pub fn deserialize_from_calldata<'a, D: Deserialize<'a>>(
 pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> Result<Vec<u8>, Vec<u8>> {
-    postcard::to_allocvec(&statement_to_public_inputs(statement))
-        .map_err(|_| CALLDATA_SER_ERROR_MESSAGE.to_vec())
+    let public_inputs = statement_to_public_inputs(statement).map_err(map_calldata_ser_error)?;
+    postcard::to_allocvec(&public_inputs).map_err(map_calldata_ser_error)
 }
 
 /// Serializes the statements used in verifying the settlement of a
@@ -62,13 +62,18 @@ pub fn serialize_match_statements_for_verification(
     valid_match_settle: &ValidMatchSettleStatement,
 ) -> Result<Vec<u8>, Vec<u8>> {
     let match_public_inputs = MatchPublicInputs {
-        valid_commitments_0: statement_to_public_inputs(valid_commitments_0),
-        valid_commitments_1: statement_to_public_inputs(valid_commitments_1),
-        valid_reblind_0: statement_to_public_inputs(valid_reblind_0),
-        valid_reblind_1: statement_to_public_inputs(valid_reblind_1),
-        valid_match_settle: statement_to_public_inputs(valid_match_settle),
+        valid_commitments_0: statement_to_public_inputs(valid_commitments_0)
+            .map_err(map_calldata_ser_error)?,
+        valid_commitments_1: statement_to_public_inputs(valid_commitments_1)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind_0: statement_to_public_inputs(valid_reblind_0)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind_1: statement_to_public_inputs(valid_reblind_1)
+            .map_err(map_calldata_ser_error)?,
+        valid_match_settle: statement_to_public_inputs(valid_match_settle)
+            .map_err(map_calldata_ser_error)?,
     };
-    postcard::to_allocvec(&match_public_inputs).map_err(|_| CALLDATA_SER_ERROR_MESSAGE.to_vec())
+    postcard::to_allocvec(&match_public_inputs).map_err(map_calldata_ser_error)
 }
 
 /// Maps an error returned from an external contract call to a `Vec<u8>`,
@@ -80,6 +85,13 @@ pub fn map_call_error(e: stylus_sdk::call::Error) -> Vec<u8> {
             CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec()
         }
     }
+}
+
+/// Maps a generic error type, which represents a failure
+/// in serializing some other type to calldata, to the `Vec<u8>`
+/// form of the appropriate error message.
+pub fn map_calldata_ser_error<E>(_e: E) -> Vec<u8> {
+    CALLDATA_SER_ERROR_MESSAGE.to_vec()
 }
 
 /// Performs a `delegatecall` to the given address, calling the function

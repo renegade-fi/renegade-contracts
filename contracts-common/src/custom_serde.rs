@@ -368,8 +368,8 @@ pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
 }
 
 /// Serializes a statement type into a vector of `[ScalarField]` and wraps it in a [`PublicInputs`]
-pub fn statement_to_public_inputs<S: ScalarSerializable>(statement: &S) -> PublicInputs {
-    PublicInputs(statement.serialize_to_scalars().unwrap())
+pub fn statement_to_public_inputs<S: ScalarSerializable>(statement: &S) -> Result<PublicInputs, SerdeError> {
+    Ok(PublicInputs(statement.serialize_to_scalars()?))
 }
 
 #[cfg(test)]

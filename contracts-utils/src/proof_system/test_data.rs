@@ -430,13 +430,17 @@ fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInpu
     MatchPublicInputs {
         valid_commitments_0: statement_to_public_inputs(
             &data.match_payload_0.valid_commitments_statement,
-        ),
+        )
+        .unwrap(),
         valid_commitments_1: statement_to_public_inputs(
             &data.match_payload_1.valid_commitments_statement,
-        ),
-        valid_reblind_0: statement_to_public_inputs(&data.match_payload_0.valid_reblind_statement),
-        valid_reblind_1: statement_to_public_inputs(&data.match_payload_1.valid_reblind_statement),
-        valid_match_settle: statement_to_public_inputs(&data.valid_match_settle_statement),
+        )
+        .unwrap(),
+        valid_reblind_0: statement_to_public_inputs(&data.match_payload_0.valid_reblind_statement)
+            .unwrap(),
+        valid_reblind_1: statement_to_public_inputs(&data.match_payload_1.valid_reblind_statement)
+            .unwrap(),
+        valid_match_settle: statement_to_public_inputs(&data.valid_match_settle_statement).unwrap(),
     }
 }
 
