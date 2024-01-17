@@ -9,7 +9,7 @@ use eyre::Result;
 use scripts::{
     constants::{
         DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY,
-        DUMMY_ERC20_CONTRACT_KEY, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
+        DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
         PRECOMPILE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, parse_srs_from_file, setup_client},
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
         parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
     let vkeys_address = parse_addr_from_deployments_file(&deployments_file, VKEYS_CONTRACT_KEY)?;
     let dummy_erc20_address =
-        parse_addr_from_deployments_file(&deployments_file, DUMMY_ERC20_CONTRACT_KEY)?;
+        parse_addr_from_deployments_file(&deployments_file, DUMMY_ERC20_TICKER)?;
     let dummy_upgrade_target_address =
         parse_addr_from_deployments_file(&deployments_file, DUMMY_UPGRADE_TARGET_CONTRACT_KEY)?;
     let precompiles_contract_address =
