@@ -21,12 +21,10 @@ use ethers::{
     types::{Bytes, U256},
 };
 use eyre::{eyre, Result};
+use scripts::constants::TEST_FUNDING_AMOUNT;
 use serde::Serialize;
 
-use crate::{
-    abis::{DarkpoolTestContract, DummyErc20Contract},
-    constants::TRANSFER_AMOUNT,
-};
+use crate::abis::{DarkpoolTestContract, DummyErc20Contract};
 
 /// Asserts that the given method can only be called by the owner of the darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
@@ -158,22 +156,6 @@ pub fn serialize_match_verification_bundle(
     Ok(bundle_bytes.into())
 }
 
-/// Mints [`TRANSFER_AMOUNT`] of the dummy ERC20 token to the given addresses
-pub(crate) async fn mint_dummy_erc20(
-    contract: &DummyErc20Contract<impl Middleware + 'static>,
-    addresses: &[Address],
-) -> Result<()> {
-    for address in addresses {
-        contract
-            .mint(*address, U256::from(TRANSFER_AMOUNT))
-            .send()
-            .await?
-            .await?;
-    }
-
-    Ok(())
-}
-
 /// Creates an [`ExternalTransfer`] object for the given account address,
 /// mint address, and transfer direction
 fn dummy_erc20_external_transfer(
@@ -184,7 +166,7 @@ fn dummy_erc20_external_transfer(
     ExternalTransfer {
         account_addr: AlloyAddress::from_slice(account_addr.as_bytes()),
         mint: AlloyAddress::from_slice(mint.as_bytes()),
-        amount: AlloyU256::from(TRANSFER_AMOUNT),
+        amount: AlloyU256::from(TEST_FUNDING_AMOUNT),
         is_withdrawal,
     }
 }

@@ -196,10 +196,15 @@ pub struct DeployErc20sArgs {
     #[arg(short, long, value_parser, num_args = 1.., value_delimiter = ' ')]
     pub tickers: Vec<String>,
 
+    /// The amount with which to fund each account
+    #[arg(short, long)]
+    pub funding_amount: u64,
+
     /// A comma-separated list of private keys corresponding to the accounts
+    /// which will be funded with the ERC20s and
     /// for which the darkpool will be approved to transfer ERC20s
     #[arg(short, long, value_parser, num_args = 0.., value_delimiter = ' ')]
-    pub approval_skeys: Vec<String>,
+    pub account_skeys: Vec<String>,
 }
 
 /// Upgrade the darkpool implementation
