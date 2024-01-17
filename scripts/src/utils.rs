@@ -327,7 +327,8 @@ pub async fn deploy_stylus_contract(
     client: Arc<impl Middleware>,
     contract: StylusContract,
     deployments_path: &str,
-) -> Result<(), ScriptError> {
+    contract_key_override: Option<&str>,
+) -> Result<Address, ScriptError> {
     match contract {
         StylusContract::DarkpoolTestContract
         | StylusContract::MerkleTestContract
@@ -368,11 +369,13 @@ pub async fn deploy_stylus_contract(
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
 
     // Write deployed address to deployments file
-    write_deployed_address(
-        deployments_path,
-        get_contract_key(contract),
-        deployed_address,
-    )?;
+    let contract_key = if let Some(contract_key_override) = contract_key_override {
+        contract_key_override
+    } else {
+        get_contract_key(contract)
+    };
 
-    Ok(())
+    write_deployed_address(deployments_path, contract_key, deployed_address)?;
+
+    Ok(deployed_address)
 }
