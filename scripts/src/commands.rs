@@ -32,10 +32,11 @@ use crate::{
         GenVkeysArgs, StylusContract, UpgradeArgs,
     },
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
-        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PROCESS_MATCH_SETTLE_VKEYS_FILE,
-        PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, VALID_WALLET_CREATE_VKEY_FILE,
-        VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER,
+        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
+        PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
+        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
@@ -82,17 +83,6 @@ pub async fn deploy_test_contracts(
     // Deploy the auxiliary testing contracts.
     // We do this first because they use the same compiler flags,
     // so we make use of the cached build artifacts.
-
-    info!("Deploying dummy ERC-20 contract");
-    deploy_stylus_args.contract = StylusContract::DummyErc20;
-    build_and_deploy_stylus_contract(
-        deploy_stylus_args,
-        rpc_url,
-        priv_key,
-        client.clone(),
-        deployments_path,
-    )
-    .await?;
 
     info!("Deploying dummy upgrade target contract");
     deploy_stylus_args.contract = StylusContract::DummyUpgradeTarget;
@@ -154,7 +144,23 @@ pub async fn deploy_test_contracts(
         owner: args.owner,
         fee: args.fee,
     };
-    deploy_proxy(deploy_proxy_args, client, deployments_path).await?;
+    deploy_proxy(deploy_proxy_args, client.clone(), deployments_path).await?;
+
+    // Deploy the dummy ERC-20 last, as it reads the darkpool proxy address
+    // from the deployments file and uses that as the spender address.
+    info!("Deploying dummy ERC-20 contract");
+    let deploy_erc20_args = DeployErc20sArgs {
+        tickers: vec![DUMMY_ERC20_TICKER.to_string()],
+        approval_skeys: vec![priv_key.to_string()],
+    };
+    deploy_erc20s(
+        deploy_erc20_args,
+        rpc_url,
+        priv_key,
+        client,
+        deployments_path,
+    )
+    .await?;
 
     Ok(())
 }
