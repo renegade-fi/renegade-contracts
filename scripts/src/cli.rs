@@ -10,8 +10,8 @@ use ethers::providers::Middleware;
 
 use crate::{
     commands::{
-        build_and_deploy_stylus_contract, deploy_proxy, deploy_test_contracts, gen_srs, gen_vkeys,
-        upgrade,
+        build_and_deploy_stylus_contract, deploy_erc20s, deploy_proxy, deploy_test_contracts,
+        gen_srs, gen_vkeys, upgrade,
     },
     constants::DEFAULT_SRS_DEGREE,
     errors::ScriptError,
@@ -47,6 +47,8 @@ pub enum Command {
     DeployProxy(DeployProxyArgs),
     /// Deploy a Stylus contract
     DeployStylus(DeployStylusArgs),
+    /// Deploy dummy ERC20s
+    DeployErc20s(DeployErc20sArgs),
     /// Upgrade the darkpool implementation
     Upgrade(UpgradeArgs),
     /// Generate a structured reference string
@@ -72,6 +74,9 @@ impl Command {
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(args, rpc_url, priv_key, client, deployments_path)
                     .await
+            }
+            Command::DeployErc20s(args) => {
+                deploy_erc20s(args, rpc_url, priv_key, client, deployments_path).await
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
             Command::GenSrs(args) => gen_srs(args),
@@ -182,6 +187,19 @@ impl Display for StylusContract {
             StylusContract::PrecompileTestContract => write!(f, "precompile-test-contract"),
         }
     }
+}
+
+/// Deploy dummy ERC20s. Assumes the darkpool contract has already been deployed.
+#[derive(Args)]
+pub struct DeployErc20sArgs {
+    /// The tickers for the ERC20s to deploy
+    #[arg(short, long, value_parser, num_args = 1.., value_delimiter = ' ')]
+    pub tickers: Vec<String>,
+
+    /// A comma-separated list of private keys corresponding to the accounts
+    /// for which the darkpool will be approved to transfer ERC20s
+    #[arg(short, long, value_parser, num_args = 0.., value_delimiter = ' ')]
+    pub approval_skeys: Vec<String>,
 }
 
 /// Upgrade the darkpool implementation

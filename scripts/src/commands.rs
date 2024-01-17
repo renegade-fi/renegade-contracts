@@ -18,7 +18,7 @@ use ethers::{
     abi::{Address, Contract},
     middleware::contract::ContractFactory,
     providers::Middleware,
-    types::{Bytes, H256},
+    types::{Bytes, H256, U256 as EthersU256},
     utils::hex::FromHex,
 };
 use mpc_plonk::proof_system::{PlonkKzgSnark, UniversalSNARK};
@@ -28,8 +28,8 @@ use tracing::log::{info, warn};
 
 use crate::{
     cli::{
-        DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenSrsArgs, GenVkeysArgs,
-        StylusContract, UpgradeArgs,
+        DeployErc20sArgs, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenSrsArgs,
+        GenVkeysArgs, StylusContract, UpgradeArgs,
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
@@ -38,10 +38,10 @@ use crate::{
         VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
-    solidity::ProxyAdminContract,
+    solidity::{DummyErc20Contract, ProxyAdminContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file,
+        get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file, setup_client,
         write_deployed_address, write_srs_to_file, write_vkey_file,
     },
 };
@@ -254,6 +254,58 @@ pub async fn deploy_proxy(
     Ok(())
 }
 
+/// Deploys the ERC-20 contracts & approves the darkpool
+/// to spend the maximum amount of tokens for the provided
+/// addresses.
+///
+/// Note: the provided tickers will not actually be used as the contract's
+/// name or symbol, but rather as a way to identify the contract in the deployments file.
+pub async fn deploy_erc20s(
+    args: DeployErc20sArgs,
+    rpc_url: &str,
+    priv_key: &str,
+    client: Arc<impl Middleware>,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    let wasm_file_path =
+        build_stylus_contract(StylusContract::DummyErc20, false /* no_verify */)?;
+
+    let mut erc20_addresses = Vec::with_capacity(args.tickers.len());
+    for ticker in args.tickers {
+        erc20_addresses.push(
+            deploy_stylus_contract(
+                wasm_file_path.clone(),
+                rpc_url,
+                priv_key,
+                client.clone(),
+                StylusContract::DummyErc20,
+                deployments_path,
+                Some(&ticker),
+            )
+            .await?,
+        );
+    }
+
+    let darkpool_address =
+        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
+
+    for erc20_address in erc20_addresses {
+        for skey in &args.approval_skeys {
+            let approval_client = setup_client(&skey, rpc_url).await?;
+            let erc20 = DummyErc20Contract::new(erc20_address, approval_client);
+            erc20
+                .approve(darkpool_address, EthersU256::MAX)
+                .send()
+                .await
+                .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
+                .await
+                .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Builds and deploys a Stylus contract
 pub async fn build_and_deploy_stylus_contract(
     args: DeployStylusArgs,
@@ -270,8 +322,10 @@ pub async fn build_and_deploy_stylus_contract(
         client,
         args.contract,
         deployments_path,
+        None,
     )
     .await
+    .map(|_| ())
 }
 
 /// Upgrades the darkpool implementation
