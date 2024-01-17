@@ -34,6 +34,7 @@ use ethers::{
 use eyre::Result;
 use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use rand::{thread_rng, Rng, RngCore};
+use scripts::constants::TEST_FUNDING_AMOUNT;
 use std::sync::Arc;
 use tracing::log::info;
 
@@ -44,14 +45,14 @@ use crate::{
     },
     constants::{
         PAUSE_METHOD_NAME, SET_FEE_METHOD_NAME, SET_MERKLE_ADDRESS_METHOD_NAME,
-        SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_AMOUNT,
+        SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME,
         TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
         dummy_erc20_withdrawal, execute_transfer_and_get_balances, insert_shares_and_get_root,
-        mint_dummy_erc20, scalar_to_u256, serialize_match_verification_bundle,
-        serialize_to_calldata, serialize_verification_bundle, u256_to_scalar,
+        scalar_to_u256, serialize_match_verification_bundle, serialize_to_calldata,
+        serialize_verification_bundle, u256_to_scalar,
     },
 };
 
@@ -726,9 +727,6 @@ pub(crate) async fn test_external_transfer(
     let account_address = client.default_sender().unwrap();
     let mint = dummy_erc20_address;
 
-    // Deposit initial funds for darkpool & user in dummy erc20 address
-    mint_dummy_erc20(&dummy_erc20_contract, &[darkpool_address, account_address]).await?;
-
     let darkpool_initial_balance = dummy_erc20_contract
         .balance_of(darkpool_address)
         .call()
@@ -749,12 +747,12 @@ pub(crate) async fn test_external_transfer(
     .await?;
     assert_eq!(
         darkpool_balance,
-        darkpool_initial_balance + TRANSFER_AMOUNT,
+        darkpool_initial_balance + TEST_FUNDING_AMOUNT,
         "Post-deposit darkpool balance incorrect"
     );
     assert_eq!(
         user_balance,
-        user_initial_balance - TRANSFER_AMOUNT,
+        user_initial_balance - TEST_FUNDING_AMOUNT,
         "Post-deposit user balance incorrect"
     );
 

@@ -35,8 +35,8 @@ use crate::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER,
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
         PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
-        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY,
-        VKEYS_CONTRACT_KEY,
+        TEST_FUNDING_AMOUNT, VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
+        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
@@ -151,7 +151,8 @@ pub async fn deploy_test_contracts(
     info!("Deploying dummy ERC-20 contract");
     let deploy_erc20_args = DeployErc20sArgs {
         tickers: vec![DUMMY_ERC20_TICKER.to_string()],
-        approval_skeys: vec![priv_key.to_string()],
+        funding_amount: TEST_FUNDING_AMOUNT,
+        account_skeys: vec![priv_key.to_string()],
     };
     deploy_erc20s(
         deploy_erc20_args,
@@ -296,20 +297,47 @@ pub async fn deploy_erc20s(
         parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
 
     for erc20_address in erc20_addresses {
-        for skey in &args.approval_skeys {
-            let approval_client = setup_client(&skey, rpc_url).await?;
-            let erc20 = DummyErc20Contract::new(erc20_address, approval_client);
-            erc20
-                .approve(darkpool_address, EthersU256::MAX)
-                .send()
-                .await
-                .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-                .await
-                .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?;
+        for skey in &args.account_skeys {
+            let account_client = setup_client(&skey, rpc_url).await?;
+            let account_address = account_client.default_sender().unwrap();
+            let erc20 = DummyErc20Contract::new(erc20_address, account_client);
+
+            mint_erc20(&erc20, account_address, args.funding_amount).await?;
+            approve_erc20_max(&erc20, darkpool_address).await?;
         }
     }
 
     Ok(())
+}
+
+/// Mints ERC20 tokens for the provided address
+async fn mint_erc20(
+    erc20: &DummyErc20Contract<impl Middleware + 'static>,
+    recipient_address: Address,
+    amount: u64,
+) -> Result<(), ScriptError> {
+    erc20
+        .mint(recipient_address, EthersU256::from(amount))
+        .send()
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))
+        .map(|_| ())
+}
+
+async fn approve_erc20_max(
+    erc20: &DummyErc20Contract<impl Middleware + 'static>,
+    spender_address: Address,
+) -> Result<(), ScriptError> {
+    erc20
+        .approve(spender_address, EthersU256::MAX)
+        .send()
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))
+        .map(|_| ())
 }
 
 /// Builds and deploys a Stylus contract

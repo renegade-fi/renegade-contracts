@@ -129,6 +129,10 @@ pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";
 /// which is also its contract key in the `deployments.json` file
 pub const DUMMY_ERC20_TICKER: &str = "DUMMY";
 
+/// The amount of dummy ERC20 tokens to fund the user with
+/// when deploying the testing contracts
+pub const TEST_FUNDING_AMOUNT: u64 = 1000;
+
 /// The dummy upgrade target contract key in the `deployments.json` file
 pub const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target_contract";
 

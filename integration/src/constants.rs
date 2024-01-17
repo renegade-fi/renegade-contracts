@@ -7,9 +7,6 @@ pub(crate) const DEFAULT_DEVNET_HOSTPORT: &str = "http://localhost:8547";
 pub(crate) const DEFAULT_DEVNET_PKEY: &str =
     "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
 
-/// The amount of dummy ERC20 tokens to use when testing external transfers
-pub(crate) const TRANSFER_AMOUNT: u64 = 1000;
-
 /// The name of the `transfer_ownership` method on the Darkpool contract
 pub(crate) const TRANSFER_OWNERSHIP_METHOD_NAME: &str = "transferOwnership";
 
