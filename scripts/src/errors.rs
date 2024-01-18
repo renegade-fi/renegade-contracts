@@ -32,8 +32,6 @@ pub enum ScriptError {
     ConversionError,
     /// Error creating a circuit
     CircuitCreation,
-    /// Error generating an SRS
-    SrsGeneration(String),
 }
 
 impl Display for ScriptError {
@@ -53,7 +51,6 @@ impl Display for ScriptError {
             ScriptError::Serde(s) => write!(f, "error de/serializing calldata: {}", s),
             ScriptError::ConversionError => write!(f, "error converting between types"),
             ScriptError::CircuitCreation => write!(f, "error creating circuit"),
-            ScriptError::SrsGeneration(s) => write!(f, "error generating SRS: {}", s),
         }
     }
 }

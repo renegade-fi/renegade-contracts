@@ -1,18 +1,21 @@
 //! Implementations of the various deploy scripts
 
 use alloy_primitives::U256;
+use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
     valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
     valid_wallet_update::SizedValidWalletUpdate,
 };
-use constants::SystemCurve;
-use contracts_utils::proof_system::{
-    dummy_renegade_circuits::{
-        DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind, DummyValidWalletCreate,
-        DummyValidWalletUpdate,
+use contracts_utils::{
+    conversion::to_contract_vkey,
+    proof_system::{
+        dummy_renegade_circuits::{
+            DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind,
+            DummyValidWalletCreate, DummyValidWalletUpdate,
+        },
+        gen_match_linking_vkeys, gen_match_vkeys,
     },
-    gen_circuit_vkey, gen_match_linking_vkeys, gen_match_vkeys,
 };
 use ethers::{
     abi::{Address, Contract},
@@ -21,15 +24,13 @@ use ethers::{
     types::{Bytes, H256, U256 as EthersU256},
     utils::hex::FromHex,
 };
-use mpc_plonk::proof_system::{PlonkKzgSnark, UniversalSNARK};
-use rand::thread_rng;
 use std::{str::FromStr, sync::Arc};
-use tracing::log::{info, warn};
+use tracing::log::info;
 
 use crate::{
     cli::{
-        DeployErc20sArgs, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenSrsArgs,
-        GenVkeysArgs, StylusContract, UpgradeArgs,
+        DeployErc20sArgs, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenVkeysArgs,
+        StylusContract, UpgradeArgs,
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER,
@@ -42,8 +43,8 @@ use crate::{
     solidity::{DummyErc20Contract, ProxyAdminContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, parse_addr_from_deployments_file, parse_srs_from_file, setup_client,
-        write_deployed_address, write_srs_to_file, write_vkey_file,
+        get_contract_key, parse_addr_from_deployments_file, setup_client, write_deployed_address,
+        write_vkey_file,
     },
 };
 
@@ -59,7 +60,6 @@ pub async fn deploy_test_contracts(
 ) -> Result<(), ScriptError> {
     info!("Generating testing verification keys");
     let gen_vkeys_args = GenVkeysArgs {
-        srs_path: args.srs_path.clone(),
         vkeys_dir: args.vkeys_dir.clone(),
         test: true,
     };
@@ -398,31 +398,16 @@ pub async fn upgrade(
     Ok(())
 }
 
-/// Generates a structured reference string
-pub fn gen_srs(args: GenSrsArgs) -> Result<(), ScriptError> {
-    let mut rng = thread_rng();
-
-    // Generate universal SRS
-    warn!("Generating UNSAFE universal SRS, should only be used in testing");
-    let srs = PlonkKzgSnark::<SystemCurve>::universal_setup_for_testing(args.degree, &mut rng)
-        .map_err(|e| ScriptError::SrsGeneration(e.to_string()))?;
-
-    write_srs_to_file(&args.srs_path, &srs)
-}
-
 /// Generates verification keys for the protocol circuits
 pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
-    let srs = parse_srs_from_file(&args.srs_path)?;
-
     let (valid_wallet_create_vkey, valid_wallet_update_vkey, match_vkeys, match_linking_vkeys) =
         if args.test {
             (
-                gen_circuit_vkey::<DummyValidWalletCreate>(&srs)
+                to_contract_vkey((*DummyValidWalletCreate::verifying_key()).clone())
                     .map_err(|_| ScriptError::CircuitCreation)?,
-                gen_circuit_vkey::<DummyValidWalletUpdate>(&srs)
+                to_contract_vkey((*DummyValidWalletUpdate::verifying_key()).clone())
                     .map_err(|_| ScriptError::CircuitCreation)?,
                 gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(
-                    &srs,
                 )
                 .map_err(|_| ScriptError::CircuitCreation)?,
                 gen_match_linking_vkeys::<DummyValidCommitments>()
@@ -430,12 +415,11 @@ pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
             )
         } else {
             (
-                gen_circuit_vkey::<SizedValidWalletCreate>(&srs)
+                to_contract_vkey((*SizedValidWalletCreate::verifying_key()).clone())
                     .map_err(|_| ScriptError::CircuitCreation)?,
-                gen_circuit_vkey::<SizedValidWalletUpdate>(&srs)
+                to_contract_vkey((*SizedValidWalletUpdate::verifying_key()).clone())
                     .map_err(|_| ScriptError::CircuitCreation)?,
                 gen_match_vkeys::<SizedValidCommitments, SizedValidReblind, SizedValidMatchSettle>(
-                    &srs,
                 )
                 .map_err(|_| ScriptError::CircuitCreation)?,
                 gen_match_linking_vkeys::<SizedValidCommitments>()

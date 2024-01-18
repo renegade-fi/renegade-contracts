@@ -11,9 +11,8 @@ use ethers::providers::Middleware;
 use crate::{
     commands::{
         build_and_deploy_stylus_contract, deploy_erc20s, deploy_proxy, deploy_test_contracts,
-        gen_srs, gen_vkeys, upgrade,
+        gen_vkeys, upgrade,
     },
-    constants::DEFAULT_SRS_DEGREE,
     errors::ScriptError,
 };
 
@@ -51,8 +50,6 @@ pub enum Command {
     DeployErc20s(DeployErc20sArgs),
     /// Upgrade the darkpool implementation
     Upgrade(UpgradeArgs),
-    /// Generate a structured reference string
-    GenSrs(GenSrsArgs),
     /// Generate verification keys for the protocol circuits
     GenVkeys(GenVkeysArgs),
 }
@@ -79,7 +76,6 @@ impl Command {
                 deploy_erc20s(args, rpc_url, priv_key, client, deployments_path).await
             }
             Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
-            Command::GenSrs(args) => gen_srs(args),
             Command::GenVkeys(args) => gen_vkeys(args),
         }
     }
@@ -103,10 +99,6 @@ pub struct DeployTestContractsArgs {
     /// This only applies to the darkpool & Merkle contracts.
     #[arg(long)]
     pub no_verify: bool,
-
-    /// The path to the file containing the SRS
-    #[arg(short, long)]
-    pub srs_path: String,
 
     /// The directory to which to write the testing verification keys
     #[arg(short, long)]
@@ -216,25 +208,9 @@ pub struct UpgradeArgs {
     pub calldata: Option<String>,
 }
 
-/// Generate an SRS for proving/verification keys
-#[derive(Args)]
-pub struct GenSrsArgs {
-    /// The file path at which to write the serialized SRS
-    #[arg(short, long)]
-    pub srs_path: String,
-
-    /// The degree of the SRS to generate
-    #[arg(short, long, default_value_t = DEFAULT_SRS_DEGREE)]
-    pub degree: usize,
-}
-
 /// Generate verification keys for the system circuits
 #[derive(Args)]
 pub struct GenVkeysArgs {
-    /// The path to the file containing the SRS
-    #[arg(short, long)]
-    pub srs_path: String,
-
     /// The directory to which to write the verification keys
     #[arg(short, long)]
     pub vkeys_dir: String,

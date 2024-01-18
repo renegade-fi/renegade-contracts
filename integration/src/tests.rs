@@ -3,7 +3,7 @@
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
-use constants::{Scalar, SystemCurve};
+use constants::Scalar;
 use contracts_common::{
     constants::{
         MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, VERIFIER_ADDRESS_SELECTOR,
@@ -31,8 +31,7 @@ use ethers::{
     types::{Bytes, TransactionRequest, U256},
     utils::{keccak256, parse_ether},
 };
-use eyre::Result;
-use jf_primitives::pcs::prelude::UnivariateUniversalParams;
+use eyre::{eyre, Result};
 use rand::{thread_rng, Rng, RngCore};
 use scripts::constants::TEST_FUNDING_AMOUNT;
 use std::sync::Arc;
@@ -196,7 +195,7 @@ pub(crate) async fn test_merkle(
     for (i, leaf) in leaves.into_iter().enumerate() {
         ark_merkle
             .update(i, &compute_poseidon_hash(&[leaf]))
-            .unwrap();
+            .map_err(|e| eyre!("{}", e))?;
         contract
             .insert_shares_commitment(vec![scalar_to_u256(leaf)])
             .send()
@@ -225,18 +224,17 @@ pub(crate) async fn test_merkle(
 pub(crate) async fn test_verifier(
     verifier_address: Address,
     client: Arc<impl Middleware + 'static>,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     info!("Running `test_verifier`");
     let contract = VerifierContract::new(verifier_address, client);
     let mut rng = thread_rng();
 
     // Test valid single proof verification
-    let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng, srs);
-    let public_inputs = statement_to_public_inputs(&statement).unwrap();
+    let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng)?;
+    let public_inputs = statement_to_public_inputs(&statement).map_err(|e| eyre!("{:?}", e))?;
 
     let verification_bundle_calldata =
-        serialize_verification_bundle(&vkey, &proof, &public_inputs).unwrap();
+        serialize_verification_bundle(&vkey, &proof, &public_inputs)?;
 
     let successful_res = contract.verify(verification_bundle_calldata).call().await?;
     assert!(successful_res, "Valid proof did not verify");
@@ -245,7 +243,7 @@ pub(crate) async fn test_verifier(
     proof.z_bar += ScalarField::one();
 
     let verification_bundle_calldata =
-        serialize_verification_bundle(&vkey, &proof, &public_inputs).unwrap();
+        serialize_verification_bundle(&vkey, &proof, &public_inputs)?;
 
     let unsuccessful_res = contract.verify(verification_bundle_calldata).call().await?;
     assert!(!unsuccessful_res, "Invalid proof verified");
@@ -259,7 +257,7 @@ pub(crate) async fn test_verifier(
         match_linking_vkeys,
         mut match_linking_proofs,
         _,
-    ) = generate_match_bundle(&mut rng, srs).unwrap();
+    ) = generate_match_bundle(&mut rng)?;
 
     let match_verification_bundle_calldata = serialize_match_verification_bundle(
         &match_vkeys,
@@ -267,8 +265,7 @@ pub(crate) async fn test_verifier(
         &match_proofs,
         &match_public_inputs,
         &match_linking_proofs,
-    )
-    .unwrap();
+    )?;
 
     let successful_res = contract
         .verify_match(match_verification_bundle_calldata)
@@ -291,8 +288,7 @@ pub(crate) async fn test_verifier(
         &match_proofs,
         &match_public_inputs,
         &match_linking_proofs,
-    )
-    .unwrap();
+    )?;
 
     let unsuccessful_res = contract
         .verify_match(match_verification_bundle_calldata)
@@ -600,7 +596,6 @@ pub(crate) async fn test_ownable(
 pub(crate) async fn test_pausable(
     darkpool_address: Address,
     client: Arc<impl Middleware + 'static>,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     info!("Running `test_pausable`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -615,12 +610,12 @@ pub(crate) async fn test_pausable(
     // Assert that all setters revert when the contract is paused
     // This requires passing in valid data
 
-    let (new_wallet_proof, new_wallet_statement) = gen_new_wallet_data(&mut rng, srs)?;
+    let (new_wallet_proof, new_wallet_statement) = gen_new_wallet_data(&mut rng)?;
 
     let (update_wallet_proof, update_wallet_statement, public_inputs_signature) =
-        gen_update_wallet_data(&mut rng, srs, Scalar::new(contract_root))?;
+        gen_update_wallet_data(&mut rng, Scalar::new(contract_root))?;
 
-    let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
+    let data = gen_process_match_settle_data(&mut rng, Scalar::new(contract_root))?;
 
     assert_all_revert(vec![
         contract
@@ -782,13 +777,12 @@ pub(crate) async fn test_external_transfer(
 pub(crate) async fn test_new_wallet(
     darkpool_address: Address,
     client: Arc<impl Middleware + 'static>,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     info!("Running `test_new_wallet`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
     let mut rng = thread_rng();
 
-    let (proof, statement) = gen_new_wallet_data(&mut rng, srs)?;
+    let (proof, statement) = gen_new_wallet_data(&mut rng)?;
 
     // Call `new_wallet`
     contract
@@ -808,8 +802,7 @@ pub(crate) async fn test_new_wallet(
         statement.private_shares_commitment,
         &statement.public_wallet_shares,
         0, /* index */
-    )
-    .unwrap();
+    )?;
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
@@ -826,7 +819,6 @@ pub(crate) async fn test_new_wallet(
 pub(crate) async fn test_update_wallet(
     darkpool_address: Address,
     client: Arc<impl Middleware + 'static>,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     info!("Running `test_update_wallet`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -837,7 +829,7 @@ pub(crate) async fn test_update_wallet(
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
     let (proof, statement, public_inputs_signature) =
-        gen_update_wallet_data(&mut rng, srs, Scalar::new(contract_root))?;
+        gen_update_wallet_data(&mut rng, Scalar::new(contract_root))?;
 
     // Call `update_wallet`
     contract
@@ -863,7 +855,7 @@ pub(crate) async fn test_update_wallet(
         &statement.new_public_shares,
         0, /* index */
     )
-    .unwrap();
+    .map_err(|e| eyre!("{}", e))?;
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
@@ -880,7 +872,6 @@ pub(crate) async fn test_update_wallet(
 pub(crate) async fn test_process_match_settle(
     darkpool_address: Address,
     client: Arc<impl Middleware + 'static>,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<()> {
     info!("Running `test_process_match_settle`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -889,7 +880,7 @@ pub(crate) async fn test_process_match_settle(
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
     let mut rng = thread_rng();
-    let data = gen_process_match_settle_data(&mut rng, srs, Scalar::new(contract_root))?;
+    let data = gen_process_match_settle_data(&mut rng, Scalar::new(contract_root))?;
 
     // Call `process_match_settle` with valid data
     contract
@@ -937,7 +928,7 @@ pub(crate) async fn test_process_match_settle(
         &data.valid_match_settle_statement.party0_modified_shares,
         0, /* index */
     )
-    .unwrap();
+    .map_err(|e| eyre!("{}", e))?;
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
         data.match_payload_1
@@ -946,7 +937,7 @@ pub(crate) async fn test_process_match_settle(
         &data.valid_match_settle_statement.party1_modified_shares,
         1, /* index */
     )
-    .unwrap();
+    .map_err(|e| eyre!("{}", e))?;
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 

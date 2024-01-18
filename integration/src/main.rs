@@ -12,7 +12,7 @@ use scripts::{
         DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
         PRECOMPILE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
-    utils::{parse_addr_from_deployments_file, parse_srs_from_file, setup_client},
+    utils::{parse_addr_from_deployments_file, setup_client},
 };
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
@@ -32,7 +32,6 @@ async fn main() -> Result<()> {
     let Cli {
         test,
         deployments_file,
-        srs_file,
         priv_key,
         rpc_url,
     } = Cli::parse();
@@ -40,7 +39,6 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt().pretty().init();
 
     let client = setup_client(&priv_key, &rpc_url).await?;
-    let srs = parse_srs_from_file(&srs_file)?;
 
     let darkpool_proxy_address =
         parse_addr_from_deployments_file(&deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?;
@@ -67,7 +65,7 @@ async fn main() -> Result<()> {
             test_ec_recover(precompiles_contract_address, client.clone()).await?;
             test_nullifier_set(darkpool_proxy_address, client.clone()).await?;
             test_merkle(merkle_address, client.clone()).await?;
-            test_verifier(verifier_address, client.clone(), &srs).await?;
+            test_verifier(verifier_address, client.clone()).await?;
             test_upgradeable(
                 proxy_admin_address,
                 darkpool_proxy_address,
@@ -94,12 +92,12 @@ async fn main() -> Result<()> {
                 client.clone(),
             )
             .await?;
-            test_pausable(darkpool_proxy_address, client.clone(), &srs).await?;
+            test_pausable(darkpool_proxy_address, client.clone()).await?;
             test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client.clone())
                 .await?;
-            test_new_wallet(darkpool_proxy_address, client.clone(), &srs).await?;
-            test_update_wallet(darkpool_proxy_address, client.clone(), &srs).await?;
-            test_process_match_settle(darkpool_proxy_address, client, &srs).await
+            test_new_wallet(darkpool_proxy_address, client.clone()).await?;
+            test_update_wallet(darkpool_proxy_address, client.clone()).await?;
+            test_process_match_settle(darkpool_proxy_address, client).await
         }
         Tests::EcAdd => test_ec_add(precompiles_contract_address, client).await,
         Tests::EcMul => test_ec_mul(precompiles_contract_address, client).await,
@@ -107,7 +105,7 @@ async fn main() -> Result<()> {
         Tests::EcRecover => test_ec_recover(precompiles_contract_address, client).await,
         Tests::NullifierSet => test_nullifier_set(darkpool_proxy_address, client).await,
         Tests::Merkle => test_merkle(merkle_address, client).await,
-        Tests::Verifier => test_verifier(verifier_address, client, &srs).await,
+        Tests::Verifier => test_verifier(verifier_address, client).await,
         Tests::Upgradeable => {
             test_upgradeable(
                 proxy_admin_address,
@@ -140,14 +138,14 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        Tests::Pausable => test_pausable(darkpool_proxy_address, client, &srs).await,
+        Tests::Pausable => test_pausable(darkpool_proxy_address, client).await,
         Tests::ExternalTransfer => {
             test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client).await
         }
-        Tests::NewWallet => test_new_wallet(darkpool_proxy_address, client, &srs).await,
-        Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client, &srs).await,
+        Tests::NewWallet => test_new_wallet(darkpool_proxy_address, client).await,
+        Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client).await,
         Tests::ProcessMatchSettle => {
-            test_process_match_settle(darkpool_proxy_address, client, &srs).await
+            test_process_match_settle(darkpool_proxy_address, client).await
         }
     }
 }

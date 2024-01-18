@@ -3,23 +3,14 @@
 use arbitrum_client::errors::ConversionError;
 use circuit_types::{
     keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
-    PlonkLinkProof, PolynomialCommitment,
+    PolynomialCommitment,
 };
 use constants::{Scalar, SystemCurve};
 use contracts_common::types::{
-    G1Affine, LinkingProof as ContractLinkingProof, LinkingVerificationKey,
-    PublicSigningKey as ContractPublicSigningKey, VerificationKey,
+    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, VerificationKey,
 };
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
-
-/// Converts a [`PlonkLinkProof`] (from prover-side code) to a [`ContractLinkingProof`]
-pub fn to_contract_linking_proof(link_proof: PlonkLinkProof) -> ContractLinkingProof {
-    ContractLinkingProof {
-        linking_quotient_poly_comm: link_proof.quotient_commitment.0,
-        linking_poly_opening: link_proof.opening_proof.proof,
-    }
-}
 
 /// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
 pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {

@@ -139,9 +139,6 @@ pub const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target_contra
 /// The precompile test contract key in the `deployments.json` file
 pub const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract";
 
-/// The default degree to use for generating an SRS
-pub const DEFAULT_SRS_DEGREE: usize = 2048;
-
 /// The file name for the VALID WALLET CREATE verification key
 pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";
 

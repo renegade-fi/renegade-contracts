@@ -774,12 +774,13 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
+    use arbitrum_client::conversion::to_contract_link_proof;
     use alloc::vec;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
     use ark_std::UniformRand;
-    use circuit_types::{test_helpers::TESTING_SRS, traits::SingleProverCircuit, ProofLinkingHint};
+    use circuit_types::{srs::SYSTEM_SRS, traits::SingleProverCircuit, ProofLinkingHint};
     use circuits::zk_circuits::VALID_REBLIND_COMMITMENTS_LINK;
     use constants::SystemCurve;
     use contracts_common::{
@@ -791,14 +792,13 @@ mod tests {
     };
     use contracts_utils::{
         constants::DUMMY_CIRCUIT_SRS_DEGREE,
-        conversion::{to_contract_linking_proof, to_linking_vkey},
+        conversion::to_linking_vkey,
         crypto::NativeHasher,
         proof_system::{
             dummy_renegade_circuits::{
                 DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidReblind,
                 DummyValidReblindWitness,
             },
-            prove_with_srs,
             test_data::{
                 dummy_circuit_type, gen_verification_bundle, generate_match_bundle,
                 mutate_random_linking_proof, mutate_random_plonk_proof,
@@ -853,14 +853,10 @@ mod tests {
             valid_reblind_commitments: valid_commitments_witness.valid_reblind_commitments,
         };
 
-        let (_, valid_reblind_hint) = prove_with_srs::<DummyValidReblind>(
-            &TESTING_SRS,
-            valid_reblind_witness,
-            valid_reblind_statement,
-        )
-        .unwrap();
-        let (_, valid_commitments_hint) = prove_with_srs::<DummyValidCommitments>(
-            &TESTING_SRS,
+        let (_, valid_reblind_hint) =
+            DummyValidReblind::prove_with_link_hint(valid_reblind_witness, valid_reblind_statement)
+                .unwrap();
+        let (_, valid_commitments_hint) = DummyValidCommitments::prove_with_link_hint(
             valid_commitments_witness,
             valid_commitments_statement,
         )
@@ -873,17 +869,17 @@ mod tests {
         let valid_reblind_commitments_linking_vkey =
             to_linking_vkey(&valid_reblind_commitments_layout);
 
-        let commit_key = TESTING_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
+        let commit_key = SYSTEM_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
 
-        let valid_reblind_commitments_proof = to_contract_linking_proof(
-            PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        let valid_reblind_commitments_proof = to_contract_link_proof(
+            &PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
                 &valid_reblind_hint,
                 &valid_commitments_hint,
                 &valid_reblind_commitments_layout,
                 &commit_key,
             )
             .unwrap(),
-        );
+        ).unwrap();
 
         (
             valid_reblind_commitments_proof,
@@ -895,7 +891,7 @@ mod tests {
     #[test]
     fn test_valid_proof_verification() {
         let mut rng = thread_rng();
-        let (statement, proof, vkey) = gen_verification_bundle(&mut rng, &TESTING_SRS);
+        let (statement, proof, vkey) = gen_verification_bundle(&mut rng).unwrap();
         let public_inputs = statement_to_public_inputs(&statement).unwrap();
         let result =
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify(vkey, proof, public_inputs)
@@ -907,7 +903,7 @@ mod tests {
     #[test]
     fn test_invalid_proof_verification() {
         let mut rng = thread_rng();
-        let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng, &TESTING_SRS);
+        let (statement, mut proof, vkey) = gen_verification_bundle(&mut rng).unwrap();
         let public_inputs = statement_to_public_inputs(&statement).unwrap();
         proof.z_bar += ScalarField::one();
         let result =
@@ -921,7 +917,7 @@ mod tests {
     fn test_valid_match_plonk_proofs_verification() {
         let mut rng = thread_rng();
         let (match_vkeys, match_proofs, match_public_inputs, _, _, _) =
-            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+            generate_match_bundle(&mut rng).unwrap();
 
         let vkey_batch = [
             match_vkeys.valid_commitments_vkey,
@@ -956,8 +952,8 @@ mod tests {
         // Verify Plonk proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
             &opening_elems,
-            TESTING_SRS.beta_h,
-            TESTING_SRS.h,
+            SYSTEM_SRS.beta_h,
+            SYSTEM_SRS.h,
         )
         .unwrap();
 
@@ -969,7 +965,7 @@ mod tests {
         let mut rng = thread_rng();
 
         let (match_vkeys, mut match_proofs, match_public_inputs, _, _, _) =
-            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+            generate_match_bundle(&mut rng).unwrap();
 
         mutate_random_plonk_proof(&mut rng, &mut match_proofs);
 
@@ -1006,8 +1002,8 @@ mod tests {
         // Verify Plonk proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
             &opening_elems,
-            TESTING_SRS.beta_h,
-            TESTING_SRS.h,
+            SYSTEM_SRS.beta_h,
+            SYSTEM_SRS.h,
         )
         .unwrap();
 
@@ -1041,8 +1037,8 @@ mod tests {
         // Verify linking proof opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
             &opening_elems,
-            TESTING_SRS.beta_h,
-            TESTING_SRS.h,
+            SYSTEM_SRS.beta_h,
+            SYSTEM_SRS.h,
         )
         .unwrap();
 
@@ -1077,8 +1073,8 @@ mod tests {
         // Verify linking proof opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
             &opening_elems,
-            TESTING_SRS.beta_h,
-            TESTING_SRS.h,
+            SYSTEM_SRS.beta_h,
+            SYSTEM_SRS.h,
         )
         .unwrap();
 
@@ -1090,7 +1086,7 @@ mod tests {
         let mut rng = thread_rng();
 
         let (_, _, _, match_linking_vkeys, match_linking_proofs, match_linking_wire_poly_comms) =
-            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+            generate_match_bundle(&mut rng).unwrap();
 
         // Prep linking proof opening elements
         let opening_elems =
@@ -1104,8 +1100,8 @@ mod tests {
         // Verify linking proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
             &opening_elems,
-            TESTING_SRS.beta_h,
-            TESTING_SRS.h,
+            SYSTEM_SRS.beta_h,
+            SYSTEM_SRS.h,
         )
         .unwrap();
 
@@ -1117,7 +1113,7 @@ mod tests {
         let mut rng = thread_rng();
 
         let (_, _, _, match_linking_vkeys, mut match_linking_proofs, match_linking_wire_poly_comms) =
-            generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+            generate_match_bundle(&mut rng).unwrap();
 
         mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
 
@@ -1133,8 +1129,8 @@ mod tests {
         // Verify linking proofs batch opening
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::batch_opening(
             &opening_elems,
-            TESTING_SRS.beta_h,
-            TESTING_SRS.h,
+            SYSTEM_SRS.beta_h,
+            SYSTEM_SRS.h,
         )
         .unwrap();
 
@@ -1152,7 +1148,7 @@ mod tests {
             match_linking_vkeys,
             match_linking_proofs,
             _,
-        ) = generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+        ) = generate_match_bundle(&mut rng).unwrap();
 
         let result = Verifier::<ArkG1ArithmeticBackend, NativeHasher>::verify_match(
             match_vkeys,
@@ -1177,7 +1173,7 @@ mod tests {
             match_linking_vkeys,
             mut match_linking_proofs,
             _,
-        ) = generate_match_bundle(&mut rng, &TESTING_SRS).unwrap();
+        ) = generate_match_bundle(&mut rng).unwrap();
 
         let mut rng = thread_rng();
 
