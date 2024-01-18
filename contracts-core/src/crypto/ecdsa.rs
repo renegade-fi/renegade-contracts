@@ -3,11 +3,10 @@
 use ark_ff::PrimeField;
 use contracts_common::{
     backends::{EcRecoverBackend, EcdsaError, HashBackend},
-    constants::{
-        HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U128, NUM_BYTES_U64,
-    },
+    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE},
     types::{PublicSigningKey, ScalarField},
 };
+use ruint::aliases::U256;
 
 /// Verify a secp256k1 ECDSA signature given a public key (extracted from a `VALID_WALLET_UPDATE` statement),
 /// a (un-hashed) message, and a signature (in the format expected by the `ecRecover` precompile, i.e. including a `v`
@@ -31,35 +30,24 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
     // An Ethereum address is obtained from the rightmost 20 bytes of the Keccak-256 hash
     // of the public key's x & y affine coordinates, concatenated in big-endian form.
 
-    // TODO: Assert that the `PublicSigningKey` is indeed formed as expected below, i.e.
-    // its affine coordinates are split first into the higher 128 bits, then the lower 128 bits,
-    // with each of those interpreted in big-endian order as a scalar field element.
-    let mut pubkey_bytes = [0_u8; 4 * NUM_BYTES_U128];
-    pubkey_bytes[..NUM_BYTES_U128].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.x[0]));
-    pubkey_bytes[NUM_BYTES_U128..2 * NUM_BYTES_U128]
-        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.x[1]));
-    pubkey_bytes[2 * NUM_BYTES_U128..3 * NUM_BYTES_U128]
-        .copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.y[0]));
-    pubkey_bytes[3 * NUM_BYTES_U128..].copy_from_slice(&scalar_lower_128_bytes_be(&pubkey.y[1]));
+    let scalar_mod = U256::from_limbs(ScalarField::MODULUS.0);
+
+    let x_high = U256::from_limbs(pubkey.x[1].into_bigint().0);
+    let x_low = U256::from_limbs(pubkey.x[0].into_bigint().0);
+    let y_high = U256::from_limbs(pubkey.y[1].into_bigint().0);
+    let y_low = U256::from_limbs(pubkey.y[0].into_bigint().0);
+
+    let x = x_high * scalar_mod + x_low;
+    let y = y_high * scalar_mod + y_low;
+
+    let x_bytes: [u8; 32] = x.to_be_bytes();
+    let y_bytes: [u8; 32] = y.to_be_bytes();
+    let pubkey_bytes = [x_bytes, y_bytes].concat();
 
     // Unwrapping here is safe because we know that the hash output is 32 bytes long
     H::hash(&pubkey_bytes)[HASH_OUTPUT_SIZE - NUM_BYTES_ADDRESS..]
         .try_into()
         .unwrap()
-}
-
-/// Returns the lower 128 bits of a scalar as a big-endian byte array
-fn scalar_lower_128_bytes_be(scalar: &ScalarField) -> [u8; NUM_BYTES_U128] {
-    let bigint = scalar.into_bigint();
-    // The `BigInt` type stores the scalar as an array of 4 u64 limbs in "little-endian" order,
-    // i.e. the least significant limb is stored first.
-    // This means the lower 128 bits of the scalar are stored in the first 2 limbs,
-    // so we access these directly and convert them to big-endian byte arrays.
-    // Note we have to reverse the order of the first and second limbs for big-endian representation.
-    let mut lower_128_bytes_be = [0_u8; NUM_BYTES_U128];
-    lower_128_bytes_be[..NUM_BYTES_U64].copy_from_slice(&bigint.0[1].to_be_bytes());
-    lower_128_bytes_be[NUM_BYTES_U64..].copy_from_slice(&bigint.0[0].to_be_bytes());
-    lower_128_bytes_be
 }
 
 #[cfg(test)]
