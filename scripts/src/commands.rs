@@ -314,7 +314,7 @@ pub async fn deploy_erc20s(
 async fn mint_erc20(
     erc20: &DummyErc20Contract<impl Middleware + 'static>,
     recipient_address: Address,
-    amount: u64,
+    amount: u128,
 ) -> Result<(), ScriptError> {
     erc20
         .mint(recipient_address, EthersU256::from(amount))

@@ -198,7 +198,7 @@ pub struct DeployErc20sArgs {
 
     /// The amount with which to fund each account
     #[arg(short, long)]
-    pub funding_amount: u64,
+    pub funding_amount: u128,
 
     /// A comma-separated list of private keys corresponding to the accounts
     /// which will be funded with the ERC20s and
