@@ -1,14 +1,17 @@
 //! Utilities for generating data for the proof system tests
 
 use arbitrum_client::conversion::{
-    to_contract_valid_commitments_statement, to_contract_valid_match_settle_statement,
-    to_contract_valid_reblind_statement, to_contract_valid_wallet_create_statement,
-    to_contract_valid_wallet_update_statement,
+    to_contract_link_proof, to_contract_proof, to_contract_valid_commitments_statement,
+    to_contract_valid_match_settle_statement, to_contract_valid_reblind_statement,
+    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
 };
 use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
-    keychain::PublicSigningKey, traits::CircuitBaseType, transfers::ExternalTransfer,
+    keychain::PublicSigningKey,
+    srs::SYSTEM_SRS,
+    traits::{CircuitBaseType, SingleProverCircuit},
+    transfers::ExternalTransfer,
     PolynomialCommitment, ProofLinkingHint,
 };
 use circuits::zk_circuits::{
@@ -31,10 +34,7 @@ use contracts_common::{
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use ethers::types::Bytes;
 use eyre::Result;
-use jf_primitives::pcs::{
-    prelude::{Commitment, UnivariateUniversalParams},
-    StructuredReferenceString,
-};
+use jf_primitives::pcs::{prelude::Commitment, StructuredReferenceString};
 
 use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
 use rand::{seq::SliceRandom, CryptoRng, Rng, RngCore};
@@ -42,7 +42,7 @@ use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{to_circuit_pubkey, to_contract_linking_proof},
+    conversion::{to_circuit_pubkey, to_contract_vkey},
     crypto::{hash_and_sign_message, random_keypair},
 };
 
@@ -52,8 +52,7 @@ use super::{
         DummyValidMatchSettleWitness, DummyValidReblind, DummyValidReblindWitness,
         DummyValidWalletCreate, DummyValidWalletUpdate,
     },
-    gen_circuit_vkey, gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, prove_with_srs,
-    MatchGroupLayouts,
+    gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
 };
 
 /// Generates a vector of random scalars
@@ -115,30 +114,31 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
 /// The simplest way to do this is to use the dummy `VALID WALLET CREATE` circuit.
 pub fn gen_verification_bundle<R: CryptoRng + RngCore>(
     rng: &mut R,
-    srs: &UnivariateUniversalParams<SystemCurve>,
-) -> (
+) -> Result<(
     ContractValidWalletCreateStatement,
     ContractProof,
     VerificationKey,
-) {
+)> {
     let statement = dummy_circuit_type(rng);
     let contract_statement = to_contract_valid_wallet_create_statement(&statement);
 
-    let (proof, _) = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement).unwrap();
-    let vkey = gen_circuit_vkey::<DummyValidWalletCreate>(srs).unwrap();
+    let jf_proof = DummyValidWalletCreate::prove((), statement)?;
+    let proof = to_contract_proof(&jf_proof)?;
+    let jf_vkey = (*DummyValidWalletCreate::verifying_key()).clone();
+    let vkey = to_contract_vkey(jf_vkey)?;
 
-    (contract_statement, proof, vkey)
+    Ok((contract_statement, proof, vkey))
 }
 
 /// Generates the inputs for the `new_wallet` darkpool method, namely
 /// a dummy statement and associated proof for the `VALID WALLET CREATE` circuit
 pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
     rng: &mut R,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<(ContractProof, ContractValidWalletCreateStatement)> {
     // Generate dummy statement & proof
     let statement: SizedValidWalletCreateStatement = dummy_circuit_type(rng);
-    let (proof, _) = prove_with_srs::<DummyValidWalletCreate>(srs, (), statement.clone())?;
+    let jf_proof = DummyValidWalletCreate::prove((), statement.clone())?;
+    let proof = to_contract_proof(&jf_proof)?;
 
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement = to_contract_valid_wallet_create_statement(&statement);
@@ -151,7 +151,6 @@ pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
 /// along with a signature over the commitment to the wallet shares
 pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     rng: &mut R,
-    srs: &UnivariateUniversalParams<SystemCurve>,
     merkle_root: Scalar,
 ) -> Result<(ContractProof, ContractValidWalletUpdateStatement, Bytes)> {
     // Generate signing keypair
@@ -167,7 +166,8 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
         merkle_root,
         circuit_pubkey,
     );
-    let (proof, _) = prove_with_srs::<DummyValidWalletUpdate>(srs, (), statement.clone())?;
+    let jf_proof = DummyValidWalletUpdate::prove((), statement.clone())?;
+    let proof = to_contract_proof(&jf_proof)?;
 
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement = to_contract_valid_wallet_update_statement(&statement)?;
@@ -260,7 +260,6 @@ type MatchProofsAndHints = (MatchProofs, [(ProofLinkingHint, ProofLinkingHint); 
 
 /// Generates the proofs and linking hints to be submitted to `process_match_settle`
 fn match_proofs_and_hints(
-    srs: &UnivariateUniversalParams<SystemCurve>,
     valid_commitments_statements: [ValidCommitmentsStatement; 2],
     valid_commitments_witnesses: [DummyValidCommitmentsWitness; 2],
     valid_reblind_statements: [ValidReblindStatement; 2],
@@ -268,35 +267,38 @@ fn match_proofs_and_hints(
     valid_match_settle_statement: SizedValidMatchSettleStatement,
     valid_match_settle_witness: DummyValidMatchSettleWitness,
 ) -> Result<MatchProofsAndHints> {
-    let (valid_commitments_0, valid_commitments_hint_0) = prove_with_srs::<DummyValidCommitments>(
-        srs,
-        valid_commitments_witnesses[0].clone(),
-        valid_commitments_statements[0],
-    )?;
+    let (valid_commitments_0, valid_commitments_hint_0) =
+        DummyValidCommitments::prove_with_link_hint(
+            valid_commitments_witnesses[0].clone(),
+            valid_commitments_statements[0],
+        )?;
+    let valid_commitments_0 = to_contract_proof(&valid_commitments_0)?;
 
-    let (valid_commitments_1, valid_commitments_hint_1) = prove_with_srs::<DummyValidCommitments>(
-        srs,
-        valid_commitments_witnesses[1].clone(),
-        valid_commitments_statements[1],
-    )?;
+    let (valid_commitments_1, valid_commitments_hint_1) =
+        DummyValidCommitments::prove_with_link_hint(
+            valid_commitments_witnesses[1].clone(),
+            valid_commitments_statements[1],
+        )?;
+    let valid_commitments_1 = to_contract_proof(&valid_commitments_1)?;
 
-    let (valid_reblind_0, valid_reblind_hint_0) = prove_with_srs::<DummyValidReblind>(
-        srs,
+    let (valid_reblind_0, valid_reblind_hint_0) = DummyValidReblind::prove_with_link_hint(
         valid_reblind_witnesses[0].clone(),
         valid_reblind_statements[0].clone(),
     )?;
+    let valid_reblind_0 = to_contract_proof(&valid_reblind_0)?;
 
-    let (valid_reblind_1, valid_reblind_hint_1) = prove_with_srs::<DummyValidReblind>(
-        srs,
+    let (valid_reblind_1, valid_reblind_hint_1) = DummyValidReblind::prove_with_link_hint(
         valid_reblind_witnesses[1].clone(),
         valid_reblind_statements[1].clone(),
     )?;
+    let valid_reblind_1 = to_contract_proof(&valid_reblind_1)?;
 
-    let (valid_match_settle, valid_match_settle_hint) = prove_with_srs::<DummyValidMatchSettle>(
-        srs,
-        valid_match_settle_witness.clone(),
-        valid_match_settle_statement.clone(),
-    )?;
+    let (valid_match_settle, valid_match_settle_hint) =
+        DummyValidMatchSettle::prove_with_link_hint(
+            valid_match_settle_witness.clone(),
+            valid_match_settle_statement.clone(),
+        )?;
+    let valid_match_settle = to_contract_proof(&valid_match_settle)?;
 
     Ok((
         MatchProofs {
@@ -317,10 +319,9 @@ fn match_proofs_and_hints(
 
 /// Generates the linking proofs to be submitted to `process_match_settle`
 fn match_link_proofs(
-    srs: &UnivariateUniversalParams<SystemCurve>,
     link_hints: [(ProofLinkingHint, ProofLinkingHint); 4],
 ) -> Result<MatchLinkingProofs> {
-    let commit_key = srs.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
+    let commit_key = SYSTEM_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
 
     let MatchGroupLayouts {
         valid_reblind_commitments: valid_reblind_commitments_layout,
@@ -330,47 +331,47 @@ fn match_link_proofs(
 
     let (valid_reblind_hint_0, valid_commitments_hint_0) = &link_hints[0];
     let valid_reblind_commitments_0 =
-        to_contract_linking_proof(PlonkKzgSnark::<SystemCurve>::link_proofs::<
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
             SolidityTranscript,
         >(
             valid_reblind_hint_0,
             valid_commitments_hint_0,
             &valid_reblind_commitments_layout,
             &commit_key,
-        )?);
+        )?)?;
 
     let (valid_reblind_hint_1, valid_commitments_hint_1) = &link_hints[1];
     let valid_reblind_commitments_1 =
-        to_contract_linking_proof(PlonkKzgSnark::<SystemCurve>::link_proofs::<
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
             SolidityTranscript,
         >(
             valid_reblind_hint_1,
             valid_commitments_hint_1,
             &valid_reblind_commitments_layout,
             &commit_key,
-        )?);
+        )?)?;
 
     let (valid_commitments_hint_0, valid_match_settle_hint_0) = &link_hints[2];
     let valid_commitments_match_settle_0 =
-        to_contract_linking_proof(PlonkKzgSnark::<SystemCurve>::link_proofs::<
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
             SolidityTranscript,
         >(
             valid_commitments_hint_0,
             valid_match_settle_hint_0,
             &valid_commitments_match_settle_0_layout,
             &commit_key,
-        )?);
+        )?)?;
 
     let (valid_commitments_hint_1, valid_match_settle_hint_1) = &link_hints[3];
     let valid_commitments_match_settle_1 =
-        to_contract_linking_proof(PlonkKzgSnark::<SystemCurve>::link_proofs::<
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
             SolidityTranscript,
         >(
             valid_commitments_hint_1,
             valid_match_settle_hint_1,
             &valid_commitments_match_settle_1_layout,
             &commit_key,
-        )?);
+        )?)?;
 
     Ok(MatchLinkingProofs {
         valid_reblind_commitments_0,
@@ -383,7 +384,6 @@ fn match_link_proofs(
 /// Generates the data to be submitted to `process_match_settle`
 pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     rng: &mut R,
-    srs: &UnivariateUniversalParams<SystemCurve>,
     merkle_root: Scalar,
 ) -> Result<ProcessMatchSettleData> {
     let (valid_commitments_statements, valid_reblind_statements, valid_match_settle_statement) =
@@ -391,7 +391,6 @@ pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     let (valid_commitments_witnesses, valid_reblind_witnesses, valid_match_settle_witness) =
         dummy_match_witnesses(rng);
     let (match_proofs, link_hints) = match_proofs_and_hints(
-        srs,
         valid_commitments_statements,
         valid_commitments_witnesses,
         valid_reblind_statements.clone(),
@@ -399,7 +398,7 @@ pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
         valid_match_settle_statement.clone(),
         valid_match_settle_witness.clone(),
     )?;
-    let match_linking_proofs = match_link_proofs(srs, link_hints)?;
+    let match_linking_proofs = match_link_proofs(link_hints)?;
 
     let match_payload_0 = MatchPayload {
         valid_commitments_statement: to_contract_valid_commitments_statement(
@@ -447,7 +446,6 @@ fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInpu
 /// Generate the bundle of data needed to verify a match
 pub fn generate_match_bundle<R: CryptoRng + RngCore>(
     rng: &mut R,
-    srs: &UnivariateUniversalParams<SystemCurve>,
 ) -> Result<(
     MatchVkeys,
     MatchProofs,
@@ -458,10 +456,10 @@ pub fn generate_match_bundle<R: CryptoRng + RngCore>(
 )> {
     // Generate random `process_match_settle` test data & destructure
     let merkle_root = Scalar::random(rng);
-    let data = gen_process_match_settle_data(rng, srs, merkle_root)?;
+    let data = gen_process_match_settle_data(rng, merkle_root)?;
 
     let match_vkeys =
-        gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(srs)?;
+        gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>()?;
     let match_proofs = data.match_proofs;
     let match_public_inputs = extract_match_public_inputs(&data);
 

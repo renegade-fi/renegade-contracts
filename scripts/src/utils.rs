@@ -13,8 +13,6 @@ use std::{
 
 use alloy_primitives::{Address as AlloyAddress, U256};
 use alloy_sol_types::SolCall;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use constants::SystemCurve;
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -23,7 +21,6 @@ use ethers::{
     utils::get_contract_address,
 };
 use itertools::Itertools;
-use jf_primitives::pcs::prelude::UnivariateUniversalParams;
 use json::JsonValue;
 use tracing::log::warn;
 
@@ -98,18 +95,6 @@ pub fn parse_addr_from_deployments_file(
     .map_err(|e| ScriptError::ReadFile(e.to_string()))
 }
 
-/// Parses a structured reference string from the file at the given path
-pub fn parse_srs_from_file(
-    file_path: &str,
-) -> Result<UnivariateUniversalParams<SystemCurve>, ScriptError> {
-    let srs_file = File::open(file_path).map_err(|e| ScriptError::ReadFile(e.to_string()))?;
-
-    let srs = UnivariateUniversalParams::<SystemCurve>::deserialize_uncompressed(&srs_file)
-        .map_err(|e| ScriptError::Serde(e.to_string()))?;
-
-    Ok(srs)
-}
-
 /// Writes the given address for the deployed contract
 /// to the deployments file at the given path
 pub fn write_deployed_address(
@@ -129,20 +114,6 @@ pub fn write_deployed_address(
         .map_err(|e| ScriptError::WriteFile(e.to_string()))?;
 
     Ok(())
-}
-
-/// Writes the structured reference string to the file at the given path
-pub fn write_srs_to_file(
-    file_path: &str,
-    srs: &UnivariateUniversalParams<SystemCurve>,
-) -> Result<(), ScriptError> {
-    // Create / open SRS file
-    let mut srs_file =
-        File::create(file_path).map_err(|e| ScriptError::WriteFile(e.to_string()))?;
-
-    // Serialize SRS into file
-    srs.serialize_uncompressed(&mut srs_file)
-        .map_err(|e| ScriptError::Serde(e.to_string()))
 }
 
 /// Writes the verification key to the file at the given directory & path
