@@ -10,6 +10,7 @@ alloy-primitives = { workspace = true }
 renegade-crypto = { workspace = true, features = ["inline"] }
 serde = { workspace = true }
 serde_with = { workspace = true }
+ruint = { workspace = true }
 
 
 [dev-dependencies]

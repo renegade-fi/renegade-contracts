@@ -298,7 +298,7 @@ pub async fn deploy_erc20s(
 
     for erc20_address in erc20_addresses {
         for skey in &args.account_skeys {
-            let account_client = setup_client(&skey, rpc_url).await?;
+            let account_client = setup_client(skey, rpc_url).await?;
             let account_address = account_client.default_sender().unwrap();
             let erc20 = DummyErc20Contract::new(erc20_address, account_client);
 
@@ -326,6 +326,7 @@ async fn mint_erc20(
         .map(|_| ())
 }
 
+/// Approves the darkpool to spend the maximum amount of the given ERC20
 async fn approve_erc20_max(
     erc20: &DummyErc20Contract<impl Middleware + 'static>,
     spender_address: Address,

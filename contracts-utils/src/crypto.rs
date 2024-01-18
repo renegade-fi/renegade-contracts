@@ -1,10 +1,9 @@
 //! Helpful cryptographic utilities
 
-use ark_ff::PrimeField;
+use arbitrum_client::conversion::to_contract_public_signing_key;
+use circuit_types::keychain::PublicSigningKey as CircuitPubkey;
 use contracts_common::{
-    backends::HashBackend,
-    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_U128},
-    types::{PublicSigningKey, ScalarField},
+    backends::HashBackend, constants::HASH_OUTPUT_SIZE, types::PublicSigningKey,
 };
 use ethers::{
     core::k256::ecdsa::SigningKey,
@@ -28,37 +27,11 @@ impl HashBackend for NativeHasher {
 pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, PublicSigningKey) {
     let signing_key = SigningKey::random(rng);
     let verifying_key = signing_key.verifying_key();
-    let encoded_pubkey_bytes = verifying_key
-        .to_encoded_point(false /* compress */)
-        .to_bytes();
 
-    // Start the cursor one byte forward since the first byte of the SEC1 encoding is metadata
-    let mut cursor = 1;
-    let x_high = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
-    );
+    let circuit_pubkey = CircuitPubkey::from(verifying_key);
+    let contract_pubkey = to_contract_public_signing_key(&circuit_pubkey).unwrap();
 
-    cursor += NUM_BYTES_U128;
-    let x_low = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
-    );
-
-    cursor += NUM_BYTES_U128;
-    let y_high = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
-    );
-
-    cursor += NUM_BYTES_U128;
-    let y_low = ScalarField::from_be_bytes_mod_order(
-        &encoded_pubkey_bytes[cursor..cursor + NUM_BYTES_U128],
-    );
-
-    let pubkey = PublicSigningKey {
-        x: [x_high, x_low],
-        y: [y_high, y_low],
-    };
-
-    (signing_key, pubkey)
+    (signing_key, contract_pubkey)
 }
 
 /// Hashes the given message and generates a signature over it using the signing key,

@@ -29,6 +29,7 @@ serde_with = { version = "3.4", default-features = false, features = [
 postcard = { version = "1.0.0", default-features = false, features = ["alloc"] }
 rand = "0.8.5"
 num-bigint = { version = "0.4", default-features = false }
+ruint = "1.11"
 eyre = "0.6.8"
 ethers = "2.0"
 clap = { version = "4.4.7", features = ["derive"] }
