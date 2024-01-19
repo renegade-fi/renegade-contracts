@@ -309,10 +309,18 @@ pub fn bigint_from_le_bytes(bytes: &[u8]) -> Result<BigInt<NUM_U64S_FELT>, Serde
 
 /// Converts an [`Address`] into a [`ScalarField`]
 fn address_to_scalar(address: Address) -> Result<ScalarField, SerdeError> {
-    // Here, we right-pad the 20-byte address w/ zero-bytes
-    // TODO: Ensure scalar representation is consistent with the relayer implementation
+    // The underlying representation of the address, returned by `as_slice()`,
+    // is the address bytes in big-endian form.
+    let address_bytes = address.as_slice();
+
+    // We first left-pad the big-endian address bytes with zero-bytes to NUM_BYTES_FELT,
+    // preserving its numerical value
     let mut bytes = [0; NUM_BYTES_FELT];
-    bytes[..NUM_BYTES_ADDRESS].copy_from_slice(address.as_slice());
+    bytes[NUM_BYTES_FELT - NUM_BYTES_ADDRESS..].copy_from_slice(address_bytes);
+
+    // The circuits expect the scalar representation of the address to be its little-endian
+    // interpretation. We thus reverse the bytes before converting them to a scalar.
+    bytes.reverse();
     let bigint = bigint_from_le_bytes(&bytes)?;
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
 }
