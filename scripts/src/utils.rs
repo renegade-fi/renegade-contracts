@@ -31,10 +31,10 @@ use crate::{
         CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
         DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, INLINE_THRESHOLD_FLAG,
         MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE,
-        OPT_LEVEL_2, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z,
-        PRECOMPILE_TEST_CONTRACT_KEY, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
-        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY,
-        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY,
+        RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
+        TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION,
+        WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -185,7 +185,6 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
                 OPT_LEVEL_FLAG, OPT_LEVEL_S, INLINE_THRESHOLD_FLAG
             )
         }
-        StylusContract::Darkpool => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_2),
         StylusContract::DarkpoolTestContract => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_Z),
         _ => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_3),
     };
@@ -197,9 +196,9 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
 /// given contract
 pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str {
     match contract {
-        StylusContract::Verifier
-        | StylusContract::Darkpool
-        | StylusContract::DarkpoolTestContract => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
+        StylusContract::Verifier | StylusContract::DarkpoolTestContract => {
+            AGGRESSIVE_SIZE_OPTIMIZATION_FLAG
+        }
         _ => AGGRESSIVE_OPTIMIZATION_FLAG,
     }
 }

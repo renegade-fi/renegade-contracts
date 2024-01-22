@@ -47,9 +47,6 @@ pub const OPT_LEVEL_S: &str = "s";
 /// The "z" optimization level (aggressive size optimization)
 pub const OPT_LEVEL_Z: &str = "z";
 
-/// The 2 optimization level (aggressive optimization)
-pub const OPT_LEVEL_2: &str = "2";
-
 /// The 3 optimization level (maximum optimization)
 pub const OPT_LEVEL_3: &str = "3";
 
