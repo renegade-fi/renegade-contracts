@@ -16,7 +16,7 @@ alloy-sol-types = { workspace = true }
 serde = { workspace = true }
 
 [features]
-darkpool = ["stylus-sdk/storage-cache"]
+darkpool = []
 darkpool-test-contract = []
 no-verify = []
 merkle = ["stylus-sdk/storage-cache"]
