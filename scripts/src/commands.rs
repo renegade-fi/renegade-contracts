@@ -34,10 +34,11 @@ use crate::{
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER,
-        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS,
-        PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
-        TEST_FUNDING_AMOUNT, VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
-        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
+        PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI,
+        PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, TEST_FUNDING_AMOUNT,
+        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
@@ -139,6 +140,9 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
+    info!("Deploying Permit2 contract");
+    deploy_permit2(client.clone(), deployments_path).await?;
+
     info!("Deploying proxy contract");
     let deploy_proxy_args = DeployProxyArgs {
         owner: args.owner,
@@ -196,6 +200,8 @@ pub async fn deploy_proxy(
 
     let vkeys_address = parse_addr_from_deployments_file(deployments_path, VKEYS_CONTRACT_KEY)?;
 
+    let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
+
     let owner_address = Address::from_str(&args.owner)
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
 
@@ -205,6 +211,7 @@ pub async fn deploy_proxy(
         verifier_address,
         vkeys_address,
         merkle_address,
+        permit2_address,
         protocol_fee,
     )?);
 
@@ -256,9 +263,39 @@ pub async fn deploy_proxy(
         deployments_path,
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
         proxy_admin_address,
-    )?;
+    )
+}
 
-    Ok(())
+/// Deploys the `Permit2` contract
+pub async fn deploy_permit2(
+    client: Arc<impl Middleware>,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    // Get Permit2 contract ABI and bytecode
+    let abi: Contract = serde_json::from_str(PERMIT2_ABI)
+        .map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
+
+    let bytecode = Bytes::from_hex(PERMIT2_BYTECODE)
+        .map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
+
+    let permit2_factory = ContractFactory::new(abi, bytecode, client.clone());
+
+    let permit2_contract = permit2_factory
+        .deploy(())
+        .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?
+        .confirmations(NUM_DEPLOY_CONFIRMATIONS)
+        .send()
+        .await
+        .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
+
+    let permit2_address = permit2_contract.address();
+
+    info!(
+        "Permit2 contract deployed at address:\n\t{:#x}",
+        permit2_address
+    );
+
+    write_deployed_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
 }
 
 /// Deploys the ERC-20 contracts & approves the darkpool
@@ -293,8 +330,7 @@ pub async fn deploy_erc20s(
         );
     }
 
-    let darkpool_address =
-        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
+    let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
     for erc20_address in erc20_addresses {
         for skey in &args.account_skeys {
@@ -303,7 +339,7 @@ pub async fn deploy_erc20s(
             let erc20 = DummyErc20Contract::new(erc20_address, account_client);
 
             mint_erc20(&erc20, account_address, args.funding_amount).await?;
-            approve_erc20_max(&erc20, darkpool_address).await?;
+            approve_erc20_max(&erc20, permit2_address).await?;
         }
     }
 

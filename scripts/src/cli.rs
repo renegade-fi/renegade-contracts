@@ -10,8 +10,8 @@ use ethers::providers::Middleware;
 
 use crate::{
     commands::{
-        build_and_deploy_stylus_contract, deploy_erc20s, deploy_proxy, deploy_test_contracts,
-        gen_vkeys, upgrade,
+        build_and_deploy_stylus_contract, deploy_erc20s, deploy_permit2, deploy_proxy,
+        deploy_test_contracts, gen_vkeys, upgrade,
     },
     errors::ScriptError,
 };
@@ -44,6 +44,8 @@ pub enum Command {
     DeployTestContracts(DeployTestContractsArgs),
     /// Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
     DeployProxy(DeployProxyArgs),
+    /// Deploy the `Permit2` contract
+    DeployPermit2,
     /// Deploy a Stylus contract
     DeployStylus(DeployStylusArgs),
     /// Deploy dummy ERC20s
@@ -68,6 +70,7 @@ impl Command {
                 deploy_test_contracts(args, rpc_url, priv_key, client, deployments_path).await
             }
             Command::DeployProxy(args) => deploy_proxy(args, client, deployments_path).await,
+            Command::DeployPermit2 => deploy_permit2(client, deployments_path).await,
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(args, rpc_url, priv_key, client, deployments_path)
                     .await

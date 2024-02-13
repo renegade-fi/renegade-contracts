@@ -463,6 +463,7 @@ pub(crate) async fn test_initializable(
     let dummy_verifier_address = Address::random();
     let dummy_vkeys_address = Address::random();
     let dummy_merkle_address = Address::random();
+    let dummy_permit2_address = Address::random();
     let dummy_protocol_fee = U256::from(1);
 
     assert!(
@@ -471,6 +472,7 @@ pub(crate) async fn test_initializable(
                 dummy_verifier_address,
                 dummy_vkeys_address,
                 dummy_merkle_address,
+                dummy_permit2_address,
                 dummy_protocol_fee,
             )
             .send()

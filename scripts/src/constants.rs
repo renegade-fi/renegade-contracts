@@ -1,14 +1,24 @@
 //! Constants used in the deploy scripts
 
-/// The ABI of the TransparentUpgradeableProxy contract
+/// The ABI of the `TransparentUpgradeableProxy` contract
 ///
 /// Compiled from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/proxy/transparent/TransparentUpgradeableProxy.sol
 pub const PROXY_ABI: &str = include_str!("../artifacts/TransparentUpgradeableProxy.abi");
 
-/// The bytecode of the TransparentUpgradeableProxy contract
+/// The bytecode of the `TransparentUpgradeableProxy` contract
 ///
 /// Compiled from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/proxy/transparent/TransparentUpgradeableProxy.sol
 pub const PROXY_BYTECODE: &str = include_str!("../artifacts/TransparentUpgradeableProxy.bin");
+
+/// The ABI of the `Permit2` contract
+///
+/// Compiled from https://github.com/Uniswap/permit2/blob/main/src/Permit2.sol
+pub const PERMIT2_ABI: &str = include_str!("../artifacts/Permit2.abi");
+
+/// The bytecode of the `Permit2` contract
+///
+/// Compiled from https://github.com/Uniswap/permit2/blob/main/src/Permit2.sol
+pub const PERMIT2_BYTECODE: &str = include_str!("../artifacts/Permit2.bin");
 
 /// The number of confirmations to wait for the contract deployment transaction
 pub const NUM_DEPLOY_CONFIRMATIONS: usize = 0;
@@ -112,6 +122,9 @@ pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
 
 /// The darkpool proxy admin contract key in the `deployments.json` file
 pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contract";
+
+/// The permit2 contract key in the `deployments.json` file
+pub const PERMIT2_CONTRACT_KEY: &str = "permit2_contract";
 
 /// The merkle contract key in the `deployments.json` file
 pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";

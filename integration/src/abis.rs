@@ -5,7 +5,7 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
-        function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address, uint256 memory protocol_fee) external
+        function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address, address memory permit2_address, uint256 memory protocol_fee) external
 
         function owner() external view returns (address)
         function transferOwnership(address memory new_owner) external
