@@ -146,16 +146,19 @@ pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     vkeys_address: Address,
     merkle_address: Address,
+    permit2_address: Address,
     protocol_fee: U256,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let vkeys_address = AlloyAddress::from_slice(vkeys_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
+    let permit2_address = AlloyAddress::from_slice(permit2_address.as_bytes());
 
     Ok(initializeCall::new((
         verifier_address,
         vkeys_address,
         merkle_address,
+        permit2_address,
         protocol_fee,
     ))
     .encode())

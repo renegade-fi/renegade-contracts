@@ -4,7 +4,7 @@ use alloy_sol_types::sol;
 use ethers::contract::abigen;
 
 sol! {
-    function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address, uint256 memory protocol_fee) external;
+    function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address, address memory permit2_address, uint256 memory protocol_fee) external;
 }
 
 abigen!(
