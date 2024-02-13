@@ -2,14 +2,6 @@
 
 use alloc::vec::Vec;
 use alloy_sol_types::sol;
-use stylus_sdk::stylus_proc::sol_interface;
-
-sol_interface! {
-    // Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol
-    interface IERC20 {
-        function transferFrom(address from, address to, uint256 value) external returns (bool);
-    }
-}
 
 // Various methods and events defined in the Renegade smart contracts
 sol! {
@@ -88,6 +80,12 @@ sol! {
         uint256 requestedAmount;
     }
 
+    /// Convenience type bundling together the permit and the signature
+    struct PermitPayload {
+        PermitTransferFrom permit;
+        bytes signature;
+    }
+
     /// Transfers a token using a signed permit message
     /// Reverts if the requested amount is greater than the permitted signed amount
     /// permit The permit data signed over by the owner
@@ -100,4 +98,8 @@ sol! {
         address owner,
         bytes calldata signature
     ) external;
+
+    /// The native `transfer` function on the ERC20 interface.
+    /// Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol#L41
+    function transfer(address to, uint256 value) external returns (bool);
 }
