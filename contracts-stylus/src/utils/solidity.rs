@@ -1,9 +1,8 @@
 //! Various Solidity definitions, including ABI-compatible interfaces, events, functions, etc.
 
-use alloc::vec::Vec;
 use alloy_sol_types::sol;
 
-// Various methods and events defined in the Renegade smart contracts
+// Various methods and events used in the Renegade smart contracts
 sol! {
 
     // -------------
@@ -29,6 +28,10 @@ sol! {
     // Testing functions
     function isDummyUpgradeTarget() external view returns (bool);
 
+    /// The native `transfer` function on the ERC20 interface.
+    /// Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol#L41
+    function transfer(address to, uint256 value) external returns (bool);
+
     // ----------
     // | EVENTS |
     // ----------
@@ -49,57 +52,4 @@ sol! {
     event VerifierAddressChanged(address indexed new_address);
     event VkeysAddressChanged(address indexed new_address);
     event MerkleAddressChanged(address indexed new_address);
-}
-
-// Types & methods from the Permit2 `ISignatureTransfer` interface, taken from https://github.com/Uniswap/permit2/blob/main/src/interfaces/ISignatureTransfer.sol
-sol! {
-    /// The token and amount details for a transfer signed in the permit transfer signature
-    struct TokenPermissions {
-        // ERC20 token address
-        address token;
-        // the maximum amount that can be spent
-        uint256 amount;
-    }
-
-    /// The signed permit message for a single token transfer
-    struct PermitTransferFrom {
-        TokenPermissions permitted;
-        // a unique value for every token owner's signature to prevent signature replays
-        uint256 nonce;
-        // deadline on the permit signature
-        uint256 deadline;
-    }
-
-    /// Specifies the recipient address and amount for batched transfers.
-    /// Recipients and amounts correspond to the index of the signed token permissions array.
-    /// Reverts if the requested amount is greater than the permitted signed amount.
-    struct SignatureTransferDetails {
-        // recipient address
-        address to;
-        // spender requested amount
-        uint256 requestedAmount;
-    }
-
-    /// Convenience type bundling together the permit and the signature
-    struct PermitPayload {
-        PermitTransferFrom permit;
-        bytes signature;
-    }
-
-    /// Transfers a token using a signed permit message
-    /// Reverts if the requested amount is greater than the permitted signed amount
-    /// permit The permit data signed over by the owner
-    /// owner The owner of the tokens to transfer
-    /// transferDetails The spender's requested transfer details for the permitted token
-    /// signature The signature to verify
-    function permitTransferFrom(
-        PermitTransferFrom memory permit,
-        SignatureTransferDetails calldata transferDetails,
-        address owner,
-        bytes calldata signature
-    ) external;
-
-    /// The native `transfer` function on the ERC20 interface.
-    /// Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol#L41
-    function transfer(address to, uint256 value) external returns (bool);
 }

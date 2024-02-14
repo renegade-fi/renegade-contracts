@@ -36,9 +36,13 @@ impl DarkpoolTestContract {
     }
 
     /// Executes the given external transfer
-    pub fn execute_external_transfer(&mut self, transfer: Bytes, permit_payload: Bytes) -> Result<(), Vec<u8>> {
+    pub fn execute_external_transfer(
+        &mut self,
+        transfer: Bytes,
+        permit_payload: Bytes,
+    ) -> Result<(), Vec<u8>> {
         let external_transfer: ExternalTransfer = deserialize_from_calldata(&transfer)?;
-        DarkpoolContract::execute_external_transfer(self, &external_transfer, permit_payload)?;
+        DarkpoolContract::execute_external_transfer(self, external_transfer, permit_payload)?;
         Ok(())
     }
 

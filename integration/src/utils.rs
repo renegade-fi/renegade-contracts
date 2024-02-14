@@ -2,14 +2,20 @@
 
 use std::future::Future;
 
-use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
+use alloy_primitives::{keccak256, Address as AlloyAddress, B256, U256 as AlloyU256};
+use alloy_sol_types::{
+    eip712_domain,
+    sol_data::{Address as SolAddress, Uint as SolUint},
+    Eip712Domain, SolStruct, SolType,
+};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
+    solidity::{PermitTransferFrom, TokenPermissions},
     types::{
         ExternalTransfer, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
-        MatchVkeys, Proof, PublicInputs, ScalarField, VerificationKey,
+        MatchVkeys, PermitPayload, Proof, PublicInputs, ScalarField, VerificationKey,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -18,18 +24,27 @@ use ethers::{
     abi::{Address, Detokenize, Tokenize},
     contract::ContractError,
     providers::{JsonRpcClient, Middleware, PendingTransaction},
-    types::{Bytes, U256},
+    types::{Bytes, H256, U256},
 };
 use eyre::{eyre, Result};
-use scripts::constants::TEST_FUNDING_AMOUNT;
+use rand::{thread_rng, RngCore};
+use scripts::{
+    constants::{PERMIT2_CONTRACT_KEY, TEST_FUNDING_AMOUNT},
+    utils::{parse_addr_from_deployments_file, LocalWalletProvider},
+};
 use serde::Serialize;
 
-use crate::abis::{DarkpoolTestContract, DummyErc20Contract};
+use crate::{
+    abis::{DarkpoolTestContract, DummyErc20Contract},
+    constants::PERMIT2_EIP712_DOMAIN_NAME,
+};
 
 /// Asserts that the given method can only be called by the owner of the darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
-    contract: &DarkpoolTestContract<impl Middleware + 'static>,
-    contract_with_dummy_owner: &DarkpoolTestContract<impl Middleware + 'static>,
+    contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+    contract_with_dummy_owner: &DarkpoolTestContract<
+        LocalWalletProvider<impl Middleware + 'static>,
+    >,
     method: &str,
     args: T,
 ) -> Result<()> {
@@ -58,7 +73,7 @@ pub async fn assert_all_revert<'a>(
         impl Future<
             Output = Result<
                 PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<impl Middleware + 'static>,
+                ContractError<LocalWalletProvider<impl Middleware + 'static>>,
             >,
         >,
     >,
@@ -79,7 +94,7 @@ pub async fn assert_all_suceed<'a>(
         impl Future<
             Output = Result<
                 PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<impl Middleware + 'static>,
+                ContractError<LocalWalletProvider<impl Middleware + 'static>>,
             >,
         >,
     >,
@@ -183,13 +198,26 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
 
 /// Executes the given transfer and returns the resulting balances of the darkpool and user
 pub(crate) async fn execute_transfer_and_get_balances(
-    darkpool_test_contract: &DarkpoolTestContract<impl Middleware + 'static>,
-    dummy_erc20_contract: &DummyErc20Contract<impl Middleware + 'static>,
+    darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+    dummy_erc20_contract: &DummyErc20Contract<LocalWalletProvider<impl Middleware + 'static>>,
     transfer: &ExternalTransfer,
     account_address: Address,
+    deployments_path: &str,
 ) -> Result<(U256, U256)> {
+    let dummy_erc20_address = AlloyAddress::from_slice(dummy_erc20_contract.address().as_bytes());
+    let permit_payload = gen_permit_payload(
+        dummy_erc20_address,
+        transfer.amount,
+        deployments_path,
+        darkpool_test_contract,
+    )
+    .await?;
+
     darkpool_test_contract
-        .execute_external_transfer(serialize_to_calldata(transfer)?)
+        .execute_external_transfer(
+            serialize_to_calldata(transfer)?,
+            serialize_to_calldata(&permit_payload)?,
+        )
         .send()
         .await?
         .await?;
@@ -221,4 +249,87 @@ pub(crate) fn insert_shares_and_get_root(
         .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
 
     Ok(ark_merkle.root())
+}
+
+/// Generates a permit payload for the given token and amount
+pub(crate) async fn gen_permit_payload(
+    token: AlloyAddress,
+    amount: AlloyU256,
+    deployments_path: &str,
+    darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<PermitPayload> {
+    let client = darkpool_test_contract.client();
+
+    let permitted = TokenPermissions { token, amount };
+
+    // Generate a random nonce
+    let mut nonce_bytes = [0_u8; 32];
+    thread_rng().fill_bytes(&mut nonce_bytes);
+    let nonce = AlloyU256::from_be_slice(&nonce_bytes);
+
+    // Set an effectively infinite deadline
+    let deadline = AlloyU256::from(u64::MAX);
+
+    let spender = AlloyAddress::from_slice(darkpool_test_contract.address().as_bytes());
+
+    let signable_permit = PermitTransferFrom {
+        permitted,
+        spender,
+        nonce,
+        deadline,
+    };
+
+    // Construct the EIP712 domain
+    let permit2_address = AlloyAddress::from_slice(
+        parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?.as_bytes(),
+    );
+    let chain_id = client.get_chainid().await?.try_into().unwrap();
+    let permit_domain = eip712_domain!(
+        name: PERMIT2_EIP712_DOMAIN_NAME,
+        chain_id: chain_id,
+        verifying_contract: permit2_address,
+    );
+
+    let msg_hash =
+        H256::from_slice(permit_signing_hash(&signable_permit, &permit_domain).as_slice());
+
+    let signature = client.signer().sign_hash(msg_hash)?.to_vec();
+
+    Ok(PermitPayload {
+        nonce,
+        deadline,
+        signature,
+    })
+}
+
+/// This is a re-implementation of `eip712_signing_hash` (https://github.com/alloy-rs/core/blob/v0.3.1/crates/sol-types/src/types/struct.rs#L117)
+/// which correctly encodes the data for the nested `TokenPermissions` struct.
+///
+/// We do so by mirroring the functionality implemented in the `sol!` macro (https://github.com/alloy-rs/core/blob/v0.3.1/crates/sol-macro/src/expand/struct.rs#L56)
+/// but avoiding the (unintended) extra hash of the `TokenPermissions` struct's EIP-712 struct hash.
+///
+/// This is fixed here: https://github.com/alloy-rs/core/pull/258
+/// But the version of `alloy` used by `stylus-sdk` is not updated to include this fix.
+///
+/// TODO: Remove this function when `stylus-sdk` uses `alloy >= 0.4.0`
+fn permit_signing_hash(permit: &PermitTransferFrom, domain: &Eip712Domain) -> B256 {
+    let domain_separator = domain.hash_struct();
+
+    let mut type_hash = permit.eip712_type_hash().to_vec();
+    let encoded_data = [
+        permit.permitted.eip712_hash_struct().0,
+        SolAddress::eip712_data_word(&permit.spender).0,
+        SolUint::<256>::eip712_data_word(&permit.nonce).0,
+        SolUint::<256>::eip712_data_word(&permit.deadline).0,
+    ]
+    .concat();
+    type_hash.extend(encoded_data);
+    let struct_hash = keccak256(&type_hash);
+
+    let mut digest_input = [0u8; 2 + 32 + 32];
+    digest_input[0] = 0x19;
+    digest_input[1] = 0x01;
+    digest_input[2..34].copy_from_slice(&domain_separator[..]);
+    digest_input[34..66].copy_from_slice(&struct_hash[..]);
+    keccak256(digest_input)
 }

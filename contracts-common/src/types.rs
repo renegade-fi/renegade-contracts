@@ -215,6 +215,22 @@ pub struct ExternalTransfer {
     pub is_withdrawal: bool,
 }
 
+/// Represents the Permit2 data that a user submits alongside a deposit.
+///
+/// [Reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer)
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct PermitPayload {
+    /// The `PermitTransferFrom` nonce
+    #[serde_as(as = "U256Def")]
+    pub nonce: U256,
+    /// The `PermitTransferFrom` deadline
+    #[serde_as(as = "U256Def")]
+    pub deadline: U256,
+    /// The signature of the `PermitTransferFrom` typed data
+    pub signature: Vec<u8>,
+}
+
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.
 /// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
 /// it takes 2 Bn254 scalar field elements to represent each coordinate.

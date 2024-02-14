@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
             )
             .await?;
             test_pausable(darkpool_proxy_address, client.clone()).await?;
-            test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client.clone())
+            test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client.clone(), &deployments_file)
                 .await?;
             test_new_wallet(darkpool_proxy_address, client.clone()).await?;
             test_update_wallet(darkpool_proxy_address, client.clone()).await?;
@@ -140,7 +140,7 @@ async fn main() -> Result<()> {
         }
         Tests::Pausable => test_pausable(darkpool_proxy_address, client).await,
         Tests::ExternalTransfer => {
-            test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client).await
+            test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client, &deployments_file).await
         }
         Tests::NewWallet => test_new_wallet(darkpool_proxy_address, client).await,
         Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client).await,

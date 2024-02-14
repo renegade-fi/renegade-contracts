@@ -2,10 +2,14 @@
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
-use alloy_sol_types::SolType;
-use contracts_common::types::{
-    ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement,
-    ValidWalletCreateStatement, ValidWalletUpdateStatement,
+use contracts_common::{
+    solidity::{
+        permitTransferFromCall, CalldataPermitTransferFrom, SignatureTransferDetails,
+        TokenPermissions,
+    },
+    types::{
+        ExternalTransfer, MatchPayload, PermitPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement
+    },
 };
 use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
@@ -20,10 +24,10 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            CALLDATA_DESER_ERROR_MESSAGE, INVALID_VERSION_ERROR_MESSAGE, NOT_OWNER_ERROR_MESSAGE,
-            NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
-            STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE, VERIFICATION_FAILED_ERROR_MESSAGE,
-            ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
+            INVALID_VERSION_ERROR_MESSAGE, NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE,
+            PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, STORAGE_GAP_SIZE,
+            UNPAUSED_ERROR_MESSAGE, VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE,
+            ZERO_FEE_ERROR_MESSAGE,
         },
         helpers::{
             call_helper, delegate_call_helper, deserialize_from_calldata, pk_to_u256s,
@@ -31,7 +35,12 @@ use crate::{
             serialize_statement_for_verification, static_call_helper,
         },
         solidity::{
-            initCall, insertSharesCommitmentCall, permitTransferFromCall, processMatchSettleVkeysCall, rootCall, rootInHistoryCall, transferCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall, ExternalTransfer as ExternalTransferEvent, FeeChanged, MerkleAddressChanged, NullifierSpent, OwnershipTransferred, Paused, PermitPayload, SignatureTransferDetails, Unpaused, VerifierAddressChanged, VkeysAddressChanged, WalletUpdated
+            initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
+            rootInHistoryCall, transferCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall,
+            verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
+            ExternalTransfer as ExternalTransferEvent, FeeChanged, MerkleAddressChanged,
+            NullifierSpent, OwnershipTransferred, Paused, Unpaused, VerifierAddressChanged,
+            VkeysAddressChanged, WalletUpdated,
         },
     },
 };
@@ -351,7 +360,11 @@ impl DarkpoolContract {
         )?;
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
-            DarkpoolContract::execute_external_transfer(storage, &external_transfer, permit_payload)?;
+            DarkpoolContract::execute_external_transfer(
+                storage,
+                external_transfer,
+                permit_payload,
+            )?;
         }
 
         DarkpoolContract::log_wallet_update(&valid_wallet_update_statement.new_public_shares);
@@ -613,54 +626,68 @@ impl DarkpoolContract {
     /// Executes the given external transfer (withdrawal / deposit)
     pub fn execute_external_transfer<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        transfer: &ExternalTransfer,
+        transfer: ExternalTransfer,
         permit_payload: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let darkpool_address = contract::address();
+        let ExternalTransfer {
+            mint,
+            account_addr,
+            amount,
+            is_withdrawal,
+        } = transfer;
 
-        if transfer.is_withdrawal {
+        if is_withdrawal {
             // In the case of a withdrawal, we make a simple `transfer` call
             // from the darkpool to the user.
             call_helper::<transferCall>(
                 storage,
-                transfer.mint /* address */,
-                (
-                    transfer.account_addr /* from */,
-                    transfer.amount,
-                ),
+                mint, /* address */
+                (account_addr /* to */, amount),
             )?;
         } else {
             // In the case of a deposit, we make a `permitTransferFrom` call through
             // the `Permit2` contract using the calldata-serialized `PermitPayload`
 
+            let darkpool_address = contract::address();
             let permit2_address = storage.borrow_mut().permit2_address.get();
 
-            let PermitPayload { permit, signature } =
-                PermitPayload::decode(&permit_payload, true /* validate */)
-                    .map_err(|_| CALLDATA_DESER_ERROR_MESSAGE)?;
+            let PermitPayload {
+                nonce,
+                deadline,
+                signature
+            } = deserialize_from_calldata(&permit_payload)?;
+
+            let permit = CalldataPermitTransferFrom {
+                permitted: TokenPermissions {
+                    amount,
+                    token: mint,
+                },
+                nonce,
+                deadline,
+            };
 
             let signature_transfer_details = SignatureTransferDetails {
                 to: darkpool_address,
-                requestedAmount: transfer.amount,
+                requestedAmount: amount,
             };
 
             call_helper::<permitTransferFromCall>(
                 storage,
-                permit2_address /* address */,
+                permit2_address, /* address */
                 (
                     permit,
                     signature_transfer_details,
-                    transfer.account_addr, /* owner */
+                    account_addr, /* owner */
                     signature,
                 ),
             )?;
         };
 
         evm::log(ExternalTransferEvent {
-            account: transfer.account_addr,
-            mint: transfer.mint,
-            is_withdrawal: transfer.is_withdrawal,
-            amount: transfer.amount,
+            account: account_addr,
+            mint,
+            is_withdrawal,
+            amount,
         });
 
         Ok(())

@@ -28,6 +28,14 @@ use super::constants::{
 };
 
 /// Deserializes a byte-serialized type from calldata
+#[cfg_attr(
+    not(any(
+        feature = "darkpool",
+        feature = "darkpool-test-contract",
+        feature = "verifier"
+    )),
+    allow(dead_code)
+)]
 pub fn deserialize_from_calldata<'a, D: Deserialize<'a>>(
     calldata: &'a Bytes,
 ) -> Result<D, Vec<u8>> {

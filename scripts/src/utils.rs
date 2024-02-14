@@ -40,12 +40,15 @@ use crate::{
     solidity::initializeCall,
 };
 
+/// An Ethers provider that uses a `LocalWallet` to generate signatures
+pub type LocalWalletProvider<M> = SignerMiddleware<M, LocalWallet>;
+
 /// Sets up the address and client with which to instantiate a contract for testing,
 /// reading in the private key, RPC url, and contract address from the environment.
 pub async fn setup_client(
     priv_key: &str,
     rpc_url: &str,
-) -> Result<Arc<impl Middleware>, ScriptError> {
+) -> Result<Arc<LocalWalletProvider<impl Middleware>>, ScriptError> {
     let provider = Provider::<Http>::try_from(rpc_url)
         .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?;
 
@@ -188,7 +191,15 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
                 OPT_LEVEL_FLAG, OPT_LEVEL_S, INLINE_THRESHOLD_FLAG
             )
         }
-        StylusContract::DarkpoolTestContract | StylusContract::Darkpool => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_Z),
+        StylusContract::Darkpool => {
+            format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_Z)
+        }
+        StylusContract::DarkpoolTestContract => {
+            format!(
+                "{}{} {}",
+                OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG
+            )
+        }
         _ => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_3),
     };
 
@@ -199,9 +210,9 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
 /// given contract
 pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str {
     match contract {
-        StylusContract::Verifier | StylusContract::DarkpoolTestContract => {
-            AGGRESSIVE_SIZE_OPTIMIZATION_FLAG
-        }
+        StylusContract::Verifier
+        | StylusContract::DarkpoolTestContract
+        | StylusContract::Darkpool => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
         _ => AGGRESSIVE_OPTIMIZATION_FLAG,
     }
 }
@@ -297,7 +308,7 @@ pub async fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<impl Middleware>,
+    client: Arc<LocalWalletProvider<impl Middleware>>,
     contract: StylusContract,
     deployments_path: &str,
     contract_key_override: Option<&str>,
