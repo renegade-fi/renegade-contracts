@@ -43,7 +43,7 @@ pub const MANIFEST_DIR_ENV_VAR: &str = "CARGO_MANIFEST_DIR";
 pub const RUSTFLAGS_ENV_VAR: &str = "RUSTFLAGS";
 
 /// The default flags to add to RUSTFLAGS for all contract compilations
-pub const DEFAULT_RUSTFLAGS: &str = "-Clink-arg=-zstack-size=65536 -Zlocation-detail=none";
+pub const DEFAULT_RUSTFLAGS: &str = "-Clink-arg=-zstack-size=131072 -Zlocation-detail=none";
 
 /// The inline threshold flag for the Rust compiler
 pub const INLINE_THRESHOLD_FLAG: &str = "-Cinline-threshold=0";

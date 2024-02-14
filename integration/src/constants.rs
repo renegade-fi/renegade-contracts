@@ -27,3 +27,6 @@ pub(crate) const SET_VKEYS_ADDRESS_METHOD_NAME: &str = "setVkeysAddress";
 
 /// The name of the `set_merkle_address` method on the Darkpool contract
 pub(crate) const SET_MERKLE_ADDRESS_METHOD_NAME: &str = "setMerkleAddress";
+
+/// The name of the domain separator for Permit2 typed data
+pub(crate) const PERMIT2_EIP712_DOMAIN_NAME: &str = "Permit2";

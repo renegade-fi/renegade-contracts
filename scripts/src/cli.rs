@@ -14,6 +14,7 @@ use crate::{
         deploy_test_contracts, gen_vkeys, upgrade,
     },
     errors::ScriptError,
+    utils::LocalWalletProvider,
 };
 
 /// Scripts for deploying & upgrading the Renegade Stylus contracts
@@ -60,7 +61,7 @@ impl Command {
     /// Run the command
     pub async fn run(
         self,
-        client: Arc<impl Middleware>,
+        client: Arc<LocalWalletProvider<impl Middleware>>,
         rpc_url: &str,
         priv_key: &str,
         deployments_path: &str,

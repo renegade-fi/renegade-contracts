@@ -33,7 +33,7 @@ use ethers::{
 };
 use eyre::{eyre, Result};
 use rand::{thread_rng, Rng, RngCore};
-use scripts::constants::TEST_FUNDING_AMOUNT;
+use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletProvider};
 use std::sync::Arc;
 use tracing::log::info;
 
@@ -58,7 +58,7 @@ use crate::{
 /// Test how the contracts call the `ecAdd` precompile
 pub(crate) async fn test_ec_add(
     precompiles_contract_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_ec_add`");
     let contract = PrecompileTestContract::new(precompiles_contract_address, client);
@@ -85,7 +85,7 @@ pub(crate) async fn test_ec_add(
 /// Test how the contracts call the `ecMul` precompile
 pub(crate) async fn test_ec_mul(
     precompiles_contract_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_ec_mul`");
     let contract = PrecompileTestContract::new(precompiles_contract_address, client);
@@ -115,7 +115,7 @@ pub(crate) async fn test_ec_mul(
 /// Test how the contracts call the `ecPairing` precompile
 pub(crate) async fn test_ec_pairing(
     precompiles_contract_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_ec_pairing`");
     let contract = PrecompileTestContract::new(precompiles_contract_address, client);
@@ -141,7 +141,7 @@ pub(crate) async fn test_ec_pairing(
 /// Test how the contracts call the `ecRecover` precompile
 pub(crate) async fn test_ec_recover(
     precompiles_contract_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_ec_recover`");
     let contract = PrecompileTestContract::new(precompiles_contract_address, client);
@@ -173,7 +173,7 @@ pub(crate) async fn test_ec_recover(
 /// Test the Merkle tree functionality
 pub(crate) async fn test_merkle(
     merkle_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_merkle`");
     let contract = MerkleContract::new(merkle_address, client);
@@ -223,7 +223,7 @@ pub(crate) async fn test_merkle(
 /// Test the verifier functionality
 pub(crate) async fn test_verifier(
     verifier_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_verifier`");
     let contract = VerifierContract::new(verifier_address, client);
@@ -306,7 +306,7 @@ pub(crate) async fn test_upgradeable(
     proxy_address: Address,
     dummy_upgrade_target_address: Address,
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_upgradeable`");
     let proxy_admin_contract = DarkpoolProxyAdminContract::new(proxy_admin_address, client.clone());
@@ -392,7 +392,7 @@ pub(crate) async fn test_implementation_address_setters(
     vkeys_address: Address,
     merkle_address: Address,
     dummy_upgrade_target_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_implementation_address_setters`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -455,7 +455,7 @@ pub(crate) async fn test_implementation_address_setters(
 /// Test the initialization of the darkpool
 pub(crate) async fn test_initializable(
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_initializable`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -491,7 +491,7 @@ pub(crate) async fn test_ownable(
     verifier_address: Address,
     vkeys_address: Address,
     merkle_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_ownable`");
     let contract = DarkpoolTestContract::new(darkpool_address, client.clone());
@@ -597,7 +597,7 @@ pub(crate) async fn test_ownable(
 /// Test the pausability of the darkpool
 pub(crate) async fn test_pausable(
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_pausable`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -631,6 +631,7 @@ pub(crate) async fn test_pausable(
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
                 public_inputs_signature.clone(),
+                Bytes::new(), /* permit_payload */
             )
             .send(),
         contract
@@ -662,6 +663,7 @@ pub(crate) async fn test_pausable(
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
                 public_inputs_signature,
+                Bytes::new(), /* permit_payload */
             )
             .send(),
         contract
@@ -686,7 +688,7 @@ pub(crate) async fn test_pausable(
 /// Test the nullifier set functionality
 pub(crate) async fn test_nullifier_set(
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_nullifier_set`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -715,7 +717,8 @@ pub(crate) async fn test_nullifier_set(
 pub(crate) async fn test_external_transfer(
     darkpool_address: Address,
     dummy_erc20_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
+    deployments_path: &str,
 ) -> Result<()> {
     info!("Running `test_external_transfer`");
     let darkpool_test_contract = DarkpoolTestContract::new(darkpool_address, client.clone());
@@ -740,6 +743,7 @@ pub(crate) async fn test_external_transfer(
         &dummy_erc20_contract,
         &deposit,
         account_address,
+        deployments_path,
     )
     .await?;
     assert_eq!(
@@ -760,6 +764,7 @@ pub(crate) async fn test_external_transfer(
         &dummy_erc20_contract,
         &withdrawal,
         account_address,
+        deployments_path,
     )
     .await?;
     assert_eq!(
@@ -778,7 +783,7 @@ pub(crate) async fn test_external_transfer(
 /// Test the `new_wallet` method on the darkpool
 pub(crate) async fn test_new_wallet(
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_new_wallet`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -820,7 +825,7 @@ pub(crate) async fn test_new_wallet(
 /// Test the `update_wallet` method on the darkpool
 pub(crate) async fn test_update_wallet(
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_update_wallet`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
@@ -839,6 +844,7 @@ pub(crate) async fn test_update_wallet(
             serialize_to_calldata(&proof)?,
             serialize_to_calldata(&statement)?,
             public_inputs_signature,
+            Bytes::new(), /* permit_payload */
         )
         .send()
         .await?
@@ -873,7 +879,7 @@ pub(crate) async fn test_update_wallet(
 /// Test the `process_match_settle` method on the darkpool
 pub(crate) async fn test_process_match_settle(
     darkpool_address: Address,
-    client: Arc<impl Middleware + 'static>,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
     info!("Running `test_process_match_settle`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);

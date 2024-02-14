@@ -19,6 +19,7 @@ clap = { workspace = true }
 postcard = { workspace = true }
 serde = { workspace = true }
 alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
 ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
 circuits = { workspace = true }
