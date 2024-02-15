@@ -31,7 +31,10 @@ use crate::{
             VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
         },
         helpers::{
-            assert_valid_signature, call_helper, delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize, scalar_to_u256, serialize_match_statements_for_verification, serialize_statement_for_verification, static_call_helper
+            assert_valid_signature, call_helper, delegate_call_helper, deserialize_from_calldata,
+            pk_to_u256s, postcard_serialize, scalar_to_u256,
+            serialize_match_statements_for_verification, serialize_statement_for_verification,
+            static_call_helper,
         },
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
@@ -630,7 +633,8 @@ impl DarkpoolContract {
         transfer: ExternalTransfer,
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let transfer_aux_data: TransferAuxData = deserialize_from_calldata(&transfer_aux_data_bytes)?;
+        let transfer_aux_data: TransferAuxData =
+            deserialize_from_calldata(&transfer_aux_data_bytes)?;
         assert_valid_signature(
             old_pk_root,
             &postcard_serialize(&transfer)?,

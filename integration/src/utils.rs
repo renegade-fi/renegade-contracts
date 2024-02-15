@@ -15,14 +15,16 @@ use contracts_common::{
     solidity::{PermitTransferFrom, TokenPermissions},
     types::{
         ExternalTransfer, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
-        MatchVkeys, PermitPayload, Proof, PublicInputs, ScalarField, VerificationKey,
+        MatchVkeys, Proof, PublicInputs, PublicSigningKey, ScalarField, TransferAuxData,
+        VerificationKey,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
-use contracts_utils::merkle::MerkleConfig;
+use contracts_utils::{crypto::hash_and_sign_message, merkle::MerkleConfig};
 use ethers::{
     abi::{Address, Detokenize, Tokenize},
     contract::ContractError,
+    core::k256::ecdsa::SigningKey,
     providers::{JsonRpcClient, Middleware, PendingTransaction},
     types::{Bytes, H256, U256},
 };
@@ -200,14 +202,15 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
 pub(crate) async fn execute_transfer_and_get_balances(
     darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
     dummy_erc20_contract: &DummyErc20Contract<LocalWalletProvider<impl Middleware + 'static>>,
+    signing_key: &SigningKey,
+    pk_root: &PublicSigningKey,
     transfer: &ExternalTransfer,
     account_address: Address,
     deployments_path: &str,
 ) -> Result<(U256, U256)> {
-    let dummy_erc20_address = AlloyAddress::from_slice(dummy_erc20_contract.address().as_bytes());
-    let permit_payload = gen_permit_payload(
-        dummy_erc20_address,
-        transfer.amount,
+    let transfer_aux_data = gen_transfer_aux_data(
+        signing_key,
+        transfer,
         deployments_path,
         darkpool_test_contract,
     )
@@ -215,8 +218,9 @@ pub(crate) async fn execute_transfer_and_get_balances(
 
     darkpool_test_contract
         .execute_external_transfer(
+            serialize_to_calldata(pk_root)?,
             serialize_to_calldata(transfer)?,
-            serialize_to_calldata(&permit_payload)?,
+            serialize_to_calldata(&transfer_aux_data)?,
         )
         .send()
         .await?
@@ -251,13 +255,40 @@ pub(crate) fn insert_shares_and_get_root(
     Ok(ark_merkle.root())
 }
 
+/// Generates the auxiliary data fpr the given external transfer,
+/// including the Permit2 data & a signature over the transfer
+pub(crate) async fn gen_transfer_aux_data(
+    signing_key: &SigningKey,
+    transfer: &ExternalTransfer,
+    deployments_path: &str,
+    darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<TransferAuxData> {
+    let (permit_nonce, permit_deadline, permit_signature) = gen_permit_payload(
+        transfer.mint,
+        transfer.amount,
+        deployments_path,
+        darkpool_test_contract,
+    )
+    .await?;
+
+    let transfer_bytes = serialize_to_calldata(transfer)?;
+    let transfer_signature = hash_and_sign_message(signing_key, &transfer_bytes).to_vec();
+
+    Ok(TransferAuxData {
+        permit_nonce: Some(permit_nonce),
+        permit_deadline: Some(permit_deadline),
+        permit_signature: Some(permit_signature),
+        transfer_signature,
+    })
+}
+
 /// Generates a permit payload for the given token and amount
 pub(crate) async fn gen_permit_payload(
     token: AlloyAddress,
     amount: AlloyU256,
     deployments_path: &str,
     darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
-) -> Result<PermitPayload> {
+) -> Result<(AlloyU256, AlloyU256, Vec<u8>)> {
     let client = darkpool_test_contract.client();
 
     let permitted = TokenPermissions { token, amount };
@@ -295,11 +326,7 @@ pub(crate) async fn gen_permit_payload(
 
     let signature = client.signer().sign_hash(msg_hash)?.to_vec();
 
-    Ok(PermitPayload {
-        nonce,
-        deadline,
-        signature,
-    })
+    Ok((nonce, deadline, signature))
 }
 
 /// This is a re-implementation of `eip712_signing_hash` (https://github.com/alloy-rs/core/blob/v0.3.1/crates/sol-types/src/types/struct.rs#L117)
