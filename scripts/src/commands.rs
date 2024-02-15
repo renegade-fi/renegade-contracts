@@ -37,8 +37,8 @@ use crate::{
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
         PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI,
         PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, TEST_FUNDING_AMOUNT,
-        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY,
-        VKEYS_CONTRACT_KEY,
+        TRANSFER_EXECUTOR_CONTRACT_KEY, VALID_WALLET_CREATE_VKEY_FILE,
+        VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
@@ -143,6 +143,17 @@ pub async fn deploy_test_contracts(
     info!("Deploying Permit2 contract");
     deploy_permit2(client.clone(), deployments_path).await?;
 
+    info!("Deploying transfer executor contract");
+    deploy_stylus_args.contract = StylusContract::TransferExecutor;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
     info!("Deploying proxy contract");
     let deploy_proxy_args = DeployProxyArgs {
         owner: args.owner,
@@ -200,6 +211,9 @@ pub async fn deploy_proxy(
 
     let vkeys_address = parse_addr_from_deployments_file(deployments_path, VKEYS_CONTRACT_KEY)?;
 
+    let transfer_executor_address =
+        parse_addr_from_deployments_file(deployments_path, TRANSFER_EXECUTOR_CONTRACT_KEY)?;
+
     let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
     let owner_address = Address::from_str(&args.owner)
@@ -211,6 +225,7 @@ pub async fn deploy_proxy(
         verifier_address,
         vkeys_address,
         merkle_address,
+        transfer_executor_address,
         permit2_address,
         protocol_fee,
     )?);

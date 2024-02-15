@@ -30,14 +30,11 @@ use ethers::{
 };
 use eyre::{eyre, Result};
 use rand::{thread_rng, RngCore};
-use scripts::{
-    constants::{PERMIT2_CONTRACT_KEY, TEST_FUNDING_AMOUNT},
-    utils::{parse_addr_from_deployments_file, LocalWalletProvider},
-};
+use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletProvider};
 use serde::Serialize;
 
 use crate::{
-    abis::{DarkpoolTestContract, DummyErc20Contract},
+    abis::{DarkpoolTestContract, DummyErc20Contract, TransferExecutorContract},
     constants::PERMIT2_EIP712_DOMAIN_NAME,
 };
 
@@ -200,23 +197,25 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
 
 /// Executes the given transfer and returns the resulting balances of the darkpool and user
 pub(crate) async fn execute_transfer_and_get_balances(
-    darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+    transfer_executor_contract: &TransferExecutorContract<
+        LocalWalletProvider<impl Middleware + 'static>,
+    >,
     dummy_erc20_contract: &DummyErc20Contract<LocalWalletProvider<impl Middleware + 'static>>,
+    permit2_address: Address,
     signing_key: &SigningKey,
     pk_root: &PublicSigningKey,
     transfer: &ExternalTransfer,
     account_address: Address,
-    deployments_path: &str,
 ) -> Result<(U256, U256)> {
     let transfer_aux_data = gen_transfer_aux_data(
         signing_key,
         transfer,
-        deployments_path,
-        darkpool_test_contract,
+        permit2_address,
+        transfer_executor_contract,
     )
     .await?;
 
-    darkpool_test_contract
+    transfer_executor_contract
         .execute_external_transfer(
             serialize_to_calldata(pk_root)?,
             serialize_to_calldata(transfer)?,
@@ -225,10 +224,12 @@ pub(crate) async fn execute_transfer_and_get_balances(
         .send()
         .await?
         .await?;
+
     let darkpool_balance = dummy_erc20_contract
-        .balance_of(darkpool_test_contract.address())
+        .balance_of(transfer_executor_contract.address())
         .call()
         .await?;
+
     let user_balance = dummy_erc20_contract
         .balance_of(account_address)
         .call()
@@ -260,14 +261,16 @@ pub(crate) fn insert_shares_and_get_root(
 pub(crate) async fn gen_transfer_aux_data(
     signing_key: &SigningKey,
     transfer: &ExternalTransfer,
-    deployments_path: &str,
-    darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+    permit2_address: Address,
+    transfer_executor_contract: &TransferExecutorContract<
+        LocalWalletProvider<impl Middleware + 'static>,
+    >,
 ) -> Result<TransferAuxData> {
     let (permit_nonce, permit_deadline, permit_signature) = gen_permit_payload(
         transfer.mint,
         transfer.amount,
-        deployments_path,
-        darkpool_test_contract,
+        permit2_address,
+        transfer_executor_contract,
     )
     .await?;
 
@@ -286,10 +289,12 @@ pub(crate) async fn gen_transfer_aux_data(
 pub(crate) async fn gen_permit_payload(
     token: AlloyAddress,
     amount: AlloyU256,
-    deployments_path: &str,
-    darkpool_test_contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
+    permit2_address: Address,
+    transfer_executor_contract: &TransferExecutorContract<
+        LocalWalletProvider<impl Middleware + 'static>,
+    >,
 ) -> Result<(AlloyU256, AlloyU256, Vec<u8>)> {
-    let client = darkpool_test_contract.client();
+    let client = transfer_executor_contract.client();
 
     let permitted = TokenPermissions { token, amount };
 
@@ -301,7 +306,7 @@ pub(crate) async fn gen_permit_payload(
     // Set an effectively infinite deadline
     let deadline = AlloyU256::from(u64::MAX);
 
-    let spender = AlloyAddress::from_slice(darkpool_test_contract.address().as_bytes());
+    let spender = AlloyAddress::from_slice(transfer_executor_contract.address().as_bytes());
 
     let signable_permit = PermitTransferFrom {
         permitted,
@@ -311,9 +316,7 @@ pub(crate) async fn gen_permit_payload(
     };
 
     // Construct the EIP712 domain
-    let permit2_address = AlloyAddress::from_slice(
-        parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?.as_bytes(),
-    );
+    let permit2_address = AlloyAddress::from_slice(permit2_address.as_bytes());
     let chain_id = client.get_chainid().await?.try_into().unwrap();
     let permit_domain = eip712_domain!(
         name: PERMIT2_EIP712_DOMAIN_NAME,

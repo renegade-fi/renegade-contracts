@@ -135,6 +135,9 @@ pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
 /// The vkeys contract key in the `deployments.json` file
 pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";
 
+/// The transfer executor contract key in the `deployments.json` file
+pub const TRANSFER_EXECUTOR_CONTRACT_KEY: &str = "transfer_executor_contract";
+
 /// The ticker of the ERC20 contract deployed using `deploy_test_contracts`,
 /// which is also its contract key in the `deployments.json` file
 pub const DUMMY_ERC20_TICKER: &str = "DUMMY";
