@@ -57,6 +57,10 @@ pub(crate) enum Tests {
     Pausable,
     /// Test deposit / withdrawal functionality of the darkpool
     ExternalTransfer,
+    /// Test that a malformed deposit is rejected
+    ExternalTransferMaliciousDeposit,
+    /// Test that a malformed withdrawal is rejected
+    ExternalTransferMaliciousWithdrawal,
     /// Test the `new_wallet` method on the darkpool
     NewWallet,
     /// Test the `update_wallet` method on the darkpool

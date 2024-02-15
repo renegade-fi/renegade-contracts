@@ -17,9 +17,9 @@ use scripts::{
 };
 use tests::{
     test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
-    test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet,
-    test_nullifier_set, test_ownable, test_pausable, test_process_match_settle, test_update_wallet,
-    test_upgradeable, test_verifier,
+    test_external_transfer__malicious_deposit, test_implementation_address_setters,
+    test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable,
+    test_pausable, test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier,
 };
 
 mod abis;
@@ -158,6 +158,16 @@ async fn main() -> Result<()> {
             )
             .await
         }
+        Tests::ExternalTransferMaliciousDeposit => {
+            test_external_transfer__malicious_deposit(
+                transfer_executor_address,
+                permit2_address,
+                dummy_erc20_address,
+                client,
+            )
+            .await
+        }
+        Tests::ExternalTransferMaliciousWithdrawal => todo!(),
         Tests::NewWallet => test_new_wallet(darkpool_proxy_address, client).await,
         Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client).await,
         Tests::ProcessMatchSettle => {
