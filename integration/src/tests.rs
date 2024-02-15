@@ -1,5 +1,6 @@
 //! Integration tests for the contracts
 
+use alloy_primitives::Address as AlloyAddress;
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -50,9 +51,9 @@ use crate::{
     },
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
-        dummy_erc20_withdrawal, execute_transfer_and_get_balances, insert_shares_and_get_root,
-        scalar_to_u256, serialize_match_verification_bundle, serialize_to_calldata,
-        serialize_verification_bundle, u256_to_scalar,
+        dummy_erc20_withdrawal, execute_transfer_and_get_balances, gen_transfer_aux_data,
+        insert_shares_and_get_root, scalar_to_u256, serialize_match_verification_bundle,
+        serialize_to_calldata, serialize_verification_bundle, u256_to_scalar,
     },
 };
 
@@ -757,7 +758,7 @@ pub(crate) async fn test_external_transfer(
         &dummy_erc20_contract,
         permit2_address,
         &signing_key,
-        &pk_root,
+        pk_root,
         &deposit,
         account_address,
     )
@@ -780,7 +781,7 @@ pub(crate) async fn test_external_transfer(
         &dummy_erc20_contract,
         permit2_address,
         &signing_key,
-        &pk_root,
+        pk_root,
         &withdrawal,
         account_address,
     )
@@ -823,6 +824,7 @@ pub(crate) async fn test_external_transfer__malicious_deposit(
     let mint = dummy_erc20_address;
 
     // Generate dummy address & fund with some ERC20 tokens
+    // (lack of funding should not be the reason the test fails)
     let dummy_address = Address::random();
     dummy_erc20_contract
         .mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT))
@@ -840,7 +842,7 @@ pub(crate) async fn test_external_transfer__malicious_deposit(
             &dummy_erc20_contract,
             permit2_address,
             &signing_key,
-            &pk_root,
+            pk_root,
             &deposit,
             account_address,
         )
@@ -850,6 +852,79 @@ pub(crate) async fn test_external_transfer__malicious_deposit(
     );
 
     info!("`test_external_transfer__malicious_deposit` passed");
+    Ok(())
+}
+
+/// Test that a malformed withdrawal is rejected
+#[allow(non_snake_case)]
+pub(crate) async fn test_external_transfer__malicious_withdrawal(
+    transfer_executor_address: Address,
+    permit2_address: Address,
+    dummy_erc20_address: Address,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<()> {
+    info!("Running `test_external_transfer__malicious_withdrawal`");
+    let transfer_executor_contract =
+        TransferExecutorContract::new(transfer_executor_address, client.clone());
+
+    // Initialize the transfer executor with the address of the Permit2 contract being used
+    transfer_executor_contract
+        .init(permit2_address)
+        .send()
+        .await?
+        .await?;
+
+    let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client.clone());
+
+    let account_address = client.default_sender().unwrap();
+    let mint = dummy_erc20_address;
+
+    // Fund contract with some ERC20 tokens
+    // (lack of funding should not be the reason the test fails)
+    dummy_erc20_contract
+        .mint(transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
+        .send()
+        .await?
+        .await?;
+
+    let (signing_key, pk_root) = random_keypair(&mut thread_rng());
+
+    // Create withdrawal external transfer & aux data
+    let mut withdrawal = dummy_erc20_withdrawal(account_address, mint);
+    let transfer_aux_data = gen_transfer_aux_data(
+        &signing_key,
+        &withdrawal,
+        permit2_address,
+        &transfer_executor_contract,
+    )
+    .await?;
+
+    // Tamper with withdrawal by attempting to specify a dummy recipient
+    let dummy_address = Address::random();
+    withdrawal.account_addr = AlloyAddress::from_slice(dummy_address.as_bytes());
+
+    // Attempt to execute withdrawal
+    assert!(
+        transfer_executor_contract
+            .execute_external_transfer(
+                serialize_to_calldata(&Some(pk_root))?,
+                serialize_to_calldata(&withdrawal)?,
+                serialize_to_calldata(&transfer_aux_data)?,
+            )
+            .send()
+            .await
+            .is_err(),
+        "Malicious withdrawal succeeded"
+    );
+
+    // Burn contract tokens so future tests are unaffected
+    dummy_erc20_contract
+        .burn(transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
+        .send()
+        .await?
+        .await?;
+
+    info!("`test_external_transfer__malicious_withdrawal` passed");
     Ok(())
 }
 

@@ -16,10 +16,7 @@ use scripts::{
     utils::{parse_addr_from_deployments_file, setup_client},
 };
 use tests::{
-    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
-    test_external_transfer__malicious_deposit, test_implementation_address_setters,
-    test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable,
-    test_pausable, test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier,
+    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer, test_external_transfer__malicious_deposit, test_external_transfer__malicious_withdrawal, test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable, test_pausable, test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier
 };
 
 mod abis;
@@ -105,6 +102,18 @@ async fn main() -> Result<()> {
                 client.clone(),
             )
             .await?;
+            test_external_transfer__malicious_deposit(
+                transfer_executor_address,
+                permit2_address,
+                dummy_erc20_address,
+                client.clone(),
+            ).await?;
+            test_external_transfer__malicious_withdrawal(
+                transfer_executor_address,
+                permit2_address,
+                dummy_erc20_address,
+                client.clone(),
+            ).await?;
             test_new_wallet(darkpool_proxy_address, client.clone()).await?;
             test_update_wallet(darkpool_proxy_address, client.clone()).await?;
             test_process_match_settle(darkpool_proxy_address, client).await
@@ -167,7 +176,15 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        Tests::ExternalTransferMaliciousWithdrawal => todo!(),
+        Tests::ExternalTransferMaliciousWithdrawal => {
+            test_external_transfer__malicious_withdrawal(
+                transfer_executor_address,
+                permit2_address,
+                dummy_erc20_address,
+                client,
+            )
+            .await
+        }
         Tests::NewWallet => test_new_wallet(darkpool_proxy_address, client).await,
         Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client).await,
         Tests::ProcessMatchSettle => {

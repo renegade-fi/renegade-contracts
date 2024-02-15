@@ -237,7 +237,7 @@ pub struct TransferAuxData {
 /// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
 /// it takes 2 Bn254 scalar field elements to represent each coordinate.
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct PublicSigningKey {
     /// The affine x-coordinate of the public key
     #[serde_as(as = "[ScalarFieldDef; 2]")]
