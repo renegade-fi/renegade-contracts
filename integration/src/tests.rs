@@ -79,7 +79,7 @@ pub(crate) async fn test_ec_add(
 
     assert_eq!(c.0, a + b, "Incorrect EC addition result");
 
-    info!("`test_ec_add` succeeded");
+    info!("`test_ec_add` passed");
     Ok(())
 }
 
@@ -109,7 +109,7 @@ pub(crate) async fn test_ec_mul(
 
     assert_eq!(c.0, expected, "Incorrect EC scalar multiplication result");
 
-    info!("`test_ec_mul` succeeded");
+    info!("`test_ec_mul` passed");
     Ok(())
 }
 
@@ -135,7 +135,7 @@ pub(crate) async fn test_ec_pairing(
 
     assert!(res, "Incorrect EC pairing result");
 
-    info!("`test_ec_pairing` succeeded");
+    info!("`test_ec_pairing` passed");
     Ok(())
 }
 
@@ -167,7 +167,7 @@ pub(crate) async fn test_ec_recover(
         "Incorrect recovered address"
     );
 
-    info!("`test_ec_recover` succeeded");
+    info!("`test_ec_recover` passed");
     Ok(())
 }
 
@@ -217,7 +217,7 @@ pub(crate) async fn test_merkle(
         "Inserted more leaves than allowed"
     );
 
-    info!("`test_merkle` succeeded");
+    info!("`test_merkle` passed");
     Ok(())
 }
 
@@ -297,7 +297,7 @@ pub(crate) async fn test_verifier(
         .await?;
     assert!(!unsuccessful_res, "Invalid match bundle verified");
 
-    info!("`test_verifier` succeeded");
+    info!("`test_verifier` passed");
     Ok(())
 }
 
@@ -381,7 +381,7 @@ pub(crate) async fn test_upgradeable(
     // was successful
     assert!(darkpool.is_nullifier_spent(nullifier).call().await?);
 
-    info!("`test_upgradeable` succeeded");
+    info!("`test_upgradeable` passed");
     Ok(())
 }
 
@@ -449,7 +449,7 @@ pub(crate) async fn test_implementation_address_setters(
         );
     }
 
-    info!("`test_implementation_address_setters` succeeded");
+    info!("`test_implementation_address_setters` passed");
     Ok(())
 }
 
@@ -484,7 +484,7 @@ pub(crate) async fn test_initializable(
         "Initialized contract twice"
     );
 
-    info!("`test_initializable` succeeded");
+    info!("`test_initializable` passed");
     Ok(())
 }
 
@@ -593,7 +593,7 @@ pub(crate) async fn test_ownable(
     )
     .await?;
 
-    info!("`test_ownable` succeeded");
+    info!("`test_ownable` passed");
     Ok(())
 }
 
@@ -684,7 +684,7 @@ pub(crate) async fn test_pausable(
     // Clear merkle state for future tests
     contract.clear_merkle().send().await?.await?;
 
-    info!("`test_pausable` succeeded");
+    info!("`test_pausable` passed");
     Ok(())
 }
 
@@ -712,7 +712,7 @@ pub(crate) async fn test_nullifier_set(
 
     assert!(nullifier_spent, "Nullifier not spent");
 
-    info!("`test_nullifier_set` succeeded");
+    info!("`test_nullifier_set` passed");
     Ok(())
 }
 
@@ -794,7 +794,62 @@ pub(crate) async fn test_external_transfer(
         "Post-withdrawal user balance incorrect"
     );
 
-    info!("`test_external_transfer` succeeded");
+    info!("`test_external_transfer` passed");
+    Ok(())
+}
+
+/// Test that a malformed deposit is rejected
+#[allow(non_snake_case)]
+pub(crate) async fn test_external_transfer__malicious_deposit(
+    transfer_executor_address: Address,
+    permit2_address: Address,
+    dummy_erc20_address: Address,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<()> {
+    info!("Running `test_external_transfer__malicious_deposit`");
+    let transfer_executor_contract =
+        TransferExecutorContract::new(transfer_executor_address, client.clone());
+
+    // Initialize the transfer executor with the address of the Permit2 contract being used
+    transfer_executor_contract
+        .init(permit2_address)
+        .send()
+        .await?
+        .await?;
+
+    let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client.clone());
+
+    let account_address = client.default_sender().unwrap();
+    let mint = dummy_erc20_address;
+
+    // Generate dummy address & fund with some ERC20 tokens
+    let dummy_address = Address::random();
+    dummy_erc20_contract
+        .mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT))
+        .send()
+        .await?
+        .await?;
+
+    let (signing_key, pk_root) = random_keypair(&mut thread_rng());
+
+    // Create & execute deposit external transfer, attempting to deposit from the dummy address
+    let deposit = dummy_erc20_deposit(dummy_address, mint);
+    assert!(
+        execute_transfer_and_get_balances(
+            &transfer_executor_contract,
+            &dummy_erc20_contract,
+            permit2_address,
+            &signing_key,
+            &pk_root,
+            &deposit,
+            account_address,
+        )
+        .await
+        .is_err(),
+        "Malicious deposit succeeded"
+    );
+
+    info!("`test_external_transfer__malicious_deposit` passed");
     Ok(())
 }
 
@@ -836,7 +891,7 @@ pub(crate) async fn test_new_wallet(
     // Clear merkle state for future tests
     contract.clear_merkle().send().await?.await?;
 
-    info!("`test_new_wallet` succeeded");
+    info!("`test_new_wallet` passed");
     Ok(())
 }
 
@@ -890,7 +945,7 @@ pub(crate) async fn test_update_wallet(
     // Clear merkle state for future tests
     contract.clear_merkle().send().await?.await?;
 
-    info!("`test_update_wallet` succeeded");
+    info!("`test_update_wallet` passed");
     Ok(())
 }
 
@@ -972,6 +1027,6 @@ pub(crate) async fn test_process_match_settle(
     // Clear merkle state for future tests
     contract.clear_merkle().send().await?.await?;
 
-    info!("`test_process_match_settle` succeeded");
+    info!("`test_process_match_settle` passed");
     Ok(())
 }
