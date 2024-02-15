@@ -40,7 +40,8 @@ use tracing::log::info;
 use crate::{
     abis::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
-        DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract, VerifierContract,
+        DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract,
+        TransferExecutorContract, VerifierContract,
     },
     constants::{
         PAUSE_METHOD_NAME, SET_FEE_METHOD_NAME, SET_MERKLE_ADDRESS_METHOD_NAME,
@@ -463,6 +464,7 @@ pub(crate) async fn test_initializable(
     let dummy_verifier_address = Address::random();
     let dummy_vkeys_address = Address::random();
     let dummy_merkle_address = Address::random();
+    let dummy_transfer_executor_address = Address::random();
     let dummy_permit2_address = Address::random();
     let dummy_protocol_fee = U256::from(1);
 
@@ -472,6 +474,7 @@ pub(crate) async fn test_initializable(
                 dummy_verifier_address,
                 dummy_vkeys_address,
                 dummy_merkle_address,
+                dummy_transfer_executor_address,
                 dummy_permit2_address,
                 dummy_protocol_fee,
             )
@@ -715,20 +718,29 @@ pub(crate) async fn test_nullifier_set(
 
 /// Test deposit / withdrawal functionality of the darkpool
 pub(crate) async fn test_external_transfer(
-    darkpool_address: Address,
+    transfer_executor_address: Address,
+    permit2_address: Address,
     dummy_erc20_address: Address,
     client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
-    deployments_path: &str,
 ) -> Result<()> {
     info!("Running `test_external_transfer`");
-    let darkpool_test_contract = DarkpoolTestContract::new(darkpool_address, client.clone());
+    let transfer_executor_contract =
+        TransferExecutorContract::new(transfer_executor_address, client.clone());
+
+    // Initialize the transfer executor with the address of the Permit2 contract being used
+    transfer_executor_contract
+        .init(permit2_address)
+        .send()
+        .await?
+        .await?;
+
     let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client.clone());
 
     let account_address = client.default_sender().unwrap();
     let mint = dummy_erc20_address;
 
-    let darkpool_initial_balance = dummy_erc20_contract
-        .balance_of(darkpool_address)
+    let contract_initial_balance = dummy_erc20_contract
+        .balance_of(transfer_executor_address)
         .call()
         .await?;
     let user_initial_balance = dummy_erc20_contract
@@ -740,20 +752,20 @@ pub(crate) async fn test_external_transfer(
 
     // Create & execute deposit external transfer, check balances
     let deposit = dummy_erc20_deposit(account_address, mint);
-    let (darkpool_balance, user_balance) = execute_transfer_and_get_balances(
-        &darkpool_test_contract,
+    let (contract_balance, user_balance) = execute_transfer_and_get_balances(
+        &transfer_executor_contract,
         &dummy_erc20_contract,
+        permit2_address,
         &signing_key,
         &pk_root,
         &deposit,
         account_address,
-        deployments_path,
     )
     .await?;
     assert_eq!(
-        darkpool_balance,
-        darkpool_initial_balance + TEST_FUNDING_AMOUNT,
-        "Post-deposit darkpool balance incorrect"
+        contract_balance,
+        contract_initial_balance + TEST_FUNDING_AMOUNT,
+        "Post-deposit contract balance incorrect"
     );
     assert_eq!(
         user_balance,
@@ -763,19 +775,19 @@ pub(crate) async fn test_external_transfer(
 
     // Create & execute withdrawal external transfer, check balances
     let withdrawal = dummy_erc20_withdrawal(account_address, mint);
-    let (darkpool_balance, user_balance) = execute_transfer_and_get_balances(
-        &darkpool_test_contract,
+    let (contract_balance, user_balance) = execute_transfer_and_get_balances(
+        &transfer_executor_contract,
         &dummy_erc20_contract,
+        permit2_address,
         &signing_key,
         &pk_root,
         &withdrawal,
         account_address,
-        deployments_path,
     )
     .await?;
     assert_eq!(
-        darkpool_balance, darkpool_initial_balance,
-        "Post-withdrawal darkpool balance incorrect"
+        contract_balance, contract_initial_balance,
+        "Post-withdrawal contract balance incorrect"
     );
     assert_eq!(
         user_balance, user_initial_balance,

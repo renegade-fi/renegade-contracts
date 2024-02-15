@@ -33,8 +33,8 @@ use crate::{
         MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE,
         OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY,
         RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
-        TARGET_PATH_SEGMENT, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION,
-        WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        TARGET_PATH_SEGMENT, TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -138,6 +138,7 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
         StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
         StylusContract::Vkeys | StylusContract::TestVkeys => VKEYS_CONTRACT_KEY,
+        StylusContract::TransferExecutor => TRANSFER_EXECUTOR_CONTRACT_KEY,
         StylusContract::DummyErc20 => DUMMY_ERC20_TICKER,
         StylusContract::DummyUpgradeTarget => DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
         StylusContract::PrecompileTestContract => PRECOMPILE_TEST_CONTRACT_KEY,
@@ -149,18 +150,21 @@ pub fn darkpool_initialize_calldata(
     verifier_address: Address,
     vkeys_address: Address,
     merkle_address: Address,
+    transfer_executor_address: Address,
     permit2_address: Address,
     protocol_fee: U256,
 ) -> Result<Vec<u8>, ScriptError> {
     let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
     let vkeys_address = AlloyAddress::from_slice(vkeys_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
+    let transfer_executor_address = AlloyAddress::from_slice(transfer_executor_address.as_bytes());
     let permit2_address = AlloyAddress::from_slice(permit2_address.as_bytes());
 
     Ok(initializeCall::new((
         verifier_address,
         vkeys_address,
         merkle_address,
+        transfer_executor_address,
         permit2_address,
         protocol_fee,
     ))

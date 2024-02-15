@@ -160,6 +160,8 @@ pub enum StylusContract {
     Vkeys,
     /// The test verification keys contract
     TestVkeys,
+    /// The transfer executor contract
+    TransferExecutor,
     /// The dummy ERC20 contract
     DummyErc20,
     /// The dummy upgrade target contract
@@ -178,6 +180,7 @@ impl Display for StylusContract {
             StylusContract::Verifier => write!(f, "verifier"),
             StylusContract::Vkeys => write!(f, "vkeys"),
             StylusContract::TestVkeys => write!(f, "test-vkeys"),
+            StylusContract::TransferExecutor => write!(f, "transfer-executor"),
             StylusContract::DummyErc20 => write!(f, "dummy-erc20"),
             StylusContract::DummyUpgradeTarget => write!(f, "dummy-upgrade-target"),
             StylusContract::PrecompileTestContract => write!(f, "precompile-test-contract"),

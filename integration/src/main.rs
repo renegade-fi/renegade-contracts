@@ -10,7 +10,8 @@ use scripts::{
     constants::{
         DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY,
         DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
-        PRECOMPILE_TEST_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
+        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, setup_client},
 };
@@ -50,6 +51,10 @@ async fn main() -> Result<()> {
     let verifier_address =
         parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
     let vkeys_address = parse_addr_from_deployments_file(&deployments_file, VKEYS_CONTRACT_KEY)?;
+    let permit2_address =
+        parse_addr_from_deployments_file(&deployments_file, PERMIT2_CONTRACT_KEY)?;
+    let transfer_executor_address =
+        parse_addr_from_deployments_file(&deployments_file, TRANSFER_EXECUTOR_CONTRACT_KEY)?;
     let dummy_erc20_address =
         parse_addr_from_deployments_file(&deployments_file, DUMMY_ERC20_TICKER)?;
     let dummy_upgrade_target_address =
@@ -93,8 +98,13 @@ async fn main() -> Result<()> {
             )
             .await?;
             test_pausable(darkpool_proxy_address, client.clone()).await?;
-            test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client.clone(), &deployments_file)
-                .await?;
+            test_external_transfer(
+                transfer_executor_address,
+                permit2_address,
+                dummy_erc20_address,
+                client.clone(),
+            )
+            .await?;
             test_new_wallet(darkpool_proxy_address, client.clone()).await?;
             test_update_wallet(darkpool_proxy_address, client.clone()).await?;
             test_process_match_settle(darkpool_proxy_address, client).await
@@ -140,7 +150,13 @@ async fn main() -> Result<()> {
         }
         Tests::Pausable => test_pausable(darkpool_proxy_address, client).await,
         Tests::ExternalTransfer => {
-            test_external_transfer(darkpool_proxy_address, dummy_erc20_address, client, &deployments_file).await
+            test_external_transfer(
+                transfer_executor_address,
+                permit2_address,
+                dummy_erc20_address,
+                client,
+            )
+            .await
         }
         Tests::NewWallet => test_new_wallet(darkpool_proxy_address, client).await,
         Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client).await,

@@ -5,7 +5,7 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
-        function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address, address memory permit2_address, uint256 memory protocol_fee) external
+        function initialize(address memory verifier_address, address memory vkeys_address, address memory merkle_address, address memory transfer_executor_address, address memory permit2_address, uint256 memory protocol_fee) external
 
         function owner() external view returns (address)
         function transferOwnership(address memory new_owner) external
@@ -28,9 +28,16 @@ abigen!(
         function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external
 
         function markNullifierSpent(uint256 memory nullifier) external
-        function executeExternalTransfer(bytes memory pk_root, bytes memory transfer, bytes memory transfer_aux_data) external
         function isImplementationUpgraded(uint8 memory address_selector) external view returns (bool)
         function clearMerkle() external
+    ]"#
+);
+
+abigen!(
+    TransferExecutorContract,
+    r#"[
+        function init(address permit2_address) external
+        function executeExternalTransfer(bytes memory old_pk_root, bytes memory transfer, bytes memory transfer_aux_data) external
     ]"#
 );
 
