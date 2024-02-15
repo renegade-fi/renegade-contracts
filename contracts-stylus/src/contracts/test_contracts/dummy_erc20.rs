@@ -97,7 +97,7 @@ impl<T: Erc20Params> Erc20<T> {
         });
     }
 
-    pub fn _burn(&mut self, address: Address, value: U256) -> Result<(), Erc20Error> {
+    pub fn burn(&mut self, address: Address, value: U256) -> Result<(), Erc20Error> {
         let mut balance = self.balances.setter(address);
         let old_balance = balance.get();
         if old_balance < value {
@@ -203,6 +203,11 @@ sol_storage! {
 impl DummyErc20 {
     pub fn mint(&mut self, address: Address, amount: U256) -> Result<(), Vec<u8>> {
         self.erc20.mint(address, amount);
+        Ok(())
+    }
+
+    pub fn burn(&mut self, address: Address, amount: U256) -> Result<(), Vec<u8>> {
+        self.erc20.burn(address, amount)?;
         Ok(())
     }
 }

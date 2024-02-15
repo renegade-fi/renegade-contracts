@@ -203,7 +203,7 @@ pub(crate) async fn execute_transfer_and_get_balances(
     dummy_erc20_contract: &DummyErc20Contract<LocalWalletProvider<impl Middleware + 'static>>,
     permit2_address: Address,
     signing_key: &SigningKey,
-    pk_root: &PublicSigningKey,
+    pk_root: PublicSigningKey,
     transfer: &ExternalTransfer,
     account_address: Address,
 ) -> Result<(U256, U256)> {
@@ -217,7 +217,7 @@ pub(crate) async fn execute_transfer_and_get_balances(
 
     transfer_executor_contract
         .execute_external_transfer(
-            serialize_to_calldata(pk_root)?,
+            serialize_to_calldata(&Some(pk_root))?,
             serialize_to_calldata(transfer)?,
             serialize_to_calldata(&transfer_aux_data)?,
         )
