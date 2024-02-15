@@ -191,10 +191,7 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
                 OPT_LEVEL_FLAG, OPT_LEVEL_S, INLINE_THRESHOLD_FLAG
             )
         }
-        StylusContract::Darkpool => {
-            format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_Z)
-        }
-        StylusContract::DarkpoolTestContract => {
+        StylusContract::DarkpoolTestContract | StylusContract::Darkpool => {
             format!(
                 "{}{} {}",
                 OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG

@@ -25,12 +25,16 @@ sol! {
     function verify(bytes memory verification_bundle) external view returns (bool);
     function verifyMatch(bytes memory match_bundle) external view returns (bool);
 
-    // Testing functions
-    function isDummyUpgradeTarget() external view returns (bool);
+    // Transfer executor functions
+    function init(address memory permit2_address) external;
+    function executeExternalTransfer(bytes memory old_pk_root, bytes memory transfer, bytes memory transfer_aux_data) external;
 
     /// The native `transfer` function on the ERC20 interface.
     /// Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol#L41
     function transfer(address to, uint256 value) external returns (bool);
+
+    // Testing functions
+    function isDummyUpgradeTarget() external view returns (bool);
 
     // ----------
     // | EVENTS |
@@ -52,4 +56,5 @@ sol! {
     event VerifierAddressChanged(address indexed new_address);
     event VkeysAddressChanged(address indexed new_address);
     event MerkleAddressChanged(address indexed new_address);
+    event TransferExecutorAddressChanged(address indexed new_address);
 }

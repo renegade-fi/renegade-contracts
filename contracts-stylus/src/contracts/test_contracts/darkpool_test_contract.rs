@@ -3,17 +3,16 @@
 use core::borrow::BorrowMut;
 
 use alloc::vec::Vec;
-use contracts_common::{
-    constants::{MERKLE_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR},
-    types::{ExternalTransfer, PublicSigningKey},
+use contracts_common::constants::{
+    MERKLE_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
 };
-use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
+use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
 use crate::{
     contracts::darkpool::DarkpoolContract,
     utils::{
-        helpers::{delegate_call_helper, deserialize_from_calldata, u256_to_scalar},
-        solidity::{initCall, isDummyUpgradeTargetCall},
+        helpers::{delegate_call_helper, u256_to_scalar},
+        solidity::{init_0Call as initMerkleCall, isDummyUpgradeTargetCall},
     },
 };
 
@@ -33,24 +32,6 @@ impl DarkpoolTestContract {
     pub fn mark_nullifier_spent(&mut self, nullifier: U256) -> Result<(), Vec<u8>> {
         let nullifier = u256_to_scalar(nullifier)?;
         DarkpoolContract::mark_nullifier_spent(self, nullifier)
-    }
-
-    /// Executes the given external transfer
-    pub fn execute_external_transfer(
-        &mut self,
-        pk_root_bytes: Bytes,
-        transfer_bytes: Bytes,
-        transfer_aux_data_bytes: Bytes,
-    ) -> Result<(), Vec<u8>> {
-        let pk_root: PublicSigningKey = deserialize_from_calldata(&pk_root_bytes)?;
-        let external_transfer: ExternalTransfer = deserialize_from_calldata(&transfer_bytes)?;
-        DarkpoolContract::execute_external_transfer(
-            self,
-            &pk_root,
-            external_transfer,
-            transfer_aux_data_bytes,
-        )?;
-        Ok(())
     }
 
     /// Attempts to call [`DummyUpgradeTarget::is_dummy_upgrade_target`] on either
@@ -80,6 +61,6 @@ impl DarkpoolTestContract {
             .merkle_address
             .get();
 
-        delegate_call_helper::<initCall>(self, merkle_address, ()).map(|_| ())
+        delegate_call_helper::<initMerkleCall>(self, merkle_address, ()).map(|_| ())
     }
 }

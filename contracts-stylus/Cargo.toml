@@ -18,15 +18,17 @@ serde = { workspace = true }
 [features]
 darkpool = []
 darkpool-test-contract = []
-no-verify = []
 merkle = ["stylus-sdk/storage-cache"]
 merkle-test-contract = []
 verifier = []
 vkeys = []
 test-vkeys = []
+transfer-executor = []
 precompile-test-contract = []
 dummy-erc20 = []
 dummy-upgrade-target = []
+no-verify = []
+
 export-abi = ["stylus-sdk/export-abi"]
 
 [lib]

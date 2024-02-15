@@ -153,10 +153,7 @@ pub fn static_call_helper<C: SolCall>(
 
 /// Performs a `call` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
+#[cfg_attr(not(feature = "transfer-executor"), allow(dead_code))]
 pub fn call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
@@ -216,8 +213,7 @@ pub fn pk_to_u256s(pk: &PublicSigningKey) -> Result<[U256; NUM_SCALARS_PK], Vec<
 /// if verification is enabled
 #[cfg_attr(
     not(any(
-        feature = "darkpool",
-        feature = "darkpool-test-contract",
+        feature = "transfer-executor",
         feature = "merkle",
         feature = "merkle-test-contract",
     )),

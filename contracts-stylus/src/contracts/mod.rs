@@ -12,6 +12,9 @@ mod verifier;
 #[cfg(any(feature = "vkeys", feature = "test-vkeys"))]
 mod vkeys;
 
+#[cfg(feature = "transfer-executor")]
+mod transfer_executor;
+
 #[cfg(any(
     feature = "precompile-test-contract",
     feature = "merkle-test-contract",

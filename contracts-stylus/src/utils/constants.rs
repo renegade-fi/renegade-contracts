@@ -81,7 +81,7 @@ pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata"
 
 /// The revert message when failing to extract auxiliary
 /// data for an external transfer
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "transfer-executor")]
 pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer aux data";
 
 /// The last byte of the `ecAdd` precompile address, 0x06
@@ -100,11 +100,21 @@ pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 /// The byte length of the input to the `ecRecover` precompile
 pub const EC_RECOVER_INPUT_LEN: usize = 128;
 
-/// The number of storage slots to use in the Darkpool contract's
-/// storage gap, which ensures that there are no storage collisions
-/// with the Merkle contract to which it delegatecalls
+/// The number of storage slots to allocate for the Merkle contract,
+/// used in creating storage gaps in contracts in the same context
+/// to ensure that there are no storage collisions
+#[cfg(any(
+    feature = "darkpool",
+    feature = "darkpool-test-contract",
+    feature = "transfer-executor"
+))]
+pub const MERKLE_STORAGE_GAP_SIZE: usize = 64;
+
+/// The number of storage slots to allocate for the transfer executor
+/// contract, used in creating storage gaps in contracts in the same
+/// context to ensure that there are no storage collisions
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
-pub const STORAGE_GAP_SIZE: usize = 64;
+pub const TRANSFER_EXECUTOR_STORAGE_GAP_SIZE: usize = 64;
 
 /// The serialized VALID WALLET CREATE verification key
 #[cfg(feature = "vkeys")]
