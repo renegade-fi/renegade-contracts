@@ -278,7 +278,7 @@ pub(crate) async fn gen_transfer_aux_data(
         permit_nonce: Some(permit_nonce),
         permit_deadline: Some(permit_deadline),
         permit_signature: Some(permit_signature),
-        transfer_signature,
+        transfer_signature: Some(transfer_signature),
     })
 }
 
