@@ -58,11 +58,9 @@ pub const TREE_FULL_ERROR_MESSAGE: &[u8] = b"tree full";
 
 /// The revert message when invoking the ecRecover precompile
 /// reverts
-#[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
 pub const ECDSA_ERROR_MESSAGE: &[u8] = b"ecdsa error";
 
 /// The revert message when an ECDSA signature is invalid
-#[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
 pub const INVALID_SIGNATURE_ERROR_MESSAGE: &[u8] = b"invalid signature";
 
 /// The revert message when trying to coerce an
@@ -83,6 +81,7 @@ pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata"
 
 /// The revert message when failing to extract auxiliary
 /// data for an external transfer
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer aux data";
 
 /// The last byte of the `ecAdd` precompile address, 0x06

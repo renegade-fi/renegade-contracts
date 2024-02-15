@@ -631,7 +631,7 @@ pub(crate) async fn test_pausable(
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
                 public_inputs_signature.clone(),
-                Bytes::new(), /* permit_payload */
+                Bytes::new(), /* transfer_aux_data */
             )
             .send(),
         contract
@@ -663,7 +663,7 @@ pub(crate) async fn test_pausable(
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
                 public_inputs_signature,
-                Bytes::new(), /* permit_payload */
+                Bytes::new(), /* transfer_aux_data */
             )
             .send(),
         contract
@@ -736,11 +736,15 @@ pub(crate) async fn test_external_transfer(
         .call()
         .await?;
 
+    let (signing_key, pk_root) = random_keypair(&mut thread_rng());
+
     // Create & execute deposit external transfer, check balances
     let deposit = dummy_erc20_deposit(account_address, mint);
     let (darkpool_balance, user_balance) = execute_transfer_and_get_balances(
         &darkpool_test_contract,
         &dummy_erc20_contract,
+        &signing_key,
+        &pk_root,
         &deposit,
         account_address,
         deployments_path,
@@ -762,6 +766,8 @@ pub(crate) async fn test_external_transfer(
     let (darkpool_balance, user_balance) = execute_transfer_and_get_balances(
         &darkpool_test_contract,
         &dummy_erc20_contract,
+        &signing_key,
+        &pk_root,
         &withdrawal,
         account_address,
         deployments_path,
@@ -844,7 +850,7 @@ pub(crate) async fn test_update_wallet(
             serialize_to_calldata(&proof)?,
             serialize_to_calldata(&statement)?,
             public_inputs_signature,
-            Bytes::new(), /* permit_payload */
+            Bytes::new(), /* transfer_aux_data */
         )
         .send()
         .await?
