@@ -84,6 +84,11 @@ pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata"
 #[cfg(feature = "transfer-executor")]
 pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer aux data";
 
+/// The revert message when failing to extract a `pk_root`
+/// for an external transfer
+#[cfg(feature = "transfer-executor")]
+pub const MISSING_PK_ROOT_ERROR_MESSAGE: &[u8] = b"missing pk_root for transfer";
+
 /// The last byte of the `ecAdd` precompile address, 0x06
 pub const EC_ADD_ADDRESS_LAST_BYTE: u8 = 6;
 /// The last byte of the `ecMul` precompile address, 0x07

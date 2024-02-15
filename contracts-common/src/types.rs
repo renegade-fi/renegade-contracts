@@ -230,7 +230,7 @@ pub struct TransferAuxData {
     /// The signature of the `PermitTransferFrom` typed data
     pub permit_signature: Option<Vec<u8>>,
     /// The signature of the external transfer
-    pub transfer_signature: Vec<u8>,
+    pub transfer_signature: Option<Vec<u8>>,
 }
 
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.

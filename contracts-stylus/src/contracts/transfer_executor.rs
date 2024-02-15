@@ -1,7 +1,11 @@
-//! The transfer executor contract, responsible for executing external transfers to/from the darkpool.
+//! The transfer executor contract, responsible for executing external transfers to/from the darkpool
+//! (it is intended to be delegate-called by the darkpool)
 
 use crate::utils::{
-    constants::{MERKLE_STORAGE_GAP_SIZE, MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE},
+    constants::{
+        MERKLE_STORAGE_GAP_SIZE, MISSING_PK_ROOT_ERROR_MESSAGE,
+        MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
+    },
     helpers::{assert_valid_signature, call_helper, deserialize_from_calldata, postcard_serialize},
     solidity::{transferCall, ExternalTransfer as ExternalTransferEvent},
 };
@@ -41,7 +45,7 @@ impl TransferExecutorContract {
         Ok(())
     }
 
-    /// Executes an external transfer to/from the darkpool,
+    /// Executes an external transfer to/from the contract,
     /// using the auxiliary transfer data for validation as appropriate
     /// depending on the transfer direction.
     pub fn execute_external_transfer(
@@ -50,15 +54,8 @@ impl TransferExecutorContract {
         transfer: Bytes,
         transfer_aux_data: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let old_pk_root: PublicSigningKey = deserialize_from_calldata(&old_pk_root)?;
         let transfer: ExternalTransfer = deserialize_from_calldata(&transfer)?;
         let transfer_aux_data: TransferAuxData = deserialize_from_calldata(&transfer_aux_data)?;
-
-        assert_valid_signature(
-            &old_pk_root,
-            &postcard_serialize(&transfer)?,
-            &transfer_aux_data.transfer_signature,
-        )?;
 
         let ExternalTransfer {
             mint,
@@ -68,8 +65,19 @@ impl TransferExecutorContract {
         } = transfer;
 
         if is_withdrawal {
-            // In the case of a withdrawal, we make a simple `transfer` call
-            // from the darkpool to the user.
+            // In the case of a withdrawal, we check the signature over the external transfer,
+            // and then make a simple `transfer` call from the contract to the user.
+
+            let old_pk_root: Option<PublicSigningKey> = deserialize_from_calldata(&old_pk_root)?;
+
+            assert_valid_signature(
+                &old_pk_root.ok_or(MISSING_PK_ROOT_ERROR_MESSAGE)?,
+                &postcard_serialize(&transfer)?,
+                &transfer_aux_data
+                    .transfer_signature
+                    .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
+            )?;
+
             call_helper::<transferCall>(
                 self,
                 mint, /* address */
@@ -79,7 +87,7 @@ impl TransferExecutorContract {
             // In the case of a deposit, we make a `permitTransferFrom` call through
             // the `Permit2` contract using the calldata-serialized `PermitPayload`
 
-            let darkpool_address = contract::address();
+            let contract_address = contract::address();
             let permit2_address = self.permit2_address.get();
 
             let permit = CalldataPermitTransferFrom {
@@ -96,7 +104,7 @@ impl TransferExecutorContract {
             };
 
             let signature_transfer_details = SignatureTransferDetails {
-                to: darkpool_address,
+                to: contract_address,
                 requestedAmount: amount,
             };
 

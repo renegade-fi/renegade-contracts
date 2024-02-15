@@ -377,7 +377,7 @@ impl DarkpoolContract {
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
             DarkpoolContract::execute_external_transfer(
                 storage,
-                &valid_wallet_update_statement.old_pk_root,
+                valid_wallet_update_statement.old_pk_root,
                 external_transfer,
                 transfer_aux_data_bytes,
             )?;
@@ -642,12 +642,12 @@ impl DarkpoolContract {
     /// Executes the given external transfer (withdrawal / deposit)
     pub fn execute_external_transfer<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        old_pk_root: &PublicSigningKey,
+        old_pk_root: PublicSigningKey,
         transfer: ExternalTransfer,
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
         let transfer_executor_address = storage.borrow_mut().transfer_executor_address.get();
-        let old_pk_root_bytes = postcard_serialize(old_pk_root)?;
+        let old_pk_root_bytes = postcard_serialize(&Some(old_pk_root))?;
         let transfer_bytes = postcard_serialize(&transfer)?;
 
         delegate_call_helper::<executeExternalTransferCall>(
