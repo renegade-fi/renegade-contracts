@@ -14,12 +14,18 @@ use contracts_common::{
         ValidMatchSettleStatement, ValidReblindStatement,
     },
 };
-use serde::Deserialize;
+use contracts_core::crypto::ecdsa::ecdsa_verify;
+use serde::{Deserialize, Serialize};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
     call::{call, delegate_call, static_call},
     storage::TopLevelStorage,
+};
+
+use crate::utils::{
+    backends::{PrecompileEcRecoverBackend, StylusHasher},
+    constants::{ECDSA_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE},
 };
 
 use super::constants::{
@@ -42,6 +48,15 @@ pub fn deserialize_from_calldata<'a, D: Deserialize<'a>>(
     postcard::from_bytes(calldata.as_slice()).map_err(|_| CALLDATA_DESER_ERROR_MESSAGE.to_vec())
 }
 
+/// Serializes the given type into bytes for calldata
+#[cfg_attr(
+    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
+pub fn postcard_serialize<S: Serialize>(s: &S) -> Result<Vec<u8>, Vec<u8>> {
+    postcard::to_allocvec(s).map_err(map_calldata_ser_error)
+}
+
 /// Serializes the given statement into scalars, and then into bytes,
 /// as expected by the verifier contract.
 #[cfg_attr(
@@ -52,7 +67,7 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> Result<Vec<u8>, Vec<u8>> {
     let public_inputs = statement_to_public_inputs(statement).map_err(map_calldata_ser_error)?;
-    postcard::to_allocvec(&public_inputs).map_err(map_calldata_ser_error)
+    postcard_serialize(&public_inputs)
 }
 
 /// Serializes the statements used in verifying the settlement of a
@@ -81,7 +96,7 @@ pub fn serialize_match_statements_for_verification(
         valid_match_settle: statement_to_public_inputs(valid_match_settle)
             .map_err(map_calldata_ser_error)?,
     };
-    postcard::to_allocvec(&match_public_inputs).map_err(map_calldata_ser_error)
+    postcard_serialize(&match_public_inputs)
 }
 
 /// Maps an error returned from an external contract call to a `Vec<u8>`,
@@ -195,6 +210,35 @@ pub fn pk_to_u256s(pk: &PublicSigningKey) -> Result<[U256; NUM_SCALARS_PK], Vec<
         .collect::<Vec<_>>()
         .try_into()
         .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())
+}
+
+/// Asserts the validity of the given signature using the given public signing key,
+/// if verification is enabled
+#[cfg_attr(
+    not(any(
+        feature = "darkpool",
+        feature = "darkpool-test-contract",
+        feature = "merkle",
+        feature = "merkle-test-contract",
+    )),
+    allow(dead_code)
+)]
+pub fn assert_valid_signature(
+    pk_root: &PublicSigningKey,
+    message: &[u8],
+    signature: &[u8],
+) -> Result<(), Vec<u8>> {
+    crate::if_verifying!(crate::assert_result!(
+        ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+            pk_root,
+            message,
+            signature
+                .try_into()
+                .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE)?,
+        )
+        .map_err(|_| ECDSA_ERROR_MESSAGE)?,
+        INVALID_SIGNATURE_ERROR_MESSAGE
+    ))
 }
 
 /// Expands to the given code block if the `no-verify` feature is not enabled.

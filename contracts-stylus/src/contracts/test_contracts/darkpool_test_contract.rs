@@ -5,7 +5,7 @@ use core::borrow::BorrowMut;
 use alloc::vec::Vec;
 use contracts_common::{
     constants::{MERKLE_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR},
-    types::ExternalTransfer,
+    types::{ExternalTransfer, PublicSigningKey},
 };
 use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
 
@@ -38,11 +38,18 @@ impl DarkpoolTestContract {
     /// Executes the given external transfer
     pub fn execute_external_transfer(
         &mut self,
-        transfer: Bytes,
-        permit_payload: Bytes,
+        pk_root_bytes: Bytes,
+        transfer_bytes: Bytes,
+        transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let external_transfer: ExternalTransfer = deserialize_from_calldata(&transfer)?;
-        DarkpoolContract::execute_external_transfer(self, external_transfer, permit_payload)?;
+        let pk_root: PublicSigningKey = deserialize_from_calldata(&pk_root_bytes)?;
+        let external_transfer: ExternalTransfer = deserialize_from_calldata(&transfer_bytes)?;
+        DarkpoolContract::execute_external_transfer(
+            self,
+            &pk_root,
+            external_transfer,
+            transfer_aux_data_bytes,
+        )?;
         Ok(())
     }
 

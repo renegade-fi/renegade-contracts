@@ -15,7 +15,7 @@ use contracts_common::{
     custom_serde::BytesSerializable,
     types::{PublicSigningKey, ScalarField},
 };
-use contracts_core::crypto::{ecdsa::ecdsa_verify, poseidon::compute_poseidon_hash};
+use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{U128, U256},
@@ -25,14 +25,10 @@ use stylus_sdk::{
 };
 
 use crate::{
-    assert_result, if_verifying,
+    assert_result,
     utils::{
-        backends::{PrecompileEcRecoverBackend, StylusHasher},
-        constants::{
-            ECDSA_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE,
-            TREE_FULL_ERROR_MESSAGE, ZEROS,
-        },
-        helpers::{scalar_to_u256, u256_to_scalar},
+        constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
+        helpers::{assert_valid_signature, scalar_to_u256, u256_to_scalar},
         solidity::NodeChanged,
     },
 };
@@ -138,30 +134,18 @@ where
 
         let shares_commitment = self.compute_shares_commitment(shares)?;
 
-        if_verifying!({
-            let old_pk_root = PublicSigningKey {
-                x: [
-                    u256_to_scalar(old_pk_root[0])?,
-                    u256_to_scalar(old_pk_root[1])?,
-                ],
-                y: [
-                    u256_to_scalar(old_pk_root[2])?,
-                    u256_to_scalar(old_pk_root[3])?,
-                ],
-            };
+        let old_pk_root = PublicSigningKey {
+            x: [
+                u256_to_scalar(old_pk_root[0])?,
+                u256_to_scalar(old_pk_root[1])?,
+            ],
+            y: [
+                u256_to_scalar(old_pk_root[2])?,
+                u256_to_scalar(old_pk_root[3])?,
+            ],
+        };
 
-            assert_result!(
-                ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
-                    &old_pk_root,
-                    &shares_commitment.serialize_to_bytes(),
-                    &sig.to_vec()
-                        .try_into()
-                        .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())?,
-                )
-                .map_err(|_| ECDSA_ERROR_MESSAGE.to_vec())?,
-                INVALID_SIGNATURE_ERROR_MESSAGE
-            )?;
-        });
+        assert_valid_signature(&old_pk_root, &shares_commitment.serialize_to_bytes(), &sig)?;
 
         self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true)?;
 

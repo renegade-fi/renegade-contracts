@@ -215,20 +215,22 @@ pub struct ExternalTransfer {
     pub is_withdrawal: bool,
 }
 
-/// Represents the Permit2 data that a user submits alongside a deposit.
-///
-/// [Reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer)
+/// Auxiliary data passed alongside an external transfer to verify its validity.
+/// This includes a signature over the external transfer, and in the case of a deposit,
+/// the associated Permit2 data ([reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer))
 #[serde_as]
 #[derive(Serialize, Deserialize)]
-pub struct PermitPayload {
+pub struct TransferAuxData {
     /// The `PermitTransferFrom` nonce
-    #[serde_as(as = "U256Def")]
-    pub nonce: U256,
+    #[serde_as(as = "Option<U256Def>")]
+    pub permit_nonce: Option<U256>,
     /// The `PermitTransferFrom` deadline
-    #[serde_as(as = "U256Def")]
-    pub deadline: U256,
+    #[serde_as(as = "Option<U256Def>")]
+    pub permit_deadline: Option<U256>,
     /// The signature of the `PermitTransferFrom` typed data
-    pub signature: Vec<u8>,
+    pub permit_signature: Option<Vec<u8>>,
+    /// The signature of the external transfer
+    pub transfer_signature: Vec<u8>,
 }
 
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.
