@@ -2,21 +2,15 @@
 //! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
-use contracts_common::{
-    solidity::{
-        permitTransferFromCall, CalldataPermitTransferFrom, SignatureTransferDetails,
-        TokenPermissions,
-    },
-    types::{
-        ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, TransferAuxData,
-        ValidMatchSettleStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
-    },
+use contracts_common::types::{
+    ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement,
+    ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256, U64},
-    contract, evm, msg,
+    evm, msg,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
 };
@@ -25,24 +19,24 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            INVALID_VERSION_ERROR_MESSAGE, MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
-            NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE,
-            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
+            INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE,
+            NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
+            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
             VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
         },
         helpers::{
-            assert_valid_signature, call_helper, delegate_call_helper, deserialize_from_calldata,
-            pk_to_u256s, postcard_serialize, scalar_to_u256,
-            serialize_match_statements_for_verification, serialize_statement_for_verification,
-            static_call_helper,
+            delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
+            scalar_to_u256, serialize_match_statements_for_verification,
+            serialize_statement_for_verification, static_call_helper,
         },
         solidity::{
-            initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
-            rootInHistoryCall, transferCall, validWalletCreateVkeyCall, validWalletUpdateVkeyCall,
-            verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
-            ExternalTransfer as ExternalTransferEvent, FeeChanged, MerkleAddressChanged,
-            NullifierSpent, OwnershipTransferred, Paused, Unpaused, VerifierAddressChanged,
-            VkeysAddressChanged, WalletUpdated,
+            executeExternalTransferCall, init_0Call as initMerkleCall,
+            init_1Call as initTransferExecutorCall, insertSharesCommitmentCall,
+            processMatchSettleVkeysCall, rootCall, rootInHistoryCall, validWalletCreateVkeyCall,
+            validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
+            FeeChanged, MerkleAddressChanged, NullifierSpent, OwnershipTransferred, Paused,
+            TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged, VkeysAddressChanged,
+            WalletUpdated,
         },
     },
 };
@@ -52,7 +46,10 @@ use crate::{
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
     /// Storage gap to prevent collisions with the Merkle contract
-    __gap: StorageArray<StorageU256, STORAGE_GAP_SIZE>,
+    __merkle_gap: StorageArray<StorageU256, MERKLE_STORAGE_GAP_SIZE>,
+
+    /// Storage gap to prevent collisions with the transfer executor contract
+    __transfer_executor_gap: StorageArray<StorageU256, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE>,
 
     /// The owner of the darkpool contract
     owner: StorageAddress,
@@ -72,8 +69,8 @@ pub struct DarkpoolContract {
     /// The address of the Merkle contract
     pub(crate) merkle_address: StorageAddress,
 
-    /// The address of the `Permit2` contract
-    permit2_address: StorageAddress,
+    /// The address of the transfer executor contract
+    transfer_executor_address: StorageAddress,
 
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
@@ -98,18 +95,26 @@ impl DarkpoolContract {
         verifier_address: Address,
         vkeys_address: Address,
         merkle_address: Address,
+        transfer_executor_address: Address,
         permit2_address: Address,
         protocol_fee: U256,
     ) -> Result<(), Vec<u8>> {
         // Initialize the Merkle tree
-        delegate_call_helper::<initCall>(storage, merkle_address, ())?;
+        delegate_call_helper::<initMerkleCall>(storage, merkle_address, ())?;
+
+        // Initialize the transfer executor
+        delegate_call_helper::<initTransferExecutorCall>(
+            storage,
+            transfer_executor_address,
+            (permit2_address,),
+        )?;
 
         // Set the stored addresses
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
         DarkpoolContract::set_verifier_address(storage, verifier_address)?;
         DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
         DarkpoolContract::set_merkle_address(storage, merkle_address)?;
-        DarkpoolContract::set_permit2_address(storage, permit2_address)?;
+        DarkpoolContract::set_transfer_executor_address(storage, transfer_executor_address)?;
 
         // Set the protocol fee
         DarkpoolContract::set_fee(storage, protocol_fee)?;
@@ -266,14 +271,22 @@ impl DarkpoolContract {
         Ok(())
     }
 
-    /// Sets the Permit2 address
-    pub fn set_permit2_address<S: TopLevelStorage + BorrowMut<Self>>(
+    /// Sets the transfer executor address
+    pub fn set_transfer_executor_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        permit2_address: Address,
+        transfer_executor_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(permit2_address)?;
-        storage.borrow_mut().permit2_address.set(permit2_address);
+        DarkpoolContract::check_address_not_zero(transfer_executor_address)?;
+
+        storage
+            .borrow_mut()
+            .transfer_executor_address
+            .set(transfer_executor_address);
+
+        evm::log(TransferExecutorAddressChanged {
+            new_address: transfer_executor_address,
+        });
         Ok(())
     }
 
@@ -633,74 +646,19 @@ impl DarkpoolContract {
         transfer: ExternalTransfer,
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let transfer_aux_data: TransferAuxData =
-            deserialize_from_calldata(&transfer_aux_data_bytes)?;
-        assert_valid_signature(
-            old_pk_root,
-            &postcard_serialize(&transfer)?,
-            &transfer_aux_data.transfer_signature,
+        let transfer_executor_address = storage.borrow_mut().transfer_executor_address.get();
+        let old_pk_root_bytes = postcard_serialize(old_pk_root)?;
+        let transfer_bytes = postcard_serialize(&transfer)?;
+
+        delegate_call_helper::<executeExternalTransferCall>(
+            storage,
+            transfer_executor_address,
+            (
+                old_pk_root_bytes,
+                transfer_bytes,
+                transfer_aux_data_bytes.to_vec(),
+            ),
         )?;
-
-        let ExternalTransfer {
-            mint,
-            account_addr,
-            amount,
-            is_withdrawal,
-        } = transfer;
-
-        if is_withdrawal {
-            // In the case of a withdrawal, we make a simple `transfer` call
-            // from the darkpool to the user.
-            call_helper::<transferCall>(
-                storage,
-                mint, /* address */
-                (account_addr /* to */, amount),
-            )?;
-        } else {
-            // In the case of a deposit, we make a `permitTransferFrom` call through
-            // the `Permit2` contract using the calldata-serialized `PermitPayload`
-
-            let darkpool_address = contract::address();
-            let permit2_address = storage.borrow_mut().permit2_address.get();
-
-            let permit = CalldataPermitTransferFrom {
-                permitted: TokenPermissions {
-                    amount,
-                    token: mint,
-                },
-                nonce: transfer_aux_data
-                    .permit_nonce
-                    .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
-                deadline: transfer_aux_data
-                    .permit_deadline
-                    .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
-            };
-
-            let signature_transfer_details = SignatureTransferDetails {
-                to: darkpool_address,
-                requestedAmount: amount,
-            };
-
-            call_helper::<permitTransferFromCall>(
-                storage,
-                permit2_address, /* address */
-                (
-                    permit,
-                    signature_transfer_details,
-                    account_addr, /* owner */
-                    transfer_aux_data
-                        .permit_signature
-                        .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
-                ),
-            )?;
-        };
-
-        evm::log(ExternalTransferEvent {
-            account: account_addr,
-            mint,
-            is_withdrawal,
-            amount,
-        });
 
         Ok(())
     }
