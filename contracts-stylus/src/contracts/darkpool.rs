@@ -8,7 +8,8 @@ use contracts_common::{
         TokenPermissions,
     },
     types::{
-        ExternalTransfer, MatchPayload, PermitPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement
+        ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, TransferAuxData,
+        ValidMatchSettleStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 use core::borrow::{Borrow, BorrowMut};
@@ -24,15 +25,13 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            INVALID_VERSION_ERROR_MESSAGE, NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE,
-            PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, STORAGE_GAP_SIZE,
-            UNPAUSED_ERROR_MESSAGE, VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE,
-            ZERO_FEE_ERROR_MESSAGE,
+            INVALID_VERSION_ERROR_MESSAGE, MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
+            NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE,
+            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
+            VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
         },
         helpers::{
-            call_helper, delegate_call_helper, deserialize_from_calldata, pk_to_u256s,
-            scalar_to_u256, serialize_match_statements_for_verification,
-            serialize_statement_for_verification, static_call_helper,
+            assert_valid_signature, call_helper, delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize, scalar_to_u256, serialize_match_statements_for_verification, serialize_statement_for_verification, static_call_helper
         },
         solidity::{
             initCall, insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall,
@@ -319,7 +318,7 @@ impl DarkpoolContract {
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
         shares_commitment_signature: Bytes,
-        permit_payload: Bytes,
+        transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
@@ -362,8 +361,9 @@ impl DarkpoolContract {
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
             DarkpoolContract::execute_external_transfer(
                 storage,
+                &valid_wallet_update_statement.old_pk_root,
                 external_transfer,
-                permit_payload,
+                transfer_aux_data_bytes,
             )?;
         }
 
@@ -626,9 +626,17 @@ impl DarkpoolContract {
     /// Executes the given external transfer (withdrawal / deposit)
     pub fn execute_external_transfer<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        old_pk_root: &PublicSigningKey,
         transfer: ExternalTransfer,
-        permit_payload: Bytes,
+        transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
+        let transfer_aux_data: TransferAuxData = deserialize_from_calldata(&transfer_aux_data_bytes)?;
+        assert_valid_signature(
+            old_pk_root,
+            &postcard_serialize(&transfer)?,
+            &transfer_aux_data.transfer_signature,
+        )?;
+
         let ExternalTransfer {
             mint,
             account_addr,
@@ -651,19 +659,17 @@ impl DarkpoolContract {
             let darkpool_address = contract::address();
             let permit2_address = storage.borrow_mut().permit2_address.get();
 
-            let PermitPayload {
-                nonce,
-                deadline,
-                signature
-            } = deserialize_from_calldata(&permit_payload)?;
-
             let permit = CalldataPermitTransferFrom {
                 permitted: TokenPermissions {
                     amount,
                     token: mint,
                 },
-                nonce,
-                deadline,
+                nonce: transfer_aux_data
+                    .permit_nonce
+                    .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
+                deadline: transfer_aux_data
+                    .permit_deadline
+                    .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
             };
 
             let signature_transfer_details = SignatureTransferDetails {
@@ -678,7 +684,9 @@ impl DarkpoolContract {
                     permit,
                     signature_transfer_details,
                     account_addr, /* owner */
-                    signature,
+                    transfer_aux_data
+                        .permit_signature
+                        .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
                 ),
             )?;
         };
