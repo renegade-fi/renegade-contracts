@@ -25,7 +25,7 @@ use stylus_sdk::{
 };
 
 use crate::{
-    assert_result,
+    assert_result, if_verifying,
     utils::{
         constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
         helpers::{assert_valid_signature, scalar_to_u256, u256_to_scalar},
@@ -145,7 +145,11 @@ where
             ],
         };
 
-        assert_valid_signature(&old_pk_root, &shares_commitment.serialize_to_bytes(), &sig)?;
+        if_verifying!(assert_valid_signature(
+            &old_pk_root,
+            &shares_commitment.serialize_to_bytes(),
+            &sig
+        )?);
 
         self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true)?;
 

@@ -1,13 +1,18 @@
 //! The transfer executor contract, responsible for executing external transfers to/from the darkpool
 //! (it is intended to be delegate-called by the darkpool)
 
-use crate::utils::{
-    constants::{
-        MERKLE_STORAGE_GAP_SIZE, MISSING_PK_ROOT_ERROR_MESSAGE,
-        MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
+use crate::{
+    if_verifying,
+    utils::{
+        constants::{
+            MERKLE_STORAGE_GAP_SIZE, MISSING_PK_ROOT_ERROR_MESSAGE,
+            MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
+        },
+        helpers::{
+            assert_valid_signature, call_helper, deserialize_from_calldata, postcard_serialize,
+        },
+        solidity::{transferCall, ExternalTransfer as ExternalTransferEvent},
     },
-    helpers::{assert_valid_signature, call_helper, deserialize_from_calldata, postcard_serialize},
-    solidity::{transferCall, ExternalTransfer as ExternalTransferEvent},
 };
 use alloc::vec::Vec;
 use contracts_common::{
@@ -70,13 +75,13 @@ impl TransferExecutorContract {
 
             let old_pk_root: Option<PublicSigningKey> = deserialize_from_calldata(&old_pk_root)?;
 
-            assert_valid_signature(
+            if_verifying!(assert_valid_signature(
                 &old_pk_root.ok_or(MISSING_PK_ROOT_ERROR_MESSAGE)?,
                 &postcard_serialize(&transfer)?,
                 &transfer_aux_data
                     .transfer_signature
                     .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
-            )?;
+            )?);
 
             call_helper::<transferCall>(
                 self,
