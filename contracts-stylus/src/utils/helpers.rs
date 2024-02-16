@@ -224,7 +224,7 @@ pub fn assert_valid_signature(
     message: &[u8],
     signature: &[u8],
 ) -> Result<(), Vec<u8>> {
-    crate::if_verifying!(crate::assert_result!(
+    crate::assert_result!(
         ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
             pk_root,
             message,
@@ -234,7 +234,7 @@ pub fn assert_valid_signature(
         )
         .map_err(|_| ECDSA_ERROR_MESSAGE)?,
         INVALID_SIGNATURE_ERROR_MESSAGE
-    ))
+    )
 }
 
 /// Expands to the given code block if the `no-verify` feature is not enabled.
