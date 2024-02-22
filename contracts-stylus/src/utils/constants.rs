@@ -62,6 +62,11 @@ pub const INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE: &[u8] =
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 pub const INVALID_PROTOCOL_FEE_ERROR_MESSAGE: &[u8] = b"invalid protocol fee";
 
+/// The revert message when the protocol public encryption key is
+/// incorrect in a VALID OFFLINE FEE SETTLEMENT statement
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+pub const INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE: &[u8] = b"invalid protocol pubkey";
+
 /// The revert message when attempting to insert
 /// into a full Merkle tree
 #[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
