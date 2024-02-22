@@ -3,8 +3,7 @@
 
 use alloc::{vec, vec::Vec};
 use contracts_common::types::{
-    ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement,
-    ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+    ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement, ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement
 };
 use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
@@ -20,8 +19,9 @@ use crate::{
     utils::{
         constants::{
             INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
-            INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE,
-            NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
+            INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, INVALID_VERSION_ERROR_MESSAGE,
+            MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE,
+            PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
             TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
             VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
         },
@@ -34,11 +34,11 @@ use crate::{
             executeExternalTransferCall, init_0Call as initMerkleCall,
             init_1Call as initTransferExecutorCall, insertSharesCommitmentCall,
             processMatchSettleVkeysCall, rootCall, rootInHistoryCall,
-            validRelayerFeeSettlementVkeyCall, validWalletCreateVkeyCall,
-            validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
-            FeeChanged, MerkleAddressChanged, NullifierSpent, OwnershipTransferred, Paused,
-            PubkeyRotated, TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged,
-            VkeysAddressChanged, WalletUpdated,
+            validOfflineFeeSettlementVkeyCall, validRelayerFeeSettlementVkeyCall,
+            validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall, verifyMatchCall,
+            verifyStateSigAndInsertCall, FeeChanged, MerkleAddressChanged, NullifierSpent,
+            OwnershipTransferred, Paused, PubkeyRotated, TransferExecutorAddressChanged, Unpaused,
+            VerifierAddressChanged, VkeysAddressChanged, WalletUpdated,
         },
     },
 };
@@ -556,6 +556,55 @@ impl DarkpoolContract {
             valid_relayer_fee_settlement_statement.recipient_pk_root,
         )
     }
+
+    /// Settles the fee accumulated either by a relayer or the protocol
+    /// into an encrypted note which is committed to the Merkle tree
+    pub fn settle_offline_fee<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        valid_offline_fee_settlement_statement: Bytes,
+        proof: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        let valid_offline_fee_settlement_statement: ValidOfflineFeeSettlementStatement =
+            deserialize_from_calldata(&valid_offline_fee_settlement_statement)?;
+
+        if_verifying!({
+            let protocol_pubkey = DarkpoolContract::get_protocol_public_encryption_key(storage)?;
+            assert_result!(
+                valid_offline_fee_settlement_statement.protocol_key == protocol_pubkey,
+                INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE
+            )?;
+
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let (valid_offline_fee_settlement_vkey_bytes,) = static_call_helper::<
+                validOfflineFeeSettlementVkeyCall,
+            >(
+                storage, vkeys_address, ()
+            )?
+            .into();
+
+            assert_result!(
+                DarkpoolContract::verify(
+                    storage,
+                    valid_offline_fee_settlement_vkey_bytes,
+                    proof.into(),
+                    serialize_statement_for_verification(&valid_offline_fee_settlement_statement)?,
+                )?,
+                VERIFICATION_FAILED_ERROR_MESSAGE
+            )?;
+        });
+
+        DarkpoolContract::rotate_wallet(
+            storage,
+            valid_offline_fee_settlement_statement.nullifier,
+            valid_offline_fee_settlement_statement.merkle_root,
+            valid_offline_fee_settlement_statement.updated_wallet_commitment,
+            &valid_offline_fee_settlement_statement.updated_wallet_public_shares,
+        )?;
+
+        // TODO: Insert note commitment into Merkle tree
+
+        Ok(())
+    }
 }
 
 /// Internal helper methods
@@ -657,6 +706,19 @@ impl DarkpoolContract {
             .unwrap();
 
         [protocol_pubkey_x, protocol_pubkey_y]
+    }
+
+    /// Gets the protocol public encryption key
+    pub fn get_protocol_public_encryption_key<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<PublicEncryptionKey, Vec<u8>> {
+        let [protocol_pubkey_x, protocol_pubkey_y] =
+            DarkpoolContract::_get_protocol_pubkey_coords(storage);
+
+        Ok(PublicEncryptionKey {
+            x: u256_to_scalar(protocol_pubkey_x)?,
+            y: u256_to_scalar(protocol_pubkey_y)?,
+        })
     }
 
     /// Marks the given nullifier as spent
