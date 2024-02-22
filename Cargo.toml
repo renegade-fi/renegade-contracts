@@ -72,11 +72,3 @@ incremental = false # no incremental builds
 # In order to have consistent types in the `arbitrum-client` interfaces,
 # we patch the `contracts-common` dependency to point to the local crate.
 contracts-common = { path = "./contracts-common" }
-
-[patch."https://github.com/renegade-fi/renegade.git"]
-constants = { path = "../renegade/constants" }
-renegade-crypto = { path = "../renegade/renegade-crypto" }
-circuits = { path = "../renegade/circuits" }
-circuit-types = { path = "../renegade/circuit-types" }
-circuit-macros = { path = "../renegade/circuit-macros" }
-arbitrum-client = { path = "../renegade/arbitrum-client" }

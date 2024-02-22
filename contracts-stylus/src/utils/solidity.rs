@@ -20,6 +20,9 @@ sol! {
     function validWalletCreateVkey() external view returns (bytes);
     function validWalletUpdateVkey() external view returns (bytes);
     function processMatchSettleVkeys() external view returns (bytes);
+    function validRelayerFeeSettlementVkey() external view returns (bytes);
+    function validOfflineFeeSettlementVkey() external view returns (bytes);
+    function validFeeRedemptionVkey() external view returns (bytes);
 
     // Verifier functions
     function verify(bytes memory verification_bundle) external view returns (bool);
