@@ -53,6 +53,7 @@ sol! {
 
     // Darkpool controls events
     event FeeChanged(uint256 indexed new_fee);
+    event PubkeyRotated(uint256 indexed new_pubkey_x, uint256 indexed new_pubkey_y);
     event OwnershipTransferred(address indexed new_owner);
     event Paused();
     event Unpaused();

@@ -250,7 +250,7 @@ pub struct PublicSigningKey {
 /// Represents an affine point on the BabyJubJub curve,
 /// whose base field is the scalar field of the Bn254 curve.
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct BabyJubJubPoint {
     /// The x-coordinate of the point
     #[serde_as(as = "ScalarFieldDef")]
@@ -260,7 +260,7 @@ pub struct BabyJubJubPoint {
     pub y: ScalarField,
 }
 
-/// An EC-ElGamal public encryption key over the BabyJubJub curve
+/// A BabyJubJub EC-ElGamal public encryption key
 pub type PublicEncryptionKey = BabyJubJubPoint;
 
 /// Statement for `VALID_WALLET_CREATE` circuit
