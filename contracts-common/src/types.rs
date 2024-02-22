@@ -348,6 +348,34 @@ pub struct MatchPayload {
     pub valid_reblind_statement: ValidReblindStatement,
 }
 
+/// Statement for the `VALID RELAYER FEE SETTLEMENT` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidRelayerFeeSettlement {
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to both wallets' private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root: ScalarField,
+    /// The nullifier of the sender's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub sender_nullifier: ScalarField,
+    /// The nullifier of the relayer's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub relayer_nullifier: ScalarField,
+    /// A commitment to the sender's new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub sender_new_private_shares_commitment: ScalarField,
+    /// A commitment to the relayer's new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub relayer_new_private_shares_commitment: ScalarField,
+    /// The blinded public secret shares of the sender's new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub sender_new_public_shares: Vec<ScalarField>,
+    /// The blinded public secret shares of the relayer's new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub relayer_new_public_shares: Vec<ScalarField>,
+}
+
 /// Represents the public inputs to a Plonk proof
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug)]

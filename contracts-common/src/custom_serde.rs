@@ -11,7 +11,7 @@ use ark_serialize::Flags;
 use crate::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
-        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement
+        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement, ValidRelayerFeeSettlement, ValidWalletCreateStatement, ValidWalletUpdateStatement
     },
 };
 
@@ -269,6 +269,21 @@ impl ScalarSerializable for ValidMatchSettleStatement {
         scalars.extend(&self.party0_indices.serialize_to_scalars()?);
         scalars.extend(&self.party1_indices.serialize_to_scalars()?);
         scalars.push(self.protocol_fee);
+        Ok(scalars)
+    }
+}
+
+impl ScalarSerializable for ValidRelayerFeeSettlement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars: Vec<ScalarField> = vec![
+            self.merkle_root,
+            self.sender_nullifier,
+            self.relayer_nullifier,
+            self.sender_new_private_shares_commitment,
+            self.relayer_new_private_shares_commitment,
+        ];
+        scalars.extend(&self.sender_new_public_shares);
+        scalars.extend(&self.relayer_new_public_shares);
         Ok(scalars)
     }
 }
