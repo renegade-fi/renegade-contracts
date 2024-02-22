@@ -8,6 +8,7 @@ use arbitrum_client::conversion::{
 use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
+    fixed_point::FixedPoint,
     keychain::PublicSigningKey,
     srs::SYSTEM_SRS,
     traits::{CircuitBaseType, SingleProverCircuit},
@@ -95,7 +96,6 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
     let old_shares_nullifier = dummy_circuit_type(rng);
     let new_private_shares_commitment = dummy_circuit_type(rng);
     let new_public_shares = dummy_circuit_type(rng);
-    let timestamp = dummy_circuit_type(rng);
 
     SizedValidWalletUpdateStatement {
         external_transfer,
@@ -104,7 +104,6 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
         old_shares_nullifier,
         new_private_shares_commitment,
         new_public_shares,
-        timestamp,
     }
 }
 
@@ -205,18 +204,22 @@ pub struct ProcessMatchSettleData {
 fn dummy_match_statements<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
+    protocol_fee: FixedPoint,
 ) -> (
     [ValidCommitmentsStatement; 2],
     [ValidReblindStatement; 2],
     SizedValidMatchSettleStatement,
 ) {
-    let valid_commitments0 = dummy_circuit_type(rng);
-    let valid_commitments1 = dummy_circuit_type(rng);
+    let valid_commitments0: ValidCommitmentsStatement = dummy_circuit_type(rng);
+    let valid_commitments1: ValidCommitmentsStatement = dummy_circuit_type(rng);
 
     let valid_reblind0 = dummy_valid_reblind_statement(rng, merkle_root);
     let valid_reblind1 = dummy_valid_reblind_statement(rng, merkle_root);
 
-    let valid_match_settle = dummy_circuit_type(rng);
+    let mut valid_match_settle: SizedValidMatchSettleStatement = dummy_circuit_type(rng);
+    valid_match_settle.party0_indices = valid_commitments0.indices;
+    valid_match_settle.party1_indices = valid_commitments1.indices;
+    valid_match_settle.protocol_fee = protocol_fee;
 
     (
         [valid_commitments0, valid_commitments1],
@@ -385,9 +388,10 @@ fn match_link_proofs(
 pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
+    protocol_fee: FixedPoint,
 ) -> Result<ProcessMatchSettleData> {
     let (valid_commitments_statements, valid_reblind_statements, valid_match_settle_statement) =
-        dummy_match_statements(rng, merkle_root);
+        dummy_match_statements(rng, merkle_root, protocol_fee);
     let (valid_commitments_witnesses, valid_reblind_witnesses, valid_match_settle_witness) =
         dummy_match_witnesses(rng);
     let (match_proofs, link_hints) = match_proofs_and_hints(
@@ -456,7 +460,8 @@ pub fn generate_match_bundle<R: CryptoRng + RngCore>(
 )> {
     // Generate random `process_match_settle` test data & destructure
     let merkle_root = Scalar::random(rng);
-    let data = gen_process_match_settle_data(rng, merkle_root)?;
+    let protocol_fee = FixedPoint::from(Scalar::random(rng));
+    let data = gen_process_match_settle_data(rng, merkle_root, protocol_fee)?;
 
     let match_vkeys =
         gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>()?;

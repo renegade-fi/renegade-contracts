@@ -4,6 +4,7 @@ use alloy_primitives::Address as AlloyAddress;
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
+use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
 use contracts_common::{
     constants::{
@@ -605,8 +606,15 @@ pub(crate) async fn test_pausable(
 ) -> Result<()> {
     info!("Running `test_pausable`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
     let mut rng = thread_rng();
-    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
 
     contract.pause().send().await?.await?;
 
@@ -619,9 +627,9 @@ pub(crate) async fn test_pausable(
     let (new_wallet_proof, new_wallet_statement) = gen_new_wallet_data(&mut rng)?;
 
     let (update_wallet_proof, update_wallet_statement, public_inputs_signature) =
-        gen_update_wallet_data(&mut rng, Scalar::new(contract_root))?;
+        gen_update_wallet_data(&mut rng, contract_root)?;
 
-    let data = gen_process_match_settle_data(&mut rng, Scalar::new(contract_root))?;
+    let data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
 
     assert_all_revert(vec![
         contract
@@ -681,9 +689,6 @@ pub(crate) async fn test_pausable(
             .send(),
     ])
     .await?;
-
-    // Clear merkle state for future tests
-    contract.clear_merkle().send().await?.await?;
 
     info!("`test_pausable` passed");
     Ok(())
@@ -935,8 +940,11 @@ pub(crate) async fn test_new_wallet(
 ) -> Result<()> {
     info!("Running `test_new_wallet`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
-    let mut rng = thread_rng();
 
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    let mut rng = thread_rng();
     let (proof, statement) = gen_new_wallet_data(&mut rng)?;
 
     // Call `new_wallet`
@@ -963,9 +971,6 @@ pub(crate) async fn test_new_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    // Clear merkle state for future tests
-    contract.clear_merkle().send().await?.await?;
-
     info!("`test_new_wallet` passed");
     Ok(())
 }
@@ -977,6 +982,10 @@ pub(crate) async fn test_update_wallet(
 ) -> Result<()> {
     info!("Running `test_update_wallet`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
@@ -1017,9 +1026,6 @@ pub(crate) async fn test_update_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    // Clear merkle state for future tests
-    contract.clear_merkle().send().await?.await?;
-
     info!("`test_update_wallet` passed");
     Ok(())
 }
@@ -1031,12 +1037,19 @@ pub(crate) async fn test_process_match_settle(
 ) -> Result<()> {
     info!("Running `test_process_match_settle`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
-    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
     let mut rng = thread_rng();
-    let data = gen_process_match_settle_data(&mut rng, Scalar::new(contract_root))?;
+    let data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
 
     // Call `process_match_settle` with valid data
     contract
@@ -1098,9 +1111,6 @@ pub(crate) async fn test_process_match_settle(
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
-
-    // Clear merkle state for future tests
-    contract.clear_merkle().send().await?.await?;
 
     info!("`test_process_match_settle` passed");
     Ok(())

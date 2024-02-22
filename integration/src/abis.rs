@@ -22,6 +22,7 @@ abigen!(
         function isNullifierSpent(uint256 memory nullifier) external view returns (bool)
 
         function getRoot() external view returns (uint256)
+        function getFee() external view returns (uint256)
 
         function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
         function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature, bytes memory transfer_aux_data) external
