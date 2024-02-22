@@ -67,4 +67,10 @@ pub(crate) enum Tests {
     UpdateWallet,
     /// Test the `process_match_settle` method on the darkpool
     ProcessMatchSettle,
+    /// Test the `process_match_settle` method on the darkpool
+    /// with inconsistent order settlement indices
+    InconsistentOrderIndices,
+    /// Test the `process_match_settle` method on the darkpool
+    /// with an inconsistent protocol fee
+    InconsistentProtocolFee,
 }

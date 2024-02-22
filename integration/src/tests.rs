@@ -1115,3 +1115,92 @@ pub(crate) async fn test_process_match_settle(
     info!("`test_process_match_settle` passed");
     Ok(())
 }
+
+/// Test that the `process_match_settle` method on the darkpool
+/// fails when order settlement indices are inconsistent
+#[allow(non_snake_case)]
+pub(crate) async fn test_process_match_settle__inconsistent_indices(
+    darkpool_address: Address,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<()> {
+    info!("Running `test_process_match_settle__inconsistent_indices`");
+    let contract = DarkpoolTestContract::new(darkpool_address, client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
+    let mut rng = thread_rng();
+
+    let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+    // Mutate the order settlement indices to be inconsistent
+    data.valid_match_settle_statement
+        .party0_indices
+        .balance_receive += 1;
+
+    // Call `process_match_settle` with invalid data
+    assert!(
+        contract
+            .process_match_settle(
+                serialize_to_calldata(&data.match_payload_0)?,
+                serialize_to_calldata(&data.match_payload_1)?,
+                serialize_to_calldata(&data.valid_match_settle_statement)?,
+                serialize_to_calldata(&data.match_proofs)?,
+                serialize_to_calldata(&data.match_linking_proofs)?,
+            )
+            .send()
+            .await
+            .is_err(),
+        "Inconsistent order settlement indices did not fail"
+    );
+
+    info!("`test_process_match_settle__inconsistent_indices` passed");
+    Ok(())
+}
+
+/// Test that the `process_match_settle` method on the darkpool
+/// fails when protocol fee is inconsistent
+#[allow(non_snake_case)]
+pub(crate) async fn test_process_match_settle__inconsistent_fee(
+    darkpool_address: Address,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<()> {
+    info!("Running `test_process_match_settle__inconsistent_fee`");
+    let contract = DarkpoolTestContract::new(darkpool_address, client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
+    let mut rng = thread_rng();
+
+    let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+    // Mutate the protocol fee to be inconsistent
+    data.valid_match_settle_statement
+        .protocol_fee += ScalarField::one();
+
+    // Call `process_match_settle` with invalid data
+    assert!(
+        contract
+            .process_match_settle(
+                serialize_to_calldata(&data.match_payload_0)?,
+                serialize_to_calldata(&data.match_payload_1)?,
+                serialize_to_calldata(&data.valid_match_settle_statement)?,
+                serialize_to_calldata(&data.match_proofs)?,
+                serialize_to_calldata(&data.match_linking_proofs)?,
+            )
+            .send()
+            .await
+            .is_err(),
+        "Inconsistent protocol fee did not fail"
+    );
+
+    info!("`test_process_match_settle__inconsistent_fee` passed");
+    Ok(())
+}

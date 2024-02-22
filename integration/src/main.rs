@@ -16,7 +16,7 @@ use scripts::{
     utils::{parse_addr_from_deployments_file, setup_client},
 };
 use tests::{
-    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer, test_external_transfer__malicious_deposit, test_external_transfer__malicious_withdrawal, test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable, test_pausable, test_process_match_settle, test_update_wallet, test_upgradeable, test_verifier
+    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer, test_external_transfer__malicious_deposit, test_external_transfer__malicious_withdrawal, test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable, test_pausable, test_process_match_settle, test_process_match_settle__inconsistent_fee, test_process_match_settle__inconsistent_indices, test_update_wallet, test_upgradeable, test_verifier
 };
 
 mod abis;
@@ -116,7 +116,9 @@ async fn main() -> Result<()> {
             ).await?;
             test_new_wallet(darkpool_proxy_address, client.clone()).await?;
             test_update_wallet(darkpool_proxy_address, client.clone()).await?;
-            test_process_match_settle(darkpool_proxy_address, client).await
+            test_process_match_settle(darkpool_proxy_address, client.clone()).await?;
+            test_process_match_settle__inconsistent_indices(darkpool_proxy_address, client.clone()).await?;
+            test_process_match_settle__inconsistent_fee(darkpool_proxy_address, client).await
         }
         Tests::EcAdd => test_ec_add(precompiles_contract_address, client).await,
         Tests::EcMul => test_ec_mul(precompiles_contract_address, client).await,
@@ -189,6 +191,12 @@ async fn main() -> Result<()> {
         Tests::UpdateWallet => test_update_wallet(darkpool_proxy_address, client).await,
         Tests::ProcessMatchSettle => {
             test_process_match_settle(darkpool_proxy_address, client).await
+        }
+        Tests::InconsistentOrderIndices => {
+            test_process_match_settle__inconsistent_indices(darkpool_proxy_address, client).await
+        }
+        Tests::InconsistentProtocolFee => {
+            test_process_match_settle__inconsistent_fee(darkpool_proxy_address, client).await
         }
     }
 }
