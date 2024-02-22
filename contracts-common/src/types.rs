@@ -351,7 +351,7 @@ pub struct MatchPayload {
 /// Statement for the `VALID RELAYER FEE SETTLEMENT` circuit
 #[serde_as]
 #[derive(Serialize, Deserialize)]
-pub struct ValidRelayerFeeSettlement {
+pub struct ValidRelayerFeeSettlementStatement {
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to both wallets' private secret shares
     #[serde_as(as = "ScalarFieldDef")]
@@ -359,21 +359,23 @@ pub struct ValidRelayerFeeSettlement {
     /// The nullifier of the sender's secret shares
     #[serde_as(as = "ScalarFieldDef")]
     pub sender_nullifier: ScalarField,
-    /// The nullifier of the relayer's secret shares
+    /// The nullifier of the recipient's secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub relayer_nullifier: ScalarField,
+    pub recipient_nullifier: ScalarField,
     /// A commitment to the sender's new wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub sender_new_private_shares_commitment: ScalarField,
-    /// A commitment to the relayer's new wallet's private secret shares
+    pub sender_wallet_commitment: ScalarField,
+    /// A commitment to the recipient's new wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub relayer_new_private_shares_commitment: ScalarField,
+    pub recipient_wallet_commitment: ScalarField,
     /// The blinded public secret shares of the sender's new wallet
     #[serde_as(as = "Vec<ScalarFieldDef>")]
-    pub sender_new_public_shares: Vec<ScalarField>,
-    /// The blinded public secret shares of the relayer's new wallet
+    pub sender_updated_public_shares: Vec<ScalarField>,
+    /// The blinded public secret shares of the recipient's new wallet
     #[serde_as(as = "Vec<ScalarFieldDef>")]
-    pub relayer_new_public_shares: Vec<ScalarField>,
+    pub recipient_updated_public_shares: Vec<ScalarField>,
+    /// The public root key of the recipient, rotated out after this update
+    pub recipient_pk_root: PublicSigningKey,
 }
 
 /// Represents the public inputs to a Plonk proof

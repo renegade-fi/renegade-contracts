@@ -4,7 +4,7 @@
 use alloc::{vec, vec::Vec};
 use contracts_common::types::{
     ExternalTransfer, MatchPayload, PublicSigningKey, ScalarField, ValidMatchSettleStatement,
-    ValidWalletCreateStatement, ValidWalletUpdateStatement,
+    ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
@@ -33,7 +33,8 @@ use crate::{
         solidity::{
             executeExternalTransferCall, init_0Call as initMerkleCall,
             init_1Call as initTransferExecutorCall, insertSharesCommitmentCall,
-            processMatchSettleVkeysCall, rootCall, rootInHistoryCall, validWalletCreateVkeyCall,
+            processMatchSettleVkeysCall, rootCall, rootInHistoryCall,
+            validRelayerFeeSettlementVkeyCall, validWalletCreateVkeyCall,
             validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
             FeeChanged, MerkleAddressChanged, NullifierSpent, OwnershipTransferred, Paused,
             TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged, VkeysAddressChanged,
@@ -345,11 +346,6 @@ impl DarkpoolContract {
             deserialize_from_calldata(&valid_wallet_update_statement_bytes)?;
 
         if_verifying!({
-            DarkpoolContract::check_root_in_history(
-                storage,
-                valid_wallet_update_statement.merkle_root,
-            )?;
-
             let vkeys_address = storage.borrow_mut().vkeys_address.get();
             let (valid_wallet_update_vkey_bytes,) =
                 static_call_helper::<validWalletUpdateVkeyCall>(storage, vkeys_address, ())?.into();
@@ -365,16 +361,14 @@ impl DarkpoolContract {
             )?;
         });
 
-        DarkpoolContract::insert_wallet_update_commitment_to_merkle_tree(
+        DarkpoolContract::rotate_wallet_with_signature(
             storage,
+            valid_wallet_update_statement.old_shares_nullifier,
+            valid_wallet_update_statement.merkle_root,
             valid_wallet_update_statement.new_private_shares_commitment,
             &valid_wallet_update_statement.new_public_shares,
             shares_commitment_signature.into(),
-            &valid_wallet_update_statement.old_pk_root,
-        )?;
-        DarkpoolContract::mark_nullifier_spent(
-            storage,
-            valid_wallet_update_statement.old_shares_nullifier,
+            valid_wallet_update_statement.old_pk_root,
         )?;
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
@@ -385,8 +379,6 @@ impl DarkpoolContract {
                 transfer_aux_data_bytes,
             )?;
         }
-
-        DarkpoolContract::log_wallet_update(&valid_wallet_update_statement.new_public_shares);
 
         Ok(())
     }
@@ -425,7 +417,7 @@ impl DarkpoolContract {
             assert_result!(
                 party0_same_indices && party1_same_indices,
                 INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE
-            );
+            )?;
 
             // We convert the protocol fee directly to a scalar as it is already kept
             // in storage as fixed-point number, no manipulation is needed to coerce it
@@ -446,16 +438,80 @@ impl DarkpoolContract {
             )?;
         });
 
-        DarkpoolContract::process_party(
+        DarkpoolContract::rotate_wallet(
             storage,
-            &party_0_match_payload,
+            party_0_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier,
+            party_0_match_payload.valid_reblind_statement.merkle_root,
+            party_0_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party0_modified_shares,
         )?;
 
-        DarkpoolContract::process_party(
+        DarkpoolContract::rotate_wallet(
             storage,
-            &party_1_match_payload,
-            &valid_match_settle_statement.party1_modified_shares,
+            party_1_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier,
+            party_1_match_payload.valid_reblind_statement.merkle_root,
+            party_1_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
+            &valid_match_settle_statement.party0_modified_shares,
+        )?;
+
+        Ok(())
+    }
+
+    /// Settles the fee accumulated by a relayer for a given balance in a managed wallet
+    /// into the relayer's wallet
+    pub fn settle_online_relayer_fee<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        valid_relayer_fee_settlement_statement: Bytes,
+        proof: Bytes,
+        relayer_shares_commitment_signature: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        let valid_relayer_fee_settlement_statement: ValidRelayerFeeSettlementStatement =
+            deserialize_from_calldata(&valid_relayer_fee_settlement_statement)?;
+
+        if_verifying!({
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let (valid_relayer_fee_settlement_vkey_bytes,) = static_call_helper::<
+                validRelayerFeeSettlementVkeyCall,
+            >(
+                storage, vkeys_address, ()
+            )?
+            .into();
+
+            assert_result!(
+                DarkpoolContract::verify(
+                    storage,
+                    valid_relayer_fee_settlement_vkey_bytes,
+                    proof.into(),
+                    serialize_statement_for_verification(&valid_relayer_fee_settlement_statement)?,
+                )?,
+                VERIFICATION_FAILED_ERROR_MESSAGE
+            )?;
+        });
+
+        DarkpoolContract::rotate_wallet(
+            storage,
+            valid_relayer_fee_settlement_statement.sender_nullifier,
+            valid_relayer_fee_settlement_statement.merkle_root,
+            valid_relayer_fee_settlement_statement.sender_wallet_commitment,
+            &valid_relayer_fee_settlement_statement.sender_updated_public_shares,
+        )?;
+
+        DarkpoolContract::rotate_wallet_with_signature(
+            storage,
+            valid_relayer_fee_settlement_statement.recipient_nullifier,
+            valid_relayer_fee_settlement_statement.merkle_root,
+            valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
+            &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
+            relayer_shares_commitment_signature.into(),
+            valid_relayer_fee_settlement_statement.recipient_pk_root,
         )?;
 
         Ok(())
@@ -612,7 +668,7 @@ impl DarkpoolContract {
     /// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
     /// tree, as well as the signature & pubkey for verification, and delegate-calls the appropriate
     /// method on the Merkle contract
-    pub fn insert_wallet_update_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
+    pub fn insert_signed_wallet_commitment_to_merkle_tree<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
@@ -731,39 +787,58 @@ impl DarkpoolContract {
         assert_result!(result, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
-    /// Handles the post-match-settle logic for a single party
-    pub fn process_party<S: TopLevelStorage + BorrowMut<Self>>(
+    /// Nullifies the old wallet and commits to the new wallet
+    pub fn rotate_wallet<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        match_payload: &MatchPayload,
-        public_wallet_shares: &[ScalarField],
+        old_wallet_nullifier: ScalarField,
+        merkle_root: ScalarField,
+        new_wallet_private_shares_commitment: ScalarField,
+        new_wallet_public_shares: &[ScalarField],
     ) -> Result<(), Vec<u8>> {
-        if_verifying!({
-            DarkpoolContract::check_root_in_history(
-                storage,
-                match_payload.valid_reblind_statement.merkle_root,
-            )?;
-        });
-
+        DarkpoolContract::check_wallet_rotation(storage, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
-            match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment,
-            public_wallet_shares,
-        )?;
-        DarkpoolContract::mark_nullifier_spent(
-            storage,
-            match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
-        )?;
+            new_wallet_private_shares_commitment,
+            new_wallet_public_shares,
+        )
+    }
 
-        // We assume the wallet blinder is the last scalar serialized into the wallet shares
-        // Unwrapping here is safe because we know the wallet shares are non-empty.
-        let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
-        evm::log(WalletUpdated {
-            wallet_blinder_share,
+    /// Nullifies the old wallet and commits to the new wallet,
+    /// verifying a signature over the commitment to the new wallet
+    pub fn rotate_wallet_with_signature<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        old_wallet_nullifier: ScalarField,
+        merkle_root: ScalarField,
+        new_wallet_private_shares_commitment: ScalarField,
+        new_wallet_public_shares: &[ScalarField],
+        new_wallet_commitment_signature: Vec<u8>,
+        old_pk_root: PublicSigningKey,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::check_wallet_rotation(storage, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
+        DarkpoolContract::insert_signed_wallet_commitment_to_merkle_tree(
+            storage,
+            new_wallet_private_shares_commitment,
+            new_wallet_public_shares,
+            new_wallet_commitment_signature,
+            &old_pk_root,
+        )
+    }
+
+    /// Attempts to nullify the old wallet and ensures that the given Merkle
+    /// root is a valid historical root. Logs the wallet udpate if successful.
+    pub fn check_wallet_rotation<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        old_wallet_nullifier: ScalarField,
+        merkle_root: ScalarField,
+        new_wallet_public_shares: &[ScalarField],
+    ) -> Result<(), Vec<u8>> {
+        if_verifying!({
+            DarkpoolContract::check_root_in_history(storage, merkle_root)?;
         });
+
+        DarkpoolContract::mark_nullifier_spent(storage, old_wallet_nullifier)?;
+
+        DarkpoolContract::log_wallet_update(new_wallet_public_shares);
 
         Ok(())
     }
