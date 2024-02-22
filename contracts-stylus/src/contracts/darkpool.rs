@@ -19,15 +19,12 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE,
-            NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
-            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
-            VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
+            INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE, INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE, VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
             scalar_to_u256, serialize_match_statements_for_verification,
-            serialize_statement_for_verification, static_call_helper,
+            serialize_statement_for_verification, static_call_helper, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, init_0Call as initMerkleCall,
@@ -413,14 +410,27 @@ impl DarkpoolContract {
         let valid_match_settle_statement: ValidMatchSettleStatement =
             deserialize_from_calldata(&valid_match_settle_statement)?;
 
-        if_verifying!(DarkpoolContract::batch_verify_process_match_settle(
-            storage,
-            &party_0_match_payload,
-            &party_1_match_payload,
-            &valid_match_settle_statement,
-            match_proofs,
-            match_linking_proofs,
-        )?);
+        if_verifying!({
+            assert_result!(
+                party_0_match_payload.valid_commitments_statement.indices
+                    == valid_match_settle_statement.party0_indices
+                    && party_1_match_payload.valid_commitments_statement.indices
+                        == valid_match_settle_statement.party1_indices,
+                INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE
+            )?;
+
+            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee.get())?;
+            assert_result!(valid_match_settle_statement.protocol_fee == protocol_fee, INVALID_PROTOCOL_FEE_ERROR_MESSAGE)?;
+
+            DarkpoolContract::batch_verify_process_match_settle(
+                storage,
+                &party_0_match_payload,
+                &party_1_match_payload,
+                &valid_match_settle_statement,
+                match_proofs,
+                match_linking_proofs,
+            )?;
+        });
 
         DarkpoolContract::process_party(
             storage,
