@@ -37,8 +37,8 @@ use crate::{
             validRelayerFeeSettlementVkeyCall, validWalletCreateVkeyCall,
             validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
             FeeChanged, MerkleAddressChanged, NullifierSpent, OwnershipTransferred, Paused,
-            TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged, VkeysAddressChanged,
-            WalletUpdated,
+            PubkeyRotated, TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged,
+            VkeysAddressChanged, WalletUpdated,
         },
     },
 };
@@ -84,6 +84,9 @@ pub struct DarkpoolContract {
     ///
     /// I.e., the fee is `protocol_fee / 2^32`
     protocol_fee: StorageU256,
+
+    /// The BabyJubJub EC-ElGamal public encryption key for the protocol
+    protocol_public_encryption_key: StorageArray<StorageU256, 2>,
 }
 
 #[external]
@@ -102,6 +105,7 @@ impl DarkpoolContract {
         transfer_executor_address: Address,
         permit2_address: Address,
         protocol_fee: U256,
+        protocol_public_encryption_key: [U256; 2],
     ) -> Result<(), Vec<u8>> {
         // Initialize the Merkle tree
         delegate_call_helper::<initMerkleCall>(storage, merkle_address, ())?;
@@ -122,6 +126,9 @@ impl DarkpoolContract {
 
         // Set the protocol fee
         DarkpoolContract::set_fee(storage, protocol_fee)?;
+
+        // Set the protocol public encryption key
+        DarkpoolContract::set_public_encryption_key(storage, protocol_public_encryption_key)?;
 
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1)?;
@@ -217,6 +224,13 @@ impl DarkpoolContract {
         Ok(storage.borrow().protocol_fee.get())
     }
 
+    /// Returns the protocol public encryption key
+    pub fn get_pubkey<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<[U256; 2], Vec<u8>> {
+        Ok(DarkpoolContract::_get_protocol_pubkey_coords(storage))
+    }
+
     // -----------
     // | SETTERS |
     // -----------
@@ -230,6 +244,34 @@ impl DarkpoolContract {
         assert_result!(new_fee != U256::ZERO, ZERO_FEE_ERROR_MESSAGE)?;
         storage.borrow_mut().protocol_fee.set(new_fee);
         evm::log(FeeChanged { new_fee });
+        Ok(())
+    }
+
+    /// Set the protocol public encryption key
+    pub fn set_public_encryption_key<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        new_public_encryption_key: [U256; 2],
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage)?;
+        let mut pubkey_x = storage
+            .borrow_mut()
+            .protocol_public_encryption_key
+            .setter(0)
+            .unwrap();
+        pubkey_x.set(new_public_encryption_key[0]);
+
+        let mut pubkey_y = storage
+            .borrow_mut()
+            .protocol_public_encryption_key
+            .setter(1)
+            .unwrap();
+        pubkey_y.set(new_public_encryption_key[1]);
+
+        evm::log(PubkeyRotated {
+            new_pubkey_x: new_public_encryption_key[0],
+            new_pubkey_y: new_public_encryption_key[1],
+        });
+
         Ok(())
     }
 
@@ -512,9 +554,7 @@ impl DarkpoolContract {
             &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
             relayer_shares_commitment_signature.into(),
             valid_relayer_fee_settlement_statement.recipient_pk_root,
-        )?;
-
-        Ok(())
+        )
     }
 }
 
@@ -597,6 +637,26 @@ impl DarkpoolContract {
     /// Checks that the given address is not the zero address
     pub fn check_address_not_zero(address: Address) -> Result<(), Vec<u8>> {
         assert_result!(address != Address::ZERO, ZERO_ADDRESS_ERROR_MESSAGE)
+    }
+
+    /// Gets the affine coordinates of the protocol public encryption key
+    /// as U256s
+    pub fn _get_protocol_pubkey_coords<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> [U256; 2] {
+        let protocol_pubkey_x = storage
+            .borrow()
+            .protocol_public_encryption_key
+            .get(0)
+            .unwrap();
+
+        let protocol_pubkey_y = storage
+            .borrow()
+            .protocol_public_encryption_key
+            .get(1)
+            .unwrap();
+
+        [protocol_pubkey_x, protocol_pubkey_y]
     }
 
     /// Marks the given nullifier as spent
@@ -795,7 +855,12 @@ impl DarkpoolContract {
         new_wallet_private_shares_commitment: ScalarField,
         new_wallet_public_shares: &[ScalarField],
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::check_wallet_rotation(storage, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
+        DarkpoolContract::check_wallet_rotation(
+            storage,
+            old_wallet_nullifier,
+            merkle_root,
+            new_wallet_public_shares,
+        )?;
         DarkpoolContract::insert_wallet_commitment_to_merkle_tree(
             storage,
             new_wallet_private_shares_commitment,
@@ -814,7 +879,12 @@ impl DarkpoolContract {
         new_wallet_commitment_signature: Vec<u8>,
         old_pk_root: PublicSigningKey,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::check_wallet_rotation(storage, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
+        DarkpoolContract::check_wallet_rotation(
+            storage,
+            old_wallet_nullifier,
+            merkle_root,
+            new_wallet_public_shares,
+        )?;
         DarkpoolContract::insert_signed_wallet_commitment_to_merkle_tree(
             storage,
             new_wallet_private_shares_commitment,
