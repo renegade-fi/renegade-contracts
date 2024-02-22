@@ -280,8 +280,6 @@ pub struct ValidWalletUpdateStatement {
     pub external_transfer: Option<ExternalTransfer>,
     /// The public root key of the old wallet, rotated out after this update
     pub old_pk_root: PublicSigningKey,
-    /// The timestamp this update was applied at
-    pub timestamp: u64,
 }
 
 /// Statement for the `VALID_REBLIND` circuit
@@ -300,15 +298,25 @@ pub struct ValidReblindStatement {
     pub merkle_root: ScalarField,
 }
 
-/// Statememt for the `VALID_COMMITMENTS` circuit
+/// The indices that specify where settlement logic should modify the wallet
+/// shares
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct OrderSettlementIndices {
+    /// The index of the balance that holds the mint that the wallet will
+    /// send if a successful match occurs
+    pub balance_send: u64,
+    /// The index of the balance that holds the mint that the wallet will
+    /// receive if a successful match occurs
+    pub balance_receive: u64,
+    /// The index of the order that is to be matched
+    pub order: u64,
+}
+
+/// Statement for the `VALID_COMMITMENTS` circuit
 #[derive(Serialize, Deserialize)]
 pub struct ValidCommitmentsStatement {
-    /// The index of the balance sent by the party if a successful match occurs
-    pub balance_send_index: u64,
-    /// The index of the balance received by the party if a successful match occurs
-    pub balance_receive_index: u64,
-    /// The index of the order being matched
-    pub order_index: u64,
+    /// The indices used in settling this order once matched
+    pub indices: OrderSettlementIndices,
 }
 
 /// Statement for the `VALID_MATCH_SETTLE` circuit
@@ -321,18 +329,13 @@ pub struct ValidMatchSettleStatement {
     /// The modified blinded public secret shares of the second party
     #[serde_as(as = "Vec<ScalarFieldDef>")]
     pub party1_modified_shares: Vec<ScalarField>,
-    /// The index of the balance sent by the first party in the settlement
-    pub party0_send_balance_index: u64,
-    /// The index of the balance received by the first party in the settlement
-    pub party0_receive_balance_index: u64,
-    /// The index of the first party's matched order
-    pub party0_order_index: u64,
-    /// The index of the balance sent by the second party in the settlement
-    pub party1_send_balance_index: u64,
-    /// The index of the balance received by the second party in the settlement
-    pub party1_receive_balance_index: u64,
-    /// The index of the second party's matched order
-    pub party1_order_index: u64,
+    /// The indices that settlement should modify in the first party's wallet
+    pub party0_indices: OrderSettlementIndices,
+    /// The indices that settlement should modify in the second party's wallet
+    pub party1_indices: OrderSettlementIndices,
+    /// The fee rate owed to the protocol
+    #[serde_as(as = "ScalarFieldDef")]
+    pub protocol_fee: ScalarField,
 }
 
 /// Represents the outputs produced by one of the parties in a match

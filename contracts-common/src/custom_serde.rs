@@ -11,9 +11,7 @@ use ark_serialize::Flags;
 use crate::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
-        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, PublicInputs,
-        PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement,
-        ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement
     },
 };
 
@@ -233,7 +231,6 @@ impl ScalarSerializable for ValidWalletUpdateStatement {
                 .unwrap_or(&ExternalTransfer::default()),
         )?);
         scalars.extend(pk_to_scalars(&self.old_pk_root));
-        scalars.push(self.timestamp.into());
         Ok(scalars)
     }
 }
@@ -248,27 +245,30 @@ impl ScalarSerializable for ValidReblindStatement {
     }
 }
 
-impl ScalarSerializable for ValidCommitmentsStatement {
+impl ScalarSerializable for OrderSettlementIndices {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         Ok(vec![
-            self.balance_send_index.into(),
-            self.balance_receive_index.into(),
-            self.order_index.into(),
+            self.balance_send.into(),
+            self.balance_receive.into(),
+            self.order.into(),
         ])
+    }
+}
+
+impl ScalarSerializable for ValidCommitmentsStatement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        self.indices.serialize_to_scalars()
     }
 }
 
 impl ScalarSerializable for ValidMatchSettleStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = Vec::new();
+        let mut scalars: Vec<ScalarField> = Vec::new();
         scalars.extend(&self.party0_modified_shares);
         scalars.extend(&self.party1_modified_shares);
-        scalars.push(self.party0_send_balance_index.into());
-        scalars.push(self.party0_receive_balance_index.into());
-        scalars.push(self.party0_order_index.into());
-        scalars.push(self.party1_send_balance_index.into());
-        scalars.push(self.party1_receive_balance_index.into());
-        scalars.push(self.party1_order_index.into());
+        scalars.extend(&self.party0_indices.serialize_to_scalars()?);
+        scalars.extend(&self.party1_indices.serialize_to_scalars()?);
+        scalars.push(self.protocol_fee);
         Ok(scalars)
     }
 }
