@@ -11,10 +11,11 @@ use ark_serialize::Flags;
 use crate::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
-        ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
-        OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidReblindStatement,
-        ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        BabyJubJubPoint, ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
+        NoteCiphertext, OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField,
+        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
+        ValidReblindStatement, ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement,
+        ValidWalletUpdateStatement,
     },
 };
 
@@ -292,6 +293,22 @@ impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
     }
 }
 
+impl ScalarSerializable for ValidOfflineFeeSettlementStatement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars: Vec<ScalarField> = vec![
+            self.merkle_root,
+            self.nullifier,
+            self.updated_wallet_commitment,
+        ];
+        scalars.extend(&self.updated_wallet_public_shares);
+        scalars.extend(&note_ciphertext_to_scalars(&self.note_ciphertext));
+        scalars.push(self.note_commitment);
+        scalars.extend(baby_jubjub_point_to_scalars(&self.protocol_key));
+        scalars.push(self.is_protocol_fee.into());
+        Ok(scalars)
+    }
+}
+
 // -----------
 // | HELPERS |
 // -----------
@@ -367,6 +384,20 @@ pub fn pk_to_scalars(pk: &PublicSigningKey) -> Vec<ScalarField> {
     let mut scalars = Vec::with_capacity(NUM_SCALARS_PK);
     scalars.extend(pk.x);
     scalars.extend(pk.y);
+    scalars
+}
+
+/// Converts a [`BabyJubJubPoint`] into a vector of [`ScalarField`]s
+fn baby_jubjub_point_to_scalars(point: &BabyJubJubPoint) -> Vec<ScalarField> {
+    vec![point.x, point.y]
+}
+
+/// Converts a [`NoteCiphertext`] into a vector of [`ScalarField`]s
+fn note_ciphertext_to_scalars(note_ciphertext: &NoteCiphertext) -> Vec<ScalarField> {
+    let mut scalars = baby_jubjub_point_to_scalars(&note_ciphertext.0);
+    scalars.push(note_ciphertext.1);
+    scalars.push(note_ciphertext.2);
+    scalars.push(note_ciphertext.3);
     scalars
 }
 

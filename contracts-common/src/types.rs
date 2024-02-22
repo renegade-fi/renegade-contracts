@@ -247,6 +247,22 @@ pub struct PublicSigningKey {
     pub y: [ScalarField; 2],
 }
 
+/// Represents an affine point on the BabyJubJub curve,
+/// whose base field is the scalar field of the Bn254 curve.
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct BabyJubJubPoint {
+    /// The x-coordinate of the point
+    #[serde_as(as = "ScalarFieldDef")]
+    pub x: ScalarField,
+    /// The y-coordinate of the point
+    #[serde_as(as = "ScalarFieldDef")]
+    pub y: ScalarField,
+}
+
+/// An EC-ElGamal public encryption key over the BabyJubJub curve
+pub type PublicEncryptionKey = BabyJubJubPoint;
+
 /// Statement for `VALID_WALLET_CREATE` circuit
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -376,6 +392,44 @@ pub struct ValidRelayerFeeSettlementStatement {
     pub recipient_updated_public_shares: Vec<ScalarField>,
     /// The public root key of the recipient, rotated out after this update
     pub recipient_pk_root: PublicSigningKey,
+}
+
+/// The EC-ElGamal encryption of a fee note
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct NoteCiphertext(
+    pub BabyJubJubPoint,
+    #[serde_as(as = "ScalarFieldDef")] pub ScalarField,
+    #[serde_as(as = "ScalarFieldDef")] pub ScalarField,
+    #[serde_as(as = "ScalarFieldDef")] pub ScalarField,
+);
+
+/// Statement for the `VALID OFFLINE FEE SETTLEMENT` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidOfflineFeeSettlementStatement {
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the old wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root: ScalarField,
+    /// The nullifier of the old wallet's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub nullifier: ScalarField,
+    /// A commitment to the new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub updated_wallet_commitment: ScalarField,
+    /// The blinded public secret shares of the new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub updated_wallet_public_shares: Vec<ScalarField>,
+    /// The ciphertext of the fee note
+    pub note_ciphertext: NoteCiphertext,
+    /// The commitment to the note
+    #[serde_as(as = "ScalarFieldDef")]
+    pub note_commitment: ScalarField,
+    /// The protocol's public encryption key
+    pub protocol_key: PublicEncryptionKey,
+    /// Whether the fee is a protocol fee or a relayer fee
+    pub is_protocol_fee: bool,
 }
 
 /// Represents the public inputs to a Plonk proof
