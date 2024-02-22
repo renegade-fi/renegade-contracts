@@ -19,7 +19,11 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE, INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE, NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE, VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE
+            INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
+            INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE,
+            NULLIFIER_SPENT_ERROR_MESSAGE, PAUSED_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
+            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
+            VERIFICATION_FAILED_ERROR_MESSAGE, ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
@@ -75,7 +79,9 @@ pub struct DarkpoolContract {
     nullifier_set: StorageMap<U256, StorageBool>,
 
     /// The protocol fee, representing a percentage of the trade volume
-    /// as a fized-point number
+    /// as a fixed-point number shifted by 32 bits.
+    ///
+    /// I.e., the fee is `protocol_fee / 2^32`
     protocol_fee: StorageU256,
 }
 
@@ -411,16 +417,24 @@ impl DarkpoolContract {
             deserialize_from_calldata(&valid_match_settle_statement)?;
 
         if_verifying!({
-            assert_result!(
-                party_0_match_payload.valid_commitments_statement.indices
-                    == valid_match_settle_statement.party0_indices
-                    && party_1_match_payload.valid_commitments_statement.indices
-                        == valid_match_settle_statement.party1_indices,
-                INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE
-            )?;
+            let party0_same_indices = party_0_match_payload.valid_commitments_statement.indices
+                == valid_match_settle_statement.party0_indices;
+            let party1_same_indices = party_1_match_payload.valid_commitments_statement.indices
+                == valid_match_settle_statement.party1_indices;
 
+            assert_result!(
+                party0_same_indices && party1_same_indices,
+                INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE
+            );
+
+            // We convert the protocol fee directly to a scalar as it is already kept
+            // in storage as fixed-point number, no manipulation is needed to coerce it
+            // to the form expected in the statement / circuit.
             let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee.get())?;
-            assert_result!(valid_match_settle_statement.protocol_fee == protocol_fee, INVALID_PROTOCOL_FEE_ERROR_MESSAGE)?;
+            assert_result!(
+                valid_match_settle_statement.protocol_fee == protocol_fee,
+                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+            )?;
 
             DarkpoolContract::batch_verify_process_match_settle(
                 storage,
