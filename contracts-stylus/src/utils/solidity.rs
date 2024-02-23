@@ -15,6 +15,7 @@ sol! {
     function rootInHistory(uint256 root) external view returns (bool);
     function insertSharesCommitment(uint256[] shares) external;
     function verifyStateSigAndInsert(uint256[] shares, bytes sig, uint256[4] old_pk_root) external;
+    function insertNoteCommitment(uint256 note_commitment) external;
 
     // Vkeys functions
     function validWalletCreateVkey() external view returns (bytes);

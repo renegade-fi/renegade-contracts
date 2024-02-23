@@ -3,7 +3,9 @@
 
 use alloc::{vec, vec::Vec};
 use contracts_common::types::{
-    ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement, ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement
+    ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
+    ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
+    ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 use core::borrow::{Borrow, BorrowMut};
 use stylus_sdk::{
@@ -32,8 +34,8 @@ use crate::{
         },
         solidity::{
             executeExternalTransferCall, init_0Call as initMerkleCall,
-            init_1Call as initTransferExecutorCall, insertSharesCommitmentCall,
-            processMatchSettleVkeysCall, rootCall, rootInHistoryCall,
+            init_1Call as initTransferExecutorCall, insertNoteCommitmentCall,
+            insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall, rootInHistoryCall,
             validOfflineFeeSettlementVkeyCall, validRelayerFeeSettlementVkeyCall,
             validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall, verifyMatchCall,
             verifyStateSigAndInsertCall, FeeChanged, MerkleAddressChanged, NullifierSpent,
@@ -601,7 +603,14 @@ impl DarkpoolContract {
             &valid_offline_fee_settlement_statement.updated_wallet_public_shares,
         )?;
 
-        // TODO: Insert note commitment into Merkle tree
+        let note_commitment_u256 =
+            scalar_to_u256(valid_offline_fee_settlement_statement.note_commitment);
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+        delegate_call_helper::<insertNoteCommitmentCall>(
+            storage,
+            merkle_address,
+            (note_commitment_u256,),
+        )?;
 
         Ok(())
     }

@@ -107,7 +107,12 @@ where
 
         let shares_commitment = self.compute_shares_commitment(shares)?;
 
-        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true)?;
+        self.insert_helper(
+            shares_commitment,
+            P::HEIGHT as u8,
+            insert_index,
+            true, /* subtree_filled */
+        )?;
 
         Ok(())
     }
@@ -151,7 +156,30 @@ where
             &sig
         )?);
 
-        self.insert_helper(shares_commitment, P::HEIGHT as u8, insert_index, true)?;
+        self.insert_helper(
+            shares_commitment,
+            P::HEIGHT as u8,
+            insert_index,
+            true, /* subtree_filled */
+        )?;
+
+        Ok(())
+    }
+
+    /// Inserts a note commitment into the Merkle tree
+    pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
+        let insert_index: u128 = self.next_index.get().to();
+        assert_result!(
+            insert_index < 2_u128.pow(P::HEIGHT as u32),
+            TREE_FULL_ERROR_MESSAGE
+        )?;
+
+        self.insert_helper(
+            u256_to_scalar(note_commitment)?,
+            P::HEIGHT as u8,
+            insert_index,
+            true, /* subtree_filled */
+        )?;
 
         Ok(())
     }
@@ -292,5 +320,10 @@ impl ProdMerkleContract {
     ) -> Result<(), Vec<u8>> {
         self.merkle
             .verify_state_sig_and_insert(shares, sig, old_pk_root)
+    }
+
+    #[doc(hidden)]
+    pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
+        self.merkle.insert_note_commitment(note_commitment)
     }
 }
