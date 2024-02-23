@@ -168,13 +168,13 @@ pub async fn deploy_test_contracts(
     .await?;
 
     info!("Deploying proxy contract");
-    let rand_pubkey: BabyJubJubAffine = thread_rng().sample(Standard);
+    let mut rng = thread_rng();
+    let rand_pubkey: BabyJubJubAffine = rng.sample(Standard);
     let mut pubkey_bytes: Vec<u8> = Vec::new();
     rand_pubkey.serialize_compressed(&mut pubkey_bytes).unwrap();
     let deploy_proxy_args = DeployProxyArgs {
         owner: args.owner,
-        fee: args.fee,
-        // protocol_public_encryption_key: args.protocol_public_encryption_key,
+        fee: rng.gen(),
         protocol_public_encryption_key: hex::encode(pubkey_bytes),
     };
     deploy_proxy(deploy_proxy_args, client.clone(), deployments_path).await?;

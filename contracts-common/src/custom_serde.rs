@@ -424,6 +424,11 @@ pub fn statement_to_public_inputs<S: ScalarSerializable>(
     Ok(PublicInputs(statement.serialize_to_scalars()?))
 }
 
+/// Converts a scalar to a [`alloy_primitives::U256`]
+pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
+    U256::from_be_slice(&scalar.serialize_to_bytes())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{

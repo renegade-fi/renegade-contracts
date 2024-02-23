@@ -1,4 +1,7 @@
-//! The darkpool core contract, containing all of the critical, wallet-modifying functionality
+//! The darkpool core contract, containing all of the critical, wallet-modifying functionality.
+//! This contract assumes it is being delegate-called by the "outer" darkpool contract and that
+//! certain storage elements are set by the outer contract. As such, its storage layout must
+//! exactly align with that of the outer contract.
 
 use core::borrow::{Borrow, BorrowMut};
 
@@ -13,7 +16,7 @@ use crate::{
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
-            scalar_to_u256, serialize_match_statements_for_verification,
+            serialize_match_statements_for_verification,
             serialize_statement_for_verification, static_call_helper, u256_to_scalar,
         },
         solidity::{
@@ -26,11 +29,11 @@ use crate::{
     },
 };
 use alloc::{vec, vec::Vec};
-use contracts_common::types::{
+use contracts_common::{types::{
     ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
     ValidFeeRedemptionStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
     ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
-};
+}, custom_serde::scalar_to_u256};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::U256,
@@ -70,7 +73,7 @@ pub struct DarkpoolCoreContract {
     /// The address of the darkpool core contract
     /// (unused in the darkpool core contract)
     _darkpool_core_address: StorageAddress,
-    
+
     /// The address of the verifier contract
     verifier_address: StorageAddress,
 
@@ -261,7 +264,7 @@ impl DarkpoolCoreContract {
             party_1_match_payload
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
-            &valid_match_settle_statement.party0_modified_shares,
+            &valid_match_settle_statement.party1_modified_shares,
         )?;
 
         Ok(())

@@ -1,6 +1,6 @@
 //! A test contract inheriting from the Darkpool contract, and exposing some of its internal helper methods
 
-use core::borrow::BorrowMut;
+use core::borrow::{Borrow, BorrowMut};
 
 use alloc::vec::Vec;
 use contracts_common::constants::{
@@ -23,9 +23,36 @@ struct DarkpoolTestContract {
     /// The Darkpool contract
     #[borrow]
     darkpool: DarkpoolContract,
-    /// The Darkpool core contract
-    #[borrow]
-    darkpool_core: DarkpoolCoreContract,
+}
+
+// We manually implement `Borrow` and `BorrowMut` to enable the `DarkpoolTestContract` to
+// call the internal methods of the `DarkpoolCoreContract` on the nested `DarkpoolContract`.
+// We do this by unsafely casting a pointer to the `DarkpoolContract` to a pointer to the
+// `DarkpoolCoreContract`. This allows us to avoid duplicating the internal methods of the
+// `DarkpoolCoreContract` on the `DarkpoolContract`, where they're only used for testing.
+// This is possible because we already maintain that the `DarkpoolContract` and
+// `DarkpoolCoreContract` have exactly the same storage / memory layout.
+
+impl Borrow<DarkpoolCoreContract> for DarkpoolTestContract {
+    fn borrow(&self) -> &DarkpoolCoreContract {
+        unsafe {
+            let darkpool_ptr: *const DarkpoolContract = &self.darkpool;
+            let darkpool_core_ptr: *const DarkpoolCoreContract =
+                darkpool_ptr as *const DarkpoolCoreContract;
+            &*darkpool_core_ptr
+        }
+    }
+}
+
+impl BorrowMut<DarkpoolCoreContract> for DarkpoolTestContract {
+    fn borrow_mut(&mut self) -> &mut DarkpoolCoreContract {
+        unsafe {
+            let darkpool_ptr: *mut DarkpoolContract = &mut self.darkpool;
+            let darkpool_core_ptr: *mut DarkpoolCoreContract =
+                darkpool_ptr as *mut DarkpoolCoreContract;
+            &mut *darkpool_core_ptr
+        }
+    }
 }
 
 #[external]

@@ -93,12 +93,6 @@ pub struct DeployTestContractsArgs {
     #[arg(short, long)]
     pub owner: String,
 
-    /// The initial protocol fee with which to initialize the darkpool contract.
-    /// The fee is a percentage of the trade volume, represented as a fixed-point number.
-    /// The `u64` used here should accommodate any fee we'd want to set.
-    #[arg(short, long)]
-    pub fee: u64,
-
     /// Whether or not to enable proof & ECDSA verification.
     /// This only applies to the darkpool & Merkle contracts.
     #[arg(long)]

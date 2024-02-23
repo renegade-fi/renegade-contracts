@@ -463,22 +463,26 @@ pub(crate) async fn test_initializable(
     info!("Running `test_initializable`");
     let contract = DarkpoolTestContract::new(darkpool_address, client);
 
+    let dummy_darkpool_core_address = Address::random();
     let dummy_verifier_address = Address::random();
     let dummy_vkeys_address = Address::random();
     let dummy_merkle_address = Address::random();
     let dummy_transfer_executor_address = Address::random();
     let dummy_permit2_address = Address::random();
     let dummy_protocol_fee = U256::from(1);
+    let dummy_protocol_public_encryption_key = [U256::from(1), U256::from(2)];
 
     assert!(
         contract
             .initialize(
+                dummy_darkpool_core_address,
                 dummy_verifier_address,
                 dummy_vkeys_address,
                 dummy_merkle_address,
                 dummy_transfer_executor_address,
                 dummy_permit2_address,
                 dummy_protocol_fee,
+                dummy_protocol_public_encryption_key
             )
             .send()
             .await
@@ -1182,8 +1186,7 @@ pub(crate) async fn test_process_match_settle__inconsistent_fee(
 
     let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
     // Mutate the protocol fee to be inconsistent
-    data.valid_match_settle_statement
-        .protocol_fee += ScalarField::one();
+    data.valid_match_settle_statement.protocol_fee += ScalarField::one();
 
     // Call `process_match_settle` with invalid data
     assert!(
