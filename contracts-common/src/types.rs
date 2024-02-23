@@ -369,9 +369,13 @@ pub struct MatchPayload {
 #[derive(Serialize, Deserialize)]
 pub struct ValidRelayerFeeSettlementStatement {
     /// A historic merkle root for which we prove inclusion of
-    /// the commitment to both wallets' private secret shares
+    /// the commitment to the sender's wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub merkle_root: ScalarField,
+    pub merkle_root1: ScalarField,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the recipient's wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root2: ScalarField,
     /// The nullifier of the sender's secret shares
     #[serde_as(as = "ScalarFieldDef")]
     pub sender_nullifier: ScalarField,
@@ -430,6 +434,34 @@ pub struct ValidOfflineFeeSettlementStatement {
     pub protocol_key: PublicEncryptionKey,
     /// Whether the fee is a protocol fee or a relayer fee
     pub is_protocol_fee: bool,
+}
+
+/// Statement for the `VALID FEE REDEMPTION` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidFeeRedemptionStatement {
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the old wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root1: ScalarField,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to note
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root2: ScalarField,
+    /// The nullifier of the old wallet's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub nullifier: ScalarField,
+    /// The nullifier of the note
+    #[serde_as(as = "ScalarFieldDef")]
+    pub note_nullifier: ScalarField,
+    /// A commitment to the new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub new_wallet_commitment: ScalarField,
+    /// The blinded public secret shares of the new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub new_wallet_public_shares: Vec<ScalarField>,
+    /// The public root key of the old wallet, rotated out after this update
+    pub old_pk_root: PublicSigningKey,
 }
 
 /// Represents the public inputs to a Plonk proof
