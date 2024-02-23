@@ -18,6 +18,7 @@ serde = { workspace = true }
 [features]
 darkpool = []
 darkpool-test-contract = []
+darkpool-core = []
 merkle = ["stylus-sdk/storage-cache"]
 merkle-test-contract = []
 verifier = []

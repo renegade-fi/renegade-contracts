@@ -36,9 +36,9 @@ use super::constants::{
 /// Deserializes a byte-serialized type from calldata
 #[cfg_attr(
     not(any(
-        feature = "darkpool",
-        feature = "darkpool-test-contract",
-        feature = "verifier"
+        feature = "darkpool-core",
+        feature = "verifier",
+        feature = "transfer-executor"
     )),
     allow(dead_code)
 )]
@@ -50,7 +50,7 @@ pub fn deserialize_from_calldata<'a, D: Deserialize<'a>>(
 
 /// Serializes the given type into bytes for calldata
 #[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    not(any(feature = "darkpool-core", feature = "transfer-executor")),
     allow(dead_code)
 )]
 pub fn postcard_serialize<S: Serialize>(s: &S) -> Result<Vec<u8>, Vec<u8>> {
@@ -59,10 +59,7 @@ pub fn postcard_serialize<S: Serialize>(s: &S) -> Result<Vec<u8>, Vec<u8>> {
 
 /// Serializes the given statement into scalars, and then into bytes,
 /// as expected by the verifier contract.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
+#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
 pub fn serialize_statement_for_verification<S: ScalarSerializable>(
     statement: &S,
 ) -> Result<Vec<u8>, Vec<u8>> {
@@ -73,10 +70,7 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
 /// Serializes the statements used in verifying the settlement of a
 /// matched trade into scalars, builds the [`MatchPublicInputs`] struct,
 /// and then serialized it into bytes, as expected by the verifier contract.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
+#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
 pub fn serialize_match_statements_for_verification(
     valid_commitments_0: &ValidCommitmentsStatement,
     valid_commitments_1: &ValidCommitmentsStatement,
@@ -120,7 +114,11 @@ pub fn map_calldata_ser_error<E>(_e: E) -> Vec<u8> {
 /// Performs a `delegatecall` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.
 #[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
+    not(any(
+        feature = "darkpool-core",
+        feature = "darkpool",
+        feature = "darkpool-test-contract"
+    )),
     allow(dead_code)
 )]
 pub fn delegate_call_helper<C: SolCall>(
@@ -136,10 +134,7 @@ pub fn delegate_call_helper<C: SolCall>(
 
 /// Performs a `staticcall` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
+#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
 pub fn static_call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
@@ -168,8 +163,7 @@ pub fn call_helper<C: SolCall>(
 /// Converts a scalar to a U256
 #[cfg_attr(
     not(any(
-        feature = "darkpool",
-        feature = "darkpool-test-contract",
+        feature = "darkpool-core",
         feature = "merkle",
         feature = "merkle-test-contract"
     )),
@@ -195,10 +189,7 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, Vec<u8>> {
 }
 
 /// Converts a [`PublicSigningKey`] into the [`U256`] array representing its scalar serialization
-#[cfg_attr(
-    not(any(feature = "darkpool", feature = "darkpool-test-contract")),
-    allow(dead_code)
-)]
+#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
 pub fn pk_to_u256s(pk: &PublicSigningKey) -> Result<[U256; NUM_SCALARS_PK], Vec<u8>> {
     let scalars = pk_to_scalars(pk);
     scalars

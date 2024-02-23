@@ -18,7 +18,7 @@ pub const ZERO_ADDRESS_ERROR_MESSAGE: &[u8] = b"zero address";
 pub const ZERO_FEE_ERROR_MESSAGE: &[u8] = b"zero fee";
 
 /// The revert message when verification fails
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "darkpool-core")]
 pub const VERIFICATION_FAILED_ERROR_MESSAGE: &[u8] = b"verification failed";
 
 /// The revert message when attempting to initialize
@@ -38,33 +38,37 @@ pub const PAUSED_ERROR_MESSAGE: &[u8] = b"paused";
 
 /// The revert message when calling an paused-only method
 /// when the contract is unpaused
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(any(
+    feature = "darkpool",
+    feature = "darkpool-test-contract",
+    feature = "darkpool-core"
+))]
 pub const UNPAUSED_ERROR_MESSAGE: &[u8] = b"unpaused";
 
 /// The revert message when attempting to mark
 /// a spent nullifier as spent again
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "darkpool-core")]
 pub const NULLIFIER_SPENT_ERROR_MESSAGE: &[u8] = b"nullifier spent";
 
 /// The revert message when checking an invalid
 /// historic root
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "darkpool-core")]
 pub const ROOT_NOT_IN_HISTORY_ERROR_MESSAGE: &[u8] = b"root not in history";
 
 /// The revert message when order settlement indices are different
 /// between a VALID COMMITMENTS & VALID MATCH SETTLE statement
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "darkpool-core")]
 pub const INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE: &[u8] =
     b"invalid order settlement indices";
 
 /// The revert message when the protocol fee is incorrect in a
 /// VALID MATCH SETTLE statement
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "darkpool-core")]
 pub const INVALID_PROTOCOL_FEE_ERROR_MESSAGE: &[u8] = b"invalid protocol fee";
 
 /// The revert message when the protocol public encryption key is
 /// incorrect in a VALID OFFLINE FEE SETTLEMENT statement
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(feature = "darkpool-core")]
 pub const INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE: &[u8] = b"invalid protocol pubkey";
 
 /// The revert message when attempting to insert
@@ -127,6 +131,7 @@ pub const EC_RECOVER_INPUT_LEN: usize = 128;
 #[cfg(any(
     feature = "darkpool",
     feature = "darkpool-test-contract",
+    feature = "darkpool-core",
     feature = "transfer-executor"
 ))]
 pub const MERKLE_STORAGE_GAP_SIZE: usize = 64;
@@ -134,7 +139,11 @@ pub const MERKLE_STORAGE_GAP_SIZE: usize = 64;
 /// The number of storage slots to allocate for the transfer executor
 /// contract, used in creating storage gaps in contracts in the same
 /// context to ensure that there are no storage collisions
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(any(
+    feature = "darkpool",
+    feature = "darkpool-test-contract",
+    feature = "darkpool-core"
+))]
 pub const TRANSFER_EXECUTOR_STORAGE_GAP_SIZE: usize = 64;
 
 /// The serialized VALID WALLET CREATE verification key

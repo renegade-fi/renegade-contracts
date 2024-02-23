@@ -3,6 +3,9 @@
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 mod darkpool;
 
+#[cfg(feature = "darkpool-core")]
+mod darkpool_core;
+
 #[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
 mod merkle;
 
