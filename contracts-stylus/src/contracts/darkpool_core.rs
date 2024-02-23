@@ -64,8 +64,13 @@ pub struct DarkpoolCoreContract {
     _initialized: StorageU64,
 
     /// Whether or not the darkpool is paused
+    /// (unused in the darkpool core contract)
     _paused: StorageBool,
 
+    /// The address of the darkpool core contract
+    /// (unused in the darkpool core contract)
+    _darkpool_core_address: StorageAddress,
+    
     /// The address of the verifier contract
     verifier_address: StorageAddress,
 
