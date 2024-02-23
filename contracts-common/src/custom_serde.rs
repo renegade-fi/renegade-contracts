@@ -13,9 +13,9 @@ use crate::{
     types::{
         BabyJubJubPoint, ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
         NoteCiphertext, OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
-        ValidReblindStatement, ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement,
-        ValidWalletUpdateStatement,
+        ValidCommitmentsStatement, ValidFeeRedemptionStatement, ValidMatchSettleStatement,
+        ValidOfflineFeeSettlementStatement, ValidReblindStatement,
+        ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 
@@ -280,7 +280,8 @@ impl ScalarSerializable for ValidMatchSettleStatement {
 impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> = vec![
-            self.merkle_root,
+            self.merkle_root1,
+            self.merkle_root2,
             self.sender_nullifier,
             self.recipient_nullifier,
             self.sender_wallet_commitment,
@@ -305,6 +306,21 @@ impl ScalarSerializable for ValidOfflineFeeSettlementStatement {
         scalars.push(self.note_commitment);
         scalars.extend(baby_jubjub_point_to_scalars(&self.protocol_key));
         scalars.push(self.is_protocol_fee.into());
+        Ok(scalars)
+    }
+}
+
+impl ScalarSerializable for ValidFeeRedemptionStatement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars: Vec<ScalarField> = vec![
+            self.merkle_root1,
+            self.merkle_root2,
+            self.nullifier,
+            self.note_nullifier,
+            self.new_wallet_commitment,
+        ];
+        scalars.extend(&self.new_wallet_public_shares);
+        scalars.extend(&pk_to_scalars(&self.old_pk_root));
         Ok(scalars)
     }
 }

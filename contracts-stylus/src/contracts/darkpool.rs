@@ -543,7 +543,7 @@ impl DarkpoolContract {
         DarkpoolContract::rotate_wallet(
             storage,
             valid_relayer_fee_settlement_statement.sender_nullifier,
-            valid_relayer_fee_settlement_statement.merkle_root,
+            valid_relayer_fee_settlement_statement.merkle_root1,
             valid_relayer_fee_settlement_statement.sender_wallet_commitment,
             &valid_relayer_fee_settlement_statement.sender_updated_public_shares,
         )?;
@@ -551,7 +551,7 @@ impl DarkpoolContract {
         DarkpoolContract::rotate_wallet_with_signature(
             storage,
             valid_relayer_fee_settlement_statement.recipient_nullifier,
-            valid_relayer_fee_settlement_statement.merkle_root,
+            valid_relayer_fee_settlement_statement.merkle_root2,
             valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
             &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
             relayer_shares_commitment_signature.into(),
