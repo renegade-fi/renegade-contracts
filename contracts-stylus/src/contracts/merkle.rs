@@ -12,7 +12,7 @@ use core::marker::PhantomData;
 use alloc::vec::Vec;
 use contracts_common::{
     constants::{MERKLE_HEIGHT, NUM_SCALARS_PK},
-    custom_serde::BytesSerializable,
+    custom_serde::{BytesSerializable, scalar_to_u256},
     types::{PublicSigningKey, ScalarField},
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -28,7 +28,7 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
-        helpers::{assert_valid_signature, scalar_to_u256, u256_to_scalar},
+        helpers::{assert_valid_signature, u256_to_scalar},
         solidity::NodeChanged,
     },
 };

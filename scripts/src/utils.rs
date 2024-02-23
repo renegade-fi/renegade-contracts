@@ -15,8 +15,7 @@ use alloy_primitives::{Address as AlloyAddress, U256};
 use alloy_sol_types::SolCall;
 use ark_ed_on_bn254::EdwardsAffine as BabyJubJubAffine;
 use ark_serialize::CanonicalDeserialize;
-use contracts_common::types::PublicEncryptionKey;
-use contracts_utils::conversion::scalar_to_u256;
+use contracts_common::{types::PublicEncryptionKey, custom_serde::scalar_to_u256};
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,

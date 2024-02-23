@@ -6,8 +6,7 @@ use ark_ff::PrimeField;
 use contracts_common::{
     constants::{NUM_SCALARS_PK, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{
-        bigint_from_le_bytes, pk_to_scalars, statement_to_public_inputs, BytesSerializable,
-        ScalarSerializable,
+        bigint_from_le_bytes, pk_to_scalars, scalar_to_u256, statement_to_public_inputs, ScalarSerializable
     },
     types::{
         MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
@@ -158,19 +157,6 @@ pub fn call_helper<C: SolCall>(
     let res = call(storage, address, &calldata).map_err(map_call_error)?;
     C::decode_returns(&res, true /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
-}
-
-/// Converts a scalar to a U256
-#[cfg_attr(
-    not(any(
-        feature = "darkpool-core",
-        feature = "merkle",
-        feature = "merkle-test-contract"
-    )),
-    allow(dead_code)
-)]
-pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
-    U256::from_be_slice(&scalar.serialize_to_bytes())
 }
 
 /// Converts a U256 to a scalar
