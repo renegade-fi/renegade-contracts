@@ -9,8 +9,7 @@ use crate::{
             INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
             INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
             NULLIFIER_SPENT_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
-            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
-            VERIFICATION_FAILED_ERROR_MESSAGE,
+            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
@@ -41,9 +40,12 @@ use stylus_sdk::{
 };
 
 /// The darkpool core contract's storage layout.
-/// This contract mirrors many storage elements from the "outer"
+/// This contract mirrors the storage elements from the "outer"
 /// darkpool contract where they are set, so that they can be fetched
 /// without a delegatecall.
+/// Many storage elements are not used in the darkpool core contract,
+/// but are listed here so that the storage layout lines up with
+/// that of the darkpool contract.
 #[solidity_storage]
 #[cfg_attr(feature = "darkpool-core", entrypoint)]
 pub struct DarkpoolCoreContract {
@@ -54,22 +56,24 @@ pub struct DarkpoolCoreContract {
     __transfer_executor_gap: StorageArray<StorageU256, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE>,
 
     /// The owner of the darkpool contract
+    /// (unused in the darkpool core contract)
     _owner: StorageAddress,
 
     /// Whether or not the darkpool has been initialized
+    /// (unused in the darkpool core contract)
     _initialized: StorageU64,
 
     /// Whether or not the darkpool is paused
-    paused: StorageBool,
+    _paused: StorageBool,
 
     /// The address of the verifier contract
-    pub(crate) verifier_address: StorageAddress,
+    verifier_address: StorageAddress,
 
     /// The address of the vkeys contract
-    pub(crate) vkeys_address: StorageAddress,
+    vkeys_address: StorageAddress,
 
     /// The address of the Merkle contract
-    pub(crate) merkle_address: StorageAddress,
+    merkle_address: StorageAddress,
 
     /// The address of the transfer executor contract
     transfer_executor_address: StorageAddress,
@@ -97,8 +101,6 @@ impl DarkpoolCoreContract {
         proof: Bytes,
         valid_wallet_create_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolCoreContract::_check_not_paused(storage)?;
-
         let valid_wallet_create_statement: ValidWalletCreateStatement =
             deserialize_from_calldata(&valid_wallet_create_statement_bytes)?;
 
@@ -139,8 +141,6 @@ impl DarkpoolCoreContract {
         shares_commitment_signature: Bytes,
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolCoreContract::_check_not_paused(storage)?;
-
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             deserialize_from_calldata(&valid_wallet_update_statement_bytes)?;
 
@@ -196,8 +196,6 @@ impl DarkpoolCoreContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolCoreContract::_check_not_paused(storage)?;
-
         let party_0_match_payload: MatchPayload =
             deserialize_from_calldata(&party_0_match_payload)?;
 
@@ -268,8 +266,8 @@ impl DarkpoolCoreContract {
     /// into the relayer's wallet
     pub fn settle_online_relayer_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        valid_relayer_fee_settlement_statement: Bytes,
         proof: Bytes,
+        valid_relayer_fee_settlement_statement: Bytes,
         relayer_shares_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_relayer_fee_settlement_statement: ValidRelayerFeeSettlementStatement =
@@ -298,7 +296,7 @@ impl DarkpoolCoreContract {
         DarkpoolCoreContract::rotate_wallet(
             storage,
             valid_relayer_fee_settlement_statement.sender_nullifier,
-            valid_relayer_fee_settlement_statement.merkle_root1,
+            valid_relayer_fee_settlement_statement.sender_root,
             valid_relayer_fee_settlement_statement.sender_wallet_commitment,
             &valid_relayer_fee_settlement_statement.sender_updated_public_shares,
         )?;
@@ -306,7 +304,7 @@ impl DarkpoolCoreContract {
         DarkpoolCoreContract::rotate_wallet_with_signature(
             storage,
             valid_relayer_fee_settlement_statement.recipient_nullifier,
-            valid_relayer_fee_settlement_statement.merkle_root2,
+            valid_relayer_fee_settlement_statement.recipient_root,
             valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
             &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
             relayer_shares_commitment_signature.into(),
@@ -318,8 +316,8 @@ impl DarkpoolCoreContract {
     /// into an encrypted note which is committed to the Merkle tree
     pub fn settle_offline_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        valid_offline_fee_settlement_statement: Bytes,
         proof: Bytes,
+        valid_offline_fee_settlement_statement: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_offline_fee_settlement_statement: ValidOfflineFeeSettlementStatement =
             deserialize_from_calldata(&valid_offline_fee_settlement_statement)?;
@@ -374,8 +372,8 @@ impl DarkpoolCoreContract {
     /// Redeems a fee note into the recipient's wallet, nullifying the note
     pub fn redeem_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        valid_fee_redemption_statement: Bytes,
         proof: Bytes,
+        valid_fee_redemption_statement: Bytes,
         recipient_shares_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_fee_redemption_statement: ValidFeeRedemptionStatement =
@@ -401,7 +399,7 @@ impl DarkpoolCoreContract {
         DarkpoolCoreContract::rotate_wallet_with_signature(
             storage,
             valid_fee_redemption_statement.nullifier,
-            valid_fee_redemption_statement.merkle_root1,
+            valid_fee_redemption_statement.wallet_root,
             valid_fee_redemption_statement.new_wallet_commitment,
             &valid_fee_redemption_statement.new_wallet_public_shares,
             recipient_shares_commitment_signature.into(),
@@ -411,7 +409,7 @@ impl DarkpoolCoreContract {
         DarkpoolCoreContract::check_root_and_nullify(
             storage,
             valid_fee_redemption_statement.note_nullifier,
-            valid_fee_redemption_statement.merkle_root2,
+            valid_fee_redemption_statement.note_root,
         )
     }
 }
@@ -421,11 +419,10 @@ impl DarkpoolCoreContract {
     // | CORE GETTER HELPERS |
     // -----------------------
 
-    /// Gets the affine coordinates of the protocol public encryption key
-    /// as U256s
-    pub fn _get_protocol_pubkey_coords<S: TopLevelStorage + Borrow<Self>>(
+    /// Gets the protocol public encryption key
+    pub fn get_protocol_public_encryption_key<S: TopLevelStorage + Borrow<Self>>(
         storage: &S,
-    ) -> [U256; 2] {
+    ) -> Result<PublicEncryptionKey, Vec<u8>> {
         let protocol_pubkey_x = storage
             .borrow()
             .protocol_public_encryption_key
@@ -438,32 +435,10 @@ impl DarkpoolCoreContract {
             .get(1)
             .unwrap();
 
-        [protocol_pubkey_x, protocol_pubkey_y]
-    }
-
-    /// Gets the protocol public encryption key
-    pub fn get_protocol_public_encryption_key<S: TopLevelStorage + Borrow<Self>>(
-        storage: &S,
-    ) -> Result<PublicEncryptionKey, Vec<u8>> {
-        let [protocol_pubkey_x, protocol_pubkey_y] =
-            DarkpoolCoreContract::_get_protocol_pubkey_coords(storage);
-
         Ok(PublicEncryptionKey {
             x: u256_to_scalar(protocol_pubkey_x)?,
             y: u256_to_scalar(protocol_pubkey_y)?,
         })
-    }
-
-    /// Returns whether or not the given root is a valid historical Merkle root
-    pub fn root_in_history<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        root: U256,
-    ) -> Result<bool, Vec<u8>> {
-        let merkle_address = storage.borrow_mut().merkle_address.get();
-        let (res,) =
-            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,))?.into();
-
-        Ok(res)
     }
 
     /// Checks that the given Merkle root is in the root history
@@ -472,17 +447,11 @@ impl DarkpoolCoreContract {
         root: ScalarField,
     ) -> Result<(), Vec<u8>> {
         let root = scalar_to_u256(root);
-        assert_result!(
-            DarkpoolCoreContract::root_in_history(storage, root)?,
-            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE
-        )
-    }
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+        let (res,) =
+            delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,))?.into();
 
-    /// Checks that the darkpool is not paused
-    pub fn _check_not_paused<S: TopLevelStorage + Borrow<Self>>(
-        storage: &S,
-    ) -> Result<(), Vec<u8>> {
-        assert_result!(!storage.borrow().paused.get(), UNPAUSED_ERROR_MESSAGE)
+        assert_result!(res, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE)
     }
 
     // -----------------------
