@@ -4,7 +4,7 @@
 use alloc::{vec, vec::Vec};
 use contracts_common::types::{
     ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
-    ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
+    ValidFeeRedemptionStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
     ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
 };
 use core::borrow::{Borrow, BorrowMut};
@@ -36,11 +36,12 @@ use crate::{
             executeExternalTransferCall, init_0Call as initMerkleCall,
             init_1Call as initTransferExecutorCall, insertNoteCommitmentCall,
             insertSharesCommitmentCall, processMatchSettleVkeysCall, rootCall, rootInHistoryCall,
-            validOfflineFeeSettlementVkeyCall, validRelayerFeeSettlementVkeyCall,
-            validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall, verifyMatchCall,
-            verifyStateSigAndInsertCall, FeeChanged, MerkleAddressChanged, NullifierSpent,
-            OwnershipTransferred, Paused, PubkeyRotated, TransferExecutorAddressChanged, Unpaused,
-            VerifierAddressChanged, VkeysAddressChanged, WalletUpdated,
+            validFeeRedemptionVkeyCall, validOfflineFeeSettlementVkeyCall,
+            validRelayerFeeSettlementVkeyCall, validWalletCreateVkeyCall,
+            validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
+            FeeChanged, MerkleAddressChanged, NullifierSpent, OwnershipTransferred, Paused,
+            PubkeyRotated, TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged,
+            VkeysAddressChanged, WalletUpdated,
         },
     },
 };
@@ -543,7 +544,7 @@ impl DarkpoolContract {
         DarkpoolContract::rotate_wallet(
             storage,
             valid_relayer_fee_settlement_statement.sender_nullifier,
-            valid_relayer_fee_settlement_statement.merkle_root1,
+            valid_relayer_fee_settlement_statement.sender_root,
             valid_relayer_fee_settlement_statement.sender_wallet_commitment,
             &valid_relayer_fee_settlement_statement.sender_updated_public_shares,
         )?;
@@ -551,7 +552,7 @@ impl DarkpoolContract {
         DarkpoolContract::rotate_wallet_with_signature(
             storage,
             valid_relayer_fee_settlement_statement.recipient_nullifier,
-            valid_relayer_fee_settlement_statement.merkle_root2,
+            valid_relayer_fee_settlement_statement.recipient_root,
             valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
             &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
             relayer_shares_commitment_signature.into(),
@@ -613,6 +614,50 @@ impl DarkpoolContract {
         )?;
 
         Ok(())
+    }
+
+    /// Redeems a fee note into the recipient's wallet, nullifying the note
+    pub fn redeem_fee<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        valid_fee_redemption_statement: Bytes,
+        proof: Bytes,
+        recipient_shares_commitment_signature: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        let valid_fee_redemption_statement: ValidFeeRedemptionStatement =
+            deserialize_from_calldata(&valid_fee_redemption_statement)?;
+
+        if_verifying!({
+            let vkeys_address = storage.borrow_mut().vkeys_address.get();
+            let (valid_fee_redemption_vkey_bytes,) =
+                static_call_helper::<validFeeRedemptionVkeyCall>(storage, vkeys_address, ())?
+                    .into();
+
+            assert_result!(
+                DarkpoolContract::verify(
+                    storage,
+                    valid_fee_redemption_vkey_bytes,
+                    proof.into(),
+                    serialize_statement_for_verification(&valid_fee_redemption_statement)?,
+                )?,
+                VERIFICATION_FAILED_ERROR_MESSAGE
+            )?;
+        });
+
+        DarkpoolContract::rotate_wallet_with_signature(
+            storage,
+            valid_fee_redemption_statement.nullifier,
+            valid_fee_redemption_statement.wallet_root,
+            valid_fee_redemption_statement.new_wallet_commitment,
+            &valid_fee_redemption_statement.new_wallet_public_shares,
+            recipient_shares_commitment_signature.into(),
+            valid_fee_redemption_statement.old_pk_root,
+        )?;
+
+        DarkpoolContract::check_root_and_nullify(
+            storage,
+            valid_fee_redemption_statement.note_nullifier,
+            valid_fee_redemption_statement.note_root,
+        )
     }
 }
 
@@ -973,14 +1018,23 @@ impl DarkpoolContract {
         merkle_root: ScalarField,
         new_wallet_public_shares: &[ScalarField],
     ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::check_root_and_nullify(storage, old_wallet_nullifier, merkle_root)?;
+        DarkpoolContract::log_wallet_update(new_wallet_public_shares);
+
+        Ok(())
+    }
+
+    /// Checks that the given Merkle root is a valid historical root,
+    /// and marks the nullifier as spent.
+    pub fn check_root_and_nullify<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        nullifier: ScalarField,
+        merkle_root: ScalarField,
+    ) -> Result<(), Vec<u8>> {
         if_verifying!({
             DarkpoolContract::check_root_in_history(storage, merkle_root)?;
         });
 
-        DarkpoolContract::mark_nullifier_spent(storage, old_wallet_nullifier)?;
-
-        DarkpoolContract::log_wallet_update(new_wallet_public_shares);
-
-        Ok(())
+        DarkpoolContract::mark_nullifier_spent(storage, nullifier)
     }
 }

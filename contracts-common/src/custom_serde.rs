@@ -280,8 +280,8 @@ impl ScalarSerializable for ValidMatchSettleStatement {
 impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> = vec![
-            self.merkle_root1,
-            self.merkle_root2,
+            self.sender_root,
+            self.recipient_root,
             self.sender_nullifier,
             self.recipient_nullifier,
             self.sender_wallet_commitment,
@@ -313,8 +313,8 @@ impl ScalarSerializable for ValidOfflineFeeSettlementStatement {
 impl ScalarSerializable for ValidFeeRedemptionStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> = vec![
-            self.merkle_root1,
-            self.merkle_root2,
+            self.wallet_root,
+            self.note_root,
             self.nullifier,
             self.note_nullifier,
             self.new_wallet_commitment,
