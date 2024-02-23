@@ -128,6 +128,11 @@ pub struct DeployProxyArgs {
     /// The `u64` used here should accommodate any fee we'd want to set.
     #[arg(short, long)]
     pub fee: u64,
+
+    /// The public EC-ElGamal encryption key for the protocol,
+    /// hex-encoded in compressed form
+    #[arg(short, long)]
+    pub protocol_public_encryption_key: String,
 }
 
 /// Deploy a Stylus contract
@@ -148,6 +153,8 @@ pub struct DeployStylusArgs {
 pub enum StylusContract {
     /// The darkpool contract
     Darkpool,
+    /// The darkpool core contract
+    DarkpoolCore,
     /// The darkpool test contract
     DarkpoolTestContract,
     /// The Merkle contract
@@ -174,6 +181,7 @@ impl Display for StylusContract {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             StylusContract::Darkpool => write!(f, "darkpool"),
+            StylusContract::DarkpoolCore => write!(f, "darkpool-core"),
             StylusContract::DarkpoolTestContract => write!(f, "darkpool-test-contract"),
             StylusContract::Merkle => write!(f, "merkle"),
             StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),

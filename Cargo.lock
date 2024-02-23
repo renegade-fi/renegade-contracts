@@ -5436,6 +5436,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
+ "ark-ed-on-bn254",
  "ark-serialize 0.4.2",
  "circuit-types",
  "circuits",

@@ -117,6 +117,9 @@ pub const DEPLOYMENTS_KEY: &str = "deployments";
 /// The darkpool implementation contract key in the `deployments.json` file
 pub const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
 
+/// The darkpool core contract key in the `deployments.json` file
+pub const DARKPOOL_CORE_CONTRACT_KEY: &str = "darkpool_core_contract";
+
 /// The darkpool proxy contract key in the `deployments.json` file
 pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
 

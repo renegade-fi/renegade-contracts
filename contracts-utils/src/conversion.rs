@@ -1,14 +1,16 @@
 //! Type conversion utilities
 
+use alloy_primitives::U256;
 use arbitrum_client::errors::ConversionError;
 use circuit_types::{
     keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
     PolynomialCommitment,
 };
 use constants::{Scalar, SystemCurve};
-use contracts_common::types::{
-    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, VerificationKey,
-};
+use contracts_common::{types::{
+    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, ScalarField,
+    VerificationKey,
+}, custom_serde::BytesSerializable};
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
 
@@ -76,4 +78,9 @@ pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPu
     };
 
     CircuitPublicSigningKey { x, y }
+}
+
+/// Converts a scalar to a [`alloy_primitives::U256`]
+pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
+    U256::from_be_slice(&scalar.serialize_to_bytes())
 }

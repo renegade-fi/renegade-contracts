@@ -1,6 +1,8 @@
 //! Implementations of the various deploy scripts
 
 use alloy_primitives::U256;
+use ark_ed_on_bn254::EdwardsAffine as BabyJubJubAffine;
+use ark_serialize::CanonicalSerialize;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
@@ -24,6 +26,7 @@ use ethers::{
     types::{Bytes, H256, U256 as EthersU256},
     utils::hex::FromHex,
 };
+use rand::{distributions::Standard, thread_rng, Rng};
 use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
@@ -37,15 +40,14 @@ use crate::{
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
         PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI,
         PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, TEST_FUNDING_AMOUNT,
-        TRANSFER_EXECUTOR_CONTRACT_KEY, VALID_WALLET_CREATE_VKEY_FILE,
-        VALID_WALLET_UPDATE_VKEY_FILE, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, parse_addr_from_deployments_file, setup_client, write_deployed_address,
-        write_vkey_file, LocalWalletProvider,
+        get_contract_key, parse_addr_from_deployments_file, parse_public_encryption_key,
+        setup_client, write_deployed_address, write_vkey_file, LocalWalletProvider,
     },
 };
 
@@ -129,6 +131,17 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
+    info!("Deploying darkpool core contract");
+    deploy_stylus_args.contract = StylusContract::DarkpoolCore;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
     info!("Deploying darkpool testing contract");
     deploy_stylus_args.contract = StylusContract::DarkpoolTestContract;
     build_and_deploy_stylus_contract(
@@ -155,9 +168,14 @@ pub async fn deploy_test_contracts(
     .await?;
 
     info!("Deploying proxy contract");
+    let rand_pubkey: BabyJubJubAffine = thread_rng().sample(Standard);
+    let mut pubkey_bytes: Vec<u8> = Vec::new();
+    rand_pubkey.serialize_compressed(&mut pubkey_bytes).unwrap();
     let deploy_proxy_args = DeployProxyArgs {
         owner: args.owner,
         fee: args.fee,
+        // protocol_public_encryption_key: args.protocol_public_encryption_key,
+        protocol_public_encryption_key: hex::encode(pubkey_bytes),
     };
     deploy_proxy(deploy_proxy_args, client.clone(), deployments_path).await?;
 
@@ -202,17 +220,28 @@ pub async fn deploy_proxy(
         deployments_path,
         get_contract_key(StylusContract::Darkpool),
     )?;
+    let darkpool_core_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::DarkpoolCore),
+    )?;
     let merkle_address = parse_addr_from_deployments_file(
         deployments_path,
         get_contract_key(StylusContract::Merkle),
     )?;
-    let verifier_address =
-        parse_addr_from_deployments_file(deployments_path, VERIFIER_CONTRACT_KEY)?;
+    let verifier_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::Verifier),
+    )?;
 
-    let vkeys_address = parse_addr_from_deployments_file(deployments_path, VKEYS_CONTRACT_KEY)?;
+    let vkeys_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::Vkeys),
+    )?;
 
-    let transfer_executor_address =
-        parse_addr_from_deployments_file(deployments_path, TRANSFER_EXECUTOR_CONTRACT_KEY)?;
+    let transfer_executor_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::TransferExecutor),
+    )?;
 
     let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
@@ -221,19 +250,19 @@ pub async fn deploy_proxy(
 
     let protocol_fee = U256::from(args.fee);
 
+    let protocol_public_encryption_key =
+        parse_public_encryption_key(&args.protocol_public_encryption_key);
+
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
+        darkpool_core_address,
         verifier_address,
         vkeys_address,
         merkle_address,
         transfer_executor_address,
         permit2_address,
         protocol_fee,
+        protocol_public_encryption_key,
     )?);
-
-    info!(
-        "Deploying proxy using:\n\tDarkpool address: {:#x}\n\tMerkle address: {:#x}\n\tVerifier address: {:#x}\n\tVkeys address: {:#x}",
-        darkpool_address, merkle_address, verifier_address, vkeys_address
-    );
 
     // Deploy proxy contract
     let proxy_contract = proxy_factory
