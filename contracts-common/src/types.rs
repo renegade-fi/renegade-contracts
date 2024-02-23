@@ -371,11 +371,11 @@ pub struct ValidRelayerFeeSettlementStatement {
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to the sender's wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub merkle_root1: ScalarField,
+    pub sender_root: ScalarField,
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to the recipient's wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub merkle_root2: ScalarField,
+    pub recipient_root: ScalarField,
     /// The nullifier of the sender's secret shares
     #[serde_as(as = "ScalarFieldDef")]
     pub sender_nullifier: ScalarField,
@@ -443,11 +443,11 @@ pub struct ValidFeeRedemptionStatement {
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to the old wallet's private secret shares
     #[serde_as(as = "ScalarFieldDef")]
-    pub merkle_root1: ScalarField,
+    pub wallet_root: ScalarField,
     /// A historic merkle root for which we prove inclusion of
     /// the commitment to note
     #[serde_as(as = "ScalarFieldDef")]
-    pub merkle_root2: ScalarField,
+    pub note_root: ScalarField,
     /// The nullifier of the old wallet's secret shares
     #[serde_as(as = "ScalarFieldDef")]
     pub nullifier: ScalarField,
