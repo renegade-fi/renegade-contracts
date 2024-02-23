@@ -61,4 +61,9 @@ impl TestMerkleContract {
         self.merkle
             .verify_state_sig_and_insert(shares, sig, old_pk_root)
     }
+
+    #[doc(hidden)]
+    pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
+        self.merkle.insert_note_commitment(note_commitment)
+    }
 }
