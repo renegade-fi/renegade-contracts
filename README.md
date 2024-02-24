@@ -95,37 +95,12 @@ _Note: It may take some time for the devnet to finish its setup if it's being in
 
 ### Deploying the contracts
 
-#### Using the `scripts` crate
-
 Next, you'll need to deploy our contracts to it. This can be done by running the scripts defined in our `scripts` crate.
 
-It's worth getting an overview of the `scripts` CLI functionality by running:
+You can get an overview of the `scripts` CLI functionality by running:
 
 ```shell
 cargo run -p scripts -- -h
-```
-
-Which will show:
-
-```shell
-Scripts for deploying & upgrading the Renegade Stylus contracts
-
-Usage: scripts --priv-key <PRIV_KEY> --rpc-url <RPC_URL> --deployments-path <DEPLOYMENTS_PATH> <COMMAND>
-
-Commands:
-  deploy-test-contracts  Deploy all the testing contracts (includes generating testing verification keys)
-  deploy-proxy           Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
-  deploy-stylus          Deploy a Stylus contract
-  upgrade                Upgrade the darkpool implementation
-  gen-srs                Generate a structured reference string
-  gen-vkeys              Generate verification keys for the protocol circuits
-  help                   Print this message or the help of the given subcommand(s)
-
-Options:
-  -p, --priv-key <PRIV_KEY>                  Private key of the deployer
-  -r, --rpc-url <RPC_URL>                    Network RPC URL
-  -d, --deployments-path <DEPLOYMENTS_PATH>  Path to a `deployments.json` file
-  -h, --help
 ```
 
 For interacting with the devnet, you can define the following shell variables:
@@ -142,38 +117,24 @@ RPC_URL=http://localhost:8547
 DEPLOYMENTS_PATH=deployments.devnet.json
 ```
 
-#### Generating a testing SRS
-
-You'll need a structured reference string (SRS) for Plonk verification.
-
-You can define the following shell variable for consistency:
+Then, you can deploy all of the contracts used in the integration tests by running:
 
 ```shell
-# This can be any path, but `srs` is conveniently git-ignored
-SRS_PATH=srs
+cargo run -p scripts -- \
+  -p $PRIV_KEY \
+  -r $RPC_URL \
+  -d $DEPLOYMENTS_PATH \
+  deploy-test-contracts \
+  -o 0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E \
+  -v contracts-stylus/vkeys/test
 ```
 
-which can be generated (note: **insecurely**, and only for testing) by running:
-
-```shell
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH gen-srs -s $SRS_PATH -d <DEGREE>
-```
-
-A degree of `4096` is sufficient for `<DEGREE>`.
-
-#### Deploying the contracts themselves
-
-All of the contracts used in integration testing can be deployed by running the following command:
-```shell
-cargo run -p scripts -- -p $PRIV_KEY -r $RPC_URL -d $DEPLOYMENTS_PATH deploy-test-contracts -o 0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E -f <FEE> -s $SRS_PATH -v contracts-stylus/vkeys/test
-```
 _Note: The address `0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E` is the address associated with the predeployed dev account, whose private key we've been using._
 
 _Be sure to use `contracts-stylus/vkeys/test` as the argument for the `-v` flag, indicating where the verification keys should be stored, as the verification keys contract expects to find them at this path._
 
-_The `<FEE>` parameter is the initial protocol fee to set in the darkpool contract, and is largely irrelevant for testing, so you can set it to anything (other than 0)._
 
-### Running tests
+### Running the tests
 
 You can get an overview of the integration testing suite by running:
 
@@ -181,34 +142,8 @@ You can get an overview of the integration testing suite by running:
 cargo run -p integration -- -h
 ```
 
-Which will show:
+You can run the entire integration testing suite using:
 
 ```shell
-CLI tool for running integration tests against a running devnet node
-
-Usage: integration [OPTIONS] --test <TEST> --deployments-file <DEPLOYMENTS_FILE> --srs-file <SRS_FILE>
-
-Options:
-  -t, --test <TEST>
-          Test to run [possible values: all, ec-add, ec-mul, ec-pairing, ec-recover, nullifier-set, merkle, verifier, upgradeable, impl-setters, initializable, ownable, pausable, external-transfer, new-wallet, update-wallet, process-match-settle]
-  -d, --deployments-file <DEPLOYMENTS_FILE>
-          Path to file containing contract deployment info
-  -s, --srs-file <SRS_FILE>
-          Path to file containing SRS
-  -p, --priv-key <PRIV_KEY>
-          Devnet private key, defaults to default Nitro devnet private key [default: 0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659]
-  -r, --rpc-url <RPC_URL>
-          Devnet RPC URL, defaults to default Nitro devnet private key [default: http://localhost:8547]
-  -h, --help
-          Print help (see more with '--help')
-```
-
-As you can see, `<PRIV_KEY>` and `<RPC_URL>` have their defaults set to the expected devnet values, so the `-p` and `-r` flags can be omitted.
-
-You should use the same `$SRS_PATH` and `$DEPLOYMENTS_PATH` that you used when deploying the contracts.
-
-From there, you can run the entire integration testing suite using:
-
-```shell
-cargo run -p integration -- -t all -s $SRS_PATH -d $DEPLOYMENTS_PATH
+cargo run -p integration -- -t all -d $DEPLOYMENTS_PATH
 ```
