@@ -8,8 +8,7 @@ use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
 use contracts_common::{
     constants::{
-        MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, VERIFIER_ADDRESS_SELECTOR,
-        VKEYS_ADDRESS_SELECTOR,
+        DARKPOOL_CORE_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR
     },
     custom_serde::statement_to_public_inputs,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
@@ -46,9 +45,7 @@ use crate::{
         TransferExecutorContract, VerifierContract,
     },
     constants::{
-        PAUSE_METHOD_NAME, SET_FEE_METHOD_NAME, SET_MERKLE_ADDRESS_METHOD_NAME,
-        SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME,
-        TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
+        PAUSE_METHOD_NAME, SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME, SET_FEE_METHOD_NAME, SET_MERKLE_ADDRESS_METHOD_NAME, SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME, SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME
     },
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
@@ -389,11 +386,14 @@ pub(crate) async fn test_upgradeable(
 
 /// Test the upgradeability of the contracts the darkpool calls
 /// (verifier, vkeys, & Merkle)
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn test_implementation_address_setters(
     darkpool_address: Address,
+    darkpool_core_address: Address,
     verifier_address: Address,
     vkeys_address: Address,
     merkle_address: Address,
+    transfer_executor_address: Address,
     dummy_upgrade_target_address: Address,
     client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
 ) -> Result<()> {
@@ -401,6 +401,11 @@ pub(crate) async fn test_implementation_address_setters(
     let contract = DarkpoolTestContract::new(darkpool_address, client);
 
     for (method, address_selector, original_address) in [
+        (
+            SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME,
+            DARKPOOL_CORE_ADDRESS_SELECTOR,
+            darkpool_core_address,
+        ),
         (
             SET_VERIFIER_ADDRESS_METHOD_NAME,
             VERIFIER_ADDRESS_SELECTOR,
@@ -415,6 +420,11 @@ pub(crate) async fn test_implementation_address_setters(
             SET_MERKLE_ADDRESS_METHOD_NAME,
             MERKLE_ADDRESS_SELECTOR,
             merkle_address,
+        ),
+        (
+            SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME,
+            TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
+            transfer_executor_address,
         ),
     ] {
         // Set the new implementation address as the dummy upgrade target address

@@ -8,10 +8,7 @@ use cli::{Cli, Tests};
 use eyre::Result;
 use scripts::{
     constants::{
-        DARKPOOL_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY,
-        DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
-        PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
-        VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY
     },
     utils::{parse_addr_from_deployments_file, setup_client},
 };
@@ -49,6 +46,8 @@ async fn main() -> Result<()> {
         parse_addr_from_deployments_file(&deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?;
     let darkpool_impl_address =
         parse_addr_from_deployments_file(&deployments_file, DARKPOOL_CONTRACT_KEY)?;
+    let darkpool_core_address =
+        parse_addr_from_deployments_file(&deployments_file, DARKPOOL_CORE_CONTRACT_KEY)?;
     let merkle_address = parse_addr_from_deployments_file(&deployments_file, MERKLE_CONTRACT_KEY)?;
     let verifier_address =
         parse_addr_from_deployments_file(&deployments_file, VERIFIER_CONTRACT_KEY)?;
@@ -83,9 +82,11 @@ async fn main() -> Result<()> {
             .await?;
             test_implementation_address_setters(
                 darkpool_proxy_address,
+                darkpool_core_address,
                 verifier_address,
                 vkeys_address,
                 merkle_address,
+                transfer_executor_address,
                 dummy_upgrade_target_address,
                 client.clone(),
             )
@@ -148,9 +149,11 @@ async fn main() -> Result<()> {
         Tests::ImplSetters => {
             test_implementation_address_setters(
                 darkpool_proxy_address,
+                darkpool_core_address,
                 verifier_address,
                 vkeys_address,
                 merkle_address,
+                transfer_executor_address,
                 dummy_upgrade_target_address,
                 client,
             )
