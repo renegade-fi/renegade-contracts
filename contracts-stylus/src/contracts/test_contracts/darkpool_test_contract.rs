@@ -56,7 +56,7 @@ impl BorrowMut<DarkpoolCoreContract> for DarkpoolTestContract {
 }
 
 #[external]
-#[inherit(DarkpoolContract, DarkpoolCoreContract)]
+#[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
     /// Marks the given nullifier as spent
     pub fn mark_nullifier_spent(&mut self, nullifier: U256) -> Result<(), Vec<u8>> {
