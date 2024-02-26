@@ -19,6 +19,9 @@ pub(crate) const UNPAUSE_METHOD_NAME: &str = "unpause";
 /// The name of the `set_fee` method on the Darkpool contract
 pub(crate) const SET_FEE_METHOD_NAME: &str = "setFee";
 
+/// The name of the `set_darkpool_core_address` method on the Darkpool contract
+pub(crate) const SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME: &str = "setDarkpoolCoreAddress";
+
 /// The name of the `set_verifier_address` method on the Darkpool contract
 pub(crate) const SET_VERIFIER_ADDRESS_METHOD_NAME: &str = "setVerifierAddress";
 
@@ -27,6 +30,9 @@ pub(crate) const SET_VKEYS_ADDRESS_METHOD_NAME: &str = "setVkeysAddress";
 
 /// The name of the `set_merkle_address` method on the Darkpool contract
 pub(crate) const SET_MERKLE_ADDRESS_METHOD_NAME: &str = "setMerkleAddress";
+
+/// The name of the `set_transfer_executor_address` method on the Darkpool contract
+pub(crate) const SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME: &str = "setTransferExecutorAddress";
 
 /// The name of the domain separator for Permit2 typed data
 pub(crate) const PERMIT2_EIP712_DOMAIN_NAME: &str = "Permit2";

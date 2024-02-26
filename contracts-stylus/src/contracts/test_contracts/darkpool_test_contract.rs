@@ -4,7 +4,7 @@ use core::borrow::{Borrow, BorrowMut};
 
 use alloc::vec::Vec;
 use contracts_common::constants::{
-    MERKLE_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
+    DARKPOOL_CORE_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR, TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR
 };
 use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
@@ -69,13 +69,14 @@ impl DarkpoolTestContract {
     ///
     /// A succesful call implies that the verifier / vkeys / Merkle contract has been upgraded
     /// to the dummy upgrade target.
-    // TODO: Add transfer executor and darkpool core contracts to this
     pub fn is_implementation_upgraded(&mut self, address_selector: u8) -> Result<bool, Vec<u8>> {
         let this = BorrowMut::<DarkpoolContract>::borrow_mut(self);
         let implementation_address = match address_selector {
+            DARKPOOL_CORE_ADDRESS_SELECTOR => this.darkpool_core_address.get(),
             VERIFIER_ADDRESS_SELECTOR => this.verifier_address.get(),
             VKEYS_ADDRESS_SELECTOR => this.vkeys_address.get(),
             MERKLE_ADDRESS_SELECTOR => this.merkle_address.get(),
+            TRANSFER_EXECUTOR_ADDRESS_SELECTOR => this.transfer_executor_address.get(),
             _ => panic!(),
         };
 

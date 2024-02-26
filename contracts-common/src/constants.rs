@@ -76,17 +76,25 @@ pub const EMPTY_LEAF_VALUE: ScalarField = Fp(
     PhantomData,
 );
 
+/// The selector for the darkpool core address in the
+/// `is_implementation_upgraded` method on the Darkpool test contract
+pub const DARKPOOL_CORE_ADDRESS_SELECTOR: u8 = 0;
+
 /// The selector for the verifier address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
-pub const VERIFIER_ADDRESS_SELECTOR: u8 = 0;
+pub const VERIFIER_ADDRESS_SELECTOR: u8 = 1;
 
 /// The selector for the vkeys address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
-pub const VKEYS_ADDRESS_SELECTOR: u8 = 1;
+pub const VKEYS_ADDRESS_SELECTOR: u8 = 2;
 
 /// The selector for the merkle address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
-pub const MERKLE_ADDRESS_SELECTOR: u8 = 2;
+pub const MERKLE_ADDRESS_SELECTOR: u8 = 3;
+
+/// The selector for the transfer executor address in the
+/// `is_implementation_upgraded` method on the Darkpool test contract
+pub const TRANSFER_EXECUTOR_ADDRESS_SELECTOR: u8 = 4;
 
 /// The revert message when failing to convert a
 /// u256 to a scalar

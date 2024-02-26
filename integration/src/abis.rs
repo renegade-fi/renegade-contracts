@@ -15,9 +15,11 @@ abigen!(
         function unpause() external
 
         function setFee(uint256 memory new_fee) external
+        function setDarkpoolCoreAddress(address memory darkpool_core_address) external
         function setVerifierAddress(address memory verifier_address) external
         function setVkeysAddress(address memory vkeys_address) external
         function setMerkleAddress(address memory merkle_address) external
+        function setTransferExecutorAddress(address memory transfer_executor_address) external
 
         function isNullifierSpent(uint256 memory nullifier) external view returns (bool)
 
