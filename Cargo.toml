@@ -34,13 +34,13 @@ eyre = "0.6.8"
 ethers = "2.0"
 clap = { version = "4.4.7", features = ["derive"] }
 tokio = { version = "1.12.0", features = ["full"] }
-constants = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
-circuits = { git = "https://github.com/renegade-fi/renegade.git" }
-circuit-types = { git = "https://github.com/renegade-fi/renegade.git", features = [
+constants = { git = "https://github.com/renegade-fi/renegade.git", branch = "zksecurity-audit", default-features = false }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "zksecurity-audit", default-features = false }
+circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "zksecurity-audit" }
+circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "zksecurity-audit", features = [
     "test-helpers",
 ] }
-arbitrum-client = { git = "https://github.com/renegade-fi/renegade.git" }
+arbitrum-client = { git = "https://github.com/renegade-fi/renegade.git", branch = "zksecurity-audit" }
 itertools = "0.12"
 mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
