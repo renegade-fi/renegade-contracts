@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use clap::{Args, Parser, Subcommand};
-use ethers::providers::Middleware;
 
 use crate::{
     commands::{
@@ -12,7 +11,7 @@ use crate::{
     },
     errors::ScriptError,
     types::StylusContract,
-    utils::LocalWalletProvider,
+    utils::LocalWalletHttpClient,
 };
 
 /// Scripts for deploying & upgrading the Renegade Stylus contracts
@@ -59,7 +58,7 @@ impl Command {
     /// Run the command
     pub async fn run(
         self,
-        client: Arc<LocalWalletProvider<impl Middleware>>,
+        client: Arc<LocalWalletHttpClient>,
         rpc_url: &str,
         priv_key: &str,
         deployments_path: &str,

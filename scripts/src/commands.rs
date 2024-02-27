@@ -54,7 +54,7 @@ use crate::{
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         get_contract_key, parse_addr_from_deployments_file, parse_public_encryption_key,
-        setup_client, write_deployed_address, write_vkey_file, LocalWalletProvider,
+        setup_client, write_deployed_address, write_vkey_file, LocalWalletHttpClient,
     },
 };
 
@@ -65,7 +65,7 @@ pub async fn deploy_test_contracts(
     args: DeployTestContractsArgs,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     info!("Generating testing verification keys");
@@ -209,7 +209,7 @@ pub async fn deploy_test_contracts(
 /// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
 pub async fn deploy_proxy(
     args: DeployProxyArgs,
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     // Get proxy contract ABI and bytecode
@@ -319,7 +319,7 @@ pub async fn deploy_proxy(
 
 /// Deploys the `Permit2` contract
 pub async fn deploy_permit2(
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     // Get Permit2 contract ABI and bytecode
@@ -359,7 +359,7 @@ pub async fn deploy_erc20s(
     args: DeployErc20sArgs,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let wasm_file_path =
@@ -433,7 +433,7 @@ pub async fn build_and_deploy_stylus_contract(
     args: DeployStylusArgs,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let wasm_file_path = build_stylus_contract(args.contract, args.no_verify)?;
@@ -453,7 +453,7 @@ pub async fn build_and_deploy_stylus_contract(
 /// Upgrades the darkpool implementation
 pub async fn upgrade(
     args: UpgradeArgs,
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let proxy_admin_address =

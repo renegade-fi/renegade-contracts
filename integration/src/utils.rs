@@ -30,7 +30,7 @@ use ethers::{
 };
 use eyre::{eyre, Result};
 use rand::{thread_rng, RngCore};
-use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletProvider};
+use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletHttpClient};
 use serde::Serialize;
 
 use crate::{
@@ -40,10 +40,8 @@ use crate::{
 
 /// Asserts that the given method can only be called by the owner of the darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
-    contract: &DarkpoolTestContract<LocalWalletProvider<impl Middleware + 'static>>,
-    contract_with_dummy_owner: &DarkpoolTestContract<
-        LocalWalletProvider<impl Middleware + 'static>,
-    >,
+    contract: &DarkpoolTestContract<LocalWalletHttpClient>,
+    contract_with_dummy_owner: &DarkpoolTestContract<LocalWalletHttpClient>,
     method: &str,
     args: T,
 ) -> Result<()> {
@@ -72,7 +70,7 @@ pub async fn assert_all_revert<'a>(
         impl Future<
             Output = Result<
                 PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<LocalWalletProvider<impl Middleware + 'static>>,
+                ContractError<LocalWalletHttpClient>,
             >,
         >,
     >,
@@ -93,7 +91,7 @@ pub async fn assert_all_suceed<'a>(
         impl Future<
             Output = Result<
                 PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<LocalWalletProvider<impl Middleware + 'static>>,
+                ContractError<LocalWalletHttpClient>,
             >,
         >,
     >,
@@ -197,10 +195,8 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
 
 /// Executes the given transfer and returns the resulting balances of the darkpool and user
 pub(crate) async fn execute_transfer_and_get_balances(
-    transfer_executor_contract: &TransferExecutorContract<
-        LocalWalletProvider<impl Middleware + 'static>,
-    >,
-    dummy_erc20_contract: &DummyErc20Contract<LocalWalletProvider<impl Middleware + 'static>>,
+    transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
+    dummy_erc20_contract: &DummyErc20Contract<LocalWalletHttpClient>,
     permit2_address: Address,
     signing_key: &SigningKey,
     pk_root: PublicSigningKey,
@@ -262,9 +258,7 @@ pub(crate) async fn gen_transfer_aux_data(
     signing_key: &SigningKey,
     transfer: &ExternalTransfer,
     permit2_address: Address,
-    transfer_executor_contract: &TransferExecutorContract<
-        LocalWalletProvider<impl Middleware + 'static>,
-    >,
+    transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
 ) -> Result<TransferAuxData> {
     let (permit_nonce, permit_deadline, permit_signature) = gen_permit_payload(
         transfer.mint,
@@ -290,9 +284,7 @@ pub(crate) async fn gen_permit_payload(
     token: AlloyAddress,
     amount: AlloyU256,
     permit2_address: Address,
-    transfer_executor_contract: &TransferExecutorContract<
-        LocalWalletProvider<impl Middleware + 'static>,
-    >,
+    transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
 ) -> Result<(AlloyU256, AlloyU256, Vec<u8>)> {
     let client = transfer_executor_contract.client();
 
