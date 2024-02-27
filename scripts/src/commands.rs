@@ -5,15 +5,19 @@ use ark_ed_on_bn254::EdwardsAffine as BabyJubJubAffine;
 use ark_serialize::CanonicalSerialize;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
-    valid_commitments::SizedValidCommitments, valid_match_settle::SizedValidMatchSettle,
-    valid_reblind::SizedValidReblind, valid_wallet_create::SizedValidWalletCreate,
-    valid_wallet_update::SizedValidWalletUpdate,
+    valid_commitments::SizedValidCommitments, valid_fee_redemption::ValidFeeRedemption,
+    valid_match_settle::SizedValidMatchSettle,
+    valid_offline_fee_settlement::ValidOfflineFeeSettlement, valid_reblind::SizedValidReblind,
+    valid_relayer_fee_settlement::SizedValidRelayerFeeSettlement,
+    valid_wallet_create::SizedValidWalletCreate, valid_wallet_update::SizedValidWalletUpdate,
 };
+use constants::{MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT};
 use contracts_utils::{
     conversion::to_contract_vkey,
     proof_system::{
         dummy_renegade_circuits::{
-            DummyValidCommitments, DummyValidMatchSettle, DummyValidReblind,
+            DummyValidCommitments, DummyValidFeeRedemption, DummyValidMatchSettle,
+            DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidRelayerFeeSettlement,
             DummyValidWalletCreate, DummyValidWalletUpdate,
         },
         gen_match_linking_vkeys, gen_match_vkeys,
@@ -33,17 +37,20 @@ use tracing::log::info;
 use crate::{
     cli::{
         DeployErc20sArgs, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenVkeysArgs,
-        StylusContract, UpgradeArgs,
+        UpgradeArgs,
     },
     constants::{
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER,
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
         PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI,
         PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, TEST_FUNDING_AMOUNT,
-        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
+        VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
+        VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
+        VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
+    types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         get_contract_key, parse_addr_from_deployments_file, parse_public_encryption_key,
@@ -478,64 +485,128 @@ pub async fn upgrade(
     Ok(())
 }
 
-/// Generates verification keys for the protocol circuits
-pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
-    let (valid_wallet_create_vkey, valid_wallet_update_vkey, match_vkeys, match_linking_vkeys) =
-        if args.test {
-            (
-                to_contract_vkey((*DummyValidWalletCreate::verifying_key()).clone())
-                    .map_err(|_| ScriptError::CircuitCreation)?,
-                to_contract_vkey((*DummyValidWalletUpdate::verifying_key()).clone())
-                    .map_err(|_| ScriptError::CircuitCreation)?,
-                gen_match_vkeys::<DummyValidCommitments, DummyValidReblind, DummyValidMatchSettle>(
-                )
-                .map_err(|_| ScriptError::CircuitCreation)?,
-                gen_match_linking_vkeys::<DummyValidCommitments>()
-                    .map_err(|_| ScriptError::CircuitCreation)?,
-            )
-        } else {
-            (
-                to_contract_vkey((*SizedValidWalletCreate::verifying_key()).clone())
-                    .map_err(|_| ScriptError::CircuitCreation)?,
-                to_contract_vkey((*SizedValidWalletUpdate::verifying_key()).clone())
-                    .map_err(|_| ScriptError::CircuitCreation)?,
-                gen_match_vkeys::<SizedValidCommitments, SizedValidReblind, SizedValidMatchSettle>(
-                )
-                .map_err(|_| ScriptError::CircuitCreation)?,
-                gen_match_linking_vkeys::<SizedValidCommitments>()
-                    .map_err(|_| ScriptError::CircuitCreation)?,
-            )
-        };
+/// The `VALID OFFLINE FEE SETTLEMENT` circuit w/ system parameters applied
+// TODO: Remove this once this type is created in the relayer repo
+type SizedValidOfflineFeeSettlement =
+    ValidOfflineFeeSettlement<MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT>;
 
-    let valid_wallet_create_vkey_bytes = postcard::to_allocvec(&valid_wallet_create_vkey)
-        .map_err(|e| ScriptError::Serde(e.to_string()))?;
-    let valid_wallet_update_vkey_bytes = postcard::to_allocvec(&valid_wallet_update_vkey)
+/// The `VALID FEE REDEMPTION` circuit w/ system parameters applied
+// TODO: Remove this once this type is created in the relayer repo
+type SizedValidFeeRedemption = ValidFeeRedemption<MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT>;
+
+/// Computes verification keys for the protocol circuits
+fn compute_vkeys<
+    VWC: SingleProverCircuit,  /* VALID WALLET CREATE */
+    VWU: SingleProverCircuit,  /* VALID WALLET UPDATE */
+    VRFS: SingleProverCircuit, /* VALID RELAYER FEE SETTLEMENT */
+    VOFS: SingleProverCircuit, /* VALID OFFLINE FEE SETTLEMENT */
+    VFR: SingleProverCircuit,  /* VALID FEE REDEMPTION */
+    VC: SingleProverCircuit,   /* VALID COMMITMENTS */
+    VR: SingleProverCircuit,   /* VALID REBLIND */
+    VMS: SingleProverCircuit,  /* VALID MATCH SETTLE */
+>() -> Result<RenegadeVerificationKeys, ScriptError> {
+    let valid_wallet_create = to_contract_vkey((*VWC::verifying_key()).clone())
+        .map_err(|_| ScriptError::CircuitCreation)?;
+
+    let valid_wallet_update = to_contract_vkey((*VWU::verifying_key()).clone())
+        .map_err(|_| ScriptError::CircuitCreation)?;
+
+    let valid_relayer_fee_settlement = to_contract_vkey((*VRFS::verifying_key()).clone())
+        .map_err(|_| ScriptError::CircuitCreation)?;
+
+    let valid_offline_fee_settlement = to_contract_vkey((*VOFS::verifying_key()).clone())
+        .map_err(|_| ScriptError::CircuitCreation)?;
+
+    let valid_fee_redemption = to_contract_vkey((*VFR::verifying_key()).clone())
+        .map_err(|_| ScriptError::CircuitCreation)?;
+
+    let match_vkeys = gen_match_vkeys::<VC, VR, VMS>().map_err(|_| ScriptError::CircuitCreation)?;
+
+    let match_linking_vkeys =
+        gen_match_linking_vkeys::<VC>().map_err(|_| ScriptError::CircuitCreation)?;
+
+    Ok(RenegadeVerificationKeys {
+        valid_wallet_create,
+        valid_wallet_update,
+        valid_relayer_fee_settlement,
+        valid_offline_fee_settlement,
+        valid_fee_redemption,
+        match_vkeys,
+        match_linking_vkeys,
+    })
+}
+
+/// Write the protocol verification keys to the specified directory
+fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), ScriptError> {
+    let valid_wallet_create = postcard::to_allocvec(&vkeys.valid_wallet_create)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
-    let match_vkeys_bytes =
-        postcard::to_allocvec(&match_vkeys).map_err(|e| ScriptError::Serde(e.to_string()))?;
-    let match_linking_vkeys_bytes = postcard::to_allocvec(&match_linking_vkeys)
+    let valid_wallet_update = postcard::to_allocvec(&vkeys.valid_wallet_update)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
-    write_vkey_file(
-        &args.vkeys_dir,
-        VALID_WALLET_CREATE_VKEY_FILE,
-        &valid_wallet_create_vkey_bytes,
-    )?;
-    write_vkey_file(
-        &args.vkeys_dir,
-        VALID_WALLET_UPDATE_VKEY_FILE,
-        &valid_wallet_update_vkey_bytes,
-    )?;
+    let valid_relayer_fee_settlement = postcard::to_allocvec(&vkeys.valid_relayer_fee_settlement)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
+
+    let valid_offline_fee_settlement = postcard::to_allocvec(&vkeys.valid_offline_fee_settlement)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
+
+    let valid_fee_redemption = postcard::to_allocvec(&vkeys.valid_fee_redemption)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
+
+    let match_vkeys =
+        postcard::to_allocvec(&vkeys.match_vkeys).map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let match_linking_vkeys = postcard::to_allocvec(&vkeys.match_linking_vkeys)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
     // The match vkeys & linking vkeys are serialized together
-    let process_match_settle_vkey_bytes = [match_vkeys_bytes, match_linking_vkeys_bytes].concat();
+    let process_match_settle = [match_vkeys, match_linking_vkeys].concat();
 
-    write_vkey_file(
-        &args.vkeys_dir,
-        PROCESS_MATCH_SETTLE_VKEYS_FILE,
-        &process_match_settle_vkey_bytes,
-    )?;
+    for (file, data) in [
+        (VALID_WALLET_CREATE_VKEY_FILE, valid_wallet_create),
+        (VALID_WALLET_UPDATE_VKEY_FILE, valid_wallet_update),
+        (
+            VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE,
+            valid_relayer_fee_settlement,
+        ),
+        (
+            VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
+            valid_offline_fee_settlement,
+        ),
+        (VALID_FEE_REDEMPTION_VKEY_FILE, valid_fee_redemption),
+        (PROCESS_MATCH_SETTLE_VKEYS_FILE, process_match_settle),
+    ] {
+        write_vkey_file(vkeys_dir, file, &data)?;
+    }
 
     Ok(())
+}
+
+/// Generates and writes either the testing or production protocol verification keys
+/// to the specified directory
+pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
+    let vkeys = if args.test {
+        compute_vkeys::<
+            DummyValidWalletCreate,
+            DummyValidWalletUpdate,
+            DummyValidRelayerFeeSettlement,
+            DummyValidOfflineFeeSettlement,
+            DummyValidFeeRedemption,
+            DummyValidCommitments,
+            DummyValidReblind,
+            DummyValidMatchSettle,
+        >()
+    } else {
+        compute_vkeys::<
+            SizedValidWalletCreate,
+            SizedValidWalletUpdate,
+            SizedValidRelayerFeeSettlement,
+            SizedValidOfflineFeeSettlement,
+            SizedValidFeeRedemption,
+            SizedValidCommitments,
+            SizedValidReblind,
+            SizedValidMatchSettle,
+        >()
+    }?;
+
+    write_vkeys(&args.vkeys_dir, &vkeys)
 }

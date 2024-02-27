@@ -1,11 +1,8 @@
 //! Definitions of CLI arguments and commands for deploy scripts
 
-use std::{
-    fmt::{self, Display},
-    sync::Arc,
-};
+use std::sync::Arc;
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 use ethers::providers::Middleware;
 
 use crate::{
@@ -14,6 +11,7 @@ use crate::{
         deploy_test_contracts, gen_vkeys, upgrade,
     },
     errors::ScriptError,
+    types::StylusContract,
     utils::LocalWalletProvider,
 };
 
@@ -140,54 +138,6 @@ pub struct DeployStylusArgs {
     /// This only applies to the darkpool & Merkle contracts.
     #[arg(long)]
     pub no_verify: bool,
-}
-
-/// The possible Stylus contracts to deploy
-#[derive(ValueEnum, Copy, Clone)]
-pub enum StylusContract {
-    /// The darkpool contract
-    Darkpool,
-    /// The darkpool core contract
-    DarkpoolCore,
-    /// The darkpool test contract
-    DarkpoolTestContract,
-    /// The Merkle contract
-    Merkle,
-    /// The Merkle test contract
-    MerkleTestContract,
-    /// The verifier contract
-    Verifier,
-    /// The verification keys contract
-    Vkeys,
-    /// The test verification keys contract
-    TestVkeys,
-    /// The transfer executor contract
-    TransferExecutor,
-    /// The dummy ERC20 contract
-    DummyErc20,
-    /// The dummy upgrade target contract
-    DummyUpgradeTarget,
-    /// The precompile test contract
-    PrecompileTestContract,
-}
-
-impl Display for StylusContract {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StylusContract::Darkpool => write!(f, "darkpool"),
-            StylusContract::DarkpoolCore => write!(f, "darkpool-core"),
-            StylusContract::DarkpoolTestContract => write!(f, "darkpool-test-contract"),
-            StylusContract::Merkle => write!(f, "merkle"),
-            StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),
-            StylusContract::Verifier => write!(f, "verifier"),
-            StylusContract::Vkeys => write!(f, "vkeys"),
-            StylusContract::TestVkeys => write!(f, "test-vkeys"),
-            StylusContract::TransferExecutor => write!(f, "transfer-executor"),
-            StylusContract::DummyErc20 => write!(f, "dummy-erc20"),
-            StylusContract::DummyUpgradeTarget => write!(f, "dummy-upgrade-target"),
-            StylusContract::PrecompileTestContract => write!(f, "precompile-test-contract"),
-        }
-    }
 }
 
 /// Deploy dummy ERC20s. Assumes the darkpool contract has already been deployed.

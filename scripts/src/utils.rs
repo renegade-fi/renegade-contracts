@@ -28,7 +28,6 @@ use json::JsonValue;
 use tracing::log::warn;
 
 use crate::{
-    cli::StylusContract,
     constants::{
         AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
         CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DEFAULT_RUSTFLAGS,
@@ -41,7 +40,7 @@ use crate::{
         WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
-    solidity::initializeCall,
+    solidity::initializeCall, types::StylusContract,
 };
 
 /// An Ethers provider that uses a `LocalWallet` to generate signatures
