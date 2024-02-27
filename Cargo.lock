@@ -1281,11 +1281,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "colored"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
+dependencies = [
+ "lazy_static",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "common"
 version = "0.1.0"
 source = "git+https://github.com/renegade-fi/renegade.git?branch=zksecurity-audit#d41fb6cc9ad594952d5645c864177b3cda58c112"
 dependencies = [
+ "ark-ec",
  "ark-mpc",
+ "ark-poly",
  "base64 0.13.1",
  "bimap",
  "circuit-types",
@@ -1293,15 +1305,20 @@ dependencies = [
  "constants",
  "crossbeam",
  "derivative",
+ "ecdsa 0.16.9",
  "ed25519-dalek 1.0.1",
  "ethers-rs",
  "indexmap 2.2.3",
  "itertools 0.10.5",
+ "jf-primitives",
  "k256 0.13.3",
  "lazy_static",
  "libp2p",
  "libp2p-identity",
+ "mpc-plonk",
+ "mpc-relation",
  "num-bigint",
+ "rand 0.8.5",
  "renegade-crypto",
  "serde",
  "serde_json",
@@ -1888,6 +1905,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.51",
+]
+
+[[package]]
+name = "dns-lookup"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53ecafc952c4528d9b51a458d1a8904b81783feff9fde08ab6ed2545ff396872"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "socket2 0.4.10",
+ "winapi",
 ]
 
 [[package]]
@@ -3455,6 +3484,7 @@ dependencies = [
  "circuit-types",
  "circuits",
  "clap",
+ "colored",
  "constants",
  "contracts-common",
  "contracts-core",
@@ -3468,6 +3498,7 @@ dependencies = [
  "rand 0.8.5",
  "scripts",
  "serde",
+ "test-helpers",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -6184,6 +6215,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "test-helpers"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=zksecurity-audit#d41fb6cc9ad594952d5645c864177b3cda58c112"
+dependencies = [
+ "arbitrum-client",
+ "ark-ec",
+ "ark-mpc",
+ "async-trait",
+ "circuit-types",
+ "common",
+ "constants",
+ "dns-lookup",
+ "eyre",
+ "futures",
+ "itertools 0.10.5",
+ "num-bigint",
+ "rand 0.8.5",
+ "renegade-crypto",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

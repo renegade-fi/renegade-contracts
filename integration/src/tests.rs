@@ -34,6 +34,7 @@ use ethers::{
 use eyre::{eyre, Result};
 use rand::{thread_rng, Rng, RngCore};
 use scripts::constants::TEST_FUNDING_AMOUNT;
+use test_helpers::integration_test_async;
 
 use crate::{
     abis::{
@@ -47,14 +48,12 @@ use crate::{
         SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME,
         TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
-    integration_test,
-    test_inventory::TestArgs,
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
         dummy_erc20_withdrawal, execute_transfer_and_get_balances, gen_transfer_aux_data,
         insert_shares_and_get_root, scalar_to_u256, serialize_match_verification_bundle,
         serialize_to_calldata, serialize_verification_bundle, setup_dummy_client, u256_to_scalar,
-    },
+    }, TestArgs,
 };
 
 /// Test how the contracts call the `ecAdd` precompile
@@ -79,7 +78,7 @@ async fn test_ec_add(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_ec_add);
+integration_test_async!(test_ec_add);
 
 /// Test how the contracts call the `ecMul` precompile
 async fn test_ec_mul(test_args: TestArgs) -> Result<()> {
@@ -106,7 +105,7 @@ async fn test_ec_mul(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_ec_mul);
+integration_test_async!(test_ec_mul);
 
 /// Test how the contracts call the `ecPairing` precompile
 async fn test_ec_pairing(test_args: TestArgs) -> Result<()> {
@@ -129,7 +128,7 @@ async fn test_ec_pairing(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_ec_pairing);
+integration_test_async!(test_ec_pairing);
 
 /// Test how the contracts call the `ecRecover` precompile
 async fn test_ec_recover(test_args: TestArgs) -> Result<()> {
@@ -158,7 +157,7 @@ async fn test_ec_recover(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_ec_recover);
+integration_test_async!(test_ec_recover);
 
 /// Test the Merkle tree functionality
 async fn test_merkle(test_args: TestArgs) -> Result<()> {
@@ -204,7 +203,7 @@ async fn test_merkle(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_merkle);
+integration_test_async!(test_merkle);
 
 /// Test the verifier functionality
 async fn test_verifier(test_args: TestArgs) -> Result<()> {
@@ -280,7 +279,7 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_verifier);
+integration_test_async!(test_verifier);
 
 /// Test the upgradeability of the darkpool
 async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
@@ -361,7 +360,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_upgradeable);
+integration_test_async!(test_upgradeable);
 
 /// Test the upgradeability of the contracts the darkpool calls
 /// (verifier, vkeys, & Merkle)
@@ -431,7 +430,7 @@ async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> 
 
     Ok(())
 }
-integration_test!(test_implementation_address_setters);
+integration_test_async!(test_implementation_address_setters);
 
 /// Test the initialization of the darkpool
 async fn test_initializable(test_args: TestArgs) -> Result<()> {
@@ -466,7 +465,7 @@ async fn test_initializable(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_initializable);
+integration_test_async!(test_initializable);
 
 /// Test the ownership of the darkpool
 // TODO: Add darkpool core & transfer executor address setters to this test
@@ -570,7 +569,7 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_ownable);
+integration_test_async!(test_ownable);
 
 /// Test the pausability of the darkpool
 // TODO: Ensure that only the owner can pause the contract
@@ -682,7 +681,7 @@ async fn test_pausable(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_pausable);
+integration_test_async!(test_pausable);
 
 /// Test the nullifier set functionality
 async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
@@ -706,7 +705,7 @@ async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_nullifier_set);
+integration_test_async!(test_nullifier_set);
 
 /// Test deposit / withdrawal functionality of the darkpool
 async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
@@ -785,7 +784,7 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_external_transfer);
+integration_test_async!(test_external_transfer);
 
 /// Test that a malformed deposit is rejected
 #[allow(non_snake_case)]
@@ -838,7 +837,7 @@ async fn test_external_transfer__malicious_deposit(test_args: TestArgs) -> Resul
 
     Ok(())
 }
-integration_test!(test_external_transfer__malicious_deposit);
+integration_test_async!(test_external_transfer__malicious_deposit);
 
 /// Test that a malformed withdrawal is rejected
 #[allow(non_snake_case)]
@@ -914,7 +913,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
 
     Ok(())
 }
-integration_test!(test_external_transfer__malicious_withdrawal);
+integration_test_async!(test_external_transfer__malicious_withdrawal);
 
 /// Test the `new_wallet` method on the darkpool
 async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
@@ -952,7 +951,7 @@ async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_new_wallet);
+integration_test_async!(test_new_wallet);
 
 /// Test the `update_wallet` method on the darkpool
 async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
@@ -1003,7 +1002,7 @@ async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_update_wallet);
+integration_test_async!(test_update_wallet);
 
 /// Test the `process_match_settle` method on the darkpool
 async fn test_process_match_settle(test_args: TestArgs) -> Result<()> {
@@ -1085,7 +1084,7 @@ async fn test_process_match_settle(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_process_match_settle);
+integration_test_async!(test_process_match_settle);
 
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when order settlement indices are inconsistent
@@ -1126,7 +1125,7 @@ async fn test_process_match_settle__inconsistent_indices(test_args: TestArgs) ->
 
     Ok(())
 }
-integration_test!(test_process_match_settle__inconsistent_indices);
+integration_test_async!(test_process_match_settle__inconsistent_indices);
 
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when protocol fee is inconsistent
@@ -1165,7 +1164,7 @@ async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Res
 
     Ok(())
 }
-integration_test!(test_process_match_settle__inconsistent_fee);
+integration_test_async!(test_process_match_settle__inconsistent_fee);
 
 /// Test the `settle_online_relayer_fee` method on the darkpool
 async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
@@ -1231,4 +1230,4 @@ async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test!(test_settle_online_relayer_fee);
+integration_test_async!(test_settle_online_relayer_fee);
