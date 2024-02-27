@@ -6,6 +6,7 @@ use scripts::utils::LocalWalletHttpClient;
 use std::{future::Future, pin::Pin, sync::Arc};
 
 /// The arguments provided to each integration test
+#[derive(Clone)]
 pub struct TestArgs {
     /// The RPC client
     pub client: Arc<LocalWalletHttpClient>,
@@ -53,7 +54,7 @@ inventory::collect!(IntegrationTest);
 #[macro_export]
 macro_rules! integration_test {
     ($test_fn:ident) => {
-        inventory::submit!($crate::inventory::IntegrationTest {
+        inventory::submit!($crate::test_inventory::IntegrationTest {
             name: stringify!($test_fn),
             test_fn: move |args| std::boxed::Box::pin($test_fn(args)),
         });

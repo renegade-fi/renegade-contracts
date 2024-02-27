@@ -1,6 +1,6 @@
 //! Utilities for running integration tests
 
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use alloy_primitives::{keccak256, Address as AlloyAddress, B256, U256 as AlloyU256};
 use alloy_sol_types::{
@@ -26,17 +26,86 @@ use ethers::{
     contract::ContractError,
     core::k256::ecdsa::SigningKey,
     providers::{JsonRpcClient, Middleware, PendingTransaction},
+    signers::{LocalWallet, Signer},
     types::{Bytes, H256, U256},
 };
 use eyre::{eyre, Result};
 use rand::{thread_rng, RngCore};
-use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletHttpClient};
+use scripts::{
+    constants::{
+        DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
+        DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+        MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
+        TEST_FUNDING_AMOUNT, TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
+        VKEYS_CONTRACT_KEY,
+    },
+    utils::{parse_addr_from_deployments_file, setup_client, LocalWalletHttpClient},
+};
 use serde::Serialize;
 
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract, TransferExecutorContract},
     constants::PERMIT2_EIP712_DOMAIN_NAME,
+    test_inventory::TestArgs,
 };
+
+/// Populates the arguments for integration tests
+pub async fn setup_test_args(
+    deployments_file: &str,
+    rpc_url: &str,
+    priv_key: &str,
+) -> Result<TestArgs> {
+    let client = setup_client(priv_key, rpc_url).await?;
+
+    let darkpool_proxy_address =
+        parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)?;
+    let proxy_admin_address =
+        parse_addr_from_deployments_file(deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?;
+    let darkpool_impl_address =
+        parse_addr_from_deployments_file(deployments_file, DARKPOOL_CONTRACT_KEY)?;
+    let darkpool_core_address =
+        parse_addr_from_deployments_file(deployments_file, DARKPOOL_CORE_CONTRACT_KEY)?;
+    let merkle_address = parse_addr_from_deployments_file(deployments_file, MERKLE_CONTRACT_KEY)?;
+    let verifier_address =
+        parse_addr_from_deployments_file(deployments_file, VERIFIER_CONTRACT_KEY)?;
+    let vkeys_address = parse_addr_from_deployments_file(deployments_file, VKEYS_CONTRACT_KEY)?;
+    let permit2_address = parse_addr_from_deployments_file(deployments_file, PERMIT2_CONTRACT_KEY)?;
+    let transfer_executor_address =
+        parse_addr_from_deployments_file(deployments_file, TRANSFER_EXECUTOR_CONTRACT_KEY)?;
+    let dummy_erc20_address =
+        parse_addr_from_deployments_file(deployments_file, DUMMY_ERC20_TICKER)?;
+    let dummy_upgrade_target_address =
+        parse_addr_from_deployments_file(deployments_file, DUMMY_UPGRADE_TARGET_CONTRACT_KEY)?;
+    let precompiles_contract_address =
+        parse_addr_from_deployments_file(deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)?;
+
+    Ok(TestArgs {
+        client,
+        darkpool_proxy_address,
+        proxy_admin_address,
+        darkpool_impl_address,
+        darkpool_core_address,
+        merkle_address,
+        verifier_address,
+        vkeys_address,
+        permit2_address,
+        transfer_executor_address,
+        dummy_erc20_address,
+        dummy_upgrade_target_address,
+        precompiles_contract_address,
+    })
+}
+
+/// Sets up a dummy client with a random private key
+/// targeting the same RPC endpoint
+pub async fn setup_dummy_client(
+    client: Arc<LocalWalletHttpClient>,
+) -> Result<Arc<LocalWalletHttpClient>> {
+    let mut rng = thread_rng();
+    Ok(Arc::new(client.with_signer(
+        LocalWallet::new(&mut rng).with_chain_id(client.get_chainid().await?.as_u64()),
+    )))
+}
 
 /// Asserts that the given method can only be called by the owner of the darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
