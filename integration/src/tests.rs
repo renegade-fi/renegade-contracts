@@ -20,10 +20,10 @@ use contracts_utils::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
-        gen_new_wallet_data, gen_process_match_settle_data, gen_settle_offline_fee_data,
-        gen_settle_online_relayer_fee_data, gen_update_wallet_data, gen_verification_bundle,
-        generate_match_bundle, mutate_random_linking_proof, mutate_random_plonk_proof,
-        random_scalars,
+        dummy_circuit_type, gen_new_wallet_data, gen_process_match_settle_data,
+        gen_settle_offline_fee_data, gen_settle_online_relayer_fee_data, gen_update_wallet_data,
+        gen_verification_bundle, generate_match_bundle, mutate_random_linking_proof,
+        mutate_random_plonk_proof, random_scalars,
     },
 };
 use ethers::{
@@ -1293,3 +1293,44 @@ async fn test_settle_offline_fee(test_args: TestArgs) -> Result<()> {
     Ok(())
 }
 integration_test_async!(test_settle_offline_fee);
+
+/// Test that the `settle_offline_fee` method on the darkpool
+/// fails when the protocol key is incorrect
+#[allow(non_snake_case)]
+async fn test_settle_offline_fee__incorrect_protocol_key(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    // Generate test data
+    let mut rng = thread_rng();
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+
+    // Generate a dummy protocol pubkey
+    let protocol_pubkey = dummy_circuit_type(&mut rng);
+
+    let (proof, statement) = gen_settle_offline_fee_data(
+        &mut rng,
+        Scalar::new(contract_root),
+        protocol_pubkey,
+        true, /* is_protocol_fee */
+    )?;
+
+    // Call `settle_offline_fee` with invalid data
+    assert!(
+        contract
+            .settle_offline_fee(
+                serialize_to_calldata(&proof)?,
+                serialize_to_calldata(&statement)?,
+            )
+            .send()
+            .await
+            .is_err(),
+        "Incorrect protocol key did not fail"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_settle_offline_fee__incorrect_protocol_key);
