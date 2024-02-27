@@ -29,6 +29,9 @@ abigen!(
         function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
         function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature, bytes memory transfer_aux_data) external
         function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external
+        function settleOnlineRelayerFee(bytes memory proof, bytes memory valid_relayer_fee_settlement_statement, bytes memory relayer_shares_commitment_signature) external
+        function settleOfflineFee(bytes memory proof, bytes memory valid_offline_fee_settlement_statement) external
+        function redeemFee(bytes memory proof, bytes memory valid_fee_redemption_statement, bytes memory recipient_shares_commitment_signature) external
 
         function markNullifierSpent(uint256 memory nullifier) external
         function isImplementationUpgraded(uint8 memory address_selector) external view returns (bool)

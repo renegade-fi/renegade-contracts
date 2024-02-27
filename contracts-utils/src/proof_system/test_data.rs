@@ -28,6 +28,7 @@ use contracts_common::{
         G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
         MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+        ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
         ValidWalletCreateStatement as ContractValidWalletCreateStatement,
         ValidWalletUpdateStatement as ContractValidWalletUpdateStatement, VerificationKey,
     },
@@ -43,7 +44,9 @@ use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{to_circuit_pubkey, to_contract_vkey},
+    conversion::{
+        to_circuit_pubkey, to_contract_valid_relayer_fee_settlement_statement, to_contract_vkey,
+    },
     crypto::{hash_and_sign_message, random_keypair},
 };
 
@@ -51,7 +54,8 @@ use super::{
     dummy_renegade_circuits::{
         DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
         DummyValidMatchSettleWitness, DummyValidReblind, DummyValidReblindWitness,
-        DummyValidWalletCreate, DummyValidWalletUpdate,
+        DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
+        SizedValidRelayerFeeSettlementStatement,
     },
     gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
 };
@@ -105,6 +109,21 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
         new_private_shares_commitment,
         new_public_shares,
     }
+}
+
+/// Generates a dummy [`SizedValidRelayerFeeSettlementStatement`] with the given
+/// external transfer, merkle root, and old root public key
+pub fn dummy_valid_relayer_fee_settlement_statement<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    recipient_pk_root: PublicSigningKey,
+) -> SizedValidRelayerFeeSettlementStatement {
+    let mut statement: SizedValidRelayerFeeSettlementStatement = dummy_circuit_type(rng);
+    statement.sender_root = merkle_root;
+    statement.recipient_root = merkle_root;
+    statement.recipient_pk_root = recipient_pk_root;
+
+    statement
 }
 
 /// Creates a dummy statement, uses it to compute a valid proof,
@@ -179,11 +198,51 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
         .concat(),
     );
 
-    let public_inputs_signature = Bytes::from(
+    let wallet_commitment_signature = Bytes::from(
         hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
     );
 
-    Ok((proof, contract_statement, public_inputs_signature))
+    Ok((proof, contract_statement, wallet_commitment_signature))
+}
+
+/// Generates the inputs for the `settle_online_relayer_fee` darkpool method, namely
+/// a dummy statement and associated proof for the `VALID RELAYER FEE SETTLEMENT` circuit
+pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+) -> Result<(
+    ContractProof,
+    ContractValidRelayerFeeSettlementStatement,
+    Bytes,
+)> {
+    // Generate signing keypair
+    let (signing_key, contract_pubkey) = random_keypair(rng);
+
+    // Convert the public key to the type expected by the circuit
+    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
+
+    // Generate dummy statement & proof
+    let statement = dummy_valid_relayer_fee_settlement_statement(rng, merkle_root, circuit_pubkey);
+    let jf_proof = DummyValidRelayerFeeSettlement::prove((), statement.clone())?;
+    let proof = to_contract_proof(&jf_proof)?;
+
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement: ContractValidRelayerFeeSettlementStatement =
+        to_contract_valid_relayer_fee_settlement_statement(&statement)?;
+
+    let shares_commitment = compute_poseidon_hash(
+        &[
+            vec![contract_statement.recipient_wallet_commitment],
+            contract_statement.recipient_updated_public_shares.clone(),
+        ]
+        .concat(),
+    );
+
+    let wallet_commitment_signature = Bytes::from(
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
+    );
+
+    Ok((proof, contract_statement, wallet_commitment_signature))
 }
 
 /// The inputs for the `process_match_settle` darkpool method

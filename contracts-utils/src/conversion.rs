@@ -1,16 +1,22 @@
 //! Type conversion utilities
 
-use arbitrum_client::errors::ConversionError;
+use arbitrum_client::{conversion::to_contract_public_signing_key, errors::ConversionError};
 use circuit_types::{
     keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
+    traits::BaseType,
     PolynomialCommitment,
 };
 use constants::{Scalar, SystemCurve};
 use contracts_common::types::{
-    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, VerificationKey,
+    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey,
+    ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
+    VerificationKey,
 };
+use eyre::{eyre, Result};
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
+
+use crate::proof_system::dummy_renegade_circuits::SizedValidRelayerFeeSettlementStatement;
 
 /// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
 pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
@@ -76,4 +82,33 @@ pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPu
     };
 
     CircuitPublicSigningKey { x, y }
+}
+
+/// Converts a [`CircuitPublicSigningKey`] (from prover-side code) to a [`ContractPublicSigningKey`]
+// TODO: Remove this function once the `arbitrum-client` crate is updated
+pub fn to_contract_valid_relayer_fee_settlement_statement(
+    statement: &SizedValidRelayerFeeSettlementStatement,
+) -> Result<ContractValidRelayerFeeSettlementStatement> {
+    Ok(ContractValidRelayerFeeSettlementStatement {
+        sender_root: statement.sender_root.inner(),
+        recipient_root: statement.recipient_root.inner(),
+        sender_nullifier: statement.sender_nullifier.inner(),
+        recipient_nullifier: statement.recipient_nullifier.inner(),
+        sender_wallet_commitment: statement.sender_wallet_commitment.inner(),
+        recipient_wallet_commitment: statement.recipient_wallet_commitment.inner(),
+        sender_updated_public_shares: statement
+            .sender_updated_public_shares
+            .to_scalars()
+            .iter()
+            .map(|s| s.inner())
+            .collect(),
+        recipient_updated_public_shares: statement
+            .recipient_updated_public_shares
+            .to_scalars()
+            .iter()
+            .map(|s| s.inner())
+            .collect(),
+        recipient_pk_root: to_contract_public_signing_key(&statement.recipient_pk_root)
+            .map_err(|e| eyre!(e))?,
+    })
 }
