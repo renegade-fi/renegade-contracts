@@ -2,11 +2,12 @@
 
 use crate::constants::{DEFAULT_DEVNET_HOSTPORT, DEFAULT_DEVNET_PKEY};
 use clap::Parser;
+use test_helpers::types::TestVerbosity;
 
 /// CLI tool for running integration tests against a running devnet node.
 ///
 /// Assumes that the contracts invoked in the tests have already been deployed to the devnet.
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub(crate) struct Cli {
     /// Test to run
     #[arg(short, long)]
@@ -23,4 +24,8 @@ pub(crate) struct Cli {
     /// Devnet RPC URL, defaults to default Nitro devnet private key
     #[arg(short, long, default_value = DEFAULT_DEVNET_HOSTPORT)]
     pub(crate) rpc_url: String,
+
+    /// The verbosity level of the test harness
+    #[arg(short, long, default_value = "default")]
+    pub(crate) verbosity: TestVerbosity,
 }
