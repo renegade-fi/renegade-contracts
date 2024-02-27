@@ -161,6 +161,15 @@ pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";
 /// The file name for the VALID WALLET UPDATE verification key
 pub const VALID_WALLET_UPDATE_VKEY_FILE: &str = "valid_wallet_update";
 
+/// The file name for the VALID RELAYER FEE SETTLEMENT verification key
+pub const VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE: &str = "valid_relayer_fee_settlement";
+
+/// The file name for the VALID OFFLINE FEE SETTLEMENT verification key
+pub const VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE: &str = "valid_offline_fee_settlement";
+
+/// The file name for the VALID FEE REDEMPTION verification key
+pub const VALID_FEE_REDEMPTION_VKEY_FILE: &str = "valid_fee_redemption";
+
 /// The file name for the concatenated
 /// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE
 /// verification keys

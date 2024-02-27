@@ -162,6 +162,36 @@ pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
 pub const VALID_WALLET_UPDATE_VKEY_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/valid_wallet_update");
 
+/// The serialized VALID RELAYER FEE SETTLEMENT verification key
+#[cfg(feature = "vkeys")]
+pub const VALID_RELAYER_FEE_SETTLEMENT_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_relayer_fee_settlement");
+
+/// The serialized testing VALID RELAYER FEE SETTLEMENT verification key
+#[cfg(feature = "test-vkeys")]
+pub const VALID_RELAYER_FEE_SETTLEMENT_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_relayer_fee_settlement");
+
+/// The serialized VALID OFFLINE FEE SETTLEMENT verification key
+#[cfg(feature = "vkeys")]
+pub const VALID_OFFLINE_FEE_SETTLEMENT_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_offline_fee_settlement");
+
+/// The serialized testing VALID OFFLINE FEE SETTLEMENT verification key
+#[cfg(feature = "test-vkeys")]
+pub const VALID_OFFLINE_FEE_SETTLEMENT_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_offline_fee_settlement");
+
+/// The serialized VALID FEE REDEMPTION verification key
+#[cfg(feature = "vkeys")]
+pub const VALID_FEE_REDEMPTION_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/valid_fee_redemption");
+
+/// The serialized testing VALID FEE REDEMPTION verification key
+#[cfg(feature = "test-vkeys")]
+pub const VALID_FEE_REDEMPTION_VKEY_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/valid_fee_redemption");
+
 /// The serialized
 /// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE]
 /// verification keys

@@ -5,12 +5,13 @@ use alloc::vec::Vec;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::utils::constants::{
-    PROCESS_MATCH_SETTLE_VKEYS_BYTES, VALID_WALLET_CREATE_VKEY_BYTES,
-    VALID_WALLET_UPDATE_VKEY_BYTES,
+    PROCESS_MATCH_SETTLE_VKEYS_BYTES, VALID_FEE_REDEMPTION_VKEY_BYTES,
+    VALID_OFFLINE_FEE_SETTLEMENT_VKEY_BYTES, VALID_RELAYER_FEE_SETTLEMENT_VKEY_BYTES,
+    VALID_WALLET_CREATE_VKEY_BYTES, VALID_WALLET_UPDATE_VKEY_BYTES,
 };
 
 /// The verification keys contract, which itself is stateless
-/// 
+///
 /// The keys themselves are hardcoded into the contract
 #[solidity_storage]
 #[entrypoint]
@@ -26,6 +27,21 @@ impl VkeysContract {
     /// Returns the serialized `VALID WALLET UPDATE` verification key
     pub fn valid_wallet_update_vkey(&self) -> Result<Bytes, Vec<u8>> {
         Ok(VALID_WALLET_UPDATE_VKEY_BYTES.to_vec().into())
+    }
+
+    /// Returns the serialized `VALID RELAYER FEE SETTLEMENT` verification key
+    pub fn valid_relayer_fee_settlement_vkey(&self) -> Result<Bytes, Vec<u8>> {
+        Ok(VALID_RELAYER_FEE_SETTLEMENT_VKEY_BYTES.to_vec().into())
+    }
+
+    /// Returns the serialized `VALID OFFLINE FEE SETTLEMENT` verification key
+    pub fn valid_offline_fee_settlement_vkey(&self) -> Result<Bytes, Vec<u8>> {
+        Ok(VALID_OFFLINE_FEE_SETTLEMENT_VKEY_BYTES.to_vec().into())
+    }
+
+    /// Returns the serialized `VALID FEE REDEMPTION` verification key
+    pub fn valid_fee_redemption_vkey(&self) -> Result<Bytes, Vec<u8>> {
+        Ok(VALID_FEE_REDEMPTION_VKEY_BYTES.to_vec().into())
     }
 
     /// Returns the serialization of the
