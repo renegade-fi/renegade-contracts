@@ -8,17 +8,26 @@ use cli::{Cli, Tests};
 use eyre::Result;
 use scripts::{
     constants::{
-        DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY
+        DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
+        DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+        MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
+        TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, setup_client},
 };
 use tests::{
-    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer, test_external_transfer__malicious_deposit, test_external_transfer__malicious_withdrawal, test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet, test_nullifier_set, test_ownable, test_pausable, test_process_match_settle, test_process_match_settle__inconsistent_fee, test_process_match_settle__inconsistent_indices, test_settle_online_relayer_fee, test_update_wallet, test_upgradeable, test_verifier
+    test_ec_add, test_ec_mul, test_ec_pairing, test_ec_recover, test_external_transfer,
+    test_external_transfer__malicious_deposit, test_external_transfer__malicious_withdrawal,
+    test_implementation_address_setters, test_initializable, test_merkle, test_new_wallet,
+    test_nullifier_set, test_ownable, test_pausable, test_process_match_settle,
+    test_process_match_settle__inconsistent_fee, test_process_match_settle__inconsistent_indices,
+    test_settle_online_relayer_fee, test_update_wallet, test_upgradeable, test_verifier,
 };
 
 mod abis;
 mod cli;
 mod constants;
+mod inventory;
 mod tests;
 mod utils;
 
@@ -122,7 +131,8 @@ async fn main() -> Result<()> {
             test_process_match_settle(darkpool_proxy_address, client.clone()).await?;
             test_process_match_settle__inconsistent_indices(darkpool_proxy_address, client.clone())
                 .await?;
-            test_process_match_settle__inconsistent_fee(darkpool_proxy_address, client.clone()).await?;
+            test_process_match_settle__inconsistent_fee(darkpool_proxy_address, client.clone())
+                .await?;
             test_settle_online_relayer_fee(darkpool_proxy_address, client).await
         }
         Tests::EcAdd => test_ec_add(precompiles_contract_address, client).await,
@@ -205,6 +215,8 @@ async fn main() -> Result<()> {
         Tests::InconsistentProtocolFee => {
             test_process_match_settle__inconsistent_fee(darkpool_proxy_address, client).await
         }
-        Tests::SettleOnlineRelayerFee => test_settle_online_relayer_fee(darkpool_proxy_address, client).await
+        Tests::SettleOnlineRelayerFee => {
+            test_settle_online_relayer_fee(darkpool_proxy_address, client).await
+        }
     }
 }

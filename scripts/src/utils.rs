@@ -15,7 +15,7 @@ use alloy_primitives::{Address as AlloyAddress, U256};
 use alloy_sol_types::SolCall;
 use ark_ed_on_bn254::EdwardsAffine as BabyJubJubAffine;
 use ark_serialize::CanonicalDeserialize;
-use contracts_common::{types::PublicEncryptionKey, custom_serde::scalar_to_u256};
+use contracts_common::{custom_serde::scalar_to_u256, types::PublicEncryptionKey};
 use ethers::{
     abi::Address,
     middleware::SignerMiddleware,
@@ -40,18 +40,20 @@ use crate::{
         WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
-    solidity::initializeCall, types::StylusContract,
+    solidity::initializeCall,
+    types::StylusContract,
 };
 
 /// An Ethers provider that uses a `LocalWallet` to generate signatures
-pub type LocalWalletProvider<M> = SignerMiddleware<M, LocalWallet>;
+/// & interfaces with the RPC endpoint over HTTP
+pub type LocalWalletHttpClient = SignerMiddleware<Provider<Http>, LocalWallet>;
 
 /// Sets up the address and client with which to instantiate a contract for testing,
 /// reading in the private key, RPC url, and contract address from the environment.
 pub async fn setup_client(
     priv_key: &str,
     rpc_url: &str,
-) -> Result<Arc<LocalWalletProvider<impl Middleware>>, ScriptError> {
+) -> Result<Arc<LocalWalletHttpClient>, ScriptError> {
     let provider = Provider::<Http>::try_from(rpc_url)
         .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?;
 
@@ -336,7 +338,7 @@ pub async fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletProvider<impl Middleware>>,
+    client: Arc<LocalWalletHttpClient>,
     contract: StylusContract,
     deployments_path: &str,
     contract_key_override: Option<&str>,
