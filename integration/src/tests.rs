@@ -8,7 +8,8 @@ use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
 use contracts_common::{
     constants::{
-        DARKPOOL_CORE_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR
+        DARKPOOL_CORE_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT,
+        TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
     },
     custom_serde::statement_to_public_inputs,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
@@ -19,9 +20,9 @@ use contracts_utils::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
-        gen_new_wallet_data, gen_process_match_settle_data, gen_update_wallet_data,
-        gen_verification_bundle, generate_match_bundle, mutate_random_linking_proof,
-        mutate_random_plonk_proof, random_scalars,
+        gen_new_wallet_data, gen_process_match_settle_data, gen_settle_online_relayer_fee_data,
+        gen_update_wallet_data, gen_verification_bundle, generate_match_bundle,
+        mutate_random_linking_proof, mutate_random_plonk_proof, random_scalars,
     },
 };
 use ethers::{
@@ -45,7 +46,10 @@ use crate::{
         TransferExecutorContract, VerifierContract,
     },
     constants::{
-        PAUSE_METHOD_NAME, SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME, SET_FEE_METHOD_NAME, SET_MERKLE_ADDRESS_METHOD_NAME, SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME, SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME
+        PAUSE_METHOD_NAME, SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME, SET_FEE_METHOD_NAME,
+        SET_MERKLE_ADDRESS_METHOD_NAME, SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME,
+        SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME,
+        TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
@@ -1006,7 +1010,7 @@ pub(crate) async fn test_update_wallet(
     let mut rng = thread_rng();
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
-    let (proof, statement, public_inputs_signature) =
+    let (proof, statement, wallet_commitment_signature) =
         gen_update_wallet_data(&mut rng, Scalar::new(contract_root))?;
 
     // Call `update_wallet`
@@ -1014,7 +1018,7 @@ pub(crate) async fn test_update_wallet(
         .update_wallet(
             serialize_to_calldata(&proof)?,
             serialize_to_calldata(&statement)?,
-            public_inputs_signature,
+            wallet_commitment_signature,
             Bytes::new(), /* transfer_aux_data */
         )
         .send()
@@ -1215,5 +1219,75 @@ pub(crate) async fn test_process_match_settle__inconsistent_fee(
     );
 
     info!("`test_process_match_settle__inconsistent_fee` passed");
+    Ok(())
+}
+
+/// Test the `settle_online_relayer_fee` method on the darkpool
+pub(crate) async fn test_settle_online_relayer_fee(
+    darkpool_address: Address,
+    client: Arc<LocalWalletProvider<impl Middleware + 'static>>,
+) -> Result<()> {
+    info!("Running `test_settle_online_relayer_fee`");
+    let contract = DarkpoolTestContract::new(darkpool_address, client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    // Generate test data
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+
+    let mut rng = thread_rng();
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let (proof, statement, relayer_wallet_commitment_signature) =
+        gen_settle_online_relayer_fee_data(&mut rng, Scalar::new(contract_root))?;
+
+    // Call `settle_online_relayer_fee`
+    contract
+        .settle_online_relayer_fee(
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&statement)?,
+            relayer_wallet_commitment_signature,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert that both sender & recipient nullifiers are spent
+
+    let sender_nullifier = scalar_to_u256(statement.sender_nullifier);
+    let nullifier_spent = contract.is_nullifier_spent(sender_nullifier).call().await?;
+    assert!(nullifier_spent, "Sender nullifier not spent");
+
+    let recipient_nullifier = scalar_to_u256(statement.recipient_nullifier);
+    let nullifier_spent = contract
+        .is_nullifier_spent(recipient_nullifier)
+        .call()
+        .await?;
+    assert!(nullifier_spent, "Recipient nullifier not spent");
+
+    // Assert that Merkle root is correct
+
+    insert_shares_and_get_root(
+        &mut ark_merkle,
+        statement.sender_wallet_commitment,
+        &statement.sender_updated_public_shares,
+        0, /* index */
+    )
+    .map_err(|e| eyre!("{}", e))?;
+
+    let ark_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        statement.recipient_wallet_commitment,
+        &statement.recipient_updated_public_shares,
+        1, /* index */
+    )
+    .map_err(|e| eyre!("{}", e))?;
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+
+    info!("`test_settle_online_relayer_fee` passed");
     Ok(())
 }

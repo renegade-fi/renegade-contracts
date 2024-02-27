@@ -73,4 +73,6 @@ pub(crate) enum Tests {
     /// Test the `process_match_settle` method on the darkpool
     /// with an inconsistent protocol fee
     InconsistentProtocolFee,
+    /// Test the `settle_online_relayer_fee` method on the darkpool
+    SettleOnlineRelayerFee,
 }

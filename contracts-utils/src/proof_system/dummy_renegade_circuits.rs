@@ -208,7 +208,7 @@ impl SingleProverCircuit for DummyValidMatchSettle {
 /// The dummy version of the `VALID RELAYER FEE SETTLEMENT` circuit
 pub struct DummyValidRelayerFeeSettlement;
 
-type SizedValidRelayerFeeSettlementStatement =
+pub type SizedValidRelayerFeeSettlementStatement =
     ValidRelayerFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>;
 
 impl SingleProverCircuit for DummyValidRelayerFeeSettlement {
@@ -231,7 +231,7 @@ impl SingleProverCircuit for DummyValidRelayerFeeSettlement {
 /// The dummy version of the `VALID OFFLINE FEE SETTLEMENT` circuit
 pub struct DummyValidOfflineFeeSettlement;
 
-type SizedValidOfflineFeeSettlementStatement =
+pub type SizedValidOfflineFeeSettlementStatement =
     ValidOfflineFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>;
 
 impl SingleProverCircuit for DummyValidOfflineFeeSettlement {
