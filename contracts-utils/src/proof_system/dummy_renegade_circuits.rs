@@ -10,13 +10,17 @@ use circuit_types::{
 };
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
-    valid_match_settle::SizedValidMatchSettleStatement, valid_reblind::ValidReblindStatement,
+    valid_fee_redemption::ValidFeeRedemptionStatement,
+    valid_match_settle::SizedValidMatchSettleStatement,
+    valid_offline_fee_settlement::ValidOfflineFeeSettlementStatement,
+    valid_reblind::ValidReblindStatement,
+    valid_relayer_fee_settlement::ValidRelayerFeeSettlementStatement,
     valid_wallet_create::SizedValidWalletCreateStatement,
     valid_wallet_update::SizedValidWalletUpdateStatement, VALID_COMMITMENTS_MATCH_SETTLE_LINK0,
     VALID_COMMITMENTS_MATCH_SETTLE_LINK1, VALID_REBLIND_COMMITMENTS_LINK,
 };
 
-use constants::Scalar;
+use constants::{Scalar, MAX_BALANCES, MAX_ORDERS};
 use contracts_common::types::ScalarField;
 use eyre::Result;
 use mpc_plonk::errors::PlonkError;
@@ -198,5 +202,73 @@ impl SingleProverCircuit for DummyValidMatchSettle {
             (VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), None),
             (VALID_COMMITMENTS_MATCH_SETTLE_LINK1.to_string(), None),
         ])
+    }
+}
+
+/// The dummy version of the `VALID RELAYER FEE SETTLEMENT` circuit
+pub struct DummyValidRelayerFeeSettlement;
+
+type SizedValidRelayerFeeSettlementStatement =
+    ValidRelayerFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>;
+
+impl SingleProverCircuit for DummyValidRelayerFeeSettlement {
+    type Statement = SizedValidRelayerFeeSettlementStatement;
+    type Witness = ();
+
+    fn name() -> String {
+        "Dummy Valid Relayer Fee Settlement".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: (),
+        _statement_var: <SizedValidRelayerFeeSettlementStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
+    }
+}
+
+/// The dummy version of the `VALID OFFLINE FEE SETTLEMENT` circuit
+pub struct DummyValidOfflineFeeSettlement;
+
+type SizedValidOfflineFeeSettlementStatement =
+    ValidOfflineFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>;
+
+impl SingleProverCircuit for DummyValidOfflineFeeSettlement {
+    type Statement = SizedValidOfflineFeeSettlementStatement;
+    type Witness = ();
+
+    fn name() -> String {
+        "Dummy Valid Offline Fee Settlement".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: (),
+        _statement_var: <SizedValidOfflineFeeSettlementStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
+    }
+}
+
+/// The dummy version of the `VALID FEE REDEMPTION` circuit
+pub struct DummyValidFeeRedemption;
+
+type SizedValidFeeRedemptionStatement = ValidFeeRedemptionStatement<MAX_BALANCES, MAX_ORDERS>;
+
+impl SingleProverCircuit for DummyValidFeeRedemption {
+    type Statement = SizedValidFeeRedemptionStatement;
+    type Witness = ();
+
+    fn name() -> String {
+        "Dummy Valid Fee Redemption".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: (),
+        _statement_var: <SizedValidFeeRedemptionStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
     }
 }
