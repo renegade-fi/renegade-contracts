@@ -27,17 +27,13 @@ use contracts_utils::{
 };
 use ethers::{
     abi::Address,
-    middleware::SignerMiddleware,
     providers::Middleware,
-    signers::LocalWallet,
     types::{Bytes, TransactionRequest, U256},
     utils::{keccak256, parse_ether},
 };
 use eyre::{eyre, Result};
 use rand::{thread_rng, Rng, RngCore};
-use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletHttpClient};
-use std::sync::Arc;
-use tracing::log::info;
+use scripts::constants::TEST_FUNDING_AMOUNT;
 
 use crate::{
     abis::{
@@ -51,21 +47,20 @@ use crate::{
         SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME,
         TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
+    integration_test,
+    test_inventory::TestArgs,
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
         dummy_erc20_withdrawal, execute_transfer_and_get_balances, gen_transfer_aux_data,
         insert_shares_and_get_root, scalar_to_u256, serialize_match_verification_bundle,
-        serialize_to_calldata, serialize_verification_bundle, u256_to_scalar,
+        serialize_to_calldata, serialize_verification_bundle, setup_dummy_client, u256_to_scalar,
     },
 };
 
 /// Test how the contracts call the `ecAdd` precompile
-pub(crate) async fn test_ec_add(
-    precompiles_contract_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_ec_add`");
-    let contract = PrecompileTestContract::new(precompiles_contract_address, client);
+async fn test_ec_add(test_args: TestArgs) -> Result<()> {
+    let contract =
+        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
     let mut rng = thread_rng();
 
     let a = G1Affine::rand(&mut rng);
@@ -82,17 +77,14 @@ pub(crate) async fn test_ec_add(
 
     assert_eq!(c.0, a + b, "Incorrect EC addition result");
 
-    info!("`test_ec_add` passed");
     Ok(())
 }
+integration_test!(test_ec_add);
 
 /// Test how the contracts call the `ecMul` precompile
-pub(crate) async fn test_ec_mul(
-    precompiles_contract_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_ec_mul`");
-    let contract = PrecompileTestContract::new(precompiles_contract_address, client);
+async fn test_ec_mul(test_args: TestArgs) -> Result<()> {
+    let contract =
+        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
     let mut rng = thread_rng();
 
     let a = ScalarField::rand(&mut rng);
@@ -112,17 +104,14 @@ pub(crate) async fn test_ec_mul(
 
     assert_eq!(c.0, expected, "Incorrect EC scalar multiplication result");
 
-    info!("`test_ec_mul` passed");
     Ok(())
 }
+integration_test!(test_ec_mul);
 
 /// Test how the contracts call the `ecPairing` precompile
-pub(crate) async fn test_ec_pairing(
-    precompiles_contract_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_ec_pairing`");
-    let contract = PrecompileTestContract::new(precompiles_contract_address, client);
+async fn test_ec_pairing(test_args: TestArgs) -> Result<()> {
+    let contract =
+        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
     let mut rng = thread_rng();
 
     let a = G1Affine::rand(&mut rng);
@@ -138,17 +127,14 @@ pub(crate) async fn test_ec_pairing(
 
     assert!(res, "Incorrect EC pairing result");
 
-    info!("`test_ec_pairing` passed");
     Ok(())
 }
+integration_test!(test_ec_pairing);
 
 /// Test how the contracts call the `ecRecover` precompile
-pub(crate) async fn test_ec_recover(
-    precompiles_contract_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_ec_recover`");
-    let contract = PrecompileTestContract::new(precompiles_contract_address, client);
+async fn test_ec_recover(test_args: TestArgs) -> Result<()> {
+    let contract =
+        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
     let mut rng = thread_rng();
 
     let (signing_key, pubkey) = random_keypair(&mut rng);
@@ -170,17 +156,13 @@ pub(crate) async fn test_ec_recover(
         "Incorrect recovered address"
     );
 
-    info!("`test_ec_recover` passed");
     Ok(())
 }
+integration_test!(test_ec_recover);
 
 /// Test the Merkle tree functionality
-pub(crate) async fn test_merkle(
-    merkle_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_merkle`");
-    let contract = MerkleContract::new(merkle_address, client);
+async fn test_merkle(test_args: TestArgs) -> Result<()> {
+    let contract = MerkleContract::new(test_args.merkle_address, test_args.client);
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
     contract.init().send().await?.await?;
 
@@ -220,17 +202,13 @@ pub(crate) async fn test_merkle(
         "Inserted more leaves than allowed"
     );
 
-    info!("`test_merkle` passed");
     Ok(())
 }
+integration_test!(test_merkle);
 
 /// Test the verifier functionality
-pub(crate) async fn test_verifier(
-    verifier_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_verifier`");
-    let contract = VerifierContract::new(verifier_address, client);
+async fn test_verifier(test_args: TestArgs) -> Result<()> {
+    let contract = VerifierContract::new(test_args.verifier_address, test_args.client);
     let mut rng = thread_rng();
 
     // Test valid single proof verification
@@ -300,21 +278,16 @@ pub(crate) async fn test_verifier(
         .await?;
     assert!(!unsuccessful_res, "Invalid match bundle verified");
 
-    info!("`test_verifier` passed");
     Ok(())
 }
+integration_test!(test_verifier);
 
 /// Test the upgradeability of the darkpool
-pub(crate) async fn test_upgradeable(
-    proxy_admin_address: Address,
-    proxy_address: Address,
-    dummy_upgrade_target_address: Address,
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_upgradeable`");
-    let proxy_admin_contract = DarkpoolProxyAdminContract::new(proxy_admin_address, client.clone());
-    let darkpool = DarkpoolTestContract::new(proxy_address, client.clone());
+async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
+    let proxy_admin_contract =
+        DarkpoolProxyAdminContract::new(test_args.proxy_admin_address, test_args.client.clone());
+    let darkpool =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
 
     // Mark a random nullifier as spent to test that it is not cleared on upgrade
     let mut rng = thread_rng();
@@ -327,18 +300,15 @@ pub(crate) async fn test_upgradeable(
         .await?;
 
     // Ensure that only the owner can upgrade the contract
-    let dummy_signer = Arc::new(
-        SignerMiddleware::new_with_provider_chain(client.clone(), LocalWallet::new(&mut rng))
-            .await?,
-    );
+    let dummy_signer = setup_dummy_client(test_args.client.clone()).await?;
     let proxy_admin_contract_with_dummy_signer =
         DarkpoolProxyAdminContract::new(proxy_admin_contract.address(), dummy_signer);
 
     assert!(
         proxy_admin_contract_with_dummy_signer
             .upgrade_and_call(
-                proxy_address,
-                dummy_upgrade_target_address,
+                test_args.darkpool_proxy_address,
+                test_args.dummy_upgrade_target_address,
                 Bytes::new(), /* data */
             )
             .send()
@@ -350,15 +320,16 @@ pub(crate) async fn test_upgradeable(
     // Upgrade to dummy upgrade target contract
     proxy_admin_contract
         .upgrade_and_call(
-            proxy_address,
-            dummy_upgrade_target_address,
+            test_args.darkpool_proxy_address,
+            test_args.dummy_upgrade_target_address,
             Bytes::new(), /* data */
         )
         .send()
         .await?
         .await?;
 
-    let dummy_upgrade_target_contract = DummyUpgradeTargetContract::new(proxy_address, client);
+    let dummy_upgrade_target_contract =
+        DummyUpgradeTargetContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Assert that the proxy now points to the dummy upgrade target
     // by attempting to call the `is_dummy_upgrade_target` method through
@@ -373,7 +344,11 @@ pub(crate) async fn test_upgradeable(
 
     // Upgrade back to darkpool test contract
     proxy_admin_contract
-        .upgrade_and_call(proxy_address, darkpool_address, Bytes::new())
+        .upgrade_and_call(
+            test_args.darkpool_proxy_address,
+            test_args.darkpool_impl_address,
+            Bytes::new(),
+        )
         .send()
         .await?
         .await?;
@@ -384,56 +359,45 @@ pub(crate) async fn test_upgradeable(
     // was successful
     assert!(darkpool.is_nullifier_spent(nullifier).call().await?);
 
-    info!("`test_upgradeable` passed");
     Ok(())
 }
+integration_test!(test_upgradeable);
 
 /// Test the upgradeability of the contracts the darkpool calls
 /// (verifier, vkeys, & Merkle)
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn test_implementation_address_setters(
-    darkpool_address: Address,
-    darkpool_core_address: Address,
-    verifier_address: Address,
-    vkeys_address: Address,
-    merkle_address: Address,
-    transfer_executor_address: Address,
-    dummy_upgrade_target_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_implementation_address_setters`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     for (method, address_selector, original_address) in [
         (
             SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME,
             DARKPOOL_CORE_ADDRESS_SELECTOR,
-            darkpool_core_address,
+            test_args.darkpool_core_address,
         ),
         (
             SET_VERIFIER_ADDRESS_METHOD_NAME,
             VERIFIER_ADDRESS_SELECTOR,
-            verifier_address,
+            test_args.verifier_address,
         ),
         (
             SET_VKEYS_ADDRESS_METHOD_NAME,
             VKEYS_ADDRESS_SELECTOR,
-            vkeys_address,
+            test_args.vkeys_address,
         ),
         (
             SET_MERKLE_ADDRESS_METHOD_NAME,
             MERKLE_ADDRESS_SELECTOR,
-            merkle_address,
+            test_args.merkle_address,
         ),
         (
             SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME,
             TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
-            transfer_executor_address,
+            test_args.transfer_executor_address,
         ),
     ] {
         // Set the new implementation address as the dummy upgrade target address
         contract
-            .method::<Address, ()>(method, dummy_upgrade_target_address)?
+            .method::<Address, ()>(method, test_args.dummy_upgrade_target_address)?
             .send()
             .await?
             .await?;
@@ -465,17 +429,13 @@ pub(crate) async fn test_implementation_address_setters(
         );
     }
 
-    info!("`test_implementation_address_setters` passed");
     Ok(())
 }
+integration_test!(test_implementation_address_setters);
 
 /// Test the initialization of the darkpool
-pub(crate) async fn test_initializable(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_initializable`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_initializable(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     let dummy_darkpool_core_address = Address::random();
     let dummy_verifier_address = Address::random();
@@ -504,21 +464,16 @@ pub(crate) async fn test_initializable(
         "Initialized contract twice"
     );
 
-    info!("`test_initializable` passed");
     Ok(())
 }
+integration_test!(test_initializable);
 
 /// Test the ownership of the darkpool
-pub(crate) async fn test_ownable(
-    darkpool_address: Address,
-    verifier_address: Address,
-    vkeys_address: Address,
-    merkle_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_ownable`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client.clone());
-    let initial_owner = client.default_sender().unwrap();
+// TODO: Add darkpool core & transfer executor address setters to this test
+async fn test_ownable(test_args: TestArgs) -> Result<()> {
+    let contract =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let initial_owner = test_args.client.default_sender().unwrap();
 
     // Assert that the owner is set correctly initially
     assert_eq!(
@@ -528,9 +483,7 @@ pub(crate) async fn test_ownable(
     );
 
     // Set up a dummy owner account and a contract instance with that account attached as the sender
-    let mut rng = thread_rng();
-    let dummy_owner =
-        Arc::new(SignerMiddleware::new(client.inner().clone(), LocalWallet::new(&mut rng)));
+    let dummy_owner = setup_dummy_client(test_args.client.clone()).await?;
     let dummy_owner_address = dummy_owner.default_sender().unwrap();
     let contract_with_dummy_owner = DarkpoolTestContract::new(contract.address(), dummy_owner);
 
@@ -558,7 +511,11 @@ pub(crate) async fn test_ownable(
         .to(dummy_owner_address)
         .value(parse_ether(1_u64)?);
 
-    client.send_transaction(transfer_tx, None).await?.await?;
+    test_args
+        .client
+        .send_transaction(transfer_tx, None)
+        .await?
+        .await?;
 
     contract_with_dummy_owner
         .transfer_ownership(initial_owner)
@@ -593,35 +550,32 @@ pub(crate) async fn test_ownable(
         &contract,
         &contract_with_dummy_owner,
         SET_VERIFIER_ADDRESS_METHOD_NAME,
-        verifier_address,
+        test_args.verifier_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_VKEYS_ADDRESS_METHOD_NAME,
-        vkeys_address,
+        test_args.vkeys_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_MERKLE_ADDRESS_METHOD_NAME,
-        merkle_address,
+        test_args.merkle_address,
     )
     .await?;
 
-    info!("`test_ownable` passed");
     Ok(())
 }
+integration_test!(test_ownable);
 
 /// Test the pausability of the darkpool
-pub(crate) async fn test_pausable(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_pausable`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+// TODO: Ensure that only the owner can pause the contract
+async fn test_pausable(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -726,17 +680,13 @@ pub(crate) async fn test_pausable(
     ])
     .await?;
 
-    info!("`test_pausable` passed");
     Ok(())
 }
+integration_test!(test_pausable);
 
 /// Test the nullifier set functionality
-pub(crate) async fn test_nullifier_set(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_nullifier_set`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
     let mut rng = thread_rng();
     let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
 
@@ -754,35 +704,32 @@ pub(crate) async fn test_nullifier_set(
 
     assert!(nullifier_spent, "Nullifier not spent");
 
-    info!("`test_nullifier_set` passed");
     Ok(())
 }
+integration_test!(test_nullifier_set);
 
 /// Test deposit / withdrawal functionality of the darkpool
-pub(crate) async fn test_external_transfer(
-    transfer_executor_address: Address,
-    permit2_address: Address,
-    dummy_erc20_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_external_transfer`");
-    let transfer_executor_contract =
-        TransferExecutorContract::new(transfer_executor_address, client.clone());
+async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
+    let transfer_executor_contract = TransferExecutorContract::new(
+        test_args.transfer_executor_address,
+        test_args.client.clone(),
+    );
 
     // Initialize the transfer executor with the address of the Permit2 contract being used
     transfer_executor_contract
-        .init(permit2_address)
+        .init(test_args.permit2_address)
         .send()
         .await?
         .await?;
 
-    let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client.clone());
+    let dummy_erc20_contract =
+        DummyErc20Contract::new(test_args.dummy_erc20_address, test_args.client.clone());
 
-    let account_address = client.default_sender().unwrap();
-    let mint = dummy_erc20_address;
+    let account_address = test_args.client.default_sender().unwrap();
+    let mint = test_args.dummy_erc20_address;
 
     let contract_initial_balance = dummy_erc20_contract
-        .balance_of(transfer_executor_address)
+        .balance_of(test_args.transfer_executor_address)
         .call()
         .await?;
     let user_initial_balance = dummy_erc20_contract
@@ -797,7 +744,7 @@ pub(crate) async fn test_external_transfer(
     let (contract_balance, user_balance) = execute_transfer_and_get_balances(
         &transfer_executor_contract,
         &dummy_erc20_contract,
-        permit2_address,
+        test_args.permit2_address,
         &signing_key,
         pk_root,
         &deposit,
@@ -820,7 +767,7 @@ pub(crate) async fn test_external_transfer(
     let (contract_balance, user_balance) = execute_transfer_and_get_balances(
         &transfer_executor_contract,
         &dummy_erc20_contract,
-        permit2_address,
+        test_args.permit2_address,
         &signing_key,
         pk_root,
         &withdrawal,
@@ -836,33 +783,30 @@ pub(crate) async fn test_external_transfer(
         "Post-withdrawal user balance incorrect"
     );
 
-    info!("`test_external_transfer` passed");
     Ok(())
 }
+integration_test!(test_external_transfer);
 
 /// Test that a malformed deposit is rejected
 #[allow(non_snake_case)]
-pub(crate) async fn test_external_transfer__malicious_deposit(
-    transfer_executor_address: Address,
-    permit2_address: Address,
-    dummy_erc20_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_external_transfer__malicious_deposit`");
-    let transfer_executor_contract =
-        TransferExecutorContract::new(transfer_executor_address, client.clone());
+async fn test_external_transfer__malicious_deposit(test_args: TestArgs) -> Result<()> {
+    let transfer_executor_contract = TransferExecutorContract::new(
+        test_args.transfer_executor_address,
+        test_args.client.clone(),
+    );
 
     // Initialize the transfer executor with the address of the Permit2 contract being used
     transfer_executor_contract
-        .init(permit2_address)
+        .init(test_args.permit2_address)
         .send()
         .await?
         .await?;
 
-    let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client.clone());
+    let dummy_erc20_contract =
+        DummyErc20Contract::new(test_args.dummy_erc20_address, test_args.client.clone());
 
-    let account_address = client.default_sender().unwrap();
-    let mint = dummy_erc20_address;
+    let account_address = test_args.client.default_sender().unwrap();
+    let mint = test_args.dummy_erc20_address;
 
     // Generate dummy address & fund with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
@@ -881,7 +825,7 @@ pub(crate) async fn test_external_transfer__malicious_deposit(
         execute_transfer_and_get_balances(
             &transfer_executor_contract,
             &dummy_erc20_contract,
-            permit2_address,
+            test_args.permit2_address,
             &signing_key,
             pk_root,
             &deposit,
@@ -892,38 +836,38 @@ pub(crate) async fn test_external_transfer__malicious_deposit(
         "Malicious deposit succeeded"
     );
 
-    info!("`test_external_transfer__malicious_deposit` passed");
     Ok(())
 }
+integration_test!(test_external_transfer__malicious_deposit);
 
 /// Test that a malformed withdrawal is rejected
 #[allow(non_snake_case)]
-pub(crate) async fn test_external_transfer__malicious_withdrawal(
-    transfer_executor_address: Address,
-    permit2_address: Address,
-    dummy_erc20_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_external_transfer__malicious_withdrawal`");
-    let transfer_executor_contract =
-        TransferExecutorContract::new(transfer_executor_address, client.clone());
+async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Result<()> {
+    let transfer_executor_contract = TransferExecutorContract::new(
+        test_args.transfer_executor_address,
+        test_args.client.clone(),
+    );
 
     // Initialize the transfer executor with the address of the Permit2 contract being used
     transfer_executor_contract
-        .init(permit2_address)
+        .init(test_args.permit2_address)
         .send()
         .await?
         .await?;
 
-    let dummy_erc20_contract = DummyErc20Contract::new(dummy_erc20_address, client.clone());
+    let dummy_erc20_contract =
+        DummyErc20Contract::new(test_args.dummy_erc20_address, test_args.client.clone());
 
-    let account_address = client.default_sender().unwrap();
-    let mint = dummy_erc20_address;
+    let account_address = test_args.client.default_sender().unwrap();
+    let mint = test_args.dummy_erc20_address;
 
     // Fund contract with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
     dummy_erc20_contract
-        .mint(transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
+        .mint(
+            test_args.transfer_executor_address,
+            U256::from(TEST_FUNDING_AMOUNT),
+        )
         .send()
         .await?
         .await?;
@@ -935,7 +879,7 @@ pub(crate) async fn test_external_transfer__malicious_withdrawal(
     let transfer_aux_data = gen_transfer_aux_data(
         &signing_key,
         &withdrawal,
-        permit2_address,
+        test_args.permit2_address,
         &transfer_executor_contract,
     )
     .await?;
@@ -960,22 +904,21 @@ pub(crate) async fn test_external_transfer__malicious_withdrawal(
 
     // Burn contract tokens so future tests are unaffected
     dummy_erc20_contract
-        .burn(transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
+        .burn(
+            test_args.transfer_executor_address,
+            U256::from(TEST_FUNDING_AMOUNT),
+        )
         .send()
         .await?
         .await?;
 
-    info!("`test_external_transfer__malicious_withdrawal` passed");
     Ok(())
 }
+integration_test!(test_external_transfer__malicious_withdrawal);
 
 /// Test the `new_wallet` method on the darkpool
-pub(crate) async fn test_new_wallet(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_new_wallet`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1007,17 +950,13 @@ pub(crate) async fn test_new_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    info!("`test_new_wallet` passed");
     Ok(())
 }
+integration_test!(test_new_wallet);
 
 /// Test the `update_wallet` method on the darkpool
-pub(crate) async fn test_update_wallet(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_update_wallet`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1062,17 +1001,13 @@ pub(crate) async fn test_update_wallet(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    info!("`test_update_wallet` passed");
     Ok(())
 }
+integration_test!(test_update_wallet);
 
 /// Test the `process_match_settle` method on the darkpool
-pub(crate) async fn test_process_match_settle(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_process_match_settle`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_process_match_settle(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1148,19 +1083,15 @@ pub(crate) async fn test_process_match_settle(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    info!("`test_process_match_settle` passed");
     Ok(())
 }
+integration_test!(test_process_match_settle);
 
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when order settlement indices are inconsistent
 #[allow(non_snake_case)]
-pub(crate) async fn test_process_match_settle__inconsistent_indices(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_process_match_settle__inconsistent_indices`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_process_match_settle__inconsistent_indices(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1193,19 +1124,15 @@ pub(crate) async fn test_process_match_settle__inconsistent_indices(
         "Inconsistent order settlement indices did not fail"
     );
 
-    info!("`test_process_match_settle__inconsistent_indices` passed");
     Ok(())
 }
+integration_test!(test_process_match_settle__inconsistent_indices);
 
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when protocol fee is inconsistent
 #[allow(non_snake_case)]
-pub(crate) async fn test_process_match_settle__inconsistent_fee(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_process_match_settle__inconsistent_fee`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1236,17 +1163,13 @@ pub(crate) async fn test_process_match_settle__inconsistent_fee(
         "Inconsistent protocol fee did not fail"
     );
 
-    info!("`test_process_match_settle__inconsistent_fee` passed");
     Ok(())
 }
+integration_test!(test_process_match_settle__inconsistent_fee);
 
 /// Test the `settle_online_relayer_fee` method on the darkpool
-pub(crate) async fn test_settle_online_relayer_fee(
-    darkpool_address: Address,
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<()> {
-    info!("Running `test_settle_online_relayer_fee`");
-    let contract = DarkpoolTestContract::new(darkpool_address, client);
+async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1306,6 +1229,6 @@ pub(crate) async fn test_settle_online_relayer_fee(
 
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
-    info!("`test_settle_online_relayer_fee` passed");
     Ok(())
 }
+integration_test!(test_settle_online_relayer_fee);
