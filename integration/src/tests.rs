@@ -20,9 +20,10 @@ use contracts_utils::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
-        gen_new_wallet_data, gen_process_match_settle_data, gen_settle_online_relayer_fee_data,
-        gen_update_wallet_data, gen_verification_bundle, generate_match_bundle,
-        mutate_random_linking_proof, mutate_random_plonk_proof, random_scalars,
+        gen_new_wallet_data, gen_process_match_settle_data, gen_settle_offline_fee_data,
+        gen_settle_online_relayer_fee_data, gen_update_wallet_data, gen_verification_bundle,
+        generate_match_bundle, mutate_random_linking_proof, mutate_random_plonk_proof,
+        random_scalars,
     },
 };
 use ethers::{
@@ -51,9 +52,11 @@ use crate::{
     utils::{
         assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
         dummy_erc20_withdrawal, execute_transfer_and_get_balances, gen_transfer_aux_data,
-        insert_shares_and_get_root, scalar_to_u256, serialize_match_verification_bundle,
-        serialize_to_calldata, serialize_verification_bundle, setup_dummy_client, u256_to_scalar,
-    }, TestArgs,
+        get_protocol_pubkey, insert_shares_and_get_root, scalar_to_u256,
+        serialize_match_verification_bundle, serialize_to_calldata, serialize_verification_bundle,
+        setup_dummy_client, u256_to_scalar,
+    },
+    TestArgs,
 };
 
 /// Test how the contracts call the `ecAdd` precompile
@@ -1231,3 +1234,62 @@ async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
     Ok(())
 }
 integration_test_async!(test_settle_online_relayer_fee);
+
+/// Test the `settle_offline_fee` method on the darkpool
+async fn test_settle_offline_fee(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    // Generate test data
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+
+    let mut rng = thread_rng();
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let protocol_pubkey = get_protocol_pubkey(&contract).await?;
+    let (proof, statement) = gen_settle_offline_fee_data(
+        &mut rng,
+        Scalar::new(contract_root),
+        protocol_pubkey,
+        true, /* is_protocol_fee */
+    )?;
+
+    // Call `settle_offline_fee`
+    contract
+        .settle_offline_fee(
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&statement)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert that nullifier is spent
+
+    let nullifier = scalar_to_u256(statement.nullifier);
+    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
+    assert!(nullifier_spent, "Nullifier not spent");
+
+    // Assert that Merkle root is correct
+
+    insert_shares_and_get_root(
+        &mut ark_merkle,
+        statement.updated_wallet_commitment,
+        &statement.updated_wallet_public_shares,
+        0, /* index */
+    )
+    .map_err(|e| eyre!("{}", e))?;
+
+    ark_merkle
+        .update(1 /*index */, &statement.note_commitment)
+        .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+
+    assert_eq!(ark_merkle.root(), contract_root, "Merkle root incorrect");
+
+    Ok(())
+}
+integration_test_async!(test_settle_offline_fee);
