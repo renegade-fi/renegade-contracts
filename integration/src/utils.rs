@@ -9,6 +9,8 @@ use alloy_sol_types::{
     Eip712Domain, SolStruct, SolType,
 };
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
+use circuit_types::elgamal::EncryptionKey;
+use constants::Scalar;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
     custom_serde::{BytesDeserializable, BytesSerializable},
@@ -366,4 +368,15 @@ fn permit_signing_hash(permit: &PermitTransferFrom, domain: &Eip712Domain) -> B2
     digest_input[2..34].copy_from_slice(&domain_separator[..]);
     digest_input[34..66].copy_from_slice(&struct_hash[..]);
     keccak256(digest_input)
+}
+
+/// Fetches the protocol public encryption key from the darkpool contract
+pub async fn get_protocol_pubkey(
+    darkpool_contract: &DarkpoolTestContract<LocalWalletHttpClient>,
+) -> Result<EncryptionKey> {
+    let [x, y] = darkpool_contract.get_pubkey().call().await?;
+    Ok(EncryptionKey {
+        x: Scalar::new(u256_to_scalar(x)?),
+        y: Scalar::new(u256_to_scalar(y)?),
+    })
 }

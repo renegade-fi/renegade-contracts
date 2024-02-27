@@ -8,6 +8,7 @@ use arbitrum_client::conversion::{
 use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
+    elgamal::EncryptionKey,
     fixed_point::FixedPoint,
     keychain::PublicSigningKey,
     srs::SYSTEM_SRS,
@@ -28,6 +29,7 @@ use contracts_common::{
         G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
         MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+        ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
         ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
         ValidWalletCreateStatement as ContractValidWalletCreateStatement,
         ValidWalletUpdateStatement as ContractValidWalletUpdateStatement, VerificationKey,
@@ -45,7 +47,8 @@ use std::iter;
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
     conversion::{
-        to_circuit_pubkey, to_contract_valid_relayer_fee_settlement_statement, to_contract_vkey,
+        to_circuit_pubkey, to_contract_valid_offline_fee_settlement_statement,
+        to_contract_valid_relayer_fee_settlement_statement, to_contract_vkey,
     },
     crypto::{hash_and_sign_message, random_keypair},
 };
@@ -53,8 +56,9 @@ use crate::{
 use super::{
     dummy_renegade_circuits::{
         DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
-        DummyValidMatchSettleWitness, DummyValidReblind, DummyValidReblindWitness,
-        DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
+        DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement, DummyValidReblind,
+        DummyValidReblindWitness, DummyValidRelayerFeeSettlement, DummyValidWalletCreate,
+        DummyValidWalletUpdate, SizedValidOfflineFeeSettlementStatement,
         SizedValidRelayerFeeSettlementStatement,
     },
     gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
@@ -112,7 +116,7 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
 }
 
 /// Generates a dummy [`SizedValidRelayerFeeSettlementStatement`] with the given
-/// external transfer, merkle root, and old root public key
+/// merkle root, and recipient public root key
 pub fn dummy_valid_relayer_fee_settlement_statement<R: RngCore + CryptoRng>(
     rng: &mut R,
     merkle_root: Scalar,
@@ -124,6 +128,36 @@ pub fn dummy_valid_relayer_fee_settlement_statement<R: RngCore + CryptoRng>(
     statement.recipient_pk_root = recipient_pk_root;
 
     statement
+}
+
+/// Generates a dummy [`SizedValidOfflineFeeSettlementStatement`] with the given
+/// merkle root and protocol public key
+pub fn dummy_valid_offline_fee_settlement_statement<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_key: EncryptionKey,
+    is_protocol_fee: bool,
+) -> SizedValidOfflineFeeSettlementStatement {
+    // We have to individually generate each field of the statement,
+    // since creating a dummy `is_protocol_fee` from random scalars will panic
+    // due to an invalid boolean value
+    
+    let nullifier = dummy_circuit_type(rng);
+    let updated_wallet_commitment = dummy_circuit_type(rng);
+    let updated_wallet_public_shares = dummy_circuit_type(rng);
+    let note_ciphertext = dummy_circuit_type(rng);
+    let note_commitment = dummy_circuit_type(rng);
+
+    SizedValidOfflineFeeSettlementStatement {
+        merkle_root,
+        nullifier,
+        updated_wallet_commitment,
+        updated_wallet_public_shares,
+        note_ciphertext,
+        note_commitment,
+        protocol_key,
+        is_protocol_fee,
+    }
 }
 
 /// Creates a dummy statement, uses it to compute a valid proof,
@@ -206,7 +240,8 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
 }
 
 /// Generates the inputs for the `settle_online_relayer_fee` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID RELAYER FEE SETTLEMENT` circuit
+/// a dummy statement and associated proof for the `VALID RELAYER FEE SETTLEMENT` circuit,
+/// along with a signature over the commitment to the wallet shares
 pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
@@ -243,6 +278,31 @@ pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
     );
 
     Ok((proof, contract_statement, wallet_commitment_signature))
+}
+
+/// Generates the inputs for the `settle_offline_fee` darkpool method, namely
+/// a dummy statement and associated proof for the `VALID OFFLINE FEE SETTLEMENT` circuit
+pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_key: EncryptionKey,
+    is_protocol_fee: bool,
+) -> Result<(ContractProof, ContractValidOfflineFeeSettlementStatement)> {
+    // Generate dummy statement & proof
+    let statement = dummy_valid_offline_fee_settlement_statement(
+        rng,
+        merkle_root,
+        protocol_key,
+        is_protocol_fee,
+    );
+    let jf_proof = DummyValidOfflineFeeSettlement::prove((), statement.clone())?;
+    let proof = to_contract_proof(&jf_proof)?;
+
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement: ContractValidOfflineFeeSettlementStatement =
+        to_contract_valid_offline_fee_settlement_statement(&statement)?;
+
+    Ok((proof, contract_statement))
 }
 
 /// The inputs for the `process_match_settle` darkpool method
