@@ -644,10 +644,16 @@ pub(crate) async fn test_pausable(
 
     let (new_wallet_proof, new_wallet_statement) = gen_new_wallet_data(&mut rng)?;
 
-    let (update_wallet_proof, update_wallet_statement, public_inputs_signature) =
+    let (update_wallet_proof, update_wallet_statement, update_wallet_commitment_signature) =
         gen_update_wallet_data(&mut rng, contract_root)?;
 
     let data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+
+    let (
+        valid_relayer_fee_settlement_proof,
+        valid_relayer_fee_settlement_statement,
+        online_relayer_wallet_commitment_signature,
+    ) = gen_settle_online_relayer_fee_data(&mut rng, contract_root)?;
 
     assert_all_revert(vec![
         contract
@@ -660,7 +666,7 @@ pub(crate) async fn test_pausable(
             .update_wallet(
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
-                public_inputs_signature.clone(),
+                update_wallet_commitment_signature.clone(),
                 Bytes::new(), /* transfer_aux_data */
             )
             .send(),
@@ -671,6 +677,13 @@ pub(crate) async fn test_pausable(
                 serialize_to_calldata(&data.valid_match_settle_statement)?,
                 serialize_to_calldata(&data.match_proofs)?,
                 serialize_to_calldata(&data.match_linking_proofs)?,
+            )
+            .send(),
+        contract
+            .settle_online_relayer_fee(
+                serialize_to_calldata(&valid_relayer_fee_settlement_proof)?,
+                serialize_to_calldata(&valid_relayer_fee_settlement_statement)?,
+                online_relayer_wallet_commitment_signature.clone(),
             )
             .send(),
         contract.pause().send(),
@@ -692,7 +705,7 @@ pub(crate) async fn test_pausable(
             .update_wallet(
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
-                public_inputs_signature,
+                update_wallet_commitment_signature,
                 Bytes::new(), /* transfer_aux_data */
             )
             .send(),
@@ -703,6 +716,13 @@ pub(crate) async fn test_pausable(
                 serialize_to_calldata(&data.valid_match_settle_statement)?,
                 serialize_to_calldata(&data.match_proofs)?,
                 serialize_to_calldata(&data.match_linking_proofs)?,
+            )
+            .send(),
+        contract
+            .settle_online_relayer_fee(
+                serialize_to_calldata(&valid_relayer_fee_settlement_proof)?,
+                serialize_to_calldata(&valid_relayer_fee_settlement_statement)?,
+                online_relayer_wallet_commitment_signature.clone(),
             )
             .send(),
     ])
