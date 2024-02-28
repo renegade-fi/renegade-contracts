@@ -21,9 +21,9 @@ use contracts_utils::{
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
         dummy_circuit_type, gen_new_wallet_data, gen_process_match_settle_data,
-        gen_settle_offline_fee_data, gen_settle_online_relayer_fee_data, gen_update_wallet_data,
-        gen_verification_bundle, generate_match_bundle, mutate_random_linking_proof,
-        mutate_random_plonk_proof, random_scalars,
+        gen_redeem_fee_data, gen_settle_offline_fee_data, gen_settle_online_relayer_fee_data,
+        gen_update_wallet_data, gen_verification_bundle, generate_match_bundle,
+        mutate_random_linking_proof, mutate_random_plonk_proof, random_scalars,
     },
 };
 use ethers::{
@@ -1334,3 +1334,64 @@ async fn test_settle_offline_fee__incorrect_protocol_key(test_args: TestArgs) ->
     Ok(())
 }
 integration_test_async!(test_settle_offline_fee__incorrect_protocol_key);
+
+/// Test the `redeem_fee` method on the darkpool
+async fn test_redeem_fee(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    // Ensure the merkle state is cleared for the test
+    contract.clear_merkle().send().await?.await?;
+
+    // Generate test data
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+
+    let mut rng = thread_rng();
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let (proof, statement, wallet_commitment_signature) =
+        gen_redeem_fee_data(&mut rng, Scalar::new(contract_root))?;
+
+    // Call `redeem_fee`
+    contract
+        .redeem_fee(
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&statement)?,
+            wallet_commitment_signature,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert that both recipient & note nullifiers are spent
+
+    let recipient_nullifier = scalar_to_u256(statement.nullifier);
+    let nullifier_spent = contract
+        .is_nullifier_spent(recipient_nullifier)
+        .call()
+        .await?;
+    assert!(nullifier_spent, "Recipient nullifier not spent");
+
+    let note_nullifier = scalar_to_u256(statement.note_nullifier);
+    let nullifier_spent = contract.is_nullifier_spent(note_nullifier).call().await?;
+    assert!(nullifier_spent, "Note nullifier not spent");
+
+    // Assert that Merkle root is correct
+
+    let ark_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        statement.new_wallet_commitment,
+        &statement.new_wallet_public_shares,
+        0, /* index */
+    )
+    .map_err(|e| eyre!("{}", e))?;
+
+    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+
+    Ok(())
+}
+integration_test_async!(test_redeem_fee);
+
+// TODO: Add test cases covering invalid historical Merkle roots,
+// invalid signatures over wallet commitments, and duplicate nullifiers

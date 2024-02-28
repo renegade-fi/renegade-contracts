@@ -254,7 +254,7 @@ impl SingleProverCircuit for DummyValidOfflineFeeSettlement {
 /// The dummy version of the `VALID FEE REDEMPTION` circuit
 pub struct DummyValidFeeRedemption;
 
-type SizedValidFeeRedemptionStatement = ValidFeeRedemptionStatement<MAX_BALANCES, MAX_ORDERS>;
+pub type SizedValidFeeRedemptionStatement = ValidFeeRedemptionStatement<MAX_BALANCES, MAX_ORDERS>;
 
 impl SingleProverCircuit for DummyValidFeeRedemption {
     type Statement = SizedValidFeeRedemptionStatement;

@@ -33,6 +33,7 @@ use contracts_common::{
         ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
         ValidWalletCreateStatement as ContractValidWalletCreateStatement,
         ValidWalletUpdateStatement as ContractValidWalletUpdateStatement, VerificationKey,
+        ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -47,19 +48,14 @@ use std::iter;
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
     conversion::{
-        to_circuit_pubkey, to_contract_valid_offline_fee_settlement_statement,
-        to_contract_valid_relayer_fee_settlement_statement, to_contract_vkey,
+        to_circuit_pubkey, to_contract_valid_fee_redemption_statement, to_contract_valid_offline_fee_settlement_statement, to_contract_valid_relayer_fee_settlement_statement, to_contract_vkey
     },
     crypto::{hash_and_sign_message, random_keypair},
 };
 
 use super::{
     dummy_renegade_circuits::{
-        DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidMatchSettle,
-        DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement, DummyValidReblind,
-        DummyValidReblindWitness, DummyValidRelayerFeeSettlement, DummyValidWalletCreate,
-        DummyValidWalletUpdate, SizedValidOfflineFeeSettlementStatement,
-        SizedValidRelayerFeeSettlementStatement,
+        DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidFeeRedemption, DummyValidMatchSettle, DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidReblindWitness, DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate, SizedValidFeeRedemptionStatement, SizedValidOfflineFeeSettlementStatement, SizedValidRelayerFeeSettlementStatement
     },
     gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
 };
@@ -158,6 +154,21 @@ pub fn dummy_valid_offline_fee_settlement_statement<R: RngCore + CryptoRng>(
         protocol_key,
         is_protocol_fee,
     }
+}
+
+/// Generates a dummy [`SizedValidFeeRedemptionStatement`] with the given
+/// merkle root, and recipient public root key
+pub fn dummy_valid_fee_redemption_statement<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    recipient_pk_root: PublicSigningKey,
+) -> SizedValidFeeRedemptionStatement {
+    let mut statement: SizedValidFeeRedemptionStatement = dummy_circuit_type(rng);
+    statement.wallet_root = merkle_root;
+    statement.note_root = merkle_root;
+    statement.recipient_root_key = recipient_pk_root;
+
+    statement
 }
 
 /// Creates a dummy statement, uses it to compute a valid proof,
@@ -300,9 +311,50 @@ pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
 
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement: ContractValidOfflineFeeSettlementStatement =
-        to_contract_valid_offline_fee_settlement_statement(&statement)?;
+        to_contract_valid_offline_fee_settlement_statement(&statement);
 
     Ok((proof, contract_statement))
+}
+
+/// Generates the inputs for the `redeem_fee` darkpool method, namely
+/// a dummy statement and associated proof for the `VALID FEE REDEMPTION` circuit,
+/// along with a signature over the commitment to the wallet shares
+pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+) -> Result<(
+    ContractProof,
+    ContractValidFeeRedemptionStatement,
+    Bytes,
+)> {
+    // Generate signing keypair
+    let (signing_key, contract_pubkey) = random_keypair(rng);
+
+    // Convert the public key to the type expected by the circuit
+    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
+
+    // Generate dummy statement & proof
+    let statement = dummy_valid_fee_redemption_statement(rng, merkle_root, circuit_pubkey);
+    let jf_proof = DummyValidFeeRedemption::prove((), statement.clone())?;
+    let proof = to_contract_proof(&jf_proof)?;
+
+    // Convert the statement & proof types to the ones expected by the contract
+    let contract_statement: ContractValidFeeRedemptionStatement =
+        to_contract_valid_fee_redemption_statement(&statement)?;
+
+    let shares_commitment = compute_poseidon_hash(
+        &[
+            vec![contract_statement.new_wallet_commitment],
+            contract_statement.new_wallet_public_shares.clone(),
+        ]
+        .concat(),
+    );
+
+    let wallet_commitment_signature = Bytes::from(
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
+    );
+
+    Ok((proof, contract_statement, wallet_commitment_signature))
 }
 
 /// The inputs for the `process_match_settle` darkpool method
