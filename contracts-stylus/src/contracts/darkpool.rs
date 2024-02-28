@@ -375,7 +375,7 @@ impl DarkpoolContract {
         storage: &mut S,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
-        shares_commitment_signature: Bytes,
+        wallet_commitment_signature: Bytes,
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
@@ -387,7 +387,7 @@ impl DarkpoolContract {
             (
                 proof.into(),
                 valid_wallet_update_statement_bytes.into(),
-                shares_commitment_signature.into(),
+                wallet_commitment_signature.into(),
                 transfer_aux_data_bytes.into(),
             ),
         )
@@ -431,7 +431,7 @@ impl DarkpoolContract {
         storage: &mut S,
         proof: Bytes,
         valid_relayer_fee_settlement_statement: Bytes,
-        relayer_shares_commitment_signature: Bytes,
+        relayer_wallet_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
@@ -442,7 +442,7 @@ impl DarkpoolContract {
             (
                 proof.into(),
                 valid_relayer_fee_settlement_statement.into(),
-                relayer_shares_commitment_signature.into(),
+                relayer_wallet_commitment_signature.into(),
             ),
         )
         .map(|_| ())
@@ -471,7 +471,7 @@ impl DarkpoolContract {
         storage: &mut S,
         proof: Bytes,
         valid_fee_redemption_statement: Bytes,
-        recipient_shares_commitment_signature: Bytes,
+        recipient_wallet_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
@@ -482,7 +482,7 @@ impl DarkpoolContract {
             (
                 proof.into(),
                 valid_fee_redemption_statement.into(),
-                recipient_shares_commitment_signature.into(),
+                recipient_wallet_commitment_signature.into(),
             ),
         )
         .map(|_| ())
