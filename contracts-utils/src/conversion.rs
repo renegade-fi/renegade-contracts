@@ -13,6 +13,7 @@ use contracts_common::types::{
     BabyJubJubPoint, G1Affine, LinkingVerificationKey, NoteCiphertext as ContractNoteCiphertext,
     PublicEncryptionKey as ContractPublicEncryptionKey,
     PublicSigningKey as ContractPublicSigningKey,
+    ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
     ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
     ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
     VerificationKey,
@@ -22,7 +23,8 @@ use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
 
 use crate::proof_system::dummy_renegade_circuits::{
-    SizedValidOfflineFeeSettlementStatement, SizedValidRelayerFeeSettlementStatement,
+    SizedValidFeeRedemptionStatement, SizedValidOfflineFeeSettlementStatement,
+    SizedValidRelayerFeeSettlementStatement,
 };
 
 /// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
@@ -151,8 +153,8 @@ pub fn to_contract_public_encryption_key(
 // TODO: Remove this function once the `arbitrum-client` crate is updated
 pub fn to_contract_valid_offline_fee_settlement_statement(
     statement: &SizedValidOfflineFeeSettlementStatement,
-) -> Result<ContractValidOfflineFeeSettlementStatement> {
-    Ok(ContractValidOfflineFeeSettlementStatement {
+) -> ContractValidOfflineFeeSettlementStatement {
+    ContractValidOfflineFeeSettlementStatement {
         merkle_root: statement.merkle_root.inner(),
         nullifier: statement.nullifier.inner(),
         updated_wallet_commitment: statement.updated_wallet_commitment.inner(),
@@ -166,5 +168,27 @@ pub fn to_contract_valid_offline_fee_settlement_statement(
         note_commitment: statement.note_commitment.inner(),
         protocol_key: to_contract_public_encryption_key(&statement.protocol_key),
         is_protocol_fee: statement.is_protocol_fee,
+    }
+}
+
+/// Converts a [`SizedValidFeeRedemptionStatement`] (from prover-side code) to a [`ContractValidFeeRedemptionStatement`]
+// TODO: Remove this function once the `arbitrum-client` crate is updated
+pub fn to_contract_valid_fee_redemption_statement(
+    statement: &SizedValidFeeRedemptionStatement,
+) -> Result<ContractValidFeeRedemptionStatement> {
+    Ok(ContractValidFeeRedemptionStatement {
+        wallet_root: statement.wallet_root.inner(),
+        note_root: statement.note_root.inner(),
+        nullifier: statement.wallet_nullifier.inner(),
+        note_nullifier: statement.note_nullifier.inner(),
+        new_wallet_commitment: statement.new_wallet_commitment.inner(),
+        new_wallet_public_shares: statement
+            .new_wallet_public_shares
+            .to_scalars()
+            .iter()
+            .map(|s| s.inner())
+            .collect(),
+        old_pk_root: to_contract_public_signing_key(&statement.recipient_root_key)
+            .map_err(|e| eyre!(e))?,
     })
 }
