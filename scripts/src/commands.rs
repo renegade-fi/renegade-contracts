@@ -1,8 +1,6 @@
 //! Implementations of the various deploy scripts
 
 use alloy_primitives::U256;
-use ark_ed_on_bn254::EdwardsAffine as BabyJubJubAffine;
-use ark_serialize::CanonicalSerialize;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_fee_redemption::ValidFeeRedemption,
@@ -30,7 +28,7 @@ use ethers::{
     types::{Bytes, H256, U256 as EthersU256},
     utils::hex::FromHex,
 };
-use rand::{distributions::Standard, thread_rng, Rng};
+use rand::{thread_rng, Rng};
 use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
@@ -53,7 +51,7 @@ use crate::{
     types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, parse_addr_from_deployments_file, parse_public_encryption_key,
+        get_contract_key, get_public_encryption_key, parse_addr_from_deployments_file,
         setup_client, write_deployed_address, write_vkey_file, LocalWalletHttpClient,
     },
 };
@@ -190,14 +188,10 @@ pub async fn deploy_test_contracts(
     .await?;
 
     info!("Deploying proxy contract");
-    let mut rng = thread_rng();
-    let rand_pubkey: BabyJubJubAffine = rng.sample(Standard);
-    let mut pubkey_bytes: Vec<u8> = Vec::new();
-    rand_pubkey.serialize_compressed(&mut pubkey_bytes).unwrap();
     let deploy_proxy_args = DeployProxyArgs {
         owner: args.owner,
-        fee: rng.gen(),
-        protocol_public_encryption_key: hex::encode(pubkey_bytes),
+        fee: thread_rng().gen(),
+        protocol_public_encryption_key: None,
     };
     deploy_proxy(deploy_proxy_args, client, deployments_path).await?;
 
@@ -256,7 +250,7 @@ pub async fn deploy_proxy(
     let protocol_fee = U256::from(args.fee);
 
     let protocol_public_encryption_key =
-        parse_public_encryption_key(&args.protocol_public_encryption_key);
+        get_public_encryption_key(args.protocol_public_encryption_key);
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         darkpool_core_address,

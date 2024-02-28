@@ -121,9 +121,10 @@ pub struct DeployProxyArgs {
     pub fee: u64,
 
     /// The public EC-ElGamal encryption key for the protocol,
-    /// hex-encoded in compressed form
+    /// hex-encoded in compressed form.
+    /// If not provided, a random key will be generated.
     #[arg(short, long)]
-    pub protocol_public_encryption_key: String,
+    pub protocol_public_encryption_key: Option<String>,
 }
 
 /// Deploy a Stylus contract
