@@ -127,6 +127,35 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
+    info!("Deploying transfer executor contract");
+    deploy_stylus_args.contract = StylusContract::TransferExecutor;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying Permit2 contract");
+    deploy_permit2(client.clone(), deployments_path).await?;
+
+    info!("Deploying dummy ERC-20 contract");
+    let deploy_erc20_args = DeployErc20sArgs {
+        tickers: vec![DUMMY_ERC20_TICKER.to_string()],
+        funding_amount: TEST_FUNDING_AMOUNT,
+        account_skeys: vec![priv_key.to_string()],
+    };
+    deploy_erc20s(
+        deploy_erc20_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
     info!("Deploying verifier contract");
     deploy_stylus_args.contract = StylusContract::Verifier;
     build_and_deploy_stylus_contract(
@@ -160,20 +189,6 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
-    info!("Deploying Permit2 contract");
-    deploy_permit2(client.clone(), deployments_path).await?;
-
-    info!("Deploying transfer executor contract");
-    deploy_stylus_args.contract = StylusContract::TransferExecutor;
-    build_and_deploy_stylus_contract(
-        deploy_stylus_args,
-        rpc_url,
-        priv_key,
-        client.clone(),
-        deployments_path,
-    )
-    .await?;
-
     info!("Deploying proxy contract");
     let mut rng = thread_rng();
     let rand_pubkey: BabyJubJubAffine = rng.sample(Standard);
@@ -184,24 +199,7 @@ pub async fn deploy_test_contracts(
         fee: rng.gen(),
         protocol_public_encryption_key: hex::encode(pubkey_bytes),
     };
-    deploy_proxy(deploy_proxy_args, client.clone(), deployments_path).await?;
-
-    // Deploy the dummy ERC-20 last, as it reads the darkpool proxy address
-    // from the deployments file and uses that as the spender address.
-    info!("Deploying dummy ERC-20 contract");
-    let deploy_erc20_args = DeployErc20sArgs {
-        tickers: vec![DUMMY_ERC20_TICKER.to_string()],
-        funding_amount: TEST_FUNDING_AMOUNT,
-        account_skeys: vec![priv_key.to_string()],
-    };
-    deploy_erc20s(
-        deploy_erc20_args,
-        rpc_url,
-        priv_key,
-        client,
-        deployments_path,
-    )
-    .await?;
+    deploy_proxy(deploy_proxy_args, client, deployments_path).await?;
 
     Ok(())
 }
