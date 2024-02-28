@@ -25,6 +25,7 @@ use ethers::{
 };
 use itertools::Itertools;
 use json::JsonValue;
+use rand::{distributions::Standard, thread_rng, Rng};
 use tracing::log::warn;
 
 use crate::{
@@ -151,10 +152,18 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
     }
 }
 
-/// Parses an EC-ElGamal public encryption key from a hex string
-pub fn parse_public_encryption_key(pubkey_hex: &str) -> PublicEncryptionKey {
-    let pubkey_bytes = hex::decode(pubkey_hex).unwrap();
-    let point = BabyJubJubAffine::deserialize_compressed(pubkey_bytes.as_slice()).unwrap();
+/// Parses an EC-ElGamal public encryption key from a hex string,
+/// or generate a random one if None is supplied
+pub fn get_public_encryption_key(pubkey_hex: Option<String>) -> PublicEncryptionKey {
+    let point = if let Some(pubkey_hex) = pubkey_hex {
+        let pubkey_bytes = hex::decode(pubkey_hex).unwrap();
+        BabyJubJubAffine::deserialize_compressed(pubkey_bytes.as_slice()).unwrap()
+    } else {
+        warn!("Generating random public encryption key, decryption key will be lost");
+        let mut rng = thread_rng();
+        rng.sample(Standard)
+    };
+
     PublicEncryptionKey {
         x: point.x,
         y: point.y,
