@@ -11,11 +11,11 @@ sol! {
 
     // Core functions
     function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external;
-    function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory public_inputs_signature, bytes memory transfer_aux_data) external;
+    function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory wallet_commitment_signature, bytes memory transfer_aux_data) external;
     function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
-    function settleOnlineRelayerFee(bytes memory proof, bytes memory valid_relayer_fee_settlement_statement, bytes memory relayer_shares_commitment_signature) external;
+    function settleOnlineRelayerFee(bytes memory proof, bytes memory valid_relayer_fee_settlement_statement, bytes memory relayer_wallet_commitment_signature) external;
     function settleOfflineFee(bytes memory proof, bytes memory valid_offline_fee_settlement_statement) external;
-    function redeemFee(bytes memory proof, bytes memory valid_fee_redemption_statement, bytes memory recipient_shares_commitment_signature) external;
+    function redeemFee(bytes memory proof, bytes memory valid_fee_redemption_statement, bytes memory recipient_wallet_commitment_signature) external;
 
     // Merkle functions
     function init() external;
@@ -59,6 +59,7 @@ sol! {
     event NullifierSpent(uint256 indexed nullifier);
     event WalletUpdated(uint256 indexed wallet_blinder_share);
     event ExternalTransfer(address indexed account, address indexed mint, bool indexed is_withdrawal, uint256 amount);
+    event NotePosted(uint256 indexed note_commitment);
 
     // Darkpool controls events
     event FeeChanged(uint256 indexed new_fee);

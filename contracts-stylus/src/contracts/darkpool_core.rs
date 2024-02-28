@@ -16,24 +16,27 @@ use crate::{
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
-            serialize_match_statements_for_verification,
-            serialize_statement_for_verification, static_call_helper, u256_to_scalar,
+            serialize_match_statements_for_verification, serialize_statement_for_verification,
+            static_call_helper, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
             processMatchSettleVkeysCall, rootInHistoryCall, validFeeRedemptionVkeyCall,
             validOfflineFeeSettlementVkeyCall, validRelayerFeeSettlementVkeyCall,
             validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall, verifyMatchCall,
-            verifyStateSigAndInsertCall, NullifierSpent, WalletUpdated,
+            verifyStateSigAndInsertCall, NotePosted, NullifierSpent, WalletUpdated,
         },
     },
 };
 use alloc::{vec, vec::Vec};
-use contracts_common::{types::{
-    ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
-    ValidFeeRedemptionStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
-    ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
-}, custom_serde::scalar_to_u256};
+use contracts_common::{
+    custom_serde::scalar_to_u256,
+    types::{
+        ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
+        ValidFeeRedemptionStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
+        ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+    },
+};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::U256,
@@ -146,7 +149,7 @@ impl DarkpoolCoreContract {
         storage: &mut S,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
-        shares_commitment_signature: Bytes,
+        wallet_commitment_signature: Bytes,
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
@@ -174,7 +177,7 @@ impl DarkpoolCoreContract {
             valid_wallet_update_statement.merkle_root,
             valid_wallet_update_statement.new_private_shares_commitment,
             &valid_wallet_update_statement.new_public_shares,
-            shares_commitment_signature.into(),
+            wallet_commitment_signature.into(),
             valid_wallet_update_statement.old_pk_root,
         )?;
 
@@ -276,7 +279,7 @@ impl DarkpoolCoreContract {
         storage: &mut S,
         proof: Bytes,
         valid_relayer_fee_settlement_statement: Bytes,
-        relayer_shares_commitment_signature: Bytes,
+        relayer_wallet_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_relayer_fee_settlement_statement: ValidRelayerFeeSettlementStatement =
             deserialize_from_calldata(&valid_relayer_fee_settlement_statement)?;
@@ -315,7 +318,7 @@ impl DarkpoolCoreContract {
             valid_relayer_fee_settlement_statement.recipient_root,
             valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
             &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
-            relayer_shares_commitment_signature.into(),
+            relayer_wallet_commitment_signature.into(),
             valid_relayer_fee_settlement_statement.recipient_pk_root,
         )
     }
@@ -365,16 +368,10 @@ impl DarkpoolCoreContract {
             &valid_offline_fee_settlement_statement.updated_wallet_public_shares,
         )?;
 
-        let note_commitment_u256 =
-            scalar_to_u256(valid_offline_fee_settlement_statement.note_commitment);
-        let merkle_address = storage.borrow_mut().merkle_address.get();
-        delegate_call_helper::<insertNoteCommitmentCall>(
+        DarkpoolCoreContract::commit_note(
             storage,
-            merkle_address,
-            (note_commitment_u256,),
-        )?;
-
-        Ok(())
+            valid_offline_fee_settlement_statement.note_commitment,
+        )
     }
 
     /// Redeems a fee note into the recipient's wallet, nullifying the note
@@ -382,7 +379,7 @@ impl DarkpoolCoreContract {
         storage: &mut S,
         proof: Bytes,
         valid_fee_redemption_statement: Bytes,
-        recipient_shares_commitment_signature: Bytes,
+        recipient_wallet_commitment_signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let valid_fee_redemption_statement: ValidFeeRedemptionStatement =
             deserialize_from_calldata(&valid_fee_redemption_statement)?;
@@ -410,7 +407,7 @@ impl DarkpoolCoreContract {
             valid_fee_redemption_statement.wallet_root,
             valid_fee_redemption_statement.new_wallet_commitment,
             &valid_fee_redemption_statement.new_wallet_public_shares,
-            recipient_shares_commitment_signature.into(),
+            recipient_wallet_commitment_signature.into(),
             valid_fee_redemption_statement.old_pk_root,
         )?;
 
@@ -527,7 +524,7 @@ impl DarkpoolCoreContract {
         storage: &mut S,
         private_shares_commitment: ScalarField,
         public_wallet_shares: &[ScalarField],
-        shares_commitment_signature: Vec<u8>,
+        wallet_commitment_signature: Vec<u8>,
         old_pk_root: &PublicSigningKey,
     ) -> Result<(), Vec<u8>> {
         let total_wallet_shares = Self::prepare_wallet_shares_for_insertion(
@@ -544,7 +541,7 @@ impl DarkpoolCoreContract {
             merkle_address,
             (
                 total_wallet_shares,
-                shares_commitment_signature,
+                wallet_commitment_signature,
                 old_pk_root_u256s,
             ),
         )
@@ -715,6 +712,26 @@ impl DarkpoolCoreContract {
         });
 
         DarkpoolCoreContract::mark_nullifier_spent(storage, nullifier)
+    }
+
+    /// Commits the given note commitment in the Merkle tree
+    pub fn commit_note<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        note_commitment: ScalarField,
+    ) -> Result<(), Vec<u8>> {
+        let note_commitment_u256 = scalar_to_u256(note_commitment);
+        let merkle_address = storage.borrow_mut().merkle_address.get();
+        delegate_call_helper::<insertNoteCommitmentCall>(
+            storage,
+            merkle_address,
+            (note_commitment_u256,),
+        )?;
+
+        evm::log(NotePosted {
+            note_commitment: note_commitment_u256,
+        });
+
+        Ok(())
     }
 
     // -----------
