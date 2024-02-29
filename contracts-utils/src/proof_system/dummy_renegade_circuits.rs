@@ -10,17 +10,17 @@ use circuit_types::{
 };
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
-    valid_fee_redemption::ValidFeeRedemptionStatement,
+    valid_fee_redemption::SizedValidFeeRedemptionStatement,
     valid_match_settle::SizedValidMatchSettleStatement,
-    valid_offline_fee_settlement::ValidOfflineFeeSettlementStatement,
+    valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
-    valid_relayer_fee_settlement::ValidRelayerFeeSettlementStatement,
+    valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
     valid_wallet_create::SizedValidWalletCreateStatement,
     valid_wallet_update::SizedValidWalletUpdateStatement, VALID_COMMITMENTS_MATCH_SETTLE_LINK0,
     VALID_COMMITMENTS_MATCH_SETTLE_LINK1, VALID_REBLIND_COMMITMENTS_LINK,
 };
 
-use constants::{Scalar, MAX_BALANCES, MAX_ORDERS};
+use constants::Scalar;
 use contracts_common::types::ScalarField;
 use eyre::Result;
 use mpc_plonk::errors::PlonkError;
@@ -208,9 +208,6 @@ impl SingleProverCircuit for DummyValidMatchSettle {
 /// The dummy version of the `VALID RELAYER FEE SETTLEMENT` circuit
 pub struct DummyValidRelayerFeeSettlement;
 
-pub type SizedValidRelayerFeeSettlementStatement =
-    ValidRelayerFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>;
-
 impl SingleProverCircuit for DummyValidRelayerFeeSettlement {
     type Statement = SizedValidRelayerFeeSettlementStatement;
     type Witness = ();
@@ -231,9 +228,6 @@ impl SingleProverCircuit for DummyValidRelayerFeeSettlement {
 /// The dummy version of the `VALID OFFLINE FEE SETTLEMENT` circuit
 pub struct DummyValidOfflineFeeSettlement;
 
-pub type SizedValidOfflineFeeSettlementStatement =
-    ValidOfflineFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>;
-
 impl SingleProverCircuit for DummyValidOfflineFeeSettlement {
     type Statement = SizedValidOfflineFeeSettlementStatement;
     type Witness = ();
@@ -253,8 +247,6 @@ impl SingleProverCircuit for DummyValidOfflineFeeSettlement {
 
 /// The dummy version of the `VALID FEE REDEMPTION` circuit
 pub struct DummyValidFeeRedemption;
-
-pub type SizedValidFeeRedemptionStatement = ValidFeeRedemptionStatement<MAX_BALANCES, MAX_ORDERS>;
 
 impl SingleProverCircuit for DummyValidFeeRedemption {
     type Statement = SizedValidFeeRedemptionStatement;
