@@ -1,31 +1,17 @@
 //! Type conversion utilities
 
-use arbitrum_client::{conversion::to_contract_public_signing_key, errors::ConversionError};
+use arbitrum_client::errors::ConversionError;
 use circuit_types::{
-    elgamal::{ElGamalCiphertext, EncryptionKey},
     keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
-    note::NOTE_CIPHERTEXT_SIZE,
-    traits::BaseType,
     PolynomialCommitment,
 };
 use constants::{Scalar, SystemCurve};
 use contracts_common::types::{
-    BabyJubJubPoint, G1Affine, LinkingVerificationKey, NoteCiphertext as ContractNoteCiphertext,
-    PublicEncryptionKey as ContractPublicEncryptionKey,
-    PublicSigningKey as ContractPublicSigningKey,
-    ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
-    ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
-    ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
-    VerificationKey,
+    G1Affine, LinkingVerificationKey, PublicSigningKey as ContractPublicSigningKey, VerificationKey,
 };
-use eyre::{eyre, Result};
+use eyre::Result;
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
-
-use crate::proof_system::dummy_renegade_circuits::{
-    SizedValidFeeRedemptionStatement, SizedValidOfflineFeeSettlementStatement,
-    SizedValidRelayerFeeSettlementStatement,
-};
 
 /// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
 pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
@@ -91,104 +77,4 @@ pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPu
     };
 
     CircuitPublicSigningKey { x, y }
-}
-
-/// Converts a [`SizedValidRelayerFeeSettlementStatement`] (from prover-side code) to a [`ContractValidRelayerFeeSettlementStatement`]
-// TODO: Remove this function once the `arbitrum-client` crate is updated
-pub fn to_contract_valid_relayer_fee_settlement_statement(
-    statement: &SizedValidRelayerFeeSettlementStatement,
-) -> Result<ContractValidRelayerFeeSettlementStatement> {
-    Ok(ContractValidRelayerFeeSettlementStatement {
-        sender_root: statement.sender_root.inner(),
-        recipient_root: statement.recipient_root.inner(),
-        sender_nullifier: statement.sender_nullifier.inner(),
-        recipient_nullifier: statement.recipient_nullifier.inner(),
-        sender_wallet_commitment: statement.sender_wallet_commitment.inner(),
-        recipient_wallet_commitment: statement.recipient_wallet_commitment.inner(),
-        sender_updated_public_shares: statement
-            .sender_updated_public_shares
-            .to_scalars()
-            .iter()
-            .map(|s| s.inner())
-            .collect(),
-        recipient_updated_public_shares: statement
-            .recipient_updated_public_shares
-            .to_scalars()
-            .iter()
-            .map(|s| s.inner())
-            .collect(),
-        recipient_pk_root: to_contract_public_signing_key(&statement.recipient_pk_root)
-            .map_err(|e| eyre!(e))?,
-    })
-}
-
-/// Converts a [`ElGamalCiphertext`] (from prover-side code) to a [`ContractNoteCiphertext`]
-// TODO: Remove this function once the `arbitrum-client` crate is updated
-pub fn to_contract_note_ciphertext(
-    note_ciphertext: &ElGamalCiphertext<NOTE_CIPHERTEXT_SIZE>,
-) -> ContractNoteCiphertext {
-    ContractNoteCiphertext(
-        BabyJubJubPoint {
-            x: note_ciphertext.ephemeral_key.x.inner(),
-            y: note_ciphertext.ephemeral_key.y.inner(),
-        },
-        note_ciphertext.ciphertext[0].inner(),
-        note_ciphertext.ciphertext[1].inner(),
-        note_ciphertext.ciphertext[2].inner(),
-    )
-}
-
-/// Converts an [`EncryptionKey`] (from prover-side code) to a [`ContractPublicEncryptionKey`]
-// TODO: Remove this function once the `arbitrum-client` crate is updated
-pub fn to_contract_public_encryption_key(
-    public_encryption_key: &EncryptionKey,
-) -> ContractPublicEncryptionKey {
-    ContractPublicEncryptionKey {
-        x: public_encryption_key.x.inner(),
-        y: public_encryption_key.y.inner(),
-    }
-}
-
-/// Converts a [`SizedValidOfflineFeeSettlementStatement`] (from prover-side code) to a [`ContractValidOfflineFeeSettlementStatement`]
-// TODO: Remove this function once the `arbitrum-client` crate is updated
-pub fn to_contract_valid_offline_fee_settlement_statement(
-    statement: &SizedValidOfflineFeeSettlementStatement,
-) -> ContractValidOfflineFeeSettlementStatement {
-    ContractValidOfflineFeeSettlementStatement {
-        merkle_root: statement.merkle_root.inner(),
-        nullifier: statement.nullifier.inner(),
-        updated_wallet_commitment: statement.updated_wallet_commitment.inner(),
-        updated_wallet_public_shares: statement
-            .updated_wallet_public_shares
-            .to_scalars()
-            .iter()
-            .map(|s| s.inner())
-            .collect(),
-        note_ciphertext: to_contract_note_ciphertext(&statement.note_ciphertext),
-        note_commitment: statement.note_commitment.inner(),
-        protocol_key: to_contract_public_encryption_key(&statement.protocol_key),
-        is_protocol_fee: statement.is_protocol_fee,
-    }
-}
-
-/// Converts a [`SizedValidFeeRedemptionStatement`] (from prover-side code) to a [`ContractValidFeeRedemptionStatement`]
-// TODO: Remove this function once the `arbitrum-client` crate is updated
-pub fn to_contract_valid_fee_redemption_statement(
-    statement: &SizedValidFeeRedemptionStatement,
-) -> Result<ContractValidFeeRedemptionStatement> {
-    Ok(ContractValidFeeRedemptionStatement {
-        wallet_root: statement.wallet_root.inner(),
-        note_root: statement.note_root.inner(),
-        nullifier: statement.wallet_nullifier.inner(),
-        note_nullifier: statement.note_nullifier.inner(),
-        new_wallet_commitment: statement.new_wallet_commitment.inner(),
-        new_wallet_public_shares: statement
-            .new_wallet_public_shares
-            .to_scalars()
-            .iter()
-            .map(|s| s.inner())
-            .collect(),
-        old_pk_root: to_contract_public_signing_key(&statement.recipient_root_key)
-            .map_err(|e| eyre!(e))?,
-    })
 }

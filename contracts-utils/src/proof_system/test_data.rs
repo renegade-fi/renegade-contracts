@@ -2,8 +2,10 @@
 
 use arbitrum_client::conversion::{
     to_contract_link_proof, to_contract_proof, to_contract_valid_commitments_statement,
-    to_contract_valid_match_settle_statement, to_contract_valid_reblind_statement,
-    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
+    to_contract_valid_fee_redemption_statement, to_contract_valid_match_settle_statement,
+    to_contract_valid_offline_fee_settlement_statement, to_contract_valid_reblind_statement,
+    to_contract_valid_relayer_fee_settlement_statement, to_contract_valid_wallet_create_statement,
+    to_contract_valid_wallet_update_statement,
 };
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -18,7 +20,11 @@ use circuit_types::{
 };
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
-    valid_match_settle::SizedValidMatchSettleStatement, valid_reblind::ValidReblindStatement,
+    valid_fee_redemption::SizedValidFeeRedemptionStatement,
+    valid_match_settle::SizedValidMatchSettleStatement,
+    valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
+    valid_reblind::ValidReblindStatement,
+    valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
     valid_wallet_create::SizedValidWalletCreateStatement,
     valid_wallet_update::SizedValidWalletUpdateStatement,
 };
@@ -28,12 +34,12 @@ use contracts_common::{
     types::{
         G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
         MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
+        ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
         ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
         ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
         ValidWalletCreateStatement as ContractValidWalletCreateStatement,
         ValidWalletUpdateStatement as ContractValidWalletUpdateStatement, VerificationKey,
-        ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -47,15 +53,16 @@ use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{
-        to_circuit_pubkey, to_contract_valid_fee_redemption_statement, to_contract_valid_offline_fee_settlement_statement, to_contract_valid_relayer_fee_settlement_statement, to_contract_vkey
-    },
+    conversion::{to_circuit_pubkey, to_contract_vkey},
     crypto::{hash_and_sign_message, random_keypair},
 };
 
 use super::{
     dummy_renegade_circuits::{
-        DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidFeeRedemption, DummyValidMatchSettle, DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidReblindWitness, DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate, SizedValidFeeRedemptionStatement, SizedValidOfflineFeeSettlementStatement, SizedValidRelayerFeeSettlementStatement
+        DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidFeeRedemption,
+        DummyValidMatchSettle, DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement,
+        DummyValidReblind, DummyValidReblindWitness, DummyValidRelayerFeeSettlement,
+        DummyValidWalletCreate, DummyValidWalletUpdate,
     },
     gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
 };
@@ -137,7 +144,7 @@ pub fn dummy_valid_offline_fee_settlement_statement<R: RngCore + CryptoRng>(
     // We have to individually generate each field of the statement,
     // since creating a dummy `is_protocol_fee` from random scalars will panic
     // due to an invalid boolean value
-    
+
     let nullifier = dummy_circuit_type(rng);
     let updated_wallet_commitment = dummy_circuit_type(rng);
     let updated_wallet_public_shares = dummy_circuit_type(rng);
@@ -322,11 +329,7 @@ pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
 pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
-) -> Result<(
-    ContractProof,
-    ContractValidFeeRedemptionStatement,
-    Bytes,
-)> {
+) -> Result<(ContractProof, ContractValidFeeRedemptionStatement, Bytes)> {
     // Generate signing keypair
     let (signing_key, contract_pubkey) = random_keypair(rng);
 
