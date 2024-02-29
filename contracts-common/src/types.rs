@@ -219,7 +219,7 @@ pub struct ExternalTransfer {
 /// This includes a signature over the external transfer, and in the case of a deposit,
 /// the associated Permit2 data ([reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer))
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct TransferAuxData {
     /// The `PermitTransferFrom` nonce
     #[serde_as(as = "Option<U256Def>")]
