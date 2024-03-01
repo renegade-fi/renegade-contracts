@@ -3,13 +3,12 @@
 use alloy_primitives::U256;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
-    valid_commitments::SizedValidCommitments, valid_fee_redemption::ValidFeeRedemption,
+    valid_commitments::SizedValidCommitments, valid_fee_redemption::SizedValidFeeRedemption,
     valid_match_settle::SizedValidMatchSettle,
-    valid_offline_fee_settlement::ValidOfflineFeeSettlement, valid_reblind::SizedValidReblind,
+    valid_offline_fee_settlement::SizedValidOfflineFeeSettlement, valid_reblind::SizedValidReblind,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlement,
     valid_wallet_create::SizedValidWalletCreate, valid_wallet_update::SizedValidWalletUpdate,
 };
-use constants::{MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT};
 use contracts_utils::{
     conversion::to_contract_vkey,
     proof_system::{
@@ -250,7 +249,7 @@ pub async fn deploy_proxy(
     let protocol_fee = U256::from(args.fee);
 
     let protocol_public_encryption_key =
-        get_public_encryption_key(args.protocol_public_encryption_key);
+        get_public_encryption_key(args.protocol_public_encryption_key)?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         darkpool_core_address,
@@ -476,15 +475,6 @@ pub async fn upgrade(
 
     Ok(())
 }
-
-/// The `VALID OFFLINE FEE SETTLEMENT` circuit w/ system parameters applied
-// TODO: Remove this once this type is created in the relayer repo
-type SizedValidOfflineFeeSettlement =
-    ValidOfflineFeeSettlement<MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT>;
-
-/// The `VALID FEE REDEMPTION` circuit w/ system parameters applied
-// TODO: Remove this once this type is created in the relayer repo
-type SizedValidFeeRedemption = ValidFeeRedemption<MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT>;
 
 /// Computes verification keys for the protocol circuits
 fn compute_vkeys<

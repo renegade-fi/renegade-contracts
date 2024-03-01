@@ -13,8 +13,7 @@ use std::{
 
 use alloy_primitives::{Address as AlloyAddress, U256};
 use alloy_sol_types::SolCall;
-use ark_ed_on_bn254::EdwardsAffine as BabyJubJubAffine;
-use ark_serialize::CanonicalDeserialize;
+use ark_ed_on_bn254::EdwardsProjective as BabyJubJubProjective;
 use contracts_common::{custom_serde::scalar_to_u256, types::PublicEncryptionKey};
 use ethers::{
     abi::Address,
@@ -27,6 +26,7 @@ use itertools::Itertools;
 use json::JsonValue;
 use rand::{distributions::Standard, thread_rng, Rng};
 use tracing::log::warn;
+use util::hex::jubjub_from_hex_string;
 
 use crate::{
     constants::{
@@ -154,20 +154,22 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
 
 /// Parses an EC-ElGamal public encryption key from a hex string,
 /// or generate a random one if None is supplied
-pub fn get_public_encryption_key(pubkey_hex: Option<String>) -> PublicEncryptionKey {
+pub fn get_public_encryption_key(
+    pubkey_hex: Option<String>,
+) -> Result<PublicEncryptionKey, ScriptError> {
     let point = if let Some(pubkey_hex) = pubkey_hex {
-        let pubkey_bytes = hex::decode(pubkey_hex).unwrap();
-        BabyJubJubAffine::deserialize_compressed(pubkey_bytes.as_slice()).unwrap()
+        jubjub_from_hex_string(&pubkey_hex)
+            .map_err(|e| ScriptError::PubkeyParsing(e.to_string()))?
     } else {
         warn!("Generating random public encryption key, decryption key will be lost");
         let mut rng = thread_rng();
-        rng.sample(Standard)
+        rng.sample::<BabyJubJubProjective, _>(Standard).into()
     };
 
-    PublicEncryptionKey {
-        x: point.x,
-        y: point.y,
-    }
+    Ok(PublicEncryptionKey {
+        x: point.x.inner(),
+        y: point.y.inner(),
+    })
 }
 
 /// Prepare calldata for the Darkpool contract's `initialize` method

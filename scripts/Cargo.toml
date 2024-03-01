@@ -14,8 +14,8 @@ itertools = { workspace = true }
 circuits = { workspace = true }
 circuit-types = { workspace = true }
 constants = { workspace = true }
+util = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/fees-circuits" }
 mpc-plonk = { workspace = true }
-ark-serialize = { workspace = true }
 jf-primitives = { workspace = true }
 contracts-common = { path = "../contracts-common" }
 contracts-utils = { path = "../contracts-utils" }
