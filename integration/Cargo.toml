@@ -31,5 +31,5 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 inventory = "0.3"
 
-test-helpers = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/fees-circuits" }
+test-helpers = { git = "https://github.com/renegade-fi/renegade.git" }
 colored = "2"
