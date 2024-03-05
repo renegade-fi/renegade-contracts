@@ -385,7 +385,7 @@ pub async fn deploy_stylus_contract(
     deploy_cmd.arg(DEPLOY_COMMAND);
     deploy_cmd.arg("--nightly");
     deploy_cmd.arg("--wasm-file-path");
-    deploy_cmd.arg(wasm_file_path);
+    deploy_cmd.arg(&wasm_file_path);
     deploy_cmd.arg("-e");
     deploy_cmd.arg(rpc_url);
     deploy_cmd.arg("--private-key");
@@ -401,6 +401,11 @@ pub async fn deploy_stylus_contract(
     };
 
     write_deployed_address(deployments_path, contract_key, deployed_address)?;
+
+    // Delete the optimized wasm file after deployment, so that subsequent
+    // Stylus contract deployments don't interpret it as the current compiled
+    // contract to optimize then deploy
+    fs::remove_file(wasm_file_path).map_err(|e| ScriptError::DeleteFile(e.to_string()))?;
 
     Ok(deployed_address)
 }
