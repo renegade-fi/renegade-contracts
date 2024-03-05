@@ -12,7 +12,7 @@ use core::marker::PhantomData;
 use alloc::vec::Vec;
 use contracts_common::{
     constants::{MERKLE_HEIGHT, NUM_SCALARS_PK},
-    custom_serde::{BytesSerializable, scalar_to_u256},
+    custom_serde::{scalar_to_u256, BytesSerializable},
     types::{PublicSigningKey, ScalarField},
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;

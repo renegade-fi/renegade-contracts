@@ -7,6 +7,11 @@ use contracts_common::{
 };
 use core::marker::PhantomData;
 
+/// The revert message when verification is disabled but
+/// the chain is not a Renegade devnet
+#[cfg(feature = "no-verify")]
+pub const VERIFICATION_DISABLED_ERROR_MESSAGE: &[u8] = b"verification disabled on non-devnet chain";
+
 /// The revert message when a contract/owner address
 /// is attempted to be set to the zero address
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
