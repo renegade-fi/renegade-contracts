@@ -96,6 +96,9 @@ pub const RELEASE_PATH_SEGMENT: &str = "release";
 /// The extension a built WASM file
 pub const WASM_EXTENSION: &str = "wasm";
 
+/// The extension of an optimized WASM file
+pub const WASM_OPT_EXTENSION: &str = "wasm.opt";
+
 /// The name of the `wasm-opt` command
 pub const WASM_OPT_COMMAND: &str = "wasm-opt";
 

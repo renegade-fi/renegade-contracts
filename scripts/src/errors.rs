@@ -12,8 +12,6 @@ pub enum ScriptError {
     ReadFile(String),
     /// Error writing to the deployments file
     WriteFile(String),
-    /// Error deleting the compiled WASM artifact
-    DeleteFile(String),
     /// Error parsing a Solidity compilation artifact
     ArtifactParsing(String),
     /// Error initializing the RPC client
@@ -43,7 +41,6 @@ impl Display for ScriptError {
         match self {
             ScriptError::ReadFile(s) => write!(f, "error reading deployments: {}", s),
             ScriptError::WriteFile(s) => write!(f, "error writing deployments: {}", s),
-            ScriptError::DeleteFile(s) => write!(f, "error deleting wasm artifact: {}", s),
             ScriptError::ArtifactParsing(s) => write!(f, "error parsing artifact: {}", s),
             ScriptError::ClientInitialization(s) => write!(f, "error initializing client: {}", s),
             ScriptError::NonceFetching(s) => write!(f, "error fetching nonce: {}", s),

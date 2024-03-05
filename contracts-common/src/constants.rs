@@ -6,6 +6,11 @@ use ark_ff::{BigInt, Fp};
 
 use crate::types::ScalarField;
 
+/// Dedicated chain ID for Renegade devnets, for which we allow
+/// verification to be disabled.
+/// This is the first 6 digits of keccak256("renegade")
+pub const DEVNET_CHAINID: u64 = 473474;
+
 /// The number of wire types in the circuit
 pub const NUM_WIRE_TYPES: usize = 5;
 

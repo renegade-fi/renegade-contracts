@@ -30,15 +30,7 @@ use util::hex::jubjub_from_hex_string;
 
 use crate::{
     constants::{
-        AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
-        CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DEFAULT_RUSTFLAGS,
-        DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
-        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY,
-        NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S,
-        OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR,
-        STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT,
-        TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION,
-        WASM_OPT_COMMAND, WASM_TARGET_TRIPLE, Z_FLAGS,
+        AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND, CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY, INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NIGHTLY_TOOLCHAIN_SELECTOR, NO_VERIFY_FEATURE, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_S, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -330,7 +322,7 @@ pub fn build_stylus_contract(
             "Could not find contract WASM file",
         )))?;
 
-    let opt_wasm_file_path = wasm_file_path.with_extension("opt.wasm");
+    let opt_wasm_file_path = wasm_file_path.with_extension(WASM_OPT_EXTENSION);
 
     let mut opt_cmd = Command::new(WASM_OPT_COMMAND);
     opt_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -401,11 +393,6 @@ pub async fn deploy_stylus_contract(
     };
 
     write_deployed_address(deployments_path, contract_key, deployed_address)?;
-
-    // Delete the optimized wasm file after deployment, so that subsequent
-    // Stylus contract deployments don't interpret it as the current compiled
-    // contract to optimize then deploy
-    fs::remove_file(wasm_file_path).map_err(|e| ScriptError::DeleteFile(e.to_string()))?;
 
     Ok(deployed_address)
 }

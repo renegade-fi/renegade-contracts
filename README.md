@@ -145,5 +145,5 @@ cargo run -p integration -- -h
 You can run the entire integration testing suite using:
 
 ```shell
-cargo run -p integration -- -t all -d $DEPLOYMENTS_PATH
+cargo run -p integration -- -d $DEPLOYMENTS_PATH
 ```

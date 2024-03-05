@@ -6,7 +6,8 @@ use ark_ff::PrimeField;
 use contracts_common::{
     constants::{NUM_SCALARS_PK, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{
-        bigint_from_le_bytes, pk_to_scalars, scalar_to_u256, statement_to_public_inputs, ScalarSerializable
+        bigint_from_le_bytes, pk_to_scalars, scalar_to_u256, statement_to_public_inputs,
+        ScalarSerializable,
     },
     types::{
         MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
@@ -214,16 +215,35 @@ pub fn assert_valid_signature(
     )
 }
 
-/// Expands to the given code block if the `no-verify` feature is not enabled.
+/// Expands to the given code block if verification is enabled,
+/// otherwise guards the disablement of verification.
+///
+/// We guard against verification disablement here, instead of the
+/// initialization of a contract, in the case that a contract is
+/// upgraded to a version w/ verification disabled - the initialization
+/// method may not be called.
 #[macro_export]
 macro_rules! if_verifying {
     ($($logic:tt)*) => {
+        // If verification is enabled, execute the given logic
         #[cfg(not(feature = "no-verify"))]
         {
             $($logic)*
         }
+
+        // Otherwise, ensure that verification disablement
+        // is permitted (i.e., we are on the Renegade devnet)
+        #[cfg(feature = "no-verify")]
+        {
+            use stylus_sdk::block;
+            use contracts_common::constants::DEVNET_CHAINID;
+            use $crate::{assert_result, utils::constants::VERIFICATION_DISABLED_ERROR_MESSAGE};
+
+            assert_result!(block::chainid() == DEVNET_CHAINID, VERIFICATION_DISABLED_ERROR_MESSAGE)?;
+        }
     };
 }
+
 /// Asserts the given condition, and returns an error if it fails.
 /// The "type" this macro returns is `Result<(), Vec<u8>>`, matching
 /// the return type of external contract methods.
