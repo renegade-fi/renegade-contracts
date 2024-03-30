@@ -113,7 +113,7 @@ pub const INVALID_INPUTS_ERROR_MESSAGE: &[u8] = b"invalid inputs";
 /// operation fails
 pub const ARITHMETIC_BACKEND_ERROR_MESSAGE: &[u8] = b"arithmetic backend error";
 
-/// The witness type string used for deposits via `permitWitnessTransferFrom`.
+/// The EIP-712 type string used for deposit witness data via `permitWitnessTransferFrom`.
 ///
 /// For more details see: https://docs.uniswap.org/contracts/permit2/reference/signature-transfer#single-permitwitnesstransferfrom
 pub const DEPOSIT_WITNESS_TYPE_STRING: &str = "DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)";
