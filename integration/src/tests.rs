@@ -835,12 +835,64 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
         )
         .await
         .is_err(),
-        "Malicious deposit succeeded"
+        "Deposit from wrong ETH address succeeded"
     );
 
     Ok(())
 }
 integration_test_async!(test_external_transfer__wrong_eth_addr);
+
+/// Test that a deposit directed to a different Renegade wallet is rejected
+#[allow(non_snake_case)]
+async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result<()> {
+    let mut rng = thread_rng();
+
+    let transfer_executor_contract = TransferExecutorContract::new(
+        test_args.transfer_executor_address,
+        test_args.client.clone(),
+    );
+
+    // Initialize the transfer executor with the address of the Permit2 contract being used
+    transfer_executor_contract
+        .init(test_args.permit2_address)
+        .send()
+        .await?
+        .await?;
+
+    let account_address = test_args.client.default_sender().unwrap();
+    let mint = test_args.dummy_erc20_address;
+
+    let (signing_key, pk_root) = random_keypair(&mut rng);
+
+    // Create a valid deposit w/ accompanying aux data
+    let deposit = dummy_erc20_deposit(account_address, mint);
+    let transfer_aux_data = gen_transfer_aux_data(
+        &signing_key,
+        pk_root,
+        &deposit,
+        test_args.permit2_address,
+        &transfer_executor_contract,
+    )
+    .await?;
+
+    // Execute the deposit with a pk_root that does not match the one in the aux data
+    let (_, dummy_pk_root) = random_keypair(&mut rng);
+    assert!(
+    transfer_executor_contract
+        .execute_external_transfer(
+            serialize_to_calldata(&dummy_pk_root)?,
+            serialize_to_calldata(&deposit)?,
+            serialize_to_calldata(&transfer_aux_data)?,
+        )
+        .send()
+        .await
+        .is_err(),
+        "Deposit to wrong Renegade wallet succeeded"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_external_transfer__wrong_rng_wallet);
 
 /// Test that a malformed withdrawal is rejected
 #[allow(non_snake_case)]

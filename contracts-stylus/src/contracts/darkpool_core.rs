@@ -9,16 +9,15 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE,
-            INVALID_PROTOCOL_FEE_ERROR_MESSAGE, INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE,
-            MERKLE_STORAGE_GAP_SIZE, NULLIFIER_SPENT_ERROR_MESSAGE,
-            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE,
-            VERIFICATION_FAILED_ERROR_MESSAGE,
+            CALL_RETDATA_DECODING_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE,
+            INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
+            INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
+            NULLIFIER_SPENT_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
+            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
+            VERIFICATION_RESULT_LAST_BYTE_INDEX,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, postcard_serialize,
-            serialize_match_statements_for_verification, serialize_statement_for_verification,
-            static_call_helper, u256_to_scalar,
+            delegate_call_helper, deserialize_from_calldata, map_call_error, postcard_serialize, serialize_match_statements_for_verification, serialize_statement_for_verification, u256_to_scalar
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
