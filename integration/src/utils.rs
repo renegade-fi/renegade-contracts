@@ -13,8 +13,8 @@ use circuit_types::elgamal::EncryptionKey;
 use constants::Scalar;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
-    custom_serde::{BytesDeserializable, BytesSerializable},
-    solidity::{PermitTransferFrom, TokenPermissions},
+    custom_serde::{pk_to_u256s, BytesDeserializable, BytesSerializable},
+    solidity::{DepositWitness, PermitWitnessTransferFrom, TokenPermissions},
     types::{
         ExternalTransfer, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
         MatchVkeys, Proof, PublicInputs, PublicSigningKey, ScalarField, TransferAuxData,
@@ -219,6 +219,7 @@ pub(crate) async fn execute_transfer_and_get_balances(
 ) -> Result<(U256, U256)> {
     let transfer_aux_data = gen_transfer_aux_data(
         signing_key,
+        pk_root,
         transfer,
         permit2_address,
         transfer_executor_contract,
@@ -227,7 +228,7 @@ pub(crate) async fn execute_transfer_and_get_balances(
 
     transfer_executor_contract
         .execute_external_transfer(
-            serialize_to_calldata(&Some(pk_root))?,
+            serialize_to_calldata(&pk_root)?,
             serialize_to_calldata(transfer)?,
             serialize_to_calldata(&transfer_aux_data)?,
         )
@@ -270,6 +271,7 @@ pub(crate) fn insert_shares_and_get_root(
 /// including the Permit2 data & a signature over the transfer
 pub(crate) async fn gen_transfer_aux_data(
     signing_key: &SigningKey,
+    pk_root: PublicSigningKey,
     transfer: &ExternalTransfer,
     permit2_address: Address,
     transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
@@ -277,6 +279,7 @@ pub(crate) async fn gen_transfer_aux_data(
     let (permit_nonce, permit_deadline, permit_signature) = gen_permit_payload(
         transfer.mint,
         transfer.amount,
+        pk_root,
         permit2_address,
         transfer_executor_contract,
     )
@@ -297,6 +300,7 @@ pub(crate) async fn gen_transfer_aux_data(
 pub(crate) async fn gen_permit_payload(
     token: AlloyAddress,
     amount: AlloyU256,
+    pk_root: PublicSigningKey,
     permit2_address: Address,
     transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
 ) -> Result<(AlloyU256, AlloyU256, Vec<u8>)> {
@@ -314,11 +318,16 @@ pub(crate) async fn gen_permit_payload(
 
     let spender = AlloyAddress::from_slice(transfer_executor_contract.address().as_bytes());
 
-    let signable_permit = PermitTransferFrom {
+    let witness = DepositWitness {
+        pkRoot: pk_to_u256s(&pk_root).map_err(|_| eyre!("Failed to convert pk_root to u256s"))?,
+    };
+
+    let signable_permit = PermitWitnessTransferFrom {
         permitted,
         spender,
         nonce,
         deadline,
+        witness,
     };
 
     // Construct the EIP712 domain
@@ -348,7 +357,7 @@ pub(crate) async fn gen_permit_payload(
 /// But the version of `alloy` used by `stylus-sdk` is not updated to include this fix.
 ///
 /// TODO: Remove this function when `stylus-sdk` uses `alloy >= 0.4.0`
-fn permit_signing_hash(permit: &PermitTransferFrom, domain: &Eip712Domain) -> B256 {
+fn permit_signing_hash(permit: &PermitWitnessTransferFrom, domain: &Eip712Domain) -> B256 {
     let domain_separator = domain.hash_struct();
 
     let mut type_hash = permit.eip712_type_hash().to_vec();
@@ -357,6 +366,7 @@ fn permit_signing_hash(permit: &PermitTransferFrom, domain: &Eip712Domain) -> B2
         SolAddress::eip712_data_word(&permit.spender).0,
         SolUint::<256>::eip712_data_word(&permit.nonce).0,
         SolUint::<256>::eip712_data_word(&permit.deadline).0,
+        permit.witness.eip712_hash_struct().0,
     ]
     .concat();
     type_hash.extend(encoded_data);

@@ -4,11 +4,8 @@ use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use contracts_common::{
-    constants::{NUM_BYTES_U256, NUM_SCALARS_PK, SCALAR_CONVERSION_ERROR_MESSAGE},
-    custom_serde::{
-        bigint_from_le_bytes, pk_to_scalars, scalar_to_u256, statement_to_public_inputs,
-        ScalarSerializable,
-    },
+    constants::SCALAR_CONVERSION_ERROR_MESSAGE,
+    custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
     types::{
         MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
         ValidMatchSettleStatement, ValidReblindStatement,
@@ -159,18 +156,6 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, Vec<u8>> {
     let bigint = bigint_from_le_bytes(&u256.to_le_bytes::<NUM_BYTES_U256>())
         .map_err(|_| SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())?;
     ScalarField::from_bigint(bigint).ok_or(SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())
-}
-
-/// Converts a [`PublicSigningKey`] into the [`U256`] array representing its scalar serialization
-#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
-pub fn pk_to_u256s(pk: &PublicSigningKey) -> Result<[U256; NUM_SCALARS_PK], Vec<u8>> {
-    let scalars = pk_to_scalars(pk);
-    scalars
-        .into_iter()
-        .map(scalar_to_u256)
-        .collect::<Vec<_>>()
-        .try_into()
-        .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())
 }
 
 /// Asserts the validity of the given signature using the given public signing key,
