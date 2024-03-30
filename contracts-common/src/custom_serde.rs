@@ -429,6 +429,17 @@ pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
     U256::from_be_slice(&scalar.serialize_to_bytes())
 }
 
+/// Converts a [`PublicSigningKey`] into the [`U256`] array representing its scalar serialization
+pub fn pk_to_u256s(pk: &PublicSigningKey) -> Result<[U256; NUM_SCALARS_PK], SerdeError> {
+    let scalars = pk_to_scalars(pk);
+    scalars
+        .into_iter()
+        .map(scalar_to_u256)
+        .collect::<Vec<_>>()
+        .try_into()
+        .map_err(|_| SerdeError::InvalidLength)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{

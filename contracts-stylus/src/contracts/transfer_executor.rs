@@ -5,7 +5,7 @@ use crate::{
     if_verifying,
     utils::{
         constants::{
-            MERKLE_STORAGE_GAP_SIZE, MISSING_PK_ROOT_ERROR_MESSAGE,
+            INVALID_ARR_LEN_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
             MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
         },
         helpers::{
@@ -14,11 +14,14 @@ use crate::{
         solidity::{transferCall, ExternalTransfer as ExternalTransferEvent},
     },
 };
-use alloc::vec::Vec;
+use alloc::{string::ToString, vec::Vec};
+use alloy_sol_types::SolStruct;
 use contracts_common::{
+    constants::DEPOSIT_WITNESS_TYPE_STRING,
+    custom_serde::pk_to_u256s,
     solidity::{
-        permitTransferFromCall, CalldataPermitTransferFrom, SignatureTransferDetails,
-        TokenPermissions,
+        permitWitnessTransferFromCall, CalldataPermitWitnessTransferFrom, DepositWitness,
+        SignatureTransferDetails, TokenPermissions,
     },
     types::{ExternalTransfer, PublicSigningKey, TransferAuxData},
 };
@@ -55,7 +58,7 @@ impl TransferExecutorContract {
     /// depending on the transfer direction.
     pub fn execute_external_transfer(
         &mut self,
-        old_pk_root: Bytes,
+        old_pk_root_bytes: Bytes,
         transfer: Bytes,
         transfer_aux_data: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -69,14 +72,14 @@ impl TransferExecutorContract {
             is_withdrawal,
         } = transfer;
 
+        let old_pk_root: PublicSigningKey = deserialize_from_calldata(&old_pk_root_bytes)?;
+
         if is_withdrawal {
             // In the case of a withdrawal, we check the signature over the external transfer,
             // and then make a simple `transfer` call from the contract to the user.
 
-            let old_pk_root: Option<PublicSigningKey> = deserialize_from_calldata(&old_pk_root)?;
-
             if_verifying!(assert_valid_signature(
-                &old_pk_root.ok_or(MISSING_PK_ROOT_ERROR_MESSAGE)?,
+                &old_pk_root,
                 &postcard_serialize(&transfer)?,
                 &transfer_aux_data
                     .transfer_signature
@@ -95,7 +98,7 @@ impl TransferExecutorContract {
             let contract_address = contract::address();
             let permit2_address = self.permit2_address.get();
 
-            let permit = CalldataPermitTransferFrom {
+            let permit = CalldataPermitWitnessTransferFrom {
                 permitted: TokenPermissions {
                     amount,
                     token: mint,
@@ -113,13 +116,22 @@ impl TransferExecutorContract {
                 requestedAmount: amount,
             };
 
-            call_helper::<permitTransferFromCall>(
+            // Hash the Permit2 witness data for the deposit
+            let deposit_witness = DepositWitness {
+                pkRoot: pk_to_u256s(&old_pk_root)
+                    .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())?,
+            };
+            let deposit_witness_hash = deposit_witness.eip712_hash_struct().0;
+
+            call_helper::<permitWitnessTransferFromCall>(
                 self,
                 permit2_address, /* address */
                 (
                     permit,
                     signature_transfer_details,
                     account_addr, /* owner */
+                    deposit_witness_hash,
+                    DEPOSIT_WITNESS_TYPE_STRING.to_string(),
                     transfer_aux_data
                         .permit_signature
                         .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,

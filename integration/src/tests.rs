@@ -789,9 +789,9 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
 }
 integration_test_async!(test_external_transfer);
 
-/// Test that a malformed deposit is rejected
+/// Test that a deposit specified from a different ETH address is rejected
 #[allow(non_snake_case)]
-async fn test_external_transfer__malicious_deposit(test_args: TestArgs) -> Result<()> {
+async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<()> {
     let transfer_executor_contract = TransferExecutorContract::new(
         test_args.transfer_executor_address,
         test_args.client.clone(),
@@ -840,7 +840,7 @@ async fn test_external_transfer__malicious_deposit(test_args: TestArgs) -> Resul
 
     Ok(())
 }
-integration_test_async!(test_external_transfer__malicious_deposit);
+integration_test_async!(test_external_transfer__wrong_eth_addr);
 
 /// Test that a malformed withdrawal is rejected
 #[allow(non_snake_case)]
@@ -880,6 +880,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
     let mut withdrawal = dummy_erc20_withdrawal(account_address, mint);
     let transfer_aux_data = gen_transfer_aux_data(
         &signing_key,
+        pk_root,
         &withdrawal,
         test_args.permit2_address,
         &transfer_executor_contract,
@@ -894,7 +895,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
     assert!(
         transfer_executor_contract
             .execute_external_transfer(
-                serialize_to_calldata(&Some(pk_root))?,
+                serialize_to_calldata(&pk_root)?,
                 serialize_to_calldata(&withdrawal)?,
                 serialize_to_calldata(&transfer_aux_data)?,
             )

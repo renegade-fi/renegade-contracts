@@ -9,16 +9,16 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            CALL_RETDATA_DECODING_ERROR_MESSAGE, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE,
+            INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE,
             INVALID_PROTOCOL_FEE_ERROR_MESSAGE, INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE,
             MERKLE_STORAGE_GAP_SIZE, NULLIFIER_SPENT_ERROR_MESSAGE,
             ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE,
-            VERIFICATION_FAILED_ERROR_MESSAGE, VERIFICATION_RESULT_LAST_BYTE_INDEX,
+            VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, map_call_error, pk_to_u256s,
-            postcard_serialize, serialize_match_statements_for_verification,
-            serialize_statement_for_verification, u256_to_scalar,
+            delegate_call_helper, deserialize_from_calldata, postcard_serialize,
+            serialize_match_statements_for_verification, serialize_statement_for_verification,
+            static_call_helper, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
@@ -32,7 +32,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::{sol_data::Bytes as AlloyBytes, SolCall, SolType};
 use contracts_common::{
-    custom_serde::scalar_to_u256,
+    custom_serde::{pk_to_u256s, scalar_to_u256},
     types::{
         ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
         ValidFeeRedemptionStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
@@ -558,7 +558,8 @@ impl DarkpoolCoreContract {
 
         let merkle_address = storage.borrow_mut().merkle_address.get();
 
-        let old_pk_root_u256s = pk_to_u256s(old_pk_root)?;
+        let old_pk_root_u256s =
+            pk_to_u256s(old_pk_root).map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())?;
 
         delegate_call_helper::<verifyStateSigAndInsertCall>(
             storage,
@@ -599,7 +600,7 @@ impl DarkpoolCoreContract {
         transfer_aux_data_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
         let transfer_executor_address = storage.borrow_mut().transfer_executor_address.get();
-        let old_pk_root_bytes = postcard_serialize(&Some(old_pk_root))?;
+        let old_pk_root_bytes = postcard_serialize(&old_pk_root)?;
         let transfer_bytes = postcard_serialize(&transfer)?;
 
         delegate_call_helper::<executeExternalTransferCall>(
