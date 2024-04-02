@@ -51,9 +51,6 @@ pub const INLINE_THRESHOLD_FLAG: &str = "-Cinline-threshold=0";
 /// The optimization level flag for the Rust compiler
 pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";
 
-/// The "s" optimization level (size optimization)
-pub const OPT_LEVEL_S: &str = "s";
-
 /// The "z" optimization level (aggressive size optimization)
 pub const OPT_LEVEL_Z: &str = "z";
 

@@ -3,7 +3,9 @@
 use ark_ff::One;
 use contracts_common::{
     backends::{EcRecoverBackend, EcdsaError, G1ArithmeticBackend, G1ArithmeticError, HashBackend},
-    constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
+    constants::{
+        HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_SIGNATURE, NUM_BYTES_U256,
+    },
     custom_serde::{BytesDeserializable, BytesSerializable},
     types::{G1Affine, G2Affine, ScalarField},
 };
@@ -39,15 +41,13 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         }
 
         // Serialize the points
-        let a_data = a.serialize_to_bytes();
-        let b_data = b.serialize_to_bytes();
+        let mut calldata = [0_u8; NUM_BYTES_FELT * 4];
+        calldata[..NUM_BYTES_FELT * 2].copy_from_slice(&a.serialize_to_bytes());
+        calldata[NUM_BYTES_FELT * 2..].copy_from_slice(&b.serialize_to_bytes());
 
         // Call the `ecAdd` precompile
         let res_xy_bytes = RawCall::new_static()
-            .call(
-                Address::with_last_byte(EC_ADD_ADDRESS_LAST_BYTE),
-                &[a_data, b_data].concat(),
-            )
+            .call(Address::with_last_byte(EC_ADD_ADDRESS_LAST_BYTE), &calldata)
             .map_err(|_| G1ArithmeticError)?;
 
         // Deserialize the affine coordinates returned from the precompile
@@ -61,15 +61,13 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         }
 
         // Serialize the point and scalar
-        let a_data = a.serialize_to_bytes();
-        let b_data = b.serialize_to_bytes();
+        let mut calldata = [0_u8; NUM_BYTES_FELT * 3];
+        calldata[..NUM_BYTES_FELT].copy_from_slice(&a.serialize_to_bytes());
+        calldata[NUM_BYTES_FELT..].copy_from_slice(&b.serialize_to_bytes());
 
         // Call the `ecMul` precompile
         let res_xy_bytes = RawCall::new_static()
-            .call(
-                Address::with_last_byte(EC_MUL_ADDRESS_LAST_BYTE),
-                &[b_data, a_data].concat(),
-            )
+            .call(Address::with_last_byte(EC_MUL_ADDRESS_LAST_BYTE), &calldata)
             .map_err(|_| G1ArithmeticError)?;
 
         // Deserialize the affine coordinates returned from the precompile
@@ -84,10 +82,11 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         b_2: G2Affine,
     ) -> Result<bool, G1ArithmeticError> {
         // Serialize the points
-        let a_1_data = a_1.serialize_to_bytes();
-        let b_1_data = b_1.serialize_to_bytes();
-        let a_2_data = a_2.serialize_to_bytes();
-        let b_2_data = b_2.serialize_to_bytes();
+        let mut calldata = [0_u8; NUM_BYTES_FELT * 12];
+        calldata[..NUM_BYTES_FELT * 2].copy_from_slice(&a_1.serialize_to_bytes());
+        calldata[NUM_BYTES_FELT * 2..NUM_BYTES_FELT * 6].copy_from_slice(&b_1.serialize_to_bytes());
+        calldata[NUM_BYTES_FELT * 6..NUM_BYTES_FELT * 8].copy_from_slice(&a_2.serialize_to_bytes());
+        calldata[NUM_BYTES_FELT * 8..].copy_from_slice(&b_2.serialize_to_bytes());
 
         // Call the `ecPairing` precompile
         let res = RawCall::new_static()
@@ -99,7 +98,7 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
             )
             .call(
                 Address::with_last_byte(EC_PAIRING_ADDRESS_LAST_BYTE),
-                &[a_1_data, b_1_data, a_2_data, b_2_data].concat(),
+                &calldata,
             )
             .map_err(|_| G1ArithmeticError)?;
 
