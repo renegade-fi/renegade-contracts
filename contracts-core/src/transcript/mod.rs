@@ -43,11 +43,11 @@ impl<H: HashBackend> Transcript<H> {
         let input0 = [self.state.as_ref(), self.transcript.as_ref(), &[0u8]].concat();
         let input1 = [self.state.as_ref(), self.transcript.as_ref(), &[1u8]].concat();
 
-        let buf0 = H::hash(&input0);
+        let mut hash_outputs = [0u8; TRANSCRIPT_STATE_SIZE];
+        hash_outputs[..TRANSCRIPT_STATE_SIZE/2].copy_from_slice(&H::hash(&input0));
+        hash_outputs[TRANSCRIPT_STATE_SIZE/2..].copy_from_slice(&H::hash(&input1));
 
-        let buf1 = H::hash(&input1);
-
-        self.state.copy_from_slice(&[buf0, buf1].concat());
+        self.state.copy_from_slice(&hash_outputs);
 
         // Sample the first `HASH_SAMPLE_BYTES` bytes of hash output into a scalar.
 

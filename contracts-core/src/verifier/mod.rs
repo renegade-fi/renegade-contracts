@@ -17,7 +17,7 @@ use contracts_common::{
         OpeningElems, Proof, PublicInputs, ScalarField, VerificationKey,
     },
 };
-use core::{marker::PhantomData, result::Result};
+use core::marker::PhantomData;
 
 use crate::transcript::{serialize_scalars_for_transcript, Transcript};
 
@@ -252,9 +252,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         match_linking_proofs: MatchLinkingProofs,
         match_linking_wire_poly_comms: MatchLinkingWirePolyComms,
     ) -> Result<OpeningElems, VerifierError> {
-        let mut g1_lhs_elems = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
-        let mut g1_rhs_elems = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
-        let mut transcript_elements = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
+        let mut g1_lhs_elems = [G1Affine::default(); NUM_MATCH_LINKING_PROOFS];
+        let mut g1_rhs_elems = [G1Affine::default(); NUM_MATCH_LINKING_PROOFS];
+        let mut transcript_elements = [ScalarField::zero(); NUM_MATCH_LINKING_PROOFS];
 
         // Prep the PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE linking proof opening elements
         let (g1_lhs_0, g1_rhs_0, eta_0) = Self::prep_linking_proof_opening_elems(
@@ -265,9 +265,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 match_linking_wire_poly_comms.valid_match_settle,
             ),
         )?;
-        g1_lhs_elems.push(g1_lhs_0);
-        g1_rhs_elems.push(g1_rhs_0);
-        transcript_elements.push(eta_0);
+        g1_lhs_elems[0] = g1_lhs_0;
+        g1_rhs_elems[0] = g1_rhs_0;
+        transcript_elements[0] = eta_0;
 
         // Prep the PARTY 0 VALID REBLIND <-> PARTY 0 VALID COMMITMENTS linking proof opening elements
         let (g1_lhs_1, g1_rhs_1, eta_1) = Self::prep_linking_proof_opening_elems(
@@ -278,9 +278,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 match_linking_wire_poly_comms.valid_commitments_0,
             ),
         )?;
-        g1_lhs_elems.push(g1_lhs_1);
-        g1_rhs_elems.push(g1_rhs_1);
-        transcript_elements.push(eta_1);
+        g1_lhs_elems[1] = g1_lhs_1;
+        g1_rhs_elems[1] = g1_rhs_1;
+        transcript_elements[1] = eta_1;
 
         // Prep the PARTY 1 VALID COMMITMENTS <-> VALID MATCH SETTLE linking proof opening elements
         let (g1_lhs_2, g1_rhs_2, eta_2) = Self::prep_linking_proof_opening_elems(
@@ -291,9 +291,9 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 match_linking_wire_poly_comms.valid_match_settle,
             ),
         )?;
-        g1_lhs_elems.push(g1_lhs_2);
-        g1_rhs_elems.push(g1_rhs_2);
-        transcript_elements.push(eta_2);
+        g1_lhs_elems[2] = g1_lhs_2;
+        g1_rhs_elems[2] = g1_rhs_2;
+        transcript_elements[2] = eta_2;
 
         // Prep the PARTY 1 VALID REBLIND <-> PARTY 1 VALID COMMITMENTS linking proof opening elements
         let (g1_lhs_3, g1_rhs_3, eta_3) = Self::prep_linking_proof_opening_elems(
@@ -304,14 +304,14 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
                 match_linking_wire_poly_comms.valid_commitments_1,
             ),
         )?;
-        g1_lhs_elems.push(g1_lhs_3);
-        g1_rhs_elems.push(g1_rhs_3);
-        transcript_elements.push(eta_3);
+        g1_lhs_elems[3] = g1_lhs_3;
+        g1_rhs_elems[3] = g1_rhs_3;
+        transcript_elements[3] = eta_3;
 
         Ok(OpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements,
+            g1_lhs_elems: g1_lhs_elems.to_vec(),
+            g1_rhs_elems: g1_rhs_elems.to_vec(),
+            transcript_elements: transcript_elements.to_vec(),
         })
     }
 
@@ -774,8 +774,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 mod tests {
     use core::result::Result;
 
-    use arbitrum_client::conversion::to_contract_link_proof;
     use alloc::vec;
+    use arbitrum_client::conversion::to_contract_link_proof;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
@@ -879,7 +879,8 @@ mod tests {
                 &commit_key,
             )
             .unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         (
             valid_reblind_commitments_proof,
