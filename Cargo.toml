@@ -66,6 +66,11 @@ lto = true          # link time optimization
 rpath = false       # no run-time search path
 incremental = false # no incremental builds
 
+[patch.crates-io]
+# We patch `ahash` here since version mismatches w/ the relayer code have
+# led to verification errors in the past.
+ahash = { git = "https://github.com/tkaitchuck/aHash.git", tag = "v0.8.11" }
+
 [patch."https://github.com/renegade-fi/renegade-contracts.git"]
 # The `arbitrum-client` crate, which we depend on in e.g. `test-helpers`,
 # depends on `contracts-common`, but from the git source.
