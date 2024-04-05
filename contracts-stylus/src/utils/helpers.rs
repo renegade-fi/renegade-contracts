@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use contracts_common::{
-    constants::{NUM_SCALARS_PK, SCALAR_CONVERSION_ERROR_MESSAGE},
+    constants::{NUM_BYTES_U256, NUM_SCALARS_PK, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{
         bigint_from_le_bytes, pk_to_scalars, scalar_to_u256, statement_to_public_inputs,
         ScalarSerializable,
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
-    call::{call, delegate_call, static_call},
+    call::{call, delegate_call},
     storage::TopLevelStorage,
 };
 
@@ -128,21 +128,7 @@ pub fn delegate_call_helper<C: SolCall>(
 ) -> Result<C::Return, Vec<u8>> {
     let calldata = C::new(args).encode();
     let res = unsafe { delegate_call(storage, address, &calldata).map_err(map_call_error)? };
-    C::decode_returns(&res, true /* validate */)
-        .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
-}
-
-/// Performs a `staticcall` to the given address, calling the function
-/// defined as a `SolCall` with the given arguments.
-#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
-pub fn static_call_helper<C: SolCall>(
-    storage: &mut impl TopLevelStorage,
-    address: Address,
-    args: <C::Arguments<'_> as SolType>::RustType,
-) -> Result<C::Return, Vec<u8>> {
-    let calldata = C::new(args).encode();
-    let res = static_call(storage, address, &calldata).map_err(map_call_error)?;
-    C::decode_returns(&res, true /* validate */)
+    C::decode_returns(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
 }
 
@@ -156,7 +142,7 @@ pub fn call_helper<C: SolCall>(
 ) -> Result<C::Return, Vec<u8>> {
     let calldata = C::new(args).encode();
     let res = call(storage, address, &calldata).map_err(map_call_error)?;
-    C::decode_returns(&res, true /* validate */)
+    C::decode_returns(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
 }
 
@@ -170,7 +156,7 @@ pub fn call_helper<C: SolCall>(
     allow(dead_code)
 )]
 pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, Vec<u8>> {
-    let bigint = bigint_from_le_bytes(&u256.to_le_bytes_vec())
+    let bigint = bigint_from_le_bytes(&u256.to_le_bytes::<NUM_BYTES_U256>())
         .map_err(|_| SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())?;
     ScalarField::from_bigint(bigint).ok_or(SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())
 }

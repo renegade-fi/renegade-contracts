@@ -9,15 +9,16 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{
-            INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
-            INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
-            NULLIFIER_SPENT_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
-            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
+            CALL_RETDATA_DECODING_ERROR_MESSAGE, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE,
+            INVALID_PROTOCOL_FEE_ERROR_MESSAGE, INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE,
+            MERKLE_STORAGE_GAP_SIZE, NULLIFIER_SPENT_ERROR_MESSAGE,
+            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE,
+            VERIFICATION_FAILED_ERROR_MESSAGE, VERIFICATION_RESULT_LAST_BYTE_INDEX,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, pk_to_u256s, postcard_serialize,
-            serialize_match_statements_for_verification, serialize_statement_for_verification,
-            static_call_helper, u256_to_scalar,
+            delegate_call_helper, deserialize_from_calldata, map_call_error, pk_to_u256s,
+            postcard_serialize, serialize_match_statements_for_verification,
+            serialize_statement_for_verification, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
@@ -29,6 +30,7 @@ use crate::{
     },
 };
 use alloc::{vec, vec::Vec};
+use alloy_sol_types::{sol_data::Bytes as AlloyBytes, SolCall, SolType};
 use contracts_common::{
     custom_serde::scalar_to_u256,
     types::{
@@ -40,6 +42,7 @@ use contracts_common::{
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::U256,
+    call::static_call,
     evm,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
@@ -116,15 +119,14 @@ impl DarkpoolCoreContract {
             deserialize_from_calldata(&valid_wallet_create_statement_bytes)?;
 
         if_verifying!({
-            let vkeys_address = storage.borrow_mut().vkeys_address.get();
-            let (valid_wallet_create_vkey_bytes,) =
-                static_call_helper::<validWalletCreateVkeyCall>(storage, vkeys_address, ())?.into();
+            let valid_wallet_create_vkey_bytes =
+                DarkpoolCoreContract::fetch_vkeys(storage, &validWalletCreateVkeyCall::SELECTOR)?;
 
             assert_result!(
                 DarkpoolCoreContract::verify(
                     storage,
                     valid_wallet_create_vkey_bytes,
-                    proof.into(),
+                    proof.0,
                     serialize_statement_for_verification(&valid_wallet_create_statement)?,
                 )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
@@ -156,15 +158,14 @@ impl DarkpoolCoreContract {
             deserialize_from_calldata(&valid_wallet_update_statement_bytes)?;
 
         if_verifying!({
-            let vkeys_address = storage.borrow_mut().vkeys_address.get();
-            let (valid_wallet_update_vkey_bytes,) =
-                static_call_helper::<validWalletUpdateVkeyCall>(storage, vkeys_address, ())?.into();
+            let valid_wallet_update_vkey_bytes =
+                DarkpoolCoreContract::fetch_vkeys(storage, &validWalletUpdateVkeyCall::SELECTOR)?;
 
             assert_result!(
                 DarkpoolCoreContract::verify(
                     storage,
                     valid_wallet_update_vkey_bytes,
-                    proof.into(),
+                    proof.0,
                     serialize_statement_for_verification(&valid_wallet_update_statement)?,
                 )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
@@ -177,7 +178,7 @@ impl DarkpoolCoreContract {
             valid_wallet_update_statement.merkle_root,
             valid_wallet_update_statement.new_private_shares_commitment,
             &valid_wallet_update_statement.new_public_shares,
-            wallet_commitment_signature.into(),
+            wallet_commitment_signature.0,
             valid_wallet_update_statement.old_pk_root,
         )?;
 
@@ -285,19 +286,16 @@ impl DarkpoolCoreContract {
             deserialize_from_calldata(&valid_relayer_fee_settlement_statement)?;
 
         if_verifying!({
-            let vkeys_address = storage.borrow_mut().vkeys_address.get();
-            let (valid_relayer_fee_settlement_vkey_bytes,) = static_call_helper::<
-                validRelayerFeeSettlementVkeyCall,
-            >(
-                storage, vkeys_address, ()
-            )?
-            .into();
+            let valid_relayer_fee_settlement_vkey_bytes = DarkpoolCoreContract::fetch_vkeys(
+                storage,
+                &validRelayerFeeSettlementVkeyCall::SELECTOR,
+            )?;
 
             assert_result!(
                 DarkpoolCoreContract::verify(
                     storage,
                     valid_relayer_fee_settlement_vkey_bytes,
-                    proof.into(),
+                    proof.0,
                     serialize_statement_for_verification(&valid_relayer_fee_settlement_statement)?,
                 )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
@@ -318,7 +316,7 @@ impl DarkpoolCoreContract {
             valid_relayer_fee_settlement_statement.recipient_root,
             valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
             &valid_relayer_fee_settlement_statement.recipient_updated_public_shares,
-            relayer_wallet_commitment_signature.into(),
+            relayer_wallet_commitment_signature.0,
             valid_relayer_fee_settlement_statement.recipient_pk_root,
         )
     }
@@ -341,19 +339,16 @@ impl DarkpoolCoreContract {
                 INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE
             )?;
 
-            let vkeys_address = storage.borrow_mut().vkeys_address.get();
-            let (valid_offline_fee_settlement_vkey_bytes,) = static_call_helper::<
-                validOfflineFeeSettlementVkeyCall,
-            >(
-                storage, vkeys_address, ()
-            )?
-            .into();
+            let valid_offline_fee_settlement_vkey_bytes = DarkpoolCoreContract::fetch_vkeys(
+                storage,
+                &validOfflineFeeSettlementVkeyCall::SELECTOR,
+            )?;
 
             assert_result!(
                 DarkpoolCoreContract::verify(
                     storage,
                     valid_offline_fee_settlement_vkey_bytes,
-                    proof.into(),
+                    proof.0,
                     serialize_statement_for_verification(&valid_offline_fee_settlement_statement)?,
                 )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
@@ -385,16 +380,14 @@ impl DarkpoolCoreContract {
             deserialize_from_calldata(&valid_fee_redemption_statement)?;
 
         if_verifying!({
-            let vkeys_address = storage.borrow_mut().vkeys_address.get();
-            let (valid_fee_redemption_vkey_bytes,) =
-                static_call_helper::<validFeeRedemptionVkeyCall>(storage, vkeys_address, ())?
-                    .into();
+            let valid_fee_redemption_vkey_bytes =
+                DarkpoolCoreContract::fetch_vkeys(storage, &validFeeRedemptionVkeyCall::SELECTOR)?;
 
             assert_result!(
                 DarkpoolCoreContract::verify(
                     storage,
                     valid_fee_redemption_vkey_bytes,
-                    proof.into(),
+                    proof.0,
                     serialize_statement_for_verification(&valid_fee_redemption_statement)?,
                 )?,
                 VERIFICATION_FAILED_ERROR_MESSAGE
@@ -407,7 +400,7 @@ impl DarkpoolCoreContract {
             valid_fee_redemption_statement.wallet_root,
             valid_fee_redemption_statement.new_wallet_commitment,
             &valid_fee_redemption_statement.new_wallet_public_shares,
-            recipient_wallet_commitment_signature.into(),
+            recipient_wallet_commitment_signature.0,
             valid_fee_redemption_statement.old_pk_root,
         )?;
 
@@ -457,6 +450,37 @@ impl DarkpoolCoreContract {
             delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,))?.into();
 
         assert_result!(res, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE)
+    }
+
+    /// Fetches the verification keys by their associated method selector on the vkeys contract.
+    /// This assumes that the vkeys contract method takes no arguments and returns a single `bytes` value.
+    pub fn fetch_vkeys<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        selector: &[u8],
+    ) -> Result<Vec<u8>, Vec<u8>> {
+        let vkeys_address = storage.borrow().vkeys_address.get();
+        let res = static_call(storage, vkeys_address, selector).map_err(map_call_error)?;
+        let vkey_bytes = <(AlloyBytes,) as SolType>::decode(&res, false /* validate */)
+            .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())?
+            .0;
+
+        Ok(vkey_bytes)
+    }
+
+    /// Calls the verifier contract with the given selector.
+    ///
+    /// Assumes that the argument type is a single `bytes` value and the return type is a single `bool`.
+    pub fn call_verifier<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        selector: &[u8],
+        args: Vec<u8>,
+    ) -> Result<bool, Vec<u8>> {
+        let verifier_address = storage.borrow().verifier_address.get();
+        let mut calldata = selector.to_vec();
+        calldata.extend(<(AlloyBytes,) as SolType>::encode(&(args,)));
+        static_call(storage, verifier_address, &calldata)
+            .map_err(map_call_error)
+            .map(|res| res[VERIFICATION_RESULT_LAST_BYTE_INDEX] != 0)
     }
 
     // -----------------------
@@ -556,17 +580,13 @@ impl DarkpoolCoreContract {
         proof_ser: Vec<u8>,
         public_inputs_ser: Vec<u8>,
     ) -> Result<bool, Vec<u8>> {
-        let this = storage.borrow_mut();
-        let verifier_address = this.verifier_address.get();
-
         let verification_bundle_ser = [vkey_ser, proof_ser, public_inputs_ser].concat();
 
-        let (result,) = static_call_helper::<verifyCall>(
+        let result = DarkpoolCoreContract::call_verifier(
             storage,
-            verifier_address,
-            (verification_bundle_ser,),
-        )?
-        .into();
+            &verifyCall::SELECTOR,
+            verification_bundle_ser,
+        )?;
 
         Ok(result)
     }
@@ -585,11 +605,7 @@ impl DarkpoolCoreContract {
         delegate_call_helper::<executeExternalTransferCall>(
             storage,
             transfer_executor_address,
-            (
-                old_pk_root_bytes,
-                transfer_bytes,
-                transfer_aux_data_bytes.to_vec(),
-            ),
+            (old_pk_root_bytes, transfer_bytes, transfer_aux_data_bytes.0),
         )?;
 
         Ok(())
@@ -605,13 +621,9 @@ impl DarkpoolCoreContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let this = storage.borrow_mut();
-        let vkeys_address = this.vkeys_address.get();
-        let verifier_address = this.verifier_address.get();
-
         // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
-        let (process_match_settle_vkeys,) =
-            static_call_helper::<processMatchSettleVkeysCall>(storage, vkeys_address, ())?.into();
+        let process_match_settle_vkeys =
+            DarkpoolCoreContract::fetch_vkeys(storage, &processMatchSettleVkeysCall::SELECTOR)?;
 
         let match_public_inputs = serialize_match_statements_for_verification(
             &party_0_match_payload.valid_commitments_statement,
@@ -623,18 +635,17 @@ impl DarkpoolCoreContract {
 
         let batch_verification_bundle_ser = [
             process_match_settle_vkeys,
-            match_proofs.into(),
+            match_proofs.0,
             match_public_inputs,
-            match_linking_proofs.into(),
+            match_linking_proofs.0,
         ]
         .concat();
 
-        let (result,) = static_call_helper::<verifyMatchCall>(
+        let result = DarkpoolCoreContract::call_verifier(
             storage,
-            verifier_address,
-            (batch_verification_bundle_ser,),
-        )?
-        .into();
+            &verifyMatchCall::SELECTOR,
+            batch_verification_bundle_ser,
+        )?;
 
         assert_result!(result, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
