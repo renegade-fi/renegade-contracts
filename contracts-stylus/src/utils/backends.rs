@@ -29,6 +29,7 @@ impl HashBackend for StylusHasher {
 
 /// The G1 arithmetic backend used in the Stylus VM,
 /// which calls out to the EC arithmetic EVM precompiles
+#[cfg_attr(not(feature = "verifier"), allow(dead_code))]
 pub struct PrecompileG1ArithmeticBackend;
 
 impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
@@ -62,8 +63,8 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
 
         // Serialize the point and scalar
         let mut calldata = [0_u8; NUM_BYTES_FELT * 3];
-        calldata[..NUM_BYTES_FELT].copy_from_slice(&a.serialize_to_bytes());
-        calldata[NUM_BYTES_FELT..].copy_from_slice(&b.serialize_to_bytes());
+        calldata[..NUM_BYTES_FELT * 2].copy_from_slice(&b.serialize_to_bytes());
+        calldata[NUM_BYTES_FELT * 2..].copy_from_slice(&a.serialize_to_bytes());
 
         // Call the `ecMul` precompile
         let res_xy_bytes = RawCall::new_static()
