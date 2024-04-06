@@ -125,7 +125,7 @@ pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 
 /// The index of the last byte of the result returned by verifier contract
 /// from its external methods
-#[cfg(feature = "darkpool-core")]
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub const VERIFICATION_RESULT_LAST_BYTE_INDEX: usize = 31;
 
 /// The byte length of the input to the `ecRecover` precompile
