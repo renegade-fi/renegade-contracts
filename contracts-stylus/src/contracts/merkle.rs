@@ -29,7 +29,7 @@ use crate::{
     utils::{
         constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
         helpers::{assert_valid_signature, u256_to_scalar},
-        solidity::MerkleOpeningNode,
+        solidity::{MerkleInsertion, MerkleOpeningNode},
     },
 };
 
@@ -207,10 +207,27 @@ where
         Ok(compute_poseidon_hash(&shares))
     }
 
+    /// A helper to insert a value into the tree
+    fn insert_helper(
+        &mut self,
+        value: ScalarField,
+        height: u8,
+        insert_index: u128,
+        subtree_filled: bool,
+    ) -> Result<(), Vec<u8>> {
+        self.insert_recursive(value, height, insert_index, subtree_filled)?;
+        evm::log(MerkleInsertion {
+            index: insert_index,
+            value: scalar_to_u256(value),
+        });
+
+        Ok(())
+    }
+
     /// Recursive helper for inserting a value into the Merkle tree,
     /// updating the sibling pathway along the way, and returning
     /// the updated internal nodes
-    fn insert_helper(
+    fn insert_recursive(
         &mut self,
         value: ScalarField,
         height: u8,
