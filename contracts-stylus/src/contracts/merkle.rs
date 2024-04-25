@@ -29,7 +29,7 @@ use crate::{
     utils::{
         constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
         helpers::{assert_valid_signature, u256_to_scalar},
-        solidity::NodeChanged,
+        solidity::MerkleOpeningNode,
     },
 };
 
@@ -262,10 +262,17 @@ where
 
         self.insert_helper(next_value, height - 1, next_index, new_subtree_filled)?;
 
-        evm::log(NodeChanged {
+        // Emit the sibling coordinates and value
+        let sibling_idx = if is_left {
+            insert_index + 1
+        } else {
+            insert_index - 1
+        };
+
+        evm::log(MerkleOpeningNode {
             height,
-            index: insert_index,
-            new_value: scalar_to_u256(value),
+            index: sibling_idx,
+            new_value: scalar_to_u256(current_sibling_value),
         });
 
         Ok(())

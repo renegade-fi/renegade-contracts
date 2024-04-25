@@ -52,8 +52,8 @@ sol! {
     // | EVENTS |
     // ----------
 
-    // Merkle events
-    event NodeChanged(uint8 indexed height, uint128 indexed index, uint256 indexed new_value);
+    // Merkle events; we emit the opening path of the inserted node
+    event MerkleOpeningNode(uint8 indexed height, uint128 indexed index, uint256 indexed new_value);
 
     // Darkpool user interaction events
     event NullifierSpent(uint256 indexed nullifier);
