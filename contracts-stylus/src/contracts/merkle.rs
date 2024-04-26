@@ -277,7 +277,7 @@ where
         };
         let next_value = compute_poseidon_hash(&inputs);
 
-        self.insert_helper(next_value, height - 1, next_index, new_subtree_filled)?;
+        self.insert_recursive(next_value, height - 1, next_index, new_subtree_filled)?;
 
         // Emit the sibling coordinates and value
         let sibling_idx = if is_left {
