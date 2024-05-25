@@ -117,7 +117,10 @@ pub struct DeployProxyArgs {
     /// The initial protocol fee with which to initialize the darkpool contract.
     /// The fee is a percentage of the trade volume, represented as a fixed-point number.
     /// The `u64` used here should accommodate any fee we'd want to set.
-    #[arg(short, long)]
+    ///
+    /// The default value here is the fixed-point representation of 0.0002 (2 bps),
+    /// that is 0.0002 * 2^32
+    #[arg(short, long, default_value = "858993")]
     pub fee: u64,
 
     /// The public EC-ElGamal encryption key for the protocol,
