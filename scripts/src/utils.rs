@@ -376,8 +376,7 @@ pub async fn deploy_stylus_contract(
     deploy_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     deploy_cmd.arg(STYLUS_COMMAND);
     deploy_cmd.arg(DEPLOY_COMMAND);
-    deploy_cmd.arg("--nightly");
-    deploy_cmd.arg("--wasm-file-path");
+    deploy_cmd.arg("--wasm-file");
     deploy_cmd.arg(&wasm_file_path);
     deploy_cmd.arg("-e");
     deploy_cmd.arg(rpc_url);

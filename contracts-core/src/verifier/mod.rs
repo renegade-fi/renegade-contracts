@@ -772,8 +772,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
 #[cfg(test)]
 mod tests {
-    use core::result::Result;
-
     use alloc::vec;
     use arbitrum_client::conversion::to_contract_link_proof;
     use ark_bn254::Bn254;
