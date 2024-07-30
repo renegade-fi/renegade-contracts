@@ -11,8 +11,8 @@ use ethers::abi::Address;
 use scripts::{
     constants::{
         DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
-        DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
-        MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY,
+        DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY,
+        PRECOMPILE_TEST_CONTRACT_KEY, TEST_ERC20_TICKER, TEST_UPGRADE_TARGET_CONTRACT_KEY,
         TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, setup_client, LocalWalletHttpClient},
@@ -48,10 +48,10 @@ pub struct TestArgs {
     pub permit2_address: Address,
     /// The address of the transfer executor contract
     pub transfer_executor_address: Address,
-    /// The address of the dummy ERC20 contract
-    pub dummy_erc20_address: Address,
-    /// The address of the dummy upgrade target contract
-    pub dummy_upgrade_target_address: Address,
+    /// The address of the test ERC20 contract
+    pub test_erc20_address: Address,
+    /// The address of the test upgrade target contract
+    pub test_upgrade_target_address: Address,
     /// The address of the precompiles testing contract
     pub precompiles_contract_address: Address,
 }
@@ -100,12 +100,12 @@ impl From<Cli> for TestArgs {
         )
         .unwrap();
 
-        let dummy_erc20_address =
-            parse_addr_from_deployments_file(&value.deployments_file, DUMMY_ERC20_TICKER).unwrap();
+        let test_erc20_address =
+            parse_addr_from_deployments_file(&value.deployments_file, TEST_ERC20_TICKER).unwrap();
 
-        let dummy_upgrade_target_address = parse_addr_from_deployments_file(
+        let test_upgrade_target_address = parse_addr_from_deployments_file(
             &value.deployments_file,
-            DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+            TEST_UPGRADE_TARGET_CONTRACT_KEY,
         )
         .unwrap();
 
@@ -124,8 +124,8 @@ impl From<Cli> for TestArgs {
             vkeys_address,
             permit2_address,
             transfer_executor_address,
-            dummy_erc20_address,
-            dummy_upgrade_target_address,
+            test_erc20_address,
+            test_upgrade_target_address,
             precompiles_contract_address,
         }
     }

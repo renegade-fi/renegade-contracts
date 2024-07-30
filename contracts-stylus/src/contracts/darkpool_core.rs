@@ -17,7 +17,9 @@ use crate::{
             VERIFICATION_RESULT_LAST_BYTE_INDEX,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, map_call_error, postcard_serialize, serialize_match_statements_for_verification, serialize_statement_for_verification, u256_to_scalar
+            delegate_call_helper, deserialize_from_calldata, map_call_error, postcard_serialize,
+            serialize_match_statements_for_verification, serialize_statement_for_verification,
+            u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,

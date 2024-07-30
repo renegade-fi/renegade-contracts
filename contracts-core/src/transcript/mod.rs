@@ -44,8 +44,8 @@ impl<H: HashBackend> Transcript<H> {
         let input1 = [self.state.as_ref(), self.transcript.as_ref(), &[1u8]].concat();
 
         let mut hash_outputs = [0u8; TRANSCRIPT_STATE_SIZE];
-        hash_outputs[..TRANSCRIPT_STATE_SIZE/2].copy_from_slice(&H::hash(&input0));
-        hash_outputs[TRANSCRIPT_STATE_SIZE/2..].copy_from_slice(&H::hash(&input1));
+        hash_outputs[..TRANSCRIPT_STATE_SIZE / 2].copy_from_slice(&H::hash(&input0));
+        hash_outputs[TRANSCRIPT_STATE_SIZE / 2..].copy_from_slice(&H::hash(&input1));
 
         self.state.copy_from_slice(&hash_outputs);
 

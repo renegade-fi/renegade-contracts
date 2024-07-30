@@ -28,7 +28,7 @@ use ethers::{
     utils::hex::FromHex,
 };
 use rand::{thread_rng, Rng};
-use std::{str::FromStr, sync::Arc};
+use std::{env, str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
@@ -37,10 +37,10 @@ use crate::{
         UpgradeArgs,
     },
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_TICKER,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_SYMBOL_ENV_VAR,
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
         PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI,
-        PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, TEST_FUNDING_AMOUNT,
+        PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, TEST_ERC20_TICKER, TEST_FUNDING_AMOUNT,
         VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
         VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
         VALID_WALLET_UPDATE_VKEY_FILE,
@@ -138,9 +138,9 @@ pub async fn deploy_test_contracts(
     info!("Deploying Permit2 contract");
     deploy_permit2(client.clone(), deployments_path).await?;
 
-    info!("Deploying dummy ERC-20 contract");
+    info!("Deploying test ERC-20 contract");
     let deploy_erc20_args = DeployErc20sArgs {
-        tickers: vec![DUMMY_ERC20_TICKER.to_string()],
+        tickers: vec![TEST_ERC20_TICKER.to_string()],
         funding_amount: TEST_FUNDING_AMOUNT,
         account_skeys: vec![priv_key.to_string()],
     };
@@ -353,11 +353,13 @@ pub async fn deploy_erc20s(
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    let wasm_file_path =
-        build_stylus_contract(StylusContract::DummyErc20, false /* no_verify */)?;
-
     let mut erc20_addresses = Vec::with_capacity(args.tickers.len());
     for ticker in args.tickers {
+        env::set_var(DUMMY_ERC20_SYMBOL_ENV_VAR, &ticker);
+
+        let wasm_file_path =
+            build_stylus_contract(StylusContract::DummyErc20, false /* no_verify */)?;
+
         erc20_addresses.push(
             deploy_stylus_contract(
                 wasm_file_path.clone(),

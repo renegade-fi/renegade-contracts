@@ -140,14 +140,17 @@ pub const TRANSFER_EXECUTOR_CONTRACT_KEY: &str = "transfer_executor_contract";
 
 /// The ticker of the ERC20 contract deployed using `deploy_test_contracts`,
 /// which is also its contract key in the `deployments.json` file
-pub const DUMMY_ERC20_TICKER: &str = "DUMMY";
+pub const TEST_ERC20_TICKER: &str = "TEST";
+
+/// The environment variable denoting the symbol w/ which to deploy the dummy ERC20 contract
+pub const DUMMY_ERC20_SYMBOL_ENV_VAR: &str = "DUMMY_ERC20_SYMBOL";
 
 /// The amount of dummy ERC20 tokens to fund the user with
 /// when deploying the testing contracts
 pub const TEST_FUNDING_AMOUNT: u128 = 1000;
 
-/// The dummy upgrade target contract key in the `deployments.json` file
-pub const DUMMY_UPGRADE_TARGET_CONTRACT_KEY: &str = "dummy_upgrade_target_contract";
+/// The test upgrade target contract key in the `deployments.json` file
+pub const TEST_UPGRADE_TARGET_CONTRACT_KEY: &str = "test_upgrade_target_contract";
 
 /// The precompile test contract key in the `deployments.json` file
 pub const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract";

@@ -11,7 +11,7 @@ struct DummyUpgradeTargetContract;
 #[external]
 impl DummyUpgradeTargetContract {
     /// Simply returns `true`.
-    /// 
+    ///
     /// In the upgrade tests, this is used to check whether the contract in question
     /// has been upgraded, and exposes this method
     pub fn is_dummy_upgrade_target(&self) -> Result<bool, Vec<u8>> {

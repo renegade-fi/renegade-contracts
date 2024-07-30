@@ -310,7 +310,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
         proxy_admin_contract_with_dummy_signer
             .upgrade_and_call(
                 test_args.darkpool_proxy_address,
-                test_args.dummy_upgrade_target_address,
+                test_args.test_upgrade_target_address,
                 Bytes::new(), /* data */
             )
             .send()
@@ -323,7 +323,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
     proxy_admin_contract
         .upgrade_and_call(
             test_args.darkpool_proxy_address,
-            test_args.dummy_upgrade_target_address,
+            test_args.test_upgrade_target_address,
             Bytes::new(), /* data */
         )
         .send()
@@ -399,7 +399,7 @@ async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> 
     ] {
         // Set the new implementation address as the dummy upgrade target address
         contract
-            .method::<Address, ()>(method, test_args.dummy_upgrade_target_address)?
+            .method::<Address, ()>(method, test_args.test_upgrade_target_address)?
             .send()
             .await?
             .await?;
@@ -724,17 +724,17 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
         .await?
         .await?;
 
-    let dummy_erc20_contract =
-        DummyErc20Contract::new(test_args.dummy_erc20_address, test_args.client.clone());
+    let test_erc20_contract =
+        DummyErc20Contract::new(test_args.test_erc20_address, test_args.client.clone());
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.dummy_erc20_address;
+    let mint = test_args.test_erc20_address;
 
-    let contract_initial_balance = dummy_erc20_contract
+    let contract_initial_balance = test_erc20_contract
         .balance_of(test_args.transfer_executor_address)
         .call()
         .await?;
-    let user_initial_balance = dummy_erc20_contract
+    let user_initial_balance = test_erc20_contract
         .balance_of(account_address)
         .call()
         .await?;
@@ -745,7 +745,7 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
     let deposit = dummy_erc20_deposit(account_address, mint);
     let (contract_balance, user_balance) = execute_transfer_and_get_balances(
         &transfer_executor_contract,
-        &dummy_erc20_contract,
+        &test_erc20_contract,
         test_args.permit2_address,
         &signing_key,
         pk_root,
@@ -768,7 +768,7 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
     let withdrawal = dummy_erc20_withdrawal(account_address, mint);
     let (contract_balance, user_balance) = execute_transfer_and_get_balances(
         &transfer_executor_contract,
-        &dummy_erc20_contract,
+        &test_erc20_contract,
         test_args.permit2_address,
         &signing_key,
         pk_root,
@@ -804,16 +804,16 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
         .await?
         .await?;
 
-    let dummy_erc20_contract =
-        DummyErc20Contract::new(test_args.dummy_erc20_address, test_args.client.clone());
+    let test_erc20_contract =
+        DummyErc20Contract::new(test_args.test_erc20_address, test_args.client.clone());
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.dummy_erc20_address;
+    let mint = test_args.test_erc20_address;
 
     // Generate dummy address & fund with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
     let dummy_address = Address::random();
-    dummy_erc20_contract
+    test_erc20_contract
         .mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT))
         .send()
         .await?
@@ -826,7 +826,7 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
     assert!(
         execute_transfer_and_get_balances(
             &transfer_executor_contract,
-            &dummy_erc20_contract,
+            &test_erc20_contract,
             test_args.permit2_address,
             &signing_key,
             pk_root,
@@ -860,7 +860,7 @@ async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result
         .await?;
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.dummy_erc20_address;
+    let mint = test_args.test_erc20_address;
 
     let (signing_key, pk_root) = random_keypair(&mut rng);
 
@@ -878,15 +878,15 @@ async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result
     // Execute the deposit with a pk_root that does not match the one in the aux data
     let (_, dummy_pk_root) = random_keypair(&mut rng);
     assert!(
-    transfer_executor_contract
-        .execute_external_transfer(
-            serialize_to_calldata(&dummy_pk_root)?,
-            serialize_to_calldata(&deposit)?,
-            serialize_to_calldata(&transfer_aux_data)?,
-        )
-        .send()
-        .await
-        .is_err(),
+        transfer_executor_contract
+            .execute_external_transfer(
+                serialize_to_calldata(&dummy_pk_root)?,
+                serialize_to_calldata(&deposit)?,
+                serialize_to_calldata(&transfer_aux_data)?,
+            )
+            .send()
+            .await
+            .is_err(),
         "Deposit to wrong Renegade wallet succeeded"
     );
 
@@ -909,15 +909,15 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
         .await?
         .await?;
 
-    let dummy_erc20_contract =
-        DummyErc20Contract::new(test_args.dummy_erc20_address, test_args.client.clone());
+    let test_erc20_contract =
+        DummyErc20Contract::new(test_args.test_erc20_address, test_args.client.clone());
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.dummy_erc20_address;
+    let mint = test_args.test_erc20_address;
 
     // Fund contract with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
-    dummy_erc20_contract
+    test_erc20_contract
         .mint(
             test_args.transfer_executor_address,
             U256::from(TEST_FUNDING_AMOUNT),
@@ -958,7 +958,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
     );
 
     // Burn contract tokens so future tests are unaffected
-    dummy_erc20_contract
+    test_erc20_contract
         .burn(
             test_args.transfer_executor_address,
             U256::from(TEST_FUNDING_AMOUNT),

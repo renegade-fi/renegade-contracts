@@ -32,13 +32,12 @@ use crate::{
     constants::{
         AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
         CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DEFAULT_RUSTFLAGS,
-        DEPLOYMENTS_KEY, DEPLOY_COMMAND, DUMMY_ERC20_TICKER, DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
-        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NO_VERIFY_FEATURE,
-        OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY,
-        RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
-        TARGET_PATH_SEGMENT, TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY,
-        VKEYS_CONTRACT_KEY, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_OPT_EXTENSION,
-        WASM_TARGET_TRIPLE, Z_FLAGS,
+        DEPLOYMENTS_KEY, DEPLOY_COMMAND, INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR,
+        MERKLE_CONTRACT_KEY, NO_VERIFY_FEATURE, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_Z,
+        PRECOMPILE_TEST_CONTRACT_KEY, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_UPGRADE_TARGET_CONTRACT_KEY,
+        TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION,
+        WASM_OPT_COMMAND, WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -146,9 +145,9 @@ pub fn get_contract_key(contract: StylusContract) -> &'static str {
         StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
         StylusContract::Vkeys | StylusContract::TestVkeys => VKEYS_CONTRACT_KEY,
         StylusContract::TransferExecutor => TRANSFER_EXECUTOR_CONTRACT_KEY,
-        StylusContract::DummyErc20 => DUMMY_ERC20_TICKER,
-        StylusContract::DummyUpgradeTarget => DUMMY_UPGRADE_TARGET_CONTRACT_KEY,
+        StylusContract::DummyUpgradeTarget => TEST_UPGRADE_TARGET_CONTRACT_KEY,
         StylusContract::PrecompileTestContract => PRECOMPILE_TEST_CONTRACT_KEY,
+        StylusContract::DummyErc20 => unreachable!("Must supply a ticker at which to find the deployment address of a dummy ERC20 contract"),
     }
 }
 
@@ -382,6 +381,7 @@ pub async fn deploy_stylus_contract(
     deploy_cmd.arg(rpc_url);
     deploy_cmd.arg("--private-key");
     deploy_cmd.arg(priv_key);
+    deploy_cmd.arg("--no-verify");
 
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
 

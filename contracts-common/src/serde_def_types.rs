@@ -135,7 +135,6 @@ pub(crate) struct FixedBytesDef<const N: usize>(#[serde_as(as = "[_; N]")] pub [
 
 impl_serde_as!(FixedBytes<N>, FixedBytesDef<N>, const N: usize);
 
-
 /// A serde-compatible type mirroring [`Address`]
 #[serde_as]
 #[derive(Serialize, Deserialize)]

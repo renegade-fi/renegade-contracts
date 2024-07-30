@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
 use contracts_common::{
-    constants::{SCALAR_CONVERSION_ERROR_MESSAGE, NUM_BYTES_U256},
+    constants::{NUM_BYTES_U256, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
     types::{
         MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
