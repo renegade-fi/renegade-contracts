@@ -184,8 +184,8 @@ struct DummyErc20Params;
 
 /// Immutable definitions
 impl Erc20Params for DummyErc20Params {
-    const NAME: &'static str = "Dummy ERC 20";
-    const SYMBOL: &'static str = "DUMMY";
+    const NAME: &'static str = concat!("Dummy ", env!("DUMMY_ERC20_SYMBOL"));
+    const SYMBOL: &'static str = env!("DUMMY_ERC20_SYMBOL");
     const DECIMALS: u8 = 18;
 }
 
