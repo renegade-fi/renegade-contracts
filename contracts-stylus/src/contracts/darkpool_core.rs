@@ -12,14 +12,14 @@ use crate::{
             CALL_RETDATA_DECODING_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE,
             INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
             INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
-            NULLIFIER_SPENT_ERROR_MESSAGE, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
-            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
-            VERIFICATION_RESULT_LAST_BYTE_INDEX,
+            NULLIFIER_SPENT_ERROR_MESSAGE, PUBLIC_BLINDER_USED_ERROR_MESSAGE,
+            ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE,
+            VERIFICATION_FAILED_ERROR_MESSAGE, VERIFICATION_RESULT_LAST_BYTE_INDEX,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, map_call_error, postcard_serialize,
-            serialize_match_statements_for_verification, serialize_statement_for_verification,
-            u256_to_scalar,
+            delegate_call_helper, deserialize_from_calldata, get_public_blinder_from_shares,
+            map_call_error, postcard_serialize, serialize_match_statements_for_verification,
+            serialize_statement_for_verification, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
@@ -97,6 +97,12 @@ pub struct DarkpoolCoreContract {
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
     /// boolean indicating whether or not the nullifier is spent
     nullifier_set: StorageMap<U256, StorageBool>,
+
+    /// The set of public blinder shares used by wallets committed into the darkpool
+    ///
+    /// We disallow re-use of public blinder shares to prevent clients indexing the
+    /// pool from seeing conflicting wallet shares
+    public_blinder_set: StorageMap<U256, StorageBool>,
 
     /// The protocol fee, representing a percentage of the trade volume
     /// as a fixed-point number shifted by 32 bits.
@@ -508,6 +514,24 @@ impl DarkpoolCoreContract {
         Ok(())
     }
 
+    /// Marks the given public blinder as used
+    pub fn mark_public_blinder_used<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        blinder: ScalarField,
+    ) -> Result<(), Vec<u8>> {
+        // First check that the blinder hasn't been used
+        let this = storage.borrow_mut();
+        let blinder = scalar_to_u256(blinder);
+        assert_result!(
+            !this.public_blinder_set.get(blinder),
+            PUBLIC_BLINDER_USED_ERROR_MESSAGE
+        )?;
+
+        // Mark the blinder as used
+        this.public_blinder_set.insert(blinder, true);
+        Ok(())
+    }
+
     /// Prepares the wallet shares for insertion into the Merkle tree by converting them
     /// to a vector of [`U256`]
     pub fn prepare_wallet_shares_for_insertion(
@@ -699,14 +723,17 @@ impl DarkpoolCoreContract {
         )
     }
 
-    /// Attempts to nullify the old wallet and ensures that the given Merkle
-    /// root is a valid historical root. Logs the wallet udpate if successful.
+    /// Attempts to nullify the old wallet, ensures that the given Merkle
+    /// root is a valid historical root, and marks the public blinder as used.
+    /// Logs the wallet update if successful.
     pub fn check_wallet_rotation<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         old_wallet_nullifier: ScalarField,
         merkle_root: ScalarField,
         new_wallet_public_shares: &[ScalarField],
     ) -> Result<(), Vec<u8>> {
+        let public_blinder = get_public_blinder_from_shares(new_wallet_public_shares);
+        DarkpoolCoreContract::mark_public_blinder_used(storage, public_blinder)?;
         DarkpoolCoreContract::check_root_and_nullify(storage, old_wallet_nullifier, merkle_root)?;
         DarkpoolCoreContract::log_wallet_update(new_wallet_public_shares);
 
@@ -753,9 +780,8 @@ impl DarkpoolCoreContract {
 
     /// Emits a `WalletUpdated` event with the wallet's public blinder share
     pub fn log_wallet_update(public_wallet_shares: &[ScalarField]) {
-        // We assume the wallet blinder is the last scalar serialized into the wallet shares.
-        // Unwrapping here is safe because we know the wallet shares are non-empty.
-        let wallet_blinder_share = scalar_to_u256(*public_wallet_shares.last().unwrap());
+        let wallet_blinder_share =
+            scalar_to_u256(get_public_blinder_from_shares(public_wallet_shares));
         evm::log(WalletUpdated {
             wallet_blinder_share,
         });

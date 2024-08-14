@@ -90,6 +90,14 @@ pub fn serialize_match_statements_for_verification(
     postcard_serialize(&match_public_inputs)
 }
 
+/// Fetch the public blinder from a set of public shares
+///
+/// Currently this is the last share, though we separate out this logic
+/// to make changing this invariant easier
+pub fn get_public_blinder_from_shares(shares: &[ScalarField]) -> ScalarField {
+    shares.last().unwrap()
+}
+
 /// Maps an error returned from an external contract call to a `Vec<u8>`,
 /// which is the expected return type of external contract methods.
 pub fn map_call_error(e: stylus_sdk::call::Error) -> Vec<u8> {

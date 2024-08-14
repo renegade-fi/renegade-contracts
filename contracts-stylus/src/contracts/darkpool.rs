@@ -70,6 +70,12 @@ pub struct DarkpoolContract {
     /// boolean indicating whether or not the nullifier is spent
     nullifier_set: StorageMap<U256, StorageBool>,
 
+    /// The set of public blinder shares used by wallets committed into the darkpool
+    ///
+    /// We disallow re-use of public blinder shares to prevent clients indexing the
+    /// pool from seeing conflicting wallet shares
+    public_blinder_set: StorageMap<U256, StorageBool>,
+
     /// The protocol fee, representing a percentage of the trade volume
     /// as a fixed-point number shifted by 32 bits.
     ///
@@ -189,6 +195,15 @@ impl DarkpoolContract {
     ) -> Result<bool, Vec<u8>> {
         let this = storage.borrow();
         Ok(this.nullifier_set.get(nullifier))
+    }
+
+    /// Checks whether the given public blinder share has been used
+    pub fn is_public_blinder_used<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        blinder: U256,
+    ) -> Result<bool, Vec<u8>> {
+        let this = storage.borrow();
+        Ok(this.public_blinder_set.get(blinder))
     }
 
     /// Returns the current root of the Merkle tree

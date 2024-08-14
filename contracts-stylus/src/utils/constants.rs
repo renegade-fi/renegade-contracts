@@ -51,6 +51,11 @@ pub const UNPAUSED_ERROR_MESSAGE: &[u8] = b"unpaused";
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub const NULLIFIER_SPENT_ERROR_MESSAGE: &[u8] = b"nullifier spent";
 
+/// The revert message when attempting to mark a public blinder as used
+/// when it has already been used
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
+pub const PUBLIC_BLINDER_USED_ERROR_MESSAGE: &[u8] = b"public blinder already used";
+
 /// The revert message when checking an invalid
 /// historic root
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
