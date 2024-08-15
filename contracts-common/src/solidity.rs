@@ -2,7 +2,6 @@
 
 #![allow(missing_docs)]
 
-use alloc::vec::Vec;
 use alloy_sol_types::sol;
 
 // Types & methods from the Permit2 `ISignatureTransfer` interface, taken from https://github.com/Uniswap/permit2/blob/main/src/interfaces/ISignatureTransfer.sol

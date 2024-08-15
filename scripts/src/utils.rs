@@ -204,7 +204,7 @@ pub fn darkpool_initialize_calldata(
         protocol_fee,
         protocol_public_encryption_key,
     ))
-    .encode())
+    .abi_encode())
 }
 
 /// Executes a command, returning an error if the command fails

@@ -53,8 +53,8 @@ pub enum Erc20Error {
 impl From<Erc20Error> for Vec<u8> {
     fn from(err: Erc20Error) -> Vec<u8> {
         match err {
-            Erc20Error::InsufficientBalance(e) => e.encode(),
-            Erc20Error::InsufficientAllowance(e) => e.encode(),
+            Erc20Error::InsufficientBalance(e) => e.abi_encode(),
+            Erc20Error::InsufficientAllowance(e) => e.abi_encode(),
         }
     }
 }

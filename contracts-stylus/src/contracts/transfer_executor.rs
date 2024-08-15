@@ -130,11 +130,12 @@ impl TransferExecutorContract {
                     permit,
                     signature_transfer_details,
                     account_addr, /* owner */
-                    deposit_witness_hash,
+                    deposit_witness_hash.into(),
                     DEPOSIT_WITNESS_TYPE_STRING.to_string(),
                     transfer_aux_data
                         .permit_signature
-                        .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
+                        .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?
+                        .into(),
                 ),
             )?;
         };

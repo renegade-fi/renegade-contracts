@@ -70,9 +70,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-primitives"
-version = "0.3.3"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e416903084d3392ebd32d94735c395d6709415b76c7728e594d3f996f2b03e65"
+checksum = "ccb3ead547f4532bc8af961649942f0b9c16ee9226e26caa3f38420651cc0bf4"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -81,25 +81,12 @@ dependencies = [
  "derive_more",
  "hex-literal",
  "itoa",
+ "k256",
+ "keccak-asm",
  "proptest",
+ "rand 0.8.5",
  "ruint",
  "serde",
- "tiny-keccak",
-]
-
-[[package]]
-name = "alloy-primitives"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f783611babedbbe90db3478c120fb5f5daacceffc210b39adc0af4fe0da70bad"
-dependencies = [
- "bytes",
- "cfg-if 1.0.0",
- "const-hex",
- "derive_more",
- "hex-literal",
- "itoa",
- "ruint",
  "tiny-keccak",
 ]
 
@@ -111,21 +98,6 @@ checksum = "26154390b1d205a4a7ac7352aa2eb4f81f391399d4e2f546fb81a2f8bb383f62"
 dependencies = [
  "arrayvec",
  "bytes",
-]
-
-[[package]]
-name = "alloy-sol-macro"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7720130c58db647103587b0c39aad4e669eea261e256040301d6c7983fdbb461"
-dependencies = [
- "dunce",
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "syn 2.0.74",
- "syn-solidity 0.3.2",
- "tiny-keccak",
 ]
 
 [[package]]
@@ -156,7 +128,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.74",
- "syn-solidity 0.7.7",
+ "syn-solidity",
  "tiny-keccak",
 ]
 
@@ -172,30 +144,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.74",
- "syn-solidity 0.7.7",
+ "syn-solidity",
 ]
 
 [[package]]
 name = "alloy-sol-types"
-version = "0.3.2"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaa7c9a4354b1ff9f1c85adf22802af046e20e4bb55e19b9dc6ca8cbc6f7f4e5"
+checksum = "a91ca40fa20793ae9c3841b83e74569d1cc9af29a2f5237314fd3452d51e38c7"
 dependencies = [
- "alloy-primitives 0.3.3",
- "alloy-sol-macro 0.3.2",
+ "alloy-primitives",
+ "alloy-sol-macro",
  "const-hex",
  "serde",
-]
-
-[[package]]
-name = "alloy-sol-types"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a49042c6d3b66a9fe6b2b5a8bf0d39fc2ae1ee0310a2a26ffedd79fb097878dd"
-dependencies = [
- "alloy-primitives 0.7.6",
- "alloy-sol-macro 0.7.7",
- "const-hex",
 ]
 
 [[package]]
@@ -271,10 +232,10 @@ checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 [[package]]
 name = "arbitrum-client"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
- "alloy-primitives 0.3.3",
- "alloy-sol-types 0.3.2",
+ "alloy-primitives",
+ "alloy-sol-types",
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.4.2",
@@ -1087,7 +1048,7 @@ dependencies = [
 [[package]]
 name = "circuit-macros"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "itertools 0.10.5",
  "proc-macro2",
@@ -1098,7 +1059,7 @@ dependencies = [
 [[package]]
 name = "circuit-types"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1129,7 +1090,7 @@ dependencies = [
 [[package]]
 name = "circuits"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
@@ -1273,7 +1234,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "ark-ec",
  "ark-mpc",
@@ -1342,7 +1303,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 [[package]]
 name = "constants"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1354,8 +1315,8 @@ dependencies = [
 name = "contracts-common"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 0.3.3",
- "alloy-sol-types 0.3.2",
+ "alloy-primitives",
+ "alloy-sol-types",
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.4.2",
@@ -1371,7 +1332,7 @@ dependencies = [
 name = "contracts-core"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 0.3.3",
+ "alloy-primitives",
  "arbitrum-client",
  "ark-bn254",
  "ark-crypto-primitives",
@@ -1398,7 +1359,7 @@ dependencies = [
 name = "contracts-stylus"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types 0.3.2",
+ "alloy-sol-types",
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.4.2",
@@ -1414,7 +1375,7 @@ dependencies = [
 name = "contracts-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 0.3.3",
+ "alloy-primitives",
  "arbitrum-client",
  "ark-crypto-primitives",
  "ark-ec",
@@ -2995,8 +2956,8 @@ dependencies = [
 name = "integration"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 0.3.3",
- "alloy-sol-types 0.3.2",
+ "alloy-primitives",
+ "alloy-sol-types",
  "arbitrum-client",
  "ark-crypto-primitives",
  "ark-ec",
@@ -3205,6 +3166,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecc2af9a1119c51f12a14607e783cb977bde58bc069ff0c3da1095e635d70654"
 dependencies = [
  "cpufeatures",
+]
+
+[[package]]
+name = "keccak-asm"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422fbc7ff2f2f5bdffeb07718e5a5324dca72b0c9293d50df4026652385e3314"
+dependencies = [
+ "digest 0.10.7",
+ "sha3-asm",
 ]
 
 [[package]]
@@ -4713,7 +4684,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
@@ -4745,7 +4716,7 @@ dependencies = [
 [[package]]
 name = "renegade-metrics"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "atomic_float",
  "circuit-types",
@@ -5113,8 +5084,8 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 name = "scripts"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives 0.3.3",
- "alloy-sol-types 0.3.2",
+ "alloy-primitives",
+ "alloy-sol-types",
  "ark-ed-on-bn254",
  "circuit-types",
  "circuits",
@@ -5383,6 +5354,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha3-asm"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57d79b758b7cb2085612b11a235055e485605a5103faccdd633f35bd7aee69dd"
+dependencies = [
+ "cc",
+ "cfg-if 1.0.0",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5599,11 +5580,10 @@ dependencies = [
 [[package]]
 name = "stylus-proc"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20dbf5e4af9b0c0f25877ff19da60ecfd721a0e8fd0a17336892a0d0521648ff"
+source = "git+https://github.com/joeykraut/stylus-sdk-rs#f8c7a1904dd95e03e8e348c2a9117193e81a351f"
 dependencies = [
- "alloy-primitives 0.7.6",
- "alloy-sol-types 0.7.6",
+ "alloy-primitives",
+ "alloy-sol-types",
  "cfg-if 1.0.0",
  "convert_case 0.6.0",
  "lazy_static",
@@ -5612,17 +5592,16 @@ dependencies = [
  "regex",
  "sha3",
  "syn 1.0.109",
- "syn-solidity 0.7.7",
+ "syn-solidity",
 ]
 
 [[package]]
 name = "stylus-sdk"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5426b95831da7fde45a91785cafd2121ad8e720b503f0fc7c709667cff5336cf"
+source = "git+https://github.com/joeykraut/stylus-sdk-rs#f8c7a1904dd95e03e8e348c2a9117193e81a351f"
 dependencies = [
- "alloy-primitives 0.7.6",
- "alloy-sol-types 0.7.6",
+ "alloy-primitives",
+ "alloy-sol-types",
  "cfg-if 1.0.0",
  "derivative",
  "hex",
@@ -5678,18 +5657,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "syn-solidity"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "397f229dc34c7b8231b6ef85502f9ca4e3425b8625e6d403bb74779e6b1917b5"
-dependencies = [
- "paste",
- "proc-macro2",
- "quote",
- "syn 2.0.74",
 ]
 
 [[package]]
@@ -5802,10 +5769,10 @@ dependencies = [
 [[package]]
 name = "test-helpers"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
- "alloy-primitives 0.3.3",
- "alloy-sol-types 0.3.2",
+ "alloy-primitives",
+ "alloy-sol-types",
  "arbitrum-client",
  "ark-ec",
  "ark-mpc",
@@ -5827,6 +5794,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "util",
 ]
 
 [[package]]
@@ -6387,7 +6355,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ec9ff3f5aa2a691404e7735dfc42b24774c88c17"
+source = "git+https://github.com/renegade-fi/renegade.git#0eb2eff5006f60e012c22602034107149ccd69fb"
 dependencies = [
  "ark-ec",
  "ark-serialize 0.4.2",

@@ -95,7 +95,7 @@ pub fn serialize_match_statements_for_verification(
 /// Currently this is the last share, though we separate out this logic
 /// to make changing this invariant easier
 pub fn get_public_blinder_from_shares(shares: &[ScalarField]) -> ScalarField {
-    shares.last().unwrap()
+    *shares.last().unwrap()
 }
 
 /// Maps an error returned from an external contract call to a `Vec<u8>`,
@@ -129,11 +129,11 @@ pub fn map_calldata_ser_error<E>(_e: E) -> Vec<u8> {
 pub fn delegate_call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
-    args: <C::Arguments<'_> as SolType>::RustType,
+    args: <C::Parameters<'_> as SolType>::RustType,
 ) -> Result<C::Return, Vec<u8>> {
-    let calldata = C::new(args).encode();
+    let calldata = C::new(args).abi_encode();
     let res = unsafe { delegate_call(storage, address, &calldata).map_err(map_call_error)? };
-    C::decode_returns(&res, false /* validate */)
+    C::abi_decode_returns(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
 }
 
@@ -143,11 +143,11 @@ pub fn delegate_call_helper<C: SolCall>(
 pub fn call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
-    args: <C::Arguments<'_> as SolType>::RustType,
+    args: <C::Parameters<'_> as SolType>::RustType,
 ) -> Result<C::Return, Vec<u8>> {
-    let calldata = C::new(args).encode();
+    let calldata = C::new(args).abi_encode();
     let res = call(storage, address, &calldata).map_err(map_call_error)?;
-    C::decode_returns(&res, false /* validate */)
+    C::abi_decode_returns(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
 }
 

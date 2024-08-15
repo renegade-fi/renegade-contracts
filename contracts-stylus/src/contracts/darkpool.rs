@@ -380,7 +380,10 @@ impl DarkpoolContract {
         delegate_call_helper::<newWalletCall>(
             storage,
             darkpool_core_address,
-            (proof.into(), valid_wallet_create_statement_bytes.into()),
+            (
+                proof.to_vec().into(),
+                valid_wallet_create_statement_bytes.to_vec().into(),
+            ),
         )
         .map(|_| ())
     }
@@ -400,10 +403,10 @@ impl DarkpoolContract {
             storage,
             darkpool_core_address,
             (
-                proof.into(),
-                valid_wallet_update_statement_bytes.into(),
-                wallet_commitment_signature.into(),
-                transfer_aux_data_bytes.into(),
+                proof.to_vec().into(),
+                valid_wallet_update_statement_bytes.to_vec().into(),
+                wallet_commitment_signature.to_vec().into(),
+                transfer_aux_data_bytes.to_vec().into(),
             ),
         )
         .map(|_| ())
@@ -430,11 +433,11 @@ impl DarkpoolContract {
             storage,
             darkpool_core_address,
             (
-                party_0_match_payload.into(),
-                party_1_match_payload.into(),
-                valid_match_settle_statement.into(),
-                match_proofs.into(),
-                match_linking_proofs.into(),
+                party_0_match_payload.to_vec().into(),
+                party_1_match_payload.to_vec().into(),
+                valid_match_settle_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
             ),
         )
         .map(|_| ())
@@ -455,9 +458,9 @@ impl DarkpoolContract {
             storage,
             darkpool_core_address,
             (
-                proof.into(),
-                valid_relayer_fee_settlement_statement.into(),
-                relayer_wallet_commitment_signature.into(),
+                proof.to_vec().into(),
+                valid_relayer_fee_settlement_statement.to_vec().into(),
+                relayer_wallet_commitment_signature.to_vec().into(),
             ),
         )
         .map(|_| ())
@@ -476,7 +479,10 @@ impl DarkpoolContract {
         delegate_call_helper::<settleOfflineFeeCall>(
             storage,
             darkpool_core_address,
-            (proof.into(), valid_offline_fee_settlement_statement.into()),
+            (
+                proof.to_vec().into(),
+                valid_offline_fee_settlement_statement.to_vec().into(),
+            ),
         )
         .map(|_| ())
     }
@@ -495,9 +501,9 @@ impl DarkpoolContract {
             storage,
             darkpool_core_address,
             (
-                proof.into(),
-                valid_fee_redemption_statement.into(),
-                recipient_wallet_commitment_signature.into(),
+                proof.to_vec().into(),
+                valid_fee_redemption_statement.to_vec().into(),
+                recipient_wallet_commitment_signature.to_vec().into(),
             ),
         )
         .map(|_| ())

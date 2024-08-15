@@ -467,11 +467,11 @@ impl DarkpoolCoreContract {
     ) -> Result<Vec<u8>, Vec<u8>> {
         let vkeys_address = storage.borrow().vkeys_address.get();
         let res = static_call(storage, vkeys_address, selector).map_err(map_call_error)?;
-        let vkey_bytes = <(AlloyBytes,) as SolType>::decode(&res, false /* validate */)
+        let vkey_bytes = <(AlloyBytes,) as SolType>::abi_decode(&res, false /* validate */)
             .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())?
             .0;
 
-        Ok(vkey_bytes)
+        Ok(vkey_bytes.to_vec())
     }
 
     /// Calls the verifier contract with the given selector.
@@ -484,7 +484,7 @@ impl DarkpoolCoreContract {
     ) -> Result<bool, Vec<u8>> {
         let verifier_address = storage.borrow().verifier_address.get();
         let mut calldata = selector.to_vec();
-        calldata.extend(<(AlloyBytes,) as SolType>::encode(&(args,)));
+        calldata.extend(<(AlloyBytes,) as SolType>::abi_encode(&(args,)));
         static_call(storage, verifier_address, &calldata)
             .map_err(map_call_error)
             .map(|res| res[VERIFICATION_RESULT_LAST_BYTE_INDEX] != 0)
@@ -591,7 +591,7 @@ impl DarkpoolCoreContract {
             merkle_address,
             (
                 total_wallet_shares,
-                wallet_commitment_signature,
+                wallet_commitment_signature.to_vec().into(),
                 old_pk_root_u256s,
             ),
         )
@@ -631,7 +631,11 @@ impl DarkpoolCoreContract {
         delegate_call_helper::<executeExternalTransferCall>(
             storage,
             transfer_executor_address,
-            (old_pk_root_bytes, transfer_bytes, transfer_aux_data_bytes.0),
+            (
+                old_pk_root_bytes.to_vec().into(),
+                transfer_bytes.to_vec().into(),
+                transfer_aux_data_bytes.0.to_vec().into(),
+            ),
         )?;
 
         Ok(())
