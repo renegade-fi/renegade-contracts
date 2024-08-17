@@ -50,7 +50,7 @@ use crate::{
         TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
-        assert_all_revert, assert_all_suceed, assert_only_owner, dummy_erc20_deposit,
+        assert_all_revert, assert_all_succeed, assert_only_owner, dummy_erc20_deposit,
         dummy_erc20_withdrawal, execute_transfer_and_get_balances, gen_transfer_aux_data,
         get_protocol_pubkey, insert_shares_and_get_root, scalar_to_u256,
         serialize_match_verification_bundle, serialize_to_calldata, serialize_verification_bundle,
@@ -648,7 +648,7 @@ async fn test_pausable(test_args: TestArgs) -> Result<()> {
 
     contract.unpause().send().await?.await?;
 
-    assert_all_suceed(vec![
+    assert_all_succeed(vec![
         contract
             .new_wallet(
                 serialize_to_calldata(&new_wallet_proof)?,
@@ -709,6 +709,43 @@ async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
     Ok(())
 }
 integration_test_async!(test_nullifier_set);
+
+/// Test the public blinder uniqueness check functionality
+async fn test_public_blinder_uniqueness_check(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    // Generate a new wallet
+    let mut rng = thread_rng();
+    let (proof, statement) = gen_new_wallet_data(&mut rng)?;
+    let blinder_idx = statement.public_wallet_shares.len() - 1;
+    let original_blinder = statement.public_wallet_shares[blinder_idx];
+    contract
+        .new_wallet(
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&statement)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Attempt to create a second wallet with the same public blinder
+    let (proof, mut statement) = gen_new_wallet_data(&mut rng)?;
+    statement.public_wallet_shares[blinder_idx] = original_blinder;
+    let is_err = contract
+        .new_wallet(
+            serialize_to_calldata(&proof)?,
+            serialize_to_calldata(&statement)?,
+        )
+        .send()
+        .await
+        .is_err();
+    if !is_err {
+        return Err(eyre!("New wallet succeeded, should have failed"));
+    }
+
+    Ok(())
+}
+integration_test_async!(test_public_blinder_uniqueness_check);
 
 /// Test deposit / withdrawal functionality of the darkpool
 async fn test_external_transfer(test_args: TestArgs) -> Result<()> {

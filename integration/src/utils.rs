@@ -100,7 +100,7 @@ pub async fn assert_all_revert<'a>(
 }
 
 /// Asserts that all of the given transactions successfully execute
-pub async fn assert_all_suceed<'a>(
+pub async fn assert_all_succeed<'a>(
     txs: Vec<
         impl Future<
             Output = Result<
