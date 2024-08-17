@@ -14,12 +14,12 @@ use crate::{
             INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
             NULLIFIER_SPENT_ERROR_MESSAGE, PUBLIC_BLINDER_USED_ERROR_MESSAGE,
             ROOT_NOT_IN_HISTORY_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE,
-            VERIFICATION_FAILED_ERROR_MESSAGE, VERIFICATION_RESULT_LAST_BYTE_INDEX,
+            VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, get_public_blinder_from_shares,
             map_call_error, postcard_serialize, serialize_match_statements_for_verification,
-            serialize_statement_for_verification, u256_to_scalar,
+            serialize_statement_for_verification, static_call_helper, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
@@ -477,17 +477,16 @@ impl DarkpoolCoreContract {
     /// Calls the verifier contract with the given selector.
     ///
     /// Assumes that the argument type is a single `bytes` value and the return type is a single `bool`.
-    pub fn call_verifier<S: TopLevelStorage + Borrow<Self>>(
+    pub fn call_verifier<S, C>(
         storage: &S,
-        selector: &[u8],
-        args: Vec<u8>,
-    ) -> Result<bool, Vec<u8>> {
+        args: <C::Parameters<'_> as SolType>::RustType,
+    ) -> Result<C::Return, Vec<u8>>
+    where
+        S: TopLevelStorage + Borrow<Self>,
+        C: SolCall,
+    {
         let verifier_address = storage.borrow().verifier_address.get();
-        let mut calldata = selector.to_vec();
-        calldata.extend(<(AlloyBytes,) as SolType>::abi_encode(&(args,)));
-        static_call(storage, verifier_address, &calldata)
-            .map_err(map_call_error)
-            .map(|res| res[VERIFICATION_RESULT_LAST_BYTE_INDEX] != 0)
+        static_call_helper::<C>(storage, verifier_address, args)
     }
 
     // -----------------------
@@ -608,13 +607,12 @@ impl DarkpoolCoreContract {
     ) -> Result<bool, Vec<u8>> {
         let verification_bundle_ser = [vkey_ser, proof_ser, public_inputs_ser].concat();
 
-        let result = DarkpoolCoreContract::call_verifier(
+        let result = DarkpoolCoreContract::call_verifier::<_, verifyCall>(
             storage,
-            &verifyCall::SELECTOR,
-            verification_bundle_ser,
+            (verification_bundle_ser.into(),),
         )?;
 
-        Ok(result)
+        Ok(result._0)
     }
 
     /// Executes the given external transfer (withdrawal / deposit)
@@ -671,13 +669,12 @@ impl DarkpoolCoreContract {
         ]
         .concat();
 
-        let result = DarkpoolCoreContract::call_verifier(
+        let result = DarkpoolCoreContract::call_verifier::<_, verifyMatchCall>(
             storage,
-            &verifyMatchCall::SELECTOR,
-            batch_verification_bundle_ser,
+            (batch_verification_bundle_ser.into(),),
         )?;
 
-        assert_result!(result, VERIFICATION_FAILED_ERROR_MESSAGE)
+        assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
     /// Nullifies the old wallet and commits to the new wallet

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
-    call::{call, delegate_call},
+    call::{call, delegate_call, static_call},
     storage::TopLevelStorage,
 };
 
@@ -114,6 +114,22 @@ pub fn map_call_error(e: stylus_sdk::call::Error) -> Vec<u8> {
 /// form of the appropriate error message.
 pub fn map_calldata_ser_error<E>(_e: E) -> Vec<u8> {
     CALLDATA_SER_ERROR_MESSAGE.to_vec()
+}
+
+/// Performs a `staticcall` to the given address, calling the function defined as a `SolCall` with the given arguments
+#[cfg_attr(
+    not(any(feature = "darkpool-core", feature = "darkpool-test-contract")),
+    allow(dead_code)
+)]
+pub fn static_call_helper<C: SolCall>(
+    storage: &impl TopLevelStorage,
+    address: Address,
+    args: <C::Parameters<'_> as SolType>::RustType,
+) -> Result<C::Return, Vec<u8>> {
+    let calldata = C::new(args).abi_encode();
+    let res = static_call(storage, address, &calldata).map_err(map_call_error)?;
+    C::abi_decode_returns(&res, false /* validate */)
+        .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
 }
 
 /// Performs a `delegatecall` to the given address, calling the function
