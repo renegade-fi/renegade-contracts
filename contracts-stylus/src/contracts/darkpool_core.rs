@@ -146,9 +146,10 @@ impl DarkpoolCoreContract {
             &valid_wallet_create_statement.public_wallet_shares,
         )?;
 
-        DarkpoolCoreContract::log_wallet_update(
+        DarkpoolCoreContract::log_blinder_used(
+            storage,
             &valid_wallet_create_statement.public_wallet_shares,
-        );
+        )?;
 
         Ok(())
     }
@@ -733,10 +734,8 @@ impl DarkpoolCoreContract {
         merkle_root: ScalarField,
         new_wallet_public_shares: &[ScalarField],
     ) -> Result<(), Vec<u8>> {
-        let public_blinder = get_public_blinder_from_shares(new_wallet_public_shares);
-        DarkpoolCoreContract::mark_public_blinder_used(storage, public_blinder)?;
         DarkpoolCoreContract::check_root_and_nullify(storage, old_wallet_nullifier, merkle_root)?;
-        DarkpoolCoreContract::log_wallet_update(new_wallet_public_shares);
+        DarkpoolCoreContract::log_blinder_used(storage, new_wallet_public_shares)?;
 
         Ok(())
     }
@@ -780,11 +779,20 @@ impl DarkpoolCoreContract {
     // -----------
 
     /// Emits a `WalletUpdated` event with the wallet's public blinder share
-    pub fn log_wallet_update(public_wallet_shares: &[ScalarField]) {
-        let wallet_blinder_share =
-            scalar_to_u256(get_public_blinder_from_shares(public_wallet_shares));
+    pub fn log_blinder_used<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        public_wallet_shares: &[ScalarField],
+    ) -> Result<(), Vec<u8>> {
+        // Mark the public blinder as used
+        let wallet_blinder_share = get_public_blinder_from_shares(public_wallet_shares);
+        DarkpoolCoreContract::mark_public_blinder_used(storage, wallet_blinder_share)?;
+
+        // Log the wallet update
+        let blinder_u256 = scalar_to_u256(wallet_blinder_share);
         evm::log(WalletUpdated {
-            wallet_blinder_share,
+            wallet_blinder_share: blinder_u256,
         });
+
+        Ok(())
     }
 }
