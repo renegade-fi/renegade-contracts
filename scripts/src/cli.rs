@@ -119,8 +119,8 @@ pub struct DeployProxyArgs {
     /// The `u64` used here should accommodate any fee we'd want to set.
     ///
     /// The default value here is the fixed-point representation of 0.0002 (2 bps),
-    /// that is 0.0002 * 2^32
-    #[arg(short, long, default_value = "858993")]
+    /// that is 0.0002 * 2^63
+    #[arg(short, long, default_value = "1844674407370955")]
     pub fee: u64,
 
     /// The public EC-ElGamal encryption key for the protocol,
