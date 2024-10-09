@@ -43,4 +43,24 @@ impl VerifierContract {
         )
         .map_err(Into::into)
     }
+
+    /// Batch-verify the proofs involved in settling an atomic match
+    pub fn verify_atomic_match(&self, atomic_match_bundle: Bytes) -> Result<bool, Vec<u8>> {
+        let (
+            match_vkeys,
+            match_linking_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
+        ) = deserialize_from_calldata(&atomic_match_bundle)?;
+
+        Verifier::<PrecompileG1ArithmeticBackend, StylusHasher>::verify_atomic_match(
+            match_vkeys,
+            match_linking_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_proofs,
+        )
+        .map_err(Into::into)
+    }
 }

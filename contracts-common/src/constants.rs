@@ -20,6 +20,9 @@ pub const NUM_SELECTORS: usize = 13;
 /// The number of linking proofs in a match bundle
 pub const NUM_MATCH_LINKING_PROOFS: usize = 4;
 
+/// The number of linking proofs in an atomic match bundle
+pub const NUM_ATOMIC_MATCH_LINKING_PROOFS: usize = 2;
+
 /// The transcript has a 64 byte state size to accommodate two hash digests.
 pub const TRANSCRIPT_STATE_SIZE: usize = 64;
 

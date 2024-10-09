@@ -178,6 +178,19 @@ pub struct LinkingProof {
     pub linking_poly_opening: G1Affine,
 }
 
+/// A proof-linking verification instance
+#[derive(Clone)]
+pub struct LinkingInstance {
+    /// The verification key for the linking proof
+    pub vkey: LinkingVerificationKey,
+    /// The proof to be verified
+    pub proof: LinkingProof,
+    /// The wire polynomial commitment of the first proof
+    pub wire_comm_0: G1Affine,
+    /// The wire polynomial commitment of the second proof
+    pub wire_comm_1: G1Affine,
+}
+
 /// The linking proofs used to ensure input consistency
 /// between the `MatchProofs`
 #[derive(Serialize, Deserialize, Clone, Copy)]
@@ -194,6 +207,29 @@ pub struct MatchLinkingProofs {
     /// The proof of linked inputs between
     /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE`
     pub valid_commitments_match_settle_1: LinkingProof,
+}
+
+/// The proofs representing the matching and settlement of an atomic match
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct MatchAtomicProofs {
+    /// The internal party's proof of `VALID COMMITMENTS`
+    pub valid_commitments: Proof,
+    /// The internal party's proof of `VALID REBLIND`
+    pub valid_reblind: Proof,
+    /// The proof of `VALID MATCH SETTLE ATOMIC`
+    pub valid_match_settle_atomic: Proof,
+}
+
+/// The linking proofs used to ensure input consistency
+/// between the `MatchAtomicProofs`
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct MatchAtomicLinkingProofs {
+    /// The proof of linked inputs between the internal party's
+    /// `VALID REBLIND` <-> `VALID COMMITMENTS`
+    pub valid_reblind_commitments: LinkingProof,
+    /// The proof of linked inputs between the internal party's
+    /// `VALID COMMITMENTS` <-> `VALID MATCH SETTLE ATOMIC`
+    pub valid_commitments_match_settle_atomic: LinkingProof,
 }
 
 /// The public coin challenges used throughout the Plonk protocol, obtained via a Fiat-Shamir transformation.
@@ -592,13 +628,32 @@ pub struct MatchLinkingWirePolyComms {
 
 /// The public inputs for the `MatchAtomicProofs`
 #[derive(Serialize, Deserialize)]
-pub struct AtomicMatchSettlePublicInputs {
+pub struct AtomicMatchPublicInputs {
     /// The public inputs to the internal party's `VALID COMMITMENTS` proof
     pub valid_commitments: PublicInputs,
     /// The public inputs to the internal party's `VALID REBLIND` proof
     pub valid_reblind: PublicInputs,
     /// The public inputs to the `VALID MATCH SETTLE` proof
     pub valid_match_settle_atomic: PublicInputs,
+}
+
+/// The commitments to the first wiring polynomials in each of the
+/// Plonk proofs being linked during the matching of a trade
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct AtomicMatchLinkingWirePolyComms {
+    /// The commitment to the first wiring polynomial in the internal party's
+    /// `VALID REBLIND` proof
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_reblind: G1Affine,
+    /// The commitment to the first wiring polynomial in the internal party's
+    /// `VALID COMMITMENTS` proof
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_commitments: G1Affine,
+    /// The commitment to the first wiring polynomial in the
+    /// `VALID MATCH SETTLE ATOMIC` proof
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_match_settle_atomic: G1Affine,
 }
 
 /// The elements to be used in a KZG batch opening pairing check

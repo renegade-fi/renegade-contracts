@@ -136,7 +136,7 @@ pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
 // | ERROR TYPE |
 // --------------
 
-/// An error that occurred when interacting with the proof system
+/// An error that occured when interacting with the proof system
 #[derive(Debug)]
 pub enum ProofSystemError {
     /// An error that occurred when converting between prover and contract types

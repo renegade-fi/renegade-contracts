@@ -7,7 +7,7 @@ use contracts_common::{
     constants::{NUM_BYTES_U256, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
     types::{
-        AtomicMatchSettlePublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
+        AtomicMatchPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
         ValidReblindStatement,
     },
@@ -99,7 +99,7 @@ pub fn serialize_atomic_match_statements_for_verification(
     valid_reblind: &ValidReblindStatement,
     valid_match_settle_atomic: &ValidMatchSettleAtomicStatement,
 ) -> Result<Vec<u8>, Vec<u8>> {
-    let atomic_match_public_inputs = AtomicMatchSettlePublicInputs {
+    let atomic_match_public_inputs = AtomicMatchPublicInputs {
         valid_commitments: statement_to_public_inputs(valid_commitments)
             .map_err(map_calldata_ser_error)?,
         valid_reblind: statement_to_public_inputs(valid_reblind).map_err(map_calldata_ser_error)?,

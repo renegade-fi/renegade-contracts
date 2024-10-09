@@ -27,8 +27,8 @@ use crate::{
             processAtomicMatchSettleVkeysCall, processMatchSettleVkeysCall, rootInHistoryCall,
             validFeeRedemptionVkeyCall, validOfflineFeeSettlementVkeyCall,
             validRelayerFeeSettlementVkeyCall, validWalletCreateVkeyCall,
-            validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
-            NotePosted, NullifierSpent, WalletUpdated,
+            validWalletUpdateVkeyCall, verifyAtomicMatchCall, verifyCall, verifyMatchCall,
+            verifyStateSigAndInsertCall, NotePosted, NullifierSpent, WalletUpdated,
         },
     },
 };
@@ -774,7 +774,7 @@ impl DarkpoolCoreContract {
         ]
         .concat();
 
-        let result = DarkpoolCoreContract::call_verifier::<_, verifyMatchCall>(
+        let result = DarkpoolCoreContract::call_verifier::<_, verifyAtomicMatchCall>(
             storage,
             (batch_verification_bundle_ser.into(),),
         )?;
