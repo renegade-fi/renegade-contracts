@@ -5,9 +5,10 @@ use alloc::vec::Vec;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::utils::constants::{
-    PROCESS_MATCH_SETTLE_VKEYS_BYTES, VALID_FEE_REDEMPTION_VKEY_BYTES,
-    VALID_OFFLINE_FEE_SETTLEMENT_VKEY_BYTES, VALID_RELAYER_FEE_SETTLEMENT_VKEY_BYTES,
-    VALID_WALLET_CREATE_VKEY_BYTES, VALID_WALLET_UPDATE_VKEY_BYTES,
+    PROCESS_ATOMIC_MATCH_SETTLE_VKEYS_BYTES, PROCESS_MATCH_SETTLE_VKEYS_BYTES,
+    VALID_FEE_REDEMPTION_VKEY_BYTES, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_BYTES,
+    VALID_RELAYER_FEE_SETTLEMENT_VKEY_BYTES, VALID_WALLET_CREATE_VKEY_BYTES,
+    VALID_WALLET_UPDATE_VKEY_BYTES,
 };
 
 /// The verification keys contract, which itself is stateless
@@ -51,5 +52,14 @@ impl VkeysContract {
     /// linking verification keys
     pub fn process_match_settle_vkeys(&self) -> Result<Bytes, Vec<u8>> {
         Ok(PROCESS_MATCH_SETTLE_VKEYS_BYTES.to_vec().into())
+    }
+
+    /// Returns the serialization of the
+    /// [`VALID COMMITMENTS`, `VALID REBLIND`, `VALID MATCH SETTLE ATOMIC`]
+    /// Plonk verification keys, concatenated with the serialzation of the
+    /// [`VALID REBLIND <-> VALID COMMITMENTS`, `VALID COMMITMENTS <-> VALID MATCH SETTLE ATOMIC`]
+    /// linking verification keys
+    pub fn process_atomic_match_settle_vkeys(&self) -> Result<Bytes, Vec<u8>> {
+        Ok(PROCESS_ATOMIC_MATCH_SETTLE_VKEYS_BYTES.to_vec().into())
     }
 }

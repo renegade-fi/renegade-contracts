@@ -12,6 +12,7 @@ use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_fee_redemption::SizedValidFeeRedemptionStatement,
     valid_match_settle::SizedValidMatchSettleStatement,
+    valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
@@ -202,6 +203,44 @@ impl SingleProverCircuit for DummyValidMatchSettle {
             (VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), None),
             (VALID_COMMITMENTS_MATCH_SETTLE_LINK1.to_string(), None),
         ])
+    }
+}
+
+/// The dummy version of the `VALID MATCH SETTLE ATOMIC` witness,
+/// which defines a single element to be linked with the dummy
+/// `VALID COMMITMENTS` circuit
+#[circuit_type(singleprover_circuit)]
+#[derive(Clone)]
+pub struct DummyValidMatchSettleAtomicWitness {
+    /// The first element to be linked with `VALID COMMITMENTS`
+    #[link_groups = "valid_commitments_match_settle0"]
+    pub valid_commitments_match_settle0: Scalar,
+}
+
+/// The dummy version of the `VALID MATCH SETTLE ATOMIC` circuit
+pub struct DummyValidMatchSettleAtomic;
+
+impl SingleProverCircuit for DummyValidMatchSettleAtomic {
+    type Statement = SizedValidMatchSettleAtomicStatement;
+    type Witness = DummyValidMatchSettleAtomicWitness;
+
+    fn name() -> String {
+        "Dummy Valid Match Settle Atomic".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: <DummyValidMatchSettleAtomicWitness as CircuitBaseType>::VarType,
+        _statement_var: <SizedValidMatchSettleAtomicStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
+    }
+
+    fn proof_linking_groups() -> Result<Vec<(String, Option<GroupLayout>)>, PlonkError> {
+        Ok(vec![(
+            VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(),
+            None,
+        )])
     }
 }
 
