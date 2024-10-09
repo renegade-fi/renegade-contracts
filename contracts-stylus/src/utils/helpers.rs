@@ -7,8 +7,9 @@ use contracts_common::{
     constants::{NUM_BYTES_U256, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
     types::{
-        MatchPublicInputs, PublicSigningKey, ScalarField, ValidCommitmentsStatement,
-        ValidMatchSettleStatement, ValidReblindStatement,
+        AtomicMatchSettlePublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
+        ValidCommitmentsStatement, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
+        ValidReblindStatement,
     },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
@@ -88,6 +89,24 @@ pub fn serialize_match_statements_for_verification(
             .map_err(map_calldata_ser_error)?,
     };
     postcard_serialize(&match_public_inputs)
+}
+
+/// Serializes the statements used in verifying the settlement of an atomic
+/// matched trade into scalars, builds the [`AtomicMatchSettlePublicInputs`] struct,
+/// and then serializes it into bytes, as expected by the verifier contract.
+pub fn serialize_atomic_match_statements_for_verification(
+    valid_commitments: &ValidCommitmentsStatement,
+    valid_reblind: &ValidReblindStatement,
+    valid_match_settle_atomic: &ValidMatchSettleAtomicStatement,
+) -> Result<Vec<u8>, Vec<u8>> {
+    let atomic_match_public_inputs = AtomicMatchSettlePublicInputs {
+        valid_commitments: statement_to_public_inputs(valid_commitments)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind: statement_to_public_inputs(valid_reblind).map_err(map_calldata_ser_error)?,
+        valid_match_settle_atomic: statement_to_public_inputs(valid_match_settle_atomic)
+            .map_err(map_calldata_ser_error)?,
+    };
+    postcard_serialize(&atomic_match_public_inputs)
 }
 
 /// Fetch the public blinder from a set of public shares

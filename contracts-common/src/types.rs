@@ -255,6 +255,41 @@ pub struct TransferAuxData {
     pub transfer_signature: Option<Vec<u8>>,
 }
 
+/// A fee take from a match
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct FeeTake {
+    /// The fee the relayer takes
+    #[serde_as(as = "U256Def")]
+    pub relayer_fee: U256,
+    /// The fee the protocol takes
+    #[serde_as(as = "U256Def")]
+    pub protocol_fee: U256,
+}
+
+/// The result of an atomic match
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ExternalMatchResult {
+    /// The mint (erc20 address) of the quote token
+    #[serde_as(as = "AddressDef")]
+    pub quote_mint: Address,
+    /// The mint (erc20 address) of the base token
+    #[serde_as(as = "AddressDef")]
+    pub base_mint: Address,
+    /// The amount of the quote token
+    #[serde_as(as = "U256Def")]
+    pub quote_amount: U256,
+    /// The amount of the base token
+    #[serde_as(as = "U256Def")]
+    pub base_amount: U256,
+    /// The direction of the trade
+    ///
+    /// `false` (0) corresponds to the internal party buying the base
+    /// `true` (1) corresponds to the internal party selling the base
+    pub direction: bool,
+}
+
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.
 /// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
 /// it takes 2 Bn254 scalar field elements to represent each coordinate.
@@ -384,6 +419,28 @@ pub struct MatchPayload {
     pub valid_commitments_statement: ValidCommitmentsStatement,
     /// The statement for the party's `VALID_REBLIND` proof
     pub valid_reblind_statement: ValidReblindStatement,
+}
+
+/// The statement type for `VALID MATCH SETTLE ATOMIC`
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidMatchSettleAtomicStatement {
+    /// The result of the match
+    pub match_result: ExternalMatchResult,
+    /// The external party's fee obligations as a result of the match
+    pub external_party_fees: FeeTake,
+    /// The modified public shares of the internal party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub internal_party_modified_shares: Vec<ScalarField>,
+    /// The indices that settlement should modify in the internal party's wallet
+    pub internal_party_indices: OrderSettlementIndices,
+    /// The protocol fee used in the match
+    #[serde_as(as = "ScalarFieldDef")]
+    pub protocol_fee: ScalarField,
+    /// The address at which the relayer wishes to receive their fee due from
+    /// the external party
+    #[serde_as(as = "ScalarFieldDef")]
+    pub relayer_fee_address: ScalarField,
 }
 
 /// Statement for the `VALID RELAYER FEE SETTLEMENT` circuit
@@ -531,6 +588,17 @@ pub struct MatchLinkingWirePolyComms {
     /// `VALID MATCH SETTLE`
     #[serde_as(as = "G1AffineDef")]
     pub valid_match_settle: G1Affine,
+}
+
+/// The public inputs for the `MatchAtomicProofs`
+#[derive(Serialize, Deserialize)]
+pub struct AtomicMatchSettlePublicInputs {
+    /// The public inputs to the internal party's `VALID COMMITMENTS` proof
+    pub valid_commitments: PublicInputs,
+    /// The public inputs to the internal party's `VALID REBLIND` proof
+    pub valid_reblind: PublicInputs,
+    /// The public inputs to the `VALID MATCH SETTLE` proof
+    pub valid_match_settle_atomic: PublicInputs,
 }
 
 /// The elements to be used in a KZG batch opening pairing check

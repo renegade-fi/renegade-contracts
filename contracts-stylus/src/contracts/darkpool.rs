@@ -22,8 +22,8 @@ use crate::{
         helpers::delegate_call_helper,
         solidity::{
             init_0Call as initMerkleCall, init_1Call as initTransferExecutorCall, newWalletCall,
-            processMatchSettleCall, redeemFeeCall, rootCall, rootInHistoryCall,
-            settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
+            processAtomicMatchSettleCall, processMatchSettleCall, redeemFeeCall, rootCall,
+            rootInHistoryCall, settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
             DarkpoolCoreAddressChanged, FeeChanged, MerkleAddressChanged, OwnershipTransferred,
             Paused, PubkeyRotated, TransferExecutorAddressChanged, Unpaused,
             VerifierAddressChanged, VkeysAddressChanged,
@@ -436,6 +436,37 @@ impl DarkpoolContract {
                 party_0_match_payload.to_vec().into(),
                 party_1_match_payload.to_vec().into(),
                 valid_match_settle_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|_| ())
+    }
+
+    /// Processes an atomic match settlement between two parties; one internal and one external
+    ///
+    /// An internal party is one with state committed into the darkpool, while an external party provides liquidity to the pool
+    /// during the transaction in which this method is called
+    ///
+    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::ExternalMatchProofs`]
+    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
+    pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let darkpool_core_address = storage.borrow_mut().darkpool_core_address.get();
+        delegate_call_helper::<processAtomicMatchSettleCall>(
+            storage,
+            darkpool_core_address,
+            (
+                internal_party_match_payload.to_vec().into(),
+                valid_match_settle_atomic_statement.to_vec().into(),
                 match_proofs.to_vec().into(),
                 match_linking_proofs.to_vec().into(),
             ),

@@ -18,15 +18,17 @@ use crate::{
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, get_public_blinder_from_shares,
-            map_call_error, postcard_serialize, serialize_match_statements_for_verification,
-            serialize_statement_for_verification, static_call_helper, u256_to_scalar,
+            map_call_error, postcard_serialize, serialize_atomic_match_statements_for_verification,
+            serialize_match_statements_for_verification, serialize_statement_for_verification,
+            static_call_helper, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
-            processMatchSettleVkeysCall, rootInHistoryCall, validFeeRedemptionVkeyCall,
-            validOfflineFeeSettlementVkeyCall, validRelayerFeeSettlementVkeyCall,
-            validWalletCreateVkeyCall, validWalletUpdateVkeyCall, verifyCall, verifyMatchCall,
-            verifyStateSigAndInsertCall, NotePosted, NullifierSpent, WalletUpdated,
+            processAtomicMatchSettleVkeysCall, processMatchSettleVkeysCall, rootInHistoryCall,
+            validFeeRedemptionVkeyCall, validOfflineFeeSettlementVkeyCall,
+            validRelayerFeeSettlementVkeyCall, validWalletCreateVkeyCall,
+            validWalletUpdateVkeyCall, verifyCall, verifyMatchCall, verifyStateSigAndInsertCall,
+            NotePosted, NullifierSpent, WalletUpdated,
         },
     },
 };
@@ -36,8 +38,9 @@ use contracts_common::{
     custom_serde::{pk_to_u256s, scalar_to_u256},
     types::{
         ExternalTransfer, MatchPayload, PublicEncryptionKey, PublicSigningKey, ScalarField,
-        ValidFeeRedemptionStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
-        ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
+        ValidFeeRedemptionStatement, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
+        ValidOfflineFeeSettlementStatement, ValidRelayerFeeSettlementStatement,
+        ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
 use stylus_sdk::{
@@ -277,6 +280,71 @@ impl DarkpoolCoreContract {
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
             &valid_match_settle_statement.party1_modified_shares,
+        )?;
+
+        Ok(())
+    }
+
+    /// Processes an atomic match settlement between two parties; one internal and one external
+    ///
+    /// An internal party is one with state committed into the darkpool, while an external party provides liquidity to the pool
+    /// during the transaction in which this method is called
+    ///
+    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::ExternalMatchProofs`]
+    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
+    pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        let internal_party_match_payload: MatchPayload =
+            deserialize_from_calldata(&internal_party_match_payload)?;
+
+        let valid_match_settle_atomic_statement: ValidMatchSettleAtomicStatement =
+            deserialize_from_calldata(&valid_match_settle_statement)?;
+
+        if_verifying!({
+            let commitments_indices = &internal_party_match_payload
+                .valid_commitments_statement
+                .indices;
+            let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
+            let same_indices = commitments_indices == settlement_indices;
+
+            assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
+
+            // We convert the protocol fee directly to a scalar as it is already kept
+            // in storage as fixed-point number, no manipulation is needed to coerce it
+            // to the form expected in the statement / circuit.
+            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee.get())?;
+            assert_result!(
+                valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
+                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+            )?;
+
+            DarkpoolCoreContract::batch_verify_process_atomic_match_settle(
+                storage,
+                &internal_party_match_payload,
+                &valid_match_settle_atomic_statement,
+                match_proofs,
+                match_linking_proofs,
+            )?;
+        });
+
+        DarkpoolCoreContract::rotate_wallet(
+            storage,
+            internal_party_match_payload
+                .valid_reblind_statement
+                .original_shares_nullifier,
+            internal_party_match_payload
+                .valid_reblind_statement
+                .merkle_root,
+            internal_party_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment,
+            &valid_match_settle_atomic_statement.internal_party_modified_shares,
         )?;
 
         Ok(())
@@ -666,6 +734,42 @@ impl DarkpoolCoreContract {
             process_match_settle_vkeys,
             match_proofs.0,
             match_public_inputs,
+            match_linking_proofs.0,
+        ]
+        .concat();
+
+        let result = DarkpoolCoreContract::call_verifier::<_, verifyMatchCall>(
+            storage,
+            (batch_verification_bundle_ser.into(),),
+        )?;
+
+        assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
+    }
+
+    /// Batch-verifies all of the `process_atomic_match_settle` proofs
+    pub fn batch_verify_process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        internal_party_match_payload: &MatchPayload,
+        valid_match_settle_atomic_statement: &ValidMatchSettleAtomicStatement,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
+        let process_atomic_match_settle_vkeys = DarkpoolCoreContract::fetch_vkeys(
+            storage,
+            &processAtomicMatchSettleVkeysCall::SELECTOR,
+        )?;
+
+        let atomic_match_public_inputs = serialize_atomic_match_statements_for_verification(
+            &internal_party_match_payload.valid_commitments_statement,
+            &internal_party_match_payload.valid_reblind_statement,
+            valid_match_settle_atomic_statement,
+        )?;
+
+        let batch_verification_bundle_ser = [
+            process_atomic_match_settle_vkeys,
+            match_proofs.0,
+            atomic_match_public_inputs,
             match_linking_proofs.0,
         ]
         .concat();
