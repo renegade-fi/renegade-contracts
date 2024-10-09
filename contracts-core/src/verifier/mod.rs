@@ -9,10 +9,12 @@ use alloc::{vec, vec::Vec};
 use ark_ff::{batch_inversion, FftField, Field, One, Zero};
 use contracts_common::{
     backends::{G1ArithmeticBackend, HashBackend},
-    constants::{NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
+    constants::{NUM_ATOMIC_MATCH_LINKING_PROOFS, NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
     custom_serde::SerdeError,
     types::{
-        Challenges, G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
+        AtomicMatchLinkingWirePolyComms, AtomicMatchPublicInputs, Challenges, G1Affine, G2Affine,
+        LinkingInstance, LinkingProof, LinkingVerificationKey, MatchAtomicLinkingProofs,
+        MatchAtomicLinkingVkeys, MatchAtomicProofs, MatchAtomicVkeys, MatchLinkingProofs,
         MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchProofs, MatchPublicInputs, MatchVkeys,
         OpeningElems, Proof, PublicInputs, ScalarField, VerificationKey,
     },
@@ -144,6 +146,82 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Self::batch_opening(&final_opening_elems, x_h, h)
     }
 
+    /// Batch-verifies:
+    /// - internal party's `VALID COMMITMENTS`
+    /// - internal party's `VALID REBLIND`
+    /// - `VALID MATCH SETTLE ATOMIC`
+    ///
+    /// And verifies proof linking between:
+    /// - `VALID REBLIND` <-> `VALID COMMITMENTS`
+    /// - `VALID COMMITMENTS` <-> `VALID MATCH SETTLE ATOMIC`
+    ///
+    /// Applies batch verification as implemented in Jellyfish: https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
+    ///
+    /// This assumes that all the verification keys were generated using the same SRS.
+    pub fn verify_atomic_match(
+        match_vkeys: MatchAtomicVkeys,
+        match_linking_vkeys: MatchAtomicLinkingVkeys,
+        match_proofs: MatchAtomicProofs,
+        match_public_inputs: AtomicMatchPublicInputs,
+        match_linking_proofs: MatchAtomicLinkingProofs,
+    ) -> Result<bool, VerifierError> {
+        let x_h = match_vkeys.valid_commitments_vkey.x_h;
+        let h = match_vkeys.valid_commitments_vkey.h;
+
+        // Prepare linking proofs for batch verification
+        let match_linking_wire_poly_comms = AtomicMatchLinkingWirePolyComms {
+            valid_reblind: match_proofs.valid_reblind.wire_comms[0],
+            valid_commitments: match_proofs.valid_commitments.wire_comms[0],
+            valid_match_settle_atomic: match_proofs.valid_match_settle_atomic.wire_comms[0],
+        };
+
+        let OpeningElems {
+            g1_lhs_elems: linking_g1_lhs_elems,
+            g1_rhs_elems: linking_g1_rhs_elems,
+            transcript_elements: linking_transcript_elements,
+        } = Self::prep_atomic_match_linking_proofs_opening(
+            match_linking_vkeys,
+            match_linking_proofs,
+            match_linking_wire_poly_comms,
+        )?;
+
+        let vkey_batch = [
+            match_vkeys.valid_commitments_vkey,
+            match_vkeys.valid_reblind_vkey,
+            match_vkeys.valid_match_settle_atomic_vkey,
+        ];
+        let proof_batch = [
+            match_proofs.valid_commitments,
+            match_proofs.valid_reblind,
+            match_proofs.valid_match_settle_atomic,
+        ];
+        let public_inputs_batch = [
+            match_public_inputs.valid_commitments,
+            match_public_inputs.valid_reblind,
+            match_public_inputs.valid_match_settle_atomic,
+        ];
+
+        // Prepare Plonk proofs for batch verification
+        let OpeningElems {
+            g1_lhs_elems: plonk_g1_lhs_elems,
+            g1_rhs_elems: plonk_g1_rhs_elems,
+            transcript_elements: plonk_transcript_elements,
+        } = Self::prep_batch_plonk_proofs_opening(&vkey_batch, &proof_batch, &public_inputs_batch)?;
+
+        let g1_lhs_elems = [linking_g1_lhs_elems, plonk_g1_lhs_elems].concat();
+        let g1_rhs_elems = [linking_g1_rhs_elems, plonk_g1_rhs_elems].concat();
+        let transcript_elements = [linking_transcript_elements, plonk_transcript_elements].concat();
+
+        let final_opening_elems = OpeningElems {
+            g1_lhs_elems,
+            g1_rhs_elems,
+            transcript_elements,
+        };
+
+        // Batch-open all of the linking & Plonk proofs together
+        Self::batch_opening(&final_opening_elems, x_h, h)
+    }
+
     /// Computes the elements used in the final KZG batch opening pairing check
     /// for a batch of Plonk proofs
     fn prep_batch_plonk_proofs_opening(
@@ -252,66 +330,85 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         match_linking_proofs: MatchLinkingProofs,
         match_linking_wire_poly_comms: MatchLinkingWirePolyComms,
     ) -> Result<OpeningElems, VerifierError> {
-        let mut g1_lhs_elems = [G1Affine::default(); NUM_MATCH_LINKING_PROOFS];
-        let mut g1_rhs_elems = [G1Affine::default(); NUM_MATCH_LINKING_PROOFS];
-        let mut transcript_elements = [ScalarField::zero(); NUM_MATCH_LINKING_PROOFS];
+        // Setup the linking instances
+        let mut linking_instances = Vec::with_capacity(NUM_MATCH_LINKING_PROOFS);
+        linking_instances.push(LinkingInstance {
+            vkey: match_linking_vkeys.valid_commitments_match_settle_0,
+            proof: match_linking_proofs.valid_commitments_match_settle_0,
+            wire_comm_0: match_linking_wire_poly_comms.valid_commitments_0,
+            wire_comm_1: match_linking_wire_poly_comms.valid_match_settle,
+        });
+        linking_instances.push(LinkingInstance {
+            vkey: match_linking_vkeys.valid_reblind_commitments,
+            proof: match_linking_proofs.valid_reblind_commitments_0,
+            wire_comm_0: match_linking_wire_poly_comms.valid_reblind_0,
+            wire_comm_1: match_linking_wire_poly_comms.valid_commitments_0,
+        });
+        linking_instances.push(LinkingInstance {
+            vkey: match_linking_vkeys.valid_commitments_match_settle_1,
+            proof: match_linking_proofs.valid_commitments_match_settle_1,
+            wire_comm_0: match_linking_wire_poly_comms.valid_commitments_1,
+            wire_comm_1: match_linking_wire_poly_comms.valid_match_settle,
+        });
+        linking_instances.push(LinkingInstance {
+            vkey: match_linking_vkeys.valid_reblind_commitments,
+            proof: match_linking_proofs.valid_reblind_commitments_1,
+            wire_comm_0: match_linking_wire_poly_comms.valid_reblind_1,
+            wire_comm_1: match_linking_wire_poly_comms.valid_commitments_1,
+        });
 
-        // Prep the PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE linking proof opening elements
-        let (g1_lhs_0, g1_rhs_0, eta_0) = Self::prep_linking_proof_opening_elems(
-            match_linking_vkeys.valid_commitments_match_settle_0,
-            match_linking_proofs.valid_commitments_match_settle_0,
-            (
-                match_linking_wire_poly_comms.valid_commitments_0,
-                match_linking_wire_poly_comms.valid_match_settle,
-            ),
-        )?;
-        g1_lhs_elems[0] = g1_lhs_0;
-        g1_rhs_elems[0] = g1_rhs_0;
-        transcript_elements[0] = eta_0;
+        Self::prep_linking_instances(linking_instances)
+    }
 
-        // Prep the PARTY 0 VALID REBLIND <-> PARTY 0 VALID COMMITMENTS linking proof opening elements
-        let (g1_lhs_1, g1_rhs_1, eta_1) = Self::prep_linking_proof_opening_elems(
-            match_linking_vkeys.valid_reblind_commitments,
-            match_linking_proofs.valid_reblind_commitments_0,
-            (
-                match_linking_wire_poly_comms.valid_reblind_0,
-                match_linking_wire_poly_comms.valid_commitments_0,
-            ),
-        )?;
-        g1_lhs_elems[1] = g1_lhs_1;
-        g1_rhs_elems[1] = g1_rhs_1;
-        transcript_elements[1] = eta_1;
+    /// Computes the elements used in the final KZG batch opening pairing check
+    /// for the linking proofs involved in the matching and settlement of an atomic match.
+    fn prep_atomic_match_linking_proofs_opening(
+        match_linking_vkeys: MatchAtomicLinkingVkeys,
+        match_linking_proofs: MatchAtomicLinkingProofs,
+        match_linking_wire_poly_comms: AtomicMatchLinkingWirePolyComms,
+    ) -> Result<OpeningElems, VerifierError> {
+        // Setup the linking instances
+        let mut linking_instances = Vec::with_capacity(NUM_ATOMIC_MATCH_LINKING_PROOFS);
+        linking_instances.push(LinkingInstance {
+            vkey: match_linking_vkeys.valid_reblind_commitments,
+            proof: match_linking_proofs.valid_reblind_commitments,
+            wire_comm_0: match_linking_wire_poly_comms.valid_reblind,
+            wire_comm_1: match_linking_wire_poly_comms.valid_commitments,
+        });
+        linking_instances.push(LinkingInstance {
+            vkey: match_linking_vkeys.valid_commitments_match_settle_atomic,
+            proof: match_linking_proofs.valid_commitments_match_settle_atomic,
+            wire_comm_0: match_linking_wire_poly_comms.valid_commitments,
+            wire_comm_1: match_linking_wire_poly_comms.valid_match_settle_atomic,
+        });
 
-        // Prep the PARTY 1 VALID COMMITMENTS <-> VALID MATCH SETTLE linking proof opening elements
-        let (g1_lhs_2, g1_rhs_2, eta_2) = Self::prep_linking_proof_opening_elems(
-            match_linking_vkeys.valid_commitments_match_settle_1,
-            match_linking_proofs.valid_commitments_match_settle_1,
-            (
-                match_linking_wire_poly_comms.valid_commitments_1,
-                match_linking_wire_poly_comms.valid_match_settle,
-            ),
-        )?;
-        g1_lhs_elems[2] = g1_lhs_2;
-        g1_rhs_elems[2] = g1_rhs_2;
-        transcript_elements[2] = eta_2;
+        Self::prep_linking_instances(linking_instances)
+    }
 
-        // Prep the PARTY 1 VALID REBLIND <-> PARTY 1 VALID COMMITMENTS linking proof opening elements
-        let (g1_lhs_3, g1_rhs_3, eta_3) = Self::prep_linking_proof_opening_elems(
-            match_linking_vkeys.valid_reblind_commitments,
-            match_linking_proofs.valid_reblind_commitments_1,
-            (
-                match_linking_wire_poly_comms.valid_reblind_1,
-                match_linking_wire_poly_comms.valid_commitments_1,
-            ),
-        )?;
-        g1_lhs_elems[3] = g1_lhs_3;
-        g1_rhs_elems[3] = g1_rhs_3;
-        transcript_elements[3] = eta_3;
+    /// Prepares the pairing product values for a set of link-proof verification instances
+    fn prep_linking_instances(
+        linking_instances: Vec<LinkingInstance>,
+    ) -> Result<OpeningElems, VerifierError> {
+        let mut g1_lhs_elems = Vec::with_capacity(linking_instances.len());
+        let mut g1_rhs_elems = Vec::with_capacity(linking_instances.len());
+        let mut transcript_elements = Vec::with_capacity(linking_instances.len());
+
+        for link in linking_instances {
+            let (g1_lhs, g1_rhs, eta) = Self::prep_linking_proof_opening_elems(
+                link.vkey,
+                link.proof,
+                (link.wire_comm_0, link.wire_comm_1),
+            )?;
+
+            g1_lhs_elems.push(g1_lhs);
+            g1_rhs_elems.push(g1_rhs);
+            transcript_elements.push(eta);
+        }
 
         Ok(OpeningElems {
-            g1_lhs_elems: g1_lhs_elems.to_vec(),
-            g1_rhs_elems: g1_rhs_elems.to_vec(),
-            transcript_elements: transcript_elements.to_vec(),
+            g1_lhs_elems,
+            g1_rhs_elems,
+            transcript_elements,
         })
     }
 
