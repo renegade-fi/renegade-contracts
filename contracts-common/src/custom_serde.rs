@@ -11,9 +11,10 @@ use ark_serialize::Flags;
 use crate::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
-        BabyJubJubPoint, ExternalTransfer, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256,
-        NoteCiphertext, OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField,
-        ValidCommitmentsStatement, ValidFeeRedemptionStatement, ValidMatchSettleStatement,
+        BabyJubJubPoint, ExternalMatchResult, ExternalTransfer, FeeTake, G1Affine, G1BaseField,
+        G2Affine, G2BaseField, MontFp256, NoteCiphertext, OrderSettlementIndices, PublicInputs,
+        PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidFeeRedemptionStatement,
+        ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
         ValidOfflineFeeSettlementStatement, ValidReblindStatement,
         ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
@@ -277,6 +278,18 @@ impl ScalarSerializable for ValidMatchSettleStatement {
     }
 }
 
+impl ScalarSerializable for ValidMatchSettleAtomicStatement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars: Vec<ScalarField> = Vec::new();
+        scalars.extend(external_match_result_to_scalars(&self.match_result)?);
+        scalars.extend(fee_take_to_scalars(&self.external_party_fees)?);
+        scalars.extend(&self.internal_party_modified_shares);
+        scalars.extend(&self.internal_party_indices.serialize_to_scalars()?);
+        scalars.push(self.protocol_fee);
+        scalars.push(self.relayer_fee_address);
+        Ok(scalars)
+    }
+}
 impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> = vec![
@@ -392,6 +405,27 @@ fn external_transfer_to_scalars(
         address_to_scalar(external_transfer.mint)?,
         amount_to_scalar(external_transfer.amount)?,
         external_transfer.is_withdrawal.into(),
+    ])
+}
+
+/// Converts an [`ExternalMatchResult`] into a vector of [`ScalarField`]s
+fn external_match_result_to_scalars(
+    external_match_result: &ExternalMatchResult,
+) -> Result<Vec<ScalarField>, SerdeError> {
+    Ok(vec![
+        address_to_scalar(external_match_result.quote_mint)?,
+        address_to_scalar(external_match_result.base_mint)?,
+        amount_to_scalar(external_match_result.quote_amount)?,
+        amount_to_scalar(external_match_result.base_amount)?,
+        external_match_result.direction.into(),
+    ])
+}
+
+/// Converts a [`FeeTake`] into a vector of [`ScalarField`]s
+fn fee_take_to_scalars(fee_take: &FeeTake) -> Result<Vec<ScalarField>, SerdeError> {
+    Ok(vec![
+        amount_to_scalar(fee_take.relayer_fee)?,
+        amount_to_scalar(fee_take.protocol_fee)?,
     ])
 }
 
