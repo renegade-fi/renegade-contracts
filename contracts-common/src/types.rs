@@ -72,6 +72,17 @@ pub struct MatchVkeys {
     pub valid_match_settle_vkey: VerificationKey,
 }
 
+/// The Plonk verification keys used when verifying the settlement of an atomic match
+#[derive(Serialize, Deserialize)]
+pub struct MatchAtomicVkeys {
+    /// The verification key for `VALID COMMITMENTS`
+    pub valid_commitments_vkey: VerificationKey,
+    /// The verification key for `VALID REBLIND`
+    pub valid_reblind_vkey: VerificationKey,
+    /// The verification key for `VALID MATCH SETTLE ATOMIC`
+    pub valid_match_settle_atomic_vkey: VerificationKey,
+}
+
 /// Preprocessed information for the verification of a linking proof
 #[serde_as]
 #[derive(Serialize, Deserialize, Default, Copy, Clone)]
@@ -97,6 +108,17 @@ pub struct MatchLinkingVkeys {
     /// The verification key for the
     /// `PARTY 1 VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
     pub valid_commitments_match_settle_1: LinkingVerificationKey,
+}
+
+/// The linking verification keys used when verifying the settlement of an atomic match
+#[derive(Serialize, Deserialize)]
+pub struct MatchAtomicLinkingVkeys {
+    /// The verification key for the
+    /// `VALID REBLIND` <-> `VALID COMMITMENTS` link
+    pub valid_reblind_commitments: LinkingVerificationKey,
+    /// The verification key for the
+    /// `VALID COMMITMENTS` <-> `VALID MATCH SETTLE ATOMIC` link
+    pub valid_commitments_match_settle_atomic: LinkingVerificationKey,
 }
 
 /// A Plonk proof, using the "fast prover" strategy described in the paper.

@@ -3,7 +3,9 @@
 use std::fmt::{self, Display};
 
 use clap::ValueEnum;
-use contracts_common::types::{MatchLinkingVkeys, MatchVkeys, VerificationKey};
+use contracts_common::types::{
+    MatchAtomicLinkingVkeys, MatchAtomicVkeys, MatchLinkingVkeys, MatchVkeys, VerificationKey,
+};
 
 /// The possible Stylus contracts to deploy
 #[derive(ValueEnum, Copy, Clone)]
@@ -70,4 +72,9 @@ pub struct RenegadeVerificationKeys {
     /// The proof linking verification keys used in
     /// matching & settling a trade
     pub match_linking_vkeys: MatchLinkingVkeys,
+    /// The verification keys used in matching & settling a trade
+    pub match_atomic_vkeys: MatchAtomicVkeys,
+    /// The proof linking verification keys used in
+    /// matching & settling a trade
+    pub match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
 }

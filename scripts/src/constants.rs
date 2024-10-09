@@ -174,3 +174,8 @@ pub const VALID_FEE_REDEMPTION_VKEY_FILE: &str = "valid_fee_redemption";
 /// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE
 /// verification keys
 pub const PROCESS_MATCH_SETTLE_VKEYS_FILE: &str = "process_match_settle";
+
+/// The file name for the concatenated
+/// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE ATOMIC
+/// verification keys
+pub const PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE: &str = "process_match_settle_atomic";

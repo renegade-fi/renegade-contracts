@@ -11,7 +11,9 @@ use circuits::zk_circuits::{
     VALID_COMMITMENTS_MATCH_SETTLE_LINK0, VALID_COMMITMENTS_MATCH_SETTLE_LINK1,
     VALID_REBLIND_COMMITMENTS_LINK,
 };
-use contracts_common::types::{MatchLinkingVkeys, MatchVkeys};
+use contracts_common::types::{
+    MatchAtomicLinkingVkeys, MatchAtomicVkeys, MatchLinkingVkeys, MatchVkeys,
+};
 use mpc_relation::proof_linking::GroupLayout;
 
 use crate::conversion::{to_contract_vkey, to_linking_vkey};
@@ -41,6 +43,24 @@ where
         valid_commitments_vkey,
         valid_reblind_vkey,
         valid_match_settle_vkey,
+    })
+}
+
+/// Generate the verification keys for the circuits involved in settling a matched trade
+pub fn gen_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys, ProofSystemError>
+where
+    C: SingleProverCircuit,
+    R: SingleProverCircuit,
+    M: SingleProverCircuit,
+{
+    let valid_commitments_vkey = to_contract_vkey((*C::verifying_key()).clone())?;
+    let valid_reblind_vkey = to_contract_vkey((*R::verifying_key()).clone())?;
+    let valid_match_settle_atomic_vkey = to_contract_vkey((*M::verifying_key()).clone())?;
+
+    Ok(MatchAtomicVkeys {
+        valid_commitments_vkey,
+        valid_reblind_vkey,
+        valid_match_settle_atomic_vkey,
     })
 }
 
@@ -94,6 +114,21 @@ pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
         valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments),
         valid_commitments_match_settle_0: to_linking_vkey(&valid_commitments_match_settle_0),
         valid_commitments_match_settle_1: to_linking_vkey(&valid_commitments_match_settle_1),
+    })
+}
+
+/// Generate the linking verification keys for the circuits involved in settling an atomic match
+pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
+) -> Result<MatchAtomicLinkingVkeys, ProofSystemError> {
+    let MatchGroupLayouts {
+        valid_reblind_commitments,
+        valid_commitments_match_settle_0,
+        ..
+    } = gen_match_layouts::<C>()?;
+
+    Ok(MatchAtomicLinkingVkeys {
+        valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments),
+        valid_commitments_match_settle_atomic: to_linking_vkey(&valid_commitments_match_settle_0),
     })
 }
 

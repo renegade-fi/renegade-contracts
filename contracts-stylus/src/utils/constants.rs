@@ -211,6 +211,20 @@ pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
 pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/process_match_settle");
 
+/// The serialized
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE ATOMIC]
+/// verification keys
+#[cfg(feature = "vkeys")]
+pub const PROCESS_ATOMIC_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/process_match_settle_atomic");
+
+/// The serialized testing
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE ATOMIC]
+/// verification keys
+#[cfg(feature = "test-vkeys")]
+pub const PROCESS_ATOMIC_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/process_match_settle_atomic");
+
 /// The path of values in an empty Merkle tree of height `TEST_MERKLE_HEIGHT`,
 /// going from root to leaf
 #[cfg_attr(not(feature = "merkle-test-contract"), allow(dead_code))]
