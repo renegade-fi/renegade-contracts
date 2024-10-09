@@ -4,8 +4,8 @@ use core::borrow::{Borrow, BorrowMut};
 
 use alloc::vec::Vec;
 use contracts_common::constants::{
-    DARKPOOL_CORE_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR, TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
-    VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
+    CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR,
+    TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -121,7 +121,8 @@ impl DarkpoolTestContract {
     pub fn is_implementation_upgraded(&mut self, address_selector: u8) -> Result<bool, Vec<u8>> {
         let this = BorrowMut::<DarkpoolContract>::borrow_mut(self);
         let implementation_address = match address_selector {
-            DARKPOOL_CORE_ADDRESS_SELECTOR => this.darkpool_core_address.get(),
+            CORE_WALLET_OPS_ADDRESS_SELECTOR => this.get_core_wallet_ops_address(),
+            CORE_SETTLEMENT_ADDRESS_SELECTOR => this.get_core_settlement_address(),
             VERIFIER_ADDRESS_SELECTOR => this.verifier_address.get(),
             VKEYS_ADDRESS_SELECTOR => this.vkeys_address.get(),
             MERKLE_ADDRESS_SELECTOR => this.merkle_address.get(),
