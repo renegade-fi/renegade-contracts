@@ -111,11 +111,14 @@ pub const DEPLOY_COMMAND: &str = "deploy";
 /// The deployments key in the `deployments.json` file
 pub const DEPLOYMENTS_KEY: &str = "deployments";
 
-/// The darkpool implementation contract key in the `deployments.json` file
+/// The darkpool contract key in the `deployments.json` file
 pub const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
 
-/// The darkpool core contract key in the `deployments.json` file
-pub const DARKPOOL_CORE_CONTRACT_KEY: &str = "darkpool_core_contract";
+/// The core wallet operations contract key in the `deployments.json` file
+pub const CORE_WALLET_OPS_CONTRACT_KEY: &str = "core_wallet_ops_contract";
+
+/// The core settlement contract key in the `deployments.json` file
+pub const CORE_SETTLEMENT_CONTRACT_KEY: &str = "core_settlement_contract";
 
 /// The darkpool proxy contract key in the `deployments.json` file
 pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
@@ -130,7 +133,10 @@ pub const PERMIT2_CONTRACT_KEY: &str = "permit2_contract";
 pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
 
 /// The verifier contract key in the `deployments.json` file
-pub const VERIFIER_CONTRACT_KEY: &str = "verifier_contract";
+pub const VERIFIER_CORE_CONTRACT_KEY: &str = "verifier_core_contract";
+
+/// The verifier settlement contract key in the `deployments.json` file
+pub const VERIFIER_SETTLEMENT_CONTRACT_KEY: &str = "verifier_settlement_contract";
 
 /// The vkeys contract key in the `deployments.json` file
 pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";

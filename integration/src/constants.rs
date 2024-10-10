@@ -19,11 +19,17 @@ pub(crate) const UNPAUSE_METHOD_NAME: &str = "unpause";
 /// The name of the `set_fee` method on the Darkpool contract
 pub(crate) const SET_FEE_METHOD_NAME: &str = "setFee";
 
-/// The name of the `set_darkpool_core_address` method on the Darkpool contract
-pub(crate) const SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME: &str = "setDarkpoolCoreAddress";
+/// The name of the `set_core_wallet_ops_address` method on the Darkpool contract
+pub(crate) const SET_CORE_WALLET_OPS_ADDRESS_METHOD_NAME: &str = "setCoreWalletOpsAddress";
 
-/// The name of the `set_verifier_address` method on the Darkpool contract
-pub(crate) const SET_VERIFIER_ADDRESS_METHOD_NAME: &str = "setVerifierAddress";
+/// The name of the `set_core_settlement_address` method on the Darkpool contract
+pub(crate) const SET_CORE_SETTLEMENT_ADDRESS_METHOD_NAME: &str = "setCoreSettlementAddress";
+
+/// The name of the `set_verifier_core_address` method on the Darkpool contract
+pub(crate) const SET_VERIFIER_CORE_ADDRESS_METHOD_NAME: &str = "setVerifierCoreAddress";
+
+/// The name of the `set_verifier_settlement_address` method on the Darkpool contract
+pub(crate) const SET_VERIFIER_SETTLEMENT_ADDRESS_METHOD_NAME: &str = "setVerifierSettlementAddress";
 
 /// The name of the `set_vkeys_address` method on the Darkpool contract
 pub(crate) const SET_VKEYS_ADDRESS_METHOD_NAME: &str = "setVkeysAddress";

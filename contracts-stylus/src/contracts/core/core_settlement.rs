@@ -7,7 +7,7 @@ use core::borrow::BorrowMut;
 
 use crate::{
     assert_result,
-    contracts::core::core_helpers::{call_verifier, fetch_vkeys, rotate_wallet},
+    contracts::core::core_helpers::{call_settlement_verifier, fetch_vkeys, rotate_wallet},
     if_verifying,
     utils::{
         constants::{
@@ -16,7 +16,8 @@ use crate::{
             VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
-            deserialize_from_calldata, serialize_atomic_match_statements_for_verification,
+            deserialize_from_calldata, postcard_serialize,
+            serialize_atomic_match_statements_for_verification,
             serialize_match_statements_for_verification, u256_to_scalar,
         },
         solidity::{
@@ -28,7 +29,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
-    MatchPayload, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
+    MatchPayload, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, VerifyMatchCalldata,
 };
 use stylus_sdk::{
     abi::Bytes,
@@ -69,10 +70,10 @@ pub struct CoreSettlementContract {
 
     /// The address of the darkpool core contract
     /// (unused in the darkpool core contract)
-    _darkpool_core_address: StorageAddress,
+    _core_wallet_ops_address: StorageAddress,
 
-    /// The address of the verifier contract
-    verifier_address: StorageAddress,
+    /// The address of the verifier core contract
+    verifier_core_address: StorageAddress,
 
     /// The address of the vkeys contract
     vkeys_address: StorageAddress,
@@ -102,11 +103,28 @@ pub struct CoreSettlementContract {
 
     /// The BabyJubJub EC-ElGamal public encryption key for the protocol
     protocol_public_encryption_key: StorageArray<StorageU256, 2>,
+
+    // --- Updated Fields for Atomic Settlement --- //
+    /// The address of the core settlement contract
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) _core_settlement_address: StorageAddress,
+
+    /// The address of the verifier settlement contract
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) verifier_settlement_address: StorageAddress,
 }
 
 impl CoreContractStorage for CoreSettlementContract {
-    fn verifier_address(&self) -> Address {
-        self.verifier_address.get()
+    fn verifier_core_address(&self) -> Address {
+        self.verifier_core_address.get()
+    }
+
+    fn verifier_settlement_address(&self) -> Address {
+        self.verifier_settlement_address.get()
     }
 
     fn vkeys_address(&self) -> Address {
@@ -321,19 +339,18 @@ impl CoreSettlementContract {
             valid_match_settle_statement,
         )?;
 
-        let batch_verification_bundle_ser = [
-            process_match_settle_vkeys,
-            match_proofs.0,
+        let verifier_address = storage.borrow_mut().verifier_core_address();
+        let calldata = VerifyMatchCalldata {
+            verifier_address,
+            match_vkeys: process_match_settle_vkeys,
+            match_proofs: match_proofs.0,
             match_public_inputs,
-            match_linking_proofs.0,
-        ]
-        .concat();
+            match_linking_proofs: match_linking_proofs.0,
+        };
 
-        let result = call_verifier::<_, _, verifyMatchCall>(
-            storage,
-            (batch_verification_bundle_ser.into(),),
-        )?;
-
+        let calldata_bytes = postcard_serialize(&calldata)?;
+        let result =
+            call_settlement_verifier::<_, _, verifyMatchCall>(storage, (calldata_bytes.into(),))?;
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
@@ -363,7 +380,7 @@ impl CoreSettlementContract {
         ]
         .concat();
 
-        let result = call_verifier::<_, _, verifyAtomicMatchCall>(
+        let result = call_settlement_verifier::<_, _, verifyAtomicMatchCall>(
             storage,
             (batch_verification_bundle_ser.into(),),
         )?;

@@ -12,8 +12,10 @@ use contracts_common::types::{
 pub enum StylusContract {
     /// The darkpool contract
     Darkpool,
-    /// The darkpool core contract
-    DarkpoolCore,
+    /// The core wallet operations contract
+    CoreWalletOps,
+    /// The core settlement contract
+    CoreSettlement,
     /// The darkpool test contract
     DarkpoolTestContract,
     /// The Merkle contract
@@ -21,7 +23,9 @@ pub enum StylusContract {
     /// The Merkle test contract
     MerkleTestContract,
     /// The verifier contract
-    Verifier,
+    VerifierCore,
+    /// The verifier settlement contract
+    VerifierSettlement,
     /// The verification keys contract
     Vkeys,
     /// The test verification keys contract
@@ -40,11 +44,13 @@ impl Display for StylusContract {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             StylusContract::Darkpool => write!(f, "darkpool"),
-            StylusContract::DarkpoolCore => write!(f, "darkpool-core"),
+            StylusContract::CoreWalletOps => write!(f, "core-wallet-ops"),
+            StylusContract::CoreSettlement => write!(f, "core-settlement"),
             StylusContract::DarkpoolTestContract => write!(f, "darkpool-test-contract"),
             StylusContract::Merkle => write!(f, "merkle"),
             StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),
-            StylusContract::Verifier => write!(f, "verifier"),
+            StylusContract::VerifierCore => write!(f, "verifier-core"),
+            StylusContract::VerifierSettlement => write!(f, "verifier-settlement"),
             StylusContract::Vkeys => write!(f, "vkeys"),
             StylusContract::TestVkeys => write!(f, "test-vkeys"),
             StylusContract::TransferExecutor => write!(f, "transfer-executor"),

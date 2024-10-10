@@ -10,10 +10,11 @@ use cli::Cli;
 use ethers::abi::Address;
 use scripts::{
     constants::{
-        DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
-        DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY, PERMIT2_CONTRACT_KEY,
-        PRECOMPILE_TEST_CONTRACT_KEY, TEST_ERC20_TICKER, TEST_UPGRADE_TARGET_CONTRACT_KEY,
-        TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        CORE_SETTLEMENT_CONTRACT_KEY, CORE_WALLET_OPS_CONTRACT_KEY, DARKPOOL_CONTRACT_KEY,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
+        PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TEST_ERC20_TICKER,
+        TEST_UPGRADE_TARGET_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
+        VERIFIER_CORE_CONTRACT_KEY, VERIFIER_SETTLEMENT_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, setup_client, LocalWalletHttpClient},
 };
@@ -36,12 +37,16 @@ pub struct TestArgs {
     pub proxy_admin_address: Address,
     /// The address of the darkpool implementation contract
     pub darkpool_impl_address: Address,
-    /// The address of the darkpool core contract
-    pub darkpool_core_address: Address,
+    /// The address of the core wallet ops contract
+    pub core_wallet_ops_address: Address,
+    /// The address of the core settlement contract
+    pub core_settlement_address: Address,
     /// The address of the Merkle contract
     pub merkle_address: Address,
-    /// The address of the verifier contract
-    pub verifier_address: Address,
+    /// The address of the verifier core contract
+    pub verifier_core_address: Address,
+    /// The address of the verifier settlement contract
+    pub verifier_settlement_address: Address,
     /// The address of the verification keys contract
     pub vkeys_address: Address,
     /// The address of the permit2 contract
@@ -76,16 +81,26 @@ impl From<Cli> for TestArgs {
             parse_addr_from_deployments_file(&value.deployments_file, DARKPOOL_CONTRACT_KEY)
                 .unwrap();
 
-        let darkpool_core_address =
-            parse_addr_from_deployments_file(&value.deployments_file, DARKPOOL_CORE_CONTRACT_KEY)
+        let core_wallet_ops_address =
+            parse_addr_from_deployments_file(&value.deployments_file, CORE_WALLET_OPS_CONTRACT_KEY)
+                .unwrap();
+
+        let core_settlement_address =
+            parse_addr_from_deployments_file(&value.deployments_file, CORE_SETTLEMENT_CONTRACT_KEY)
                 .unwrap();
 
         let merkle_address =
             parse_addr_from_deployments_file(&value.deployments_file, MERKLE_CONTRACT_KEY).unwrap();
 
-        let verifier_address =
-            parse_addr_from_deployments_file(&value.deployments_file, VERIFIER_CONTRACT_KEY)
+        let verifier_core_address =
+            parse_addr_from_deployments_file(&value.deployments_file, VERIFIER_CORE_CONTRACT_KEY)
                 .unwrap();
+
+        let verifier_settlement_address = parse_addr_from_deployments_file(
+            &value.deployments_file,
+            VERIFIER_SETTLEMENT_CONTRACT_KEY,
+        )
+        .unwrap();
 
         let vkeys_address =
             parse_addr_from_deployments_file(&value.deployments_file, VKEYS_CONTRACT_KEY).unwrap();
@@ -118,9 +133,11 @@ impl From<Cli> for TestArgs {
             darkpool_proxy_address,
             proxy_admin_address,
             darkpool_impl_address,
-            darkpool_core_address,
+            core_wallet_ops_address,
+            core_settlement_address,
             merkle_address,
-            verifier_address,
+            verifier_core_address,
+            verifier_settlement_address,
             vkeys_address,
             permit2_address,
             transfer_executor_address,

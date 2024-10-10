@@ -1,12 +1,12 @@
 //! Core darkpool contracts
 
-#[cfg(feature = "darkpool-core")]
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
     storage::{StorageArray, StorageBool, StorageMap, StorageU256},
 };
 
-#[cfg(feature = "darkpool-core")]
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub mod core_helpers;
 #[cfg(feature = "core-settlement")]
 pub mod core_settlement;
@@ -14,10 +14,13 @@ pub mod core_settlement;
 pub mod core_wallet_ops;
 
 /// A trait that allows for storage access to the standard storage layout for core contracts
-#[cfg(feature = "darkpool-core")]
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub trait CoreContractStorage {
-    /// Get the address of the verifier contract
-    fn verifier_address(&self) -> Address;
+    /// Get the address of the verifier core contract
+    fn verifier_core_address(&self) -> Address;
+
+    /// Get the address of the verifier settlement contract
+    fn verifier_settlement_address(&self) -> Address;
 
     /// Get the address of the vkeys contract
     fn vkeys_address(&self) -> Address;

@@ -31,13 +31,14 @@ use util::hex::jubjub_from_hex_string;
 use crate::{
     constants::{
         AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
-        CARGO_COMMAND, DARKPOOL_CONTRACT_KEY, DARKPOOL_CORE_CONTRACT_KEY, DEFAULT_RUSTFLAGS,
-        DEPLOYMENTS_KEY, DEPLOY_COMMAND, INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR,
-        MERKLE_CONTRACT_KEY, NO_VERIFY_FEATURE, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_Z,
-        PRECOMPILE_TEST_CONTRACT_KEY, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
-        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, TEST_UPGRADE_TARGET_CONTRACT_KEY,
-        TRANSFER_EXECUTOR_CONTRACT_KEY, VERIFIER_CONTRACT_KEY, VKEYS_CONTRACT_KEY, WASM_EXTENSION,
-        WASM_OPT_COMMAND, WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
+        CARGO_COMMAND, CORE_SETTLEMENT_CONTRACT_KEY, CORE_WALLET_OPS_CONTRACT_KEY,
+        DARKPOOL_CONTRACT_KEY, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
+        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NO_VERIFY_FEATURE,
+        OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY,
+        RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
+        TARGET_PATH_SEGMENT, TEST_UPGRADE_TARGET_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
+        VERIFIER_CORE_CONTRACT_KEY, VERIFIER_SETTLEMENT_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        WASM_EXTENSION, WASM_OPT_COMMAND, WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -140,9 +141,11 @@ pub fn write_vkey_file(
 pub fn get_contract_key(contract: StylusContract) -> &'static str {
     match contract {
         StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
-        StylusContract::DarkpoolCore => DARKPOOL_CORE_CONTRACT_KEY,
+        StylusContract::CoreWalletOps => CORE_WALLET_OPS_CONTRACT_KEY,
+        StylusContract::CoreSettlement => CORE_SETTLEMENT_CONTRACT_KEY,
         StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
-        StylusContract::Verifier => VERIFIER_CONTRACT_KEY,
+        StylusContract::VerifierCore => VERIFIER_CORE_CONTRACT_KEY,
+        StylusContract::VerifierSettlement => VERIFIER_SETTLEMENT_CONTRACT_KEY,
         StylusContract::Vkeys | StylusContract::TestVkeys => VKEYS_CONTRACT_KEY,
         StylusContract::TransferExecutor => TRANSFER_EXECUTOR_CONTRACT_KEY,
         StylusContract::DummyUpgradeTarget => TEST_UPGRADE_TARGET_CONTRACT_KEY,
@@ -174,8 +177,10 @@ pub fn get_public_encryption_key(
 /// Prepare calldata for the Darkpool contract's `initialize` method
 #[allow(clippy::too_many_arguments)]
 pub fn darkpool_initialize_calldata(
-    darkpool_core_address: Address,
-    verifier_address: Address,
+    core_wallet_ops_address: Address,
+    core_settlement_address: Address,
+    verifier_core_address: Address,
+    verifier_settlement_address: Address,
     vkeys_address: Address,
     merkle_address: Address,
     transfer_executor_address: Address,
@@ -183,8 +188,11 @@ pub fn darkpool_initialize_calldata(
     protocol_fee: U256,
     protocol_public_encryption_key: PublicEncryptionKey,
 ) -> Result<Vec<u8>, ScriptError> {
-    let darkpool_core_address = AlloyAddress::from_slice(darkpool_core_address.as_bytes());
-    let verifier_address = AlloyAddress::from_slice(verifier_address.as_bytes());
+    let core_wallet_ops_address = AlloyAddress::from_slice(core_wallet_ops_address.as_bytes());
+    let core_settlement_address = AlloyAddress::from_slice(core_settlement_address.as_bytes());
+    let verifier_core_address = AlloyAddress::from_slice(verifier_core_address.as_bytes());
+    let verifier_settlement_address =
+        AlloyAddress::from_slice(verifier_settlement_address.as_bytes());
     let vkeys_address = AlloyAddress::from_slice(vkeys_address.as_bytes());
     let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
     let transfer_executor_address = AlloyAddress::from_slice(transfer_executor_address.as_bytes());
@@ -195,8 +203,10 @@ pub fn darkpool_initialize_calldata(
     ];
 
     Ok(initializeCall::new((
-        darkpool_core_address,
-        verifier_address,
+        core_wallet_ops_address,
+        core_settlement_address,
+        verifier_core_address,
+        verifier_settlement_address,
         vkeys_address,
         merkle_address,
         transfer_executor_address,
@@ -225,9 +235,9 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 /// compilation of the given contract
 pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
     let rustflags = match contract {
-        StylusContract::Verifier
+        StylusContract::VerifierCore
+        | StylusContract::VerifierSettlement
         | StylusContract::Darkpool
-        | StylusContract::DarkpoolCore
         | StylusContract::DarkpoolTestContract => {
             format!(
                 "{}{} {}",
@@ -244,10 +254,7 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
 /// given contract
 pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str {
     match contract {
-        StylusContract::Verifier
-        | StylusContract::Darkpool
-        | StylusContract::DarkpoolCore
-        | StylusContract::DarkpoolTestContract => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
+        StylusContract::DarkpoolTestContract => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
         _ => AGGRESSIVE_OPTIMIZATION_FLAG,
     }
 }

@@ -5,7 +5,7 @@ use ethers::prelude::abigen;
 abigen!(
     DarkpoolTestContract,
     r#"[
-        function initialize(address memory darkpool_core_address, address memory verifier_address, address memory vkeys_address, address memory merkle_address, address memory transfer_executor_address, address memory permit2_address, uint256 memory protocol_fee, uint256[2] protocol_public_encryption_key) external
+        function initialize(address memory core_wallet_ops_address, address memory core_settlement_address, address memory verifier_core_address, address memory verifier_settlement_address, address memory vkeys_address, address memory merkle_address, address memory transfer_executor_address, address memory permit2_address, uint256 memory protocol_fee, uint256[2] protocol_public_encryption_key) external
 
         function owner() external view returns (address)
         function transferOwnership(address memory new_owner) external
@@ -15,8 +15,10 @@ abigen!(
         function unpause() external
 
         function setFee(uint256 memory new_fee) external
-        function setDarkpoolCoreAddress(address memory darkpool_core_address) external
-        function setVerifierAddress(address memory verifier_address) external
+        function setCoreWalletOpsAddress(address memory core_wallet_ops_address) external
+        function setCoreSettlementAddress(address memory core_settlement_address) external
+        function setVerifierCoreAddress(address memory verifier_core_address) external
+        function setVerifierSettlementAddress(address memory verifier_settlement_address) external
         function setVkeysAddress(address memory vkeys_address) external
         function setMerkleAddress(address memory merkle_address) external
         function setTransferExecutorAddress(address memory transfer_executor_address) external
@@ -62,7 +64,15 @@ abigen!(
     VerifierContract,
     r#"[
         function verify(bytes memory verification_bundle) external view returns (bool)
+        function verifyBatch(bytes memory verification_bundle) external view returns (bool)
+    ]"#
+);
+
+abigen!(
+    VerifierSettlementContract,
+    r#"[
         function verifyMatch(bytes memory match_bundle) external view returns (bool)
+        function verifyMatchAtomic(bytes memory match_bundle) external view returns (bool)
     ]"#
 );
 

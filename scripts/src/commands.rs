@@ -156,7 +156,7 @@ pub async fn deploy_test_contracts(
     .await?;
 
     info!("Deploying verifier contract");
-    deploy_stylus_args.contract = StylusContract::Verifier;
+    deploy_stylus_args.contract = StylusContract::VerifierCore;
     build_and_deploy_stylus_contract(
         deploy_stylus_args,
         rpc_url,
@@ -166,8 +166,30 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
-    info!("Deploying darkpool core contract");
-    deploy_stylus_args.contract = StylusContract::DarkpoolCore;
+    info!("Deploying verifier settlement contract");
+    deploy_stylus_args.contract = StylusContract::VerifierSettlement;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying core wallet operations contract");
+    deploy_stylus_args.contract = StylusContract::CoreWalletOps;
+    build_and_deploy_stylus_contract(
+        deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying core settlement contract");
+    deploy_stylus_args.contract = StylusContract::CoreSettlement;
     build_and_deploy_stylus_contract(
         deploy_stylus_args,
         rpc_url,
@@ -220,17 +242,25 @@ pub async fn deploy_proxy(
         deployments_path,
         get_contract_key(StylusContract::Darkpool),
     )?;
-    let darkpool_core_address = parse_addr_from_deployments_file(
+    let core_wallet_ops_address = parse_addr_from_deployments_file(
         deployments_path,
-        get_contract_key(StylusContract::DarkpoolCore),
+        get_contract_key(StylusContract::CoreWalletOps),
+    )?;
+    let core_settlement_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::CoreSettlement),
     )?;
     let merkle_address = parse_addr_from_deployments_file(
         deployments_path,
         get_contract_key(StylusContract::Merkle),
     )?;
-    let verifier_address = parse_addr_from_deployments_file(
+    let verifier_core_address = parse_addr_from_deployments_file(
         deployments_path,
-        get_contract_key(StylusContract::Verifier),
+        get_contract_key(StylusContract::VerifierCore),
+    )?;
+    let verifier_settlement_address = parse_addr_from_deployments_file(
+        deployments_path,
+        get_contract_key(StylusContract::VerifierSettlement),
     )?;
 
     let vkeys_address = parse_addr_from_deployments_file(
@@ -254,8 +284,10 @@ pub async fn deploy_proxy(
         get_public_encryption_key(args.protocol_public_encryption_key)?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
-        darkpool_core_address,
-        verifier_address,
+        core_wallet_ops_address,
+        core_settlement_address,
+        verifier_core_address,
+        verifier_settlement_address,
         vkeys_address,
         merkle_address,
         transfer_executor_address,

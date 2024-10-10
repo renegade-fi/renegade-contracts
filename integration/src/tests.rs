@@ -8,8 +8,10 @@ use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
 use contracts_common::{
     constants::{
-        DARKPOOL_CORE_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT,
-        TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
+        CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR,
+        MERKLE_ADDRESS_SELECTOR, TEST_MERKLE_HEIGHT, TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
+        VERIFIER_CORE_ADDRESS_SELECTOR, VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
+        VKEYS_ADDRESS_SELECTOR,
     },
     custom_serde::statement_to_public_inputs,
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
@@ -41,13 +43,14 @@ use crate::{
     abis::{
         DarkpoolProxyAdminContract, DarkpoolTestContract, DummyErc20Contract,
         DummyUpgradeTargetContract, MerkleContract, PrecompileTestContract,
-        TransferExecutorContract, VerifierContract,
+        TransferExecutorContract, VerifierContract, VerifierSettlementContract,
     },
     constants::{
-        PAUSE_METHOD_NAME, SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME, SET_FEE_METHOD_NAME,
+        PAUSE_METHOD_NAME, SET_CORE_SETTLEMENT_ADDRESS_METHOD_NAME,
+        SET_CORE_WALLET_OPS_ADDRESS_METHOD_NAME, SET_FEE_METHOD_NAME,
         SET_MERKLE_ADDRESS_METHOD_NAME, SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME,
-        SET_VERIFIER_ADDRESS_METHOD_NAME, SET_VKEYS_ADDRESS_METHOD_NAME,
-        TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
+        SET_VERIFIER_CORE_ADDRESS_METHOD_NAME, SET_VERIFIER_SETTLEMENT_ADDRESS_METHOD_NAME,
+        SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
         assert_all_revert, assert_all_succeed, assert_only_owner, dummy_erc20_deposit,
@@ -210,7 +213,7 @@ integration_test_async!(test_merkle);
 
 /// Test the verifier functionality
 async fn test_verifier(test_args: TestArgs) -> Result<()> {
-    let contract = VerifierContract::new(test_args.verifier_address, test_args.client);
+    let contract = VerifierContract::new(test_args.verifier_core_address, test_args.client.clone());
     let mut rng = thread_rng();
 
     // Test valid single proof verification
@@ -233,6 +236,8 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
     assert!(!unsuccessful_res, "Invalid proof verified");
 
     // Test valid batch verification
+    let settlement_verifier =
+        VerifierSettlementContract::new(test_args.verifier_settlement_address, test_args.client);
 
     let (
         match_vkeys,
@@ -243,7 +248,9 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
         _,
     ) = generate_match_bundle(&mut rng)?;
 
+    let verifier_address = AlloyAddress::from_slice(test_args.verifier_core_address.as_bytes());
     let match_verification_bundle_calldata = serialize_match_verification_bundle(
+        verifier_address,
         &match_vkeys,
         &match_linking_vkeys,
         &match_proofs,
@@ -251,12 +258,11 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
         &match_linking_proofs,
     )?;
 
-    let successful_res = contract
+    let successful_res = settlement_verifier
         .verify_match(match_verification_bundle_calldata)
         .call()
         .await?;
     assert!(successful_res, "Valid match bundle did not verify");
-
     // Test invalid batch verification
 
     let mutate_plonk_proof = rng.gen_bool(0.5);
@@ -267,6 +273,7 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
     }
 
     let match_verification_bundle_calldata = serialize_match_verification_bundle(
+        verifier_address,
         &match_vkeys,
         &match_linking_vkeys,
         &match_proofs,
@@ -274,7 +281,7 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
         &match_linking_proofs,
     )?;
 
-    let unsuccessful_res = contract
+    let unsuccessful_res = settlement_verifier
         .verify_match(match_verification_bundle_calldata)
         .call()
         .await?;
@@ -372,14 +379,24 @@ async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> 
 
     for (method, address_selector, original_address) in [
         (
-            SET_DARKPOOL_CORE_ADDRESS_METHOD_NAME,
-            DARKPOOL_CORE_ADDRESS_SELECTOR,
-            test_args.darkpool_core_address,
+            SET_CORE_WALLET_OPS_ADDRESS_METHOD_NAME,
+            CORE_WALLET_OPS_ADDRESS_SELECTOR,
+            test_args.core_wallet_ops_address,
         ),
         (
-            SET_VERIFIER_ADDRESS_METHOD_NAME,
-            VERIFIER_ADDRESS_SELECTOR,
-            test_args.verifier_address,
+            SET_CORE_SETTLEMENT_ADDRESS_METHOD_NAME,
+            CORE_SETTLEMENT_ADDRESS_SELECTOR,
+            test_args.core_settlement_address,
+        ),
+        (
+            SET_VERIFIER_CORE_ADDRESS_METHOD_NAME,
+            VERIFIER_CORE_ADDRESS_SELECTOR,
+            test_args.verifier_core_address,
+        ),
+        (
+            SET_VERIFIER_SETTLEMENT_ADDRESS_METHOD_NAME,
+            VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
+            test_args.verifier_settlement_address,
         ),
         (
             SET_VKEYS_ADDRESS_METHOD_NAME,
@@ -439,8 +456,10 @@ integration_test_async!(test_implementation_address_setters);
 async fn test_initializable(test_args: TestArgs) -> Result<()> {
     let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
-    let dummy_darkpool_core_address = Address::random();
-    let dummy_verifier_address = Address::random();
+    let dummy_core_wallet_ops_address = Address::random();
+    let dummy_core_settlement_address = Address::random();
+    let dummy_verifier_core_address = Address::random();
+    let dummy_verifier_settlement_address = Address::random();
     let dummy_vkeys_address = Address::random();
     let dummy_merkle_address = Address::random();
     let dummy_transfer_executor_address = Address::random();
@@ -451,14 +470,16 @@ async fn test_initializable(test_args: TestArgs) -> Result<()> {
     assert!(
         contract
             .initialize(
-                dummy_darkpool_core_address,
-                dummy_verifier_address,
+                dummy_core_wallet_ops_address,
+                dummy_core_settlement_address,
+                dummy_verifier_core_address,
+                dummy_verifier_settlement_address,
                 dummy_vkeys_address,
                 dummy_merkle_address,
                 dummy_transfer_executor_address,
                 dummy_permit2_address,
                 dummy_protocol_fee,
-                dummy_protocol_public_encryption_key
+                dummy_protocol_public_encryption_key,
             )
             .send()
             .await
@@ -551,8 +572,8 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
-        SET_VERIFIER_ADDRESS_METHOD_NAME,
-        test_args.verifier_address,
+        SET_VERIFIER_CORE_ADDRESS_METHOD_NAME,
+        test_args.verifier_core_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
@@ -1098,7 +1119,7 @@ async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_update_wallet);
 
 /// Test the `process_match_settle` method on the darkpool
-async fn test_process_match_settle(test_args: TestArgs) -> Result<()> {
+async fn test_process_match_settle_success(test_args: TestArgs) -> Result<()> {
     let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
 
     // Ensure the merkle state is cleared for the test
@@ -1177,7 +1198,7 @@ async fn test_process_match_settle(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test_async!(test_process_match_settle);
+integration_test_async!(test_process_match_settle_success);
 
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when order settlement indices are inconsistent

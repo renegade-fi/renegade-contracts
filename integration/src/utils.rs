@@ -18,7 +18,7 @@ use contracts_common::{
     types::{
         ExternalTransfer, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
         MatchVkeys, Proof, PublicInputs, PublicSigningKey, ScalarField, TransferAuxData,
-        VerificationKey,
+        VerificationKey, VerifyMatchCalldata,
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
@@ -158,28 +158,27 @@ pub fn serialize_verification_bundle(
 /// Serializes the given bundle of verification key, proof, and public inputs
 /// used in a match into a [`Bytes`] object that can be passed in as calldata
 pub fn serialize_match_verification_bundle(
+    verifier_address: AlloyAddress,
     match_vkeys: &MatchVkeys,
     match_linking_vkeys: &MatchLinkingVkeys,
     match_proofs: &MatchProofs,
     match_public_inputs: &MatchPublicInputs,
     match_linking_proofs: &MatchLinkingProofs,
 ) -> Result<Bytes> {
-    let match_vkeys_ser: Vec<u8> = postcard::to_allocvec(match_vkeys)?;
-    let match_linking_vkeys_ser: Vec<u8> = postcard::to_allocvec(match_linking_vkeys)?;
-    let match_proofs_ser: Vec<u8> = postcard::to_allocvec(match_proofs)?;
-    let match_public_inputs_ser: Vec<u8> = postcard::to_allocvec(match_public_inputs)?;
-    let match_linking_proofs_ser: Vec<u8> = postcard::to_allocvec(match_linking_proofs)?;
+    let match_vkeys_ser = serialize_to_calldata(&match_vkeys)?;
+    let match_linking_vkeys_ser = serialize_to_calldata(&match_linking_vkeys)?;
+    let match_vkeys = [match_vkeys_ser, match_linking_vkeys_ser].concat();
 
-    let bundle_bytes = [
-        match_vkeys_ser,
-        match_linking_vkeys_ser,
-        match_proofs_ser,
-        match_public_inputs_ser,
-        match_linking_proofs_ser,
-    ]
-    .concat();
+    let calldata = VerifyMatchCalldata {
+        verifier_address,
+        match_vkeys,
+        match_proofs: serialize_to_calldata(&match_proofs)?.to_vec(),
+        match_public_inputs: serialize_to_calldata(&match_public_inputs)?.to_vec(),
+        match_linking_proofs: serialize_to_calldata(&match_linking_proofs)?.to_vec(),
+    };
 
-    Ok(bundle_bytes.into())
+    let calldata_ser: Vec<u8> = postcard::to_allocvec(&calldata)?;
+    Ok(calldata_ser.into())
 }
 
 /// Creates an [`ExternalTransfer`] object for the given account address,

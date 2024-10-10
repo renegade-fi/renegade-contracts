@@ -5,7 +5,8 @@ use core::borrow::{Borrow, BorrowMut};
 use alloc::vec::Vec;
 use contracts_common::constants::{
     CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR,
-    TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
+    TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_CORE_ADDRESS_SELECTOR,
+    VERIFIER_SETTLEMENT_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -37,8 +38,12 @@ struct DarkpoolTestContract {
 }
 
 impl CoreContractStorage for DarkpoolTestContract {
-    fn verifier_address(&self) -> Address {
-        self.darkpool.verifier_address.get()
+    fn verifier_core_address(&self) -> Address {
+        self.darkpool.verifier_core_address.get()
+    }
+
+    fn verifier_settlement_address(&self) -> Address {
+        self.darkpool.verifier_settlement_address.get()
     }
 
     fn vkeys_address(&self) -> Address {
@@ -123,7 +128,8 @@ impl DarkpoolTestContract {
         let implementation_address = match address_selector {
             CORE_WALLET_OPS_ADDRESS_SELECTOR => this.get_core_wallet_ops_address(),
             CORE_SETTLEMENT_ADDRESS_SELECTOR => this.get_core_settlement_address(),
-            VERIFIER_ADDRESS_SELECTOR => this.verifier_address.get(),
+            VERIFIER_CORE_ADDRESS_SELECTOR => this.verifier_core_address.get(),
+            VERIFIER_SETTLEMENT_ADDRESS_SELECTOR => this.verifier_settlement_address.get(),
             VKEYS_ADDRESS_SELECTOR => this.vkeys_address.get(),
             MERKLE_ADDRESS_SELECTOR => this.merkle_address.get(),
             TRANSFER_EXECUTOR_ADDRESS_SELECTOR => this.transfer_executor_address.get(),
