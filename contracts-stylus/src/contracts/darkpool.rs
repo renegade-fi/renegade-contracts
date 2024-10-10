@@ -68,22 +68,22 @@ pub struct DarkpoolContract {
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
     /// boolean indicating whether or not the nullifier is spent
-    nullifier_set: StorageMap<U256, StorageBool>,
+    pub(crate) nullifier_set: StorageMap<U256, StorageBool>,
 
     /// The set of public blinder shares used by wallets committed into the darkpool
     ///
     /// We disallow re-use of public blinder shares to prevent clients indexing the
     /// pool from seeing conflicting wallet shares
-    public_blinder_set: StorageMap<U256, StorageBool>,
+    pub(crate) public_blinder_set: StorageMap<U256, StorageBool>,
 
     /// The protocol fee, representing a percentage of the trade volume
     /// as a fixed-point number shifted by 32 bits.
     ///
     /// I.e., the fee is `protocol_fee / 2^32`
-    protocol_fee: StorageU256,
+    pub(crate) protocol_fee: StorageU256,
 
     /// The BabyJubJub EC-ElGamal public encryption key for the protocol
-    protocol_public_encryption_key: StorageArray<StorageU256, 2>,
+    pub(crate) protocol_public_encryption_key: StorageArray<StorageU256, 2>,
 }
 
 #[external]

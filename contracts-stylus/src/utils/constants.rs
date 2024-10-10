@@ -63,13 +63,13 @@ pub const ROOT_NOT_IN_HISTORY_ERROR_MESSAGE: &[u8] = b"root not in history";
 
 /// The revert message when order settlement indices are different
 /// between a VALID COMMITMENTS & VALID MATCH SETTLE statement
-#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
+#[cfg(feature = "core-settlement")]
 pub const INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE: &[u8] =
     b"invalid order settlement indices";
 
 /// The revert message when the protocol fee is incorrect in a
 /// VALID MATCH SETTLE statement
-#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
+#[cfg(feature = "core-settlement")]
 pub const INVALID_PROTOCOL_FEE_ERROR_MESSAGE: &[u8] = b"invalid protocol fee";
 
 /// The revert message when the protocol public encryption key is

@@ -16,6 +16,8 @@ alloy-sol-types = { workspace = true }
 serde = { workspace = true }
 
 [features]
+core-wallet-ops = ["darkpool-core"]
+core-settlement = ["darkpool-core"]
 darkpool = []
 darkpool-test-contract = []
 darkpool-core = []

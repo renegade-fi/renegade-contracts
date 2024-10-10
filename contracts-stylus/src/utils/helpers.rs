@@ -68,7 +68,7 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
 /// Serializes the statements used in verifying the settlement of a
 /// matched trade into scalars, builds the [`MatchPublicInputs`] struct,
 /// and then serialized it into bytes, as expected by the verifier contract.
-#[cfg_attr(not(feature = "darkpool-core"), allow(dead_code))]
+#[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
 pub fn serialize_match_statements_for_verification(
     valid_commitments_0: &ValidCommitmentsStatement,
     valid_commitments_1: &ValidCommitmentsStatement,
@@ -94,6 +94,7 @@ pub fn serialize_match_statements_for_verification(
 /// Serializes the statements used in verifying the settlement of an atomic
 /// matched trade into scalars, builds the [`AtomicMatchSettlePublicInputs`] struct,
 /// and then serializes it into bytes, as expected by the verifier contract.
+#[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
 pub fn serialize_atomic_match_statements_for_verification(
     valid_commitments: &ValidCommitmentsStatement,
     valid_reblind: &ValidReblindStatement,
