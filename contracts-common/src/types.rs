@@ -72,6 +72,18 @@ pub struct MatchVkeys {
     pub valid_match_settle_vkey: VerificationKey,
 }
 
+impl MatchVkeys {
+    /// Convert the verification keys to a vector
+    pub fn to_vec(&self) -> Vec<VerificationKey> {
+        [
+            self.valid_commitments_vkey,
+            self.valid_reblind_vkey,
+            self.valid_match_settle_vkey,
+        ]
+        .to_vec()
+    }
+}
+
 /// The Plonk verification keys used when verifying the settlement of an atomic match
 #[derive(Serialize, Deserialize)]
 pub struct MatchAtomicVkeys {
@@ -81,6 +93,18 @@ pub struct MatchAtomicVkeys {
     pub valid_reblind_vkey: VerificationKey,
     /// The verification key for `VALID MATCH SETTLE ATOMIC`
     pub valid_match_settle_atomic_vkey: VerificationKey,
+}
+
+impl MatchAtomicVkeys {
+    /// Convert the verification keys to a vector
+    pub fn to_vec(&self) -> Vec<VerificationKey> {
+        [
+            self.valid_commitments_vkey,
+            self.valid_reblind_vkey,
+            self.valid_match_settle_atomic_vkey,
+        ]
+        .to_vec()
+    }
 }
 
 /// Preprocessed information for the verification of a linking proof
@@ -166,6 +190,20 @@ pub struct MatchProofs {
     pub valid_match_settle: Proof,
 }
 
+impl MatchProofs {
+    /// Convert the proofs to a vector
+    pub fn to_vec(&self) -> Vec<Proof> {
+        [
+            self.valid_commitments_0,
+            self.valid_reblind_0,
+            self.valid_commitments_1,
+            self.valid_reblind_1,
+            self.valid_match_settle,
+        ]
+        .to_vec()
+    }
+}
+
 /// A proof of a group of linked inputs between two Plonk proofs
 #[serde_as]
 #[derive(Serialize, Deserialize, Default, Copy, Clone)]
@@ -218,6 +256,18 @@ pub struct MatchAtomicProofs {
     pub valid_reblind: Proof,
     /// The proof of `VALID MATCH SETTLE ATOMIC`
     pub valid_match_settle_atomic: Proof,
+}
+
+impl MatchAtomicProofs {
+    /// Convert the proofs to a vector
+    pub fn to_vec(&self) -> Vec<Proof> {
+        [
+            self.valid_commitments,
+            self.valid_reblind,
+            self.valid_match_settle_atomic,
+        ]
+        .to_vec()
+    }
 }
 
 /// The linking proofs used to ensure input consistency
@@ -599,7 +649,20 @@ pub struct MatchPublicInputs {
     pub valid_match_settle: PublicInputs,
 }
 
-/// The commitments to the first wiring polynomials in each of the
+impl MatchPublicInputs {
+    /// Convert the public inputs to a vector
+    pub fn to_vec(self) -> Vec<PublicInputs> {
+        [
+            self.valid_commitments_0,
+            self.valid_reblind_0,
+            self.valid_commitments_1,
+            self.valid_reblind_1,
+            self.valid_match_settle,
+        ]
+        .to_vec()
+    }
+}
+
 /// Plonk proofs being linked during the matching of a trade
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -626,6 +689,27 @@ pub struct MatchLinkingWirePolyComms {
     pub valid_match_settle: G1Affine,
 }
 
+/// The calldata for the `verify_match` function
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct VerifyMatchCalldata {
+    /// The verifier address
+    ///
+    /// TODO: Replace this in favor of a state element
+    #[serde_as(as = "AddressDef")]
+    pub verifier_address: Address,
+    /// The match vkeys
+    pub match_vkeys: MatchVkeys,
+    /// The match linking vkeys
+    pub match_linking_vkeys: MatchLinkingVkeys,
+    /// The match proofs
+    pub match_proofs: MatchProofs,
+    /// The match public inputs
+    pub match_public_inputs: MatchPublicInputs,
+    /// The match linking proofs
+    pub match_linking_proofs: MatchLinkingProofs,
+}
+
 /// The public inputs for the `MatchAtomicProofs`
 #[derive(Serialize, Deserialize)]
 pub struct AtomicMatchPublicInputs {
@@ -635,6 +719,18 @@ pub struct AtomicMatchPublicInputs {
     pub valid_reblind: PublicInputs,
     /// The public inputs to the `VALID MATCH SETTLE` proof
     pub valid_match_settle_atomic: PublicInputs,
+}
+
+impl AtomicMatchPublicInputs {
+    /// Convert the public inputs to a vector
+    pub fn to_vec(self) -> Vec<PublicInputs> {
+        [
+            self.valid_commitments,
+            self.valid_reblind,
+            self.valid_match_settle_atomic,
+        ]
+        .to_vec()
+    }
 }
 
 /// The commitments to the first wiring polynomials in each of the
@@ -656,12 +752,36 @@ pub struct AtomicMatchLinkingWirePolyComms {
     pub valid_match_settle_atomic: G1Affine,
 }
 
+/// The calldata for the `verify_atomic_match` function
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct VerifyAtomicMatchCalldata {
+    /// The verifier address
+    #[serde_as(as = "AddressDef")]
+    pub verifier_address: Address,
+    /// The match atomic vkeys
+    pub match_atomic_vkeys: MatchAtomicVkeys,
+    /// The match atomic linking vkeys
+    pub match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
+    /// The match atomic proofs
+    pub match_atomic_proofs: MatchAtomicProofs,
+    /// The match atomic public inputs
+    pub match_atomic_public_inputs: AtomicMatchPublicInputs,
+    /// The match atomic linking proofs
+    pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
+}
+
 /// The elements to be used in a KZG batch opening pairing check
+#[serde_as]
+#[derive(Default, Serialize, Deserialize)]
 pub struct OpeningElems {
     /// The LHS G1 elements in the pairing check
+    #[serde_as(as = "Vec<G1AffineDef>")]
     pub g1_lhs_elems: Vec<G1Affine>,
     /// The RHS G1 elements in the pairing check
+    #[serde_as(as = "Vec<G1AffineDef>")]
     pub g1_rhs_elems: Vec<G1Affine>,
     /// The elements from which to compute a challenge for the batch opening
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
     pub transcript_elements: Vec<ScalarField>,
 }

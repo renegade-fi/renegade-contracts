@@ -139,7 +139,7 @@ impl_serde_as!(FixedBytes<N>, FixedBytesDef<N>, const N: usize);
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "Address")]
-pub(crate) struct AddressDef(#[serde_as(as = "FixedBytesDef<20>")] FixedBytes<20>);
+pub struct AddressDef(#[serde_as(as = "FixedBytesDef<20>")] FixedBytes<20>);
 
 impl_serde_as!(Address, AddressDef,);
 
