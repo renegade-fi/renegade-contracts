@@ -12,8 +12,8 @@ use contracts_common::{
     constants::{NUM_ATOMIC_MATCH_LINKING_PROOFS, NUM_MATCH_LINKING_PROOFS, NUM_WIRE_TYPES},
     custom_serde::SerdeError,
     types::{
-        AtomicMatchLinkingWirePolyComms, Challenges, G1Affine, G2Affine, LinkingInstance,
-        LinkingProof, LinkingVerificationKey, MatchAtomicLinkingProofs, MatchAtomicLinkingVkeys,
+        Challenges, G1Affine, G2Affine, LinkingInstance, LinkingProof, LinkingVerificationKey,
+        MatchAtomicLinkingProofs, MatchAtomicLinkingVkeys, MatchAtomicLinkingWirePolyComms,
         MatchAtomicProofs, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms,
         MatchProofs, OpeningElems, Proof, PublicInputs, ScalarField, VerificationKey,
     },
@@ -237,7 +237,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
         match_atomic_linking_proofs: MatchAtomicLinkingProofs,
     ) -> Result<OpeningElems, VerifierError> {
-        let match_atomic_linking_wire_poly_comms = AtomicMatchLinkingWirePolyComms {
+        let match_atomic_linking_wire_poly_comms = MatchAtomicLinkingWirePolyComms {
             valid_reblind: match_atomic_proofs.valid_reblind.wire_comms[0],
             valid_commitments: match_atomic_proofs.valid_commitments.wire_comms[0],
             valid_match_settle_atomic: match_atomic_proofs.valid_match_settle_atomic.wire_comms[0],
@@ -758,7 +758,9 @@ mod tests {
         backends::G1ArithmeticError,
         custom_serde::statement_to_public_inputs,
         types::{
-            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, OpeningElems, ScalarField,
+            G1Affine, G2Affine, LinkingProof, LinkingVerificationKey, MatchLinkingProofs,
+            MatchLinkingVkeys, MatchProofs, MatchPublicInputs, MatchVkeys, OpeningElems,
+            ScalarField,
         },
     };
     use contracts_utils::{
@@ -781,7 +783,10 @@ mod tests {
     use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
     use rand::{thread_rng, CryptoRng, Rng, RngCore};
 
-    use super::{G1ArithmeticBackend, Verifier};
+    use super::{errors::VerifierError, G1ArithmeticBackend, Verifier};
+
+    /// A test verifier that uses the Arkworks backend for G1 arithmetic
+    type TestVerifier = Verifier<ArkG1ArithmeticBackend, NativeHasher>;
 
     pub struct ArkG1ArithmeticBackend;
     impl G1ArithmeticBackend for ArkG1ArithmeticBackend {
@@ -859,6 +864,33 @@ mod tests {
             (valid_reblind_hint, valid_commitments_hint),
         )
     }
+
+    /// Test the verification of a match bundle
+    fn test_match_verification(
+        match_vkeys: MatchVkeys,
+        match_proofs: MatchProofs,
+        match_public_inputs: MatchPublicInputs,
+        match_linking_vkeys: MatchLinkingVkeys,
+        match_linking_proofs: MatchLinkingProofs,
+    ) -> Result<bool, VerifierError> {
+        let link_opening = TestVerifier::prep_match_linking_proofs_opening(
+            match_proofs,
+            match_linking_vkeys,
+            match_linking_proofs,
+        )
+        .unwrap();
+
+        TestVerifier::batch_verify(
+            &match_vkeys.to_vec(),
+            &match_proofs.to_vec(),
+            &match_public_inputs.to_vec(),
+            Some(link_opening),
+        )
+    }
+
+    // --------------
+    // | Test Cases |
+    // --------------
 
     #[test]
     fn test_valid_proof_verification() {
@@ -1121,9 +1153,8 @@ mod tests {
         assert!(!result)
     }
 
-    // TODO: Update this test to use the new match verification interface
+    /// Test that a valid match can be verified
     #[test]
-    #[allow(dead_code, unused_variables)]
     fn test_valid_match() {
         let mut rng = thread_rng();
 
@@ -1135,11 +1166,19 @@ mod tests {
             match_linking_proofs,
             _,
         ) = generate_match_bundle(&mut rng).unwrap();
+
+        assert!(test_match_verification(
+            match_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_vkeys,
+            match_linking_proofs
+        )
+        .unwrap())
     }
 
-    // TODO: Update this test to use the new match verification interface
+    /// Test that an invalid match cannot be verified
     #[test]
-    #[allow(dead_code, unused_variables)]
     fn test_invalid_match() {
         let mut rng = thread_rng();
 
@@ -1160,5 +1199,14 @@ mod tests {
         } else {
             mutate_random_linking_proof(&mut rng, &mut match_linking_proofs);
         }
+
+        assert!(!test_match_verification(
+            match_vkeys,
+            match_proofs,
+            match_public_inputs,
+            match_linking_vkeys,
+            match_linking_proofs
+        )
+        .unwrap());
     }
 }
