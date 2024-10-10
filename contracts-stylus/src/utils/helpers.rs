@@ -7,7 +7,7 @@ use contracts_common::{
     constants::{NUM_BYTES_U256, SCALAR_CONVERSION_ERROR_MESSAGE},
     custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
     types::{
-        AtomicMatchPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
+        MatchAtomicPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
         ValidReblindStatement,
     },
@@ -100,14 +100,14 @@ pub fn serialize_atomic_match_statements_for_verification(
     valid_reblind: &ValidReblindStatement,
     valid_match_settle_atomic: &ValidMatchSettleAtomicStatement,
 ) -> Result<Vec<u8>, Vec<u8>> {
-    let atomic_match_public_inputs = AtomicMatchPublicInputs {
+    let match_atomic_public_inputs = MatchAtomicPublicInputs {
         valid_commitments: statement_to_public_inputs(valid_commitments)
             .map_err(map_calldata_ser_error)?,
         valid_reblind: statement_to_public_inputs(valid_reblind).map_err(map_calldata_ser_error)?,
         valid_match_settle_atomic: statement_to_public_inputs(valid_match_settle_atomic)
             .map_err(map_calldata_ser_error)?,
     };
-    postcard_serialize(&atomic_match_public_inputs)
+    postcard_serialize(&match_atomic_public_inputs)
 }
 
 /// Fetch the public blinder from a set of public shares

@@ -74,8 +74,12 @@ pub struct MatchVkeys {
 
 impl MatchVkeys {
     /// Convert the verification keys to a vector
+    ///
+    /// We repeat `VALID COMMITMENTS` and `VALID REBLIND` twice, once for each of the parties
     pub fn to_vec(&self) -> Vec<VerificationKey> {
         [
+            self.valid_commitments_vkey,
+            self.valid_reblind_vkey,
             self.valid_commitments_vkey,
             self.valid_reblind_vkey,
             self.valid_match_settle_vkey,
@@ -712,7 +716,7 @@ pub struct VerifyMatchCalldata {
 
 /// The public inputs for the `MatchAtomicProofs`
 #[derive(Serialize, Deserialize)]
-pub struct AtomicMatchPublicInputs {
+pub struct MatchAtomicPublicInputs {
     /// The public inputs to the internal party's `VALID COMMITMENTS` proof
     pub valid_commitments: PublicInputs,
     /// The public inputs to the internal party's `VALID REBLIND` proof
@@ -721,7 +725,7 @@ pub struct AtomicMatchPublicInputs {
     pub valid_match_settle_atomic: PublicInputs,
 }
 
-impl AtomicMatchPublicInputs {
+impl MatchAtomicPublicInputs {
     /// Convert the public inputs to a vector
     pub fn to_vec(self) -> Vec<PublicInputs> {
         [
@@ -737,7 +741,7 @@ impl AtomicMatchPublicInputs {
 /// Plonk proofs being linked during the matching of a trade
 #[serde_as]
 #[derive(Serialize, Deserialize)]
-pub struct AtomicMatchLinkingWirePolyComms {
+pub struct MatchAtomicLinkingWirePolyComms {
     /// The commitment to the first wiring polynomial in the internal party's
     /// `VALID REBLIND` proof
     #[serde_as(as = "G1AffineDef")]
@@ -766,7 +770,7 @@ pub struct VerifyAtomicMatchCalldata {
     /// The match atomic proofs
     pub match_atomic_proofs: MatchAtomicProofs,
     /// The match atomic public inputs
-    pub match_atomic_public_inputs: AtomicMatchPublicInputs,
+    pub match_atomic_public_inputs: MatchAtomicPublicInputs,
     /// The match atomic linking proofs
     pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
 }
