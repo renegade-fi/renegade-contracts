@@ -63,6 +63,7 @@ pub struct VerificationKey {
 
 /// The Plonk verification keys used when verifying the matching and settlement of a trade
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "test-helpers", derive(Clone))]
 pub struct MatchVkeys {
     /// The verification key for `VALID COMMITMENTS`
     pub valid_commitments_vkey: VerificationKey,
@@ -126,6 +127,7 @@ pub struct LinkingVerificationKey {
 
 /// The linking verification keys used when verifying the matching of a trade
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "test-helpers", derive(Clone))]
 pub struct MatchLinkingVkeys {
     /// The verification key for the
     /// `VALID REBLIND` <-> `VALID COMMITMENTS` link
@@ -640,6 +642,7 @@ pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarFi
 
 /// The set of public inputs for the `MatchProofs`
 #[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "test-helpers", derive(Clone))]
 pub struct MatchPublicInputs {
     /// The public inputs to `PARTY 0 VALID COMMITMENTS`
     pub valid_commitments_0: PublicInputs,
@@ -702,16 +705,14 @@ pub struct VerifyMatchCalldata {
     /// TODO: Replace this in favor of a state element
     #[serde_as(as = "AddressDef")]
     pub verifier_address: Address,
-    /// The match vkeys
-    pub match_vkeys: MatchVkeys,
-    /// The match linking vkeys
-    pub match_linking_vkeys: MatchLinkingVkeys,
+    /// The match vkeys and linking vkeys concatenated then serialized together
+    pub match_vkeys: Vec<u8>,
     /// The match proofs
-    pub match_proofs: MatchProofs,
+    pub match_proofs: Vec<u8>,
     /// The match public inputs
-    pub match_public_inputs: MatchPublicInputs,
+    pub match_public_inputs: Vec<u8>,
     /// The match linking proofs
-    pub match_linking_proofs: MatchLinkingProofs,
+    pub match_linking_proofs: Vec<u8>,
 }
 
 /// The public inputs for the `MatchAtomicProofs`

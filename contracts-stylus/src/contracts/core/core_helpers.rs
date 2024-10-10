@@ -91,7 +91,21 @@ where
     S: TopLevelStorage + Borrow<Core>,
     C: SolCall,
 {
-    let verifier_address = storage.borrow().verifier_address();
+    let verifier_address = storage.borrow().verifier_core_address();
+    static_call_helper::<C>(storage, verifier_address, args)
+}
+
+/// Calls the settlement verifier contract with the given arguments
+pub fn call_settlement_verifier<Core, S, C>(
+    storage: &S,
+    args: <C::Parameters<'_> as SolType>::RustType,
+) -> Result<C::Return, Vec<u8>>
+where
+    Core: CoreContractStorage,
+    S: TopLevelStorage + Borrow<Core>,
+    C: SolCall,
+{
+    let verifier_address = storage.borrow().verifier_settlement_address();
     static_call_helper::<C>(storage, verifier_address, args)
 }
 

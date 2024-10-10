@@ -75,10 +75,10 @@ pub struct CoreWalletOpsContract {
 
     /// The address of the darkpool core contract
     /// (unused in the darkpool core contract)
-    _darkpool_core_address: StorageAddress,
+    _core_wallet_ops_address: StorageAddress,
 
-    /// The address of the verifier contract
-    verifier_address: StorageAddress,
+    /// The address of the verifier core contract
+    verifier_core_address: StorageAddress,
 
     /// The address of the vkeys contract
     vkeys_address: StorageAddress,
@@ -108,11 +108,28 @@ pub struct CoreWalletOpsContract {
 
     /// The BabyJubJub EC-ElGamal public encryption key for the protocol
     protocol_public_encryption_key: StorageArray<StorageU256, 2>,
+
+    // --- Updated Fields for Atomic Settlement --- //
+    /// The address of the core settlement contract
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) _core_settlement_address: StorageAddress,
+
+    /// The address of the verifier settlement contract
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) verifier_settlement_address: StorageAddress,
 }
 
 impl CoreContractStorage for CoreWalletOpsContract {
-    fn verifier_address(&self) -> Address {
-        self.verifier_address.get()
+    fn verifier_core_address(&self) -> Address {
+        self.verifier_core_address.get()
+    }
+
+    fn verifier_settlement_address(&self) -> Address {
+        self.verifier_settlement_address.get()
     }
 
     fn vkeys_address(&self) -> Address {

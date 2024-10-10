@@ -3,6 +3,9 @@ name = "contracts-common"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+test-helpers = []
+
 [dependencies]
 ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }

@@ -23,7 +23,8 @@ impl PrecompileTestContract {
         let a: SerdeG1Affine = postcard::from_bytes(a_bytes.as_slice()).unwrap();
         let b: SerdeG1Affine = postcard::from_bytes(b_bytes.as_slice()).unwrap();
         let c = PrecompileG1ArithmeticBackend::ec_add(a.0, b.0).unwrap();
-        Ok(postcard::to_allocvec(&SerdeG1Affine(c)).unwrap().into())
+        let c_bytes = postcard::to_allocvec(&SerdeG1Affine(c)).unwrap();
+        Ok(c_bytes.into())
     }
 
     /// Invokes the `ecMul` precompile on the given inputs

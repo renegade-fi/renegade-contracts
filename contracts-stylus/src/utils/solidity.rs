@@ -76,7 +76,8 @@ sol! {
     event Unpaused();
     event CoreWalletOpsAddressChanged(address indexed new_address);
     event CoreSettlementAddressChanged(address indexed new_address);
-    event VerifierAddressChanged(address indexed new_address);
+    event VerifierCoreAddressChanged(address indexed new_address);
+    event VerifierSettlementAddressChanged(address indexed new_address);
     event VkeysAddressChanged(address indexed new_address);
     event MerkleAddressChanged(address indexed new_address);
     event TransferExecutorAddressChanged(address indexed new_address);

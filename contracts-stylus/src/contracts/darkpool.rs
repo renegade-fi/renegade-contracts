@@ -26,7 +26,8 @@ use crate::{
             rootInHistoryCall, settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
             CoreSettlementAddressChanged, CoreWalletOpsAddressChanged, FeeChanged,
             MerkleAddressChanged, OwnershipTransferred, Paused, PubkeyRotated,
-            TransferExecutorAddressChanged, Unpaused, VerifierAddressChanged, VkeysAddressChanged,
+            TransferExecutorAddressChanged, Unpaused, VerifierCoreAddressChanged,
+            VerifierSettlementAddressChanged, VkeysAddressChanged,
         },
     },
 };
@@ -53,8 +54,8 @@ pub struct DarkpoolContract {
     /// The address of the darkpool core contract
     pub(crate) core_wallet_ops_address: StorageAddress,
 
-    /// The address of the verifier contract
-    pub(crate) verifier_address: StorageAddress,
+    /// The address of the verifier core contract
+    pub(crate) verifier_core_address: StorageAddress,
 
     /// The address of the vkeys contract
     pub(crate) vkeys_address: StorageAddress,
@@ -86,9 +87,17 @@ pub struct DarkpoolContract {
     pub(crate) protocol_public_encryption_key: StorageArray<StorageU256, 2>,
 
     // --- Updated Fields for Atomic Settlement --- //
-    /// The address of the core settlement contract, added at the bottom of the storage layout to
+    /// The address of the core settlement contract
+    ///
+    /// Added at the bottom of the storage layout to
     /// prevent collisions with existing fields when this field was added
     pub(crate) core_settlement_address: StorageAddress,
+
+    /// The address of the verifier settlement contract
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) verifier_settlement_address: StorageAddress,
 }
 
 #[external]
@@ -103,7 +112,8 @@ impl DarkpoolContract {
         storage: &mut S,
         core_wallet_ops_address: Address,
         core_settlement_address: Address,
-        verifier_address: Address,
+        verifier_core_address: Address,
+        verifier_settlement_address: Address,
         vkeys_address: Address,
         merkle_address: Address,
         transfer_executor_address: Address,
@@ -125,7 +135,8 @@ impl DarkpoolContract {
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
         DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
         DarkpoolContract::set_core_settlement_address(storage, core_settlement_address)?;
-        DarkpoolContract::set_verifier_address(storage, verifier_address)?;
+        DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
+        DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
         DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
         DarkpoolContract::set_merkle_address(storage, merkle_address)?;
         DarkpoolContract::set_transfer_executor_address(storage, transfer_executor_address)?;
@@ -328,15 +339,36 @@ impl DarkpoolContract {
     }
 
     /// Sets the verifier address
-    pub fn set_verifier_address<S: TopLevelStorage + BorrowMut<Self>>(
+    pub fn set_verifier_core_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        verifier_address: Address,
+        verifier_core_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(verifier_address)?;
-        storage.borrow_mut().verifier_address.set(verifier_address);
-        evm::log(VerifierAddressChanged {
-            new_address: verifier_address,
+        DarkpoolContract::check_address_not_zero(verifier_core_address)?;
+        storage
+            .borrow_mut()
+            .verifier_core_address
+            .set(verifier_core_address);
+        evm::log(VerifierCoreAddressChanged {
+            new_address: verifier_core_address,
+        });
+        Ok(())
+    }
+
+    /// Sets the verifier settlement address
+    pub fn set_verifier_settlement_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        verifier_settlement_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::check_address_not_zero(verifier_settlement_address)?;
+        storage
+            .borrow_mut()
+            .verifier_settlement_address
+            .set(verifier_settlement_address);
+
+        evm::log(VerifierSettlementAddressChanged {
+            new_address: verifier_settlement_address,
         });
         Ok(())
     }

@@ -2,7 +2,10 @@
 //! The core verifier contract, responsible for verifying Plonk proofs.
 
 use alloc::{vec, vec::Vec};
-use contracts_common::types::{VerifyAtomicMatchCalldata, VerifyMatchCalldata};
+use contracts_common::types::{
+    MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs, MatchVkeys,
+    VerifyAtomicMatchCalldata, VerifyMatchCalldata,
+};
 use contracts_core::verifier::Verifier;
 use stylus_sdk::{abi::Bytes, prelude::*};
 
@@ -26,12 +29,19 @@ impl SettlementVerifierContract {
     pub fn verify_match(&self, match_bundle: Bytes) -> Result<bool, Vec<u8>> {
         let VerifyMatchCalldata {
             verifier_address,
-            match_vkeys,
-            match_linking_vkeys,
+            match_vkeys: vkeys,
             match_proofs,
             match_public_inputs,
             match_linking_proofs,
         } = deserialize_from_calldata(&match_bundle)?;
+
+        let match_proofs: MatchProofs = deserialize_from_calldata(&match_proofs.into())?;
+        let match_public_inputs: MatchPublicInputs =
+            deserialize_from_calldata(&match_public_inputs.into())?;
+        let match_linking_proofs: MatchLinkingProofs =
+            deserialize_from_calldata(&match_linking_proofs.into())?;
+        let (match_vkeys, match_linking_vkeys): (MatchVkeys, MatchLinkingVkeys) =
+            deserialize_from_calldata(&vkeys.into())?;
 
         // Build args for the batch verification call
         let link_opening = StylusVerifier::prep_match_linking_proofs_opening(
