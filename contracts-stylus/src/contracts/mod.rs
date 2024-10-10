@@ -3,8 +3,12 @@
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 mod darkpool;
 
-#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
-mod darkpool_core;
+#[cfg(any(
+    feature = "core-wallet-ops",
+    feature = "core-settlement",
+    feature = "darkpool-test-contract"
+))]
+mod core;
 
 #[cfg(any(feature = "merkle", feature = "merkle-test-contract"))]
 mod merkle;
