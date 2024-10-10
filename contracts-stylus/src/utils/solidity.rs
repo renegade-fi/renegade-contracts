@@ -39,6 +39,7 @@ sol! {
 
     // Verifier functions
     function verify(bytes memory verification_bundle) external view returns (bool);
+    function verifyBatch(bytes memory verification_bundle) external view returns (bool);
     function verifyMatch(bytes memory match_bundle) external view returns (bool);
     function verifyAtomicMatch(bytes memory atomic_match_bundle) external view returns (bool);
 
