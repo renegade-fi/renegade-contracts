@@ -1,11 +1,12 @@
 //! Utilities for generating data for the proof system tests
 
+use alloy_primitives::Address;
 use arbitrum_client::conversion::{
     to_contract_link_proof, to_contract_proof, to_contract_valid_commitments_statement,
-    to_contract_valid_fee_redemption_statement, to_contract_valid_match_settle_statement,
-    to_contract_valid_offline_fee_settlement_statement, to_contract_valid_reblind_statement,
-    to_contract_valid_relayer_fee_settlement_statement, to_contract_valid_wallet_create_statement,
-    to_contract_valid_wallet_update_statement,
+    to_contract_valid_fee_redemption_statement, to_contract_valid_match_settle_atomic_statement,
+    to_contract_valid_match_settle_statement, to_contract_valid_offline_fee_settlement_statement,
+    to_contract_valid_reblind_statement, to_contract_valid_relayer_fee_settlement_statement,
+    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
 };
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -13,6 +14,7 @@ use circuit_types::{
     elgamal::EncryptionKey,
     fixed_point::FixedPoint,
     keychain::PublicSigningKey,
+    r#match::ExternalMatchResult,
     srs::SYSTEM_SRS,
     traits::{CircuitBaseType, SingleProverCircuit},
     transfers::ExternalTransfer,
@@ -22,6 +24,7 @@ use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_fee_redemption::SizedValidFeeRedemptionStatement,
     valid_match_settle::SizedValidMatchSettleStatement,
+    valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
@@ -32,9 +35,11 @@ use constants::{Scalar, ScalarField, SystemCurve};
 use contracts_common::{
     custom_serde::{statement_to_public_inputs, BytesSerializable},
     types::{
-        G1Affine, MatchLinkingProofs, MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload,
-        MatchProofs, MatchPublicInputs, MatchVkeys, Proof as ContractProof,
+        G1Affine, MatchAtomicLinkingProofs, MatchAtomicProofs, MatchLinkingProofs,
+        MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload, MatchProofs, MatchPublicInputs,
+        MatchVkeys, Proof as ContractProof,
         ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
+        ValidMatchSettleAtomicStatement as ContractValidMatchSettleAtomicStatement,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
         ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
         ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
@@ -48,6 +53,7 @@ use eyre::Result;
 use jf_primitives::pcs::{prelude::Commitment, StructuredReferenceString};
 
 use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
+use num_bigint::BigUint;
 use rand::{seq::SliceRandom, CryptoRng, Rng, RngCore};
 use std::iter;
 
@@ -55,14 +61,15 @@ use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
     conversion::{to_circuit_pubkey, to_contract_vkey},
     crypto::{hash_and_sign_message, random_keypair},
+    proof_system::dummy_renegade_circuits::DummyValidMatchSettleAtomic,
 };
 
 use super::{
     dummy_renegade_circuits::{
         DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidFeeRedemption,
-        DummyValidMatchSettle, DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement,
-        DummyValidReblind, DummyValidReblindWitness, DummyValidRelayerFeeSettlement,
-        DummyValidWalletCreate, DummyValidWalletUpdate,
+        DummyValidMatchSettle, DummyValidMatchSettleAtomicWitness, DummyValidMatchSettleWitness,
+        DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidReblindWitness,
+        DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
     },
     gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
 };
@@ -75,6 +82,19 @@ pub fn random_scalars(n: usize, rng: &mut impl Rng) -> Vec<ScalarField> {
 /// Generates a vector of random commitments
 pub fn random_commitments(n: usize, rng: &mut impl Rng) -> Vec<PolynomialCommitment> {
     (0..n).map(|_| Commitment(G1Affine::rand(rng))).collect()
+}
+
+/// Generates a random `Address`
+pub fn random_address(rng: &mut impl Rng) -> Address {
+    let mut bytes = [0u8; 20];
+    rng.fill(&mut bytes);
+    Address::new(bytes)
+}
+
+/// Converts an `Address` to a `BigUint`
+pub fn address_to_biguint(address: Address) -> BigUint {
+    let bytes = address.0 .0.to_vec();
+    BigUint::from_bytes_be(&bytes)
 }
 
 /// Generates a circuit type type with random scalars
@@ -660,6 +680,194 @@ pub fn generate_match_bundle<R: CryptoRng + RngCore>(
         match_linking_proofs,
         match_linking_wire_poly_comms,
     ))
+}
+
+/// The inputs for the `process_atomic_match_settle` darkpool method
+pub struct ProcessAtomicMatchSettleData {
+    /// The internal party's match payload
+    pub internal_party_match_payload: MatchPayload,
+    /// The `VALID MATCH SETTLE ATOMIC` statement
+    pub valid_match_settle_atomic_statement: ContractValidMatchSettleAtomicStatement,
+    /// The Plonk proofs submitted to `process_atomic_match_settle`
+    pub match_atomic_proofs: MatchAtomicProofs,
+    /// The linking proofs submitted to `process_atomic_match_settle`
+    pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
+}
+
+/// Get a dummy `ExternalMatchResult`
+fn dummy_external_match_result<R: CryptoRng + RngCore>(rng: &mut R) -> ExternalMatchResult {
+    let quote_mint = address_to_biguint(random_address(rng));
+    let base_mint = address_to_biguint(random_address(rng));
+    ExternalMatchResult {
+        quote_mint,
+        base_mint,
+        base_amount: dummy_circuit_type(rng),
+        quote_amount: dummy_circuit_type(rng),
+        direction: rng.gen(),
+    }
+}
+
+/// Generates dummy statements to be submitted to `process_atomic_match_settle`
+fn dummy_match_atomic_statements<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_fee: FixedPoint,
+) -> (
+    ValidCommitmentsStatement,
+    ValidReblindStatement,
+    SizedValidMatchSettleAtomicStatement,
+) {
+    let valid_reblind = dummy_valid_reblind_statement(rng, merkle_root);
+    let valid_commitments: ValidCommitmentsStatement = dummy_circuit_type(rng);
+    let valid_match_settle_atomic = SizedValidMatchSettleAtomicStatement {
+        match_result: dummy_external_match_result(rng),
+        external_party_fees: dummy_circuit_type(rng),
+        internal_party_modified_shares: dummy_circuit_type(rng),
+        internal_party_indices: valid_commitments.indices,
+        protocol_fee,
+        relayer_fee_address: dummy_circuit_type(rng),
+    };
+
+    (valid_commitments, valid_reblind, valid_match_settle_atomic)
+}
+
+/// Generates dummy witnesses to be used in the proofs submitted to `process_atomic_match_settle`
+fn dummy_match_atomic_witnesses<R: CryptoRng + RngCore>(
+    rng: &mut R,
+) -> (
+    DummyValidCommitmentsWitness,
+    DummyValidReblindWitness,
+    DummyValidMatchSettleAtomicWitness,
+) {
+    let valid_commitments: DummyValidCommitmentsWitness = dummy_circuit_type(rng);
+    let valid_reblind = DummyValidReblindWitness {
+        valid_reblind_commitments: valid_commitments.valid_reblind_commitments,
+    };
+    let valid_match_settle_atomic = DummyValidMatchSettleAtomicWitness {
+        valid_commitments_match_settle0: valid_commitments.valid_commitments_match_settle0,
+    };
+
+    (valid_commitments, valid_reblind, valid_match_settle_atomic)
+}
+
+/// A type alias for the proofs and linking hints generated for the `process_atomic_match_settle` method
+type MatchAtomicProofsAndHints = (MatchAtomicProofs, [(ProofLinkingHint, ProofLinkingHint); 2]);
+
+/// Generates the proofs and linking hints to be submitted to `process_atomic_match_settle`
+fn match_atomic_proofs_and_hints(
+    valid_commitments_statement: ValidCommitmentsStatement,
+    valid_reblind_statement: ValidReblindStatement,
+    valid_match_settle_atomic_statement: SizedValidMatchSettleAtomicStatement,
+    valid_commitments_witness: DummyValidCommitmentsWitness,
+    valid_reblind_witness: DummyValidReblindWitness,
+    valid_match_settle_atomic_witness: DummyValidMatchSettleAtomicWitness,
+) -> Result<MatchAtomicProofsAndHints> {
+    let (valid_commitments, valid_commitments_hint) = DummyValidCommitments::prove_with_link_hint(
+        valid_commitments_witness.clone(),
+        valid_commitments_statement,
+    )?;
+    let valid_commitments = to_contract_proof(&valid_commitments)?;
+
+    let (valid_reblind, valid_reblind_hint) =
+        DummyValidReblind::prove_with_link_hint(valid_reblind_witness, valid_reblind_statement)?;
+    let valid_reblind = to_contract_proof(&valid_reblind)?;
+
+    let (valid_match_settle_atomic, valid_match_settle_atomic_hint) =
+        DummyValidMatchSettleAtomic::prove_with_link_hint(
+            valid_match_settle_atomic_witness,
+            valid_match_settle_atomic_statement,
+        )?;
+    let valid_match_settle_atomic = to_contract_proof(&valid_match_settle_atomic)?;
+
+    Ok((
+        MatchAtomicProofs {
+            valid_commitments,
+            valid_reblind,
+            valid_match_settle_atomic,
+        },
+        [
+            (valid_reblind_hint, valid_commitments_hint.clone()),
+            (valid_commitments_hint, valid_match_settle_atomic_hint),
+        ],
+    ))
+}
+
+/// Generates the linking proofs to be submitted to `process_atomic_match_settle`
+fn match_atomic_link_proofs(
+    link_hints: [(ProofLinkingHint, ProofLinkingHint); 2],
+) -> Result<MatchAtomicLinkingProofs> {
+    let commit_key = SYSTEM_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
+
+    let MatchGroupLayouts {
+        valid_reblind_commitments,
+        valid_commitments_match_settle_0,
+        ..
+    } = gen_match_layouts::<DummyValidCommitments>()?;
+
+    let (valid_reblind_hint, valid_commitments_hint) = &link_hints[0];
+    let valid_reblind_commitments =
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
+            SolidityTranscript,
+        >(
+            valid_reblind_hint,
+            valid_commitments_hint,
+            &valid_reblind_commitments,
+            &commit_key,
+        )?)?;
+
+    let (valid_commitments_hint, valid_match_settle_atomic_hint) = &link_hints[1];
+    let valid_commitments_match_settle_atomic =
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
+            SolidityTranscript,
+        >(
+            valid_commitments_hint,
+            valid_match_settle_atomic_hint,
+            &valid_commitments_match_settle_0,
+            &commit_key,
+        )?)?;
+
+    Ok(MatchAtomicLinkingProofs {
+        valid_reblind_commitments,
+        valid_commitments_match_settle_atomic,
+    })
+}
+
+/// Generates the data to be submitted to `process_atomic_match_settle`
+pub fn gen_process_atomic_match_settle_data<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_fee: FixedPoint,
+) -> Result<ProcessAtomicMatchSettleData> {
+    let (valid_commitments_statement, valid_reblind_statement, valid_match_settle_atomic_statement) =
+        dummy_match_atomic_statements(rng, merkle_root, protocol_fee);
+    let (valid_commitments_witness, valid_reblind_witness, valid_match_settle_atomic_witness) =
+        dummy_match_atomic_witnesses(rng);
+
+    let (match_atomic_proofs, link_hints) = match_atomic_proofs_and_hints(
+        valid_commitments_statement,
+        valid_reblind_statement.clone(),
+        valid_match_settle_atomic_statement.clone(),
+        valid_commitments_witness,
+        valid_reblind_witness,
+        valid_match_settle_atomic_witness,
+    )?;
+    let match_atomic_linking_proofs = match_atomic_link_proofs(link_hints)?;
+
+    let internal_party_match_payload = MatchPayload {
+        valid_commitments_statement: to_contract_valid_commitments_statement(
+            valid_commitments_statement,
+        ),
+        valid_reblind_statement: to_contract_valid_reblind_statement(&valid_reblind_statement),
+    };
+
+    Ok(ProcessAtomicMatchSettleData {
+        internal_party_match_payload,
+        valid_match_settle_atomic_statement: to_contract_valid_match_settle_atomic_statement(
+            &valid_match_settle_atomic_statement,
+        )?,
+        match_atomic_proofs,
+        match_atomic_linking_proofs,
+    })
 }
 
 /// Picks a random Plonk proof from the batch of proofs verified in `verify_match` and mutates it

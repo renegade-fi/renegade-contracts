@@ -765,15 +765,13 @@ pub struct VerifyAtomicMatchCalldata {
     #[serde_as(as = "AddressDef")]
     pub verifier_address: Address,
     /// The match atomic vkeys
-    pub match_atomic_vkeys: MatchAtomicVkeys,
-    /// The match atomic linking vkeys
-    pub match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
+    pub match_atomic_vkeys: Vec<u8>,
     /// The match atomic proofs
-    pub match_atomic_proofs: MatchAtomicProofs,
+    pub match_atomic_proofs: Vec<u8>,
     /// The match atomic public inputs
-    pub match_atomic_public_inputs: MatchAtomicPublicInputs,
+    pub match_atomic_public_inputs: Vec<u8>,
     /// The match atomic linking proofs
-    pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
+    pub match_atomic_linking_proofs: Vec<u8>,
 }
 
 /// The elements to be used in a KZG batch opening pairing check

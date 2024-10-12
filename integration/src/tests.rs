@@ -22,10 +22,11 @@ use contracts_utils::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
-        dummy_circuit_type, gen_new_wallet_data, gen_process_match_settle_data,
-        gen_redeem_fee_data, gen_settle_offline_fee_data, gen_settle_online_relayer_fee_data,
-        gen_update_wallet_data, gen_verification_bundle, generate_match_bundle,
-        mutate_random_linking_proof, mutate_random_plonk_proof, random_scalars,
+        dummy_circuit_type, gen_new_wallet_data, gen_process_atomic_match_settle_data,
+        gen_process_match_settle_data, gen_redeem_fee_data, gen_settle_offline_fee_data,
+        gen_settle_online_relayer_fee_data, gen_update_wallet_data, gen_verification_bundle,
+        generate_match_bundle, mutate_random_linking_proof, mutate_random_plonk_proof,
+        random_scalars,
     },
 };
 use ethers::{
@@ -1279,6 +1280,135 @@ async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Res
     Ok(())
 }
 integration_test_async!(test_process_match_settle__inconsistent_fee);
+
+/// Test a successful call to `process_atomic_match_settle`
+async fn test_process_atomic_match_settle(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    // Clear merkle state
+    contract.clear_merkle().send().await?.await?;
+
+    let mut rng = thread_rng();
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
+
+    let data = gen_process_atomic_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+
+    // Call process_atomic_match_settle
+    contract
+        .process_atomic_match_settle(
+            serialize_to_calldata(&data.internal_party_match_payload)?,
+            serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+            serialize_to_calldata(&data.match_atomic_proofs)?,
+            serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Assert nullifier is spent
+    let nullifier = scalar_to_u256(
+        data.internal_party_match_payload
+            .valid_reblind_statement
+            .original_shares_nullifier,
+    );
+    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
+    assert!(nullifier_spent, "Nullifier not spent");
+
+    // Verify merkle root
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+    let expected_root = insert_shares_and_get_root(
+        &mut ark_merkle,
+        data.internal_party_match_payload
+            .valid_reblind_statement
+            .reblinded_private_shares_commitment,
+        &data
+            .valid_match_settle_atomic_statement
+            .internal_party_modified_shares,
+        0,
+    )?;
+    let actual_root = u256_to_scalar(contract.get_root().call().await?)?;
+    assert_eq!(expected_root, actual_root, "Merkle root mismatch");
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle);
+
+/// Test `process_atomic_match_settle` with inconsistent indices
+async fn test_process_atomic_match_settle_inconsistent_indices(test_args: TestArgs) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    contract.clear_merkle().send().await?.await?;
+
+    let mut rng = thread_rng();
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
+
+    let mut data = gen_process_atomic_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+
+    // Modify the index to make it inconsistent
+    data.valid_match_settle_atomic_statement
+        .internal_party_indices
+        .balance_receive += 1;
+
+    // Call process_atomic_match_settle
+    let call = contract.process_atomic_match_settle(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    let result = call.send().await;
+
+    assert!(
+        result.is_err(),
+        "Expected error due to inconsistent indices"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle_inconsistent_indices);
+
+/// Test `process_atomic_match_settle` with inconsistent protocol fee
+async fn test_process_atomic_match_settle_inconsistent_protocol_fee(
+    test_args: TestArgs,
+) -> Result<()> {
+    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+
+    contract.clear_merkle().send().await?.await?;
+
+    let mut rng = thread_rng();
+    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
+        contract.get_fee().call().await?,
+    )?));
+
+    let mut data = gen_process_atomic_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+
+    // Modify the protocol fee to make it inconsistent
+    data.valid_match_settle_atomic_statement.protocol_fee += ScalarField::one();
+
+    // Call process_atomic_match_settle
+    let call = contract.process_atomic_match_settle(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    let result = call.send().await;
+
+    assert!(
+        result.is_err(),
+        "Expected error due to inconsistent protocol fee"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle_inconsistent_protocol_fee);
 
 /// Test the `settle_online_relayer_fee` method on the darkpool
 async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {

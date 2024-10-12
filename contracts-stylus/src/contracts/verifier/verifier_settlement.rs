@@ -3,8 +3,9 @@
 
 use alloc::{vec, vec::Vec};
 use contracts_common::types::{
-    MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs, MatchVkeys,
-    VerifyAtomicMatchCalldata, VerifyMatchCalldata,
+    MatchAtomicLinkingProofs, MatchAtomicLinkingVkeys, MatchAtomicProofs, MatchAtomicPublicInputs,
+    MatchAtomicVkeys, MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs,
+    MatchVkeys, VerifyAtomicMatchCalldata, VerifyMatchCalldata,
 };
 use contracts_core::verifier::Verifier;
 use stylus_sdk::{abi::Bytes, prelude::*};
@@ -66,11 +67,21 @@ impl SettlementVerifierContract {
         let VerifyAtomicMatchCalldata {
             verifier_address,
             match_atomic_vkeys,
-            match_atomic_linking_vkeys,
             match_atomic_proofs,
             match_atomic_public_inputs,
             match_atomic_linking_proofs,
         } = deserialize_from_calldata(&atomic_match_bundle)?;
+
+        let match_atomic_proofs: MatchAtomicProofs =
+            deserialize_from_calldata(&match_atomic_proofs.into())?;
+        let match_atomic_public_inputs: MatchAtomicPublicInputs =
+            deserialize_from_calldata(&match_atomic_public_inputs.into())?;
+        let match_atomic_linking_proofs: MatchAtomicLinkingProofs =
+            deserialize_from_calldata(&match_atomic_linking_proofs.into())?;
+        let (match_atomic_vkeys, match_atomic_linking_vkeys): (
+            MatchAtomicVkeys,
+            MatchAtomicLinkingVkeys,
+        ) = deserialize_from_calldata(&match_atomic_vkeys.into())?;
 
         // Build args for the batch verification call
         let link_opening = StylusVerifier::prep_atomic_match_linking_proofs_opening(

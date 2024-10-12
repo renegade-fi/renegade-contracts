@@ -237,9 +237,11 @@ impl SingleProverCircuit for DummyValidMatchSettleAtomic {
     }
 
     fn proof_linking_groups() -> Result<Vec<(String, Option<GroupLayout>)>, PlonkError> {
+        let layout = DummyValidMatchSettle::get_circuit_layout()?;
+        let group_layout = layout.get_group_layout(VALID_COMMITMENTS_MATCH_SETTLE_LINK0);
         Ok(vec![(
             VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(),
-            None,
+            Some(group_layout),
         )])
     }
 }
