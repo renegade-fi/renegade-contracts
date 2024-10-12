@@ -29,7 +29,8 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
-    MatchPayload, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, VerifyMatchCalldata,
+    MatchPayload, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
+    VerifyAtomicMatchCalldata, VerifyMatchCalldata,
 };
 use stylus_sdk::{
     abi::Bytes,
@@ -372,17 +373,19 @@ impl CoreSettlementContract {
             valid_match_settle_atomic_statement,
         )?;
 
-        let batch_verification_bundle_ser = [
-            process_atomic_match_settle_vkeys,
-            match_proofs.0,
-            atomic_match_public_inputs,
-            match_linking_proofs.0,
-        ]
-        .concat();
+        let verifier_address = storage.borrow_mut().verifier_core_address();
+        let calldata = VerifyAtomicMatchCalldata {
+            verifier_address,
+            match_atomic_vkeys: process_atomic_match_settle_vkeys,
+            match_atomic_proofs: match_proofs.0,
+            match_atomic_public_inputs: atomic_match_public_inputs,
+            match_atomic_linking_proofs: match_linking_proofs.0,
+        };
 
+        let calldata_bytes = postcard_serialize(&calldata)?;
         let result = call_settlement_verifier::<_, _, verifyAtomicMatchCall>(
             storage,
-            (batch_verification_bundle_ser.into(),),
+            (calldata_bytes.into(),),
         )?;
 
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
