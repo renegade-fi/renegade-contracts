@@ -77,6 +77,10 @@ impl CoreContractStorage for DarkpoolTestContract {
     fn protocol_public_encryption_key(&self) -> &StorageArray<StorageU256, 2> {
         &self.darkpool.protocol_public_encryption_key
     }
+
+    fn protocol_external_fee_collection_address(&self) -> Address {
+        self.darkpool.protocol_external_fee_collection_address.get()
+    }
 }
 
 // We manually implement `Borrow` and `BorrowMut` to enable the `DarkpoolTestContract` to

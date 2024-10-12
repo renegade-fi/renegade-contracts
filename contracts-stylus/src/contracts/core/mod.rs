@@ -45,4 +45,7 @@ pub trait CoreContractStorage {
 
     /// Get the protocol public encryption key
     fn protocol_public_encryption_key(&self) -> &StorageArray<StorageU256, 2>;
+
+    /// Get the address of the protocol external fee collection contract
+    fn protocol_external_fee_collection_address(&self) -> Address;
 }

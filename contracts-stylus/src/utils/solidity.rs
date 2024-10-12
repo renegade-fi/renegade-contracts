@@ -46,10 +46,12 @@ sol! {
     // Transfer executor functions
     function init(address memory permit2_address) external;
     function executeExternalTransfer(bytes memory old_pk_root, bytes memory transfer, bytes memory transfer_aux_data) external;
+    function executeTransferBatch(bytes memory transfers) external;
 
-    /// The native `transfer` function on the ERC20 interface.
-    /// Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol#L41
+    // ERC20 functions
+    // Taken from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/token/ERC20/IERC20.sol#L41
     function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
 
     // Testing functions
     function isDummyUpgradeTarget() external view returns (bool);
