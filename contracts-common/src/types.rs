@@ -531,8 +531,8 @@ pub struct ValidMatchSettleAtomicStatement {
     pub protocol_fee: ScalarField,
     /// The address at which the relayer wishes to receive their fee due from
     /// the external party
-    #[serde_as(as = "ScalarFieldDef")]
-    pub relayer_fee_address: ScalarField,
+    #[serde_as(as = "AddressDef")]
+    pub relayer_fee_address: Address,
 }
 
 /// Statement for the `VALID RELAYER FEE SETTLEMENT` circuit

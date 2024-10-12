@@ -174,6 +174,19 @@ pub fn get_public_encryption_key(
     })
 }
 
+/// Gets the protocol external fee collection address from the given argument,
+/// or generates a random one if None is supplied   
+pub fn get_protocol_external_fee_collection_address(
+    arg: Option<String>,
+) -> Result<Address, ScriptError> {
+    if let Some(addr_str) = arg {
+        Address::from_str(&addr_str).map_err(|e| ScriptError::PubkeyParsing(e.to_string()))
+    } else {
+        let mut rng = thread_rng();
+        Ok(Address::random_using(&mut rng))
+    }
+}
+
 /// Prepare calldata for the Darkpool contract's `initialize` method
 #[allow(clippy::too_many_arguments)]
 pub fn darkpool_initialize_calldata(
@@ -187,6 +200,7 @@ pub fn darkpool_initialize_calldata(
     permit2_address: Address,
     protocol_fee: U256,
     protocol_public_encryption_key: PublicEncryptionKey,
+    protocol_external_fee_collection_address: Address,
 ) -> Result<Vec<u8>, ScriptError> {
     let core_wallet_ops_address = AlloyAddress::from_slice(core_wallet_ops_address.as_bytes());
     let core_settlement_address = AlloyAddress::from_slice(core_settlement_address.as_bytes());
@@ -201,6 +215,8 @@ pub fn darkpool_initialize_calldata(
         scalar_to_u256(protocol_public_encryption_key.x),
         scalar_to_u256(protocol_public_encryption_key.y),
     ];
+    let protocol_external_fee_collection_address =
+        AlloyAddress::from_slice(protocol_external_fee_collection_address.as_bytes());
 
     Ok(initializeCall::new((
         core_wallet_ops_address,
@@ -213,6 +229,7 @@ pub fn darkpool_initialize_calldata(
         permit2_address,
         protocol_fee,
         protocol_public_encryption_key,
+        protocol_external_fee_collection_address,
     ))
     .abi_encode())
 }

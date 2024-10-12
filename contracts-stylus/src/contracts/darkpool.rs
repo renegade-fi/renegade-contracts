@@ -24,10 +24,10 @@ use crate::{
             init_0Call as initMerkleCall, init_1Call as initTransferExecutorCall, newWalletCall,
             processAtomicMatchSettleCall, processMatchSettleCall, redeemFeeCall, rootCall,
             rootInHistoryCall, settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
-            CoreSettlementAddressChanged, CoreWalletOpsAddressChanged, FeeChanged,
-            MerkleAddressChanged, OwnershipTransferred, Paused, PubkeyRotated,
-            TransferExecutorAddressChanged, Unpaused, VerifierCoreAddressChanged,
-            VerifierSettlementAddressChanged, VkeysAddressChanged,
+            CoreSettlementAddressChanged, CoreWalletOpsAddressChanged,
+            ExternalFeeCollectionAddressChanged, FeeChanged, MerkleAddressChanged,
+            OwnershipTransferred, Paused, PubkeyRotated, TransferExecutorAddressChanged, Unpaused,
+            VerifierCoreAddressChanged, VerifierSettlementAddressChanged, VkeysAddressChanged,
         },
     },
 };
@@ -87,6 +87,11 @@ pub struct DarkpoolContract {
     pub(crate) protocol_public_encryption_key: StorageArray<StorageU256, 2>,
 
     // --- Updated Fields for Atomic Settlement --- //
+    /// The address of the protocol external fee collection wallet
+    ///
+    /// This is the address at which the protocol collects fees from external parties
+    pub(crate) protocol_external_fee_collection_address: StorageAddress,
+
     /// The address of the core settlement contract
     ///
     /// Added at the bottom of the storage layout to
@@ -120,6 +125,7 @@ impl DarkpoolContract {
         permit2_address: Address,
         protocol_fee: U256,
         protocol_public_encryption_key: [U256; 2],
+        protocol_external_fee_collection_address: Address,
     ) -> Result<(), Vec<u8>> {
         // Initialize the Merkle tree
         delegate_call_helper::<initMerkleCall>(storage, merkle_address, ())?;
@@ -146,6 +152,12 @@ impl DarkpoolContract {
 
         // Set the protocol public encryption key
         DarkpoolContract::set_public_encryption_key(storage, protocol_public_encryption_key)?;
+
+        // Set the protocol external fee collection address
+        DarkpoolContract::set_protocol_external_fee_collection_address(
+            storage,
+            protocol_external_fee_collection_address,
+        )?;
 
         // Mark the darkpool as initialized
         DarkpoolContract::_initialize(storage, 1)?;
@@ -298,6 +310,24 @@ impl DarkpoolContract {
             new_pubkey_y: new_public_encryption_key[1],
         });
 
+        Ok(())
+    }
+
+    /// Sets the protocol external fee collection address
+    pub fn set_protocol_external_fee_collection_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        new_protocol_external_fee_collection_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage)?;
+        DarkpoolContract::check_address_not_zero(new_protocol_external_fee_collection_address)?;
+        storage
+            .borrow_mut()
+            .protocol_external_fee_collection_address
+            .set(new_protocol_external_fee_collection_address);
+
+        evm::log(ExternalFeeCollectionAddressChanged {
+            new_address: new_protocol_external_fee_collection_address,
+        });
         Ok(())
     }
 

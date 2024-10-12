@@ -128,6 +128,10 @@ pub struct DeployProxyArgs {
     /// If not provided, a random key will be generated.
     #[arg(short, long)]
     pub protocol_public_encryption_key: Option<String>,
+
+    /// The address of the protocol external fee collection wallet
+    #[arg(short, long)]
+    pub protocol_external_fee_collection_address: Option<String>,
 }
 
 /// Deploy a Stylus contract
