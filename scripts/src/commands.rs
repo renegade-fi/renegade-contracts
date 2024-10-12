@@ -52,8 +52,9 @@ use crate::{
     types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, get_public_encryption_key, parse_addr_from_deployments_file,
-        setup_client, write_deployed_address, write_vkey_file, LocalWalletHttpClient,
+        get_contract_key, get_protocol_external_fee_collection_address, get_public_encryption_key,
+        parse_addr_from_deployments_file, setup_client, write_deployed_address, write_vkey_file,
+        LocalWalletHttpClient,
     },
 };
 
@@ -215,6 +216,7 @@ pub async fn deploy_test_contracts(
         owner: args.owner,
         fee: thread_rng().gen(),
         protocol_public_encryption_key: None,
+        protocol_external_fee_collection_address: None,
     };
     deploy_proxy(deploy_proxy_args, client, deployments_path).await?;
 
@@ -283,6 +285,10 @@ pub async fn deploy_proxy(
     let protocol_public_encryption_key =
         get_public_encryption_key(args.protocol_public_encryption_key)?;
 
+    let protocol_external_fee_collection_address = get_protocol_external_fee_collection_address(
+        args.protocol_external_fee_collection_address,
+    )?;
+
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
         core_wallet_ops_address,
         core_settlement_address,
@@ -294,6 +300,7 @@ pub async fn deploy_proxy(
         permit2_address,
         protocol_fee,
         protocol_public_encryption_key,
+        protocol_external_fee_collection_address,
     )?);
 
     // Deploy proxy contract

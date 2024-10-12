@@ -110,6 +110,9 @@ pub struct CoreWalletOpsContract {
     protocol_public_encryption_key: StorageArray<StorageU256, 2>,
 
     // --- Updated Fields for Atomic Settlement --- //
+    /// The address of the protocol external fee collection wallet
+    _protocol_external_fee_collection_address: StorageAddress,
+
     /// The address of the core settlement contract
     ///
     /// Added at the bottom of the storage layout to

@@ -106,6 +106,9 @@ pub struct CoreSettlementContract {
     protocol_public_encryption_key: StorageArray<StorageU256, 2>,
 
     // --- Updated Fields for Atomic Settlement --- //
+    /// The address of the protocol external fee collection wallet
+    protocol_external_fee_collection_address: StorageAddress,
+
     /// The address of the core settlement contract
     ///
     /// Added at the bottom of the storage layout to
@@ -319,6 +322,8 @@ impl CoreSettlementContract {
 
 impl CoreSettlementContract {
     /// Batch-verifies all of the `process_match_settle` proofs
+    ///
+    /// TODO: Optimize the (re)serialization of the match statements if need be
     #[allow(clippy::too_many_arguments)]
     pub fn batch_verify_process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -356,6 +361,8 @@ impl CoreSettlementContract {
     }
 
     /// Batch-verifies all of the `process_atomic_match_settle` proofs
+    ///
+    /// TODO: Optimize the (re)serialization of the match statements if need be
     pub fn batch_verify_process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         internal_party_match_payload: &MatchPayload,
