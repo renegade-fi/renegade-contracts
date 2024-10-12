@@ -347,6 +347,50 @@ pub struct TransferAuxData {
     pub transfer_signature: Option<Vec<u8>>,
 }
 
+/// A simple erc20 transfer
+///
+/// For deposits, we directly use the erc20 contracts `transfer` function assuming that
+/// the caller has approved the darkpool contract to spend the deposit. This means that no
+/// permit2 logic is needed.
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct SimpleErc20Transfer {
+    /// The address of the account contract to deposit from or withdraw to
+    #[serde_as(as = "AddressDef")]
+    pub account_addr: Address,
+    /// The mint (contract address) of the token being transferred
+    #[serde_as(as = "AddressDef")]
+    pub mint: Address,
+    /// The amount of the token to transfer
+    #[serde_as(as = "U256Def")]
+    pub amount: U256,
+    /// Whether or not the transfer is a withdrawal (otherwise a deposit)
+    pub is_withdrawal: bool,
+}
+
+#[cfg(feature = "transfer-executor")]
+impl SimpleErc20Transfer {
+    /// Create a new withdraw transfer
+    pub fn new_withdraw(to: Address, mint: Address, amount: U256) -> Self {
+        Self {
+            mint,
+            account_addr: to,
+            amount,
+            is_withdrawal: true,
+        }
+    }
+
+    /// Create a new deposit transfer
+    pub fn new_deposit(from: Address, mint: Address, amount: U256) -> Self {
+        Self {
+            mint,
+            account_addr: from,
+            amount,
+            is_withdrawal: false,
+        }
+    }
+}
+
 /// A fee take from a match
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -357,6 +401,14 @@ pub struct FeeTake {
     /// The fee the protocol takes
     #[serde_as(as = "U256Def")]
     pub protocol_fee: U256,
+}
+
+#[cfg(feature = "transfer-executor")]
+impl FeeTake {
+    /// Get the total fee taken
+    pub fn total(&self) -> U256 {
+        self.relayer_fee + self.protocol_fee
+    }
 }
 
 /// The result of an atomic match
@@ -380,6 +432,27 @@ pub struct ExternalMatchResult {
     /// `false` (0) corresponds to the internal party buying the base
     /// `true` (1) corresponds to the internal party selling the base
     pub direction: bool,
+}
+
+#[cfg(feature = "transfer-executor")]
+impl ExternalMatchResult {
+    /// Get the mint sold by the external party in the match
+    pub fn external_party_sell_mint_amount(&self) -> (Address, U256) {
+        if self.direction {
+            (self.quote_mint, self.quote_amount)
+        } else {
+            (self.base_mint, self.base_amount)
+        }
+    }
+
+    /// Get the mint bought by the external party in the match
+    pub fn external_party_buy_mint_amount(&self) -> (Address, U256) {
+        if self.direction {
+            (self.base_mint, self.base_amount)
+        } else {
+            (self.quote_mint, self.quote_amount)
+        }
+    }
 }
 
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.

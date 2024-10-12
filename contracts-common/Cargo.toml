@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 test-helpers = []
+transfer-executor = []
 
 [dependencies]
 ark-bn254 = { workspace = true }

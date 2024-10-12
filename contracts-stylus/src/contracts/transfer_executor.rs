@@ -11,7 +11,7 @@ use crate::{
         helpers::{
             assert_valid_signature, call_helper, deserialize_from_calldata, postcard_serialize,
         },
-        solidity::{transferCall, ExternalTransfer as ExternalTransferEvent},
+        solidity::{transferCall, transferFromCall, ExternalTransfer as ExternalTransferEvent},
     },
 };
 use alloc::{string::ToString, vec::Vec};
@@ -23,7 +23,7 @@ use contracts_common::{
         permitWitnessTransferFromCall, CalldataPermitWitnessTransferFrom, DepositWitness,
         SignatureTransferDetails, TokenPermissions,
     },
-    types::{ExternalTransfer, PublicSigningKey, TransferAuxData},
+    types::{ExternalTransfer, PublicSigningKey, SimpleErc20Transfer, TransferAuxData},
 };
 use stylus_sdk::{
     abi::Bytes,
@@ -32,6 +32,11 @@ use stylus_sdk::{
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageU256},
 };
+
+/// The error message emitted when a simple ERC20 deposit fails
+const SIMPLE_ERC20_DEPOSIT_ERROR_MESSAGE: &[u8] = b"Simple ERC20 deposit failed";
+/// The error message emitted when a simple ERC20 withdrawal fails
+const SIMPLE_ERC20_WITHDRAWAL_ERROR_MESSAGE: &[u8] = b"Simple ERC20 withdrawal failed";
 
 /// The transfer executor contract's storage layout
 #[solidity_storage]
@@ -147,6 +152,67 @@ impl TransferExecutorContract {
             amount,
         });
 
+        Ok(())
+    }
+
+    /// Execute a batch of simple erc20 transfers
+    pub fn execute_transfer_batch(&mut self, transfers: Bytes) -> Result<(), Vec<u8>> {
+        let transfers: Vec<SimpleErc20Transfer> = deserialize_from_calldata(&transfers)?;
+        for transfer in transfers {
+            self.execute_simple_erc20_transfer(transfer)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl TransferExecutorContract {
+    /// Execute a single simple erc20 transfer
+    fn execute_simple_erc20_transfer(
+        &mut self,
+        transfer: SimpleErc20Transfer,
+    ) -> Result<(), Vec<u8>> {
+        if transfer.is_withdrawal {
+            self.execute_simple_erc20_withdrawal(transfer)
+        } else {
+            self.execute_simple_erc20_deposit(transfer)
+        }
+    }
+
+    /// Execute a simple erc20 deposit
+    fn execute_simple_erc20_deposit(
+        &mut self,
+        transfer: SimpleErc20Transfer,
+    ) -> Result<(), Vec<u8>> {
+        let erc20_address = transfer.mint;
+        let contract_address = contract::address();
+        let res = call_helper::<transferFromCall>(
+            self,
+            erc20_address,
+            (transfer.account_addr, contract_address, transfer.amount),
+        )?;
+
+        if !res._0 {
+            return Err(SIMPLE_ERC20_DEPOSIT_ERROR_MESSAGE.to_vec());
+        }
+        Ok(())
+    }
+
+    /// Execute a simple erc20 withdrawal
+    fn execute_simple_erc20_withdrawal(
+        &mut self,
+        transfer: SimpleErc20Transfer,
+    ) -> Result<(), Vec<u8>> {
+        let erc20_address = transfer.mint;
+        let res = call_helper::<transferCall>(
+            self,
+            erc20_address,
+            (transfer.account_addr, transfer.amount),
+        )?;
+
+        if !res._0 {
+            return Err(SIMPLE_ERC20_WITHDRAWAL_ERROR_MESSAGE.to_vec());
+        }
         Ok(())
     }
 }

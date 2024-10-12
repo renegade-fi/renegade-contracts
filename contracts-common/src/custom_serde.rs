@@ -286,7 +286,7 @@ impl ScalarSerializable for ValidMatchSettleAtomicStatement {
         scalars.extend(&self.internal_party_modified_shares);
         scalars.extend(&self.internal_party_indices.serialize_to_scalars()?);
         scalars.push(self.protocol_fee);
-        scalars.push(self.relayer_fee_address);
+        scalars.push(address_to_scalar(self.relayer_fee_address)?);
         Ok(scalars)
     }
 }

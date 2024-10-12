@@ -16,25 +16,27 @@ use crate::{
             VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
-            deserialize_from_calldata, postcard_serialize,
+            delegate_call_helper, deserialize_from_calldata, postcard_serialize,
             serialize_atomic_match_statements_for_verification,
             serialize_match_statements_for_verification, u256_to_scalar,
         },
         solidity::{
-            processAtomicMatchSettleVkeysCall, processMatchSettleVkeysCall, verifyAtomicMatchCall,
-            verifyMatchCall,
+            executeTransferBatchCall, processAtomicMatchSettleVkeysCall,
+            processMatchSettleVkeysCall, verifyAtomicMatchCall, verifyMatchCall,
         },
     },
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
-    MatchPayload, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
-    VerifyAtomicMatchCalldata, VerifyMatchCalldata,
+    ExternalMatchResult, FeeTake, MatchPayload, SimpleErc20Transfer,
+    ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, VerifyAtomicMatchCalldata,
+    VerifyMatchCalldata,
 };
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
+    msg,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
 };
@@ -161,6 +163,10 @@ impl CoreContractStorage for CoreSettlementContract {
 
     fn protocol_public_encryption_key(&self) -> &StorageArray<StorageU256, 2> {
         &self.protocol_public_encryption_key
+    }
+
+    fn protocol_external_fee_collection_address(&self) -> Address {
+        self.protocol_external_fee_collection_address.get()
     }
 }
 
@@ -312,6 +318,12 @@ impl CoreSettlementContract {
             &valid_match_settle_atomic_statement.internal_party_modified_shares,
         )?;
 
+        // Execute the transfers to/from the external party
+        let fees = valid_match_settle_atomic_statement.external_party_fees;
+        let match_result = valid_match_settle_atomic_statement.match_result;
+        let relayer_fee_address = valid_match_settle_atomic_statement.relayer_fee_address;
+        Self::execute_atomic_match_transfers(storage, fees, match_result, relayer_fee_address)?;
+
         Ok(())
     }
 }
@@ -396,5 +408,70 @@ impl CoreSettlementContract {
         )?;
 
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
+    }
+
+    /// Execute the transfers to/from the external party in an atomic match settlement
+    pub fn execute_atomic_match_transfers<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        fees: FeeTake,
+        match_result: ExternalMatchResult,
+        relayer_fee_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        /// The number of transfers to execute in an atomic match settlement
+        const N_TRANSFERS: usize = 4;
+        let tx_sender = msg::sender();
+
+        let mut transfers_batch = Vec::with_capacity(N_TRANSFERS);
+        let (send_mint, send_amount) = match_result.external_party_sell_mint_amount();
+        let (receive_mint, receive_amount) = match_result.external_party_buy_mint_amount();
+
+        // The fee charged by the relayer to the external party
+        transfers_batch.push(SimpleErc20Transfer::new_withdraw(
+            relayer_fee_address,
+            receive_mint,
+            fees.relayer_fee,
+        ));
+
+        // The fee charged by the protocol to the external party
+        let protocol_fee_address = storage
+            .borrow_mut()
+            .protocol_external_fee_collection_address();
+        transfers_batch.push(SimpleErc20Transfer::new_withdraw(
+            protocol_fee_address,
+            receive_mint,
+            fees.protocol_fee,
+        ));
+
+        // The amount received by the external party after deducting the fees
+        let trader_take = receive_amount - fees.total();
+        transfers_batch.push(SimpleErc20Transfer::new_withdraw(
+            tx_sender,
+            receive_mint,
+            trader_take,
+        ));
+
+        // The amount sent by the external party to the darkpool
+        transfers_batch.push(SimpleErc20Transfer::new_deposit(
+            tx_sender,
+            send_mint,
+            send_amount,
+        ));
+
+        Self::execute_transfers(storage, transfers_batch)
+    }
+
+    /// Call the transfer executor to execute the transfers
+    fn execute_transfers<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        transfers: Vec<SimpleErc20Transfer>,
+    ) -> Result<(), Vec<u8>> {
+        let transfer_executor_address = storage.borrow_mut().transfer_executor_address();
+        let calldata = postcard_serialize(&transfers)?;
+        delegate_call_helper::<executeTransferBatchCall>(
+            storage,
+            transfer_executor_address,
+            (calldata.into(),),
+        )
+        .map(|_| ())
     }
 }
