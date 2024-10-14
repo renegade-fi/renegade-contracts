@@ -43,9 +43,10 @@ use crate::{
         NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
         PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
         PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
-        TEST_ERC20_TICKER, TEST_FUNDING_AMOUNT, VALID_FEE_REDEMPTION_VKEY_FILE,
-        VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE, VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE,
-        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
+        TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
+        VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
+        VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
+        VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
     solidity::{DummyErc20Contract, ProxyAdminContract},
@@ -143,7 +144,10 @@ pub async fn deploy_test_contracts(
 
     info!("Deploying test ERC-20 contract");
     let deploy_erc20_args = DeployErc20sArgs {
-        tickers: vec![TEST_ERC20_TICKER.to_string()],
+        tickers: vec![
+            TEST_ERC20_TICKER1.to_string(),
+            TEST_ERC20_TICKER2.to_string(),
+        ],
         funding_amount: TEST_FUNDING_AMOUNT,
         account_skeys: vec![priv_key.to_string()],
     };

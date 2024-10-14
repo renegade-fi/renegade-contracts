@@ -9,7 +9,7 @@ use alloy_sol_types::{
     Eip712Domain, SolStruct, SolType,
 };
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
-use circuit_types::elgamal::EncryptionKey;
+use circuit_types::{elgamal::EncryptionKey, r#match::ExternalMatchResult};
 use constants::Scalar;
 use contracts_common::{
     constants::NUM_BYTES_FELT,
@@ -22,7 +22,10 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
-use contracts_utils::{crypto::hash_and_sign_message, merkle::MerkleConfig};
+use contracts_utils::{
+    crypto::hash_and_sign_message, merkle::MerkleConfig,
+    proof_system::test_data::address_to_biguint,
+};
 use ethers::{
     abi::{Address, Detokenize, Tokenize},
     contract::ContractError,
@@ -32,6 +35,7 @@ use ethers::{
     types::{Bytes, H256, U256},
 };
 use eyre::{eyre, Result};
+use num_bigint::BigUint;
 use rand::{thread_rng, RngCore};
 use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletHttpClient};
 use serde::Serialize;
@@ -39,85 +43,44 @@ use serde::Serialize;
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract, TransferExecutorContract},
     constants::PERMIT2_EIP712_DOMAIN_NAME,
+    TestArgs,
 };
 
-/// Sets up a dummy client with a random private key
-/// targeting the same RPC endpoint
-pub async fn setup_dummy_client(
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<Arc<LocalWalletHttpClient>> {
-    let mut rng = thread_rng();
-    Ok(Arc::new(client.with_signer(
-        LocalWallet::new(&mut rng).with_chain_id(client.get_chainid().await?.as_u64()),
-    )))
+// --------------------
+// | Type Conversions |
+// --------------------
+
+/// Convert an ethers `Address` to an alloy `Address`
+pub fn ethers_address_to_alloy_address(address: &Address) -> AlloyAddress {
+    let bytes = &address.0;
+    AlloyAddress::from_slice(bytes.as_slice())
 }
 
-/// Asserts that the given method can only be called by the owner of the darkpool contract
-pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
-    contract: &DarkpoolTestContract<LocalWalletHttpClient>,
-    contract_with_dummy_owner: &DarkpoolTestContract<LocalWalletHttpClient>,
-    method: &str,
-    args: T,
-) -> Result<()> {
-    assert!(
-        contract_with_dummy_owner
-            .method::<T, D>(method, args.clone())?
-            .send()
-            .await
-            .is_err(),
-        "Called {} as non-owner",
-        method
-    );
-
-    assert!(
-        contract.method::<T, D>(method, args)?.send().await.is_ok(),
-        "Failed to call {} as owner",
-        method
-    );
-
-    Ok(())
+/// Convert an alloy `Address` to an ethers `Address`
+pub fn alloy_address_to_ethers_address(address: &AlloyAddress) -> Address {
+    let bytes = address.to_vec();
+    Address::from_slice(&bytes)
 }
 
-/// Asserts that all the given transactions revert
-pub async fn assert_all_revert<'a>(
-    txs: Vec<
-        impl Future<
-            Output = Result<
-                PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<LocalWalletHttpClient>,
-            >,
-        >,
-    >,
-) -> Result<()> {
-    for tx in txs {
-        assert!(
-            tx.await.is_err(),
-            "Expected transaction to revert, but it succeeded"
-        );
-    }
-
-    Ok(())
+/// Convert an ethers `Address` to a `BigUint`
+///
+/// Call out to the alloy helper to ensure that address formats are the same throughout test helpers
+pub fn ethers_address_to_biguint(address: &Address) -> BigUint {
+    let alloy_address = ethers_address_to_alloy_address(address);
+    address_to_biguint(alloy_address)
 }
 
-/// Asserts that all of the given transactions successfully execute
-pub async fn assert_all_succeed<'a>(
-    txs: Vec<
-        impl Future<
-            Output = Result<
-                PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<LocalWalletHttpClient>,
-            >,
-        >,
-    >,
-) -> Result<()> {
-    for tx in txs {
-        assert!(
-            tx.await.is_ok(),
-            "Expected transaction to succeed, but it reverted"
-        );
-    }
+/// Converts a `BigUint` to an ethers `Address`
+pub fn biguint_to_ethers_address(biguint: &BigUint) -> Address {
+    let bytes = biguint.to_bytes_be();
+    Address::from_slice(&bytes)
+}
 
-    Ok(())
+/// Converts an [`ethers::types::U256`] to an [`alloy_primitives::U256`]
+pub fn u256_to_alloy_u256(u256: U256) -> AlloyU256 {
+    let mut buf = [0_u8; 32];
+    u256.to_big_endian(&mut buf);
+    AlloyU256::from_be_slice(&buf)
 }
 
 /// Converts a [`ScalarField`] to a [`ethers::types::U256`]
@@ -133,53 +96,15 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField> {
         .map_err(|_| eyre!("failed converting U256 to scalar"))
 }
 
-/// Serialiez the given serializable type into a [`Bytes`] object
+/// Serialize the given serializable type into a [`Bytes`] object
 /// that can be passed in as calldata
 pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
     Ok(postcard::to_allocvec(t)?.into())
 }
 
-/// Serializes the given bundle of verification key, proof, and public inputs
-/// into a [`Bytes`] object that can be passed in as calldata
-pub fn serialize_verification_bundle(
-    vkey: &VerificationKey,
-    proof: &Proof,
-    public_inputs: &PublicInputs,
-) -> Result<Bytes> {
-    let vkey_ser: Vec<u8> = postcard::to_allocvec(vkey)?;
-    let proof_ser: Vec<u8> = postcard::to_allocvec(proof)?;
-    let public_inputs_ser: Vec<u8> = postcard::to_allocvec(public_inputs)?;
-
-    let bundle_bytes = [vkey_ser, proof_ser, public_inputs_ser].concat();
-
-    Ok(bundle_bytes.into())
-}
-
-/// Serializes the given bundle of verification key, proof, and public inputs
-/// used in a match into a [`Bytes`] object that can be passed in as calldata
-pub fn serialize_match_verification_bundle(
-    verifier_address: AlloyAddress,
-    match_vkeys: &MatchVkeys,
-    match_linking_vkeys: &MatchLinkingVkeys,
-    match_proofs: &MatchProofs,
-    match_public_inputs: &MatchPublicInputs,
-    match_linking_proofs: &MatchLinkingProofs,
-) -> Result<Bytes> {
-    let match_vkeys_ser = serialize_to_calldata(&match_vkeys)?;
-    let match_linking_vkeys_ser = serialize_to_calldata(&match_linking_vkeys)?;
-    let match_vkeys = [match_vkeys_ser, match_linking_vkeys_ser].concat();
-
-    let calldata = VerifyMatchCalldata {
-        verifier_address,
-        match_vkeys,
-        match_proofs: serialize_to_calldata(&match_proofs)?.to_vec(),
-        match_public_inputs: serialize_to_calldata(&match_public_inputs)?.to_vec(),
-        match_linking_proofs: serialize_to_calldata(&match_linking_proofs)?.to_vec(),
-    };
-
-    let calldata_ser: Vec<u8> = postcard::to_allocvec(&calldata)?;
-    Ok(calldata_ser.into())
-}
+// ---------------------------
+// | ERC20 Utils & Transfers |
+// ---------------------------
 
 /// Creates an [`ExternalTransfer`] object for the given account address,
 /// mint address, and transfer direction
@@ -246,24 +171,6 @@ pub(crate) async fn execute_transfer_and_get_balances(
         .await?;
 
     Ok((darkpool_balance, user_balance))
-}
-
-/// Computes a commitment to the given wallet shares, inserts them
-/// into the given Arkworks Merkle tree, and returns the new root
-pub(crate) fn insert_shares_and_get_root(
-    ark_merkle: &mut ArkMerkleTree<MerkleConfig>,
-    private_shares_commitment: ScalarField,
-    public_shares: &[ScalarField],
-    index: usize,
-) -> Result<ScalarField> {
-    let mut shares = vec![private_shares_commitment];
-    shares.extend(public_shares);
-    let commitment = compute_poseidon_hash(&shares);
-    ark_merkle
-        .update(index, &commitment)
-        .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
-
-    Ok(ark_merkle.root())
 }
 
 /// Generates the auxiliary data fpr the given external transfer,
@@ -346,6 +253,47 @@ pub(crate) async fn gen_permit_payload(
     Ok((nonce, deadline, signature))
 }
 
+/// Mint dummy ERC20 tokens for testing
+///
+/// Mint to both the user and the darkpool so that both are sufficiently capitalized
+pub async fn mint_dummy_erc20s(mint: Address, amount: U256, test_args: &TestArgs) -> Result<()> {
+    let address = test_args.client.address();
+    let darkpool_address = test_args.darkpool_proxy_address;
+    let contract = DummyErc20Contract::new(mint, test_args.client.clone());
+    contract.mint(address, amount).send().await?.await?;
+    contract
+        .mint(darkpool_address, amount)
+        .send()
+        .await?
+        .await?;
+
+    Ok(())
+}
+
+/// Setup the token approvals for an atomic match
+pub async fn setup_external_match_token_approvals(
+    buy_side: bool,
+    match_result: &ExternalMatchResult,
+    test_args: &TestArgs,
+) -> Result<()> {
+    let mint = if buy_side {
+        &match_result.quote_mint
+    } else {
+        &match_result.base_mint
+    };
+
+    let mint = biguint_to_ethers_address(mint);
+    let contract = DummyErc20Contract::new(mint, test_args.client.clone());
+    let amount = TEST_FUNDING_AMOUNT;
+    contract
+        .approve(test_args.darkpool_proxy_address, amount.into())
+        .send()
+        .await?
+        .await?;
+
+    Ok(())
+}
+
 /// This is a re-implementation of `eip712_signing_hash` (https://github.com/alloy-rs/core/blob/v0.3.1/crates/sol-types/src/types/struct.rs#L117)
 /// which correctly encodes the data for the nested `TokenPermissions` struct.
 ///
@@ -379,6 +327,21 @@ fn permit_signing_hash(permit: &PermitWitnessTransferFrom, domain: &Eip712Domain
     keccak256(digest_input)
 }
 
+// ---------------------------------------
+// | Client Setup & Contract Interaction |
+// ---------------------------------------
+
+/// Sets up a dummy client with a random private key
+/// targeting the same RPC endpoint
+pub async fn setup_dummy_client(
+    client: Arc<LocalWalletHttpClient>,
+) -> Result<Arc<LocalWalletHttpClient>> {
+    let mut rng = thread_rng();
+    Ok(Arc::new(client.with_signer(
+        LocalWallet::new(&mut rng).with_chain_id(client.get_chainid().await?.as_u64()),
+    )))
+}
+
 /// Fetches the protocol public encryption key from the darkpool contract
 pub async fn get_protocol_pubkey(
     darkpool_contract: &DarkpoolTestContract<LocalWalletHttpClient>,
@@ -388,4 +351,140 @@ pub async fn get_protocol_pubkey(
         x: Scalar::new(u256_to_scalar(x)?),
         y: Scalar::new(u256_to_scalar(y)?),
     })
+}
+
+/// Computes a commitment to the given wallet shares, inserts them
+/// into the given Arkworks Merkle tree, and returns the new root
+pub(crate) fn insert_shares_and_get_root(
+    ark_merkle: &mut ArkMerkleTree<MerkleConfig>,
+    private_shares_commitment: ScalarField,
+    public_shares: &[ScalarField],
+    index: usize,
+) -> Result<ScalarField> {
+    let mut shares = vec![private_shares_commitment];
+    shares.extend(public_shares);
+    let commitment = compute_poseidon_hash(&shares);
+    ark_merkle
+        .update(index, &commitment)
+        .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
+
+    Ok(ark_merkle.root())
+}
+
+// -----------------------
+// | Contract Assertions |
+// -----------------------
+
+/// Asserts that the given method can only be called by the owner of the darkpool contract
+pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
+    contract: &DarkpoolTestContract<LocalWalletHttpClient>,
+    contract_with_dummy_owner: &DarkpoolTestContract<LocalWalletHttpClient>,
+    method: &str,
+    args: T,
+) -> Result<()> {
+    assert!(
+        contract_with_dummy_owner
+            .method::<T, D>(method, args.clone())?
+            .send()
+            .await
+            .is_err(),
+        "Called {} as non-owner",
+        method
+    );
+
+    assert!(
+        contract.method::<T, D>(method, args)?.send().await.is_ok(),
+        "Failed to call {} as owner",
+        method
+    );
+
+    Ok(())
+}
+
+/// Asserts that all the given transactions revert
+pub async fn assert_all_revert<'a>(
+    txs: Vec<
+        impl Future<
+            Output = Result<
+                PendingTransaction<'a, impl JsonRpcClient + 'a>,
+                ContractError<LocalWalletHttpClient>,
+            >,
+        >,
+    >,
+) -> Result<()> {
+    for tx in txs {
+        assert!(
+            tx.await.is_err(),
+            "Expected transaction to revert, but it succeeded"
+        );
+    }
+
+    Ok(())
+}
+
+/// Asserts that all of the given transactions successfully execute
+pub async fn assert_all_succeed<'a>(
+    txs: Vec<
+        impl Future<
+            Output = Result<
+                PendingTransaction<'a, impl JsonRpcClient + 'a>,
+                ContractError<LocalWalletHttpClient>,
+            >,
+        >,
+    >,
+) -> Result<()> {
+    for tx in txs {
+        assert!(
+            tx.await.is_ok(),
+            "Expected transaction to succeed, but it reverted"
+        );
+    }
+
+    Ok(())
+}
+
+// ---------------------------
+// | Serialization Utilities |
+// ---------------------------
+
+/// Serializes the given bundle of verification key, proof, and public inputs
+/// into a [`Bytes`] object that can be passed in as calldata
+pub fn serialize_verification_bundle(
+    vkey: &VerificationKey,
+    proof: &Proof,
+    public_inputs: &PublicInputs,
+) -> Result<Bytes> {
+    let vkey_ser: Vec<u8> = postcard::to_allocvec(vkey)?;
+    let proof_ser: Vec<u8> = postcard::to_allocvec(proof)?;
+    let public_inputs_ser: Vec<u8> = postcard::to_allocvec(public_inputs)?;
+
+    let bundle_bytes = [vkey_ser, proof_ser, public_inputs_ser].concat();
+
+    Ok(bundle_bytes.into())
+}
+
+/// Serializes the given bundle of verification key, proof, and public inputs
+/// used in a match into a [`Bytes`] object that can be passed in as calldata
+pub fn serialize_match_verification_bundle(
+    verifier_address: AlloyAddress,
+    match_vkeys: &MatchVkeys,
+    match_linking_vkeys: &MatchLinkingVkeys,
+    match_proofs: &MatchProofs,
+    match_public_inputs: &MatchPublicInputs,
+    match_linking_proofs: &MatchLinkingProofs,
+) -> Result<Bytes> {
+    let match_vkeys_ser = serialize_to_calldata(&match_vkeys)?;
+    let match_linking_vkeys_ser = serialize_to_calldata(&match_linking_vkeys)?;
+    let match_vkeys = [match_vkeys_ser, match_linking_vkeys_ser].concat();
+
+    let calldata = VerifyMatchCalldata {
+        verifier_address,
+        match_vkeys,
+        match_proofs: serialize_to_calldata(&match_proofs)?.to_vec(),
+        match_public_inputs: serialize_to_calldata(&match_public_inputs)?.to_vec(),
+        match_linking_proofs: serialize_to_calldata(&match_linking_proofs)?.to_vec(),
+    };
+
+    let calldata_ser: Vec<u8> = postcard::to_allocvec(&calldata)?;
+    Ok(calldata_ser.into())
 }

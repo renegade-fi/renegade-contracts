@@ -4,7 +4,10 @@ use alloy_primitives::Address as AlloyAddress;
 use ark_ec::AffineRepr;
 use ark_ff::One;
 use ark_std::UniformRand;
-use circuit_types::fixed_point::FixedPoint;
+use circuit_types::{
+    fixed_point::FixedPoint,
+    r#match::{ExternalMatchResult, FeeTake},
+};
 use constants::Scalar;
 use contracts_common::{
     constants::{
@@ -22,11 +25,11 @@ use contracts_utils::{
     crypto::{hash_and_sign_message, random_keypair, NativeHasher},
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
-        dummy_circuit_type, gen_new_wallet_data, gen_process_atomic_match_settle_data,
+        dummy_circuit_type, gen_atomic_match_with_match_and_fees, gen_new_wallet_data,
         gen_process_match_settle_data, gen_redeem_fee_data, gen_settle_offline_fee_data,
         gen_settle_online_relayer_fee_data, gen_update_wallet_data, gen_verification_bundle,
         generate_match_bundle, mutate_random_linking_proof, mutate_random_plonk_proof,
-        random_scalars,
+        random_scalars, ProcessAtomicMatchSettleData,
     },
 };
 use ethers::{
@@ -54,14 +57,49 @@ use crate::{
         SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
-        assert_all_revert, assert_all_succeed, assert_only_owner, dummy_erc20_deposit,
-        dummy_erc20_withdrawal, execute_transfer_and_get_balances, gen_transfer_aux_data,
-        get_protocol_pubkey, insert_shares_and_get_root, scalar_to_u256,
+        alloy_address_to_ethers_address, assert_all_revert, assert_all_succeed, assert_only_owner,
+        dummy_erc20_deposit, dummy_erc20_withdrawal, ethers_address_to_biguint,
+        execute_transfer_and_get_balances, gen_transfer_aux_data, get_protocol_pubkey,
+        insert_shares_and_get_root, mint_dummy_erc20s, scalar_to_u256,
         serialize_match_verification_bundle, serialize_to_calldata, serialize_verification_bundle,
-        setup_dummy_client, u256_to_scalar,
+        setup_dummy_client, setup_external_match_token_approvals, u256_to_scalar,
     },
     TestArgs,
 };
+
+/// Get a dummy `ExternalMatchResult` and `FeeTake` for an atomic match
+async fn dummy_external_match_result_and_fees(
+    buy_side: bool,
+    test_args: &TestArgs,
+) -> Result<(ExternalMatchResult, FeeTake)> {
+    let base_mint = test_args.test_erc20_address1;
+    let quote_mint = test_args.test_erc20_address2;
+    let base_amount = TEST_FUNDING_AMOUNT;
+    let quote_amount = TEST_FUNDING_AMOUNT;
+
+    // Ensure that the client has sufficient balances and approvals
+    mint_dummy_erc20s(base_mint, base_amount.into(), test_args).await?;
+    mint_dummy_erc20s(quote_mint, quote_amount.into(), test_args).await?;
+
+    // The price here does not matter for testing, so we just trade the default funding amount
+    let match_result = ExternalMatchResult {
+        base_mint: ethers_address_to_biguint(&base_mint),
+        quote_mint: ethers_address_to_biguint(&quote_mint),
+        base_amount,
+        quote_amount,
+        direction: buy_side,
+    };
+    setup_external_match_token_approvals(buy_side, &match_result, test_args).await?;
+
+    // Values here don't matter, but importantly are different to ensure the
+    // correct fee ends in the correct address
+    let fees = FeeTake {
+        relayer_fee: TEST_FUNDING_AMOUNT / 100,  // 1%
+        protocol_fee: TEST_FUNDING_AMOUNT / 200, // 0.5%
+    };
+
+    Ok((match_result, fees))
+}
 
 /// Test how the contracts call the `ecAdd` precompile
 async fn test_ec_add(test_args: TestArgs) -> Result<()> {
@@ -784,10 +822,10 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
         .await?;
 
     let test_erc20_contract =
-        DummyErc20Contract::new(test_args.test_erc20_address, test_args.client.clone());
+        DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address;
+    let mint = test_args.test_erc20_address1;
 
     let contract_initial_balance = test_erc20_contract
         .balance_of(test_args.transfer_executor_address)
@@ -864,10 +902,10 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
         .await?;
 
     let test_erc20_contract =
-        DummyErc20Contract::new(test_args.test_erc20_address, test_args.client.clone());
+        DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address;
+    let mint = test_args.test_erc20_address1;
 
     // Generate dummy address & fund with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
@@ -919,7 +957,7 @@ async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result
         .await?;
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address;
+    let mint = test_args.test_erc20_address1;
 
     let (signing_key, pk_root) = random_keypair(&mut rng);
 
@@ -969,10 +1007,10 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
         .await?;
 
     let test_erc20_contract =
-        DummyErc20Contract::new(test_args.test_erc20_address, test_args.client.clone());
+        DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
 
     let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address;
+    let mint = test_args.test_erc20_address1;
 
     // Fund contract with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
@@ -1281,9 +1319,13 @@ async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Res
 }
 integration_test_async!(test_process_match_settle__inconsistent_fee);
 
-/// Test a successful call to `process_atomic_match_settle`
-async fn test_process_atomic_match_settle(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+/// Setup an atomic match settle test
+async fn setup_atomic_match_settle_test(
+    buy_side: bool,
+    test_args: &TestArgs,
+) -> Result<ProcessAtomicMatchSettleData> {
+    let contract =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
 
     // Clear merkle state
     contract.clear_merkle().send().await?.await?;
@@ -1294,7 +1336,26 @@ async fn test_process_atomic_match_settle(test_args: TestArgs) -> Result<()> {
         contract.get_fee().call().await?,
     )?));
 
-    let data = gen_process_atomic_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+    let (match_result, fees) = dummy_external_match_result_and_fees(buy_side, test_args).await?;
+    let data = gen_atomic_match_with_match_and_fees(
+        &mut rng,
+        contract_root,
+        protocol_fee,
+        match_result,
+        fees,
+    )?;
+
+    Ok(data)
+}
+
+/// Test a successful call to `process_atomic_match_settle`
+///
+/// Validates only the state of the internal party after update
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__internal_party(test_args: TestArgs) -> Result<()> {
+    let contract =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
 
     // Call process_atomic_match_settle
     contract
@@ -1334,21 +1395,175 @@ async fn test_process_atomic_match_settle(test_args: TestArgs) -> Result<()> {
 
     Ok(())
 }
-integration_test_async!(test_process_atomic_match_settle);
+integration_test_async!(test_process_atomic_match_settle__internal_party);
+
+/// Test `process_atomic_match_settle` and verify the external party's state
+/// after update. That is, the erc20 transfers that result from the atomic match
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__external_party_buy_side(
+    test_args: TestArgs,
+) -> Result<()> {
+    // Setup test data
+    let base_addr = test_args.test_erc20_address1;
+    let quote_addr = test_args.test_erc20_address2;
+    let darkpool =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
+
+    let relayer_fee_addr = alloy_address_to_ethers_address(
+        &data.valid_match_settle_atomic_statement.relayer_fee_address,
+    );
+    let protocol_fee_addr = darkpool
+        .get_protocol_external_fee_collection_address()
+        .call()
+        .await?;
+
+    // Record initial balances
+    let initial_base_balance = test_args.get_erc20_balance(base_addr).await?;
+    let initial_quote_balance = test_args.get_erc20_balance(quote_addr).await?;
+    let initial_relayer_balance = test_args
+        .get_erc20_balance_of(base_addr, relayer_fee_addr)
+        .await?;
+    let initial_protocol_balance = test_args
+        .get_erc20_balance_of(base_addr, protocol_fee_addr)
+        .await?;
+
+    // Call process_atomic_match_settle
+    darkpool
+        .process_atomic_match_settle(
+            serialize_to_calldata(&data.internal_party_match_payload)?,
+            serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+            serialize_to_calldata(&data.match_atomic_proofs)?,
+            serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Verify updated erc20 balances
+    let match_result = &data.valid_match_settle_atomic_statement.match_result;
+    let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
+    let final_balance_base = test_args.get_erc20_balance(base_addr).await?;
+    let final_balance_quote = test_args.get_erc20_balance(quote_addr).await?;
+    let relayer_balance = test_args
+        .get_erc20_balance_of(base_addr, relayer_fee_addr)
+        .await?;
+    let protocol_balance = test_args
+        .get_erc20_balance_of(base_addr, protocol_fee_addr)
+        .await?;
+
+    let expected_quote_balance = initial_quote_balance - match_result.quote_amount;
+    let expected_base_balance = initial_base_balance + match_result.base_amount - fees.total();
+    let expected_relayer_balance = initial_relayer_balance + fees.relayer_fee;
+    let expected_protocol_balance = initial_protocol_balance + fees.protocol_fee;
+
+    assert_eq!(
+        final_balance_base, expected_base_balance,
+        "Unexpected change in base token balance"
+    );
+    assert_eq!(
+        final_balance_quote, expected_quote_balance,
+        "Unexpected change in quote token balance"
+    );
+    assert_eq!(
+        relayer_balance, expected_relayer_balance,
+        "Unexpected change in relayer fee balance"
+    );
+    assert_eq!(
+        protocol_balance, expected_protocol_balance,
+        "Unexpected change in protocol fee balance"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle__external_party_buy_side);
+
+/// Test `process_atomic_match_settle` and verify the external party's state
+/// after update. That is, the erc20 transfers that result from the atomic match
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__external_party_sell_side(
+    test_args: TestArgs,
+) -> Result<()> {
+    // Setup test data
+    let base_addr = test_args.test_erc20_address1;
+    let quote_addr = test_args.test_erc20_address2;
+    let darkpool =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let data = setup_atomic_match_settle_test(false /* buy_side */, &test_args).await?;
+
+    let relayer_fee_addr = alloy_address_to_ethers_address(
+        &data.valid_match_settle_atomic_statement.relayer_fee_address,
+    );
+    let protocol_fee_addr = darkpool
+        .get_protocol_external_fee_collection_address()
+        .call()
+        .await?;
+
+    // Record initial balances
+    let initial_base_balance = test_args.get_erc20_balance(base_addr).await?;
+    let initial_quote_balance = test_args.get_erc20_balance(quote_addr).await?;
+    let initial_relayer_balance = test_args
+        .get_erc20_balance_of(quote_addr, relayer_fee_addr)
+        .await?;
+    let initial_protocol_balance = test_args
+        .get_erc20_balance_of(quote_addr, protocol_fee_addr)
+        .await?;
+
+    // Call process_atomic_match_settle
+    darkpool
+        .process_atomic_match_settle(
+            serialize_to_calldata(&data.internal_party_match_payload)?,
+            serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+            serialize_to_calldata(&data.match_atomic_proofs)?,
+            serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+        )
+        .send()
+        .await?
+        .await?;
+
+    // Verify updated erc20 balances
+    let match_result = &data.valid_match_settle_atomic_statement.match_result;
+    let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
+    let final_balance_base = test_args.get_erc20_balance(base_addr).await?;
+    let final_balance_quote = test_args.get_erc20_balance(quote_addr).await?;
+    let relayer_balance = test_args
+        .get_erc20_balance_of(quote_addr, relayer_fee_addr)
+        .await?;
+    let protocol_balance = test_args
+        .get_erc20_balance_of(quote_addr, protocol_fee_addr)
+        .await?;
+
+    let expected_quote_balance = initial_quote_balance + match_result.quote_amount - fees.total();
+    let expected_base_balance = initial_base_balance - match_result.base_amount;
+    let expected_relayer_balance = initial_relayer_balance + fees.relayer_fee;
+    let expected_protocol_balance = initial_protocol_balance + fees.protocol_fee;
+
+    assert_eq!(
+        final_balance_base, expected_base_balance,
+        "Unexpected change in base token balance"
+    );
+    assert_eq!(
+        final_balance_quote, expected_quote_balance,
+        "Unexpected change in quote token balance"
+    );
+    assert_eq!(
+        relayer_balance, expected_relayer_balance,
+        "Unexpected change in relayer fee balance"
+    );
+    assert_eq!(
+        protocol_balance, expected_protocol_balance,
+        "Unexpected change in protocol fee balance"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle__external_party_sell_side);
 
 /// Test `process_atomic_match_settle` with inconsistent indices
 async fn test_process_atomic_match_settle_inconsistent_indices(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
-
-    contract.clear_merkle().send().await?.await?;
-
-    let mut rng = thread_rng();
-    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
-
-    let mut data = gen_process_atomic_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+    let contract =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
 
     // Modify the index to make it inconsistent
     data.valid_match_settle_atomic_statement
@@ -1377,17 +1592,9 @@ integration_test_async!(test_process_atomic_match_settle_inconsistent_indices);
 async fn test_process_atomic_match_settle_inconsistent_protocol_fee(
     test_args: TestArgs,
 ) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
-
-    contract.clear_merkle().send().await?.await?;
-
-    let mut rng = thread_rng();
-    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
-
-    let mut data = gen_process_atomic_match_settle_data(&mut rng, contract_root, protocol_fee)?;
+    let contract =
+        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
 
     // Modify the protocol fee to make it inconsistent
     data.valid_match_settle_atomic_statement.protocol_fee += ScalarField::one();

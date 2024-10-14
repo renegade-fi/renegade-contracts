@@ -28,6 +28,7 @@ abigen!(
         function getRoot() external view returns (uint256)
         function getFee() external view returns (uint256)
         function getPubkey() external view returns (uint256[2])
+        function getProtocolExternalFeeCollectionAddress() external view returns (address)
 
         function newWallet(bytes memory proof, bytes memory valid_wallet_create_statement_bytes) external
         function updateWallet(bytes memory proof, bytes memory valid_wallet_update_statement_bytes, bytes memory wallet_commitment_signature, bytes memory transfer_aux_data) external
