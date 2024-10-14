@@ -146,7 +146,11 @@ pub const TRANSFER_EXECUTOR_CONTRACT_KEY: &str = "transfer_executor_contract";
 
 /// The ticker of the ERC20 contract deployed using `deploy_test_contracts`,
 /// which is also its contract key in the `deployments.json` file
-pub const TEST_ERC20_TICKER: &str = "TEST";
+pub const TEST_ERC20_TICKER1: &str = "TEST1";
+
+/// The ticker of the second ERC20 contract deployed using `deploy_test_contracts`,
+/// which is also its contract key in the `deployments.json` file
+pub const TEST_ERC20_TICKER2: &str = "TEST2";
 
 /// The environment variable denoting the symbol w/ which to deploy the dummy ERC20 contract
 pub const DUMMY_ERC20_SYMBOL_ENV_VAR: &str = "DUMMY_ERC20_SYMBOL";

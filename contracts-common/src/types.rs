@@ -368,7 +368,7 @@ pub struct SimpleErc20Transfer {
     pub is_withdrawal: bool,
 }
 
-#[cfg(feature = "transfer-executor")]
+#[cfg(feature = "core-settlement")]
 impl SimpleErc20Transfer {
     /// Create a new withdraw transfer
     pub fn new_withdraw(to: Address, mint: Address, amount: U256) -> Self {
@@ -403,7 +403,7 @@ pub struct FeeTake {
     pub protocol_fee: U256,
 }
 
-#[cfg(feature = "transfer-executor")]
+#[cfg(any(feature = "core-settlement", feature = "test-helpers"))]
 impl FeeTake {
     /// Get the total fee taken
     pub fn total(&self) -> U256 {
@@ -434,7 +434,7 @@ pub struct ExternalMatchResult {
     pub direction: bool,
 }
 
-#[cfg(feature = "transfer-executor")]
+#[cfg(feature = "core-settlement")]
 impl ExternalMatchResult {
     /// Get the mint sold by the external party in the match
     pub fn external_party_sell_mint_amount(&self) -> (Address, U256) {

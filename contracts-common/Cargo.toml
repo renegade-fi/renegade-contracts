@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+core-settlement = []
 test-helpers = []
-transfer-executor = []
 
 [dependencies]
 ark-bn254 = { workspace = true }

@@ -269,6 +269,16 @@ impl DarkpoolContract {
         Ok(DarkpoolContract::_get_protocol_pubkey_coords(storage))
     }
 
+    /// Returns the protocol external fee collection address
+    pub fn get_protocol_external_fee_collection_address<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<Address, Vec<u8>> {
+        Ok(storage
+            .borrow()
+            .protocol_external_fee_collection_address
+            .get())
+    }
+
     // -----------
     // | SETTERS |
     // -----------

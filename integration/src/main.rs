@@ -5,20 +5,24 @@
 
 use std::sync::Arc;
 
+use abis::DummyErc20Contract;
+use alloy_primitives::U256;
 use clap::Parser;
 use cli::Cli;
 use ethers::abi::Address;
+use eyre::Result;
 use scripts::{
     constants::{
         CORE_SETTLEMENT_CONTRACT_KEY, CORE_WALLET_OPS_CONTRACT_KEY, DARKPOOL_CONTRACT_KEY,
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
-        PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TEST_ERC20_TICKER,
+        PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2,
         TEST_UPGRADE_TARGET_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
         VERIFIER_CORE_CONTRACT_KEY, VERIFIER_SETTLEMENT_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
     },
     utils::{parse_addr_from_deployments_file, setup_client, LocalWalletHttpClient},
 };
 use test_helpers::{integration_test_main, types::TestVerbosity};
+use utils::u256_to_alloy_u256;
 
 mod abis;
 mod cli;
@@ -53,12 +57,37 @@ pub struct TestArgs {
     pub permit2_address: Address,
     /// The address of the transfer executor contract
     pub transfer_executor_address: Address,
-    /// The address of the test ERC20 contract
-    pub test_erc20_address: Address,
+    /// The address of the first test ERC20 contract
+    pub test_erc20_address1: Address,
+    /// The address of the second test ERC20 contract
+    pub test_erc20_address2: Address,
     /// The address of the test upgrade target contract
     pub test_upgrade_target_address: Address,
     /// The address of the precompiles testing contract
     pub precompiles_contract_address: Address,
+}
+
+impl TestArgs {
+    /// Get the erc20 balance of the client address
+    pub async fn get_erc20_balance(&self, erc20_address: Address) -> Result<U256> {
+        let address = self.client.address();
+        self.get_erc20_balance_of(erc20_address, address).await
+    }
+
+    /// Get the erc20 balance of the given address
+    pub async fn get_erc20_balance_of(
+        &self,
+        erc20_address: Address,
+        address: Address,
+    ) -> Result<U256> {
+        let contract = DummyErc20Contract::new(erc20_address, self.client.clone());
+        contract
+            .balance_of(address)
+            .call()
+            .await
+            .map_err(Into::into)
+            .map(u256_to_alloy_u256)
+    }
 }
 
 impl From<Cli> for TestArgs {
@@ -115,8 +144,10 @@ impl From<Cli> for TestArgs {
         )
         .unwrap();
 
-        let test_erc20_address =
-            parse_addr_from_deployments_file(&value.deployments_file, TEST_ERC20_TICKER).unwrap();
+        let test_erc20_address1 =
+            parse_addr_from_deployments_file(&value.deployments_file, TEST_ERC20_TICKER1).unwrap();
+        let test_erc20_address2 =
+            parse_addr_from_deployments_file(&value.deployments_file, TEST_ERC20_TICKER2).unwrap();
 
         let test_upgrade_target_address = parse_addr_from_deployments_file(
             &value.deployments_file,
@@ -141,7 +172,8 @@ impl From<Cli> for TestArgs {
             vkeys_address,
             permit2_address,
             transfer_executor_address,
-            test_erc20_address,
+            test_erc20_address1,
+            test_erc20_address2,
             test_upgrade_target_address,
             precompiles_contract_address,
         }

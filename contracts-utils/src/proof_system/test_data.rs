@@ -14,7 +14,7 @@ use circuit_types::{
     elgamal::EncryptionKey,
     fixed_point::FixedPoint,
     keychain::PublicSigningKey,
-    r#match::ExternalMatchResult,
+    r#match::{ExternalMatchResult, FeeTake},
     srs::SYSTEM_SRS,
     traits::{CircuitBaseType, SingleProverCircuit},
     transfers::ExternalTransfer,
@@ -694,38 +694,30 @@ pub struct ProcessAtomicMatchSettleData {
     pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
 }
 
-/// Get a dummy `ExternalMatchResult`
-fn dummy_external_match_result<R: CryptoRng + RngCore>(rng: &mut R) -> ExternalMatchResult {
-    let quote_mint = address_to_biguint(random_address(rng));
-    let base_mint = address_to_biguint(random_address(rng));
-    ExternalMatchResult {
-        quote_mint,
-        base_mint,
-        base_amount: dummy_circuit_type(rng),
-        quote_amount: dummy_circuit_type(rng),
-        direction: rng.gen(),
-    }
-}
-
 /// Generates dummy statements to be submitted to `process_atomic_match_settle`
 fn dummy_match_atomic_statements<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
     protocol_fee: FixedPoint,
+    external_party_fees: FeeTake,
+    match_result: ExternalMatchResult,
 ) -> (
     ValidCommitmentsStatement,
     ValidReblindStatement,
     SizedValidMatchSettleAtomicStatement,
 ) {
+    let relayer_fee_address = random_address(rng);
+    let relayer_fee_address_biguint = address_to_biguint(relayer_fee_address);
+
     let valid_reblind = dummy_valid_reblind_statement(rng, merkle_root);
     let valid_commitments: ValidCommitmentsStatement = dummy_circuit_type(rng);
     let valid_match_settle_atomic = SizedValidMatchSettleAtomicStatement {
-        match_result: dummy_external_match_result(rng),
-        external_party_fees: dummy_circuit_type(rng),
+        match_result,
+        external_party_fees,
         internal_party_modified_shares: dummy_circuit_type(rng),
         internal_party_indices: valid_commitments.indices,
         protocol_fee,
-        relayer_fee_address: dummy_circuit_type(rng),
+        relayer_fee_address: relayer_fee_address_biguint,
     };
 
     (valid_commitments, valid_reblind, valid_match_settle_atomic)
@@ -832,14 +824,16 @@ fn match_atomic_link_proofs(
     })
 }
 
-/// Generates the data to be submitted to `process_atomic_match_settle`
-pub fn gen_process_atomic_match_settle_data<R: CryptoRng + RngCore>(
+/// Generate a `process_atomic_match_settle` payload with the given match and fees
+pub fn gen_atomic_match_with_match_and_fees<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
     protocol_fee: FixedPoint,
+    match_result: ExternalMatchResult,
+    fees: FeeTake,
 ) -> Result<ProcessAtomicMatchSettleData> {
     let (valid_commitments_statement, valid_reblind_statement, valid_match_settle_atomic_statement) =
-        dummy_match_atomic_statements(rng, merkle_root, protocol_fee);
+        dummy_match_atomic_statements(rng, merkle_root, protocol_fee, fees, match_result);
     let (valid_commitments_witness, valid_reblind_witness, valid_match_settle_atomic_witness) =
         dummy_match_atomic_witnesses(rng);
 

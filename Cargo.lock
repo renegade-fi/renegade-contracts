@@ -238,7 +238,7 @@ checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 [[package]]
 name = "arbitrum-client"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -1055,7 +1055,7 @@ dependencies = [
 [[package]]
 name = "circuit-macros"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "itertools 0.10.5",
  "proc-macro2",
@@ -1066,7 +1066,7 @@ dependencies = [
 [[package]]
 name = "circuit-types"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1097,7 +1097,7 @@ dependencies = [
 [[package]]
 name = "circuits"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
@@ -1241,7 +1241,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "ark-ec",
  "ark-mpc",
@@ -1312,7 +1312,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 [[package]]
 name = "constants"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -2993,6 +2993,7 @@ dependencies = [
  "inventory",
  "itertools 0.12.1",
  "jf-primitives",
+ "num-bigint",
  "postcard",
  "rand 0.8.5",
  "scripts",
@@ -4711,7 +4712,7 @@ checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
@@ -4743,7 +4744,7 @@ dependencies = [
 [[package]]
 name = "renegade-metrics"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "atomic_float",
  "circuit-types",
@@ -5806,7 +5807,7 @@ dependencies = [
 [[package]]
 name = "test-helpers"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -6381,7 +6382,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#f583d8213a4df70f264884ca3e01ce3578cac31a"
+source = "git+https://github.com/renegade-fi/renegade.git#bbe232d7dfca098ff686fbb7a155cafdd1071fcd"
 dependencies = [
  "ark-ec",
  "ark-serialize 0.4.2",
