@@ -407,7 +407,9 @@ pub struct FeeTake {
 impl FeeTake {
     /// Get the total fee taken
     pub fn total(&self) -> U256 {
-        self.relayer_fee + self.protocol_fee
+        self.relayer_fee
+            .checked_add(self.protocol_fee)
+            .expect("fees overflow") // unwrap here for interface simplicity
     }
 }
 
