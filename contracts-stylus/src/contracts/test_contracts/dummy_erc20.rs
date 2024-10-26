@@ -8,31 +8,29 @@
 #![allow(clippy::missing_docs_in_private_items)]
 
 use alloc::{string::String, vec::Vec};
-use core::marker::PhantomData;
 use stylus_sdk::{
-    alloy_primitives::{Address, U256},
+    alloy_primitives::{Address, Uint, U256},
     alloy_sol_types::{sol, SolError},
     evm, msg,
     prelude::*,
 };
 
-pub trait Erc20Params {
-    const NAME: &'static str;
-    const SYMBOL: &'static str;
-    const DECIMALS: u8;
-}
-
 sol_storage! {
     /// Erc20 implements all ERC-20 methods.
-    pub struct Erc20<T> {
+    pub struct Erc20 {
+        /// The name of the token
+        string name;
+        /// The symbol of the token
+        string symbol;
+        /// The number of decimals the token uses
+        uint8 decimals;
+
         /// Maps users to balances
         mapping(address => uint256) balances;
         /// Maps users to a mapping of each spender's allowance
         mapping(address => mapping(address => uint256)) allowances;
         /// The total supply of the token
         uint256 total_supply;
-        /// Used to allow [`Erc20Params`]
-        PhantomData<T> phantom;
     }
 }
 
@@ -61,7 +59,7 @@ impl From<Erc20Error> for Vec<u8> {
 
 // These methods aren't exposed to other contracts
 // Note: modifying storage will become much prettier soon
-impl<T: Erc20Params> Erc20<T> {
+impl Erc20 {
     pub fn transfer_impl(
         &mut self,
         from: Address,
@@ -83,6 +81,38 @@ impl<T: Erc20Params> Erc20<T> {
         to_balance.set(new_to_balance);
         evm::log(Transfer { from, to, value });
         Ok(())
+    }
+}
+
+// These methods are external to other contracts
+// Note: modifying storage will become much prettier soon
+#[external]
+impl Erc20 {
+    pub fn set_name(&mut self, name: String) -> Result<(), Erc20Error> {
+        self.name.set_str(name);
+        Ok(())
+    }
+
+    pub fn set_symbol(&mut self, symbol: String) -> Result<(), Erc20Error> {
+        self.symbol.set_str(symbol);
+        Ok(())
+    }
+
+    pub fn set_decimals(&mut self, decimals: u8) -> Result<(), Erc20Error> {
+        self.decimals.set(Uint::from(decimals));
+        Ok(())
+    }
+
+    pub fn name(&self) -> Result<String, Erc20Error> {
+        Ok(self.name.get_string())
+    }
+
+    pub fn symbol(&self) -> Result<String, Erc20Error> {
+        Ok(self.symbol.get_string())
+    }
+
+    pub fn decimals(&self) -> Result<u8, Erc20Error> {
+        Ok(self.decimals.get().try_into().unwrap())
     }
 
     pub fn mint(&mut self, address: Address, value: U256) {
@@ -115,23 +145,6 @@ impl<T: Erc20Params> Erc20<T> {
             value,
         });
         Ok(())
-    }
-}
-
-// These methods are external to other contracts
-// Note: modifying storage will become much prettier soon
-#[external]
-impl<T: Erc20Params> Erc20<T> {
-    pub fn name() -> Result<String, Erc20Error> {
-        Ok(T::NAME.into())
-    }
-
-    pub fn symbol() -> Result<String, Erc20Error> {
-        Ok(T::SYMBOL.into())
-    }
-
-    pub fn decimals() -> Result<u8, Erc20Error> {
-        Ok(T::DECIMALS)
     }
 
     pub fn balance_of(&self, address: Address) -> Result<U256, Erc20Error> {
@@ -177,37 +190,5 @@ impl<T: Erc20Params> Erc20<T> {
 
     pub fn allowance(&self, owner: Address, spender: Address) -> Result<U256, Erc20Error> {
         Ok(self.allowances.getter(owner).get(spender))
-    }
-}
-
-struct DummyErc20Params;
-
-/// Immutable definitions
-impl Erc20Params for DummyErc20Params {
-    const NAME: &'static str = concat!("Dummy ", env!("DUMMY_ERC20_SYMBOL"));
-    const SYMBOL: &'static str = env!("DUMMY_ERC20_SYMBOL");
-    const DECIMALS: u8 = 18;
-}
-
-// The contract
-sol_storage! {
-    #[entrypoint] // Makes DummyErc20 the entrypoint
-    struct DummyErc20 {
-        #[borrow] // Allows erc20 to access DummyErc20's storage and make calls
-        Erc20<DummyErc20Params> erc20;
-    }
-}
-
-#[external]
-#[inherit(Erc20<DummyErc20Params>)]
-impl DummyErc20 {
-    pub fn mint(&mut self, address: Address, amount: U256) -> Result<(), Vec<u8>> {
-        self.erc20.mint(address, amount);
-        Ok(())
-    }
-
-    pub fn burn(&mut self, address: Address, amount: U256) -> Result<(), Vec<u8>> {
-        self.erc20.burn(address, amount)?;
-        Ok(())
     }
 }
