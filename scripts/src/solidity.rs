@@ -18,6 +18,9 @@ abigen!(
     DummyErc20Contract,
     r#"[
         function totalSupply() external view returns (uint256)
+        function setName(string name) external
+        function setSymbol(string symbol) external
+        function setDecimals(uint8 decimals) external
         function balanceOf(address account) external view returns (uint256)
         function mint(address memory _address, uint256 memory value) external
         function transfer(address to, uint256 value) external returns (bool)
