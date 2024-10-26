@@ -130,7 +130,7 @@ pub struct DeployProxyArgs {
     pub protocol_public_encryption_key: Option<String>,
 
     /// The address of the protocol external fee collection wallet
-    #[arg(short, long)]
+    #[arg(long)]
     pub protocol_external_fee_collection_address: Option<String>,
 }
 

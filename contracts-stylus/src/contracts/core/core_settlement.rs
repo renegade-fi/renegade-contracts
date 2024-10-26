@@ -12,8 +12,8 @@ use crate::{
     utils::{
         constants::{
             INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
-            MERKLE_STORAGE_GAP_SIZE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE,
-            VERIFICATION_FAILED_ERROR_MESSAGE,
+            MERKLE_STORAGE_GAP_SIZE, TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE,
+            TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
             delegate_call_helper, deserialize_from_calldata, postcard_serialize,
@@ -443,7 +443,9 @@ impl CoreSettlementContract {
         ));
 
         // The amount received by the external party after deducting the fees
-        let trader_take = receive_amount - fees.total();
+        let trader_take = receive_amount
+            .checked_sub(fees.total())
+            .ok_or(TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE)?;
         transfers_batch.push(SimpleErc20Transfer::new_withdraw(
             tx_sender,
             receive_mint,
