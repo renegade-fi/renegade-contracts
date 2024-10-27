@@ -16,10 +16,12 @@ use alloy_sol_types::SolCall;
 use ark_ed_on_bn254::EdwardsProjective as BabyJubJubProjective;
 use contracts_common::{custom_serde::scalar_to_u256, types::PublicEncryptionKey};
 use ethers::{
-    abi::Address,
+    abi::{Address, Detokenize},
+    contract::ContractCall,
     middleware::SignerMiddleware,
     providers::{Http, Middleware, Provider},
     signers::{LocalWallet, Signer},
+    types::TransactionReceipt,
     utils::get_contract_address,
 };
 use itertools::Itertools;
@@ -71,6 +73,18 @@ pub async fn setup_client(
     ));
 
     Ok(client)
+}
+
+/// Sends a contract call, waiting for the transaction to go from pending to executed,
+/// and returns the transaction receipt
+pub async fn send_contract_call<M: Middleware, D: Detokenize>(
+    call: ContractCall<M, D>,
+) -> Result<Option<TransactionReceipt>, ScriptError> {
+    call.send()
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))
 }
 
 /// Parses the JSON file at the given path

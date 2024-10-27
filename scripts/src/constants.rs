@@ -152,8 +152,8 @@ pub const TEST_ERC20_TICKER1: &str = "TEST1";
 /// which is also its contract key in the `deployments.json` file
 pub const TEST_ERC20_TICKER2: &str = "TEST2";
 
-/// The environment variable denoting the symbol w/ which to deploy the dummy ERC20 contract
-pub const DUMMY_ERC20_SYMBOL_ENV_VAR: &str = "DUMMY_ERC20_SYMBOL";
+/// The number of decimals for the testing ERC20 contracts
+pub const TEST_ERC20_DECIMALS: u8 = 18;
 
 /// The amount of dummy ERC20 tokens to fund the user with
 /// when deploying the testing contracts
