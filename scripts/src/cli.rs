@@ -6,7 +6,7 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::{
     commands::{
-        build_and_deploy_stylus_contract, deploy_erc20s, deploy_permit2, deploy_proxy,
+        build_and_deploy_stylus_contract, deploy_erc20, deploy_permit2, deploy_proxy,
         deploy_test_contracts, gen_vkeys, upgrade,
     },
     errors::ScriptError,
@@ -47,7 +47,7 @@ pub enum Command {
     /// Deploy a Stylus contract
     DeployStylus(DeployStylusArgs),
     /// Deploy dummy ERC20s
-    DeployErc20s(DeployErc20sArgs),
+    DeployErc20s(DeployErc20Args),
     /// Upgrade the darkpool implementation
     Upgrade(UpgradeArgs),
     /// Generate verification keys for the protocol circuits
@@ -65,19 +65,19 @@ impl Command {
     ) -> Result<(), ScriptError> {
         match self {
             Command::DeployTestContracts(args) => {
-                deploy_test_contracts(args, rpc_url, priv_key, client, deployments_path).await
+                deploy_test_contracts(&args, rpc_url, priv_key, client, deployments_path).await
             }
-            Command::DeployProxy(args) => deploy_proxy(args, client, deployments_path).await,
+            Command::DeployProxy(args) => deploy_proxy(&args, client, deployments_path).await,
             Command::DeployPermit2 => deploy_permit2(client, deployments_path).await,
             Command::DeployStylus(args) => {
-                build_and_deploy_stylus_contract(args, rpc_url, priv_key, client, deployments_path)
+                build_and_deploy_stylus_contract(&args, rpc_url, priv_key, client, deployments_path)
                     .await
             }
             Command::DeployErc20s(args) => {
-                deploy_erc20s(args, rpc_url, priv_key, client, deployments_path).await
+                deploy_erc20(&args, rpc_url, priv_key, client, deployments_path).await
             }
-            Command::Upgrade(args) => upgrade(args, client, deployments_path).await,
-            Command::GenVkeys(args) => gen_vkeys(args),
+            Command::Upgrade(args) => upgrade(&args, client, deployments_path).await,
+            Command::GenVkeys(args) => gen_vkeys(&args),
         }
     }
 }
@@ -147,20 +147,28 @@ pub struct DeployStylusArgs {
     pub no_verify: bool,
 }
 
-/// Deploy dummy ERC20s. Assumes the darkpool contract has already been deployed.
+/// Deploy a dummy ERC20. Assumes the darkpool contract has already been deployed.
 #[derive(Args)]
-pub struct DeployErc20sArgs {
-    /// The tickers for the ERC20s to deploy
-    #[arg(short, long, value_parser, num_args = 1.., value_delimiter = ' ')]
-    pub tickers: Vec<String>,
+pub struct DeployErc20Args {
+    /// The symbol for the ERC20 to deploy
+    #[arg(short, long)]
+    pub symbol: String,
+
+    /// The name for the ERC20 to deploy
+    #[arg(short, long)]
+    pub name: String,
+
+    /// The number of decimals for the ERC20 to deploy
+    #[arg(short, long)]
+    pub decimals: u8,
 
     /// The amount with which to fund each account
     #[arg(short, long)]
-    pub funding_amount: u128,
+    pub funding_amount: Option<u128>,
 
     /// A space-separated list of private keys corresponding to the accounts
-    /// which will be funded with the ERC20s and
-    /// for which the darkpool will be approved to transfer ERC20s
+    /// which will be funded with the ERC20 and for which the Permit2 contract
+    /// will be approved to transfer the ERC20
     #[arg(short, long, value_parser, num_args = 0.., value_delimiter = ' ')]
     pub account_skeys: Vec<String>,
 }

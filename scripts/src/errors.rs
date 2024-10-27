@@ -8,6 +8,8 @@ use std::{
 /// Errors that can occur during the execution of the contract management scripts
 #[derive(Debug)]
 pub enum ScriptError {
+    /// Invalid arguments provided to a command
+    InvalidArguments(String),
     /// Error reading from the deployments file
     ReadFile(String),
     /// Error writing to the deployments file
@@ -39,6 +41,7 @@ pub enum ScriptError {
 impl Display for ScriptError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            ScriptError::InvalidArguments(s) => write!(f, "invalid arguments: {}", s),
             ScriptError::ReadFile(s) => write!(f, "error reading deployments: {}", s),
             ScriptError::WriteFile(s) => write!(f, "error writing deployments: {}", s),
             ScriptError::ArtifactParsing(s) => write!(f, "error parsing artifact: {}", s),

@@ -30,20 +30,20 @@ use ethers::{
     utils::hex::FromHex,
 };
 use rand::{thread_rng, Rng};
-use std::{env, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
     cli::{
-        DeployErc20sArgs, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenVkeysArgs,
+        DeployErc20Args, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenVkeysArgs,
         UpgradeArgs,
     },
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, DUMMY_ERC20_SYMBOL_ENV_VAR,
-        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
-        PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
+        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI, PERMIT2_BYTECODE,
+        PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
         PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
-        TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
+        TEST_ERC20_DECIMALS, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
         VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
         VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
         VALID_WALLET_UPDATE_VKEY_FILE,
@@ -54,8 +54,8 @@ use crate::{
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         get_contract_key, get_protocol_external_fee_collection_address, get_public_encryption_key,
-        parse_addr_from_deployments_file, setup_client, write_deployed_address, write_vkey_file,
-        LocalWalletHttpClient,
+        parse_addr_from_deployments_file, send_contract_call, setup_client, write_deployed_address,
+        write_vkey_file, LocalWalletHttpClient,
     },
 };
 
@@ -63,7 +63,7 @@ use crate::{
 ///
 /// This includes generating fresh verification keys for testing.
 pub async fn deploy_test_contracts(
-    args: DeployTestContractsArgs,
+    args: &DeployTestContractsArgs,
     rpc_url: &str,
     priv_key: &str,
     client: Arc<LocalWalletHttpClient>,
@@ -74,7 +74,7 @@ pub async fn deploy_test_contracts(
         vkeys_dir: args.vkeys_dir.clone(),
         test: true,
     };
-    gen_vkeys(gen_vkeys_args)?;
+    gen_vkeys(&gen_vkeys_args)?;
 
     let mut deploy_stylus_args = DeployStylusArgs {
         contract: StylusContract::TestVkeys,
@@ -83,7 +83,7 @@ pub async fn deploy_test_contracts(
 
     info!("Deploying testing verification keys");
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -98,7 +98,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying dummy upgrade target contract");
     deploy_stylus_args.contract = StylusContract::DummyUpgradeTarget;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -109,7 +109,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying precompiles testing contract");
     deploy_stylus_args.contract = StylusContract::PrecompileTestContract;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -120,7 +120,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying Merkle testing contract");
     deploy_stylus_args.contract = StylusContract::MerkleTestContract;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -131,7 +131,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying transfer executor contract");
     deploy_stylus_args.contract = StylusContract::TransferExecutor;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -142,17 +142,27 @@ pub async fn deploy_test_contracts(
     info!("Deploying Permit2 contract");
     deploy_permit2(client.clone(), deployments_path).await?;
 
-    info!("Deploying test ERC-20 contract");
-    let deploy_erc20_args = DeployErc20sArgs {
-        tickers: vec![
-            TEST_ERC20_TICKER1.to_string(),
-            TEST_ERC20_TICKER2.to_string(),
-        ],
-        funding_amount: TEST_FUNDING_AMOUNT,
+    info!("Deploying test ERC-20 contracts");
+    let mut deploy_erc20_args = DeployErc20Args {
+        symbol: TEST_ERC20_TICKER1.to_string(),
+        name: TEST_ERC20_TICKER1.to_string(),
+        decimals: TEST_ERC20_DECIMALS,
+        funding_amount: Some(TEST_FUNDING_AMOUNT),
         account_skeys: vec![priv_key.to_string()],
     };
-    deploy_erc20s(
-        deploy_erc20_args,
+    deploy_erc20(
+        &deploy_erc20_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    deploy_erc20_args.symbol = TEST_ERC20_TICKER2.to_string();
+    deploy_erc20_args.name = TEST_ERC20_TICKER2.to_string();
+    deploy_erc20(
+        &deploy_erc20_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -163,7 +173,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying verifier contract");
     deploy_stylus_args.contract = StylusContract::VerifierCore;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -174,7 +184,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying verifier settlement contract");
     deploy_stylus_args.contract = StylusContract::VerifierSettlement;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -185,7 +195,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying core wallet operations contract");
     deploy_stylus_args.contract = StylusContract::CoreWalletOps;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -196,7 +206,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying core settlement contract");
     deploy_stylus_args.contract = StylusContract::CoreSettlement;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -207,7 +217,7 @@ pub async fn deploy_test_contracts(
     info!("Deploying darkpool testing contract");
     deploy_stylus_args.contract = StylusContract::DarkpoolTestContract;
     build_and_deploy_stylus_contract(
-        deploy_stylus_args,
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
@@ -217,19 +227,19 @@ pub async fn deploy_test_contracts(
 
     info!("Deploying proxy contract");
     let deploy_proxy_args = DeployProxyArgs {
-        owner: args.owner,
+        owner: args.owner.clone(),
         fee: thread_rng().gen(),
         protocol_public_encryption_key: None,
         protocol_external_fee_collection_address: None,
     };
-    deploy_proxy(deploy_proxy_args, client, deployments_path).await?;
+    deploy_proxy(&deploy_proxy_args, client, deployments_path).await?;
 
     Ok(())
 }
 
 /// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
 pub async fn deploy_proxy(
-    args: DeployProxyArgs,
+    args: &DeployProxyArgs,
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
@@ -287,10 +297,10 @@ pub async fn deploy_proxy(
     let protocol_fee = U256::from(args.fee);
 
     let protocol_public_encryption_key =
-        get_public_encryption_key(args.protocol_public_encryption_key)?;
+        get_public_encryption_key(args.protocol_public_encryption_key.clone())?;
 
     let protocol_external_fee_collection_address = get_protocol_external_fee_collection_address(
-        args.protocol_external_fee_collection_address,
+        args.protocol_external_fee_collection_address.clone(),
     )?;
 
     let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
@@ -385,90 +395,91 @@ pub async fn deploy_permit2(
     write_deployed_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
 }
 
-/// Deploys the ERC-20 contracts & approves the darkpool
+/// Deploys the ERC-20 contract & approves the Permit2 contract
 /// to spend the maximum amount of tokens for the provided
 /// addresses.
-///
-/// Note: the provided tickers will not actually be used as the contract's
-/// name or symbol, but rather as a way to identify the contract in the deployments file.
-pub async fn deploy_erc20s(
-    args: DeployErc20sArgs,
+pub async fn deploy_erc20(
+    args: &DeployErc20Args,
     rpc_url: &str,
     priv_key: &str,
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    let mut erc20_addresses = Vec::with_capacity(args.tickers.len());
-    for ticker in args.tickers {
-        env::set_var(DUMMY_ERC20_SYMBOL_ENV_VAR, &ticker);
-
-        let wasm_file_path =
-            build_stylus_contract(StylusContract::DummyErc20, false /* no_verify */)?;
-
-        erc20_addresses.push(
-            deploy_stylus_contract(
-                wasm_file_path.clone(),
-                rpc_url,
-                priv_key,
-                client.clone(),
-                StylusContract::DummyErc20,
-                deployments_path,
-                Some(&ticker),
-            )
-            .await?,
-        );
+    if !args.account_skeys.is_empty() && args.funding_amount.is_none() {
+        return Err(ScriptError::InvalidArguments(
+            "funding amount must be provided if account skeys are provided".to_string(),
+        ));
     }
+
+    let wasm_file_path =
+        build_stylus_contract(StylusContract::DummyErc20, false /* no_verify */)?;
+
+    let erc20_address = deploy_stylus_contract(
+        wasm_file_path.clone(),
+        rpc_url,
+        priv_key,
+        client.clone(),
+        StylusContract::DummyErc20,
+        deployments_path,
+        Some(&args.symbol),
+    )
+    .await?;
+
+    set_erc20_params(erc20_address, client, args).await?;
 
     let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
-    for erc20_address in erc20_addresses {
-        for skey in &args.account_skeys {
-            let account_client = setup_client(skey, rpc_url).await?;
-            let account_address = account_client.default_sender().unwrap();
-            let erc20 = DummyErc20Contract::new(erc20_address, account_client);
-
-            mint_erc20(&erc20, account_address, args.funding_amount).await?;
-            approve_erc20_max(&erc20, permit2_address).await?;
-        }
+    for skey in &args.account_skeys {
+        fund_and_approve_erc20(
+            rpc_url,
+            erc20_address,
+            skey,
+            args.funding_amount.unwrap(),
+            permit2_address,
+        )
+        .await?;
     }
 
     Ok(())
 }
 
-/// Mints ERC20 tokens for the provided address
-async fn mint_erc20(
-    erc20: &DummyErc20Contract<impl Middleware + 'static>,
-    recipient_address: Address,
-    amount: u128,
+/// Sets the symbol, name, and decimals parameters for the ERC20 contract
+async fn set_erc20_params(
+    erc20_address: Address,
+    client: Arc<LocalWalletHttpClient>,
+    args: &DeployErc20Args,
 ) -> Result<(), ScriptError> {
-    erc20
-        .mint(recipient_address, EthersU256::from(amount))
-        .send()
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))
-        .map(|_| ())
+    let erc20 = DummyErc20Contract::new(erc20_address, client);
+
+    send_contract_call(erc20.set_symbol(args.symbol.clone())).await?;
+    send_contract_call(erc20.set_name(args.name.clone())).await?;
+    send_contract_call(erc20.set_decimals(args.decimals)).await?;
+
+    Ok(())
 }
 
-/// Approves the darkpool to spend the maximum amount of the given ERC20
-async fn approve_erc20_max(
-    erc20: &DummyErc20Contract<impl Middleware + 'static>,
-    spender_address: Address,
+/// Funds the provided account with the given amount of ERC20 tokens,
+/// and approves the Permit2 contract to spend the maximum amount of the ERC20
+async fn fund_and_approve_erc20(
+    rpc_url: &str,
+    erc20_address: Address,
+    recipient_skey: &str,
+    funding_amount: u128,
+    permit2_address: Address,
 ) -> Result<(), ScriptError> {
-    erc20
-        .approve(spender_address, EthersU256::MAX)
-        .send()
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))
-        .map(|_| ())
+    let account_client = setup_client(recipient_skey, rpc_url).await?;
+    let account_address = account_client.default_sender().unwrap();
+    let erc20 = DummyErc20Contract::new(erc20_address, account_client);
+
+    send_contract_call(erc20.mint(account_address, EthersU256::from(funding_amount))).await?;
+    send_contract_call(erc20.approve(permit2_address, EthersU256::MAX)).await?;
+
+    Ok(())
 }
 
 /// Builds and deploys a Stylus contract
 pub async fn build_and_deploy_stylus_contract(
-    args: DeployStylusArgs,
+    args: &DeployStylusArgs,
     rpc_url: &str,
     priv_key: &str,
     client: Arc<LocalWalletHttpClient>,
@@ -490,7 +501,7 @@ pub async fn build_and_deploy_stylus_contract(
 
 /// Upgrades the darkpool implementation
 pub async fn upgrade(
-    args: UpgradeArgs,
+    args: &UpgradeArgs,
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
@@ -506,19 +517,14 @@ pub async fn upgrade(
         get_contract_key(StylusContract::Darkpool),
     )?;
 
-    let data = if let Some(calldata) = args.calldata {
+    let data = if let Some(calldata) = args.calldata.clone() {
         Bytes::from_hex(calldata).map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?
     } else {
         Bytes::new()
     };
 
-    proxy_admin
-        .upgrade_and_call(proxy_address, implementation_address, data)
-        .send()
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?;
+    send_contract_call(proxy_admin.upgrade_and_call(proxy_address, implementation_address, data))
+        .await?;
 
     Ok(())
 }
@@ -633,7 +639,7 @@ fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), 
 
 /// Generates and writes either the testing or production protocol verification keys
 /// to the specified directory
-pub fn gen_vkeys(args: GenVkeysArgs) -> Result<(), ScriptError> {
+pub fn gen_vkeys(args: &GenVkeysArgs) -> Result<(), ScriptError> {
     let vkeys = if args.test {
         compute_vkeys::<
             DummyValidWalletCreate,
