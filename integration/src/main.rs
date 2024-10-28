@@ -13,13 +13,14 @@ use ethers::abi::Address;
 use eyre::Result;
 use scripts::{
     constants::{
-        CORE_SETTLEMENT_CONTRACT_KEY, CORE_WALLET_OPS_CONTRACT_KEY, DARKPOOL_CONTRACT_KEY,
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, MERKLE_CONTRACT_KEY,
-        PERMIT2_CONTRACT_KEY, PRECOMPILE_TEST_CONTRACT_KEY, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2,
-        TEST_UPGRADE_TARGET_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
-        VERIFIER_CORE_CONTRACT_KEY, VERIFIER_SETTLEMENT_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
+        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, PERMIT2_CONTRACT_KEY,
+        TEST_ERC20_TICKER1, TEST_ERC20_TICKER2,
     },
-    utils::{parse_addr_from_deployments_file, setup_client, LocalWalletHttpClient},
+    types::StylusContract,
+    utils::{
+        read_deployment_address, read_stylus_deployment_address, setup_client,
+        LocalWalletHttpClient,
+    },
 };
 use test_helpers::{integration_test_main, types::TestVerbosity};
 use utils::u256_to_alloy_u256;
@@ -97,67 +98,79 @@ impl From<Cli> for TestArgs {
             .unwrap();
 
         let darkpool_proxy_address =
-            parse_addr_from_deployments_file(&value.deployments_file, DARKPOOL_PROXY_CONTRACT_KEY)
+            read_deployment_address(&value.deployments_file, DARKPOOL_PROXY_CONTRACT_KEY).unwrap();
+
+        let proxy_admin_address =
+            read_deployment_address(&value.deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)
                 .unwrap();
 
-        let proxy_admin_address = parse_addr_from_deployments_file(
+        let darkpool_impl_address = read_stylus_deployment_address(
             &value.deployments_file,
-            DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
+            &StylusContract::DarkpoolTestContract,
         )
         .unwrap();
 
-        let darkpool_impl_address =
-            parse_addr_from_deployments_file(&value.deployments_file, DARKPOOL_CONTRACT_KEY)
-                .unwrap();
-
         let core_wallet_ops_address =
-            parse_addr_from_deployments_file(&value.deployments_file, CORE_WALLET_OPS_CONTRACT_KEY)
+            read_stylus_deployment_address(&value.deployments_file, &StylusContract::CoreWalletOps)
                 .unwrap();
 
-        let core_settlement_address =
-            parse_addr_from_deployments_file(&value.deployments_file, CORE_SETTLEMENT_CONTRACT_KEY)
-                .unwrap();
+        let core_settlement_address = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::CoreSettlement,
+        )
+        .unwrap();
 
-        let merkle_address =
-            parse_addr_from_deployments_file(&value.deployments_file, MERKLE_CONTRACT_KEY).unwrap();
+        let merkle_address = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::MerkleTestContract,
+        )
+        .unwrap();
 
         let verifier_core_address =
-            parse_addr_from_deployments_file(&value.deployments_file, VERIFIER_CORE_CONTRACT_KEY)
+            read_stylus_deployment_address(&value.deployments_file, &StylusContract::VerifierCore)
                 .unwrap();
 
-        let verifier_settlement_address = parse_addr_from_deployments_file(
+        let verifier_settlement_address = read_stylus_deployment_address(
             &value.deployments_file,
-            VERIFIER_SETTLEMENT_CONTRACT_KEY,
+            &StylusContract::VerifierSettlement,
         )
         .unwrap();
 
         let vkeys_address =
-            parse_addr_from_deployments_file(&value.deployments_file, VKEYS_CONTRACT_KEY).unwrap();
+            read_stylus_deployment_address(&value.deployments_file, &StylusContract::TestVkeys)
+                .unwrap();
 
         let permit2_address =
-            parse_addr_from_deployments_file(&value.deployments_file, PERMIT2_CONTRACT_KEY)
-                .unwrap();
+            read_deployment_address(&value.deployments_file, PERMIT2_CONTRACT_KEY).unwrap();
 
-        let transfer_executor_address = parse_addr_from_deployments_file(
+        let transfer_executor_address = read_stylus_deployment_address(
             &value.deployments_file,
-            TRANSFER_EXECUTOR_CONTRACT_KEY,
+            &StylusContract::TransferExecutor,
         )
         .unwrap();
 
-        let test_erc20_address1 =
-            parse_addr_from_deployments_file(&value.deployments_file, TEST_ERC20_TICKER1).unwrap();
-        let test_erc20_address2 =
-            parse_addr_from_deployments_file(&value.deployments_file, TEST_ERC20_TICKER2).unwrap();
-
-        let test_upgrade_target_address = parse_addr_from_deployments_file(
+        let test_erc20_address1 = read_stylus_deployment_address(
             &value.deployments_file,
-            TEST_UPGRADE_TARGET_CONTRACT_KEY,
+            &StylusContract::DummyErc20(TEST_ERC20_TICKER1.to_string()),
+        )
+        .unwrap();
+        let test_erc20_address2 = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::DummyErc20(TEST_ERC20_TICKER2.to_string()),
         )
         .unwrap();
 
-        let precompiles_contract_address =
-            parse_addr_from_deployments_file(&value.deployments_file, PRECOMPILE_TEST_CONTRACT_KEY)
-                .unwrap();
+        let test_upgrade_target_address = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::DummyUpgradeTarget,
+        )
+        .unwrap();
+
+        let precompiles_contract_address = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::PrecompileTestContract,
+        )
+        .unwrap();
 
         TestArgs {
             client,

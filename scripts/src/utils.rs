@@ -33,14 +33,11 @@ use util::hex::jubjub_from_hex_string;
 use crate::{
     constants::{
         AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
-        CARGO_COMMAND, CORE_SETTLEMENT_CONTRACT_KEY, CORE_WALLET_OPS_CONTRACT_KEY,
-        DARKPOOL_CONTRACT_KEY, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND,
-        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, MERKLE_CONTRACT_KEY, NO_VERIFY_FEATURE,
-        OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_Z, PRECOMPILE_TEST_CONTRACT_KEY,
-        RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
-        TARGET_PATH_SEGMENT, TEST_UPGRADE_TARGET_CONTRACT_KEY, TRANSFER_EXECUTOR_CONTRACT_KEY,
-        VERIFIER_CORE_CONTRACT_KEY, VERIFIER_SETTLEMENT_CONTRACT_KEY, VKEYS_CONTRACT_KEY,
-        WASM_EXTENSION, WASM_OPT_COMMAND, WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
+        CARGO_COMMAND, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND, ERC20S_KEY,
+        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
+        OPT_LEVEL_FLAG, OPT_LEVEL_Z, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
+        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, WASM_EXTENSION, WASM_OPT_COMMAND,
+        WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::initializeCall,
@@ -100,29 +97,45 @@ pub fn get_json_from_file(file_path: &str) -> Result<JsonValue, ScriptError> {
 
 /// Parses a the given contract's deployment address from the
 /// deployments file at the given path
-pub fn parse_addr_from_deployments_file(
+pub fn read_stylus_deployment_address(
     file_path: &str,
-    contract_key: &str,
+    contract: &StylusContract,
 ) -> Result<Address, ScriptError> {
     let parsed_json = get_json_from_file(file_path)?;
 
-    Address::from_str(
-        parsed_json[DEPLOYMENTS_KEY][contract_key]
-            .as_str()
-            .ok_or_else(|| {
-                ScriptError::ReadFile(
-                    "Could not parse contract address from deployments file".to_string(),
-                )
-            })?,
-    )
-    .map_err(|e| ScriptError::ReadFile(e.to_string()))
+    let address_str = match contract {
+        StylusContract::DummyErc20(symbol) => {
+            parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol].as_str()
+        }
+        _ => parsed_json[DEPLOYMENTS_KEY][contract.to_string()].as_str(),
+    }
+    .ok_or_else(|| {
+        ScriptError::ReadFile("Could not parse contract address from deployments file".to_string())
+    })?;
+
+    Address::from_str(address_str).map_err(|e| ScriptError::ReadFile(e.to_string()))
 }
 
-/// Writes the given address for the deployed contract
-/// to the deployments file at the given path
-pub fn write_deployed_address(
+/// Reads the address under the given key from the given deployments file
+pub fn read_deployment_address(
     file_path: &str,
-    contract_key: &str,
+    deployment_key: &str,
+) -> Result<Address, ScriptError> {
+    let parsed_json = get_json_from_file(file_path)?;
+    let address_str = parsed_json[DEPLOYMENTS_KEY][deployment_key]
+        .as_str()
+        .ok_or_else(|| {
+            ScriptError::ReadFile("Could not parse address from deployments file".to_string())
+        })?;
+
+    Address::from_str(address_str).map_err(|e| ScriptError::ReadFile(e.to_string()))
+}
+
+/// Writes the given address for the deployed Stylus
+/// contract to the deployments file at the given path
+pub fn write_stylus_contract_address(
+    file_path: &str,
+    contract: &StylusContract,
     address: Address,
 ) -> Result<(), ScriptError> {
     // If the file doesn't exist, create it
@@ -131,7 +144,37 @@ pub fn write_deployed_address(
     }
     let mut parsed_json = get_json_from_file(file_path)?;
 
-    parsed_json[DEPLOYMENTS_KEY][contract_key] = JsonValue::String(format!("{address:#x}"));
+    match contract {
+        StylusContract::DummyErc20(symbol) => {
+            parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol] =
+                JsonValue::String(format!("{address:#x}"));
+        }
+        _ => {
+            parsed_json[DEPLOYMENTS_KEY][contract.to_string()] =
+                JsonValue::String(format!("{address:#x}"));
+        }
+    }
+
+    fs::write(file_path, json::stringify_pretty(parsed_json, 4))
+        .map_err(|e| ScriptError::WriteFile(e.to_string()))?;
+
+    Ok(())
+}
+
+/// Writes the given address into the deployments file,
+/// to the exact specified key
+pub fn write_deployment_address(
+    file_path: &str,
+    deployments_key: &str,
+    address: Address,
+) -> Result<(), ScriptError> {
+    // If the file doesn't exist, create it
+    if !PathBuf::from(file_path).exists() {
+        fs::write(file_path, "{}").map_err(|e| ScriptError::WriteFile(e.to_string()))?;
+    }
+    let mut parsed_json = get_json_from_file(file_path)?;
+
+    parsed_json[DEPLOYMENTS_KEY][deployments_key] = JsonValue::String(format!("{address:#x}"));
 
     fs::write(file_path, json::stringify_pretty(parsed_json, 4))
         .map_err(|e| ScriptError::WriteFile(e.to_string()))?;
@@ -149,23 +192,6 @@ pub fn write_vkey_file(
     let vkey_file_path = vkeys_dir.join(vkey_file_name);
 
     fs::write(vkey_file_path, vkey_bytes).map_err(|e| ScriptError::WriteFile(e.to_string()))
-}
-
-/// Returns the JSON key used in the deployments file for the given contract
-pub fn get_contract_key(contract: StylusContract) -> &'static str {
-    match contract {
-        StylusContract::Darkpool | StylusContract::DarkpoolTestContract => DARKPOOL_CONTRACT_KEY,
-        StylusContract::CoreWalletOps => CORE_WALLET_OPS_CONTRACT_KEY,
-        StylusContract::CoreSettlement => CORE_SETTLEMENT_CONTRACT_KEY,
-        StylusContract::Merkle | StylusContract::MerkleTestContract => MERKLE_CONTRACT_KEY,
-        StylusContract::VerifierCore => VERIFIER_CORE_CONTRACT_KEY,
-        StylusContract::VerifierSettlement => VERIFIER_SETTLEMENT_CONTRACT_KEY,
-        StylusContract::Vkeys | StylusContract::TestVkeys => VKEYS_CONTRACT_KEY,
-        StylusContract::TransferExecutor => TRANSFER_EXECUTOR_CONTRACT_KEY,
-        StylusContract::DummyUpgradeTarget => TEST_UPGRADE_TARGET_CONTRACT_KEY,
-        StylusContract::PrecompileTestContract => PRECOMPILE_TEST_CONTRACT_KEY,
-        StylusContract::DummyErc20 => unreachable!("Must supply a ticker at which to find the deployment address of a dummy ERC20 contract"),
-    }
 }
 
 /// Parses an EC-ElGamal public encryption key from a hex string,
@@ -264,7 +290,7 @@ fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError
 
 /// Returns the RUSTFLAGS environment variable to use in the
 /// compilation of the given contract
-pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
+pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
     let rustflags = match contract {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
@@ -283,7 +309,7 @@ pub fn get_rustflags_for_contract(contract: StylusContract) -> String {
 
 /// Returns the wasm-opt flags to use in the optimization of the
 /// given contract
-pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str {
+pub fn get_wasm_opt_flags_for_contract(contract: &StylusContract) -> &'static str {
     match contract {
         StylusContract::DarkpoolTestContract => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
         _ => AGGRESSIVE_OPTIMIZATION_FLAG,
@@ -295,7 +321,7 @@ pub fn get_wasm_opt_flags_for_contract(contract: StylusContract) -> &'static str
 ///
 /// Assumes that `cargo`, the `nightly` toolchain, and `wasm-opt` are locally available.
 pub fn build_stylus_contract(
-    contract: StylusContract,
+    contract: &StylusContract,
     no_verify: bool,
 ) -> Result<PathBuf, ScriptError> {
     let current_dir = PathBuf::from(env::var(MANIFEST_DIR_ENV_VAR).unwrap());
@@ -380,14 +406,12 @@ pub async fn deploy_stylus_contract(
     rpc_url: &str,
     priv_key: &str,
     client: Arc<LocalWalletHttpClient>,
-    contract: StylusContract,
-    deployments_path: &str,
-    contract_key_override: Option<&str>,
+    contract: &StylusContract,
 ) -> Result<Address, ScriptError> {
     match contract {
         StylusContract::DarkpoolTestContract
         | StylusContract::MerkleTestContract
-        | StylusContract::DummyErc20 => {
+        | StylusContract::DummyErc20(_) => {
             warn!(
                 "Deploying `{}` - THIS SHOULD ONLY BE DONE FOR TESTING",
                 contract
@@ -422,15 +446,6 @@ pub async fn deploy_stylus_contract(
     deploy_cmd.arg("--no-verify");
 
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
-
-    // Write deployed address to deployments file
-    let contract_key = if let Some(contract_key_override) = contract_key_override {
-        contract_key_override
-    } else {
-        get_contract_key(contract)
-    };
-
-    write_deployed_address(deployments_path, contract_key, deployed_address)?;
 
     Ok(deployed_address)
 }
