@@ -53,9 +53,10 @@ use crate::{
     types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_contract_key, get_protocol_external_fee_collection_address, get_public_encryption_key,
-        parse_addr_from_deployments_file, send_contract_call, setup_client, write_deployed_address,
-        write_vkey_file, LocalWalletHttpClient,
+        get_protocol_external_fee_collection_address, get_public_encryption_key,
+        read_deployment_address, read_stylus_deployment_address, send_contract_call, setup_client,
+        write_deployment_address, write_stylus_contract_address, write_vkey_file,
+        LocalWalletHttpClient,
     },
 };
 
@@ -231,6 +232,7 @@ pub async fn deploy_test_contracts(
         fee: thread_rng().gen(),
         protocol_public_encryption_key: None,
         protocol_external_fee_collection_address: None,
+        test: true,
     };
     deploy_proxy(&deploy_proxy_args, client, deployments_path).await?;
 
@@ -254,42 +256,39 @@ pub async fn deploy_proxy(
 
     // Parse proxy contract constructor arguments
 
-    let darkpool_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::Darkpool),
-    )?;
-    let core_wallet_ops_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::CoreWalletOps),
-    )?;
-    let core_settlement_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::CoreSettlement),
-    )?;
-    let merkle_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::Merkle),
-    )?;
-    let verifier_core_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::VerifierCore),
-    )?;
-    let verifier_settlement_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::VerifierSettlement),
-    )?;
+    let darkpool_contract = if args.test {
+        StylusContract::DarkpoolTestContract
+    } else {
+        StylusContract::Darkpool
+    };
+    let merkle_contract = if args.test {
+        StylusContract::MerkleTestContract
+    } else {
+        StylusContract::Merkle
+    };
+    let vkeys_contract = if args.test {
+        StylusContract::TestVkeys
+    } else {
+        StylusContract::Vkeys
+    };
 
-    let vkeys_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::Vkeys),
-    )?;
+    let darkpool_address = read_stylus_deployment_address(deployments_path, &darkpool_contract)?;
+    let core_wallet_ops_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreWalletOps)?;
+    let core_settlement_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreSettlement)?;
+    let merkle_address = read_stylus_deployment_address(deployments_path, &merkle_contract)?;
+    let verifier_core_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::VerifierCore)?;
+    let verifier_settlement_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::VerifierSettlement)?;
 
-    let transfer_executor_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::TransferExecutor),
-    )?;
+    let vkeys_address = read_stylus_deployment_address(deployments_path, &vkeys_contract)?;
 
-    let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
+    let transfer_executor_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::TransferExecutor)?;
+
+    let permit2_address = read_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
     let owner_address = Address::from_str(&args.owner)
         .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
@@ -355,8 +354,8 @@ pub async fn deploy_proxy(
     );
 
     // Write deployed addresses to deployments file
-    write_deployed_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY, proxy_address)?;
-    write_deployed_address(
+    write_deployment_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY, proxy_address)?;
+    write_deployment_address(
         deployments_path,
         DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
         proxy_admin_address,
@@ -392,7 +391,7 @@ pub async fn deploy_permit2(
         permit2_address
     );
 
-    write_deployed_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
+    write_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
 }
 
 /// Deploys the ERC-20 contract & approves the Permit2 contract
@@ -411,33 +410,36 @@ pub async fn deploy_erc20(
         ));
     }
 
-    let wasm_file_path =
-        build_stylus_contract(StylusContract::DummyErc20, false /* no_verify */)?;
+    let contract = StylusContract::DummyErc20(args.symbol.clone());
 
-    let erc20_address = deploy_stylus_contract(
-        wasm_file_path.clone(),
+    let deploy_stylus_args = DeployStylusArgs {
+        contract,
+        no_verify: false,
+    };
+    let erc20_address = build_and_deploy_stylus_contract(
+        &deploy_stylus_args,
         rpc_url,
         priv_key,
         client.clone(),
-        StylusContract::DummyErc20,
         deployments_path,
-        Some(&args.symbol),
     )
     .await?;
 
     set_erc20_params(erc20_address, client, args).await?;
 
-    let permit2_address = parse_addr_from_deployments_file(deployments_path, PERMIT2_CONTRACT_KEY)?;
+    if !args.account_skeys.is_empty() {
+        let permit2_address = read_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
-    for skey in &args.account_skeys {
-        fund_and_approve_erc20(
-            rpc_url,
-            erc20_address,
-            skey,
-            args.funding_amount.unwrap(),
-            permit2_address,
-        )
-        .await?;
+        for recipient_skey in &args.account_skeys {
+            fund_and_approve_erc20(
+                args,
+                rpc_url,
+                erc20_address,
+                recipient_skey,
+                permit2_address,
+            )
+            .await?;
+        }
     }
 
     Ok(())
@@ -451,6 +453,8 @@ async fn set_erc20_params(
 ) -> Result<(), ScriptError> {
     let erc20 = DummyErc20Contract::new(erc20_address, client);
 
+    info!("Setting {} contract parameters", args.symbol);
+
     send_contract_call(erc20.set_symbol(args.symbol.clone())).await?;
     send_contract_call(erc20.set_name(args.name.clone())).await?;
     send_contract_call(erc20.set_decimals(args.decimals)).await?;
@@ -461,15 +465,23 @@ async fn set_erc20_params(
 /// Funds the provided account with the given amount of ERC20 tokens,
 /// and approves the Permit2 contract to spend the maximum amount of the ERC20
 async fn fund_and_approve_erc20(
+    args: &DeployErc20Args,
     rpc_url: &str,
     erc20_address: Address,
     recipient_skey: &str,
-    funding_amount: u128,
     permit2_address: Address,
 ) -> Result<(), ScriptError> {
     let account_client = setup_client(recipient_skey, rpc_url).await?;
     let account_address = account_client.default_sender().unwrap();
     let erc20 = DummyErc20Contract::new(erc20_address, account_client);
+
+    let funding_amount = args.funding_amount.unwrap();
+    let symbol = args.symbol.clone();
+
+    info!(
+        "Funding {:#x} with {} {} & approving Permit2",
+        account_address, funding_amount, symbol
+    );
 
     send_contract_call(erc20.mint(account_address, EthersU256::from(funding_amount))).await?;
     send_contract_call(erc20.approve(permit2_address, EthersU256::MAX)).await?;
@@ -477,26 +489,26 @@ async fn fund_and_approve_erc20(
     Ok(())
 }
 
-/// Builds and deploys a Stylus contract
+/// Builds and deploys a Stylus contract,
+/// saving the deployment address to the deployments file
 pub async fn build_and_deploy_stylus_contract(
     args: &DeployStylusArgs,
     rpc_url: &str,
     priv_key: &str,
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
-) -> Result<(), ScriptError> {
-    let wasm_file_path = build_stylus_contract(args.contract, args.no_verify)?;
-    deploy_stylus_contract(
-        wasm_file_path,
-        rpc_url,
-        priv_key,
-        client,
-        args.contract,
-        deployments_path,
-        None,
-    )
-    .await
-    .map(|_| ())
+) -> Result<Address, ScriptError> {
+    // Build the contract to WASM
+    let wasm_file_path = build_stylus_contract(&args.contract, args.no_verify)?;
+
+    // Deploy the contract
+    let deployed_address =
+        deploy_stylus_contract(wasm_file_path, rpc_url, priv_key, client, &args.contract).await?;
+
+    // Write deployed address to deployments file
+    write_stylus_contract_address(deployments_path, &args.contract, deployed_address)?;
+
+    Ok(deployed_address)
 }
 
 /// Upgrades the darkpool implementation
@@ -506,16 +518,13 @@ pub async fn upgrade(
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let proxy_admin_address =
-        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?;
+        read_deployment_address(deployments_path, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?;
     let proxy_admin = ProxyAdminContract::new(proxy_admin_address, client);
 
-    let proxy_address =
-        parse_addr_from_deployments_file(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
+    let proxy_address = read_deployment_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
 
-    let implementation_address = parse_addr_from_deployments_file(
-        deployments_path,
-        get_contract_key(StylusContract::Darkpool),
-    )?;
+    let implementation_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::Darkpool)?;
 
     let data = if let Some(calldata) = args.calldata.clone() {
         Bytes::from_hex(calldata).map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?

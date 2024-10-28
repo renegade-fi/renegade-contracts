@@ -8,7 +8,7 @@ use contracts_common::types::{
 };
 
 /// The possible Stylus contracts to deploy
-#[derive(ValueEnum, Copy, Clone)]
+#[derive(ValueEnum, Clone)]
 pub enum StylusContract {
     /// The darkpool contract
     Darkpool,
@@ -32,8 +32,12 @@ pub enum StylusContract {
     TestVkeys,
     /// The transfer executor contract
     TransferExecutor,
-    /// The dummy ERC20 contract
-    DummyErc20,
+    /// The dummy ERC20 contract, containing the
+    /// token symbol
+    // We skip this value in the CLI as we have
+    // a separate command for deploying ERC20s
+    #[value(skip)]
+    DummyErc20(String),
     /// The dummy upgrade target contract
     DummyUpgradeTarget,
     /// The precompile test contract
@@ -54,7 +58,7 @@ impl Display for StylusContract {
             StylusContract::Vkeys => write!(f, "vkeys"),
             StylusContract::TestVkeys => write!(f, "test-vkeys"),
             StylusContract::TransferExecutor => write!(f, "transfer-executor"),
-            StylusContract::DummyErc20 => write!(f, "dummy-erc20"),
+            StylusContract::DummyErc20(_) => write!(f, "dummy-erc20"),
             StylusContract::DummyUpgradeTarget => write!(f, "dummy-upgrade-target"),
             StylusContract::PrecompileTestContract => write!(f, "precompile-test-contract"),
         }

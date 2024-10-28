@@ -46,8 +46,8 @@ pub enum Command {
     DeployPermit2,
     /// Deploy a Stylus contract
     DeployStylus(DeployStylusArgs),
-    /// Deploy dummy ERC20s
-    DeployErc20s(DeployErc20Args),
+    /// Deploy a dummy ERC20
+    DeployErc20(DeployErc20Args),
     /// Upgrade the darkpool implementation
     Upgrade(UpgradeArgs),
     /// Generate verification keys for the protocol circuits
@@ -72,8 +72,9 @@ impl Command {
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(&args, rpc_url, priv_key, client, deployments_path)
                     .await
+                    .map(|_| ())
             }
-            Command::DeployErc20s(args) => {
+            Command::DeployErc20(args) => {
                 deploy_erc20(&args, rpc_url, priv_key, client, deployments_path).await
             }
             Command::Upgrade(args) => upgrade(&args, client, deployments_path).await,
@@ -132,10 +133,14 @@ pub struct DeployProxyArgs {
     /// The address of the protocol external fee collection wallet
     #[arg(long)]
     pub protocol_external_fee_collection_address: Option<String>,
+
+    /// Whether or not to use the test contracts
+    #[arg(short, long)]
+    pub test: bool,
 }
 
 /// Deploy a Stylus contract
-#[derive(Args, Clone, Copy)]
+#[derive(Args, Clone)]
 pub struct DeployStylusArgs {
     /// The Stylus contract to deploy
     #[arg(short, long)]

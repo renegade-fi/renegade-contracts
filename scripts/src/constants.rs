@@ -111,14 +111,8 @@ pub const DEPLOY_COMMAND: &str = "deploy";
 /// The deployments key in the `deployments.json` file
 pub const DEPLOYMENTS_KEY: &str = "deployments";
 
-/// The darkpool contract key in the `deployments.json` file
-pub const DARKPOOL_CONTRACT_KEY: &str = "darkpool_contract";
-
-/// The core wallet operations contract key in the `deployments.json` file
-pub const CORE_WALLET_OPS_CONTRACT_KEY: &str = "core_wallet_ops_contract";
-
-/// The core settlement contract key in the `deployments.json` file
-pub const CORE_SETTLEMENT_CONTRACT_KEY: &str = "core_settlement_contract";
+/// The ERC-20s sub-key in the `deployments.json` file
+pub const ERC20S_KEY: &str = "erc20s";
 
 /// The darkpool proxy contract key in the `deployments.json` file
 pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
@@ -128,21 +122,6 @@ pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contra
 
 /// The permit2 contract key in the `deployments.json` file
 pub const PERMIT2_CONTRACT_KEY: &str = "permit2_contract";
-
-/// The merkle contract key in the `deployments.json` file
-pub const MERKLE_CONTRACT_KEY: &str = "merkle_contract";
-
-/// The verifier contract key in the `deployments.json` file
-pub const VERIFIER_CORE_CONTRACT_KEY: &str = "verifier_core_contract";
-
-/// The verifier settlement contract key in the `deployments.json` file
-pub const VERIFIER_SETTLEMENT_CONTRACT_KEY: &str = "verifier_settlement_contract";
-
-/// The vkeys contract key in the `deployments.json` file
-pub const VKEYS_CONTRACT_KEY: &str = "vkeys_contract";
-
-/// The transfer executor contract key in the `deployments.json` file
-pub const TRANSFER_EXECUTOR_CONTRACT_KEY: &str = "transfer_executor_contract";
 
 /// The ticker of the ERC20 contract deployed using `deploy_test_contracts`,
 /// which is also its contract key in the `deployments.json` file
@@ -158,12 +137,6 @@ pub const TEST_ERC20_DECIMALS: u8 = 18;
 /// The amount of dummy ERC20 tokens to fund the user with
 /// when deploying the testing contracts
 pub const TEST_FUNDING_AMOUNT: u128 = 1000;
-
-/// The test upgrade target contract key in the `deployments.json` file
-pub const TEST_UPGRADE_TARGET_CONTRACT_KEY: &str = "test_upgrade_target_contract";
-
-/// The precompile test contract key in the `deployments.json` file
-pub const PRECOMPILE_TEST_CONTRACT_KEY: &str = "precompile_test_contract";
 
 /// The file name for the VALID WALLET CREATE verification key
 pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";

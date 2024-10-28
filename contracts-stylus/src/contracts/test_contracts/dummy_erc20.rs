@@ -17,6 +17,7 @@ use stylus_sdk::{
 
 sol_storage! {
     /// Erc20 implements all ERC-20 methods.
+    #[entrypoint]
     pub struct Erc20 {
         /// The name of the token
         string name;

@@ -10,5 +10,5 @@ mod commands;
 pub mod constants;
 pub mod errors;
 mod solidity;
-mod types;
+pub mod types;
 pub mod utils;
