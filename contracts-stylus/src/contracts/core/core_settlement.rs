@@ -16,7 +16,8 @@ use crate::{
             TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, postcard_serialize,
+            delegate_call_helper, deserialize_from_calldata, get_weth_address,
+            is_native_eth_address, postcard_serialize,
             serialize_atomic_match_statements_for_verification,
             serialize_match_statements_for_verification, u256_to_scalar,
         },
@@ -298,7 +299,7 @@ impl CoreSettlementContract {
             Self::batch_verify_process_atomic_match_settle(
                 storage,
                 &internal_party_match_payload,
-                &valid_match_settle_atomic_statement,
+                valid_match_settle_atomic_statement.clone(),
                 match_proofs,
                 match_linking_proofs,
             )?;
@@ -378,7 +379,7 @@ impl CoreSettlementContract {
     pub fn batch_verify_process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         internal_party_match_payload: &MatchPayload,
-        valid_match_settle_atomic_statement: &ValidMatchSettleAtomicStatement,
+        mut valid_match_settle_atomic_statement: ValidMatchSettleAtomicStatement,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -386,10 +387,18 @@ impl CoreSettlementContract {
         let process_atomic_match_settle_vkeys =
             fetch_vkeys(storage, &processAtomicMatchSettleVkeysCall::SELECTOR)?;
 
+        // We allow native ETH transfers on external matches, but the verifier will expect WETH
+        // to be compatible with internal orders, so we change it here
+        let base_asset = valid_match_settle_atomic_statement.match_result.base_mint;
+        if is_native_eth_address(base_asset) {
+            let weth = get_weth_address();
+            valid_match_settle_atomic_statement.match_result.base_mint = weth;
+        }
+
         let atomic_match_public_inputs = serialize_atomic_match_statements_for_verification(
             &internal_party_match_payload.valid_commitments_statement,
             &internal_party_match_payload.valid_reblind_statement,
-            valid_match_settle_atomic_statement,
+            &valid_match_settle_atomic_statement,
         )?;
 
         let verifier_address = storage.borrow_mut().verifier_core_address();

@@ -1,7 +1,6 @@
 //! The transfer executor contract, responsible for executing external transfers to/from the darkpool
 //! (it is intended to be delegate-called by the darkpool)
-
-use core::str::FromStr;
+#![cfg(feature = "transfer-executor")]
 
 use crate::{
     if_verifying,
@@ -11,7 +10,8 @@ use crate::{
             MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE,
         },
         helpers::{
-            assert_valid_signature, call_helper, deserialize_from_calldata, postcard_serialize,
+            assert_valid_signature, call_helper, deserialize_from_calldata, get_weth_address,
+            is_native_eth_address, postcard_serialize,
         },
         solidity::{
             depositCall, transferCall, transferFromCall, withdrawToCall,
@@ -39,19 +39,6 @@ use stylus_sdk::{
     storage::{StorageAddress, StorageArray, StorageU256},
 };
 
-/// A dummy address for the native asset, constant across all chains
-/// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
-const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
-
-/// The address of the WETH contract
-///
-/// We read this from an environment variable so that it must be set by the deployer.
-///
-/// For convenience, the addresses of WETH on Arbitrum chains are below:
-/// - Sepolia: 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73 // TODO: replace with dummy WETH address
-/// - Arbitrum One: 0x82aF49447D8a07e3bd95BD0d56f35241523fBabb
-const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
-
 /// The error message emitted when a simple ERC20 deposit fails
 const SIMPLE_ERC20_DEPOSIT_ERROR_MESSAGE: &[u8] = b"Simple ERC20 deposit failed";
 /// The error message emitted when a simple ERC20 withdrawal fails
@@ -59,17 +46,6 @@ const SIMPLE_ERC20_WITHDRAWAL_ERROR_MESSAGE: &[u8] = b"Simple ERC20 withdrawal f
 /// The error message emitted when the transaction payable amount is invalid
 const INVALID_TRANSACTION_PAYABLE_AMOUNT_ERROR_MESSAGE: &[u8] =
     b"Invalid transaction payable amount";
-
-/// A helper method to parse the WETH address from a string
-fn get_weth_address() -> Address {
-    Address::from_str(WETH_ADDRESS).expect("WETH_ADDRESS must be a valid address")
-}
-
-/// A helper method to parse the native ETH address from a string
-fn is_native_eth_address(addr: Address) -> bool {
-    let native_addr = Address::from_str(NATIVE_ETH_ADDRESS).unwrap();
-    addr == native_addr
-}
 
 /// The transfer executor contract's storage layout
 #[solidity_storage]
