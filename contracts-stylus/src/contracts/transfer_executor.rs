@@ -1,6 +1,8 @@
 //! The transfer executor contract, responsible for executing external transfers to/from the darkpool
 //! (it is intended to be delegate-called by the darkpool)
 
+use core::str::FromStr;
+
 use crate::{
     if_verifying,
     utils::{
@@ -11,7 +13,10 @@ use crate::{
         helpers::{
             assert_valid_signature, call_helper, deserialize_from_calldata, postcard_serialize,
         },
-        solidity::{transferCall, transferFromCall, ExternalTransfer as ExternalTransferEvent},
+        solidity::{
+            depositCall, transferCall, transferFromCall, withdrawToCall,
+            ExternalTransfer as ExternalTransferEvent,
+        },
     },
 };
 use alloc::{string::ToString, vec::Vec};
@@ -28,15 +33,43 @@ use contracts_common::{
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
-    contract, evm,
+    call::Call,
+    contract, evm, msg,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageU256},
 };
+
+/// A dummy address for the native asset, constant across all chains
+/// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+
+/// The address of the WETH contract
+///
+/// We read this from an environment variable so that it must be set by the deployer.
+///
+/// For convenience, the addresses of WETH on Arbitrum chains are below:
+/// - Sepolia: 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73 // TODO: replace with dummy WETH address
+/// - Arbitrum One: 0x82aF49447D8a07e3bd95BD0d56f35241523fBabb
+const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
 
 /// The error message emitted when a simple ERC20 deposit fails
 const SIMPLE_ERC20_DEPOSIT_ERROR_MESSAGE: &[u8] = b"Simple ERC20 deposit failed";
 /// The error message emitted when a simple ERC20 withdrawal fails
 const SIMPLE_ERC20_WITHDRAWAL_ERROR_MESSAGE: &[u8] = b"Simple ERC20 withdrawal failed";
+/// The error message emitted when the transaction payable amount is invalid
+const INVALID_TRANSACTION_PAYABLE_AMOUNT_ERROR_MESSAGE: &[u8] =
+    b"Invalid transaction payable amount";
+
+/// A helper method to parse the WETH address from a string
+fn get_weth_address() -> Address {
+    Address::from_str(WETH_ADDRESS).expect("WETH_ADDRESS must be a valid address")
+}
+
+/// A helper method to parse the native ETH address from a string
+fn is_native_eth_address(addr: Address) -> bool {
+    let native_addr = Address::from_str(NATIVE_ETH_ADDRESS).unwrap();
+    addr == native_addr
+}
 
 /// The transfer executor contract's storage layout
 #[solidity_storage]
@@ -184,7 +217,13 @@ impl TransferExecutorContract {
         &mut self,
         transfer: SimpleErc20Transfer,
     ) -> Result<(), Vec<u8>> {
+        // If the deposit is for native ETH, wrap it
         let erc20_address = transfer.mint;
+        if is_native_eth_address(erc20_address) {
+            return self.handle_native_eth_deposit(transfer);
+        }
+
+        // Otherwise, deposit the ERC20
         let contract_address = contract::address();
         let res = call_helper::<transferFromCall>(
             self,
@@ -203,7 +242,12 @@ impl TransferExecutorContract {
         &mut self,
         transfer: SimpleErc20Transfer,
     ) -> Result<(), Vec<u8>> {
+        // If the withdrawal is for native ETH, unwrap it
         let erc20_address = transfer.mint;
+        if is_native_eth_address(erc20_address) {
+            return self.handle_native_eth_withdrawal(transfer);
+        }
+
         let res = call_helper::<transferCall>(
             self,
             erc20_address,
@@ -213,6 +257,35 @@ impl TransferExecutorContract {
         if !res._0 {
             return Err(SIMPLE_ERC20_WITHDRAWAL_ERROR_MESSAGE.to_vec());
         }
+        Ok(())
+    }
+
+    /// Deposit native ETH into the contract by wrapping the transaction payable amount
+    fn handle_native_eth_deposit(&mut self, transfer: SimpleErc20Transfer) -> Result<(), Vec<u8>> {
+        let payable = msg::value();
+        if transfer.amount != payable {
+            return Err(INVALID_TRANSACTION_PAYABLE_AMOUNT_ERROR_MESSAGE.to_vec());
+        }
+
+        // Wrap the native asset
+        let weth_address = get_weth_address();
+        let call_ctx = Call::new_in(self).value(payable);
+        call_helper::<depositCall>(call_ctx, weth_address, ())?;
+        Ok(())
+    }
+
+    /// Withdraw native ETH from the contract to the caller by unwrapping the transfer amount
+    fn handle_native_eth_withdrawal(
+        &mut self,
+        transfer: SimpleErc20Transfer,
+    ) -> Result<(), Vec<u8>> {
+        let weth_address = get_weth_address();
+        let call_ctx = Call::new_in(self);
+        call_helper::<withdrawToCall>(
+            call_ctx,
+            weth_address,
+            (transfer.account_addr, transfer.amount),
+        )?;
         Ok(())
     }
 }
