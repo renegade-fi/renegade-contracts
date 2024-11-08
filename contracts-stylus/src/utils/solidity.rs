@@ -53,6 +53,10 @@ sol! {
     function transfer(address to, uint256 value) external returns (bool);
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 
+    // Native asset wrapper functions
+    function deposit() external payable;
+    function withdrawTo(address to, uint256 value) external;
+
     // Testing functions
     function isDummyUpgradeTarget() external view returns (bool);
 

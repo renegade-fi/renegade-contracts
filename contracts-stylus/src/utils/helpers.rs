@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
-    call::{call, delegate_call, static_call},
+    call::{call, delegate_call, static_call, MutatingCallContext},
     storage::TopLevelStorage,
 };
 
@@ -177,7 +177,7 @@ pub fn delegate_call_helper<C: SolCall>(
 /// defined as a `SolCall` with the given arguments.
 #[cfg_attr(not(feature = "transfer-executor"), allow(dead_code))]
 pub fn call_helper<C: SolCall>(
-    storage: &mut impl TopLevelStorage,
+    storage: impl MutatingCallContext,
     address: Address,
     args: <C::Parameters<'_> as SolType>::RustType,
 ) -> Result<C::Return, Vec<u8>> {
