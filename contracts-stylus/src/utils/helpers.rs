@@ -1,5 +1,7 @@
 //! Miscellaneous helper functions for the contracts.
 
+use super::constants::NATIVE_ETH_ADDRESS;
+use crate::utils::constants::WETH_ADDRESS;
 use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
@@ -13,6 +15,7 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
+use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 use stylus_sdk::{
     abi::Bytes,
@@ -30,6 +33,19 @@ use super::constants::{
     CALLDATA_DESER_ERROR_MESSAGE, CALLDATA_SER_ERROR_MESSAGE, CALL_RETDATA_DECODING_ERROR_MESSAGE,
     INVALID_ARR_LEN_ERROR_MESSAGE,
 };
+
+/// A helper to get the address of the WETH contract
+#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+pub fn get_weth_address() -> Address {
+    Address::from_str(WETH_ADDRESS).expect("WETH_ADDRESS must be a valid address")
+}
+
+/// A helper to check if a given address is the address representing native ETH
+#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+pub fn is_native_eth_address(addr: Address) -> bool {
+    let native_addr = Address::from_str(NATIVE_ETH_ADDRESS).unwrap();
+    addr == native_addr
+}
 
 /// Deserializes a byte-serialized type from calldata
 #[cfg_attr(

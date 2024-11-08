@@ -393,7 +393,7 @@ impl SimpleErc20Transfer {
 
 /// A fee take from a match
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct FeeTake {
     /// The fee the relayer takes
     #[serde_as(as = "U256Def")]
@@ -415,7 +415,7 @@ impl FeeTake {
 
 /// The result of an atomic match
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ExternalMatchResult {
     /// The mint (erc20 address) of the quote token
     #[serde_as(as = "AddressDef")]
@@ -540,7 +540,7 @@ pub struct ValidReblindStatement {
 
 /// The indices that specify where settlement logic should modify the wallet
 /// shares
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OrderSettlementIndices {
     /// The index of the balance that holds the mint that the wallet will
     /// send if a successful match occurs
@@ -590,7 +590,7 @@ pub struct MatchPayload {
 
 /// The statement type for `VALID MATCH SETTLE ATOMIC`
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ValidMatchSettleAtomicStatement {
     /// The result of the match
     pub match_result: ExternalMatchResult,

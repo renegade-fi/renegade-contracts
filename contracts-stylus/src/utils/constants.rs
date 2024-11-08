@@ -114,6 +114,21 @@ pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata"
 #[cfg(feature = "transfer-executor")]
 pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer aux data";
 
+/// A dummy address for the native asset, constant across all chains
+/// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+
+/// The address of the WETH contract
+///
+/// We read this from an environment variable so that it must be set by the deployer.
+///
+/// For convenience, the addresses of WETH on Arbitrum chains are below:
+/// - Sepolia: 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73 // TODO: replace with dummy WETH address
+/// - Arbitrum One: 0x82aF49447D8a07e3bd95BD0d56f35241523fBabb
+#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+pub const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
+
 /// The last byte of the `ecAdd` precompile address, 0x06
 pub const EC_ADD_ADDRESS_LAST_BYTE: u8 = 6;
 /// The last byte of the `ecMul` precompile address, 0x07
