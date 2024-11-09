@@ -52,7 +52,7 @@ use super::CoreContractStorage;
 /// Many storage elements are not used in the darkpool core contract,
 /// but are listed here so that the storage layout lines up with
 /// that of the darkpool contract.
-#[solidity_storage]
+#[storage]
 #[cfg_attr(feature = "core-wallet-ops", entrypoint)]
 pub struct CoreWalletOpsContract {
     /// Storage gap to prevent collisions with the Merkle contract
@@ -176,7 +176,7 @@ impl CoreContractStorage for CoreWalletOpsContract {
 // | External Methods |
 // --------------------
 
-#[external]
+#[public]
 impl CoreWalletOpsContract {
     /// Adds a new wallet to the commitment tree
     pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(

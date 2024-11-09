@@ -148,6 +148,7 @@ pub async fn deploy_test_contracts(
         symbol: TEST_ERC20_TICKER1.to_string(),
         name: TEST_ERC20_TICKER1.to_string(),
         decimals: TEST_ERC20_DECIMALS,
+        as_wrapper: true, // deploy the first erc20 as a wrapper
         funding_amount: Some(TEST_FUNDING_AMOUNT),
         account_skeys: vec![priv_key.to_string()],
     };
@@ -162,6 +163,7 @@ pub async fn deploy_test_contracts(
 
     deploy_erc20_args.symbol = TEST_ERC20_TICKER2.to_string();
     deploy_erc20_args.name = TEST_ERC20_TICKER2.to_string();
+    deploy_erc20_args.as_wrapper = false; // deploy the second erc20 as a normal erc20
     deploy_erc20(
         &deploy_erc20_args,
         rpc_url,
@@ -410,7 +412,11 @@ pub async fn deploy_erc20(
         ));
     }
 
-    let contract = StylusContract::DummyErc20(args.symbol.clone());
+    let contract = if args.as_wrapper {
+        StylusContract::DummyWeth
+    } else {
+        StylusContract::DummyErc20(args.symbol.clone())
+    };
 
     let deploy_stylus_args = DeployStylusArgs {
         contract,

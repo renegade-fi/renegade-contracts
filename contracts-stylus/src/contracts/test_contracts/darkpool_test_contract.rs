@@ -29,7 +29,7 @@ use crate::{
 };
 
 /// The Darkpool test contract
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 struct DarkpoolTestContract {
     /// The Darkpool contract
@@ -113,7 +113,7 @@ impl BorrowMut<CoreWalletOpsContract> for DarkpoolTestContract {
     }
 }
 
-#[external]
+#[public]
 #[inherit(DarkpoolContract)]
 impl DarkpoolTestContract {
     /// Marks the given nullifier as spent

@@ -167,6 +167,10 @@ pub struct DeployErc20Args {
     #[arg(short, long)]
     pub decimals: u8,
 
+    /// Whether or not to deploy the native asset wrapper erc20 (WETH)
+    #[arg(long)]
+    pub as_wrapper: bool,
+
     /// The amount with which to fund each account
     #[arg(short, long)]
     pub funding_amount: Option<u128>,

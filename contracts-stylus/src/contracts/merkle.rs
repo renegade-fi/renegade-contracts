@@ -42,7 +42,7 @@ pub trait MerkleParams {
 }
 
 /// The Merkle contract's storage layout
-#[solidity_storage]
+#[storage]
 pub struct MerkleContract<P: MerkleParams> {
     /// The next index at which to insert a leaf
     pub next_index: StorageU128,
@@ -58,7 +58,7 @@ pub struct MerkleContract<P: MerkleParams> {
     _phantom: PhantomData<P>,
 }
 
-#[external]
+#[public]
 impl<P> MerkleContract<P>
 where
     P: MerkleParams,
@@ -304,7 +304,7 @@ impl MerkleParams for ProdMerkleParams {
 }
 
 /// The production Merkle contract, inheriting from the generic Merkle contract
-#[solidity_storage]
+#[storage]
 #[cfg_attr(feature = "merkle", entrypoint)]
 struct ProdMerkleContract {
     /// The parameterized Merkle contract
@@ -312,7 +312,7 @@ struct ProdMerkleContract {
     merkle: MerkleContract<ProdMerkleParams>,
 }
 
-#[external]
+#[public]
 #[inherit(MerkleContract<ProdMerkleParams>)]
 impl ProdMerkleContract {
     #[doc(hidden)]

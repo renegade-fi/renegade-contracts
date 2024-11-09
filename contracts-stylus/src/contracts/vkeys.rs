@@ -14,11 +14,11 @@ use crate::utils::constants::{
 /// The verification keys contract, which itself is stateless
 ///
 /// The keys themselves are hardcoded into the contract
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 pub struct VkeysContract;
 
-#[external]
+#[public]
 impl VkeysContract {
     /// Returns the serialized `VALID WALLET CREATE` verification key
     pub fn valid_wallet_create_vkey(&self) -> Result<Bytes, Vec<u8>> {

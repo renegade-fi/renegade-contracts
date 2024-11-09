@@ -48,7 +48,7 @@ const INVALID_TRANSACTION_PAYABLE_AMOUNT_ERROR_MESSAGE: &[u8] =
     b"Invalid transaction payable amount";
 
 /// The transfer executor contract's storage layout
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 pub struct TransferExecutorContract {
     /// Storage gap to prevent collisions with the Merkle contract
@@ -58,7 +58,7 @@ pub struct TransferExecutorContract {
     permit2_address: StorageAddress,
 }
 
-#[external]
+#[public]
 impl TransferExecutorContract {
     /// Initializes the transfer executor with the address of the Permit2 contract being used
     // TODO: Deploy Permit2 using `CREATE2` and use a static address

@@ -17,7 +17,7 @@ use stylus_sdk::{
 
 sol_storage! {
     /// Erc20 implements all ERC-20 methods.
-    #[entrypoint]
+    #[cfg_attr(not(feature = "dummy-weth"), entrypoint)]
     pub struct Erc20 {
         /// The name of the token
         string name;
@@ -87,7 +87,7 @@ impl Erc20 {
 
 // These methods are external to other contracts
 // Note: modifying storage will become much prettier soon
-#[external]
+#[public]
 impl Erc20 {
     pub fn set_name(&mut self, name: String) -> Result<(), Erc20Error> {
         self.name.set_str(name);

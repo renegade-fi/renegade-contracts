@@ -11,11 +11,11 @@ use crate::utils::{
 };
 
 /// The verifier contract, which itself is stateless
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 struct CoreVerifierContract;
 
-#[external]
+#[public]
 impl CoreVerifierContract {
     /// Verify the given proof, using the given verification bundle
     pub fn verify(&self, verification_bundle: Bytes) -> Result<bool, Vec<u8>> {

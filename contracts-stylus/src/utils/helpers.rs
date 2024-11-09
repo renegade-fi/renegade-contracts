@@ -1,7 +1,5 @@
 //! Miscellaneous helper functions for the contracts.
 
-use super::constants::NATIVE_ETH_ADDRESS;
-use crate::utils::constants::WETH_ADDRESS;
 use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
 use ark_ff::PrimeField;
@@ -37,12 +35,14 @@ use super::constants::{
 /// A helper to get the address of the WETH contract
 #[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
 pub fn get_weth_address() -> Address {
+    use crate::utils::constants::WETH_ADDRESS;
     Address::from_str(WETH_ADDRESS).expect("WETH_ADDRESS must be a valid address")
 }
 
 /// A helper to check if a given address is the address representing native ETH
 #[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
 pub fn is_native_eth_address(addr: Address) -> bool {
+    use super::constants::NATIVE_ETH_ADDRESS;
     let native_addr = Address::from_str(NATIVE_ETH_ADDRESS).unwrap();
     addr == native_addr
 }

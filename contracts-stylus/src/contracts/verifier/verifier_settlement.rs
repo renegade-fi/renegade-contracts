@@ -20,11 +20,11 @@ use crate::utils::{
 type StylusVerifier = Verifier<PrecompileG1ArithmeticBackend, StylusHasher>;
 
 /// The verifier contract, which itself is stateless
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 struct SettlementVerifierContract;
 
-#[external]
+#[public]
 impl SettlementVerifierContract {
     /// Batch-verify the proofs involved in matching a trade
     pub fn verify_match(&self, match_bundle: Bytes) -> Result<bool, Vec<u8>> {
