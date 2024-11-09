@@ -11,7 +11,3 @@ mod contracts;
 mod utils;
 
 extern crate alloc;
-
-/// The global allocator used in the Stylus VM
-#[global_allocator]
-static ALLOC: mini_alloc::MiniAlloc = mini_alloc::MiniAlloc::INIT;

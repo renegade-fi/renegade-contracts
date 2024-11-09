@@ -12,11 +12,11 @@ use stylus_sdk::{abi::Bytes, console, prelude::*};
 use crate::utils::backends::{PrecompileEcRecoverBackend, PrecompileG1ArithmeticBackend};
 
 /// The precompile testing contract, which itself is stateless
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 struct PrecompileTestContract;
 
-#[external]
+#[public]
 impl PrecompileTestContract {
     /// Invokes the `ecAdd` precompile on the given inputs
     pub fn test_ec_add(&self, a_bytes: Bytes, b_bytes: Bytes) -> Result<Bytes, Vec<u8>> {

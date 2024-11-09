@@ -32,6 +32,7 @@ test-vkeys = []
 transfer-executor = []
 precompile-test-contract = []
 dummy-erc20 = []
+dummy-weth = ["dummy-erc20"]
 dummy-upgrade-target = []
 no-verify = []
 

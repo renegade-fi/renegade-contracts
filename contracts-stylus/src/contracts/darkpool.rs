@@ -33,7 +33,7 @@ use crate::{
 };
 
 /// The darkpool contract's storage layout
-#[solidity_storage]
+#[storage]
 #[cfg_attr(feature = "darkpool", entrypoint)]
 pub struct DarkpoolContract {
     /// Storage gap to prevent collisions with the Merkle contract
@@ -105,7 +105,7 @@ pub struct DarkpoolContract {
     pub(crate) verifier_settlement_address: StorageAddress,
 }
 
-#[external]
+#[public]
 impl DarkpoolContract {
     // -----------------
     // | INITIALIZABLE |

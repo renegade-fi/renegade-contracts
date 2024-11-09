@@ -51,7 +51,7 @@ use super::CoreContractStorage;
 /// The core settlement contract's storage layout.
 /// Many storage elements are not used in the core settlement contract,
 /// but are listed here so that the storage layout lines up with that of the darkpool contract.
-#[solidity_storage]
+#[storage]
 #[cfg_attr(feature = "core-settlement", entrypoint)]
 pub struct CoreSettlementContract {
     /// Storage gap to prevent collisions with the Merkle contract
@@ -175,7 +175,7 @@ impl CoreContractStorage for CoreSettlementContract {
 // | External Methods |
 // --------------------
 
-#[external]
+#[public]
 impl CoreSettlementContract {
     /// Settles a matched order between two parties,
     /// inserting the updated wallets into the commitment tree.
