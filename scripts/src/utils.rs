@@ -294,7 +294,6 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
     let rustflags = match contract {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
-        | StylusContract::Darkpool
         | StylusContract::DarkpoolTestContract => {
             format!(
                 "{}{} {}",
@@ -364,7 +363,6 @@ pub fn build_stylus_contract(
     build_cmd.args(z_flags);
 
     env::set_var(RUSTFLAGS_ENV_VAR, get_rustflags_for_contract(contract));
-
     command_success_or(build_cmd, "Failed to build contract WASM")?;
 
     env::remove_var(RUSTFLAGS_ENV_VAR);
