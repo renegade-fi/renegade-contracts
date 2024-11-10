@@ -21,7 +21,7 @@ use crate::{
     },
 };
 use alloc::{vec, vec::Vec};
-use alloy_sol_types::{sol_data::Bytes as AlloyBytes, SolCall, SolType};
+use alloy_sol_types::{SolCall, SolType};
 use contracts_common::{
     custom_serde::{pk_to_u256s, scalar_to_u256},
     types::{ExternalTransfer, PublicEncryptionKey, PublicSigningKey, ScalarField},
@@ -72,7 +72,7 @@ pub fn fetch_vkeys<C: CoreContractStorage, S: TopLevelStorage + Borrow<C>>(
     let storage = s.borrow();
     let vkeys_address = storage.vkeys_address();
     let res = static_call(s, vkeys_address, selector).map_err(map_call_error)?;
-    let vkey_bytes = <(AlloyBytes,) as SolType>::abi_decode(&res, false /* validate */)
+    let vkey_bytes = Bytes::abi_decode(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())?
         .0;
 

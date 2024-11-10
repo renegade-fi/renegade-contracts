@@ -149,6 +149,10 @@ pub fn write_stylus_contract_address(
             parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol] =
                 JsonValue::String(format!("{address:#x}"));
         }
+        StylusContract::DummyWeth(symbol) => {
+            parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol] =
+                JsonValue::String(format!("{address:#x}"));
+        }
         _ => {
             parsed_json[DEPLOYMENTS_KEY][contract.to_string()] =
                 JsonValue::String(format!("{address:#x}"));
