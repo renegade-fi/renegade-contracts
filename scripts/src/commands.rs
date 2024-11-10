@@ -413,7 +413,7 @@ pub async fn deploy_erc20(
     }
 
     let contract = if args.as_wrapper {
-        StylusContract::DummyWeth
+        StylusContract::DummyWeth(args.symbol.clone())
     } else {
         StylusContract::DummyErc20(args.symbol.clone())
     };

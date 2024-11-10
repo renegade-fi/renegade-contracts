@@ -39,7 +39,8 @@ pub enum StylusContract {
     #[value(skip)]
     DummyErc20(String),
     /// The dummy WETH contract
-    DummyWeth,
+    #[value(skip)]
+    DummyWeth(String),
     /// The dummy upgrade target contract
     DummyUpgradeTarget,
     /// The precompile test contract
@@ -61,7 +62,7 @@ impl Display for StylusContract {
             StylusContract::TestVkeys => write!(f, "test-vkeys"),
             StylusContract::TransferExecutor => write!(f, "transfer-executor"),
             StylusContract::DummyErc20(_) => write!(f, "dummy-erc20"),
-            StylusContract::DummyWeth => write!(f, "dummy-weth"),
+            StylusContract::DummyWeth(_) => write!(f, "dummy-weth"),
             StylusContract::DummyUpgradeTarget => write!(f, "dummy-upgrade-target"),
             StylusContract::PrecompileTestContract => write!(f, "precompile-test-contract"),
         }

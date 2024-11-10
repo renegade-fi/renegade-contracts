@@ -12,7 +12,7 @@ mod darkpool_test_contract;
 #[cfg(feature = "dummy-erc20")]
 mod dummy_erc20;
 
-#[cfg(feature = "dummy-erc20")]
+#[cfg(feature = "dummy-weth")]
 mod dummy_weth;
 
 #[cfg(feature = "dummy-upgrade-target")]
