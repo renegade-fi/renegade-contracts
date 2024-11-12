@@ -116,7 +116,11 @@ pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer au
 
 /// A dummy address for the native asset, constant across all chains
 /// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+#[cfg(any(
+    feature = "transfer-executor",
+    feature = "core-settlement",
+    feature = "test-helpers"
+))]
 pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 /// The address of the WETH contract

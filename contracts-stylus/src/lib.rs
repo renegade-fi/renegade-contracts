@@ -9,5 +9,6 @@
 
 mod contracts;
 mod utils;
+pub use utils::constants::*;
 
 extern crate alloc;

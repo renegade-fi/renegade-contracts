@@ -30,7 +30,7 @@ use ethers::{
     utils::hex::FromHex,
 };
 use rand::{thread_rng, Rng};
-use std::{str::FromStr, sync::Arc};
+use std::{env, str::FromStr, sync::Arc};
 use tracing::log::info;
 
 use crate::{
@@ -125,17 +125,6 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
-    info!("Deploying transfer executor contract");
-    deploy_stylus_args.contract = StylusContract::TransferExecutor;
-    build_and_deploy_stylus_contract(
-        &deploy_stylus_args,
-        rpc_url,
-        priv_key,
-        client.clone(),
-        deployments_path,
-    )
-    .await?;
-
     info!("Deploying Permit2 contract");
     deploy_permit2(client.clone(), deployments_path).await?;
 
@@ -148,12 +137,29 @@ pub async fn deploy_test_contracts(
         funding_amount: Some(TEST_FUNDING_AMOUNT),
         account_skeys: vec![priv_key.to_string()],
     };
-    deploy_erc20(&deploy_erc20_args, rpc_url, priv_key, client.clone(), deployments_path).await?;
+    let addr =
+        deploy_erc20(&deploy_erc20_args, rpc_url, priv_key, client.clone(), deployments_path)
+            .await?;
+
+    // Set the WETH_ADDRESS environment variable to the deployed erc20
+    let addr_str = format!("{addr:#x}");
+    env::set_var("WETH_ADDRESS", addr_str.as_str());
 
     deploy_erc20_args.symbol = TEST_ERC20_TICKER2.to_string();
     deploy_erc20_args.name = TEST_ERC20_TICKER2.to_string();
     deploy_erc20_args.as_wrapper = false; // deploy the second erc20 as a normal erc20
     deploy_erc20(&deploy_erc20_args, rpc_url, priv_key, client.clone(), deployments_path).await?;
+
+    info!("Deploying transfer executor contract");
+    deploy_stylus_args.contract = StylusContract::TransferExecutor;
+    build_and_deploy_stylus_contract(
+        &deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
 
     info!("Deploying verifier contract");
     deploy_stylus_args.contract = StylusContract::VerifierCore;
@@ -368,7 +374,7 @@ pub async fn deploy_erc20(
     priv_key: &str,
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
-) -> Result<(), ScriptError> {
+) -> Result<Address, ScriptError> {
     if !args.account_skeys.is_empty() && args.funding_amount.is_none() {
         return Err(ScriptError::InvalidArguments(
             "funding amount must be provided if account skeys are provided".to_string(),
@@ -402,7 +408,7 @@ pub async fn deploy_erc20(
         }
     }
 
-    Ok(())
+    Ok(erc20_address)
 }
 
 /// Sets the symbol, name, and decimals parameters for the ERC20 contract

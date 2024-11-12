@@ -35,7 +35,7 @@ use contracts_utils::{
 use ethers::{
     abi::Address,
     providers::Middleware,
-    types::{Bytes, TransactionRequest, U256},
+    types::{Bytes, TransactionReceipt, TransactionRequest, U256},
     utils::{keccak256, parse_ether},
 };
 use eyre::{eyre, Result};
@@ -57,29 +57,30 @@ use crate::{
         SET_VKEYS_ADDRESS_METHOD_NAME, TRANSFER_OWNERSHIP_METHOD_NAME, UNPAUSE_METHOD_NAME,
     },
     utils::{
-        alloy_address_to_ethers_address, assert_all_revert, assert_all_succeed, assert_only_owner,
-        dummy_erc20_deposit, dummy_erc20_withdrawal, ethers_address_to_biguint,
-        execute_transfer_and_get_balances, gen_transfer_aux_data, get_protocol_pubkey,
-        insert_shares_and_get_root, mint_dummy_erc20s, scalar_to_u256,
-        serialize_match_verification_bundle, serialize_to_calldata, serialize_verification_bundle,
-        setup_dummy_client, setup_external_match_token_approvals, u256_to_scalar,
+        alloy_address_to_ethers_address, alloy_u256_to_ethers_u256, assert_all_revert,
+        assert_all_succeed, assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
+        ethers_address_to_biguint, execute_transfer_and_get_balances, gen_transfer_aux_data,
+        get_protocol_pubkey, insert_shares_and_get_root, mint_dummy_erc20s, native_eth_address,
+        scalar_to_u256, serialize_match_verification_bundle, serialize_to_calldata,
+        serialize_verification_bundle, setup_dummy_client, setup_external_match_token_approvals,
+        u256_to_alloy_u256, u256_to_scalar,
     },
-    TestArgs,
+    TestContext,
 };
 
 /// Get a dummy `ExternalMatchResult` and `FeeTake` for an atomic match
 async fn dummy_external_match_result_and_fees(
     buy_side: bool,
-    test_args: &TestArgs,
+    ctx: &TestContext,
 ) -> Result<(ExternalMatchResult, FeeTake)> {
-    let base_mint = test_args.test_erc20_address1;
-    let quote_mint = test_args.test_erc20_address2;
+    let base_mint = ctx.test_erc20_address1;
+    let quote_mint = ctx.test_erc20_address2;
     let base_amount = TEST_FUNDING_AMOUNT;
     let quote_amount = TEST_FUNDING_AMOUNT;
 
     // Ensure that the client has sufficient balances and approvals
-    mint_dummy_erc20s(base_mint, base_amount.into(), test_args).await?;
-    mint_dummy_erc20s(quote_mint, quote_amount.into(), test_args).await?;
+    mint_dummy_erc20s(base_mint, base_amount.into(), ctx).await?;
+    mint_dummy_erc20s(quote_mint, quote_amount.into(), ctx).await?;
 
     // The price here does not matter for testing, so we just trade the default
     // funding amount
@@ -90,7 +91,7 @@ async fn dummy_external_match_result_and_fees(
         quote_amount,
         direction: buy_side,
     };
-    setup_external_match_token_approvals(buy_side, &match_result, test_args).await?;
+    setup_external_match_token_approvals(buy_side, &match_result, ctx).await?;
 
     // Values here don't matter, but importantly are different to ensure the
     // correct fee ends in the correct address
@@ -103,9 +104,8 @@ async fn dummy_external_match_result_and_fees(
 }
 
 /// Test how the contracts call the `ecAdd` precompile
-async fn test_ec_add(test_args: TestArgs) -> Result<()> {
-    let contract =
-        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
+async fn test_ec_add(ctx: TestContext) -> Result<()> {
+    let contract = PrecompileTestContract::new(ctx.precompiles_contract_address, ctx.client);
     let mut rng = thread_rng();
 
     let a = G1Affine::rand(&mut rng);
@@ -127,9 +127,8 @@ async fn test_ec_add(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_ec_add);
 
 /// Test how the contracts call the `ecMul` precompile
-async fn test_ec_mul(test_args: TestArgs) -> Result<()> {
-    let contract =
-        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
+async fn test_ec_mul(ctx: TestContext) -> Result<()> {
+    let contract = PrecompileTestContract::new(ctx.precompiles_contract_address, ctx.client);
     let mut rng = thread_rng();
 
     let a = ScalarField::rand(&mut rng);
@@ -154,9 +153,8 @@ async fn test_ec_mul(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_ec_mul);
 
 /// Test how the contracts call the `ecPairing` precompile
-async fn test_ec_pairing(test_args: TestArgs) -> Result<()> {
-    let contract =
-        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
+async fn test_ec_pairing(ctx: TestContext) -> Result<()> {
+    let contract = PrecompileTestContract::new(ctx.precompiles_contract_address, ctx.client);
     let mut rng = thread_rng();
 
     let a = G1Affine::rand(&mut rng);
@@ -177,9 +175,8 @@ async fn test_ec_pairing(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_ec_pairing);
 
 /// Test how the contracts call the `ecRecover` precompile
-async fn test_ec_recover(test_args: TestArgs) -> Result<()> {
-    let contract =
-        PrecompileTestContract::new(test_args.precompiles_contract_address, test_args.client);
+async fn test_ec_recover(ctx: TestContext) -> Result<()> {
+    let contract = PrecompileTestContract::new(ctx.precompiles_contract_address, ctx.client);
     let mut rng = thread_rng();
 
     let (signing_key, pubkey) = random_keypair(&mut rng);
@@ -204,8 +201,8 @@ async fn test_ec_recover(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_ec_recover);
 
 /// Test the Merkle tree functionality
-async fn test_merkle(test_args: TestArgs) -> Result<()> {
-    let contract = MerkleContract::new(test_args.merkle_address, test_args.client);
+async fn test_merkle(ctx: TestContext) -> Result<()> {
+    let contract = MerkleContract::new(ctx.merkle_address, ctx.client);
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
     contract.init().send().await?.await?;
 
@@ -240,8 +237,8 @@ async fn test_merkle(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_merkle);
 
 /// Test the verifier functionality
-async fn test_verifier(test_args: TestArgs) -> Result<()> {
-    let contract = VerifierContract::new(test_args.verifier_core_address, test_args.client.clone());
+async fn test_verifier(ctx: TestContext) -> Result<()> {
+    let contract = VerifierContract::new(ctx.verifier_core_address, ctx.client.clone());
     let mut rng = thread_rng();
 
     // Test valid single proof verification
@@ -265,7 +262,7 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
 
     // Test valid batch verification
     let settlement_verifier =
-        VerifierSettlementContract::new(test_args.verifier_settlement_address, test_args.client);
+        VerifierSettlementContract::new(ctx.verifier_settlement_address, ctx.client);
 
     let (
         match_vkeys,
@@ -276,7 +273,7 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
         _,
     ) = generate_match_bundle(&mut rng)?;
 
-    let verifier_address = AlloyAddress::from_slice(test_args.verifier_core_address.as_bytes());
+    let verifier_address = AlloyAddress::from_slice(ctx.verifier_core_address.as_bytes());
     let match_verification_bundle_calldata = serialize_match_verification_bundle(
         verifier_address,
         &match_vkeys,
@@ -316,11 +313,10 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_verifier);
 
 /// Test the upgradeability of the darkpool
-async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
+async fn test_upgradeable(ctx: TestContext) -> Result<()> {
     let proxy_admin_contract =
-        DarkpoolProxyAdminContract::new(test_args.proxy_admin_address, test_args.client.clone());
-    let darkpool =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+        DarkpoolProxyAdminContract::new(ctx.proxy_admin_address, ctx.client.clone());
+    let darkpool = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
 
     // Mark a random nullifier as spent to test that it is not cleared on upgrade
     let mut rng = thread_rng();
@@ -329,15 +325,15 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
     darkpool.mark_nullifier_spent(nullifier).send().await?.await?;
 
     // Ensure that only the owner can upgrade the contract
-    let dummy_signer = setup_dummy_client(test_args.client.clone()).await?;
+    let dummy_signer = setup_dummy_client(ctx.client.clone()).await?;
     let proxy_admin_contract_with_dummy_signer =
         DarkpoolProxyAdminContract::new(proxy_admin_contract.address(), dummy_signer);
 
     assert!(
         proxy_admin_contract_with_dummy_signer
             .upgrade_and_call(
-                test_args.darkpool_proxy_address,
-                test_args.test_upgrade_target_address,
+                ctx.darkpool_proxy_address,
+                ctx.test_upgrade_target_address,
                 Bytes::new(), // data
             )
             .send()
@@ -349,8 +345,8 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
     // Upgrade to dummy upgrade target contract
     proxy_admin_contract
         .upgrade_and_call(
-            test_args.darkpool_proxy_address,
-            test_args.test_upgrade_target_address,
+            ctx.darkpool_proxy_address,
+            ctx.test_upgrade_target_address,
             Bytes::new(), // data
         )
         .send()
@@ -358,7 +354,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
         .await?;
 
     let dummy_upgrade_target_contract =
-        DummyUpgradeTargetContract::new(test_args.darkpool_proxy_address, test_args.client);
+        DummyUpgradeTargetContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Assert that the proxy now points to the dummy upgrade target
     // by attempting to call the `is_dummy_upgrade_target` method through
@@ -370,11 +366,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
 
     // Upgrade back to darkpool test contract
     proxy_admin_contract
-        .upgrade_and_call(
-            test_args.darkpool_proxy_address,
-            test_args.darkpool_impl_address,
-            Bytes::new(),
-        )
+        .upgrade_and_call(ctx.darkpool_proxy_address, ctx.darkpool_impl_address, Bytes::new())
         .send()
         .await?
         .await?;
@@ -391,41 +383,41 @@ integration_test_async!(test_upgradeable);
 
 /// Test the upgradeability of the contracts the darkpool calls
 /// (verifier, vkeys, & Merkle)
-async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_implementation_address_setters(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     for (method, address_selector, original_address) in [
         (
             SET_CORE_WALLET_OPS_ADDRESS_METHOD_NAME,
             CORE_WALLET_OPS_ADDRESS_SELECTOR,
-            test_args.core_wallet_ops_address,
+            ctx.core_wallet_ops_address,
         ),
         (
             SET_CORE_SETTLEMENT_ADDRESS_METHOD_NAME,
             CORE_SETTLEMENT_ADDRESS_SELECTOR,
-            test_args.core_settlement_address,
+            ctx.core_settlement_address,
         ),
         (
             SET_VERIFIER_CORE_ADDRESS_METHOD_NAME,
             VERIFIER_CORE_ADDRESS_SELECTOR,
-            test_args.verifier_core_address,
+            ctx.verifier_core_address,
         ),
         (
             SET_VERIFIER_SETTLEMENT_ADDRESS_METHOD_NAME,
             VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
-            test_args.verifier_settlement_address,
+            ctx.verifier_settlement_address,
         ),
-        (SET_VKEYS_ADDRESS_METHOD_NAME, VKEYS_ADDRESS_SELECTOR, test_args.vkeys_address),
-        (SET_MERKLE_ADDRESS_METHOD_NAME, MERKLE_ADDRESS_SELECTOR, test_args.merkle_address),
+        (SET_VKEYS_ADDRESS_METHOD_NAME, VKEYS_ADDRESS_SELECTOR, ctx.vkeys_address),
+        (SET_MERKLE_ADDRESS_METHOD_NAME, MERKLE_ADDRESS_SELECTOR, ctx.merkle_address),
         (
             SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME,
             TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
-            test_args.transfer_executor_address,
+            ctx.transfer_executor_address,
         ),
     ] {
         // Set the new implementation address as the dummy upgrade target address
         contract
-            .method::<Address, ()>(method, test_args.test_upgrade_target_address)?
+            .method::<Address, ()>(method, ctx.test_upgrade_target_address)?
             .send()
             .await?
             .await?;
@@ -451,8 +443,8 @@ async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> 
 integration_test_async!(test_implementation_address_setters);
 
 /// Test the initialization of the darkpool
-async fn test_initializable(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_initializable(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     let dummy_core_wallet_ops_address = Address::random();
     let dummy_core_settlement_address = Address::random();
@@ -491,17 +483,16 @@ integration_test_async!(test_initializable);
 
 /// Test the ownership of the darkpool
 // TODO: Add darkpool core & transfer executor address setters to this test
-async fn test_ownable(test_args: TestArgs) -> Result<()> {
-    let contract =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
-    let initial_owner = test_args.client.default_sender().unwrap();
+async fn test_ownable(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let initial_owner = ctx.client.default_sender().unwrap();
 
     // Assert that the owner is set correctly initially
     assert_eq!(contract.owner().call().await?, initial_owner, "Incorrect initial owner");
 
     // Set up a dummy owner account and a contract instance with that account
     // attached as the sender
-    let dummy_owner = setup_dummy_client(test_args.client.clone()).await?;
+    let dummy_owner = setup_dummy_client(ctx.client.clone()).await?;
     let dummy_owner_address = dummy_owner.default_sender().unwrap();
     let contract_with_dummy_owner = DarkpoolTestContract::new(contract.address(), dummy_owner);
 
@@ -525,7 +516,7 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
         .to(dummy_owner_address)
         .value(parse_ether(1_u64)?);
 
-    test_args.client.send_transaction(transfer_tx, None).await?.await?;
+    ctx.client.send_transaction(transfer_tx, None).await?.await?;
 
     contract_with_dummy_owner.transfer_ownership(initial_owner).send().await?.await?;
 
@@ -551,21 +542,21 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
         &contract,
         &contract_with_dummy_owner,
         SET_VERIFIER_CORE_ADDRESS_METHOD_NAME,
-        test_args.verifier_core_address,
+        ctx.verifier_core_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_VKEYS_ADDRESS_METHOD_NAME,
-        test_args.vkeys_address,
+        ctx.vkeys_address,
     )
     .await?;
     assert_only_owner::<_, Address>(
         &contract,
         &contract_with_dummy_owner,
         SET_MERKLE_ADDRESS_METHOD_NAME,
-        test_args.merkle_address,
+        ctx.merkle_address,
     )
     .await?;
 
@@ -575,8 +566,8 @@ integration_test_async!(test_ownable);
 
 /// Test the pausability of the darkpool
 // TODO: Ensure that only the owner can pause the contract
-async fn test_pausable(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_pausable(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -685,8 +676,8 @@ async fn test_pausable(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_pausable);
 
 /// Test the nullifier set functionality
-async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_nullifier_set(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
     let mut rng = thread_rng();
     let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
 
@@ -705,8 +696,8 @@ async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_nullifier_set);
 
 /// Test the public blinder uniqueness check functionality
-async fn test_public_blinder_uniqueness_check(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_public_blinder_uniqueness_check(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Generate a new wallet
     let mut rng = thread_rng();
@@ -736,24 +727,21 @@ async fn test_public_blinder_uniqueness_check(test_args: TestArgs) -> Result<()>
 integration_test_async!(test_public_blinder_uniqueness_check);
 
 /// Test deposit / withdrawal functionality of the darkpool
-async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
-    let transfer_executor_contract = TransferExecutorContract::new(
-        test_args.transfer_executor_address,
-        test_args.client.clone(),
-    );
+async fn test_external_transfer(ctx: TestContext) -> Result<()> {
+    let transfer_executor_contract =
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
+    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
 
-    let test_erc20_contract =
-        DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
+    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
 
-    let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address1;
+    let account_address = ctx.client.default_sender().unwrap();
+    let mint = ctx.test_erc20_address1;
 
     let contract_initial_balance =
-        test_erc20_contract.balance_of(test_args.transfer_executor_address).call().await?;
+        test_erc20_contract.balance_of(ctx.transfer_executor_address).call().await?;
     let user_initial_balance = test_erc20_contract.balance_of(account_address).call().await?;
 
     let (signing_key, pk_root) = random_keypair(&mut thread_rng());
@@ -763,7 +751,7 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
     let (contract_balance, user_balance) = execute_transfer_and_get_balances(
         &transfer_executor_contract,
         &test_erc20_contract,
-        test_args.permit2_address,
+        ctx.permit2_address,
         &signing_key,
         pk_root,
         &deposit,
@@ -786,7 +774,7 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
     let (contract_balance, user_balance) = execute_transfer_and_get_balances(
         &transfer_executor_contract,
         &test_erc20_contract,
-        test_args.permit2_address,
+        ctx.permit2_address,
         &signing_key,
         pk_root,
         &withdrawal,
@@ -805,21 +793,18 @@ integration_test_async!(test_external_transfer);
 
 /// Test that a deposit specified from a different ETH address is rejected
 #[allow(non_snake_case)]
-async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<()> {
-    let transfer_executor_contract = TransferExecutorContract::new(
-        test_args.transfer_executor_address,
-        test_args.client.clone(),
-    );
+async fn test_external_transfer__wrong_eth_addr(ctx: TestContext) -> Result<()> {
+    let transfer_executor_contract =
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
+    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
 
-    let test_erc20_contract =
-        DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
+    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
 
-    let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address1;
+    let account_address = ctx.client.default_sender().unwrap();
+    let mint = ctx.test_erc20_address1;
 
     // Generate dummy address & fund with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
@@ -835,7 +820,7 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
         execute_transfer_and_get_balances(
             &transfer_executor_contract,
             &test_erc20_contract,
-            test_args.permit2_address,
+            ctx.permit2_address,
             &signing_key,
             pk_root,
             &deposit,
@@ -852,20 +837,18 @@ integration_test_async!(test_external_transfer__wrong_eth_addr);
 
 /// Test that a deposit directed to a different Renegade wallet is rejected
 #[allow(non_snake_case)]
-async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result<()> {
+async fn test_external_transfer__wrong_rng_wallet(ctx: TestContext) -> Result<()> {
     let mut rng = thread_rng();
 
-    let transfer_executor_contract = TransferExecutorContract::new(
-        test_args.transfer_executor_address,
-        test_args.client.clone(),
-    );
+    let transfer_executor_contract =
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
+    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
 
-    let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address1;
+    let account_address = ctx.client.default_sender().unwrap();
+    let mint = ctx.test_erc20_address1;
 
     let (signing_key, pk_root) = random_keypair(&mut rng);
 
@@ -875,7 +858,7 @@ async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result
         &signing_key,
         pk_root,
         &deposit,
-        test_args.permit2_address,
+        ctx.permit2_address,
         &transfer_executor_contract,
     )
     .await?;
@@ -902,26 +885,23 @@ integration_test_async!(test_external_transfer__wrong_rng_wallet);
 
 /// Test that a malformed withdrawal is rejected
 #[allow(non_snake_case)]
-async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Result<()> {
-    let transfer_executor_contract = TransferExecutorContract::new(
-        test_args.transfer_executor_address,
-        test_args.client.clone(),
-    );
+async fn test_external_transfer__malicious_withdrawal(ctx: TestContext) -> Result<()> {
+    let transfer_executor_contract =
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
+    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
 
-    let test_erc20_contract =
-        DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
+    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
 
-    let account_address = test_args.client.default_sender().unwrap();
-    let mint = test_args.test_erc20_address1;
+    let account_address = ctx.client.default_sender().unwrap();
+    let mint = ctx.test_erc20_address1;
 
     // Fund contract with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
     test_erc20_contract
-        .mint(test_args.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
+        .mint(ctx.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
         .send()
         .await?
         .await?;
@@ -934,7 +914,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
         &signing_key,
         pk_root,
         &withdrawal,
-        test_args.permit2_address,
+        ctx.permit2_address,
         &transfer_executor_contract,
     )
     .await?;
@@ -959,7 +939,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
 
     // Burn contract tokens so future tests are unaffected
     test_erc20_contract
-        .burn(test_args.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
+        .burn(ctx.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
         .send()
         .await?
         .await?;
@@ -969,8 +949,8 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
 integration_test_async!(test_external_transfer__malicious_withdrawal);
 
 /// Test the `new_wallet` method on the darkpool
-async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_new_wallet(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1004,8 +984,8 @@ async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_new_wallet);
 
 /// Test the `update_wallet` method on the darkpool
-async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_update_wallet(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1055,8 +1035,8 @@ async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_update_wallet);
 
 /// Test the `process_match_settle` method on the darkpool
-async fn test_process_match_settle_success(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1122,8 +1102,8 @@ integration_test_async!(test_process_match_settle_success);
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when order settlement indices are inconsistent
 #[allow(non_snake_case)]
-async fn test_process_match_settle__inconsistent_indices(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_process_match_settle__inconsistent_indices(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1160,8 +1140,8 @@ integration_test_async!(test_process_match_settle__inconsistent_indices);
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when protocol fee is inconsistent
 #[allow(non_snake_case)]
-async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_process_match_settle__inconsistent_fee(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1195,13 +1175,25 @@ async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Res
 }
 integration_test_async!(test_process_match_settle__inconsistent_fee);
 
+/// Setup an atomic match settle test using native ETH as the base asset
+async fn setup_atomic_match_settle_test_native_eth(
+    buy_side: bool,
+    ctx: &TestContext,
+) -> Result<ProcessAtomicMatchSettleData> {
+    let mut data = setup_atomic_match_settle_test(buy_side, ctx).await?;
+
+    // Replace the base mint with the native ETH address
+    let eth_addr = native_eth_address();
+    data.valid_match_settle_atomic_statement.match_result.base_mint = eth_addr;
+    Ok(data)
+}
+
 /// Setup an atomic match settle test
 async fn setup_atomic_match_settle_test(
     buy_side: bool,
-    test_args: &TestArgs,
+    ctx: &TestContext,
 ) -> Result<ProcessAtomicMatchSettleData> {
-    let contract =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
 
     // Clear merkle state
     contract.clear_merkle().send().await?.await?;
@@ -1211,7 +1203,7 @@ async fn setup_atomic_match_settle_test(
     let protocol_fee =
         FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
 
-    let (match_result, fees) = dummy_external_match_result_and_fees(buy_side, test_args).await?;
+    let (match_result, fees) = dummy_external_match_result_and_fees(buy_side, ctx).await?;
     let data = gen_atomic_match_with_match_and_fees(
         &mut rng,
         contract_root,
@@ -1227,10 +1219,9 @@ async fn setup_atomic_match_settle_test(
 ///
 /// Validates only the state of the internal party after update
 #[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__internal_party(test_args: TestArgs) -> Result<()> {
-    let contract =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
+async fn test_process_atomic_match_settle__internal_party(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
 
     // Call process_atomic_match_settle
     contract
@@ -1271,15 +1262,12 @@ integration_test_async!(test_process_atomic_match_settle__internal_party);
 /// Test `process_atomic_match_settle` and verify the external party's state
 /// after update. That is, the erc20 transfers that result from the atomic match
 #[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__external_party_buy_side(
-    test_args: TestArgs,
-) -> Result<()> {
+async fn test_process_atomic_match_settle__external_party_buy_side(ctx: TestContext) -> Result<()> {
     // Setup test data
-    let base_addr = test_args.test_erc20_address1;
-    let quote_addr = test_args.test_erc20_address2;
-    let darkpool =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
+    let base_addr = ctx.test_erc20_address1;
+    let quote_addr = ctx.test_erc20_address2;
+    let darkpool = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
 
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
@@ -1287,12 +1275,10 @@ async fn test_process_atomic_match_settle__external_party_buy_side(
     let protocol_fee_addr = darkpool.get_protocol_external_fee_collection_address().call().await?;
 
     // Record initial balances
-    let initial_base_balance = test_args.get_erc20_balance(base_addr).await?;
-    let initial_quote_balance = test_args.get_erc20_balance(quote_addr).await?;
-    let initial_relayer_balance =
-        test_args.get_erc20_balance_of(base_addr, relayer_fee_addr).await?;
-    let initial_protocol_balance =
-        test_args.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
+    let initial_base_balance = ctx.get_erc20_balance(base_addr).await?;
+    let initial_quote_balance = ctx.get_erc20_balance(quote_addr).await?;
+    let initial_relayer_balance = ctx.get_erc20_balance_of(base_addr, relayer_fee_addr).await?;
+    let initial_protocol_balance = ctx.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
 
     // Call process_atomic_match_settle
     darkpool
@@ -1309,10 +1295,10 @@ async fn test_process_atomic_match_settle__external_party_buy_side(
     // Verify updated erc20 balances
     let match_result = &data.valid_match_settle_atomic_statement.match_result;
     let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
-    let final_balance_base = test_args.get_erc20_balance(base_addr).await?;
-    let final_balance_quote = test_args.get_erc20_balance(quote_addr).await?;
-    let relayer_balance = test_args.get_erc20_balance_of(base_addr, relayer_fee_addr).await?;
-    let protocol_balance = test_args.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
+    let final_balance_base = ctx.get_erc20_balance(base_addr).await?;
+    let final_balance_quote = ctx.get_erc20_balance(quote_addr).await?;
+    let relayer_balance = ctx.get_erc20_balance_of(base_addr, relayer_fee_addr).await?;
+    let protocol_balance = ctx.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
 
     let expected_quote_balance = initial_quote_balance - match_result.quote_amount;
     let expected_base_balance = initial_base_balance + match_result.base_amount - fees.total();
@@ -1344,14 +1330,13 @@ integration_test_async!(test_process_atomic_match_settle__external_party_buy_sid
 /// after update. That is, the erc20 transfers that result from the atomic match
 #[allow(non_snake_case)]
 async fn test_process_atomic_match_settle__external_party_sell_side(
-    test_args: TestArgs,
+    ctx: TestContext,
 ) -> Result<()> {
     // Setup test data
-    let base_addr = test_args.test_erc20_address1;
-    let quote_addr = test_args.test_erc20_address2;
-    let darkpool =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
-    let data = setup_atomic_match_settle_test(false /* buy_side */, &test_args).await?;
+    let base_addr = ctx.test_erc20_address1;
+    let quote_addr = ctx.test_erc20_address2;
+    let darkpool = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let data = setup_atomic_match_settle_test(false /* buy_side */, &ctx).await?;
 
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
@@ -1359,12 +1344,10 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
     let protocol_fee_addr = darkpool.get_protocol_external_fee_collection_address().call().await?;
 
     // Record initial balances
-    let initial_base_balance = test_args.get_erc20_balance(base_addr).await?;
-    let initial_quote_balance = test_args.get_erc20_balance(quote_addr).await?;
-    let initial_relayer_balance =
-        test_args.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
-    let initial_protocol_balance =
-        test_args.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
+    let initial_base_balance = ctx.get_erc20_balance(base_addr).await?;
+    let initial_quote_balance = ctx.get_erc20_balance(quote_addr).await?;
+    let initial_relayer_balance = ctx.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
+    let initial_protocol_balance = ctx.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
 
     // Call process_atomic_match_settle
     darkpool
@@ -1381,10 +1364,10 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
     // Verify updated erc20 balances
     let match_result = &data.valid_match_settle_atomic_statement.match_result;
     let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
-    let final_balance_base = test_args.get_erc20_balance(base_addr).await?;
-    let final_balance_quote = test_args.get_erc20_balance(quote_addr).await?;
-    let relayer_balance = test_args.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
-    let protocol_balance = test_args.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
+    let final_balance_base = ctx.get_erc20_balance(base_addr).await?;
+    let final_balance_quote = ctx.get_erc20_balance(quote_addr).await?;
+    let relayer_balance = ctx.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
+    let protocol_balance = ctx.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
 
     let expected_quote_balance = initial_quote_balance + match_result.quote_amount - fees.total();
     let expected_base_balance = initial_base_balance - match_result.base_amount;
@@ -1412,11 +1395,80 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
 }
 integration_test_async!(test_process_atomic_match_settle__external_party_sell_side);
 
+/// Test `process_atomic_match_settle` with the native asset
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__native_asset_sell_side(ctx: TestContext) -> Result<()> {
+    // Setup test data
+    let quote_addr = ctx.test_erc20_address2;
+    let darkpool = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let data = setup_atomic_match_settle_test_native_eth(false /* buy_side */, &ctx).await?;
+
+    let relayer_fee_addr = alloy_address_to_ethers_address(
+        &data.valid_match_settle_atomic_statement.relayer_fee_address,
+    );
+    let protocol_fee_addr = darkpool.get_protocol_external_fee_collection_address().call().await?;
+
+    // Record initial balances
+    let initial_eth_balance = ctx.get_eth_balance().await?;
+    let initial_quote_balance = ctx.get_erc20_balance(quote_addr).await?;
+    let initial_relayer_balance = ctx.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
+    let initial_protocol_balance = ctx.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
+
+    // Call process_atomic_match_settle
+    let base_amount = data.valid_match_settle_atomic_statement.match_result.base_amount;
+    let value = alloy_u256_to_ethers_u256(base_amount);
+    let receipt: TransactionReceipt = darkpool
+        .process_atomic_match_settle(
+            serialize_to_calldata(&data.internal_party_match_payload)?,
+            serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+            serialize_to_calldata(&data.match_atomic_proofs)?,
+            serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+        )
+        .value(value)
+        .send()
+        .await?
+        .await?
+        .expect("no tx receipt");
+
+    let gas_used = receipt.gas_used.unwrap();
+    let gas_price = receipt.effective_gas_price.unwrap();
+    let eth_gas_cost = u256_to_alloy_u256(gas_used * gas_price);
+
+    // Verify updated erc20 balances
+    let match_result = &data.valid_match_settle_atomic_statement.match_result;
+    let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
+    let final_balance_eth = ctx.get_eth_balance().await?;
+    let final_balance_quote = ctx.get_erc20_balance(quote_addr).await?;
+    let relayer_balance = ctx.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
+    let protocol_balance = ctx.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
+
+    let expected_quote_balance = initial_quote_balance + match_result.quote_amount - fees.total();
+    let expected_eth_balance = initial_eth_balance - match_result.base_amount - eth_gas_cost;
+    let expected_relayer_balance = initial_relayer_balance + fees.relayer_fee;
+    let expected_protocol_balance = initial_protocol_balance + fees.protocol_fee;
+
+    assert_eq!(final_balance_eth, expected_eth_balance, "Unexpected change in ETH balance");
+    assert_eq!(
+        final_balance_quote, expected_quote_balance,
+        "Unexpected change in quote token balance"
+    );
+    assert_eq!(
+        relayer_balance, expected_relayer_balance,
+        "Unexpected change in relayer fee balance"
+    );
+    assert_eq!(
+        protocol_balance, expected_protocol_balance,
+        "Unexpected change in protocol fee balance"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle__native_asset_sell_side);
+
 /// Test `process_atomic_match_settle` with inconsistent indices
-async fn test_process_atomic_match_settle_inconsistent_indices(test_args: TestArgs) -> Result<()> {
-    let contract =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
-    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
+async fn test_process_atomic_match_settle_inconsistent_indices(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
 
     // Modify the index to make it inconsistent
     data.valid_match_settle_atomic_statement.internal_party_indices.balance_receive += 1;
@@ -1438,11 +1490,10 @@ integration_test_async!(test_process_atomic_match_settle_inconsistent_indices);
 
 /// Test `process_atomic_match_settle` with inconsistent protocol fee
 async fn test_process_atomic_match_settle_inconsistent_protocol_fee(
-    test_args: TestArgs,
+    ctx: TestContext,
 ) -> Result<()> {
-    let contract =
-        DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client.clone());
-    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
 
     // Modify the protocol fee to make it inconsistent
     data.valid_match_settle_atomic_statement.protocol_fee += ScalarField::one();
@@ -1463,8 +1514,8 @@ async fn test_process_atomic_match_settle_inconsistent_protocol_fee(
 integration_test_async!(test_process_atomic_match_settle_inconsistent_protocol_fee);
 
 /// Test the `settle_online_relayer_fee` method on the darkpool
-async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_settle_online_relayer_fee(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1526,8 +1577,8 @@ async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
 integration_test_async!(test_settle_online_relayer_fee);
 
 /// Test the `settle_offline_fee` method on the darkpool
-async fn test_settle_offline_fee(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_settle_offline_fee(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1584,8 +1635,8 @@ integration_test_async!(test_settle_offline_fee);
 /// Test that the `settle_offline_fee` method on the darkpool
 /// fails when the protocol key is incorrect
 #[allow(non_snake_case)]
-async fn test_settle_offline_fee__incorrect_protocol_key(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_settle_offline_fee__incorrect_protocol_key(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;
@@ -1620,8 +1671,8 @@ async fn test_settle_offline_fee__incorrect_protocol_key(test_args: TestArgs) ->
 integration_test_async!(test_settle_offline_fee__incorrect_protocol_key);
 
 /// Test the `redeem_fee` method on the darkpool
-async fn test_redeem_fee(test_args: TestArgs) -> Result<()> {
-    let contract = DarkpoolTestContract::new(test_args.darkpool_proxy_address, test_args.client);
+async fn test_redeem_fee(ctx: TestContext) -> Result<()> {
+    let contract = DarkpoolTestContract::new(ctx.darkpool_proxy_address, ctx.client);
 
     // Ensure the merkle state is cleared for the test
     contract.clear_merkle().send().await?.await?;

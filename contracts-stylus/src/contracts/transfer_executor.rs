@@ -1,7 +1,5 @@
 //! The transfer executor contract, responsible for executing external transfers
 //! to/from the darkpool (it is intended to be delegate-called by the darkpool)
-#![cfg(feature = "transfer-executor")]
-
 use crate::{
     if_verifying,
     utils::{
@@ -152,6 +150,7 @@ impl TransferExecutorContract {
     }
 
     /// Execute a batch of simple erc20 transfers
+    #[payable]
     pub fn execute_transfer_batch(&mut self, transfers: Bytes) -> Result<(), Vec<u8>> {
         let transfers: Vec<SimpleErc20Transfer> = deserialize_from_calldata(&transfers)?;
         for transfer in transfers {

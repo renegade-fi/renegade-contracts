@@ -3137,6 +3137,7 @@ dependencies = [
  "constants",
  "contracts-common",
  "contracts-core",
+ "contracts-stylus",
  "contracts-utils",
  "ethers",
  "eyre",

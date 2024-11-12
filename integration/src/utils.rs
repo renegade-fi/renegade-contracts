@@ -1,6 +1,6 @@
 //! Utilities for running integration tests
 
-use std::{future::Future, sync::Arc};
+use std::{future::Future, str::FromStr, sync::Arc};
 
 use alloy_primitives::{keccak256, Address as AlloyAddress, B256, U256 as AlloyU256};
 use alloy_sol_types::{
@@ -22,6 +22,7 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
+use contracts_stylus::NATIVE_ETH_ADDRESS;
 use contracts_utils::{
     crypto::hash_and_sign_message, merkle::MerkleConfig,
     proof_system::test_data::address_to_biguint,
@@ -43,7 +44,7 @@ use serde::Serialize;
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract, TransferExecutorContract},
     constants::PERMIT2_EIP712_DOMAIN_NAME,
-    TestArgs,
+    TestContext,
 };
 
 // --------------------
@@ -77,11 +78,21 @@ pub fn biguint_to_ethers_address(biguint: &BigUint) -> Address {
     Address::from_slice(&bytes)
 }
 
+/// Get the native ETH address
+pub fn native_eth_address() -> AlloyAddress {
+    AlloyAddress::from_str(NATIVE_ETH_ADDRESS).unwrap()
+}
+
 /// Converts an [`ethers::types::U256`] to an [`alloy_primitives::U256`]
 pub fn u256_to_alloy_u256(u256: U256) -> AlloyU256 {
     let mut buf = [0_u8; 32];
     u256.to_big_endian(&mut buf);
     AlloyU256::from_be_slice(&buf)
+}
+
+/// Converts an [`alloy_primitives::U256`] to an [`ethers::types::U256`]
+pub fn alloy_u256_to_ethers_u256(alloy_u256: AlloyU256) -> U256 {
+    U256::from_big_endian(&alloy_u256.to_be_bytes_vec())
 }
 
 /// Converts a [`ScalarField`] to a [`ethers::types::U256`]
@@ -249,7 +260,7 @@ pub(crate) async fn gen_permit_payload(
 ///
 /// Mint to both the user and the darkpool so that both are sufficiently
 /// capitalized
-pub async fn mint_dummy_erc20s(mint: Address, amount: U256, test_args: &TestArgs) -> Result<()> {
+pub async fn mint_dummy_erc20s(mint: Address, amount: U256, test_args: &TestContext) -> Result<()> {
     let address = test_args.client.address();
     let darkpool_address = test_args.darkpool_proxy_address;
     let contract = DummyErc20Contract::new(mint, test_args.client.clone());
@@ -263,7 +274,7 @@ pub async fn mint_dummy_erc20s(mint: Address, amount: U256, test_args: &TestArgs
 pub async fn setup_external_match_token_approvals(
     buy_side: bool,
     match_result: &ExternalMatchResult,
-    test_args: &TestArgs,
+    test_args: &TestContext,
 ) -> Result<()> {
     let mint = if buy_side { &match_result.quote_mint } else { &match_result.base_mint };
 
