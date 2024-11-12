@@ -1,4 +1,5 @@
-//! Testing contracts which wrap various contract functionality for testing purposes.
+//! Testing contracts which wrap various contract functionality for testing
+//! purposes.
 
 #[cfg(feature = "precompile-test-contract")]
 mod precompile_test_contract;

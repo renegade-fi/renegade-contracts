@@ -48,8 +48,9 @@ use crate::{
 /// & interfaces with the RPC endpoint over HTTP
 pub type LocalWalletHttpClient = SignerMiddleware<Provider<Http>, LocalWallet>;
 
-/// Sets up the address and client with which to instantiate a contract for testing,
-/// reading in the private key, RPC url, and contract address from the environment.
+/// Sets up the address and client with which to instantiate a contract for
+/// testing, reading in the private key, RPC url, and contract address from the
+/// environment.
 pub async fn setup_client(
     priv_key: &str,
     rpc_url: &str,
@@ -64,16 +65,13 @@ pub async fn setup_client(
         .await
         .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?
         .as_u64();
-    let client = Arc::new(SignerMiddleware::new(
-        provider,
-        wallet.clone().with_chain_id(chain_id),
-    ));
+    let client = Arc::new(SignerMiddleware::new(provider, wallet.clone().with_chain_id(chain_id)));
 
     Ok(client)
 }
 
-/// Sends a contract call, waiting for the transaction to go from pending to executed,
-/// and returns the transaction receipt
+/// Sends a contract call, waiting for the transaction to go from pending to
+/// executed, and returns the transaction receipt
 pub async fn send_contract_call<M: Middleware, D: Detokenize>(
     call: ContractCall<M, D>,
 ) -> Result<Option<TransactionReceipt>, ScriptError> {
@@ -106,7 +104,7 @@ pub fn read_stylus_deployment_address(
     let address_str = match contract {
         StylusContract::DummyErc20(symbol) => {
             parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol].as_str()
-        }
+        },
         _ => parsed_json[DEPLOYMENTS_KEY][contract.to_string()].as_str(),
     }
     .ok_or_else(|| {
@@ -122,11 +120,9 @@ pub fn read_deployment_address(
     deployment_key: &str,
 ) -> Result<Address, ScriptError> {
     let parsed_json = get_json_from_file(file_path)?;
-    let address_str = parsed_json[DEPLOYMENTS_KEY][deployment_key]
-        .as_str()
-        .ok_or_else(|| {
-            ScriptError::ReadFile("Could not parse address from deployments file".to_string())
-        })?;
+    let address_str = parsed_json[DEPLOYMENTS_KEY][deployment_key].as_str().ok_or_else(|| {
+        ScriptError::ReadFile("Could not parse address from deployments file".to_string())
+    })?;
 
     Address::from_str(address_str).map_err(|e| ScriptError::ReadFile(e.to_string()))
 }
@@ -148,15 +144,15 @@ pub fn write_stylus_contract_address(
         StylusContract::DummyErc20(symbol) => {
             parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol] =
                 JsonValue::String(format!("{address:#x}"));
-        }
+        },
         StylusContract::DummyWeth(symbol) => {
             parsed_json[DEPLOYMENTS_KEY][ERC20S_KEY][symbol] =
                 JsonValue::String(format!("{address:#x}"));
-        }
+        },
         _ => {
             parsed_json[DEPLOYMENTS_KEY][contract.to_string()] =
                 JsonValue::String(format!("{address:#x}"));
-        }
+        },
     }
 
     fs::write(file_path, json::stringify_pretty(parsed_json, 4))
@@ -212,10 +208,7 @@ pub fn get_public_encryption_key(
         rng.sample::<BabyJubJubProjective, _>(Standard).into()
     };
 
-    Ok(PublicEncryptionKey {
-        x: point.x.inner(),
-        y: point.y.inner(),
-    })
+    Ok(PublicEncryptionKey { x: point.x.inner(), y: point.y.inner() })
 }
 
 /// Gets the protocol external fee collection address from the given argument,
@@ -280,11 +273,7 @@ pub fn darkpool_initialize_calldata(
 
 /// Executes a command, returning an error if the command fails
 fn command_success_or(mut cmd: Command, err_msg: &str) -> Result<(), ScriptError> {
-    if !cmd
-        .output()
-        .map_err(|e| ScriptError::ContractCompilation(e.to_string()))?
-        .status
-        .success()
+    if !cmd.output().map_err(|e| ScriptError::ContractCompilation(e.to_string()))?.status.success()
     {
         Err(ScriptError::ContractCompilation(String::from(err_msg)))
     } else {
@@ -299,11 +288,8 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
         | StylusContract::DarkpoolTestContract => {
-            format!(
-                "{}{} {}",
-                OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG
-            )
-        }
+            format!("{}{} {}", OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG)
+        },
         _ => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_3),
     };
 
@@ -319,20 +305,19 @@ pub fn get_wasm_opt_flags_for_contract(contract: &StylusContract) -> &'static st
     }
 }
 
-/// Compiles the given Stylus contract to WASM and optimizes the resulting binary,
-/// returning the path to the optimized WASM file.
+/// Compiles the given Stylus contract to WASM and optimizes the resulting
+/// binary, returning the path to the optimized WASM file.
 ///
-/// Assumes that `cargo`, the `nightly` toolchain, and `wasm-opt` are locally available.
+/// Assumes that `cargo`, the `nightly` toolchain, and `wasm-opt` are locally
+/// available.
 pub fn build_stylus_contract(
     contract: &StylusContract,
     no_verify: bool,
 ) -> Result<PathBuf, ScriptError> {
     let current_dir = PathBuf::from(env::var(MANIFEST_DIR_ENV_VAR).unwrap());
-    let workspace_path = current_dir
-        .parent()
-        .ok_or(ScriptError::ContractCompilation(String::from(
-            "Could not find contracts directory",
-        )))?;
+    let workspace_path = current_dir.parent().ok_or(ScriptError::ContractCompilation(
+        String::from("Could not find contracts directory"),
+    ))?;
 
     let mut build_cmd = Command::new(CARGO_COMMAND);
     build_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -361,9 +346,7 @@ pub fn build_stylus_contract(
     build_cmd.arg(WASM_TARGET_TRIPLE);
     // Set the Z flags, used to optimize the resulting binary size.
     // See constants.rs for the list of flags.
-    let z_flags = iter::repeat("-Z")
-        .take(Z_FLAGS.len())
-        .interleave_shortest(Z_FLAGS);
+    let z_flags = iter::repeat("-Z").take(Z_FLAGS.len()).interleave_shortest(Z_FLAGS);
     build_cmd.args(z_flags);
 
     env::set_var(RUSTFLAGS_ENV_VAR, get_rustflags_for_contract(contract));
@@ -380,9 +363,7 @@ pub fn build_stylus_contract(
         .map_err(|e| ScriptError::ContractCompilation(e.to_string()))?
         .find_map(|entry| {
             let path = entry.ok()?.path();
-            path.extension()
-                .is_some_and(|ext| ext == WASM_EXTENSION)
-                .then_some(path)
+            path.extension().is_some_and(|ext| ext == WASM_EXTENSION).then_some(path)
         })
         .ok_or(ScriptError::ContractCompilation(String::from(
             "Could not find contract WASM file",
@@ -414,20 +395,15 @@ pub async fn deploy_stylus_contract(
         StylusContract::DarkpoolTestContract
         | StylusContract::MerkleTestContract
         | StylusContract::DummyErc20(_) => {
-            warn!(
-                "Deploying `{}` - THIS SHOULD ONLY BE DONE FOR TESTING",
-                contract
-            );
-        }
-        _ => {}
+            warn!("Deploying `{}` - THIS SHOULD ONLY BE DONE FOR TESTING", contract);
+        },
+        _ => {},
     }
 
     // Get expected deployment address
-    let deployer_address = client
-        .default_sender()
-        .ok_or(ScriptError::ClientInitialization(
-            "client does not have sender attached".to_string(),
-        ))?;
+    let deployer_address = client.default_sender().ok_or(ScriptError::ClientInitialization(
+        "client does not have sender attached".to_string(),
+    ))?;
     let deployer_nonce = client
         .get_transaction_count(deployer_address, None /* block */)
         .await

@@ -1,7 +1,9 @@
 //! The Plonk verifier, as described in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf.
-//! Each of the steps of the verification algorithm described in the paper are represented as separate helper functions.
-//! This version of the verification algorithm currently only supports fan-in 2, fan-out 1 gates.
-//! The verifier is an object containing a verification key, a transcript, and a backend for elliptic curve arithmetic.
+//! Each of the steps of the verification algorithm described in the paper are
+//! represented as separate helper functions. This version of the verification
+//! algorithm currently only supports fan-in 2, fan-out 1 gates. The verifier is
+//! an object containing a verification key, a transcript, and a backend for
+//! elliptic curve arithmetic.
 
 pub mod errors;
 
@@ -24,7 +26,8 @@ use crate::transcript::{serialize_scalars_for_transcript, Transcript};
 
 use self::errors::VerifierError;
 
-/// The verifier struct, which is defined generically over elliptic curve arithmetic and hashing backends
+/// The verifier struct, which is defined generically over elliptic curve
+/// arithmetic and hashing backends
 pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
     #[doc(hidden)]
     _phantom_g: PhantomData<G>,
@@ -34,10 +37,7 @@ pub struct Verifier<G: G1ArithmeticBackend, H: HashBackend> {
 
 impl<G: G1ArithmeticBackend, H: HashBackend> Default for Verifier<G, H> {
     fn default() -> Self {
-        Self {
-            _phantom_g: PhantomData,
-            _phantom_h: PhantomData,
-        }
+        Self { _phantom_g: PhantomData, _phantom_h: PhantomData }
     }
 }
 
@@ -55,7 +55,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Batch-verifies a set of proofs
     ///
-    /// Optionally, additional opening elements may be passed to facilitate proof-linking
+    /// Optionally, additional opening elements may be passed to facilitate
+    /// proof-linking
     pub fn batch_verify(
         vkey_batch: &[VerificationKey],
         proof_batch: &[Proof],
@@ -76,9 +77,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
         opening_elems.g1_lhs_elems.extend(plonk_g1_lhs_elems);
         opening_elems.g1_rhs_elems.extend(plonk_g1_rhs_elems);
-        opening_elems
-            .transcript_elements
-            .extend(plonk_transcript_elements);
+        opening_elems.transcript_elements.extend(plonk_transcript_elements);
 
         Self::batch_opening(&opening_elems, x_h, h)
     }
@@ -106,9 +105,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             let proof = &proof_batch[i];
             let public_inputs = &public_inputs_batch[i];
 
-            // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this point,
-            // by virtue of the type system. I.e., the proof should be deserialized in a manner such that
-            // elements not in the scalar field, and points not in G1, would cause a panic.
+            // Steps 1 & 2 of the verifier algorithm are assumed to be completed by this
+            // point, by virtue of the type system. I.e., the proof should be
+            // deserialized in a manner such that elements not in the scalar
+            // field, and points not in G1, would cause a panic.
 
             Self::step_3(public_inputs, vkey)?;
 
@@ -148,12 +148,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
             let lagrange_1_eval = Self::step_6(lagrange_bases, domain_elements);
 
-            let pi_eval = Self::step_7(
-                lagrange_1_eval,
-                lagrange_bases,
-                domain_elements,
-                public_inputs,
-            );
+            let pi_eval =
+                Self::step_7(lagrange_1_eval, lagrange_bases, domain_elements, public_inputs);
 
             let r_0 = Self::step_8(pi_eval, lagrange_1_eval, challenges, proof);
 
@@ -177,15 +173,12 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript_elements.push(challenges.u);
         }
 
-        Ok(OpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements,
-        })
+        Ok(OpeningElems { g1_lhs_elems, g1_rhs_elems, transcript_elements })
     }
 
     /// Computes the elements used in the final KZG batch opening pairing check
-    /// for the linking proofs involved in the matching and settlement of a trade.
+    /// for the linking proofs involved in the matching and settlement of a
+    /// trade.
     pub fn prep_match_linking_proofs_opening(
         match_proofs: MatchProofs,
         match_linking_vkeys: MatchLinkingVkeys,
@@ -231,7 +224,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     }
 
     /// Computes the elements used in the final KZG batch opening pairing check
-    /// for the linking proofs involved in the matching and settlement of an atomic match.
+    /// for the linking proofs involved in the matching and settlement of an
+    /// atomic match.
     pub fn prep_atomic_match_linking_proofs_opening(
         match_atomic_proofs: MatchAtomicProofs,
         match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
@@ -261,7 +255,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         Self::prep_linking_instances(linking_instances)
     }
 
-    /// Prepares the pairing product values for a set of link-proof verification instances
+    /// Prepares the pairing product values for a set of link-proof verification
+    /// instances
     fn prep_linking_instances(
         linking_instances: Vec<LinkingInstance>,
     ) -> Result<OpeningElems, VerifierError> {
@@ -281,28 +276,19 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript_elements.push(eta);
         }
 
-        Ok(OpeningElems {
-            g1_lhs_elems,
-            g1_rhs_elems,
-            transcript_elements,
-        })
+        Ok(OpeningElems { g1_lhs_elems, g1_rhs_elems, transcript_elements })
     }
 
-    /// Computes the KZG opening pairing check elements for a single linking proof
+    /// Computes the KZG opening pairing check elements for a single linking
+    /// proof
     pub fn prep_linking_proof_opening_elems(
         linking_vkey: LinkingVerificationKey,
         linking_proof: LinkingProof,
         wire_poly_comms: (G1Affine, G1Affine),
     ) -> Result<(G1Affine, G1Affine, ScalarField), VerifierError> {
-        let LinkingVerificationKey {
-            link_group_generator,
-            link_group_offset,
-            link_group_size,
-        } = linking_vkey;
-        let LinkingProof {
-            linking_poly_opening,
-            linking_quotient_poly_comm,
-        } = linking_proof;
+        let LinkingVerificationKey { link_group_generator, link_group_offset, link_group_size } =
+            linking_vkey;
+        let LinkingProof { linking_poly_opening, linking_quotient_poly_comm } = linking_proof;
         let one = ScalarField::one();
 
         // Compute eta challenge after absorbing commitments to wiring polynomials
@@ -329,11 +315,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         // Compute commitment to linking polynomial
         let linking_poly_comm = G::msm(
             &[one, -one, -subdomain_zero_poly_eval],
-            &[
-                wire_poly_comms.0,
-                wire_poly_comms.1,
-                linking_quotient_poly_comm,
-            ],
+            &[wire_poly_comms.0, wire_poly_comms.1, linking_quotient_poly_comm],
         )?;
 
         // Prepare LHS & RHS G1 elements for pairing check
@@ -353,8 +335,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let domain_size = if n.is_power_of_two() {
             n
         } else {
-            n.checked_next_power_of_two()
-                .ok_or(VerifierError::InvalidInputs)?
+            n.checked_next_power_of_two().ok_or(VerifierError::InvalidInputs)?
         };
         let omega =
             ScalarField::get_root_of_unity(domain_size).ok_or(VerifierError::InvalidInputs)?;
@@ -365,15 +346,14 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             domain_elements.push(domain_elements[i] * omega);
         }
 
-        let lagrange_basis_denominators: Vec<ScalarField> = (0..l)
-            .map(|i| ScalarField::from(n) * (zeta - domain_elements[i]))
-            .collect();
+        let lagrange_basis_denominators: Vec<ScalarField> =
+            (0..l).map(|i| ScalarField::from(n) * (zeta - domain_elements[i])).collect();
 
         Ok((domain_size, domain_elements, lagrange_basis_denominators))
     }
 
-    /// Performs Montgomery batch inversion on the denominators of the Lagrange basis polynomials
-    /// for a batch of proofs
+    /// Performs Montgomery batch inversion on the denominators of the Lagrange
+    /// basis polynomials for a batch of proofs
     fn batch_invert_lagrange_basis_denominators(
         lagrange_basis_denominators: &mut [ScalarField],
         zero_poly_evals_batch: &[ScalarField],
@@ -404,8 +384,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Validate public inputs
     ///
-    /// Similarly to the assumptions for step 2, the membership of the public inputs in the scalar field
-    /// should be enforced by the type system.
+    /// Similarly to the assumptions for step 2, the membership of the public
+    /// inputs in the scalar field should be enforced by the type system.
     fn step_3(public_inputs: &PublicInputs, vkey: &VerificationKey) -> Result<(), VerifierError> {
         if public_inputs.0.len() != vkey.l as usize {
             return Err(VerifierError::InvalidInputs);
@@ -461,15 +441,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         challenges: &Challenges,
         proof: &Proof,
     ) -> ScalarField {
-        let Challenges {
-            alpha, beta, gamma, ..
-        } = challenges;
-        let Proof {
-            wire_evals,
-            sigma_evals,
-            z_bar,
-            ..
-        } = proof;
+        let Challenges { alpha, beta, gamma, .. } = challenges;
+        let Proof { wire_evals, sigma_evals, z_bar, .. } = proof;
 
         let mut r_0 = pi_eval - lagrange_1_eval * *alpha * *alpha;
         let mut evals_rlc = alpha * z_bar * (wire_evals[NUM_WIRE_TYPES - 1] + gamma);
@@ -535,17 +508,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         challenges: &Challenges,
     ) -> Result<G1Affine, VerifierError> {
         let VerificationKey { k, .. } = vkey;
-        let Proof {
-            wire_evals, z_comm, ..
-        } = proof;
-        let Challenges {
-            alpha,
-            beta,
-            gamma,
-            zeta,
-            u,
-            ..
-        } = challenges;
+        let Proof { wire_evals, z_comm, .. } = proof;
+        let Challenges { alpha, beta, gamma, zeta, u, .. } = challenges;
 
         let mut z_scalar_coeff = *alpha;
         for i in 0..wire_evals.len() {
@@ -563,15 +527,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         challenges: &Challenges,
     ) -> Result<G1Affine, VerifierError> {
         let VerificationKey { sigma_comms, .. } = vkey;
-        let Proof {
-            wire_evals,
-            sigma_evals,
-            z_bar,
-            ..
-        } = proof;
-        let Challenges {
-            alpha, beta, gamma, ..
-        } = challenges;
+        let Proof { wire_evals, sigma_evals, z_bar, .. } = proof;
+        let Challenges { alpha, beta, gamma, .. } = challenges;
 
         let mut final_sigma_scalar_coeff = ScalarField::one();
         for i in 0..NUM_WIRE_TYPES - 1 {
@@ -593,10 +550,10 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         let Challenges { zeta, .. } = challenges;
         let one = ScalarField::one();
 
-        // In the Jellyfish implementation, they multiply each split quotient commtiment by increaseing powers of
-        // zeta^{n+2}, as opposed to zeta^n, as in the paper.
-        // This is in order to "achieve better balance among degrees of all splitting
-        // polynomials (especially the highest-degree/last one)"
+        // In the Jellyfish implementation, they multiply each split quotient commtiment
+        // by increaseing powers of zeta^{n+2}, as opposed to zeta^n, as in the
+        // paper. This is in order to "achieve better balance among degrees of
+        // all splitting polynomials (especially the highest-degree/last one)"
         // (As indicated in the doc comment here: https://github.com/EspressoSystems/jellyfish/blob/main/plonk/src/proof_system/prover.rs#L893)
         let zeta_to_n_plus_two = (zero_poly_eval + one) * zeta * zeta;
 
@@ -631,7 +588,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Compute group-encoded batch evaluation [E]1
     ///
-    /// We negate the scalar here to obtain -[E]1 so that we can avoid another EC scalar mul in step 12
+    /// We negate the scalar here to obtain -[E]1 so that we can avoid another
+    /// EC scalar mul in step 12
     fn step_11(
         r_0: ScalarField,
         v_powers: &[ScalarField; NUM_WIRE_TYPES * 2],
@@ -640,12 +598,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         challenges: &Challenges,
     ) -> Result<G1Affine, VerifierError> {
         let VerificationKey { g, .. } = vkey;
-        let Proof {
-            wire_evals,
-            sigma_evals,
-            z_bar,
-            ..
-        } = proof;
+        let Proof { wire_evals, sigma_evals, z_bar, .. } = proof;
         let Challenges { u, .. } = challenges;
 
         let mut e = -r_0;
@@ -663,8 +616,8 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
     /// Compute G1 elements to be used in the final pairing check
     /// for the given proof.
     ///
-    /// This is the final G1 arithmetic done in step 12 of the verifier algorithm
-    /// before the pairing check.
+    /// This is the final G1 arithmetic done in step 12 of the verifier
+    /// algorithm before the pairing check.
     fn step_12_part_1(
         f_1: G1Affine,
         neg_e_1: G1Affine,
@@ -672,11 +625,7 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
         proof: &Proof,
         challenges: &Challenges,
     ) -> Result<(G1Affine, G1Affine), VerifierError> {
-        let Proof {
-            w_zeta,
-            w_zeta_omega,
-            ..
-        } = proof;
+        let Proof { w_zeta, w_zeta_omega, .. } = proof;
         let Challenges { zeta, u, .. } = challenges;
         let one = ScalarField::one();
 
@@ -692,14 +641,16 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 
     /// Compute the final pairing check for a batch of proofs.
     ///
-    /// For the verification of a single proof, we do a pairing check of the form:
-    /// e(A, [x]2) == e(B, [1]2)
+    /// For the verification of a single proof, we do a pairing check of the
+    /// form: e(A, [x]2) == e(B, [1]2)
     ///
-    /// Now, for batch verification over `m` proofs, we extend the pairing check to the following:
-    /// e(A0 + ... + r^{m-1} * Am, [x]2) = e(B0 + ... + r^{m-1} * Bm, [1]2)
+    /// Now, for batch verification over `m` proofs, we extend the pairing check
+    /// to the following: e(A0 + ... + r^{m-1} * Am, [x]2) = e(B0 + ... +
+    /// r^{m-1} * Bm, [1]2)
     ///
-    /// By the Schwartz-Zippel lemma, for a random `r`, this check will succeed with overwhelming
-    /// probability if and only if the individual pairing checks do.
+    /// By the Schwartz-Zippel lemma, for a random `r`, this check will succeed
+    /// with overwhelming probability if and only if the individual pairing
+    /// checks do.
     ///
     /// This is taken from the Jellyfish implementation:
     /// https://github.com/renegade-fi/mpc-jellyfish/blob/main/plonk/src/proof_system/verifier.rs#L199
@@ -724,18 +675,18 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
             transcript.append_message(&serialize_scalars_for_transcript(
                 &opening_elems.transcript_elements,
             ));
-            transcript
-                .get_and_append_challenge()
-                .map_err(|_| VerifierError::ScalarConversion)?
+            transcript.get_and_append_challenge().map_err(|_| VerifierError::ScalarConversion)?
         };
 
-        // Compute successive powers of `r`, these are the coefficients in the random linear combination
+        // Compute successive powers of `r`, these are the coefficients in the random
+        // linear combination
         let mut r_powers = vec![ScalarField::one(); num_proofs];
         for i in 1..num_proofs {
             r_powers[i] = r_powers[i - 1] * r;
         }
 
-        // Compute the random linear combinations of G1 elements for the verification instances.
+        // Compute the random linear combinations of G1 elements for the verification
+        // instances.
         let lhs_rlc = G::msm(&r_powers, &opening_elems.g1_lhs_elems)?;
         let rhs_rlc = G::msm(&r_powers, &opening_elems.g1_rhs_elems)?;
 
@@ -812,15 +763,11 @@ mod tests {
     /// Generate a single linking proof and the associated data needed
     /// to verify it.
     ///
-    /// The simplest way to do this is to use the dummy `VALID REBLIND` and `VALID COMMITMENTS`
-    /// circuits.
+    /// The simplest way to do this is to use the dummy `VALID REBLIND` and
+    /// `VALID COMMITMENTS` circuits.
     fn gen_single_link_proof_and_vkey<R: CryptoRng + RngCore>(
         rng: &mut R,
-    ) -> (
-        LinkingProof,
-        LinkingVerificationKey,
-        (ProofLinkingHint, ProofLinkingHint),
-    ) {
+    ) -> (LinkingProof, LinkingVerificationKey, (ProofLinkingHint, ProofLinkingHint)) {
         let valid_commitments_statement = dummy_circuit_type(rng);
         let valid_reblind_statement = dummy_circuit_type(rng);
 
@@ -1025,10 +972,7 @@ mod tests {
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_linking_proof_opening_elems(
                 linking_vkey,
                 link_proof,
-                (
-                    lhs_link_hint.linking_wire_comm.0,
-                    rhs_link_hint.linking_wire_comm.0,
-                ),
+                (lhs_link_hint.linking_wire_comm.0, rhs_link_hint.linking_wire_comm.0),
             )
             .unwrap();
 
@@ -1061,10 +1005,7 @@ mod tests {
             Verifier::<ArkG1ArithmeticBackend, NativeHasher>::prep_linking_proof_opening_elems(
                 linking_vkey,
                 link_proof,
-                (
-                    lhs_link_hint.linking_wire_comm.0,
-                    rhs_link_hint.linking_wire_comm.0,
-                ),
+                (lhs_link_hint.linking_wire_comm.0, rhs_link_hint.linking_wire_comm.0),
             )
             .unwrap();
 

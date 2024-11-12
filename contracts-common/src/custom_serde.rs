@@ -1,5 +1,6 @@
 //! Custom de/serialization logic used to:
-//! 1. de/serialize objects to/from byte arrays for use in EVM precompiles & transcript operations
+//! 1. de/serialize objects to/from byte arrays for use in EVM precompiles &
+//!    transcript operations
 //! 2. serialize objects to scalar arrays for use as public proof inputs
 
 use alloc::{vec, vec::Vec};
@@ -76,9 +77,7 @@ impl BytesDeserializable for u64 {
     const SER_LEN: usize = 8;
 
     fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
-        Ok(u64::from_be_bytes(
-            bytes.try_into().map_err(|_| SerdeError::InvalidLength)?,
-        ))
+        Ok(u64::from_be_bytes(bytes.try_into().map_err(|_| SerdeError::InvalidLength)?))
     }
 }
 
@@ -105,8 +104,8 @@ impl<P: MontConfig<NUM_U64S_FELT>> BytesDeserializable for MontFp256<P> {
 impl BytesSerializable for G1Affine {
     /// Serializes a G1 point into a big-endian byte array of its coordinates.
     ///
-    /// This matches the format expected by the EVM `ecAdd`, `ecMul`, and `ecPairing`
-    /// precompiles as specified here:
+    /// This matches the format expected by the EVM `ecAdd`, `ecMul`, and
+    /// `ecPairing` precompiles as specified here:
     /// https://eips.ethereum.org/EIPS/eip-197#encoding
     fn serialize_to_bytes(&self) -> Vec<u8> {
         let zero = G1BaseField::zero();
@@ -123,8 +122,8 @@ impl BytesDeserializable for G1Affine {
 
     /// Deserializes a G1 point from a byte array.
     ///
-    /// This matches the format returned by the EVM `ecAdd` and `ecMul` precompiles,
-    /// as specified here:
+    /// This matches the format returned by the EVM `ecAdd` and `ecMul`
+    /// precompiles, as specified here:
     /// https://eips.ethereum.org/EIPS/eip-196#encoding
     fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, SerdeError> {
         // Note: although this performs modular reduction, it's safe to do so
@@ -134,11 +133,7 @@ impl BytesDeserializable for G1Affine {
         let x = deserialize_cursor(bytes, &mut cursor)?;
         let y = deserialize_cursor(bytes, &mut cursor)?;
 
-        Ok(G1Affine {
-            x,
-            y,
-            infinity: x.is_zero() && y.is_zero(),
-        })
+        Ok(G1Affine { x, y, infinity: x.is_zero() && y.is_zero() })
     }
 }
 
@@ -161,11 +156,12 @@ impl BytesSerializable for G2Affine {
     /// Serializes a G2 point into a big-endian byte array of the coefficients
     /// of its coordinates in the extension field, i.e.:
     ///
-    /// Given an element of the field extension F_p^2[i] represented as ai + b, where a and b are elements
-    /// of F_p, its serialization is the concatenation of a and b in big-endian order.
+    /// Given an element of the field extension F_p^2[i] represented as ai + b,
+    /// where a and b are elements of F_p, its serialization is the
+    /// concatenation of a and b in big-endian order.
     ///
-    /// This matches the format expected by the EVM `ecPairing` precompile, as specified here:
-    /// https://eips.ethereum.org/EIPS/eip-197#encoding
+    /// This matches the format expected by the EVM `ecPairing` precompile, as
+    /// specified here: https://eips.ethereum.org/EIPS/eip-197#encoding
     fn serialize_to_bytes(&self) -> Vec<u8> {
         let zero = G2BaseField::zero();
         let (x, y) = self.xy().unwrap_or((&zero, &zero));
@@ -191,11 +187,7 @@ impl BytesDeserializable for G2Affine {
         let x = G2BaseField { c0: x_c0, c1: x_c1 };
         let y = G2BaseField { c0: y_c0, c1: y_c1 };
 
-        Ok(G2Affine {
-            x,
-            y,
-            infinity: x.is_zero() && y.is_zero(),
-        })
+        Ok(G2Affine { x, y, infinity: x.is_zero() && y.is_zero() })
     }
 }
 
@@ -223,17 +215,12 @@ impl ScalarSerializable for ValidWalletCreateStatement {
 
 impl ScalarSerializable for ValidWalletUpdateStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = vec![
-            self.old_shares_nullifier,
-            self.new_private_shares_commitment,
-        ];
+        let mut scalars = vec![self.old_shares_nullifier, self.new_private_shares_commitment];
         scalars.extend(&self.new_public_shares);
         scalars.push(self.merkle_root);
 
         scalars.extend(external_transfer_to_scalars(
-            self.external_transfer
-                .as_ref()
-                .unwrap_or(&ExternalTransfer::default()),
+            self.external_transfer.as_ref().unwrap_or(&ExternalTransfer::default()),
         )?);
         scalars.extend(pk_to_scalars(&self.old_pk_root));
         Ok(scalars)
@@ -252,11 +239,7 @@ impl ScalarSerializable for ValidReblindStatement {
 
 impl ScalarSerializable for OrderSettlementIndices {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        Ok(vec![
-            self.balance_send.into(),
-            self.balance_receive.into(),
-            self.order.into(),
-        ])
+        Ok(vec![self.balance_send.into(), self.balance_receive.into(), self.order.into()])
     }
 }
 
@@ -309,11 +292,8 @@ impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
 
 impl ScalarSerializable for ValidOfflineFeeSettlementStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars: Vec<ScalarField> = vec![
-            self.merkle_root,
-            self.nullifier,
-            self.updated_wallet_commitment,
-        ];
+        let mut scalars: Vec<ScalarField> =
+            vec![self.merkle_root, self.nullifier, self.updated_wallet_commitment];
         scalars.extend(&self.updated_wallet_public_shares);
         scalars.extend(&note_ciphertext_to_scalars(&self.note_ciphertext));
         scalars.push(self.note_commitment);
@@ -355,7 +335,8 @@ fn deserialize_cursor<D: BytesDeserializable>(
 
 /// Converts a little-endian byte array into a [`BigInt`]
 pub fn bigint_from_le_bytes(bytes: &[u8]) -> Result<BigInt<NUM_U64S_FELT>, SerdeError> {
-    // This will right-pad the bytes with zero-bytes if the length is less than 8 * NUM_BYTES_U64
+    // This will right-pad the bytes with zero-bytes if the length is less than 8 *
+    // NUM_BYTES_U64
     let mut bytes_to_convert = [0_u8; NUM_BYTES_FELT];
     bytes_to_convert[..bytes.len()].copy_from_slice(bytes);
 
@@ -378,13 +359,14 @@ fn address_to_scalar(address: Address) -> Result<ScalarField, SerdeError> {
     // is the address bytes in big-endian form.
     let address_bytes = address.as_slice();
 
-    // We first left-pad the big-endian address bytes with zero-bytes to NUM_BYTES_FELT,
-    // preserving its numerical value
+    // We first left-pad the big-endian address bytes with zero-bytes to
+    // NUM_BYTES_FELT, preserving its numerical value
     let mut bytes = [0; NUM_BYTES_FELT];
     bytes[NUM_BYTES_FELT - NUM_BYTES_ADDRESS..].copy_from_slice(address_bytes);
 
-    // The circuits expect the scalar representation of the address to be its little-endian
-    // interpretation. We thus reverse the bytes before converting them to a scalar.
+    // The circuits expect the scalar representation of the address to be its
+    // little-endian interpretation. We thus reverse the bytes before converting
+    // them to a scalar.
     bytes.reverse();
     let bigint = bigint_from_le_bytes(&bytes)?;
     ScalarField::from_bigint(bigint).ok_or(SerdeError::ScalarConversion)
@@ -423,10 +405,7 @@ fn external_match_result_to_scalars(
 
 /// Converts a [`FeeTake`] into a vector of [`ScalarField`]s
 fn fee_take_to_scalars(fee_take: &FeeTake) -> Result<Vec<ScalarField>, SerdeError> {
-    Ok(vec![
-        amount_to_scalar(fee_take.relayer_fee)?,
-        amount_to_scalar(fee_take.protocol_fee)?,
-    ])
+    Ok(vec![amount_to_scalar(fee_take.relayer_fee)?, amount_to_scalar(fee_take.protocol_fee)?])
 }
 
 /// Converts a [`PublicSigningKey`] into a vector of [`ScalarField`]s
@@ -451,7 +430,8 @@ fn note_ciphertext_to_scalars(note_ciphertext: &NoteCiphertext) -> Vec<ScalarFie
     scalars
 }
 
-/// Serializes a statement type into a vector of `[ScalarField]` and wraps it in a [`PublicInputs`]
+/// Serializes a statement type into a vector of `[ScalarField]` and wraps it in
+/// a [`PublicInputs`]
 pub fn statement_to_public_inputs<S: ScalarSerializable>(
     statement: &S,
 ) -> Result<PublicInputs, SerdeError> {
@@ -463,7 +443,8 @@ pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
     U256::from_be_slice(&scalar.serialize_to_bytes())
 }
 
-/// Converts a [`PublicSigningKey`] into the [`U256`] array representing its scalar serialization
+/// Converts a [`PublicSigningKey`] into the [`U256`] array representing its
+/// scalar serialization
 pub fn pk_to_u256s(pk: &PublicSigningKey) -> Result<[U256; NUM_SCALARS_PK], SerdeError> {
     let scalars = pk_to_scalars(pk);
     scalars
@@ -492,8 +473,9 @@ mod tests {
         let mut rng = thread_rng();
         let a = G1Affine::rand(&mut rng);
         let res = a.serialize_to_bytes();
-        // EC precompiles return G1 points in the same format, i.e. big-endian serialization of x and y
-        // As such we can use this output to test deserialization
+        // EC precompiles return G1 points in the same format, i.e. big-endian
+        // serialization of x and y As such we can use this output to test
+        // deserialization
         let a_prime = G1Affine::deserialize_from_bytes(&res).unwrap();
         assert_eq!(a, a_prime)
     }

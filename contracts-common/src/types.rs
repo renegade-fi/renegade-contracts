@@ -31,8 +31,8 @@ pub type G2BaseField = Fq2;
 /// Type alias for a 256-bit prime field element in Montgomery form
 pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 
-/// Preprocessed information derived from the circuit definition and universal SRS
-/// used by the verifier.
+/// Preprocessed information derived from the circuit definition and universal
+/// SRS used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
 #[serde_as]
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
@@ -61,7 +61,8 @@ pub struct VerificationKey {
     pub x_h: G2Affine,
 }
 
-/// The Plonk verification keys used when verifying the matching and settlement of a trade
+/// The Plonk verification keys used when verifying the matching and settlement
+/// of a trade
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "test-helpers", derive(Clone))]
 pub struct MatchVkeys {
@@ -76,7 +77,8 @@ pub struct MatchVkeys {
 impl MatchVkeys {
     /// Convert the verification keys to a vector
     ///
-    /// We repeat `VALID COMMITMENTS` and `VALID REBLIND` twice, once for each of the parties
+    /// We repeat `VALID COMMITMENTS` and `VALID REBLIND` twice, once for each
+    /// of the parties
     pub fn to_vec(&self) -> Vec<VerificationKey> {
         [
             self.valid_commitments_vkey,
@@ -89,7 +91,8 @@ impl MatchVkeys {
     }
 }
 
-/// The Plonk verification keys used when verifying the settlement of an atomic match
+/// The Plonk verification keys used when verifying the settlement of an atomic
+/// match
 #[derive(Serialize, Deserialize)]
 pub struct MatchAtomicVkeys {
     /// The verification key for `VALID COMMITMENTS`
@@ -103,12 +106,8 @@ pub struct MatchAtomicVkeys {
 impl MatchAtomicVkeys {
     /// Convert the verification keys to a vector
     pub fn to_vec(&self) -> Vec<VerificationKey> {
-        [
-            self.valid_commitments_vkey,
-            self.valid_reblind_vkey,
-            self.valid_match_settle_atomic_vkey,
-        ]
-        .to_vec()
+        [self.valid_commitments_vkey, self.valid_reblind_vkey, self.valid_match_settle_atomic_vkey]
+            .to_vec()
     }
 }
 
@@ -140,7 +139,8 @@ pub struct MatchLinkingVkeys {
     pub valid_commitments_match_settle_1: LinkingVerificationKey,
 }
 
-/// The linking verification keys used when verifying the settlement of an atomic match
+/// The linking verification keys used when verifying the settlement of an
+/// atomic match
 #[derive(Serialize, Deserialize)]
 pub struct MatchAtomicLinkingVkeys {
     /// The verification key for the
@@ -158,7 +158,8 @@ pub struct Proof {
     /// The commitments to the wire polynomials
     #[serde_as(as = "[G1AffineDef; NUM_WIRE_TYPES]")]
     pub wire_comms: [G1Affine; NUM_WIRE_TYPES],
-    /// The commitment to the grand product polynomial encoding the permutation argument (i.e., copy constraints)
+    /// The commitment to the grand product polynomial encoding the permutation
+    /// argument (i.e., copy constraints)
     #[serde_as(as = "G1AffineDef")]
     pub z_comm: G1Affine,
     /// The commitments to the split quotient polynomials
@@ -173,10 +174,12 @@ pub struct Proof {
     /// The evaluations of the wire polynomials at the challenge point `zeta`
     #[serde_as(as = "[ScalarFieldDef; NUM_WIRE_TYPES]")]
     pub wire_evals: [ScalarField; NUM_WIRE_TYPES],
-    /// The evaluations of the permutation polynomials at the challenge point `zeta`
+    /// The evaluations of the permutation polynomials at the challenge point
+    /// `zeta`
     #[serde_as(as = "[ScalarFieldDef; NUM_WIRE_TYPES - 1]")]
     pub sigma_evals: [ScalarField; NUM_WIRE_TYPES - 1],
-    /// The evaluation of the grand product polynomial at the challenge point `zeta * omega` (\bar{z})
+    /// The evaluation of the grand product polynomial at the challenge point
+    /// `zeta * omega` (\bar{z})
     #[serde_as(as = "ScalarFieldDef")]
     pub z_bar: ScalarField,
 }
@@ -267,12 +270,7 @@ pub struct MatchAtomicProofs {
 impl MatchAtomicProofs {
     /// Convert the proofs to a vector
     pub fn to_vec(&self) -> Vec<Proof> {
-        [
-            self.valid_commitments,
-            self.valid_reblind,
-            self.valid_match_settle_atomic,
-        ]
-        .to_vec()
+        [self.valid_commitments, self.valid_reblind, self.valid_match_settle_atomic].to_vec()
     }
 }
 
@@ -288,14 +286,16 @@ pub struct MatchAtomicLinkingProofs {
     pub valid_commitments_match_settle_atomic: LinkingProof,
 }
 
-/// The public coin challenges used throughout the Plonk protocol, obtained via a Fiat-Shamir transformation.
+/// The public coin challenges used throughout the Plonk protocol, obtained via
+/// a Fiat-Shamir transformation.
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct Challenges {
     /// The first permutation challenge, used in round 2 of the prover algorithm
     #[serde_as(as = "ScalarFieldDef")]
     pub beta: ScalarField,
-    /// The second permutation challenge, used in round 2 of the prover algorithm
+    /// The second permutation challenge, used in round 2 of the prover
+    /// algorithm
     #[serde_as(as = "ScalarFieldDef")]
     pub gamma: ScalarField,
     /// The quotient challenge, used in round 3 of the prover algorithm
@@ -307,7 +307,8 @@ pub struct Challenges {
     /// The opening challenge, used in round 5 of the prover algorithm
     #[serde_as(as = "ScalarFieldDef")]
     pub v: ScalarField,
-    /// The multipoint evaluation challenge, generated at the end of round 5 of the prover algorithm
+    /// The multipoint evaluation challenge, generated at the end of round 5 of
+    /// the prover algorithm
     #[serde_as(as = "ScalarFieldDef")]
     pub u: ScalarField,
 }
@@ -330,8 +331,8 @@ pub struct ExternalTransfer {
 }
 
 /// Auxiliary data passed alongside an external transfer to verify its validity.
-/// This includes a signature over the external transfer, and in the case of a deposit,
-/// the associated Permit2 data ([reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer))
+/// This includes a signature over the external transfer, and in the case of a
+/// deposit, the associated Permit2 data ([reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer))
 #[serde_as]
 #[derive(Default, Serialize, Deserialize)]
 pub struct TransferAuxData {
@@ -349,9 +350,9 @@ pub struct TransferAuxData {
 
 /// A simple erc20 transfer
 ///
-/// For deposits, we directly use the erc20 contracts `transfer` function assuming that
-/// the caller has approved the darkpool contract to spend the deposit. This means that no
-/// permit2 logic is needed.
+/// For deposits, we directly use the erc20 contracts `transfer` function
+/// assuming that the caller has approved the darkpool contract to spend the
+/// deposit. This means that no permit2 logic is needed.
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct SimpleErc20Transfer {
@@ -372,22 +373,12 @@ pub struct SimpleErc20Transfer {
 impl SimpleErc20Transfer {
     /// Create a new withdraw transfer
     pub fn new_withdraw(to: Address, mint: Address, amount: U256) -> Self {
-        Self {
-            mint,
-            account_addr: to,
-            amount,
-            is_withdrawal: true,
-        }
+        Self { mint, account_addr: to, amount, is_withdrawal: true }
     }
 
     /// Create a new deposit transfer
     pub fn new_deposit(from: Address, mint: Address, amount: U256) -> Self {
-        Self {
-            mint,
-            account_addr: from,
-            amount,
-            is_withdrawal: false,
-        }
+        Self { mint, account_addr: from, amount, is_withdrawal: false }
     }
 }
 
@@ -407,9 +398,7 @@ pub struct FeeTake {
 impl FeeTake {
     /// Get the total fee taken
     pub fn total(&self) -> U256 {
-        self.relayer_fee
-            .checked_add(self.protocol_fee)
-            .expect("fees overflow") // unwrap here for interface simplicity
+        self.relayer_fee.checked_add(self.protocol_fee).expect("fees overflow") // unwrap here for interface simplicity
     }
 }
 
@@ -458,8 +447,8 @@ impl ExternalMatchResult {
 }
 
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.
-/// Since the secp256k1 base field order is larger than that of Bn254's scalar field,
-/// it takes 2 Bn254 scalar field elements to represent each coordinate.
+/// Since the secp256k1 base field order is larger than that of Bn254's scalar
+/// field, it takes 2 Bn254 scalar field elements to represent each coordinate.
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct PublicSigningKey {
@@ -804,12 +793,7 @@ pub struct MatchAtomicPublicInputs {
 impl MatchAtomicPublicInputs {
     /// Convert the public inputs to a vector
     pub fn to_vec(self) -> Vec<PublicInputs> {
-        [
-            self.valid_commitments,
-            self.valid_reblind,
-            self.valid_match_settle_atomic,
-        ]
-        .to_vec()
+        [self.valid_commitments, self.valid_reblind, self.valid_match_settle_atomic].to_vec()
     }
 }
 

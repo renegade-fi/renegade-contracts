@@ -1,5 +1,6 @@
-//! Defines mock circuits that expect the same statements & linking relationships
-//! as the Renegade protocol circuits, but are trivially satisfiable
+//! Defines mock circuits that expect the same statements & linking
+//! relationships as the Renegade protocol circuits, but are trivially
+//! satisfiable
 
 #![allow(missing_docs, clippy::missing_docs_in_private_items)]
 
@@ -153,14 +154,8 @@ impl SingleProverCircuit for DummyValidCommitments {
 
         Ok(vec![
             (VALID_REBLIND_COMMITMENTS_LINK.to_string(), Some(layout1)),
-            (
-                VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(),
-                Some(layout2),
-            ),
-            (
-                VALID_COMMITMENTS_MATCH_SETTLE_LINK1.to_string(),
-                Some(layout3),
-            ),
+            (VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), Some(layout2)),
+            (VALID_COMMITMENTS_MATCH_SETTLE_LINK1.to_string(), Some(layout3)),
         ])
     }
 }
@@ -239,10 +234,7 @@ impl SingleProverCircuit for DummyValidMatchSettleAtomic {
     fn proof_linking_groups() -> Result<Vec<(String, Option<GroupLayout>)>, PlonkError> {
         let layout = DummyValidMatchSettle::get_circuit_layout()?;
         let group_layout = layout.get_group_layout(VALID_COMMITMENTS_MATCH_SETTLE_LINK0);
-        Ok(vec![(
-            VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(),
-            Some(group_layout),
-        )])
+        Ok(vec![(VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), Some(group_layout))])
     }
 }
 

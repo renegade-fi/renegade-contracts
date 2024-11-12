@@ -32,11 +32,13 @@ pub const HASH_OUTPUT_SIZE: usize = 32;
 /// The number of bytes of hash output to sample for a challenge
 pub const HASH_SAMPLE_BYTES: usize = 48;
 
-/// The number of bytes to represent field elements of the base or scalar fields for the G1 curve group,
-/// as well as the base field which is extended for the G2 curve group
+/// The number of bytes to represent field elements of the base or scalar fields
+/// for the G1 curve group, as well as the base field which is extended for the
+/// G2 curve group
 pub const NUM_BYTES_FELT: usize = 32;
 
-/// The index at which to split a hash output so that it can be directly converted to a field element.
+/// The index at which to split a hash output so that it can be directly
+/// converted to a field element.
 pub const SPLIT_INDEX: usize = NUM_BYTES_FELT - 1;
 
 /// The number of u64s it takes to represent a field element
@@ -60,8 +62,9 @@ pub const NUM_BYTES_ADDRESS: usize = 20;
 /// The number of bytes it takes to represent a secp256k1 ECDSA signature
 /// as expected by the Ethereum `ecRecover` precompile.
 ///
-/// Concretely, this is the concatenation of the `r` and `s` values of the signature,
-/// and `v`, a 1-byte recovery identifier (whose value is either 27 or 28)
+/// Concretely, this is the concatenation of the `r` and `s` values of the
+/// signature, and `v`, a 1-byte recovery identifier (whose value is either 27
+/// or 28)
 pub const NUM_BYTES_SIGNATURE: usize = 65;
 
 /// The height of the Merkle tree
@@ -75,12 +78,7 @@ pub const TEST_MERKLE_HEIGHT: usize = 3;
 /// reduced modulo the scalar field order when interpreted as a
 /// big-endian unsigned integer
 pub const EMPTY_LEAF_VALUE: ScalarField = Fp(
-    BigInt([
-        14542100412480080699,
-        1005430062575839833,
-        8810205500711505764,
-        2121377557688093532,
-    ]),
+    BigInt([14542100412480080699, 1005430062575839833, 8810205500711505764, 2121377557688093532]),
     PhantomData,
 );
 
@@ -96,8 +94,8 @@ pub const CORE_SETTLEMENT_ADDRESS_SELECTOR: u8 = 1;
 /// method on the Darkpool test contract
 pub const VERIFIER_CORE_ADDRESS_SELECTOR: u8 = 2;
 
-/// The selector for the verifier settlement address in the `is_implementation_upgraded`
-/// method on the Darkpool test contract
+/// The selector for the verifier settlement address in the
+/// `is_implementation_upgraded` method on the Darkpool test contract
 pub const VERIFIER_SETTLEMENT_ADDRESS_SELECTOR: u8 = 3;
 
 /// The selector for the vkeys address in the `is_implementation_upgraded`
@@ -124,7 +122,8 @@ pub const INVALID_INPUTS_ERROR_MESSAGE: &[u8] = b"invalid inputs";
 /// operation fails
 pub const ARITHMETIC_BACKEND_ERROR_MESSAGE: &[u8] = b"arithmetic backend error";
 
-/// The EIP-712 type string used for deposit witness data via `permitWitnessTransferFrom`.
+/// The EIP-712 type string used for deposit witness data via
+/// `permitWitnessTransferFrom`.
 ///
 /// For more details see: https://docs.uniswap.org/contracts/permit2/reference/signature-transfer#single-permitwitnesstransferfrom
 pub const DEPOSIT_WITNESS_TYPE_STRING: &str = "DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)";

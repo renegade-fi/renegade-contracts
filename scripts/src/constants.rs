@@ -23,7 +23,8 @@ pub const PERMIT2_BYTECODE: &str = include_str!("../artifacts/Permit2.bin");
 /// The number of confirmations to wait for the contract deployment transaction
 pub const NUM_DEPLOY_CONFIRMATIONS: usize = 0;
 
-/// The storage slot containing the proxy admin contract address in the upgradeable proxy.
+/// The storage slot containing the proxy admin contract address in the
+/// upgradeable proxy.
 ///
 /// This is specified in EIP1967: https://eips.ethereum.org/EIPS/eip-1967#admin-address
 pub const PROXY_ADMIN_STORAGE_SLOT: &str =
@@ -75,11 +76,8 @@ pub const WASM_TARGET_TRIPLE: &str = "wasm32-unknown-unknown";
 pub const NO_VERIFY_FEATURE: &str = "no-verify";
 
 /// Nightly Z flags to add to build command
-pub const Z_FLAGS: [&str; 3] = [
-    "unstable-options",
-    "build-std=std,panic_abort",
-    "build-std-features=panic_immediate_abort",
-];
+pub const Z_FLAGS: [&str; 3] =
+    ["unstable-options", "build-std=std,panic_abort", "build-std-features=panic_immediate_abort"];
 
 /// The name of the target directory
 pub const TARGET_PATH_SEGMENT: &str = "target";
@@ -127,8 +125,9 @@ pub const PERMIT2_CONTRACT_KEY: &str = "permit2_contract";
 /// which is also its contract key in the `deployments.json` file
 pub const TEST_ERC20_TICKER1: &str = "TEST1";
 
-/// The ticker of the second ERC20 contract deployed using `deploy_test_contracts`,
-/// which is also its contract key in the `deployments.json` file
+/// The ticker of the second ERC20 contract deployed using
+/// `deploy_test_contracts`, which is also its contract key in the
+/// `deployments.json` file
 pub const TEST_ERC20_TICKER2: &str = "TEST2";
 
 /// The number of decimals for the testing ERC20 contracts

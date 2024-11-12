@@ -13,7 +13,8 @@ use eyre::Result;
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
 
-/// Converts a [`GroupLayout`] (from prover-side code) to a [`LinkingVerificationKey`]
+/// Converts a [`GroupLayout`] (from prover-side code) to a
+/// [`LinkingVerificationKey`]
 pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
     LinkingVerificationKey {
         link_group_generator: group_layout.get_domain_generator(),
@@ -22,8 +23,8 @@ pub fn to_linking_vkey(group_layout: &GroupLayout) -> LinkingVerificationKey {
     }
 }
 
-/// Attempts to convert a slice of [`PolynomialCommitment`]s (from prover-side code)
-/// to a fixed-size array of [`G1Affine`]z
+/// Attempts to convert a slice of [`PolynomialCommitment`]s (from prover-side
+/// code) to a fixed-size array of [`G1Affine`]z
 fn try_unwrap_commitments<const N: usize>(
     comms: &[PolynomialCommitment],
 ) -> Result<[G1Affine; N], ConversionError> {
@@ -42,10 +43,7 @@ pub fn to_contract_vkey(
     Ok(VerificationKey {
         n: jf_vkey.domain_size as u64,
         l: jf_vkey.num_inputs as u64,
-        k: jf_vkey
-            .k
-            .try_into()
-            .map_err(|_| ConversionError::InvalidLength)?,
+        k: jf_vkey.k.try_into().map_err(|_| ConversionError::InvalidLength)?,
         q_comms: try_unwrap_commitments(&jf_vkey.selector_comms)?,
         sigma_comms: try_unwrap_commitments(&jf_vkey.sigma_comms)?,
         g: jf_vkey.open_key.g,
@@ -54,7 +52,8 @@ pub fn to_contract_vkey(
     })
 }
 
-/// Converts a [`ContractPublicSigningKey`] (from contract-side code) to a [`CircuitPublicSigningKey`]
+/// Converts a [`ContractPublicSigningKey`] (from contract-side code) to a
+/// [`CircuitPublicSigningKey`]
 pub fn to_circuit_pubkey(contract_pubkey: ContractPublicSigningKey) -> CircuitPublicSigningKey {
     let x = NonNativeScalar {
         scalar_words: contract_pubkey

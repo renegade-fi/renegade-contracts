@@ -63,8 +63,9 @@ pub fn check_root_in_history<C: CoreContractStorage, S: TopLevelStorage + Borrow
     assert_result!(res, ROOT_NOT_IN_HISTORY_ERROR_MESSAGE)
 }
 
-/// Fetches the verification keys by their associated method selector on the vkeys contract.
-/// This assumes that the vkeys contract method takes no arguments and returns a single `bytes` value.
+/// Fetches the verification keys by their associated method selector on the
+/// vkeys contract. This assumes that the vkeys contract method takes no
+/// arguments and returns a single `bytes` value.
 pub fn fetch_vkeys<C: CoreContractStorage, S: TopLevelStorage + Borrow<C>>(
     s: &S,
     selector: &[u8],
@@ -81,7 +82,8 @@ pub fn fetch_vkeys<C: CoreContractStorage, S: TopLevelStorage + Borrow<C>>(
 
 /// Calls the verifier contract with the given selector.
 ///
-/// Assumes that the argument type is a single `bytes` value and the return type is a single `bool`.
+/// Assumes that the argument type is a single `bytes` value and the return type
+/// is a single `bool`.
 pub fn call_verifier<Core, S, C>(
     storage: &S,
     args: <C::Parameters<'_> as SolType>::RustType,
@@ -141,18 +143,15 @@ pub fn mark_public_blinder_used<C: CoreContractStorage, S: TopLevelStorage + Bor
     // First check that the blinder hasn't been used
     let this = s.borrow_mut();
     let blinder = scalar_to_u256(blinder);
-    assert_result!(
-        !this.public_blinder_set().get(blinder),
-        PUBLIC_BLINDER_USED_ERROR_MESSAGE
-    )?;
+    assert_result!(!this.public_blinder_set().get(blinder), PUBLIC_BLINDER_USED_ERROR_MESSAGE)?;
 
     // Mark the blinder as used
     this.public_blinder_set_mut().insert(blinder, true);
     Ok(())
 }
 
-/// Prepares the wallet shares for insertion into the Merkle tree by converting them
-/// to a vector of [`U256`]
+/// Prepares the wallet shares for insertion into the Merkle tree by converting
+/// them to a vector of [`U256`]
 pub fn prepare_wallet_shares_for_insertion(
     private_shares_commitment: ScalarField,
     public_wallet_shares: &[ScalarField],
@@ -164,8 +163,9 @@ pub fn prepare_wallet_shares_for_insertion(
     total_wallet_shares
 }
 
-/// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
-/// tree and delegate-calls the appropriate method on the Merkle contract
+/// Prepares the private shares commitment & public wallet shares for insertion
+/// into the Merkle tree and delegate-calls the appropriate method on the Merkle
+/// contract
 pub fn insert_wallet_commitment_to_merkle_tree<
     C: CoreContractStorage,
     S: TopLevelStorage + BorrowMut<C>,
@@ -183,9 +183,9 @@ pub fn insert_wallet_commitment_to_merkle_tree<
         .map(|_| ())
 }
 
-/// Prepares the private shares commitment & public wallet shares for insertion into the Merkle
-/// tree, as well as the signature & pubkey for verification, and delegate-calls the appropriate
-/// method on the Merkle contract
+/// Prepares the private shares commitment & public wallet shares for insertion
+/// into the Merkle tree, as well as the signature & pubkey for verification,
+/// and delegate-calls the appropriate method on the Merkle contract
 pub fn insert_signed_wallet_commitment_to_merkle_tree<
     C: CoreContractStorage,
     S: TopLevelStorage + BorrowMut<C>,
@@ -207,11 +207,7 @@ pub fn insert_signed_wallet_commitment_to_merkle_tree<
     delegate_call_helper::<verifyStateSigAndInsertCall>(
         s,
         merkle_address,
-        (
-            total_wallet_shares,
-            wallet_commitment_signature.to_vec().into(),
-            old_pk_root_u256s,
-        ),
+        (total_wallet_shares, wallet_commitment_signature.to_vec().into(), old_pk_root_u256s),
     )
     .map(|_| ())
 }
@@ -262,12 +258,7 @@ pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     new_wallet_private_shares_commitment: ScalarField,
     new_wallet_public_shares: &[ScalarField],
 ) -> Result<(), Vec<u8>> {
-    check_wallet_rotation(
-        s,
-        old_wallet_nullifier,
-        merkle_root,
-        new_wallet_public_shares,
-    )?;
+    check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
     insert_wallet_commitment_to_merkle_tree(
         s,
         new_wallet_private_shares_commitment,
@@ -286,12 +277,7 @@ pub fn rotate_wallet_with_signature<C: CoreContractStorage, S: TopLevelStorage +
     new_wallet_commitment_signature: Vec<u8>,
     old_pk_root: PublicSigningKey,
 ) -> Result<(), Vec<u8>> {
-    check_wallet_rotation(
-        s,
-        old_wallet_nullifier,
-        merkle_root,
-        new_wallet_public_shares,
-    )?;
+    check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
     insert_signed_wallet_commitment_to_merkle_tree(
         s,
         new_wallet_private_shares_commitment,
@@ -339,9 +325,7 @@ pub fn commit_note<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     let merkle_address = s.borrow_mut().merkle_address();
     delegate_call_helper::<insertNoteCommitmentCall>(s, merkle_address, (note_commitment_u256,))?;
 
-    evm::log(NotePosted {
-        note_commitment: note_commitment_u256,
-    });
+    evm::log(NotePosted { note_commitment: note_commitment_u256 });
 
     Ok(())
 }
@@ -361,9 +345,7 @@ pub fn log_blinder_used<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C
 
     // Log the wallet update
     let blinder_u256 = scalar_to_u256(wallet_blinder_share);
-    evm::log(WalletUpdated {
-        wallet_blinder_share: blinder_u256,
-    });
+    evm::log(WalletUpdated { wallet_blinder_share: blinder_u256 });
 
     Ok(())
 }

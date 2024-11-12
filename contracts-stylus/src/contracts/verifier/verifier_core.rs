@@ -27,7 +27,8 @@ impl CoreVerifierContract {
 
     /// Verify a batch of proofs
     ///
-    /// Allows for extra data added to the KZG batch opening to facilitate proof-linking
+    /// Allows for extra data added to the KZG batch opening to facilitate
+    /// proof-linking
     pub fn verify_batch(&self, verification_bundle: Bytes) -> Result<bool, Vec<u8>> {
         // Deserialize the bundle
         let (vkeys, proofs, public_inputs, link_opening): (

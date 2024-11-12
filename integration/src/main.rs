@@ -1,4 +1,5 @@
-//! Basic tests for Stylus programs. These assume that a devnet is already running locally.
+//! Basic tests for Stylus programs. These assume that a devnet is already
+//! running locally.
 
 #![deny(missing_docs)]
 #![deny(clippy::missing_docs_in_private_items)]
@@ -82,20 +83,14 @@ impl TestArgs {
         address: Address,
     ) -> Result<U256> {
         let contract = DummyErc20Contract::new(erc20_address, self.client.clone());
-        contract
-            .balance_of(address)
-            .call()
-            .await
-            .map_err(Into::into)
-            .map(u256_to_alloy_u256)
+        contract.balance_of(address).call().await.map_err(Into::into).map(u256_to_alloy_u256)
     }
 }
 
 impl From<Cli> for TestArgs {
     fn from(value: Cli) -> Self {
-        let client = Handle::current()
-            .block_on(setup_client(&value.priv_key, &value.rpc_url))
-            .unwrap();
+        let client =
+            Handle::current().block_on(setup_client(&value.priv_key, &value.rpc_url)).unwrap();
 
         let darkpool_proxy_address =
             read_deployment_address(&value.deployments_file, DARKPOOL_PROXY_CONTRACT_KEY).unwrap();

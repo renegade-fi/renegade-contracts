@@ -1,11 +1,13 @@
-//! Definitions of errors that can occur during the execution of the contract management scripts
+//! Definitions of errors that can occur during the execution of the contract
+//! management scripts
 
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
 };
 
-/// Errors that can occur during the execution of the contract management scripts
+/// Errors that can occur during the execution of the contract management
+/// scripts
 #[derive(Debug)]
 pub enum ScriptError {
     /// Invalid arguments provided to a command
@@ -51,7 +53,7 @@ impl Display for ScriptError {
             ScriptError::ContractDeployment(s) => write!(f, "error deploying contract: {}", s),
             ScriptError::ContractInteraction(s) => {
                 write!(f, "error interacting with contract: {}", s)
-            }
+            },
             ScriptError::ContractCompilation(s) => write!(f, "error compiling contract: {}", s),
             ScriptError::Serde(s) => write!(f, "error de/serializing calldata: {}", s),
             ScriptError::ConversionError => write!(f, "error converting between types"),

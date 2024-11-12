@@ -1,11 +1,12 @@
-//! A Merkle tree smart contract, used to accumulate all of the wallet commitments
-//! in the dark pool.
+//! A Merkle tree smart contract, used to accumulate all of the wallet
+//! commitments in the dark pool.
 //!
-//! NOTE: This contract is `delegatecall`ed by the `DarkpoolContract`. This makes our contract
-//! "topology" a lot simpler: we can apply access controls and upgradability only to the top-level
-//! `DarkpoolContract` and not worry about it here.
-//! However, it is important that we NEVER CALL A `selfdestruct` (or `delegatecall` some other contract
-//! which `selfdestruct`s) WITHIN THE MERKLE CONTRACT, AS THIS WOULD DESTROY THE DARKPOOL.
+//! NOTE: This contract is `delegatecall`ed by the `DarkpoolContract`. This
+//! makes our contract "topology" a lot simpler: we can apply access controls
+//! and upgradability only to the top-level `DarkpoolContract` and not worry
+//! about it here. However, it is important that we NEVER CALL A `selfdestruct`
+//! (or `delegatecall` some other contract which `selfdestruct`s) WITHIN THE
+//! MERKLE CONTRACT, AS THIS WOULD DESTROY THE DARKPOOL.
 
 use core::marker::PhantomData;
 
@@ -73,8 +74,7 @@ where
         let root = compute_poseidon_hash(&[P::ZEROS[0], P::ZEROS[0]]);
         self.store_root(root);
         for i in 0..P::HEIGHT {
-            self.sibling_path
-                .insert(i as u8, scalar_to_u256(P::ZEROS[i]));
+            self.sibling_path.insert(i as u8, scalar_to_u256(P::ZEROS[i]));
         }
         Ok(())
     }
@@ -97,13 +97,11 @@ where
     // | SETTERS |
     // -----------
 
-    /// Computes a commitment to the given wallet shares & inserts it into the Merkle tree
+    /// Computes a commitment to the given wallet shares & inserts it into the
+    /// Merkle tree
     pub fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         let insert_index: u128 = self.next_index.get().to();
-        assert_result!(
-            insert_index < 2_u128.pow(P::HEIGHT as u32),
-            TREE_FULL_ERROR_MESSAGE
-        )?;
+        assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
 
         let shares_commitment = self.compute_shares_commitment(shares)?;
 
@@ -111,7 +109,7 @@ where
             shares_commitment,
             P::HEIGHT as u8,
             insert_index,
-            true, /* subtree_filled */
+            true, // subtree_filled
         )?;
 
         Ok(())
@@ -132,22 +130,13 @@ where
         old_pk_root: [U256; NUM_SCALARS_PK],
     ) -> Result<(), Vec<u8>> {
         let insert_index: u128 = self.next_index.get().to();
-        assert_result!(
-            insert_index < 2_u128.pow(P::HEIGHT as u32),
-            TREE_FULL_ERROR_MESSAGE
-        )?;
+        assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
 
         let shares_commitment = self.compute_shares_commitment(shares)?;
 
         let old_pk_root = PublicSigningKey {
-            x: [
-                u256_to_scalar(old_pk_root[0])?,
-                u256_to_scalar(old_pk_root[1])?,
-            ],
-            y: [
-                u256_to_scalar(old_pk_root[2])?,
-                u256_to_scalar(old_pk_root[3])?,
-            ],
+            x: [u256_to_scalar(old_pk_root[0])?, u256_to_scalar(old_pk_root[1])?],
+            y: [u256_to_scalar(old_pk_root[2])?, u256_to_scalar(old_pk_root[3])?],
         };
 
         if_verifying!(assert_valid_signature(
@@ -160,7 +149,7 @@ where
             shares_commitment,
             P::HEIGHT as u8,
             insert_index,
-            true, /* subtree_filled */
+            true, // subtree_filled
         )?;
 
         Ok(())
@@ -169,16 +158,13 @@ where
     /// Inserts a note commitment into the Merkle tree
     pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
         let insert_index: u128 = self.next_index.get().to();
-        assert_result!(
-            insert_index < 2_u128.pow(P::HEIGHT as u32),
-            TREE_FULL_ERROR_MESSAGE
-        )?;
+        assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
 
         self.insert_helper(
             u256_to_scalar(note_commitment)?,
             P::HEIGHT as u8,
             insert_index,
-            true, /* subtree_filled */
+            true, // subtree_filled
         )?;
 
         Ok(())
@@ -216,10 +202,7 @@ where
         subtree_filled: bool,
     ) -> Result<(), Vec<u8>> {
         self.insert_recursive(value, height, insert_index, subtree_filled)?;
-        evm::log(MerkleInsertion {
-            index: insert_index,
-            value: scalar_to_u256(value),
-        });
+        evm::log(MerkleInsertion { index: insert_index, value: scalar_to_u256(value) });
 
         Ok(())
     }
@@ -252,10 +235,10 @@ where
         // for the next insertion. There are two cases here:
         //      1. The current insertion index is a left child; in this case the updated
         //         sibling value is the newly computed node value.
-        //      2. The current insertion index is a right child; in this case, the subtree
-        //         of the parent is filled as well, meaning we should set the updated sibling
-        //         to the zero value at this height; representing an empty child of the parent's
-        //         sibling
+        //      2. The current insertion index is a right child; in this case, the
+        //         subtree of the parent is filled as well, meaning we should set the
+        //         updated sibling to the zero value at this height; representing an
+        //         empty child of the parent's sibling
         let current_sibling_value = u256_to_scalar(self.sibling_path.get(height - 1))?;
         if subtree_filled {
             if is_left {
@@ -266,8 +249,8 @@ where
             }
         }
 
-        // Mux between hashing the current value as the left or right sibling depending on
-        // the index being inserted into
+        // Mux between hashing the current value as the left or right sibling depending
+        // on the index being inserted into
         let mut new_subtree_filled = false;
         let inputs = if is_left {
             [value, current_sibling_value]
@@ -280,11 +263,7 @@ where
         self.insert_recursive(next_value, height - 1, next_index, new_subtree_filled)?;
 
         // Emit the sibling coordinates and value
-        let sibling_idx = if is_left {
-            insert_index + 1
-        } else {
-            insert_index - 1
-        };
+        let sibling_idx = if is_left { insert_index + 1 } else { insert_index - 1 };
 
         evm::log(MerkleOpeningNode {
             height,
@@ -342,8 +321,7 @@ impl ProdMerkleContract {
         sig: Bytes,
         old_pk_root: [U256; NUM_SCALARS_PK],
     ) -> Result<(), Vec<u8>> {
-        self.merkle
-            .verify_state_sig_and_insert(shares, sig, old_pk_root)
+        self.merkle.verify_state_sig_and_insert(shares, sig, old_pk_root)
     }
 
     #[doc(hidden)]

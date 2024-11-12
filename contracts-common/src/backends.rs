@@ -19,11 +19,13 @@ pub trait HashBackend {
 #[derive(Debug)]
 pub struct G1ArithmeticError;
 
-/// Encapsulates the implementations of elliptic curve arithmetic done on the G1 source group,
-/// including a pairing identity check with elements of the G2 source group.
+/// Encapsulates the implementations of elliptic curve arithmetic done on the G1
+/// source group, including a pairing identity check with elements of the G2
+/// source group.
 ///
-/// The type that implements this trait should be a unit struct that either calls out to precompiles
-/// for EC arithmetic and pairings in a smart contract context, or call out to Arkworks code in a testing context.
+/// The type that implements this trait should be a unit struct that either
+/// calls out to precompiles for EC arithmetic and pairings in a smart contract
+/// context, or call out to Arkworks code in a testing context.
 pub trait G1ArithmeticBackend {
     /// Add two points in G1
     fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, G1ArithmeticError>;
@@ -43,13 +45,10 @@ pub trait G1ArithmeticBackend {
             return Err(G1ArithmeticError);
         }
 
-        scalars
-            .iter()
-            .zip(points.iter())
-            .try_fold(G1Affine::identity(), |acc, (scalar, point)| {
-                let scaled_point = Self::ec_scalar_mul(*scalar, *point)?;
-                Self::ec_add(acc, scaled_point)
-            })
+        scalars.iter().zip(points.iter()).try_fold(G1Affine::identity(), |acc, (scalar, point)| {
+            let scaled_point = Self::ec_scalar_mul(*scalar, *point)?;
+            Self::ec_add(acc, scaled_point)
+        })
     }
 }
 
@@ -60,8 +59,9 @@ pub struct EcdsaError;
 /// A backend for recovering an Ethereum address from a
 /// secp256k1 ECDSA signature.
 ///
-/// The type that implements this trait should be a unit struct that either calls out to the
-/// `ecRecover` precompile, or calls out to a Rust implementation in the case of testing.
+/// The type that implements this trait should be a unit struct that either
+/// calls out to the `ecRecover` precompile, or calls out to a Rust
+/// implementation in the case of testing.
 pub trait EcRecoverBackend {
     /// Recovers an Ethereum address from a signature and a message hash.
     fn ec_recover(

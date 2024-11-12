@@ -121,10 +121,12 @@ pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 
 /// The address of the WETH contract
 ///
-/// We read this from an environment variable so that it must be set by the deployer.
+/// We read this from an environment variable so that it must be set by the
+/// deployer.
 ///
 /// For convenience, the addresses of WETH on Arbitrum chains are below:
-/// - Sepolia: 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73 // TODO: replace with dummy WETH address
+/// - Sepolia: 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73 // TODO: replace with
+///   dummy WETH address
 /// - Arbitrum One: 0x82aF49447D8a07e3bd95BD0d56f35241523fBabb
 #[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
 pub const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
@@ -159,11 +161,7 @@ pub const MERKLE_STORAGE_GAP_SIZE: usize = 64;
 /// The number of storage slots to allocate for the transfer executor
 /// contract, used in creating storage gaps in contracts in the same
 /// context to ensure that there are no storage collisions
-#[cfg(any(
-    feature = "darkpool",
-    feature = "darkpool-test-contract",
-    feature = "darkpool-core"
-))]
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const TRANSFER_EXECUTOR_STORAGE_GAP_SIZE: usize = 64;
 
 /// The serialized VALID WALLET CREATE verification key
@@ -318,12 +316,7 @@ pub const ZEROS: [ScalarField; MERKLE_HEIGHT] = [
         PhantomData,
     ),
     Fp(
-        BigInt([
-            13724767344552159288,
-            881032855553829299,
-            1641667393102138459,
-            92653500913936485,
-        ]),
+        BigInt([13724767344552159288, 881032855553829299, 1641667393102138459, 92653500913936485]),
         PhantomData,
     ),
     Fp(

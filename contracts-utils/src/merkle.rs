@@ -1,4 +1,5 @@
-//! Implementation of a Merkle tree using the Poseidon2 implementation from the relayer codebase.
+//! Implementation of a Merkle tree using the Poseidon2 implementation from the
+//! relayer codebase.
 
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
@@ -71,8 +72,8 @@ impl Config for MerkleConfig {
     type LeafDigest = ScalarField;
     type InnerDigest = ScalarField;
 
-    // We expect pre-hashed leaves, so the Merkle tree itself should not do any hashing of the leaves
-    // upon setup / insertion
+    // We expect pre-hashed leaves, so the Merkle tree itself should not do any
+    // hashing of the leaves upon setup / insertion
     type LeafHash = IdentityCRH;
     type TwoToOneHash = PoseidonTwoToOneCRH;
     type LeafInnerDigestConverter = IdentityDigestConverter<ScalarField>;

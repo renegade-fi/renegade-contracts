@@ -64,7 +64,8 @@ pub fn alloy_address_to_ethers_address(address: &AlloyAddress) -> Address {
 
 /// Convert an ethers `Address` to a `BigUint`
 ///
-/// Call out to the alloy helper to ensure that address formats are the same throughout test helpers
+/// Call out to the alloy helper to ensure that address formats are the same
+/// throughout test helpers
 pub fn ethers_address_to_biguint(address: &Address) -> BigUint {
     let alloy_address = ethers_address_to_alloy_address(address);
     address_to_biguint(alloy_address)
@@ -131,7 +132,8 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
     dummy_erc20_external_transfer(account_addr, mint, true)
 }
 
-/// Executes the given transfer and returns the resulting balances of the darkpool and user
+/// Executes the given transfer and returns the resulting balances of the
+/// darkpool and user
 pub(crate) async fn execute_transfer_and_get_balances(
     transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
     dummy_erc20_contract: &DummyErc20Contract<LocalWalletHttpClient>,
@@ -160,15 +162,10 @@ pub(crate) async fn execute_transfer_and_get_balances(
         .await?
         .await?;
 
-    let darkpool_balance = dummy_erc20_contract
-        .balance_of(transfer_executor_contract.address())
-        .call()
-        .await?;
+    let darkpool_balance =
+        dummy_erc20_contract.balance_of(transfer_executor_contract.address()).call().await?;
 
-    let user_balance = dummy_erc20_contract
-        .balance_of(account_address)
-        .call()
-        .await?;
+    let user_balance = dummy_erc20_contract.balance_of(account_address).call().await?;
 
     Ok((darkpool_balance, user_balance))
 }
@@ -228,13 +225,8 @@ pub(crate) async fn gen_permit_payload(
         pkRoot: pk_to_u256s(&pk_root).map_err(|_| eyre!("Failed to convert pk_root to u256s"))?,
     };
 
-    let signable_permit = PermitWitnessTransferFrom {
-        permitted,
-        spender,
-        nonce,
-        deadline,
-        witness,
-    };
+    let signable_permit =
+        PermitWitnessTransferFrom { permitted, spender, nonce, deadline, witness };
 
     // Construct the EIP712 domain
     let permit2_address = AlloyAddress::from_slice(permit2_address.as_bytes());
@@ -255,17 +247,14 @@ pub(crate) async fn gen_permit_payload(
 
 /// Mint dummy ERC20 tokens for testing
 ///
-/// Mint to both the user and the darkpool so that both are sufficiently capitalized
+/// Mint to both the user and the darkpool so that both are sufficiently
+/// capitalized
 pub async fn mint_dummy_erc20s(mint: Address, amount: U256, test_args: &TestArgs) -> Result<()> {
     let address = test_args.client.address();
     let darkpool_address = test_args.darkpool_proxy_address;
     let contract = DummyErc20Contract::new(mint, test_args.client.clone());
     contract.mint(address, amount).send().await?.await?;
-    contract
-        .mint(darkpool_address, amount)
-        .send()
-        .await?
-        .await?;
+    contract.mint(darkpool_address, amount).send().await?.await?;
 
     Ok(())
 }
@@ -276,20 +265,12 @@ pub async fn setup_external_match_token_approvals(
     match_result: &ExternalMatchResult,
     test_args: &TestArgs,
 ) -> Result<()> {
-    let mint = if buy_side {
-        &match_result.quote_mint
-    } else {
-        &match_result.base_mint
-    };
+    let mint = if buy_side { &match_result.quote_mint } else { &match_result.base_mint };
 
     let mint = biguint_to_ethers_address(mint);
     let contract = DummyErc20Contract::new(mint, test_args.client.clone());
     let amount = TEST_FUNDING_AMOUNT;
-    contract
-        .approve(test_args.darkpool_proxy_address, amount.into())
-        .send()
-        .await?
-        .await?;
+    contract.approve(test_args.darkpool_proxy_address, amount.into()).send().await?.await?;
 
     Ok(())
 }
@@ -298,10 +279,12 @@ pub async fn setup_external_match_token_approvals(
 /// which correctly encodes the data for the nested `TokenPermissions` struct.
 ///
 /// We do so by mirroring the functionality implemented in the `sol!` macro (https://github.com/alloy-rs/core/blob/v0.3.1/crates/sol-macro/src/expand/struct.rs#L56)
-/// but avoiding the (unintended) extra hash of the `TokenPermissions` struct's EIP-712 struct hash.
+/// but avoiding the (unintended) extra hash of the `TokenPermissions` struct's
+/// EIP-712 struct hash.
 ///
 /// This is fixed here: https://github.com/alloy-rs/core/pull/258
-/// But the version of `alloy` used by `stylus-sdk` is not updated to include this fix.
+/// But the version of `alloy` used by `stylus-sdk` is not updated to include
+/// this fix.
 ///
 /// TODO: Remove this function when `stylus-sdk` uses `alloy >= 0.4.0`
 fn permit_signing_hash(permit: &PermitWitnessTransferFrom, domain: &Eip712Domain) -> B256 {
@@ -347,10 +330,7 @@ pub async fn get_protocol_pubkey(
     darkpool_contract: &DarkpoolTestContract<LocalWalletHttpClient>,
 ) -> Result<EncryptionKey> {
     let [x, y] = darkpool_contract.get_pubkey().call().await?;
-    Ok(EncryptionKey {
-        x: Scalar::new(u256_to_scalar(x)?),
-        y: Scalar::new(u256_to_scalar(y)?),
-    })
+    Ok(EncryptionKey { x: Scalar::new(u256_to_scalar(x)?), y: Scalar::new(u256_to_scalar(y)?) })
 }
 
 /// Computes a commitment to the given wallet shares, inserts them
@@ -375,7 +355,8 @@ pub(crate) fn insert_shares_and_get_root(
 // | Contract Assertions |
 // -----------------------
 
-/// Asserts that the given method can only be called by the owner of the darkpool contract
+/// Asserts that the given method can only be called by the owner of the
+/// darkpool contract
 pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
     contract: &DarkpoolTestContract<LocalWalletHttpClient>,
     contract_with_dummy_owner: &DarkpoolTestContract<LocalWalletHttpClient>,
@@ -383,11 +364,7 @@ pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
     args: T,
 ) -> Result<()> {
     assert!(
-        contract_with_dummy_owner
-            .method::<T, D>(method, args.clone())?
-            .send()
-            .await
-            .is_err(),
+        contract_with_dummy_owner.method::<T, D>(method, args.clone())?.send().await.is_err(),
         "Called {} as non-owner",
         method
     );
@@ -413,10 +390,7 @@ pub async fn assert_all_revert<'a>(
     >,
 ) -> Result<()> {
     for tx in txs {
-        assert!(
-            tx.await.is_err(),
-            "Expected transaction to revert, but it succeeded"
-        );
+        assert!(tx.await.is_err(), "Expected transaction to revert, but it succeeded");
     }
 
     Ok(())
@@ -434,10 +408,7 @@ pub async fn assert_all_succeed<'a>(
     >,
 ) -> Result<()> {
     for tx in txs {
-        assert!(
-            tx.await.is_ok(),
-            "Expected transaction to succeed, but it reverted"
-        );
+        assert!(tx.await.is_ok(), "Expected transaction to succeed, but it reverted");
     }
 
     Ok(())

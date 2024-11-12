@@ -58,8 +58,7 @@ impl TestMerkleContract {
         sig: Bytes,
         old_pk_root: [U256; NUM_SCALARS_PK],
     ) -> Result<(), Vec<u8>> {
-        self.merkle
-            .verify_state_sig_and_insert(shares, sig, old_pk_root)
+        self.merkle.verify_state_sig_and_insert(shares, sig, old_pk_root)
     }
 
     #[doc(hidden)]
