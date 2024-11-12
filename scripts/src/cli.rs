@@ -76,7 +76,7 @@ impl Command {
                     .map(|_| ())
             },
             Command::DeployErc20(args) => {
-                deploy_erc20(&args, rpc_url, priv_key, client, deployments_path).await
+                deploy_erc20(&args, rpc_url, priv_key, client, deployments_path).await.map(|_| ())
             },
             Command::Upgrade(args) => upgrade(&args, client, deployments_path).await,
             Command::GenVkeys(args) => gen_vkeys(&args),

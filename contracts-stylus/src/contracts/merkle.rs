@@ -89,6 +89,7 @@ where
     }
 
     /// Returns whether or not the given root is in the root history
+    #[payable]
     pub fn root_in_history(&self, root: U256) -> Result<bool, Vec<u8>> {
         Ok(self.root_history.get(root))
     }
@@ -99,6 +100,7 @@ where
 
     /// Computes a commitment to the given wallet shares & inserts it into the
     /// Merkle tree
+    #[payable]
     pub fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         let insert_index: u128 = self.next_index.get().to();
         assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
@@ -305,11 +307,13 @@ impl ProdMerkleContract {
     }
 
     #[doc(hidden)]
+    #[payable]
     fn root_in_history(&self, root: U256) -> Result<bool, Vec<u8>> {
         self.merkle.root_in_history(root)
     }
 
     #[doc(hidden)]
+    #[payable]
     fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
         self.merkle.insert_shares_commitment(shares)
     }

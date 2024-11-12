@@ -17,8 +17,6 @@ use stylus_sdk::{
 
 use super::dummy_erc20::Erc20;
 
-/// The error message returned when a deposit overflows
-const ERR_DEPOSIT_OVERFLOW: &[u8] = b"Deposit overflowed";
 /// The error message returned when a withdrawal amount is greater than the
 /// sender's balance
 const ERR_WITHDRAWAL_EXCEEDS_BALANCE: &[u8] = b"Withdrawal amount exceeds balance";
@@ -43,7 +41,6 @@ impl DummyWeth {
     /// Withdraw weth from the contract to a specified address
     fn withdraw_impl(&mut self, to: Address, amount: U256) -> Result<(), Vec<u8>> {
         let sender = msg::sender();
-        let amount = amount.try_into().unwrap();
         let mut bal = self.erc20.balances.setter(sender);
         let old_bal = bal.get();
         if old_bal < amount {

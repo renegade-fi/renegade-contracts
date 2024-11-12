@@ -263,6 +263,7 @@ impl CoreSettlementContract {
     /// [`contracts_common::types::ExternalMatchProofs`] struct, and the
     /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
+    #[payable]
     pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         internal_party_match_payload: Bytes,

@@ -10,7 +10,7 @@ use abis::DummyErc20Contract;
 use alloy_primitives::U256;
 use clap::Parser;
 use cli::Cli;
-use ethers::abi::Address;
+use ethers::{abi::Address, providers::Middleware};
 use eyre::Result;
 use scripts::{
     constants::{
@@ -32,9 +32,12 @@ mod constants;
 mod tests;
 mod utils;
 
-/// The arguments provided to each integration test
+/// The context provided to each integration test
+///
+/// Allows for dependency and argument injection as well as convenient helpers
+/// for setting up tests
 #[derive(Clone)]
-pub struct TestArgs {
+pub struct TestContext {
     /// The RPC client
     pub client: Arc<LocalWalletHttpClient>,
     /// The address of the darkpool proxy contract
@@ -69,7 +72,21 @@ pub struct TestArgs {
     pub precompiles_contract_address: Address,
 }
 
-impl TestArgs {
+impl TestContext {
+    /// Get the eth balance of the client address
+    pub async fn get_eth_balance(&self) -> Result<U256> {
+        self.get_eth_balance_of(self.client.address()).await
+    }
+
+    /// Get the eth balance of the given address
+    pub async fn get_eth_balance_of(&self, address: Address) -> Result<U256> {
+        self.client
+            .get_balance(address, None /* block */)
+            .await
+            .map_err(Into::into)
+            .map(u256_to_alloy_u256)
+    }
+
     /// Get the erc20 balance of the client address
     pub async fn get_erc20_balance(&self, erc20_address: Address) -> Result<U256> {
         let address = self.client.address();
@@ -87,7 +104,7 @@ impl TestArgs {
     }
 }
 
-impl From<Cli> for TestArgs {
+impl From<Cli> for TestContext {
     fn from(value: Cli) -> Self {
         let client =
             Handle::current().block_on(setup_client(&value.priv_key, &value.rpc_url)).unwrap();
@@ -167,7 +184,7 @@ impl From<Cli> for TestArgs {
         )
         .unwrap();
 
-        TestArgs {
+        TestContext {
             client,
             darkpool_proxy_address,
             proxy_admin_address,
@@ -195,4 +212,4 @@ fn setup_integration_tests(cli_args: &Cli) {
     }
 }
 
-integration_test_main!(Cli, TestArgs, setup_integration_tests);
+integration_test_main!(Cli, TestContext, setup_integration_tests);
