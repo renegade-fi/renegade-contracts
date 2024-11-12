@@ -1,7 +1,7 @@
 //! The core settlement contract is responsible for the settlement of trades
-//! This contract assumes it is being delegate-called by the "outer" darkpool contract
-//! and that certain storage elements are set by the outer contract. As such, its storage
-//! layout must exactly align with that of the outer contract.
+//! This contract assumes it is being delegate-called by the "outer" darkpool
+//! contract and that certain storage elements are set by the outer contract. As
+//! such, its storage layout must exactly align with that of the outer contract.
 
 use core::borrow::BorrowMut;
 
@@ -50,7 +50,8 @@ use super::CoreContractStorage;
 
 /// The core settlement contract's storage layout.
 /// Many storage elements are not used in the core settlement contract,
-/// but are listed here so that the storage layout lines up with that of the darkpool contract.
+/// but are listed here so that the storage layout lines up with that of the
+/// darkpool contract.
 #[storage]
 #[cfg_attr(feature = "core-settlement", entrypoint)]
 pub struct CoreSettlementContract {
@@ -93,10 +94,11 @@ pub struct CoreSettlementContract {
     /// boolean indicating whether or not the nullifier is spent
     nullifier_set: StorageMap<U256, StorageBool>,
 
-    /// The set of public blinder shares used by wallets committed into the darkpool
+    /// The set of public blinder shares used by wallets committed into the
+    /// darkpool
     ///
-    /// We disallow re-use of public blinder shares to prevent clients indexing the
-    /// pool from seeing conflicting wallet shares
+    /// We disallow re-use of public blinder shares to prevent clients indexing
+    /// the pool from seeing conflicting wallet shares
     public_blinder_set: StorageMap<U256, StorageBool>,
 
     /// The protocol fee, representing a percentage of the trade volume
@@ -180,8 +182,9 @@ impl CoreSettlementContract {
     /// Settles a matched order between two parties,
     /// inserting the updated wallets into the commitment tree.
     ///
-    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::MatchProofs`]
-    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// The `match_proofs` argument is the serialization of the
+    /// [`contracts_common::types::MatchProofs`] struct, and the
+    /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::MatchLinkingProofs`] struct
     pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -232,38 +235,33 @@ impl CoreSettlementContract {
 
         rotate_wallet(
             storage,
-            party_0_match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
+            party_0_match_payload.valid_reblind_statement.original_shares_nullifier,
             party_0_match_payload.valid_reblind_statement.merkle_root,
-            party_0_match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment,
+            party_0_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
             &valid_match_settle_statement.party0_modified_shares,
         )?;
 
         rotate_wallet(
             storage,
-            party_1_match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
+            party_1_match_payload.valid_reblind_statement.original_shares_nullifier,
             party_1_match_payload.valid_reblind_statement.merkle_root,
-            party_1_match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment,
+            party_1_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
             &valid_match_settle_statement.party1_modified_shares,
         )?;
 
         Ok(())
     }
 
-    /// Processes an atomic match settlement between two parties; one internal and one external
+    /// Processes an atomic match settlement between two parties; one internal
+    /// and one external
     ///
-    /// An internal party is one with state committed into the darkpool, while an external party provides liquidity to the pool
-    /// during the transaction in which this method is called
+    /// An internal party is one with state committed into the darkpool, while
+    /// an external party provides liquidity to the pool during the
+    /// transaction in which this method is called
     ///
-    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::ExternalMatchProofs`]
-    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// The `match_proofs` argument is the serialization of the
+    /// [`contracts_common::types::ExternalMatchProofs`] struct, and the
+    /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
     pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -279,9 +277,8 @@ impl CoreSettlementContract {
             deserialize_from_calldata(&valid_match_settle_statement)?;
 
         if_verifying!({
-            let commitments_indices = &internal_party_match_payload
-                .valid_commitments_statement
-                .indices;
+            let commitments_indices =
+                &internal_party_match_payload.valid_commitments_statement.indices;
             let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
             let same_indices = commitments_indices == settlement_indices;
 
@@ -307,12 +304,8 @@ impl CoreSettlementContract {
 
         rotate_wallet(
             storage,
-            internal_party_match_payload
-                .valid_reblind_statement
-                .original_shares_nullifier,
-            internal_party_match_payload
-                .valid_reblind_statement
-                .merkle_root,
+            internal_party_match_payload.valid_reblind_statement.original_shares_nullifier,
+            internal_party_match_payload.valid_reblind_statement.merkle_root,
             internal_party_match_payload
                 .valid_reblind_statement
                 .reblinded_private_shares_commitment,
@@ -346,7 +339,8 @@ impl CoreSettlementContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
+        // Fetch the Plonk & linking verification keys used in verifying the matching of
+        // a trade
         let process_match_settle_vkeys =
             fetch_vkeys(storage, &processMatchSettleVkeysCall::SELECTOR)?;
 
@@ -383,12 +377,14 @@ impl CoreSettlementContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        // Fetch the Plonk & linking verification keys used in verifying the matching of a trade
+        // Fetch the Plonk & linking verification keys used in verifying the matching of
+        // a trade
         let process_atomic_match_settle_vkeys =
             fetch_vkeys(storage, &processAtomicMatchSettleVkeysCall::SELECTOR)?;
 
-        // We allow native ETH transfers on external matches, but the verifier will expect WETH
-        // to be compatible with internal orders, so we change it here
+        // We allow native ETH transfers on external matches, but the verifier will
+        // expect WETH to be compatible with internal orders, so we change it
+        // here
         let base_asset = valid_match_settle_atomic_statement.match_result.base_mint;
         if is_native_eth_address(base_asset) {
             let weth = get_weth_address();
@@ -419,7 +415,8 @@ impl CoreSettlementContract {
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
-    /// Execute the transfers to/from the external party in an atomic match settlement
+    /// Execute the transfers to/from the external party in an atomic match
+    /// settlement
     pub fn execute_atomic_match_transfers<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         fees: FeeTake,
@@ -442,9 +439,7 @@ impl CoreSettlementContract {
         ));
 
         // The fee charged by the protocol to the external party
-        let protocol_fee_address = storage
-            .borrow_mut()
-            .protocol_external_fee_collection_address();
+        let protocol_fee_address = storage.borrow_mut().protocol_external_fee_collection_address();
         transfers_batch.push(SimpleErc20Transfer::new_withdraw(
             protocol_fee_address,
             receive_mint,
@@ -462,11 +457,7 @@ impl CoreSettlementContract {
         ));
 
         // The amount sent by the external party to the darkpool
-        transfers_batch.push(SimpleErc20Transfer::new_deposit(
-            tx_sender,
-            send_mint,
-            send_amount,
-        ));
+        transfers_batch.push(SimpleErc20Transfer::new_deposit(tx_sender, send_mint, send_amount));
 
         Self::execute_transfers(storage, transfers_batch)
     }

@@ -1,5 +1,5 @@
-//! The transfer executor contract, responsible for executing external transfers to/from the darkpool
-//! (it is intended to be delegate-called by the darkpool)
+//! The transfer executor contract, responsible for executing external transfers
+//! to/from the darkpool (it is intended to be delegate-called by the darkpool)
 #![cfg(feature = "transfer-executor")]
 
 use crate::{
@@ -60,7 +60,8 @@ pub struct TransferExecutorContract {
 
 #[public]
 impl TransferExecutorContract {
-    /// Initializes the transfer executor with the address of the Permit2 contract being used
+    /// Initializes the transfer executor with the address of the Permit2
+    /// contract being used
     // TODO: Deploy Permit2 using `CREATE2` and use a static address
     pub fn init(&mut self, permit2_address: Address) -> Result<(), Vec<u8>> {
         self.permit2_address.set(permit2_address);
@@ -79,18 +80,14 @@ impl TransferExecutorContract {
         let transfer: ExternalTransfer = deserialize_from_calldata(&transfer)?;
         let transfer_aux_data: TransferAuxData = deserialize_from_calldata(&transfer_aux_data)?;
 
-        let ExternalTransfer {
-            mint,
-            account_addr,
-            amount,
-            is_withdrawal,
-        } = transfer;
+        let ExternalTransfer { mint, account_addr, amount, is_withdrawal } = transfer;
 
         let old_pk_root: PublicSigningKey = deserialize_from_calldata(&old_pk_root_bytes)?;
 
         if is_withdrawal {
-            // In the case of a withdrawal, we check the signature over the external transfer,
-            // and then make a simple `transfer` call from the contract to the user.
+            // In the case of a withdrawal, we check the signature over the external
+            // transfer, and then make a simple `transfer` call from the
+            // contract to the user.
 
             if_verifying!(assert_valid_signature(
                 &old_pk_root,
@@ -102,7 +99,7 @@ impl TransferExecutorContract {
 
             call_helper::<transferCall>(
                 self,
-                mint, /* address */
+                mint, // address
                 (account_addr /* to */, amount),
             )?;
         } else {
@@ -113,10 +110,7 @@ impl TransferExecutorContract {
             let permit2_address = self.permit2_address.get();
 
             let permit = CalldataPermitWitnessTransferFrom {
-                permitted: TokenPermissions {
-                    amount,
-                    token: mint,
-                },
+                permitted: TokenPermissions { amount, token: mint },
                 nonce: transfer_aux_data
                     .permit_nonce
                     .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
@@ -125,10 +119,8 @@ impl TransferExecutorContract {
                     .ok_or(MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE)?,
             };
 
-            let signature_transfer_details = SignatureTransferDetails {
-                to: contract_address,
-                requestedAmount: amount,
-            };
+            let signature_transfer_details =
+                SignatureTransferDetails { to: contract_address, requestedAmount: amount };
 
             // Hash the Permit2 witness data for the deposit
             let deposit_witness = DepositWitness {
@@ -139,11 +131,11 @@ impl TransferExecutorContract {
 
             call_helper::<permitWitnessTransferFromCall>(
                 self,
-                permit2_address, /* address */
+                permit2_address, // address
                 (
                     permit,
                     signature_transfer_details,
-                    account_addr, /* owner */
+                    account_addr, // owner
                     deposit_witness_hash.into(),
                     DEPOSIT_WITNESS_TYPE_STRING.to_string(),
                     transfer_aux_data
@@ -154,12 +146,7 @@ impl TransferExecutorContract {
             )?;
         };
 
-        evm::log(ExternalTransferEvent {
-            account: account_addr,
-            mint,
-            is_withdrawal,
-            amount,
-        });
+        evm::log(ExternalTransferEvent { account: account_addr, mint, is_withdrawal, amount });
 
         Ok(())
     }
@@ -236,7 +223,8 @@ impl TransferExecutorContract {
         Ok(())
     }
 
-    /// Deposit native ETH into the contract by wrapping the transaction payable amount
+    /// Deposit native ETH into the contract by wrapping the transaction payable
+    /// amount
     fn handle_native_eth_deposit(&mut self, transfer: SimpleErc20Transfer) -> Result<(), Vec<u8>> {
         let payable = msg::value();
         if transfer.amount != payable {
@@ -250,7 +238,8 @@ impl TransferExecutorContract {
         Ok(())
     }
 
-    /// Withdraw native ETH from the contract to the caller by unwrapping the transfer amount
+    /// Withdraw native ETH from the contract to the caller by unwrapping the
+    /// transfer amount
     fn handle_native_eth_withdrawal(
         &mut self,
         transfer: SimpleErc20Transfer,

@@ -6,7 +6,8 @@ use test_helpers::types::TestVerbosity;
 
 /// CLI tool for running integration tests against a running devnet node.
 ///
-/// Assumes that the contracts invoked in the tests have already been deployed to the devnet.
+/// Assumes that the contracts invoked in the tests have already been deployed
+/// to the devnet.
 #[derive(Parser, Clone)]
 pub(crate) struct Cli {
     /// Test to run

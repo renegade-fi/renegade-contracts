@@ -1,7 +1,8 @@
-//! The darkpool core contract, containing all of the critical, wallet-modifying functionality.
-//! This contract assumes it is being delegate-called by the "outer" darkpool contract and that
-//! certain storage elements are set by the outer contract. As such, its storage layout must
-//! exactly align with that of the outer contract.
+//! The darkpool core contract, containing all of the critical, wallet-modifying
+//! functionality. This contract assumes it is being delegate-called by the
+//! "outer" darkpool contract and that certain storage elements are set by the
+//! outer contract. As such, its storage layout must exactly align with that of
+//! the outer contract.
 
 use core::borrow::BorrowMut;
 
@@ -94,10 +95,11 @@ pub struct CoreWalletOpsContract {
     /// boolean indicating whether or not the nullifier is spent
     nullifier_set: StorageMap<U256, StorageBool>,
 
-    /// The set of public blinder shares used by wallets committed into the darkpool
+    /// The set of public blinder shares used by wallets committed into the
+    /// darkpool
     ///
-    /// We disallow re-use of public blinder shares to prevent clients indexing the
-    /// pool from seeing conflicting wallet shares
+    /// We disallow re-use of public blinder shares to prevent clients indexing
+    /// the pool from seeing conflicting wallet shares
     public_blinder_set: StorageMap<U256, StorageBool>,
 
     /// The protocol fee, representing a percentage of the trade volume
@@ -260,8 +262,8 @@ impl CoreWalletOpsContract {
         Ok(())
     }
 
-    /// Settles the fee accumulated by a relayer for a given balance in a managed wallet
-    /// into the relayer's wallet
+    /// Settles the fee accumulated by a relayer for a given balance in a
+    /// managed wallet into the relayer's wallet
     pub fn settle_online_relayer_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         proof: Bytes,
@@ -344,10 +346,7 @@ impl CoreWalletOpsContract {
             &valid_offline_fee_settlement_statement.updated_wallet_public_shares,
         )?;
 
-        commit_note(
-            storage,
-            valid_offline_fee_settlement_statement.note_commitment,
-        )
+        commit_note(storage, valid_offline_fee_settlement_statement.note_commitment)
     }
 
     /// Redeems a fee note into the recipient's wallet, nullifying the note

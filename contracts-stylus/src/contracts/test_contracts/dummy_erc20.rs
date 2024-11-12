@@ -121,11 +121,7 @@ impl Erc20 {
         let new_balance = balance.get() + value;
         balance.set(new_balance);
         self.total_supply.set(self.total_supply.get() + value);
-        evm::log(Transfer {
-            from: Address::ZERO,
-            to: address,
-            value,
-        });
+        evm::log(Transfer { from: Address::ZERO, to: address, value });
     }
 
     pub fn burn(&mut self, address: Address, value: U256) -> Result<(), Erc20Error> {
@@ -140,11 +136,7 @@ impl Erc20 {
         }
         balance.set(old_balance - value);
         self.total_supply.set(self.total_supply.get() - value);
-        evm::log(Transfer {
-            from: address,
-            to: Address::ZERO,
-            value,
-        });
+        evm::log(Transfer { from: address, to: Address::ZERO, value });
         Ok(())
     }
 

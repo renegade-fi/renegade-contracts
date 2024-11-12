@@ -60,7 +60,8 @@ use crate::{
     },
 };
 
-/// Builds & deploys all of the contracts necessary for running the integration testing suite.
+/// Builds & deploys all of the contracts necessary for running the integration
+/// testing suite.
 ///
 /// This includes generating fresh verification keys for testing.
 pub async fn deploy_test_contracts(
@@ -71,16 +72,11 @@ pub async fn deploy_test_contracts(
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     info!("Generating testing verification keys");
-    let gen_vkeys_args = GenVkeysArgs {
-        vkeys_dir: args.vkeys_dir.clone(),
-        test: true,
-    };
+    let gen_vkeys_args = GenVkeysArgs { vkeys_dir: args.vkeys_dir.clone(), test: true };
     gen_vkeys(&gen_vkeys_args)?;
 
-    let mut deploy_stylus_args = DeployStylusArgs {
-        contract: StylusContract::TestVkeys,
-        no_verify: args.no_verify,
-    };
+    let mut deploy_stylus_args =
+        DeployStylusArgs { contract: StylusContract::TestVkeys, no_verify: args.no_verify };
 
     info!("Deploying testing verification keys");
     build_and_deploy_stylus_contract(
@@ -152,26 +148,12 @@ pub async fn deploy_test_contracts(
         funding_amount: Some(TEST_FUNDING_AMOUNT),
         account_skeys: vec![priv_key.to_string()],
     };
-    deploy_erc20(
-        &deploy_erc20_args,
-        rpc_url,
-        priv_key,
-        client.clone(),
-        deployments_path,
-    )
-    .await?;
+    deploy_erc20(&deploy_erc20_args, rpc_url, priv_key, client.clone(), deployments_path).await?;
 
     deploy_erc20_args.symbol = TEST_ERC20_TICKER2.to_string();
     deploy_erc20_args.name = TEST_ERC20_TICKER2.to_string();
     deploy_erc20_args.as_wrapper = false; // deploy the second erc20 as a normal erc20
-    deploy_erc20(
-        &deploy_erc20_args,
-        rpc_url,
-        priv_key,
-        client.clone(),
-        deployments_path,
-    )
-    .await?;
+    deploy_erc20(&deploy_erc20_args, rpc_url, priv_key, client.clone(), deployments_path).await?;
 
     info!("Deploying verifier contract");
     deploy_stylus_args.contract = StylusContract::VerifierCore;
@@ -258,21 +240,11 @@ pub async fn deploy_proxy(
 
     // Parse proxy contract constructor arguments
 
-    let darkpool_contract = if args.test {
-        StylusContract::DarkpoolTestContract
-    } else {
-        StylusContract::Darkpool
-    };
-    let merkle_contract = if args.test {
-        StylusContract::MerkleTestContract
-    } else {
-        StylusContract::Merkle
-    };
-    let vkeys_contract = if args.test {
-        StylusContract::TestVkeys
-    } else {
-        StylusContract::Vkeys
-    };
+    let darkpool_contract =
+        if args.test { StylusContract::DarkpoolTestContract } else { StylusContract::Darkpool };
+    let merkle_contract =
+        if args.test { StylusContract::MerkleTestContract } else { StylusContract::Merkle };
+    let vkeys_contract = if args.test { StylusContract::TestVkeys } else { StylusContract::Vkeys };
 
     let darkpool_address = read_stylus_deployment_address(deployments_path, &darkpool_contract)?;
     let core_wallet_ops_address =
@@ -329,10 +301,7 @@ pub async fn deploy_proxy(
 
     let proxy_address = proxy_contract.address();
 
-    info!(
-        "Proxy contract deployed at address:\n\t{:#x}",
-        proxy_address
-    );
+    info!("Proxy contract deployed at address:\n\t{:#x}", proxy_address);
 
     // Get proxy admin contract address
     // This is the recommended way to get the proxy admin address:
@@ -343,17 +312,14 @@ pub async fn deploy_proxy(
                 proxy_address,
                 // Can `unwrap` here since we know the storage slot constitutes a valid H256
                 H256::from_str(PROXY_ADMIN_STORAGE_SLOT).unwrap(),
-                None, /* block */
+                None, // block
             )
             .await
             .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
             [NUM_BYTES_STORAGE_SLOT - NUM_BYTES_ADDRESS..NUM_BYTES_STORAGE_SLOT],
     );
 
-    info!(
-        "Proxy admin contract deployed at address:\n\t{:#x}",
-        proxy_admin_address
-    );
+    info!("Proxy admin contract deployed at address:\n\t{:#x}", proxy_admin_address);
 
     // Write deployed addresses to deployments file
     write_deployment_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY, proxy_address)?;
@@ -388,10 +354,7 @@ pub async fn deploy_permit2(
 
     let permit2_address = permit2_contract.address();
 
-    info!(
-        "Permit2 contract deployed at address:\n\t{:#x}",
-        permit2_address
-    );
+    info!("Permit2 contract deployed at address:\n\t{:#x}", permit2_address);
 
     write_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
 }
@@ -418,10 +381,7 @@ pub async fn deploy_erc20(
         StylusContract::DummyErc20(args.symbol.clone())
     };
 
-    let deploy_stylus_args = DeployStylusArgs {
-        contract,
-        no_verify: false,
-    };
+    let deploy_stylus_args = DeployStylusArgs { contract, no_verify: false };
     let erc20_address = build_and_deploy_stylus_contract(
         &deploy_stylus_args,
         rpc_url,
@@ -437,14 +397,8 @@ pub async fn deploy_erc20(
         let permit2_address = read_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
         for recipient_skey in &args.account_skeys {
-            fund_and_approve_erc20(
-                args,
-                rpc_url,
-                erc20_address,
-                recipient_skey,
-                permit2_address,
-            )
-            .await?;
+            fund_and_approve_erc20(args, rpc_url, erc20_address, recipient_skey, permit2_address)
+                .await?;
         }
     }
 
@@ -484,10 +438,7 @@ async fn fund_and_approve_erc20(
     let funding_amount = args.funding_amount.unwrap();
     let symbol = args.symbol.clone();
 
-    info!(
-        "Funding {:#x} with {} {} & approving Permit2",
-        account_address, funding_amount, symbol
-    );
+    info!("Funding {:#x} with {} {} & approving Permit2", account_address, funding_amount, symbol);
 
     send_contract_call(erc20.mint(account_address, EthersU256::from(funding_amount))).await?;
     send_contract_call(erc20.approve(permit2_address, EthersU256::MAX)).await?;
@@ -546,15 +497,15 @@ pub async fn upgrade(
 
 /// Computes verification keys for the protocol circuits
 fn compute_vkeys<
-    VWC: SingleProverCircuit,  /* VALID WALLET CREATE */
-    VWU: SingleProverCircuit,  /* VALID WALLET UPDATE */
-    VRFS: SingleProverCircuit, /* VALID RELAYER FEE SETTLEMENT */
-    VOFS: SingleProverCircuit, /* VALID OFFLINE FEE SETTLEMENT */
-    VFR: SingleProverCircuit,  /* VALID FEE REDEMPTION */
-    VC: SingleProverCircuit,   /* VALID COMMITMENTS */
-    VR: SingleProverCircuit,   /* VALID REBLIND */
-    VMS: SingleProverCircuit,  /* VALID MATCH SETTLE */
-    VMSA: SingleProverCircuit, /* VALID MATCH SETTLE ATOMIC */
+    VWC: SingleProverCircuit,  // VALID WALLET CREATE
+    VWU: SingleProverCircuit,  // VALID WALLET UPDATE
+    VRFS: SingleProverCircuit, // VALID RELAYER FEE SETTLEMENT
+    VOFS: SingleProverCircuit, // VALID OFFLINE FEE SETTLEMENT
+    VFR: SingleProverCircuit,  // VALID FEE REDEMPTION
+    VC: SingleProverCircuit,   // VALID COMMITMENTS
+    VR: SingleProverCircuit,   // VALID REBLIND
+    VMS: SingleProverCircuit,  // VALID MATCH SETTLE
+    VMSA: SingleProverCircuit, // VALID MATCH SETTLE ATOMIC
 >() -> Result<RenegadeVerificationKeys, ScriptError> {
     let valid_wallet_create = to_contract_vkey((*VWC::verifying_key()).clone())
         .map_err(|_| ScriptError::CircuitCreation)?;
@@ -631,20 +582,11 @@ fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), 
     for (file, data) in [
         (VALID_WALLET_CREATE_VKEY_FILE, valid_wallet_create),
         (VALID_WALLET_UPDATE_VKEY_FILE, valid_wallet_update),
-        (
-            VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE,
-            valid_relayer_fee_settlement,
-        ),
-        (
-            VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
-            valid_offline_fee_settlement,
-        ),
+        (VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, valid_relayer_fee_settlement),
+        (VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE, valid_offline_fee_settlement),
         (VALID_FEE_REDEMPTION_VKEY_FILE, valid_fee_redemption),
         (PROCESS_MATCH_SETTLE_VKEYS_FILE, process_match_settle),
-        (
-            PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
-            process_atomic_match_settle,
-        ),
+        (PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE, process_atomic_match_settle),
     ] {
         write_vkey_file(vkeys_dir, file, &data)?;
     }
@@ -652,8 +594,8 @@ fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), 
     Ok(())
 }
 
-/// Generates and writes either the testing or production protocol verification keys
-/// to the specified directory
+/// Generates and writes either the testing or production protocol verification
+/// keys to the specified directory
 pub fn gen_vkeys(args: &GenVkeysArgs) -> Result<(), ScriptError> {
     let vkeys = if args.test {
         compute_vkeys::<

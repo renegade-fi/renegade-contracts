@@ -81,7 +81,8 @@ async fn dummy_external_match_result_and_fees(
     mint_dummy_erc20s(base_mint, base_amount.into(), test_args).await?;
     mint_dummy_erc20s(quote_mint, quote_amount.into(), test_args).await?;
 
-    // The price here does not matter for testing, so we just trade the default funding amount
+    // The price here does not matter for testing, so we just trade the default
+    // funding amount
     let match_result = ExternalMatchResult {
         base_mint: ethers_address_to_biguint(&base_mint),
         quote_mint: ethers_address_to_biguint(&quote_mint),
@@ -189,10 +190,8 @@ async fn test_ec_recover(test_args: TestArgs) -> Result<()> {
     let sig = hash_and_sign_message(&signing_key, &msg);
 
     let msg_hash = keccak256(msg);
-    let res = contract
-        .test_ec_recover(msg_hash.to_vec().into(), sig.to_vec().into())
-        .call()
-        .await?;
+    let res =
+        contract.test_ec_recover(msg_hash.to_vec().into(), sig.to_vec().into()).call().await?;
 
     assert_eq!(
         res,
@@ -212,25 +211,15 @@ async fn test_merkle(test_args: TestArgs) -> Result<()> {
 
     let contract_root = u256_to_scalar(contract.root().call().await?)?;
 
-    assert_eq!(
-        ark_merkle.root(),
-        contract_root,
-        "Initial merkle root incorrect"
-    );
+    assert_eq!(ark_merkle.root(), contract_root, "Initial merkle root incorrect");
 
     let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT) as u32);
     let mut rng = thread_rng();
     let leaves = random_scalars(num_leaves as usize, &mut rng);
 
     for (i, leaf) in leaves.into_iter().enumerate() {
-        ark_merkle
-            .update(i, &compute_poseidon_hash(&[leaf]))
-            .map_err(|e| eyre!("{}", e))?;
-        contract
-            .insert_shares_commitment(vec![scalar_to_u256(leaf)])
-            .send()
-            .await?
-            .await?;
+        ark_merkle.update(i, &compute_poseidon_hash(&[leaf])).map_err(|e| eyre!("{}", e))?;
+        contract.insert_shares_commitment(vec![scalar_to_u256(leaf)]).send().await?.await?;
 
         let contract_root = u256_to_scalar(contract.root().call().await?)?;
 
@@ -297,10 +286,8 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
         &match_linking_proofs,
     )?;
 
-    let successful_res = settlement_verifier
-        .verify_match(match_verification_bundle_calldata)
-        .call()
-        .await?;
+    let successful_res =
+        settlement_verifier.verify_match(match_verification_bundle_calldata).call().await?;
     assert!(successful_res, "Valid match bundle did not verify");
     // Test invalid batch verification
 
@@ -320,10 +307,8 @@ async fn test_verifier(test_args: TestArgs) -> Result<()> {
         &match_linking_proofs,
     )?;
 
-    let unsuccessful_res = settlement_verifier
-        .verify_match(match_verification_bundle_calldata)
-        .call()
-        .await?;
+    let unsuccessful_res =
+        settlement_verifier.verify_match(match_verification_bundle_calldata).call().await?;
     assert!(!unsuccessful_res, "Invalid match bundle verified");
 
     Ok(())
@@ -341,11 +326,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
     let mut rng = thread_rng();
     let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
 
-    darkpool
-        .mark_nullifier_spent(nullifier)
-        .send()
-        .await?
-        .await?;
+    darkpool.mark_nullifier_spent(nullifier).send().await?.await?;
 
     // Ensure that only the owner can upgrade the contract
     let dummy_signer = setup_dummy_client(test_args.client.clone()).await?;
@@ -357,7 +338,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
             .upgrade_and_call(
                 test_args.darkpool_proxy_address,
                 test_args.test_upgrade_target_address,
-                Bytes::new(), /* data */
+                Bytes::new(), // data
             )
             .send()
             .await
@@ -370,7 +351,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
         .upgrade_and_call(
             test_args.darkpool_proxy_address,
             test_args.test_upgrade_target_address,
-            Bytes::new(), /* data */
+            Bytes::new(), // data
         )
         .send()
         .await?
@@ -383,10 +364,7 @@ async fn test_upgradeable(test_args: TestArgs) -> Result<()> {
     // by attempting to call the `is_dummy_upgrade_target` method through
     // the proxy, which only exists on the dummy upgrade target
     assert!(
-        dummy_upgrade_target_contract
-            .is_dummy_upgrade_target()
-            .call()
-            .await?,
+        dummy_upgrade_target_contract.is_dummy_upgrade_target().call().await?,
         "Upgrade target contract not upgraded"
     );
 
@@ -437,16 +415,8 @@ async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> 
             VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
             test_args.verifier_settlement_address,
         ),
-        (
-            SET_VKEYS_ADDRESS_METHOD_NAME,
-            VKEYS_ADDRESS_SELECTOR,
-            test_args.vkeys_address,
-        ),
-        (
-            SET_MERKLE_ADDRESS_METHOD_NAME,
-            MERKLE_ADDRESS_SELECTOR,
-            test_args.merkle_address,
-        ),
+        (SET_VKEYS_ADDRESS_METHOD_NAME, VKEYS_ADDRESS_SELECTOR, test_args.vkeys_address),
+        (SET_MERKLE_ADDRESS_METHOD_NAME, MERKLE_ADDRESS_SELECTOR, test_args.merkle_address),
         (
             SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME,
             TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
@@ -462,27 +432,16 @@ async fn test_implementation_address_setters(test_args: TestArgs) -> Result<()> 
 
         // Check that the implementation address was set
         assert!(
-            contract
-                .is_implementation_upgraded(address_selector)
-                .call()
-                .await?,
+            contract.is_implementation_upgraded(address_selector).call().await?,
             "Implementation address not set"
         );
 
         // Set the implementation address back to the original address
-        contract
-            .method::<Address, ()>(method, original_address)?
-            .send()
-            .await?
-            .await?;
+        contract.method::<Address, ()>(method, original_address)?.send().await?.await?;
 
         // Check that the implementation address was unset
         assert!(
-            contract
-                .is_implementation_upgraded(address_selector)
-                .call()
-                .await
-                .is_err(),
+            contract.is_implementation_upgraded(address_selector).call().await.is_err(),
             "Implementation address not unset"
         );
     }
@@ -538,13 +497,10 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
     let initial_owner = test_args.client.default_sender().unwrap();
 
     // Assert that the owner is set correctly initially
-    assert_eq!(
-        contract.owner().call().await?,
-        initial_owner,
-        "Incorrect initial owner"
-    );
+    assert_eq!(contract.owner().call().await?, initial_owner, "Incorrect initial owner");
 
-    // Set up a dummy owner account and a contract instance with that account attached as the sender
+    // Set up a dummy owner account and a contract instance with that account
+    // attached as the sender
     let dummy_owner = setup_dummy_client(test_args.client.clone()).await?;
     let dummy_owner_address = dummy_owner.default_sender().unwrap();
     let contract_with_dummy_owner = DarkpoolTestContract::new(contract.address(), dummy_owner);
@@ -559,11 +515,7 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
     .await?;
 
     // Assert that ownership was properly transferred
-    assert_eq!(
-        contract.owner().call().await?,
-        dummy_owner_address,
-        "Incorrect new owner"
-    );
+    assert_eq!(contract.owner().call().await?, dummy_owner_address, "Incorrect new owner");
 
     // Transfer ownership back so that future tests have the correct owner
     // To do so, we need to fund the dummy signer with some ETH for gas
@@ -573,28 +525,15 @@ async fn test_ownable(test_args: TestArgs) -> Result<()> {
         .to(dummy_owner_address)
         .value(parse_ether(1_u64)?);
 
-    test_args
-        .client
-        .send_transaction(transfer_tx, None)
-        .await?
-        .await?;
+    test_args.client.send_transaction(transfer_tx, None).await?.await?;
 
-    contract_with_dummy_owner
-        .transfer_ownership(initial_owner)
-        .send()
-        .await?
-        .await?;
+    contract_with_dummy_owner.transfer_ownership(initial_owner).send().await?.await?;
 
     // Assert that only the owner can call the `pause`/`unpause` methods
     assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, PAUSE_METHOD_NAME, ())
         .await?;
-    assert_only_owner::<_, ()>(
-        &contract,
-        &contract_with_dummy_owner,
-        UNPAUSE_METHOD_NAME,
-        (),
-    )
-    .await?;
+    assert_only_owner::<_, ()>(&contract, &contract_with_dummy_owner, UNPAUSE_METHOD_NAME, ())
+        .await?;
 
     // Assert that only the owner can call the `set_fee` method
     assert_only_owner::<_, U256>(
@@ -644,9 +583,8 @@ async fn test_pausable(test_args: TestArgs) -> Result<()> {
 
     let mut rng = thread_rng();
     let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
+    let protocol_fee =
+        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
 
     contract.pause().send().await?.await?;
 
@@ -681,7 +619,7 @@ async fn test_pausable(test_args: TestArgs) -> Result<()> {
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
                 update_wallet_commitment_signature.clone(),
-                Bytes::new(), /* transfer_aux_data */
+                Bytes::new(), // transfer_aux_data
             )
             .send(),
         contract
@@ -720,7 +658,7 @@ async fn test_pausable(test_args: TestArgs) -> Result<()> {
                 serialize_to_calldata(&update_wallet_proof)?,
                 serialize_to_calldata(&update_wallet_statement)?,
                 update_wallet_commitment_signature,
-                Bytes::new(), /* transfer_aux_data */
+                Bytes::new(), // transfer_aux_data
             )
             .send(),
         contract
@@ -756,11 +694,7 @@ async fn test_nullifier_set(test_args: TestArgs) -> Result<()> {
 
     assert!(!nullifier_spent, "Nullifier already spent");
 
-    contract
-        .mark_nullifier_spent(nullifier)
-        .send()
-        .await?
-        .await?;
+    contract.mark_nullifier_spent(nullifier).send().await?.await?;
 
     let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
 
@@ -780,10 +714,7 @@ async fn test_public_blinder_uniqueness_check(test_args: TestArgs) -> Result<()>
     let blinder_idx = statement.public_wallet_shares.len() - 1;
     let original_blinder = statement.public_wallet_shares[blinder_idx];
     contract
-        .new_wallet(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&statement)?,
-        )
+        .new_wallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
         .send()
         .await?
         .await?;
@@ -792,10 +723,7 @@ async fn test_public_blinder_uniqueness_check(test_args: TestArgs) -> Result<()>
     let (proof, mut statement) = gen_new_wallet_data(&mut rng)?;
     statement.public_wallet_shares[blinder_idx] = original_blinder;
     let is_err = contract
-        .new_wallet(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&statement)?,
-        )
+        .new_wallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
         .send()
         .await
         .is_err();
@@ -814,12 +742,9 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
         test_args.client.clone(),
     );
 
-    // Initialize the transfer executor with the address of the Permit2 contract being used
-    transfer_executor_contract
-        .init(test_args.permit2_address)
-        .send()
-        .await?
-        .await?;
+    // Initialize the transfer executor with the address of the Permit2 contract
+    // being used
+    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
 
     let test_erc20_contract =
         DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
@@ -827,14 +752,9 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
     let account_address = test_args.client.default_sender().unwrap();
     let mint = test_args.test_erc20_address1;
 
-    let contract_initial_balance = test_erc20_contract
-        .balance_of(test_args.transfer_executor_address)
-        .call()
-        .await?;
-    let user_initial_balance = test_erc20_contract
-        .balance_of(account_address)
-        .call()
-        .await?;
+    let contract_initial_balance =
+        test_erc20_contract.balance_of(test_args.transfer_executor_address).call().await?;
+    let user_initial_balance = test_erc20_contract.balance_of(account_address).call().await?;
 
     let (signing_key, pk_root) = random_keypair(&mut thread_rng());
 
@@ -877,10 +797,7 @@ async fn test_external_transfer(test_args: TestArgs) -> Result<()> {
         contract_balance, contract_initial_balance,
         "Post-withdrawal contract balance incorrect"
     );
-    assert_eq!(
-        user_balance, user_initial_balance,
-        "Post-withdrawal user balance incorrect"
-    );
+    assert_eq!(user_balance, user_initial_balance, "Post-withdrawal user balance incorrect");
 
     Ok(())
 }
@@ -894,12 +811,9 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
         test_args.client.clone(),
     );
 
-    // Initialize the transfer executor with the address of the Permit2 contract being used
-    transfer_executor_contract
-        .init(test_args.permit2_address)
-        .send()
-        .await?
-        .await?;
+    // Initialize the transfer executor with the address of the Permit2 contract
+    // being used
+    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
 
     let test_erc20_contract =
         DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
@@ -910,15 +824,12 @@ async fn test_external_transfer__wrong_eth_addr(test_args: TestArgs) -> Result<(
     // Generate dummy address & fund with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
     let dummy_address = Address::random();
-    test_erc20_contract
-        .mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT))
-        .send()
-        .await?
-        .await?;
+    test_erc20_contract.mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT)).send().await?.await?;
 
     let (signing_key, pk_root) = random_keypair(&mut thread_rng());
 
-    // Create & execute deposit external transfer, attempting to deposit from the dummy address
+    // Create & execute deposit external transfer, attempting to deposit from the
+    // dummy address
     let deposit = dummy_erc20_deposit(dummy_address, mint);
     assert!(
         execute_transfer_and_get_balances(
@@ -949,12 +860,9 @@ async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result
         test_args.client.clone(),
     );
 
-    // Initialize the transfer executor with the address of the Permit2 contract being used
-    transfer_executor_contract
-        .init(test_args.permit2_address)
-        .send()
-        .await?
-        .await?;
+    // Initialize the transfer executor with the address of the Permit2 contract
+    // being used
+    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
 
     let account_address = test_args.client.default_sender().unwrap();
     let mint = test_args.test_erc20_address1;
@@ -972,7 +880,8 @@ async fn test_external_transfer__wrong_rng_wallet(test_args: TestArgs) -> Result
     )
     .await?;
 
-    // Execute the deposit with a pk_root that does not match the one in the aux data
+    // Execute the deposit with a pk_root that does not match the one in the aux
+    // data
     let (_, dummy_pk_root) = random_keypair(&mut rng);
     assert!(
         transfer_executor_contract
@@ -999,12 +908,9 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
         test_args.client.clone(),
     );
 
-    // Initialize the transfer executor with the address of the Permit2 contract being used
-    transfer_executor_contract
-        .init(test_args.permit2_address)
-        .send()
-        .await?
-        .await?;
+    // Initialize the transfer executor with the address of the Permit2 contract
+    // being used
+    transfer_executor_contract.init(test_args.permit2_address).send().await?.await?;
 
     let test_erc20_contract =
         DummyErc20Contract::new(test_args.test_erc20_address1, test_args.client.clone());
@@ -1015,10 +921,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
     // Fund contract with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
     test_erc20_contract
-        .mint(
-            test_args.transfer_executor_address,
-            U256::from(TEST_FUNDING_AMOUNT),
-        )
+        .mint(test_args.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
         .send()
         .await?
         .await?;
@@ -1056,10 +959,7 @@ async fn test_external_transfer__malicious_withdrawal(test_args: TestArgs) -> Re
 
     // Burn contract tokens so future tests are unaffected
     test_erc20_contract
-        .burn(
-            test_args.transfer_executor_address,
-            U256::from(TEST_FUNDING_AMOUNT),
-        )
+        .burn(test_args.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
         .send()
         .await?
         .await?;
@@ -1080,10 +980,7 @@ async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
 
     // Call `new_wallet`
     contract
-        .new_wallet(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&statement)?,
-        )
+        .new_wallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
         .send()
         .await?
         .await?;
@@ -1095,7 +992,7 @@ async fn test_new_wallet(test_args: TestArgs) -> Result<()> {
         &mut ark_merkle,
         statement.private_shares_commitment,
         &statement.public_wallet_shares,
-        0, /* index */
+        0, // index
     )?;
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
@@ -1128,7 +1025,7 @@ async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
             serialize_to_calldata(&proof)?,
             serialize_to_calldata(&statement)?,
             wallet_commitment_signature,
-            Bytes::new(), /* transfer_aux_data */
+            Bytes::new(), // transfer_aux_data
         )
         .send()
         .await?
@@ -1145,7 +1042,7 @@ async fn test_update_wallet(test_args: TestArgs) -> Result<()> {
         &mut ark_merkle,
         statement.new_private_shares_commitment,
         &statement.new_public_shares,
-        0, /* index */
+        0, // index
     )
     .map_err(|e| eyre!("{}", e))?;
 
@@ -1168,9 +1065,8 @@ async fn test_process_match_settle_success(test_args: TestArgs) -> Result<()> {
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
     let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
+    let protocol_fee =
+        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
     let mut rng = thread_rng();
     let data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
 
@@ -1188,46 +1084,30 @@ async fn test_process_match_settle_success(test_args: TestArgs) -> Result<()> {
         .await?;
 
     // Assert that correct nullifiers are spent
-    let party_0_nullifier = scalar_to_u256(
-        data.match_payload_0
-            .valid_reblind_statement
-            .original_shares_nullifier,
-    );
-    let party_1_nullifier = scalar_to_u256(
-        data.match_payload_1
-            .valid_reblind_statement
-            .original_shares_nullifier,
-    );
+    let party_0_nullifier =
+        scalar_to_u256(data.match_payload_0.valid_reblind_statement.original_shares_nullifier);
+    let party_1_nullifier =
+        scalar_to_u256(data.match_payload_1.valid_reblind_statement.original_shares_nullifier);
 
-    let party_0_nullifier_spent = contract
-        .is_nullifier_spent(party_0_nullifier)
-        .call()
-        .await?;
+    let party_0_nullifier_spent = contract.is_nullifier_spent(party_0_nullifier).call().await?;
     assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
 
-    let party_1_nullifier_spent = contract
-        .is_nullifier_spent(party_1_nullifier)
-        .call()
-        .await?;
+    let party_1_nullifier_spent = contract.is_nullifier_spent(party_1_nullifier).call().await?;
     assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
 
     // Assert that Merkle root is correct
     insert_shares_and_get_root(
         &mut ark_merkle,
-        data.match_payload_0
-            .valid_reblind_statement
-            .reblinded_private_shares_commitment,
+        data.match_payload_0.valid_reblind_statement.reblinded_private_shares_commitment,
         &data.valid_match_settle_statement.party0_modified_shares,
-        0, /* index */
+        0, // index
     )
     .map_err(|e| eyre!("{}", e))?;
     let ark_root = insert_shares_and_get_root(
         &mut ark_merkle,
-        data.match_payload_1
-            .valid_reblind_statement
-            .reblinded_private_shares_commitment,
+        data.match_payload_1.valid_reblind_statement.reblinded_private_shares_commitment,
         &data.valid_match_settle_statement.party1_modified_shares,
-        1, /* index */
+        1, // index
     )
     .map_err(|e| eyre!("{}", e))?;
 
@@ -1249,16 +1129,13 @@ async fn test_process_match_settle__inconsistent_indices(test_args: TestArgs) ->
     contract.clear_merkle().send().await?.await?;
 
     let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
+    let protocol_fee =
+        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
     let mut rng = thread_rng();
 
     let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
     // Mutate the order settlement indices to be inconsistent
-    data.valid_match_settle_statement
-        .party0_indices
-        .balance_receive += 1;
+    data.valid_match_settle_statement.party0_indices.balance_receive += 1;
 
     // Call `process_match_settle` with invalid data
     assert!(
@@ -1290,9 +1167,8 @@ async fn test_process_match_settle__inconsistent_fee(test_args: TestArgs) -> Res
     contract.clear_merkle().send().await?.await?;
 
     let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
+    let protocol_fee =
+        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
     let mut rng = thread_rng();
 
     let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
@@ -1332,9 +1208,8 @@ async fn setup_atomic_match_settle_test(
 
     let mut rng = thread_rng();
     let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(
-        contract.get_fee().call().await?,
-    )?));
+    let protocol_fee =
+        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
 
     let (match_result, fees) = dummy_external_match_result_and_fees(buy_side, test_args).await?;
     let data = gen_atomic_match_with_match_and_fees(
@@ -1371,9 +1246,7 @@ async fn test_process_atomic_match_settle__internal_party(test_args: TestArgs) -
 
     // Assert nullifier is spent
     let nullifier = scalar_to_u256(
-        data.internal_party_match_payload
-            .valid_reblind_statement
-            .original_shares_nullifier,
+        data.internal_party_match_payload.valid_reblind_statement.original_shares_nullifier,
     );
     let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
     assert!(nullifier_spent, "Nullifier not spent");
@@ -1385,9 +1258,7 @@ async fn test_process_atomic_match_settle__internal_party(test_args: TestArgs) -
         data.internal_party_match_payload
             .valid_reblind_statement
             .reblinded_private_shares_commitment,
-        &data
-            .valid_match_settle_atomic_statement
-            .internal_party_modified_shares,
+        &data.valid_match_settle_atomic_statement.internal_party_modified_shares,
         0,
     )?;
     let actual_root = u256_to_scalar(contract.get_root().call().await?)?;
@@ -1413,20 +1284,15 @@ async fn test_process_atomic_match_settle__external_party_buy_side(
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
     );
-    let protocol_fee_addr = darkpool
-        .get_protocol_external_fee_collection_address()
-        .call()
-        .await?;
+    let protocol_fee_addr = darkpool.get_protocol_external_fee_collection_address().call().await?;
 
     // Record initial balances
     let initial_base_balance = test_args.get_erc20_balance(base_addr).await?;
     let initial_quote_balance = test_args.get_erc20_balance(quote_addr).await?;
-    let initial_relayer_balance = test_args
-        .get_erc20_balance_of(base_addr, relayer_fee_addr)
-        .await?;
-    let initial_protocol_balance = test_args
-        .get_erc20_balance_of(base_addr, protocol_fee_addr)
-        .await?;
+    let initial_relayer_balance =
+        test_args.get_erc20_balance_of(base_addr, relayer_fee_addr).await?;
+    let initial_protocol_balance =
+        test_args.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
 
     // Call process_atomic_match_settle
     darkpool
@@ -1445,12 +1311,8 @@ async fn test_process_atomic_match_settle__external_party_buy_side(
     let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
     let final_balance_base = test_args.get_erc20_balance(base_addr).await?;
     let final_balance_quote = test_args.get_erc20_balance(quote_addr).await?;
-    let relayer_balance = test_args
-        .get_erc20_balance_of(base_addr, relayer_fee_addr)
-        .await?;
-    let protocol_balance = test_args
-        .get_erc20_balance_of(base_addr, protocol_fee_addr)
-        .await?;
+    let relayer_balance = test_args.get_erc20_balance_of(base_addr, relayer_fee_addr).await?;
+    let protocol_balance = test_args.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
 
     let expected_quote_balance = initial_quote_balance - match_result.quote_amount;
     let expected_base_balance = initial_base_balance + match_result.base_amount - fees.total();
@@ -1494,20 +1356,15 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
     );
-    let protocol_fee_addr = darkpool
-        .get_protocol_external_fee_collection_address()
-        .call()
-        .await?;
+    let protocol_fee_addr = darkpool.get_protocol_external_fee_collection_address().call().await?;
 
     // Record initial balances
     let initial_base_balance = test_args.get_erc20_balance(base_addr).await?;
     let initial_quote_balance = test_args.get_erc20_balance(quote_addr).await?;
-    let initial_relayer_balance = test_args
-        .get_erc20_balance_of(quote_addr, relayer_fee_addr)
-        .await?;
-    let initial_protocol_balance = test_args
-        .get_erc20_balance_of(quote_addr, protocol_fee_addr)
-        .await?;
+    let initial_relayer_balance =
+        test_args.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
+    let initial_protocol_balance =
+        test_args.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
 
     // Call process_atomic_match_settle
     darkpool
@@ -1526,12 +1383,8 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
     let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
     let final_balance_base = test_args.get_erc20_balance(base_addr).await?;
     let final_balance_quote = test_args.get_erc20_balance(quote_addr).await?;
-    let relayer_balance = test_args
-        .get_erc20_balance_of(quote_addr, relayer_fee_addr)
-        .await?;
-    let protocol_balance = test_args
-        .get_erc20_balance_of(quote_addr, protocol_fee_addr)
-        .await?;
+    let relayer_balance = test_args.get_erc20_balance_of(quote_addr, relayer_fee_addr).await?;
+    let protocol_balance = test_args.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
 
     let expected_quote_balance = initial_quote_balance + match_result.quote_amount - fees.total();
     let expected_base_balance = initial_base_balance - match_result.base_amount;
@@ -1566,9 +1419,7 @@ async fn test_process_atomic_match_settle_inconsistent_indices(test_args: TestAr
     let mut data = setup_atomic_match_settle_test(true /* buy_side */, &test_args).await?;
 
     // Modify the index to make it inconsistent
-    data.valid_match_settle_atomic_statement
-        .internal_party_indices
-        .balance_receive += 1;
+    data.valid_match_settle_atomic_statement.internal_party_indices.balance_receive += 1;
 
     // Call process_atomic_match_settle
     let call = contract.process_atomic_match_settle(
@@ -1579,10 +1430,7 @@ async fn test_process_atomic_match_settle_inconsistent_indices(test_args: TestAr
     );
     let result = call.send().await;
 
-    assert!(
-        result.is_err(),
-        "Expected error due to inconsistent indices"
-    );
+    assert!(result.is_err(), "Expected error due to inconsistent indices");
 
     Ok(())
 }
@@ -1608,10 +1456,7 @@ async fn test_process_atomic_match_settle_inconsistent_protocol_fee(
     );
     let result = call.send().await;
 
-    assert!(
-        result.is_err(),
-        "Expected error due to inconsistent protocol fee"
-    );
+    assert!(result.is_err(), "Expected error due to inconsistent protocol fee");
 
     Ok(())
 }
@@ -1651,10 +1496,7 @@ async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
     assert!(nullifier_spent, "Sender nullifier not spent");
 
     let recipient_nullifier = scalar_to_u256(statement.recipient_nullifier);
-    let nullifier_spent = contract
-        .is_nullifier_spent(recipient_nullifier)
-        .call()
-        .await?;
+    let nullifier_spent = contract.is_nullifier_spent(recipient_nullifier).call().await?;
     assert!(nullifier_spent, "Recipient nullifier not spent");
 
     // Assert that Merkle root is correct
@@ -1663,7 +1505,7 @@ async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
         &mut ark_merkle,
         statement.sender_wallet_commitment,
         &statement.sender_updated_public_shares,
-        0, /* index */
+        0, // index
     )
     .map_err(|e| eyre!("{}", e))?;
 
@@ -1671,7 +1513,7 @@ async fn test_settle_online_relayer_fee(test_args: TestArgs) -> Result<()> {
         &mut ark_merkle,
         statement.recipient_wallet_commitment,
         &statement.recipient_updated_public_shares,
-        1, /* index */
+        1, // index
     )
     .map_err(|e| eyre!("{}", e))?;
 
@@ -1701,15 +1543,12 @@ async fn test_settle_offline_fee(test_args: TestArgs) -> Result<()> {
         &mut rng,
         Scalar::new(contract_root),
         protocol_pubkey,
-        true, /* is_protocol_fee */
+        true, // is_protocol_fee
     )?;
 
     // Call `settle_offline_fee`
     contract
-        .settle_offline_fee(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&statement)?,
-        )
+        .settle_offline_fee(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
         .send()
         .await?
         .await?;
@@ -1726,12 +1565,12 @@ async fn test_settle_offline_fee(test_args: TestArgs) -> Result<()> {
         &mut ark_merkle,
         statement.updated_wallet_commitment,
         &statement.updated_wallet_public_shares,
-        0, /* index */
+        0, // index
     )
     .map_err(|e| eyre!("{}", e))?;
 
     ark_merkle
-        .update(1 /*index */, &statement.note_commitment)
+        .update(1 /* index */, &statement.note_commitment)
         .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
 
     let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
@@ -1763,16 +1602,13 @@ async fn test_settle_offline_fee__incorrect_protocol_key(test_args: TestArgs) ->
         &mut rng,
         Scalar::new(contract_root),
         protocol_pubkey,
-        true, /* is_protocol_fee */
+        true, // is_protocol_fee
     )?;
 
     // Call `settle_offline_fee` with invalid data
     assert!(
         contract
-            .settle_offline_fee(
-                serialize_to_calldata(&proof)?,
-                serialize_to_calldata(&statement)?,
-            )
+            .settle_offline_fee(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?,)
             .send()
             .await
             .is_err(),
@@ -1813,10 +1649,7 @@ async fn test_redeem_fee(test_args: TestArgs) -> Result<()> {
     // Assert that both recipient & note nullifiers are spent
 
     let recipient_nullifier = scalar_to_u256(statement.nullifier);
-    let nullifier_spent = contract
-        .is_nullifier_spent(recipient_nullifier)
-        .call()
-        .await?;
+    let nullifier_spent = contract.is_nullifier_spent(recipient_nullifier).call().await?;
     assert!(nullifier_spent, "Recipient nullifier not spent");
 
     let note_nullifier = scalar_to_u256(statement.note_nullifier);
@@ -1829,7 +1662,7 @@ async fn test_redeem_fee(test_args: TestArgs) -> Result<()> {
         &mut ark_merkle,
         statement.new_wallet_commitment,
         &statement.new_wallet_public_shares,
-        0, /* index */
+        0, // index
     )
     .map_err(|e| eyre!("{}", e))?;
 

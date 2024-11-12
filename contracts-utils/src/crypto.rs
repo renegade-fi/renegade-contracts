@@ -22,8 +22,8 @@ impl HashBackend for NativeHasher {
     }
 }
 
-/// Generates a random secp256k1 signing keypair, returning the [`SigningKey`] and the
-/// [`PublicSigningKey`] type
+/// Generates a random secp256k1 signing keypair, returning the [`SigningKey`]
+/// and the [`PublicSigningKey`] type
 pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, PublicSigningKey) {
     let signing_key = SigningKey::random(rng);
     let verifying_key = signing_key.verifying_key();
@@ -34,16 +34,12 @@ pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, Publi
     (signing_key, contract_pubkey)
 }
 
-/// Hashes the given message and generates a signature over it using the signing key,
-/// as expected in ECDSA
+/// Hashes the given message and generates a signature over it using the signing
+/// key, as expected in ECDSA
 pub fn hash_and_sign_message(signing_key: &SigningKey, msg: &[u8]) -> Signature {
     let msg_hash = keccak256(msg);
     let (sig, recovery_id) = signing_key.sign_prehash_recoverable(&msg_hash).unwrap();
     let r: U256 = U256::from_big_endian(&sig.r().to_bytes());
     let s: U256 = U256::from_big_endian(&sig.s().to_bytes());
-    Signature {
-        r,
-        s,
-        v: recovery_id.to_byte() as u64,
-    }
+    Signature { r, s, v: recovery_id.to_byte() as u64 }
 }

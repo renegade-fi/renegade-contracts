@@ -1,4 +1,5 @@
-//! A mock ERC20 token implementation with wrapper functionality used for testing.
+//! A mock ERC20 token implementation with wrapper functionality used for
+//! testing.
 //!
 //! Modeled after the WETH9 contract code:
 //!     https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2#code
@@ -18,7 +19,8 @@ use super::dummy_erc20::Erc20;
 
 /// The error message returned when a deposit overflows
 const ERR_DEPOSIT_OVERFLOW: &[u8] = b"Deposit overflowed";
-/// The error message returned when a withdrawal amount is greater than the sender's balance
+/// The error message returned when a withdrawal amount is greater than the
+/// sender's balance
 const ERR_WITHDRAWAL_EXCEEDS_BALANCE: &[u8] = b"Withdrawal amount exceeds balance";
 
 sol_storage! {
@@ -70,10 +72,7 @@ impl DummyWeth {
         bal.set(new_bal);
 
         // Emit a deposit event
-        evm::log(Deposit {
-            from: sender,
-            value: amount,
-        });
+        evm::log(Deposit { from: sender, value: amount });
         Ok(())
     }
 

@@ -13,7 +13,8 @@ pub mod core_settlement;
 #[cfg(any(feature = "core-wallet-ops", feature = "darkpool-test-contract"))]
 pub mod core_wallet_ops;
 
-/// A trait that allows for storage access to the standard storage layout for core contracts
+/// A trait that allows for storage access to the standard storage layout for
+/// core contracts
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub trait CoreContractStorage {
     /// Get the address of the verifier core contract

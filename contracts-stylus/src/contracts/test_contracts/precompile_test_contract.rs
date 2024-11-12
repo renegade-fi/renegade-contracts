@@ -1,6 +1,6 @@
-//! Testing contract which wraps EVM precompile functionality for testing purposes.
-//! This contract is intended to be used in conjunction with a local devnet, along with testing scripts
-//! in the `integration` crate
+//! Testing contract which wraps EVM precompile functionality for testing
+//! purposes. This contract is intended to be used in conjunction with a local
+//! devnet, along with testing scripts in the `integration` crate
 
 use alloc::vec::Vec;
 use contracts_common::{

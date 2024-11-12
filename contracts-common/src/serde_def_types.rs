@@ -1,5 +1,6 @@
-//! Types & trait implementations to enable deriving serde::{Serialize, Deserialize}
-//! on the foreign Arkworks, Alloy, and other types that we compose into complex structs.
+//! Types & trait implementations to enable deriving serde::{Serialize,
+//! Deserialize} on the foreign Arkworks, Alloy, and other types that we compose
+//! into complex structs.
 
 use alloy_primitives::{Address, FixedBytes, Uint};
 use ark_bn254::{g1::Config as G1Config, g2::Config as G2Config, Fq2Config, FqConfig, FrConfig};
@@ -11,8 +12,9 @@ use serde_with::{serde_as, DeserializeAs, SerializeAs};
 
 use crate::types::{G1Affine, G1BaseField, G2Affine, G2BaseField, ScalarField};
 
-/// This macro implements the `SerializeAs` and `DeserializeAs` traits for a given type,
-/// allowing it to be serialized / deserialized as the remote type it mirrors.
+/// This macro implements the `SerializeAs` and `DeserializeAs` traits for a
+/// given type, allowing it to be serialized / deserialized as the remote type
+/// it mirrors.
 macro_rules! impl_serde_as {
     ($remote_type:ty, $def_type:ty, $($generics:tt)*) => {
         impl<$($generics)*> SerializeAs<$remote_type> for $def_type {

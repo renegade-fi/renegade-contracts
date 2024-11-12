@@ -49,11 +49,7 @@ pub fn is_native_eth_address(addr: Address) -> bool {
 
 /// Deserializes a byte-serialized type from calldata
 #[cfg_attr(
-    not(any(
-        feature = "darkpool-core",
-        feature = "verifier",
-        feature = "transfer-executor"
-    )),
+    not(any(feature = "darkpool-core", feature = "verifier", feature = "transfer-executor")),
     allow(dead_code)
 )]
 pub fn deserialize_from_calldata<'a, D: Deserialize<'a>>(
@@ -63,10 +59,7 @@ pub fn deserialize_from_calldata<'a, D: Deserialize<'a>>(
 }
 
 /// Serializes the given type into bytes for calldata
-#[cfg_attr(
-    not(any(feature = "darkpool-core", feature = "transfer-executor")),
-    allow(dead_code)
-)]
+#[cfg_attr(not(any(feature = "darkpool-core", feature = "transfer-executor")), allow(dead_code))]
 pub fn postcard_serialize<S: Serialize>(s: &S) -> Result<Vec<u8>, Vec<u8>> {
     postcard::to_allocvec(s).map_err(map_calldata_ser_error)
 }
@@ -108,8 +101,9 @@ pub fn serialize_match_statements_for_verification(
 }
 
 /// Serializes the statements used in verifying the settlement of an atomic
-/// matched trade into scalars, builds the [`AtomicMatchSettlePublicInputs`] struct,
-/// and then serializes it into bytes, as expected by the verifier contract.
+/// matched trade into scalars, builds the [`AtomicMatchSettlePublicInputs`]
+/// struct, and then serializes it into bytes, as expected by the verifier
+/// contract.
 #[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
 pub fn serialize_atomic_match_statements_for_verification(
     valid_commitments: &ValidCommitmentsStatement,
@@ -141,7 +135,7 @@ pub fn map_call_error(e: stylus_sdk::call::Error) -> Vec<u8> {
         stylus_sdk::call::Error::Revert(msg) => msg,
         stylus_sdk::call::Error::AbiDecodingFailed(_) => {
             CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec()
-        }
+        },
     }
 }
 
@@ -152,7 +146,8 @@ pub fn map_calldata_ser_error<E>(_e: E) -> Vec<u8> {
     CALLDATA_SER_ERROR_MESSAGE.to_vec()
 }
 
-/// Performs a `staticcall` to the given address, calling the function defined as a `SolCall` with the given arguments
+/// Performs a `staticcall` to the given address, calling the function defined
+/// as a `SolCall` with the given arguments
 #[cfg_attr(
     not(any(feature = "darkpool-core", feature = "darkpool-test-contract")),
     allow(dead_code)
@@ -171,11 +166,7 @@ pub fn static_call_helper<C: SolCall>(
 /// Performs a `delegatecall` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.
 #[cfg_attr(
-    not(any(
-        feature = "darkpool-core",
-        feature = "darkpool",
-        feature = "darkpool-test-contract"
-    )),
+    not(any(feature = "darkpool-core", feature = "darkpool", feature = "darkpool-test-contract")),
     allow(dead_code)
 )]
 pub fn delegate_call_helper<C: SolCall>(
@@ -218,14 +209,10 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, Vec<u8>> {
     ScalarField::from_bigint(bigint).ok_or(SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())
 }
 
-/// Asserts the validity of the given signature using the given public signing key,
-/// if verification is enabled
+/// Asserts the validity of the given signature using the given public signing
+/// key, if verification is enabled
 #[cfg_attr(
-    not(any(
-        feature = "transfer-executor",
-        feature = "merkle",
-        feature = "merkle-test-contract",
-    )),
+    not(any(feature = "transfer-executor", feature = "merkle", feature = "merkle-test-contract",)),
     allow(dead_code)
 )]
 pub fn assert_valid_signature(
@@ -237,9 +224,7 @@ pub fn assert_valid_signature(
         ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
             pk_root,
             message,
-            signature
-                .try_into()
-                .map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE)?,
+            signature.try_into().map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE)?,
         )
         .map_err(|_| ECDSA_ERROR_MESSAGE)?,
         INVALID_SIGNATURE_ERROR_MESSAGE

@@ -38,7 +38,8 @@ pub struct Cli {
 /// The possible CLI commands
 #[derive(Subcommand)]
 pub enum Command {
-    /// Deploy all the testing contracts (includes generating testing verification keys)
+    /// Deploy all the testing contracts (includes generating testing
+    /// verification keys)
     DeployTestContracts(DeployTestContractsArgs),
     /// Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
     DeployProxy(DeployProxyArgs),
@@ -66,24 +67,25 @@ impl Command {
         match self {
             Command::DeployTestContracts(args) => {
                 deploy_test_contracts(&args, rpc_url, priv_key, client, deployments_path).await
-            }
+            },
             Command::DeployProxy(args) => deploy_proxy(&args, client, deployments_path).await,
             Command::DeployPermit2 => deploy_permit2(client, deployments_path).await,
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(&args, rpc_url, priv_key, client, deployments_path)
                     .await
                     .map(|_| ())
-            }
+            },
             Command::DeployErc20(args) => {
                 deploy_erc20(&args, rpc_url, priv_key, client, deployments_path).await
-            }
+            },
             Command::Upgrade(args) => upgrade(&args, client, deployments_path).await,
             Command::GenVkeys(args) => gen_vkeys(&args),
         }
     }
 }
 
-/// Deploy all the testing contracts (includes generating testing verification keys)
+/// Deploy all the testing contracts (includes generating testing verification
+/// keys)
 #[derive(Args)]
 pub struct DeployTestContractsArgs {
     /// Address of the owner for both the proxy admin contract
@@ -106,8 +108,9 @@ pub struct DeployTestContractsArgs {
 /// Concretely, this is a [`TransparentUpgradeableProxy`](https://docs.openzeppelin.com/contracts/5.x/api/proxy#transparent_proxy),
 /// which itself deploys a `ProxyAdmin` contract.
 ///
-/// Calls made directly to the `TransparentUpgradeableProxy` contract will be forwarded to the implementation contract.
-/// Upgrade calls can only be made to the `TransparentUpgradeableProxy` through the `ProxyAdmin`.
+/// Calls made directly to the `TransparentUpgradeableProxy` contract will be
+/// forwarded to the implementation contract. Upgrade calls can only be made to
+/// the `TransparentUpgradeableProxy` through the `ProxyAdmin`.
 #[derive(Args)]
 pub struct DeployProxyArgs {
     /// Address of the owner for both the proxy admin contract
@@ -116,11 +119,12 @@ pub struct DeployProxyArgs {
     pub owner: String,
 
     /// The initial protocol fee with which to initialize the darkpool contract.
-    /// The fee is a percentage of the trade volume, represented as a fixed-point number.
-    /// The `u64` used here should accommodate any fee we'd want to set.
+    /// The fee is a percentage of the trade volume, represented as a
+    /// fixed-point number. The `u64` used here should accommodate any fee
+    /// we'd want to set.
     ///
-    /// The default value here is the fixed-point representation of 0.0002 (2 bps),
-    /// that is 0.0002 * 2^63
+    /// The default value here is the fixed-point representation of 0.0002 (2
+    /// bps), that is 0.0002 * 2^63
     #[arg(short, long, default_value = "1844674407370955")]
     pub fee: u64,
 
@@ -152,7 +156,8 @@ pub struct DeployStylusArgs {
     pub no_verify: bool,
 }
 
-/// Deploy a dummy ERC20. Assumes the darkpool contract has already been deployed.
+/// Deploy a dummy ERC20. Assumes the darkpool contract has already been
+/// deployed.
 #[derive(Args)]
 pub struct DeployErc20Args {
     /// The symbol for the ERC20 to deploy

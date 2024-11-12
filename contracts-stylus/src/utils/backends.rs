@@ -1,4 +1,5 @@
-//! Common utilities used throughout the smart contracts, including testing contracts.
+//! Common utilities used throughout the smart contracts, including testing
+//! contracts.
 
 use ark_ff::One;
 use contracts_common::{
@@ -33,7 +34,8 @@ impl HashBackend for StylusHasher {
 pub struct PrecompileG1ArithmeticBackend;
 
 impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
-    /// Calls the `ecAdd` precompile with the given points, handling de/serialization
+    /// Calls the `ecAdd` precompile with the given points, handling
+    /// de/serialization
     fn ec_add(a: G1Affine, b: G1Affine) -> Result<G1Affine, G1ArithmeticError> {
         if a == G1Affine::identity() {
             return Ok(b);
@@ -55,7 +57,8 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         G1Affine::deserialize_from_bytes(&res_xy_bytes).map_err(|_| G1ArithmeticError)
     }
 
-    /// Calls the `ecMul` precompile with the given scalar and point, handling de/serialization
+    /// Calls the `ecMul` precompile with the given scalar and point, handling
+    /// de/serialization
     fn ec_scalar_mul(a: ScalarField, b: G1Affine) -> Result<G1Affine, G1ArithmeticError> {
         if a == ScalarField::one() {
             return Ok(b);
@@ -75,7 +78,8 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         G1Affine::deserialize_from_bytes(&res_xy_bytes).map_err(|_| G1ArithmeticError)
     }
 
-    /// Calls the `ecPairing` precompile with the given points, handling de/serialization
+    /// Calls the `ecPairing` precompile with the given points, handling
+    /// de/serialization
     fn ec_pairing_check(
         a_1: G1Affine,
         b_1: G2Affine,

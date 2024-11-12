@@ -107,10 +107,7 @@ pub fn dummy_valid_reblind_statement<R: RngCore + CryptoRng>(
     rng: &mut R,
     merkle_root: Scalar,
 ) -> ValidReblindStatement {
-    ValidReblindStatement {
-        merkle_root,
-        ..dummy_circuit_type(rng)
-    }
+    ValidReblindStatement { merkle_root, ..dummy_circuit_type(rng) }
 }
 
 /// Generates a dummy [`SizedValidWalletUpdateStatement`] with the given
@@ -201,14 +198,11 @@ pub fn dummy_valid_fee_redemption_statement<R: RngCore + CryptoRng>(
 /// Creates a dummy statement, uses it to compute a valid proof,
 /// and generates its associated verification key.
 ///
-/// The simplest way to do this is to use the dummy `VALID WALLET CREATE` circuit.
+/// The simplest way to do this is to use the dummy `VALID WALLET CREATE`
+/// circuit.
 pub fn gen_verification_bundle<R: CryptoRng + RngCore>(
     rng: &mut R,
-) -> Result<(
-    ContractValidWalletCreateStatement,
-    ContractProof,
-    VerificationKey,
-)> {
+) -> Result<(ContractValidWalletCreateStatement, ContractProof, VerificationKey)> {
     let statement = dummy_circuit_type(rng);
     let contract_statement = to_contract_valid_wallet_create_statement(&statement);
 
@@ -237,8 +231,8 @@ pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
 }
 
 /// Generates the inputs for the `update_wallet` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID WALLET UPDATE` circuit,
-/// along with a signature over the commitment to the wallet shares
+/// a dummy statement and associated proof for the `VALID WALLET UPDATE`
+/// circuit, along with a signature over the commitment to the wallet shares
 pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
@@ -277,17 +271,14 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     Ok((proof, contract_statement, wallet_commitment_signature))
 }
 
-/// Generates the inputs for the `settle_online_relayer_fee` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID RELAYER FEE SETTLEMENT` circuit,
-/// along with a signature over the commitment to the wallet shares
+/// Generates the inputs for the `settle_online_relayer_fee` darkpool method,
+/// namely a dummy statement and associated proof for the `VALID RELAYER FEE
+/// SETTLEMENT` circuit, along with a signature over the commitment to the
+/// wallet shares
 pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
-) -> Result<(
-    ContractProof,
-    ContractValidRelayerFeeSettlementStatement,
-    Bytes,
-)> {
+) -> Result<(ContractProof, ContractValidRelayerFeeSettlementStatement, Bytes)> {
     // Generate signing keypair
     let (signing_key, contract_pubkey) = random_keypair(rng);
 
@@ -319,7 +310,8 @@ pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
 }
 
 /// Generates the inputs for the `settle_offline_fee` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID OFFLINE FEE SETTLEMENT` circuit
+/// a dummy statement and associated proof for the `VALID OFFLINE FEE
+/// SETTLEMENT` circuit
 pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
@@ -344,8 +336,8 @@ pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
 }
 
 /// Generates the inputs for the `redeem_fee` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID FEE REDEMPTION` circuit,
-/// along with a signature over the commitment to the wallet shares
+/// a dummy statement and associated proof for the `VALID FEE REDEMPTION`
+/// circuit, along with a signature over the commitment to the wallet shares
 pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
@@ -399,11 +391,7 @@ fn dummy_match_statements<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
     protocol_fee: FixedPoint,
-) -> (
-    [ValidCommitmentsStatement; 2],
-    [ValidReblindStatement; 2],
-    SizedValidMatchSettleStatement,
-) {
+) -> ([ValidCommitmentsStatement; 2], [ValidReblindStatement; 2], SizedValidMatchSettleStatement) {
     let valid_commitments0: ValidCommitmentsStatement = dummy_circuit_type(rng);
     let valid_commitments1: ValidCommitmentsStatement = dummy_circuit_type(rng);
 
@@ -415,21 +403,15 @@ fn dummy_match_statements<R: CryptoRng + RngCore>(
     valid_match_settle.party1_indices = valid_commitments1.indices;
     valid_match_settle.protocol_fee = protocol_fee;
 
-    (
-        [valid_commitments0, valid_commitments1],
-        [valid_reblind0, valid_reblind1],
-        valid_match_settle,
-    )
+    ([valid_commitments0, valid_commitments1], [valid_reblind0, valid_reblind1], valid_match_settle)
 }
 
-/// Generates dummy witnesses to be used in the proofs submitted to `process_match_settle`
+/// Generates dummy witnesses to be used in the proofs submitted to
+/// `process_match_settle`
 fn dummy_match_witnesses<R: CryptoRng + RngCore>(
     rng: &mut R,
-) -> (
-    [DummyValidCommitmentsWitness; 2],
-    [DummyValidReblindWitness; 2],
-    DummyValidMatchSettleWitness,
-) {
+) -> ([DummyValidCommitmentsWitness; 2], [DummyValidReblindWitness; 2], DummyValidMatchSettleWitness)
+{
     let valid_commitments0: DummyValidCommitmentsWitness = dummy_circuit_type(rng);
     let valid_commitments1: DummyValidCommitmentsWitness = dummy_circuit_type(rng);
 
@@ -445,17 +427,15 @@ fn dummy_match_witnesses<R: CryptoRng + RngCore>(
         valid_commitments_match_settle1: valid_commitments1.valid_commitments_match_settle1,
     };
 
-    (
-        [valid_commitments0, valid_commitments1],
-        [valid_reblind0, valid_reblind1],
-        valid_match_settle,
-    )
+    ([valid_commitments0, valid_commitments1], [valid_reblind0, valid_reblind1], valid_match_settle)
 }
 
-/// A type alias for the proofs and linking hints generated for the `process_match_settle` method
+/// A type alias for the proofs and linking hints generated for the
+/// `process_match_settle` method
 type MatchProofsAndHints = (MatchProofs, [(ProofLinkingHint, ProofLinkingHint); 4]);
 
-/// Generates the proofs and linking hints to be submitted to `process_match_settle`
+/// Generates the proofs and linking hints to be submitted to
+/// `process_match_settle`
 fn match_proofs_and_hints(
     valid_commitments_statements: [ValidCommitmentsStatement; 2],
     valid_commitments_witnesses: [DummyValidCommitmentsWitness; 2],
@@ -528,9 +508,7 @@ fn match_link_proofs(
 
     let (valid_reblind_hint_0, valid_commitments_hint_0) = &link_hints[0];
     let valid_reblind_commitments_0 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
-            SolidityTranscript,
-        >(
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_reblind_hint_0,
             valid_commitments_hint_0,
             &valid_reblind_commitments_layout,
@@ -539,9 +517,7 @@ fn match_link_proofs(
 
     let (valid_reblind_hint_1, valid_commitments_hint_1) = &link_hints[1];
     let valid_reblind_commitments_1 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
-            SolidityTranscript,
-        >(
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_reblind_hint_1,
             valid_commitments_hint_1,
             &valid_reblind_commitments_layout,
@@ -550,9 +526,7 @@ fn match_link_proofs(
 
     let (valid_commitments_hint_0, valid_match_settle_hint_0) = &link_hints[2];
     let valid_commitments_match_settle_0 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
-            SolidityTranscript,
-        >(
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_commitments_hint_0,
             valid_match_settle_hint_0,
             &valid_commitments_match_settle_0_layout,
@@ -561,9 +535,7 @@ fn match_link_proofs(
 
     let (valid_commitments_hint_1, valid_match_settle_hint_1) = &link_hints[3];
     let valid_commitments_match_settle_1 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
-            SolidityTranscript,
-        >(
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_commitments_hint_1,
             valid_match_settle_hint_1,
             &valid_commitments_match_settle_1_layout,
@@ -622,7 +594,8 @@ pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     })
 }
 
-/// Extract the public inputs from the [`ProcessMatchSettleData`] test data struct
+/// Extract the public inputs from the [`ProcessMatchSettleData`] test data
+/// struct
 fn extract_match_public_inputs(data: &ProcessMatchSettleData) -> MatchPublicInputs {
     MatchPublicInputs {
         valid_commitments_0: statement_to_public_inputs(
@@ -701,11 +674,7 @@ fn dummy_match_atomic_statements<R: CryptoRng + RngCore>(
     protocol_fee: FixedPoint,
     external_party_fees: FeeTake,
     match_result: ExternalMatchResult,
-) -> (
-    ValidCommitmentsStatement,
-    ValidReblindStatement,
-    SizedValidMatchSettleAtomicStatement,
-) {
+) -> (ValidCommitmentsStatement, ValidReblindStatement, SizedValidMatchSettleAtomicStatement) {
     let relayer_fee_address = random_address(rng);
     let relayer_fee_address_biguint = address_to_biguint(relayer_fee_address);
 
@@ -723,14 +692,11 @@ fn dummy_match_atomic_statements<R: CryptoRng + RngCore>(
     (valid_commitments, valid_reblind, valid_match_settle_atomic)
 }
 
-/// Generates dummy witnesses to be used in the proofs submitted to `process_atomic_match_settle`
+/// Generates dummy witnesses to be used in the proofs submitted to
+/// `process_atomic_match_settle`
 fn dummy_match_atomic_witnesses<R: CryptoRng + RngCore>(
     rng: &mut R,
-) -> (
-    DummyValidCommitmentsWitness,
-    DummyValidReblindWitness,
-    DummyValidMatchSettleAtomicWitness,
-) {
+) -> (DummyValidCommitmentsWitness, DummyValidReblindWitness, DummyValidMatchSettleAtomicWitness) {
     let valid_commitments: DummyValidCommitmentsWitness = dummy_circuit_type(rng);
     let valid_reblind = DummyValidReblindWitness {
         valid_reblind_commitments: valid_commitments.valid_reblind_commitments,
@@ -742,10 +708,12 @@ fn dummy_match_atomic_witnesses<R: CryptoRng + RngCore>(
     (valid_commitments, valid_reblind, valid_match_settle_atomic)
 }
 
-/// A type alias for the proofs and linking hints generated for the `process_atomic_match_settle` method
+/// A type alias for the proofs and linking hints generated for the
+/// `process_atomic_match_settle` method
 type MatchAtomicProofsAndHints = (MatchAtomicProofs, [(ProofLinkingHint, ProofLinkingHint); 2]);
 
-/// Generates the proofs and linking hints to be submitted to `process_atomic_match_settle`
+/// Generates the proofs and linking hints to be submitted to
+/// `process_atomic_match_settle`
 fn match_atomic_proofs_and_hints(
     valid_commitments_statement: ValidCommitmentsStatement,
     valid_reblind_statement: ValidReblindStatement,
@@ -772,11 +740,7 @@ fn match_atomic_proofs_and_hints(
     let valid_match_settle_atomic = to_contract_proof(&valid_match_settle_atomic)?;
 
     Ok((
-        MatchAtomicProofs {
-            valid_commitments,
-            valid_reblind,
-            valid_match_settle_atomic,
-        },
+        MatchAtomicProofs { valid_commitments, valid_reblind, valid_match_settle_atomic },
         [
             (valid_reblind_hint, valid_commitments_hint.clone()),
             (valid_commitments_hint, valid_match_settle_atomic_hint),
@@ -784,23 +748,19 @@ fn match_atomic_proofs_and_hints(
     ))
 }
 
-/// Generates the linking proofs to be submitted to `process_atomic_match_settle`
+/// Generates the linking proofs to be submitted to
+/// `process_atomic_match_settle`
 fn match_atomic_link_proofs(
     link_hints: [(ProofLinkingHint, ProofLinkingHint); 2],
 ) -> Result<MatchAtomicLinkingProofs> {
     let commit_key = SYSTEM_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
 
-    let MatchGroupLayouts {
-        valid_reblind_commitments,
-        valid_commitments_match_settle_0,
-        ..
-    } = gen_match_layouts::<DummyValidCommitments>()?;
+    let MatchGroupLayouts { valid_reblind_commitments, valid_commitments_match_settle_0, .. } =
+        gen_match_layouts::<DummyValidCommitments>()?;
 
     let (valid_reblind_hint, valid_commitments_hint) = &link_hints[0];
     let valid_reblind_commitments =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
-            SolidityTranscript,
-        >(
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_reblind_hint,
             valid_commitments_hint,
             &valid_reblind_commitments,
@@ -809,9 +769,7 @@ fn match_atomic_link_proofs(
 
     let (valid_commitments_hint, valid_match_settle_atomic_hint) = &link_hints[1];
     let valid_commitments_match_settle_atomic =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<
-            SolidityTranscript,
-        >(
+        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_commitments_hint,
             valid_match_settle_atomic_hint,
             &valid_commitments_match_settle_0,
@@ -824,7 +782,8 @@ fn match_atomic_link_proofs(
     })
 }
 
-/// Generate a `process_atomic_match_settle` payload with the given match and fees
+/// Generate a `process_atomic_match_settle` payload with the given match and
+/// fees
 pub fn gen_atomic_match_with_match_and_fees<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
@@ -864,7 +823,8 @@ pub fn gen_atomic_match_with_match_and_fees<R: CryptoRng + RngCore>(
     })
 }
 
-/// Picks a random Plonk proof from the batch of proofs verified in `verify_match` and mutates it
+/// Picks a random Plonk proof from the batch of proofs verified in
+/// `verify_match` and mutates it
 pub fn mutate_random_plonk_proof<R: CryptoRng + RngCore>(
     rng: &mut R,
     match_proofs: &mut MatchProofs,
@@ -880,7 +840,8 @@ pub fn mutate_random_plonk_proof<R: CryptoRng + RngCore>(
     proof.z_bar += ScalarField::one();
 }
 
-/// Picks a random linking proof from the batch of proofs verified in `verify_match` and mutates it
+/// Picks a random linking proof from the batch of proofs verified in
+/// `verify_match` and mutates it
 pub fn mutate_random_linking_proof<R: CryptoRng + RngCore>(
     rng: &mut R,
     match_linking_proofs: &mut MatchLinkingProofs,

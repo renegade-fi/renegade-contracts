@@ -1,4 +1,5 @@
-//! Various Solidity definitions, including ABI-compatible interfaces, events, functions, etc.
+//! Various Solidity definitions, including ABI-compatible interfaces, events,
+//! functions, etc.
 
 use alloy_sol_types::sol;
 

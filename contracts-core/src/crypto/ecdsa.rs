@@ -8,8 +8,9 @@ use contracts_common::{
 };
 use ruint::aliases::U256;
 
-/// Verify a secp256k1 ECDSA signature given a public key (extracted from a `VALID_WALLET_UPDATE` statement),
-/// a (un-hashed) message, and a signature (in the format expected by the `ecRecover` precompile, i.e. including a `v`
+/// Verify a secp256k1 ECDSA signature given a public key (extracted from a
+/// `VALID_WALLET_UPDATE` statement), a (un-hashed) message, and a signature (in
+/// the format expected by the `ecRecover` precompile, i.e. including a `v`
 /// recovery identifier)
 pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
     pubkey: &PublicSigningKey,
@@ -24,11 +25,12 @@ pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
 // | HELPERS |
 // -----------
 
-/// Converts a public signing key, as expressed in the `VALID_WALLET_UPDATE` statement,
-/// into an Ethereum address.
+/// Converts a public signing key, as expressed in the `VALID_WALLET_UPDATE`
+/// statement, into an Ethereum address.
 pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_BYTES_ADDRESS] {
-    // An Ethereum address is obtained from the rightmost 20 bytes of the Keccak-256 hash
-    // of the public key's x & y affine coordinates, concatenated in big-endian form.
+    // An Ethereum address is obtained from the rightmost 20 bytes of the Keccak-256
+    // hash of the public key's x & y affine coordinates, concatenated in
+    // big-endian form.
 
     let scalar_mod = U256::from_limbs(ScalarField::MODULUS.0);
 
@@ -45,9 +47,7 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
     let pubkey_bytes = [x_bytes, y_bytes].concat();
 
     // Unwrapping here is safe because we know that the hash output is 32 bytes long
-    H::hash(&pubkey_bytes)[HASH_OUTPUT_SIZE - NUM_BYTES_ADDRESS..]
-        .try_into()
-        .unwrap()
+    H::hash(&pubkey_bytes)[HASH_OUTPUT_SIZE - NUM_BYTES_ADDRESS..].try_into().unwrap()
 }
 
 #[cfg(test)]
@@ -67,10 +67,7 @@ mod tests {
         ) -> Result<[u8; NUM_BYTES_ADDRESS], EcdsaError> {
             let signature: Signature = signature.as_slice().try_into().map_err(|_| EcdsaError)?;
             let message_hash: RecoveryMessage = RecoveryMessage::Hash(message_hash.into());
-            Ok(signature
-                .recover(message_hash)
-                .map_err(|_| EcdsaError)?
-                .into())
+            Ok(signature.recover(message_hash).map_err(|_| EcdsaError)?.into())
         }
     }
 

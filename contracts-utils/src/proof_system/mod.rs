@@ -25,10 +25,12 @@ pub mod test_data;
 // | HIGH-LEVEL UTILITIES |
 // ------------------------
 
-/// Generate the verification keys for the circuits involved in settling a matched trade.
+/// Generate the verification keys for the circuits involved in settling a
+/// matched trade.
 ///
-/// Defined generically over the `VALID COMMITMENTS`, `VALID REBLIND`, and `VALID MATCH SETTLE`
-/// circuits, so that this can be used in both testing and production setings.
+/// Defined generically over the `VALID COMMITMENTS`, `VALID REBLIND`, and
+/// `VALID MATCH SETTLE` circuits, so that this can be used in both testing and
+/// production setings.
 pub fn gen_match_vkeys<C, R, M>() -> Result<MatchVkeys, ProofSystemError>
 where
     C: SingleProverCircuit,
@@ -39,14 +41,11 @@ where
     let valid_reblind_vkey = to_contract_vkey((*R::verifying_key()).clone())?;
     let valid_match_settle_vkey = to_contract_vkey((*M::verifying_key()).clone())?;
 
-    Ok(MatchVkeys {
-        valid_commitments_vkey,
-        valid_reblind_vkey,
-        valid_match_settle_vkey,
-    })
+    Ok(MatchVkeys { valid_commitments_vkey, valid_reblind_vkey, valid_match_settle_vkey })
 }
 
-/// Generate the verification keys for the circuits involved in settling a matched trade
+/// Generate the verification keys for the circuits involved in settling a
+/// matched trade
 pub fn gen_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys, ProofSystemError>
 where
     C: SingleProverCircuit,
@@ -68,16 +67,19 @@ where
 pub struct MatchGroupLayouts {
     /// The `VALID REBLIND` <-> `VALID COMMITMENTS` link group layout
     pub valid_reblind_commitments: GroupLayout,
-    /// The first party's `VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link group layout
+    /// The first party's `VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
+    /// group layout
     pub valid_commitments_match_settle_0: GroupLayout,
-    /// The second party's `VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link group layout
+    /// The second party's `VALID COMMITMENTS` <-> `VALID MATCH SETTLE` link
+    /// group layout
     pub valid_commitments_match_settle_1: GroupLayout,
 }
 
-/// Generates the group layouts for the linked circuits involved in settling a matched trade.
+/// Generates the group layouts for the linked circuits involved in settling a
+/// matched trade.
 ///
-/// Defined generically over the `VALID COMMITMENTS` circuit, so that this can be used in both
-/// the testing and production setting.
+/// Defined generically over the `VALID COMMITMENTS` circuit, so that this can
+/// be used in both the testing and production setting.
 pub fn gen_match_layouts<C: SingleProverCircuit>() -> Result<MatchGroupLayouts, ProofSystemError> {
     let valid_commitments_layout = C::get_circuit_layout()
         .map_err(|e| ProofSystemError::ProverError(ProverError::Plonk(e)))?;
@@ -98,10 +100,11 @@ pub fn gen_match_layouts<C: SingleProverCircuit>() -> Result<MatchGroupLayouts, 
     })
 }
 
-/// Generates the linking verification keys for the linked circuits involved in settling a matched trade.
+/// Generates the linking verification keys for the linked circuits involved in
+/// settling a matched trade.
 ///
-/// Defined generically over the `VALID COMMITMENTS` circuit, so that this can be used in both
-/// the testing and production setting.
+/// Defined generically over the `VALID COMMITMENTS` circuit, so that this can
+/// be used in both the testing and production setting.
 pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
 ) -> Result<MatchLinkingVkeys, ProofSystemError> {
     let MatchGroupLayouts {
@@ -117,14 +120,12 @@ pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
     })
 }
 
-/// Generate the linking verification keys for the circuits involved in settling an atomic match
+/// Generate the linking verification keys for the circuits involved in settling
+/// an atomic match
 pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
 ) -> Result<MatchAtomicLinkingVkeys, ProofSystemError> {
-    let MatchGroupLayouts {
-        valid_reblind_commitments,
-        valid_commitments_match_settle_0,
-        ..
-    } = gen_match_layouts::<C>()?;
+    let MatchGroupLayouts { valid_reblind_commitments, valid_commitments_match_settle_0, .. } =
+        gen_match_layouts::<C>()?;
 
     Ok(MatchAtomicLinkingVkeys {
         valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments),

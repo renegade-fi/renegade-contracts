@@ -1,5 +1,6 @@
-//! The darkpool smart contract, responsible for maintaining the set of nullified wallets,
-//! verifying the various proofs of the Renegade protocol, and handling deposits / withdrawals.
+//! The darkpool smart contract, responsible for maintaining the set of
+//! nullified wallets, verifying the various proofs of the Renegade protocol,
+//! and handling deposits / withdrawals.
 
 use alloc::{vec, vec::Vec};
 use core::borrow::{Borrow, BorrowMut};
@@ -71,10 +72,11 @@ pub struct DarkpoolContract {
     /// boolean indicating whether or not the nullifier is spent
     pub(crate) nullifier_set: StorageMap<U256, StorageBool>,
 
-    /// The set of public blinder shares used by wallets committed into the darkpool
+    /// The set of public blinder shares used by wallets committed into the
+    /// darkpool
     ///
-    /// We disallow re-use of public blinder shares to prevent clients indexing the
-    /// pool from seeing conflicting wallet shares
+    /// We disallow re-use of public blinder shares to prevent clients indexing
+    /// the pool from seeing conflicting wallet shares
     pub(crate) public_blinder_set: StorageMap<U256, StorageBool>,
 
     /// The protocol fee, representing a percentage of the trade volume
@@ -89,7 +91,8 @@ pub struct DarkpoolContract {
     // --- Updated Fields for Atomic Settlement --- //
     /// The address of the protocol external fee collection wallet
     ///
-    /// This is the address at which the protocol collects fees from external parties
+    /// This is the address at which the protocol collects fees from external
+    /// parties
     pub(crate) protocol_external_fee_collection_address: StorageAddress,
 
     /// The address of the core settlement contract
@@ -273,10 +276,7 @@ impl DarkpoolContract {
     pub fn get_protocol_external_fee_collection_address<S: TopLevelStorage + Borrow<Self>>(
         storage: &S,
     ) -> Result<Address, Vec<u8>> {
-        Ok(storage
-            .borrow()
-            .protocol_external_fee_collection_address
-            .get())
+        Ok(storage.borrow().protocol_external_fee_collection_address.get())
     }
 
     // -----------
@@ -301,18 +301,10 @@ impl DarkpoolContract {
         new_public_encryption_key: [U256; 2],
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        let mut pubkey_x = storage
-            .borrow_mut()
-            .protocol_public_encryption_key
-            .setter(0)
-            .unwrap();
+        let mut pubkey_x = storage.borrow_mut().protocol_public_encryption_key.setter(0).unwrap();
         pubkey_x.set(new_public_encryption_key[0]);
 
-        let mut pubkey_y = storage
-            .borrow_mut()
-            .protocol_public_encryption_key
-            .setter(1)
-            .unwrap();
+        let mut pubkey_y = storage.borrow_mut().protocol_public_encryption_key.setter(1).unwrap();
         pubkey_y.set(new_public_encryption_key[1]);
 
         evm::log(PubkeyRotated {
@@ -348,14 +340,9 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(core_wallet_ops_address)?;
-        storage
-            .borrow_mut()
-            .core_wallet_ops_address
-            .set(core_wallet_ops_address);
+        storage.borrow_mut().core_wallet_ops_address.set(core_wallet_ops_address);
 
-        evm::log(CoreWalletOpsAddressChanged {
-            new_address: core_wallet_ops_address,
-        });
+        evm::log(CoreWalletOpsAddressChanged { new_address: core_wallet_ops_address });
 
         Ok(())
     }
@@ -367,14 +354,9 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(core_settlement_address)?;
-        storage
-            .borrow_mut()
-            .core_settlement_address
-            .set(core_settlement_address);
+        storage.borrow_mut().core_settlement_address.set(core_settlement_address);
 
-        evm::log(CoreSettlementAddressChanged {
-            new_address: core_settlement_address,
-        });
+        evm::log(CoreSettlementAddressChanged { new_address: core_settlement_address });
         Ok(())
     }
 
@@ -385,13 +367,8 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(verifier_core_address)?;
-        storage
-            .borrow_mut()
-            .verifier_core_address
-            .set(verifier_core_address);
-        evm::log(VerifierCoreAddressChanged {
-            new_address: verifier_core_address,
-        });
+        storage.borrow_mut().verifier_core_address.set(verifier_core_address);
+        evm::log(VerifierCoreAddressChanged { new_address: verifier_core_address });
         Ok(())
     }
 
@@ -402,14 +379,9 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(verifier_settlement_address)?;
-        storage
-            .borrow_mut()
-            .verifier_settlement_address
-            .set(verifier_settlement_address);
+        storage.borrow_mut().verifier_settlement_address.set(verifier_settlement_address);
 
-        evm::log(VerifierSettlementAddressChanged {
-            new_address: verifier_settlement_address,
-        });
+        evm::log(VerifierSettlementAddressChanged { new_address: verifier_settlement_address });
         Ok(())
     }
 
@@ -421,9 +393,7 @@ impl DarkpoolContract {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(vkeys_address)?;
         storage.borrow_mut().vkeys_address.set(vkeys_address);
-        evm::log(VkeysAddressChanged {
-            new_address: vkeys_address,
-        });
+        evm::log(VkeysAddressChanged { new_address: vkeys_address });
         Ok(())
     }
 
@@ -435,9 +405,7 @@ impl DarkpoolContract {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(merkle_address)?;
         storage.borrow_mut().merkle_address.set(merkle_address);
-        evm::log(MerkleAddressChanged {
-            new_address: merkle_address,
-        });
+        evm::log(MerkleAddressChanged { new_address: merkle_address });
         Ok(())
     }
 
@@ -449,14 +417,9 @@ impl DarkpoolContract {
         DarkpoolContract::_check_owner(storage)?;
         DarkpoolContract::check_address_not_zero(transfer_executor_address)?;
 
-        storage
-            .borrow_mut()
-            .transfer_executor_address
-            .set(transfer_executor_address);
+        storage.borrow_mut().transfer_executor_address.set(transfer_executor_address);
 
-        evm::log(TransferExecutorAddressChanged {
-            new_address: transfer_executor_address,
-        });
+        evm::log(TransferExecutorAddressChanged { new_address: transfer_executor_address });
         Ok(())
     }
 
@@ -476,10 +439,7 @@ impl DarkpoolContract {
         delegate_call_helper::<newWalletCall>(
             storage,
             core_wallet_ops_address,
-            (
-                proof.to_vec().into(),
-                valid_wallet_create_statement_bytes.to_vec().into(),
-            ),
+            (proof.to_vec().into(), valid_wallet_create_statement_bytes.to_vec().into()),
         )
         .map(|_| ())
     }
@@ -511,8 +471,9 @@ impl DarkpoolContract {
     /// Settles a matched order between two parties,
     /// inserting the updated wallets into the commitment tree.
     ///
-    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::MatchProofs`]
-    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// The `match_proofs` argument is the serialization of the
+    /// [`contracts_common::types::MatchProofs`] struct, and the
+    /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::MatchLinkingProofs`] struct
     pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -539,13 +500,16 @@ impl DarkpoolContract {
         .map(|_| ())
     }
 
-    /// Processes an atomic match settlement between two parties; one internal and one external
+    /// Processes an atomic match settlement between two parties; one internal
+    /// and one external
     ///
-    /// An internal party is one with state committed into the darkpool, while an external party provides liquidity to the pool
-    /// during the transaction in which this method is called
+    /// An internal party is one with state committed into the darkpool, while
+    /// an external party provides liquidity to the pool during the
+    /// transaction in which this method is called
     ///
-    /// The `match_proofs` argument is the serialization of the [`contracts_common::types::ExternalMatchProofs`]
-    /// struct, and the `match_linking_proofs` argument is the serialization of the
+    /// The `match_proofs` argument is the serialization of the
+    /// [`contracts_common::types::ExternalMatchProofs`] struct, and the
+    /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
     pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -570,8 +534,8 @@ impl DarkpoolContract {
         .map(|_| ())
     }
 
-    /// Settles the fee accumulated by a relayer for a given balance in a managed wallet
-    /// into the relayer's wallet
+    /// Settles the fee accumulated by a relayer for a given balance in a
+    /// managed wallet into the relayer's wallet
     pub fn settle_online_relayer_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         proof: Bytes,
@@ -606,10 +570,7 @@ impl DarkpoolContract {
         delegate_call_helper::<settleOfflineFeeCall>(
             storage,
             core_wallet_ops_address,
-            (
-                proof.to_vec().into(),
-                valid_offline_fee_settlement_statement.to_vec().into(),
-            ),
+            (proof.to_vec().into(), valid_offline_fee_settlement_statement.to_vec().into()),
         )
         .map(|_| ())
     }
@@ -650,10 +611,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         let version_uint64 = U64::from_limbs([version]);
         let this = storage.borrow_mut();
-        assert_result!(
-            this.initialized.get() < version_uint64,
-            INVALID_VERSION_ERROR_MESSAGE
-        )?;
+        assert_result!(this.initialized.get() < version_uint64, INVALID_VERSION_ERROR_MESSAGE)?;
         this.initialized.set(version_uint64);
         Ok(())
     }
@@ -673,10 +631,7 @@ impl DarkpoolContract {
 
     /// Checks that the sender is the owner
     pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
-        assert_result!(
-            storage.borrow().owner.get() == msg::sender(),
-            NOT_OWNER_ERROR_MESSAGE
-        )
+        assert_result!(storage.borrow().owner.get() == msg::sender(), NOT_OWNER_ERROR_MESSAGE)
     }
 
     // ------------
@@ -719,17 +674,9 @@ impl DarkpoolContract {
     pub fn _get_protocol_pubkey_coords<S: TopLevelStorage + Borrow<Self>>(
         storage: &S,
     ) -> [U256; 2] {
-        let protocol_pubkey_x = storage
-            .borrow()
-            .protocol_public_encryption_key
-            .get(0)
-            .unwrap();
+        let protocol_pubkey_x = storage.borrow().protocol_public_encryption_key.get(0).unwrap();
 
-        let protocol_pubkey_y = storage
-            .borrow()
-            .protocol_public_encryption_key
-            .get(1)
-            .unwrap();
+        let protocol_pubkey_y = storage.borrow().protocol_public_encryption_key.get(1).unwrap();
 
         [protocol_pubkey_x, protocol_pubkey_y]
     }

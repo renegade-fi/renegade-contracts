@@ -1,4 +1,5 @@
-//! A simple transcript used for computing challenge values via the Fiat-Shamir transformation.
+//! A simple transcript used for computing challenge values via the Fiat-Shamir
+//! transformation.
 
 use alloc::vec::Vec;
 use ark_ff::{BigInt, BigInteger, PrimeField};
@@ -51,8 +52,9 @@ impl<H: HashBackend> Transcript<H> {
 
         // Sample the first `HASH_SAMPLE_BYTES` bytes of hash output into a scalar.
 
-        // We begin by taking the lowest `NUM_BYTES_FELT-1` bytes of the hash output in little-endian order
-        // and converting them into a scalar directly, as no reduction is needed.
+        // We begin by taking the lowest `NUM_BYTES_FELT-1` bytes of the hash output in
+        // little-endian order and converting them into a scalar directly, as no
+        // reduction is needed.
         let (bytes_to_directly_convert, remaining_bytes) =
             self.state[..HASH_SAMPLE_BYTES].split_at(SPLIT_INDEX);
         let res = ScalarField::from_bigint(bigint_from_le_bytes(bytes_to_directly_convert)?)
@@ -63,8 +65,9 @@ impl<H: HashBackend> Transcript<H> {
         let mut rem_scalar = ScalarField::from_bigint(bigint_from_le_bytes(remaining_bytes)?)
             .ok_or(SerdeError::ScalarConversion)?;
 
-        // Now, we shift the latter scalar left by 31 bytes, which is equivalent to multiplying by 2^248.
-        // Reduction is done for us by using modular multiplication for the shift.
+        // Now, we shift the latter scalar left by 31 bytes, which is equivalent to
+        // multiplying by 2^248. Reduction is done for us by using modular
+        // multiplication for the shift.
 
         // 2^248 in big endian = 1 followed by 248 zeroes
         let mut shift_bits = [false; (SPLIT_INDEX) * 8 + 1];
@@ -73,7 +76,8 @@ impl<H: HashBackend> Transcript<H> {
             .ok_or(SerdeError::ScalarConversion)?;
         rem_scalar *= shift_by_31_bytes;
 
-        // Finally, we add the two scalars together. Again, reduction is done for us by using modular addition.
+        // Finally, we add the two scalars together. Again, reduction is done for us by
+        // using modular addition.
         Ok(res + rem_scalar)
     }
 
@@ -89,8 +93,9 @@ impl<H: HashBackend> Transcript<H> {
         self.append_message(&ScalarField::MODULUS_BIT_SIZE.to_le_bytes());
         self.append_message(&vkey.n.to_le_bytes());
         self.append_message(&vkey.l.to_le_bytes());
-        // For equivalency with Jellyfish, which expects as many coset constants as there are wire types,
-        // we inject an identity constant, which generates the first coset
+        // For equivalency with Jellyfish, which expects as many coset constants as
+        // there are wire types, we inject an identity constant, which generates
+        // the first coset
         self.append_message(&serialize_scalars_for_transcript(&vkey.k));
         self.append_message(&serialize_g1s_for_transcript(&vkey.q_comms));
         self.append_message(&serialize_g1s_for_transcript(&vkey.sigma_comms));
@@ -98,20 +103,23 @@ impl<H: HashBackend> Transcript<H> {
 
         // Prover round 1: absorb wire polynomial commitments
         self.append_message(&serialize_g1s_for_transcript(&proof.wire_comms));
-        // Here, for consistency with the Jellyfish implementation, we squeeze an unused challenge
-        // `tau`, which would be used for Plookup
+        // Here, for consistency with the Jellyfish implementation, we squeeze an unused
+        // challenge `tau`, which would be used for Plookup
         self.get_and_append_challenge()?;
 
-        // Prover round 2: squeeze beta & gamma challenges, absorb grand product polynomial commitment
+        // Prover round 2: squeeze beta & gamma challenges, absorb grand product
+        // polynomial commitment
         let beta = self.get_and_append_challenge()?;
         let gamma = self.get_and_append_challenge()?;
         self.append_message(&serialize_g1s_for_transcript(&[proof.z_comm]));
 
-        // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial commitments
+        // Prover round 3: squeeze alpha challenge, absorb split quotient polynomial
+        // commitments
         let alpha = self.get_and_append_challenge()?;
         self.append_message(&serialize_g1s_for_transcript(&proof.quotient_comms));
 
-        // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand product polynomial evaluations
+        // Prover round 4: squeeze zeta challenge, absorb wire, permutation, and grand
+        // product polynomial evaluations
         let zeta = self.get_and_append_challenge()?;
         self.append_message(&serialize_scalars_for_transcript(&proof.wire_evals));
         self.append_message(&serialize_scalars_for_transcript(&proof.sigma_evals));
@@ -125,14 +133,7 @@ impl<H: HashBackend> Transcript<H> {
         // Squeeze u challenge
         let u = self.get_and_append_challenge()?;
 
-        Ok(Challenges {
-            beta,
-            gamma,
-            alpha,
-            zeta,
-            v,
-            u,
-        })
+        Ok(Challenges { beta, gamma, alpha, zeta, v, u })
     }
 
     /// Compute the eta challenge used in the proof linking protocol,
@@ -154,8 +155,8 @@ impl<H: HashBackend> Transcript<H> {
 
 /// Serializes a slice of scalars into a little-endian byte array.
 ///
-/// This is the format expected by the transcript, whereas our serialization format
-/// is big-endian.
+/// This is the format expected by the transcript, whereas our serialization
+/// format is big-endian.
 pub fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(scalars.len() * NUM_BYTES_FELT);
     for scalar in scalars {
@@ -166,7 +167,8 @@ pub fn serialize_scalars_for_transcript(scalars: &[ScalarField]) -> Vec<u8> {
     bytes
 }
 
-/// Serializes a slice of [`G1Affine`]s into a the format expected by the transcript
+/// Serializes a slice of [`G1Affine`]s into a the format expected by the
+/// transcript
 pub fn serialize_g1s_for_transcript(points: &[G1Affine]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(points.len() * NUM_BYTES_FELT * 2);
     for point in points {
@@ -274,9 +276,8 @@ pub mod tests {
         let public_inputs = PublicInputs(random_scalars(L, &mut rng));
 
         let mut stylus_transcript = Transcript::<NativeHasher>::new();
-        let challenges = stylus_transcript
-            .compute_plonk_challenges(&vkey, &proof, &public_inputs)
-            .unwrap();
+        let challenges =
+            stylus_transcript.compute_plonk_challenges(&vkey, &proof, &public_inputs).unwrap();
 
         let jf_challenges = get_jf_challenges(&jf_vkey, &public_inputs.0, &jf_proof, &None);
 
