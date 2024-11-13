@@ -29,3 +29,11 @@ abigen!(
         function transferFrom(address from, address to, uint256 value) external returns (bool)
     ]"#
 );
+
+abigen!(
+    DummyWethContract,
+    r#"[
+        function deposit() external payable
+        function withdrawTo(address to, uint256 value) external
+    ]"#,
+);

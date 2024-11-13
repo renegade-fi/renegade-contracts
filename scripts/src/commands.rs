@@ -49,7 +49,7 @@ use crate::{
         VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
-    solidity::{DummyErc20Contract, ProxyAdminContract},
+    solidity::{DummyErc20Contract, DummyWethContract, ProxyAdminContract},
     types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
@@ -59,6 +59,9 @@ use crate::{
         LocalWalletHttpClient,
     },
 };
+
+/// The amount of wei to fund a wrapper contract with
+const WRAPPER_FUNDING_AMOUNT: u64 = 100_000;
 
 /// Builds & deploys all of the contracts necessary for running the integration
 /// testing suite.
@@ -397,7 +400,10 @@ pub async fn deploy_erc20(
     )
     .await?;
 
-    set_erc20_params(erc20_address, client, args).await?;
+    set_erc20_params(erc20_address, client.clone(), args).await?;
+    if args.as_wrapper {
+        fund_wrapper_contract(erc20_address, WRAPPER_FUNDING_AMOUNT.into(), client).await?;
+    }
 
     if !args.account_skeys.is_empty() {
         let permit2_address = read_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY)?;
@@ -450,6 +456,17 @@ async fn fund_and_approve_erc20(
     send_contract_call(erc20.approve(permit2_address, EthersU256::MAX)).await?;
 
     Ok(())
+}
+
+/// Fund a wrapper contract with ETH after it is deployed
+async fn fund_wrapper_contract(
+    wrapper_address: Address,
+    value: EthersU256,
+    client: Arc<LocalWalletHttpClient>,
+) -> Result<(), ScriptError> {
+    let weth_contract = DummyWethContract::new(wrapper_address, client);
+    let call = weth_contract.deposit().value(value);
+    send_contract_call(call).await.map(|_| ())
 }
 
 /// Builds and deploys a Stylus contract,

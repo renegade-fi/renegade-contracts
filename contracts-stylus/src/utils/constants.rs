@@ -65,6 +65,10 @@ pub const ROOT_NOT_IN_HISTORY_ERROR_MESSAGE: &[u8] = b"root not in history";
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub const TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE: &[u8] = b"transfer arithmetic overflow";
 
+/// The revert message when a transaction value should be zero
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
+pub const INVALID_TRANSACTION_VALUE_ERROR_MESSAGE: &[u8] = b"transaction value should be zero";
+
 /// The revert message when order settlement indices are different
 /// between a VALID COMMITMENTS & VALID MATCH SETTLE statement
 #[cfg(feature = "core-settlement")]
@@ -116,11 +120,7 @@ pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer au
 
 /// A dummy address for the native asset, constant across all chains
 /// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
-#[cfg(any(
-    feature = "transfer-executor",
-    feature = "core-settlement",
-    feature = "test-helpers"
-))]
+#[cfg(any(feature = "transfer-executor", feature = "core-settlement", feature = "test-helpers"))]
 pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 /// The address of the WETH contract
