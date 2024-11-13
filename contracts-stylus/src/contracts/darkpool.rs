@@ -511,6 +511,10 @@ impl DarkpoolContract {
     /// [`contracts_common::types::ExternalMatchProofs`] struct, and the
     /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
+    ///
+    /// Note that all sub-calls of `process_atomic_match_settle` must be marked
+    /// as payable to allow for the darkpool to delegate call them. This can be
+    /// seen in the merkle and transfer executor contracts.
     #[payable]
     pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,

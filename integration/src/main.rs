@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use abis::DummyErc20Contract;
+use abis::{DarkpoolTestContract, DummyErc20Contract};
 use alloy_primitives::U256;
 use clap::Parser;
 use cli::Cli;
@@ -101,6 +101,11 @@ impl TestContext {
     ) -> Result<U256> {
         let contract = DummyErc20Contract::new(erc20_address, self.client.clone());
         contract.balance_of(address).call().await.map_err(Into::into).map(u256_to_alloy_u256)
+    }
+
+    /// Build an instance of the darkpool contract
+    pub fn darkpool_contract(&self) -> DarkpoolTestContract<LocalWalletHttpClient> {
+        DarkpoolTestContract::new(self.darkpool_proxy_address, self.client.clone())
     }
 }
 

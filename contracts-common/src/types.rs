@@ -427,6 +427,11 @@ pub struct ExternalMatchResult {
 
 #[cfg(feature = "core-settlement")]
 impl ExternalMatchResult {
+    /// Whether or not the external party is the base-mint seller
+    pub fn is_external_party_sell(&self) -> bool {
+        !self.direction
+    }
+
     /// Get the mint sold by the external party in the match
     pub fn external_party_sell_mint_amount(&self) -> (Address, U256) {
         if self.direction {

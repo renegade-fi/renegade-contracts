@@ -26,6 +26,7 @@ use crate::{
             processMatchSettleVkeysCall, verifyAtomicMatchCall, verifyMatchCall,
         },
     },
+    INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
@@ -277,6 +278,16 @@ impl CoreSettlementContract {
         let valid_match_settle_atomic_statement: ValidMatchSettleAtomicStatement =
             deserialize_from_calldata(&valid_match_settle_statement)?;
 
+        // The transaction value should be zero unless the external party is selling
+        // native ETH in the trade
+        let match_result = &valid_match_settle_atomic_statement.match_result;
+        let is_native_eth = is_native_eth_address(match_result.base_mint);
+        let is_external_party_sell = match_result.is_external_party_sell();
+        let native_eth_sell = is_native_eth && is_external_party_sell;
+        if !native_eth_sell && msg::value() > U256::ZERO {
+            return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
+        }
+
         if_verifying!({
             let commitments_indices =
                 &internal_party_match_payload.valid_commitments_statement.indices;
@@ -296,6 +307,7 @@ impl CoreSettlementContract {
 
             Self::batch_verify_process_atomic_match_settle(
                 storage,
+                is_native_eth,
                 &internal_party_match_payload,
                 valid_match_settle_atomic_statement.clone(),
                 match_proofs,
@@ -373,6 +385,7 @@ impl CoreSettlementContract {
     /// TODO: Optimize the (re)serialization of the match statements if need be
     pub fn batch_verify_process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        is_native_eth: bool,
         internal_party_match_payload: &MatchPayload,
         mut valid_match_settle_atomic_statement: ValidMatchSettleAtomicStatement,
         match_proofs: Bytes,
@@ -386,8 +399,7 @@ impl CoreSettlementContract {
         // We allow native ETH transfers on external matches, but the verifier will
         // expect WETH to be compatible with internal orders, so we change it
         // here
-        let base_asset = valid_match_settle_atomic_statement.match_result.base_mint;
-        if is_native_eth_address(base_asset) {
+        if is_native_eth {
             let weth = get_weth_address();
             valid_match_settle_atomic_statement.match_result.base_mint = weth;
         }
