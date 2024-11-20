@@ -30,7 +30,7 @@ use contracts_common::{
 };
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::Address,
+    alloy_primitives::{Address, U256},
     call::Call,
     contract, evm, msg,
     prelude::*,
@@ -167,6 +167,11 @@ impl TransferExecutorContract {
         &mut self,
         transfer: SimpleErc20Transfer,
     ) -> Result<(), Vec<u8>> {
+        // Do nothing if the transfer is zero
+        if transfer.amount == U256::ZERO {
+            return Ok(());
+        }
+
         if transfer.is_withdrawal {
             self.execute_simple_erc20_withdrawal(transfer)
         } else {
