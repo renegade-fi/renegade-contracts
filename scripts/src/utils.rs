@@ -422,6 +422,8 @@ pub async fn deploy_stylus_contract(
     deploy_cmd.arg("--private-key");
     deploy_cmd.arg(priv_key);
     deploy_cmd.arg("--no-verify");
+    deploy_cmd.arg("--max-fee-per-gas-gwei");
+    deploy_cmd.arg("1");
 
     command_success_or(deploy_cmd, "Failed to deploy Stylus contract")?;
 

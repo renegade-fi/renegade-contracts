@@ -129,9 +129,8 @@ pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 /// deployer.
 ///
 /// For convenience, the addresses of WETH on Arbitrum chains are below:
-/// - Sepolia: 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73 // TODO: replace with
-///   dummy WETH address
-/// - Arbitrum One: 0x82aF49447D8a07e3bd95BD0d56f35241523fBabb
+/// - Sepolia: 0xc3414a7ef14aaaa9c4522dfc00a4e66e74e9c25a
+/// - Arbitrum One: 0x82af49447d8a07e3bd95bd0d56f35241523fbab1
 #[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
 pub const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
 
