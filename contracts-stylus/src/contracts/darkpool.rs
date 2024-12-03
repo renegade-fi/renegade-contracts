@@ -525,11 +525,40 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
+        let receiver = msg::sender();
         let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
             core_settlement_address,
             (
+                receiver,
+                internal_party_match_payload.to_vec().into(),
+                valid_match_settle_atomic_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|_| ())
+    }
+
+    /// Process an atomic match settle statement with a receiver specified
+    #[payable]
+    pub fn process_atomic_match_settle_with_receiver<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
+        delegate_call_helper::<processAtomicMatchSettleCall>(
+            storage,
+            core_settlement_address,
+            (
+                receiver,
                 internal_party_match_payload.to_vec().into(),
                 valid_match_settle_atomic_statement.to_vec().into(),
                 match_proofs.to_vec().into(),

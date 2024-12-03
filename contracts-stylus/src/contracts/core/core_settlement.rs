@@ -267,6 +267,7 @@ impl CoreSettlementContract {
     #[payable]
     pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        receiver: Address,
         internal_party_match_payload: Bytes,
         valid_match_settle_statement: Bytes,
         match_proofs: Bytes,
@@ -329,7 +330,13 @@ impl CoreSettlementContract {
         let fees = valid_match_settle_atomic_statement.external_party_fees;
         let match_result = valid_match_settle_atomic_statement.match_result;
         let relayer_fee_address = valid_match_settle_atomic_statement.relayer_fee_address;
-        Self::execute_atomic_match_transfers(storage, fees, match_result, relayer_fee_address)?;
+        Self::execute_atomic_match_transfers(
+            storage,
+            receiver,
+            fees,
+            match_result,
+            relayer_fee_address,
+        )?;
 
         Ok(())
     }
@@ -432,6 +439,7 @@ impl CoreSettlementContract {
     /// settlement
     pub fn execute_atomic_match_transfers<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        receiver: Address,
         fees: FeeTake,
         match_result: ExternalMatchResult,
         relayer_fee_address: Address,
@@ -464,7 +472,7 @@ impl CoreSettlementContract {
             .checked_sub(fees.total())
             .ok_or(TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE)?;
         transfers_batch.push(SimpleErc20Transfer::new_withdraw(
-            tx_sender,
+            receiver,
             receive_mint,
             trader_take,
         ));
