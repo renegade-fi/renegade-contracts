@@ -7,7 +7,7 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
-use alloc::{string::String, vec::Vec};
+use alloc::string::String;
 use stylus_sdk::{
     alloy_primitives::{Address, Uint, U256},
     alloy_sol_types::{sol, SolError},
@@ -43,19 +43,10 @@ sol! {
     error InsufficientAllowance(address owner, address spender, uint256 have, uint256 want);
 }
 
+#[derive(SolidityError)]
 pub enum Erc20Error {
     InsufficientBalance(InsufficientBalance),
     InsufficientAllowance(InsufficientAllowance),
-}
-
-// We will soon provide a #[derive(SolidityError)] to clean this up
-impl From<Erc20Error> for Vec<u8> {
-    fn from(err: Erc20Error) -> Vec<u8> {
-        match err {
-            Erc20Error::InsufficientBalance(e) => e.abi_encode(),
-            Erc20Error::InsufficientAllowance(e) => e.abi_encode(),
-        }
-    }
 }
 
 // These methods aren't exposed to other contracts

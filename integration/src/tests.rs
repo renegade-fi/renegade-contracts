@@ -1628,6 +1628,86 @@ async fn test_process_atomic_match_settle_nonzero_transaction_value(
 }
 integration_test_async!(test_process_atomic_match_settle_nonzero_transaction_value);
 
+/// Test the `process_atomic_match_settle_with_receiver` method on the darkpool
+///
+/// I.e. test an atomic settlement with a non-sender receiver specified
+async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Result<()> {
+    // Setup test with a random receiver address
+    let receiver = Address::random();
+    let base_addr = ctx.test_erc20_address1;
+    let quote_addr = ctx.test_erc20_address2;
+    let darkpool = ctx.darkpool_contract();
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+
+    // Get pre-balances
+    let darkpool_addr = darkpool.address();
+    let sender_pre_base_balance = ctx.get_erc20_balance(base_addr).await?;
+    let sender_pre_quote_balance = ctx.get_erc20_balance(quote_addr).await?;
+    let receiver_pre_base_balance = ctx.get_erc20_balance_of(base_addr, receiver).await?;
+    let receiver_pre_quote_balance = ctx.get_erc20_balance_of(quote_addr, receiver).await?;
+    let darkpool_pre_base_balance = ctx.get_erc20_balance_of(base_addr, darkpool_addr).await?;
+    let darkpool_pre_quote_balance = ctx.get_erc20_balance_of(quote_addr, darkpool_addr).await?;
+
+    // Execute match with specified receiver
+    darkpool
+        .process_atomic_match_settle_with_receiver(
+            receiver,
+            serialize_to_calldata(&data.internal_party_match_payload)?,
+            serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+            serialize_to_calldata(&data.match_atomic_proofs)?,
+            serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+        )
+        .send()
+        .await?;
+
+    // Get post-balances for receiver
+    let sender_post_base_balance = ctx.get_erc20_balance(base_addr).await?;
+    let sender_post_quote_balance = ctx.get_erc20_balance(quote_addr).await?;
+    let receiver_post_base_balance = ctx.get_erc20_balance_of(base_addr, receiver).await?;
+    let receiver_post_quote_balance = ctx.get_erc20_balance_of(quote_addr, receiver).await?;
+    let darkpool_post_base_balance = ctx.get_erc20_balance_of(base_addr, darkpool_addr).await?;
+    let darkpool_post_quote_balance = ctx.get_erc20_balance_of(quote_addr, darkpool_addr).await?;
+
+    // Verify receiver balances changed correctly
+    let fees = &data.valid_match_settle_atomic_statement.external_party_fees;
+    let base_amount = data.valid_match_settle_atomic_statement.match_result.base_amount;
+    let quote_amount = data.valid_match_settle_atomic_statement.match_result.quote_amount;
+    let expected_sender_base_balance = sender_pre_base_balance; // Unchanged
+    let expected_sender_quote_balance = sender_pre_quote_balance - quote_amount;
+    let expected_receiver_base_balance = receiver_pre_base_balance + base_amount - fees.total();
+    let expected_receiver_quote_balance = receiver_pre_quote_balance; // Unchanged
+    let expected_darkpool_base_balance = darkpool_pre_base_balance - base_amount;
+    let expected_darkpool_quote_balance = darkpool_pre_quote_balance + quote_amount;
+
+    assert_eq!(
+        sender_post_base_balance, expected_sender_base_balance,
+        "Sender's base balance change incorrect"
+    );
+    assert_eq!(
+        sender_post_quote_balance, expected_sender_quote_balance,
+        "Sender's quote balance change incorrect"
+    );
+    assert_eq!(
+        receiver_post_base_balance, expected_receiver_base_balance,
+        "Receiver's base balance change incorrect"
+    );
+    assert_eq!(
+        receiver_post_quote_balance, expected_receiver_quote_balance,
+        "Receiver's quote balance change incorrect"
+    );
+    assert_eq!(
+        darkpool_post_base_balance, expected_darkpool_base_balance,
+        "Darkpool's base balance change incorrect"
+    );
+    assert_eq!(
+        darkpool_post_quote_balance, expected_darkpool_quote_balance,
+        "Darkpool's quote balance change incorrect"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle_with_receiver);
+
 /// Test the `settle_online_relayer_fee` method on the darkpool
 async fn test_settle_online_relayer_fee(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
