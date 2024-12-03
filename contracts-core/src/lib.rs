@@ -5,7 +5,6 @@
 #![deny(clippy::missing_docs_in_private_items)]
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
-#![no_std]
 
 extern crate alloc;
 
