@@ -15,6 +15,8 @@ abigen!(
         function unpause() external
 
         function setFee(uint256 memory new_fee) external
+        function setExternalMatchFeeOverride(address memory asset, uint256 memory new_fee) external
+        function removeExternalMatchFeeOverride(address memory asset) external
         function setCoreWalletOpsAddress(address memory core_wallet_ops_address) external
         function setCoreSettlementAddress(address memory core_settlement_address) external
         function setVerifierCoreAddress(address memory verifier_core_address) external
@@ -27,6 +29,7 @@ abigen!(
 
         function getRoot() external view returns (uint256)
         function getFee() external view returns (uint256)
+        function getExternalMatchFeeForAsset(address memory asset) external view returns (uint256)
         function getPubkey() external view returns (uint256[2])
         function getProtocolExternalFeeCollectionAddress() external view returns (address)
 
