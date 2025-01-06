@@ -26,9 +26,10 @@ use crate::{
             processAtomicMatchSettleCall, processMatchSettleCall, redeemFeeCall, rootCall,
             rootInHistoryCall, settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
             CoreSettlementAddressChanged, CoreWalletOpsAddressChanged,
-            ExternalFeeCollectionAddressChanged, FeeChanged, MerkleAddressChanged,
-            OwnershipTransferred, Paused, PubkeyRotated, TransferExecutorAddressChanged, Unpaused,
-            VerifierCoreAddressChanged, VerifierSettlementAddressChanged, VkeysAddressChanged,
+            ExternalFeeCollectionAddressChanged, ExternalMatchFeeChanged, FeeChanged,
+            MerkleAddressChanged, OwnershipTransferred, Paused, PubkeyRotated,
+            TransferExecutorAddressChanged, Unpaused, VerifierCoreAddressChanged,
+            VerifierSettlementAddressChanged, VkeysAddressChanged,
         },
     },
 };
@@ -271,8 +272,23 @@ impl DarkpoolContract {
         Ok(res)
     }
 
+    // --- Fees --- //
+
     /// Returns the protocol fee
     pub fn get_fee<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<U256, Vec<u8>> {
+        Ok(storage.borrow().protocol_fee.get())
+    }
+
+    /// Returns the asset-specific protocol fee for an external match
+    pub fn get_external_match_fee_for_asset<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        asset: Address,
+    ) -> Result<U256, Vec<u8>> {
+        let fee_override = storage.borrow().external_match_fee_overrides.get(asset);
+        if fee_override > U256::ZERO {
+            return Ok(fee_override);
+        }
+
         Ok(storage.borrow().protocol_fee.get())
     }
 
@@ -294,6 +310,8 @@ impl DarkpoolContract {
     // | SETTERS |
     // -----------
 
+    // --- Fees --- //
+
     /// Set the protocol fee
     pub fn set_fee<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -303,6 +321,32 @@ impl DarkpoolContract {
         assert_result!(new_fee != U256::ZERO, ZERO_FEE_ERROR_MESSAGE)?;
         storage.borrow_mut().protocol_fee.set(new_fee);
         evm::log(FeeChanged { new_fee });
+        Ok(())
+    }
+
+    /// Set the fee override for an asset
+    pub fn set_external_match_fee_override<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        asset: Address,
+        new_fee: U256,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage)?;
+        assert_result!(new_fee != U256::ZERO, ZERO_FEE_ERROR_MESSAGE)?;
+        let mut fee_override = storage.borrow_mut().external_match_fee_overrides.setter(asset);
+        fee_override.set(new_fee);
+        evm::log(ExternalMatchFeeChanged { asset, new_fee });
+        Ok(())
+    }
+
+    /// Remove the fee override for an asset
+    pub fn remove_external_match_fee_override<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        asset: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage)?;
+        storage.borrow_mut().external_match_fee_overrides.delete(asset);
+        let default_fee = storage.borrow_mut().protocol_fee.get();
+        evm::log(ExternalMatchFeeChanged { asset, new_fee: default_fee });
         Ok(())
     }
 
@@ -343,6 +387,8 @@ impl DarkpoolContract {
         });
         Ok(())
     }
+
+    // --- Implementation Addresses --- //
 
     /// Sets the darkpool core address
     pub fn set_core_wallet_ops_address<S: TopLevelStorage + BorrowMut<Self>>(
