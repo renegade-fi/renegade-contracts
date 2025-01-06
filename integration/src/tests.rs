@@ -41,7 +41,7 @@ use ethers::{
 use eyre::{eyre, Result};
 use rand::{thread_rng, Rng, RngCore};
 use scripts::constants::TEST_FUNDING_AMOUNT;
-use test_helpers::integration_test_async;
+use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
     abis::{
@@ -58,12 +58,12 @@ use crate::{
     },
     utils::{
         alloy_address_to_ethers_address, alloy_u256_to_ethers_u256, assert_all_revert,
-        assert_all_succeed, assert_only_owner, dummy_erc20_deposit, dummy_erc20_withdrawal,
-        ethers_address_to_biguint, execute_transfer_and_get_balances, gen_transfer_aux_data,
-        get_protocol_pubkey, insert_shares_and_get_root, mint_dummy_erc20s, native_eth_address,
-        scalar_to_u256, serialize_match_verification_bundle, serialize_to_calldata,
-        serialize_verification_bundle, setup_dummy_client, setup_external_match_token_approvals,
-        u256_to_alloy_u256, u256_to_scalar,
+        assert_all_succeed, assert_only_owner, biguint_to_ethers_address, dummy_erc20_deposit,
+        dummy_erc20_withdrawal, ethers_address_to_biguint, execute_transfer_and_get_balances,
+        gen_transfer_aux_data, get_protocol_pubkey, insert_shares_and_get_root, mint_dummy_erc20s,
+        native_eth_address, scalar_to_u256, serialize_match_verification_bundle,
+        serialize_to_calldata, serialize_verification_bundle, setup_dummy_client,
+        setup_external_match_token_approvals, u256_to_alloy_u256, u256_to_scalar,
     },
     TestContext,
 };
@@ -1200,10 +1200,11 @@ async fn setup_atomic_match_settle_test(
 
     let mut rng = thread_rng();
     let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee =
-        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
-
     let (match_result, fees) = dummy_external_match_result_and_fees(buy_side, ctx).await?;
+    let base = biguint_to_ethers_address(&match_result.base_mint);
+    let fee = contract.get_external_match_fee_for_asset(base).call().await?;
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee)?));
+
     let data = gen_atomic_match_with_match_and_fees(
         &mut rng,
         contract_root,
@@ -1707,6 +1708,59 @@ async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Res
     Ok(())
 }
 integration_test_async!(test_process_atomic_match_settle_with_receiver);
+
+/// Test the `process_atomic_match_settle` method with a fee override
+#[allow(non_snake_case)]
+async fn test_atomic_match_settle__fee_override(ctx: TestContext) -> Result<()> {
+    let contract = ctx.darkpool_contract();
+
+    // Override the fee to twice the original
+    let base = ctx.test_erc20_address1;
+    let fee: U256 = contract.get_external_match_fee_for_asset(base).call().await?;
+    let new_fee = fee * U256::from(2);
+    contract.set_external_match_fee_override(base, new_fee).send().await?;
+
+    // Get the fee from the contract
+    let fee: U256 = contract.get_external_match_fee_for_asset(base).call().await?;
+    assert_eq_result!(fee, new_fee)?;
+
+    // Call process_atomic_match_settle with the new fee
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let expected_fee = u256_to_scalar(new_fee)?;
+    assert_eq_result!(data.valid_match_settle_atomic_statement.protocol_fee, expected_fee)?;
+
+    let call = contract.process_atomic_match_settle(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    call.send().await?;
+
+    // Remove the fee override
+    contract.remove_external_match_fee_override(base).send().await?;
+
+    // Check that the fee is back to the default
+    let default_fee: U256 = contract.get_fee().call().await?;
+    let base_fee: U256 = contract.get_external_match_fee_for_asset(base).call().await?;
+    assert_eq_result!(base_fee, default_fee)?;
+
+    // Call process_atomic_match_settle again with the default fee
+    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let expected_fee = u256_to_scalar(default_fee)?;
+    assert_eq_result!(data.valid_match_settle_atomic_statement.protocol_fee, expected_fee)?;
+
+    let call = contract.process_atomic_match_settle(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    call.send().await?;
+
+    Ok(())
+}
+integration_test_async!(test_atomic_match_settle__fee_override);
 
 /// Test the `settle_online_relayer_fee` method on the darkpool
 async fn test_settle_online_relayer_fee(ctx: TestContext) -> Result<()> {
