@@ -10,7 +10,7 @@
 use alloc::string::String;
 use stylus_sdk::{
     alloy_primitives::{Address, Uint, U256},
-    alloy_sol_types::{sol, SolError},
+    alloy_sol_types::sol,
     evm, msg,
     prelude::*,
 };

@@ -106,6 +106,17 @@ pub struct DarkpoolContract {
     /// Added at the bottom of the storage layout to
     /// prevent collisions with existing fields when this field was added
     pub(crate) verifier_settlement_address: StorageAddress,
+
+    // --- Updated Fields for per-asset fees --- //
+    /// A mapping of per-asset fee overrides for the protocol on external
+    /// matches
+    ///
+    /// Only external matches may have their fees overridden, as internal match
+    /// pairs are hidden from the protocol
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) external_match_fee_overrides: StorageMap<Address, StorageU256>,
 }
 
 #[public]
