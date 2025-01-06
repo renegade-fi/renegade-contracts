@@ -82,6 +82,14 @@ impl CoreContractStorage for DarkpoolTestContract {
     fn protocol_external_fee_collection_address(&self) -> Address {
         self.darkpool.protocol_external_fee_collection_address.get()
     }
+
+    fn external_match_fee_override(&self, asset: Address) -> U256 {
+        self.darkpool.external_match_fee_overrides.get(asset)
+    }
+
+    fn protocol_fee(&self) -> U256 {
+        self.darkpool.protocol_fee.get()
+    }
 }
 
 // We manually implement `Borrow` and `BorrowMut` to enable the

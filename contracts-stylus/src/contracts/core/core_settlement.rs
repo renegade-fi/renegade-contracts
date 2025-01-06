@@ -126,6 +126,13 @@ pub struct CoreSettlementContract {
     /// Added at the bottom of the storage layout to
     /// prevent collisions with existing fields when this field was added
     pub(crate) verifier_settlement_address: StorageAddress,
+
+    // --- Updated Fields for per-asset fees --- //
+    /// A mapping of per-asset fee overrides for the protocol
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) external_match_fee_overrides: StorageMap<Address, StorageU256>,
 }
 
 impl CoreContractStorage for CoreSettlementContract {
@@ -171,6 +178,14 @@ impl CoreContractStorage for CoreSettlementContract {
 
     fn protocol_external_fee_collection_address(&self) -> Address {
         self.protocol_external_fee_collection_address.get()
+    }
+
+    fn protocol_fee(&self) -> U256 {
+        self.protocol_fee.get()
+    }
+
+    fn external_match_fee_override(&self, asset: Address) -> U256 {
+        self.external_match_fee_overrides.get(asset)
     }
 }
 
@@ -218,7 +233,7 @@ impl CoreSettlementContract {
             // We convert the protocol fee directly to a scalar as it is already kept
             // in storage as fixed-point number, no manipulation is needed to coerce it
             // to the form expected in the statement / circuit.
-            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee.get())?;
+            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee())?;
             assert_result!(
                 valid_match_settle_statement.protocol_fee == protocol_fee,
                 INVALID_PROTOCOL_FEE_ERROR_MESSAGE
@@ -300,7 +315,9 @@ impl CoreSettlementContract {
             // We convert the protocol fee directly to a scalar as it is already kept
             // in storage as fixed-point number, no manipulation is needed to coerce it
             // to the form expected in the statement / circuit.
-            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee.get())?;
+            let protocol_fee =
+                storage.borrow_mut().external_match_protocol_fee(match_result.base_mint);
+            let protocol_fee = u256_to_scalar(protocol_fee)?;
             assert_result!(
                 valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
                 INVALID_PROTOCOL_FEE_ERROR_MESSAGE

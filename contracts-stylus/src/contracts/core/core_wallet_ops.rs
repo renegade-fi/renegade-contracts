@@ -126,6 +126,13 @@ pub struct CoreWalletOpsContract {
     /// Added at the bottom of the storage layout to
     /// prevent collisions with existing fields when this field was added
     pub(crate) verifier_settlement_address: StorageAddress,
+
+    // --- Updated Fields for per-asset fees --- //
+    /// A mapping of per-asset fee overrides for the protocol
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) _external_match_fee_overrides: StorageMap<Address, StorageU256>,
 }
 
 impl CoreContractStorage for CoreWalletOpsContract {
@@ -171,6 +178,14 @@ impl CoreContractStorage for CoreWalletOpsContract {
 
     fn protocol_external_fee_collection_address(&self) -> Address {
         self.protocol_external_fee_collection_address.get()
+    }
+
+    fn protocol_fee(&self) -> U256 {
+        self._protocol_fee.get()
+    }
+
+    fn external_match_fee_override(&self, asset: Address) -> U256 {
+        self._external_match_fee_overrides.get(asset)
     }
 }
 

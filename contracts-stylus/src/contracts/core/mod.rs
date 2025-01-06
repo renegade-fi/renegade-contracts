@@ -49,4 +49,23 @@ pub trait CoreContractStorage {
 
     /// Get the address of the protocol external fee collection contract
     fn protocol_external_fee_collection_address(&self) -> Address;
+
+    /// Get the default protocol fee
+    fn protocol_fee(&self) -> U256;
+
+    /// Get the override protocol fee for a given asset
+    fn external_match_fee_override(&self, asset: Address) -> U256;
+
+    /// Get the protocol fee for a given asset on an external match
+    ///
+    /// We disallow fee overrides of _exactly_ zero, as this conflicts with the
+    /// `StorageMap` default.
+    fn external_match_protocol_fee(&self, asset: Address) -> U256 {
+        let fee_override = self.external_match_fee_override(asset);
+        if fee_override > U256::ZERO {
+            return fee_override;
+        }
+
+        self.protocol_fee()
+    }
 }
