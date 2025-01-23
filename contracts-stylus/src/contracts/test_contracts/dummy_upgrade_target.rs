@@ -5,11 +5,11 @@ use alloc::vec::Vec;
 use stylus_sdk::prelude::*;
 
 /// A contract used as an upgrade target for testing purposes.
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 struct DummyUpgradeTargetContract;
 
-#[external]
+#[public]
 impl DummyUpgradeTargetContract {
     /// Simply returns `true`.
     ///

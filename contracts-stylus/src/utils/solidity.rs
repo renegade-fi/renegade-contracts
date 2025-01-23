@@ -2,6 +2,7 @@
 //! functions, etc.
 
 use alloy_sol_types::sol;
+use stylus_sdk::prelude::sol_interface;
 
 // Various methods and events used in the Renegade smart contracts
 sol! {
@@ -90,4 +91,20 @@ sol! {
     event VkeysAddressChanged(address indexed new_address);
     event MerkleAddressChanged(address indexed new_address);
     event TransferExecutorAddressChanged(address indexed new_address);
+
+    // Gas sponsorship events
+    event InsufficientSponsorBalance(uint256 indexed nonce);
+    event NonceUsed(uint256 indexed nonce);
+    event GasSponsorPausedFallback(uint256 indexed nonce);
+}
+
+sol_interface! {
+    interface IDarkpool {
+        function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
+    }
+
+    interface IErc20 {
+        function transferFrom(address from, address to, uint256 value) external returns (bool);
+        function approve(address spender, uint256 value) external returns (bool);
+    }
 }
