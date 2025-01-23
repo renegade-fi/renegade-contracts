@@ -12,7 +12,7 @@ use contracts_common::{
         ValidReblindStatement,
     },
 };
-use contracts_core::crypto::ecdsa::ecdsa_verify;
+use contracts_core::crypto::ecdsa::ecdsa_verify_with_pubkey;
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 use stylus_sdk::{
@@ -210,7 +210,7 @@ pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, Vec<u8>> {
 }
 
 /// Asserts the validity of the given signature using the given public signing
-/// key, if verification is enabled
+/// key
 #[cfg_attr(
     not(any(feature = "transfer-executor", feature = "merkle", feature = "merkle-test-contract",)),
     allow(dead_code)
@@ -221,7 +221,7 @@ pub fn assert_valid_signature(
     signature: &[u8],
 ) -> Result<(), Vec<u8>> {
     crate::assert_result!(
-        ecdsa_verify::<StylusHasher, PrecompileEcRecoverBackend>(
+        ecdsa_verify_with_pubkey::<StylusHasher, PrecompileEcRecoverBackend>(
             pk_root,
             message,
             signature.try_into().map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE)?,

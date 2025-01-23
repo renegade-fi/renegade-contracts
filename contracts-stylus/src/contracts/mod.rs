@@ -22,6 +22,9 @@ mod vkeys;
 #[cfg(feature = "transfer-executor")]
 mod transfer_executor;
 
+#[cfg(feature = "gas-sponsor")]
+mod gas_sponsor;
+
 #[cfg(any(
     feature = "precompile-test-contract",
     feature = "merkle-test-contract",

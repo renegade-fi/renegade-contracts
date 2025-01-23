@@ -12,13 +12,25 @@ use ruint::aliases::U256;
 /// `VALID_WALLET_UPDATE` statement), a (un-hashed) message, and a signature (in
 /// the format expected by the `ecRecover` precompile, i.e. including a `v`
 /// recovery identifier)
-pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
+pub fn ecdsa_verify_with_pubkey<H: HashBackend, E: EcRecoverBackend>(
     pubkey: &PublicSigningKey,
     msg: &[u8],
     sig: &[u8; NUM_BYTES_SIGNATURE],
 ) -> Result<bool, EcdsaError> {
-    let msg_hash = H::hash(msg);
-    Ok(E::ec_recover(&msg_hash, sig)? == pubkey_to_address::<H>(pubkey))
+    let address = pubkey_to_address::<H>(pubkey);
+    ecdsa_verify::<H, E>(address, msg, sig)
+}
+
+/// Verify a secp256k1 ECDSA signature given an Ethereum address, a (un-hashed)
+/// message, and a signature (in the format expected by the `ecRecover`
+/// precompile, i.e. including a `v` recovery identifier)
+pub fn ecdsa_verify<H: HashBackend, E: EcRecoverBackend>(
+    address: [u8; NUM_BYTES_ADDRESS],
+    msg: &[u8],
+    sig: &[u8; NUM_BYTES_SIGNATURE],
+) -> Result<bool, EcdsaError> {
+    let recovered_address = E::ec_recover(&H::hash(msg), sig)?;
+    Ok(recovered_address == address)
 }
 
 // -----------
@@ -81,7 +93,7 @@ mod tests {
 
         let sig = hash_and_sign_message(&signing_key, &msg);
 
-        assert!(super::ecdsa_verify::<NativeHasher, TestEcRecoverBackend>(
+        assert!(super::ecdsa_verify_with_pubkey::<NativeHasher, TestEcRecoverBackend>(
             &pubkey,
             &msg,
             &sig.into()
