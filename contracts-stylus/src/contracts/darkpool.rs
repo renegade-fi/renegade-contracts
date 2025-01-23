@@ -18,9 +18,9 @@ use crate::{
         constants::{
             INVALID_VERSION_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE, NOT_OWNER_ERROR_MESSAGE,
             PAUSED_ERROR_MESSAGE, TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, UNPAUSED_ERROR_MESSAGE,
-            ZERO_ADDRESS_ERROR_MESSAGE, ZERO_FEE_ERROR_MESSAGE,
+            ZERO_FEE_ERROR_MESSAGE,
         },
-        helpers::delegate_call_helper,
+        helpers::{check_address_not_zero, delegate_call_helper},
         solidity::{
             init_0Call as initMerkleCall, init_1Call as initTransferExecutorCall, newWalletCall,
             processAtomicMatchSettleCall, processMatchSettleCall, redeemFeeCall, rootCall,
@@ -196,7 +196,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
 
-        DarkpoolContract::check_address_not_zero(new_owner)?;
+        check_address_not_zero(new_owner)?;
         DarkpoolContract::_transfer_ownership(storage, new_owner);
 
         Ok(())
@@ -376,7 +376,7 @@ impl DarkpoolContract {
         new_protocol_external_fee_collection_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(new_protocol_external_fee_collection_address)?;
+        check_address_not_zero(new_protocol_external_fee_collection_address)?;
         storage
             .borrow_mut()
             .protocol_external_fee_collection_address
@@ -396,7 +396,7 @@ impl DarkpoolContract {
         core_wallet_ops_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(core_wallet_ops_address)?;
+        check_address_not_zero(core_wallet_ops_address)?;
         storage.borrow_mut().core_wallet_ops_address.set(core_wallet_ops_address);
 
         evm::log(CoreWalletOpsAddressChanged { new_address: core_wallet_ops_address });
@@ -410,7 +410,7 @@ impl DarkpoolContract {
         core_settlement_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(core_settlement_address)?;
+        check_address_not_zero(core_settlement_address)?;
         storage.borrow_mut().core_settlement_address.set(core_settlement_address);
 
         evm::log(CoreSettlementAddressChanged { new_address: core_settlement_address });
@@ -423,7 +423,7 @@ impl DarkpoolContract {
         verifier_core_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(verifier_core_address)?;
+        check_address_not_zero(verifier_core_address)?;
         storage.borrow_mut().verifier_core_address.set(verifier_core_address);
         evm::log(VerifierCoreAddressChanged { new_address: verifier_core_address });
         Ok(())
@@ -435,7 +435,7 @@ impl DarkpoolContract {
         verifier_settlement_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(verifier_settlement_address)?;
+        check_address_not_zero(verifier_settlement_address)?;
         storage.borrow_mut().verifier_settlement_address.set(verifier_settlement_address);
 
         evm::log(VerifierSettlementAddressChanged { new_address: verifier_settlement_address });
@@ -448,7 +448,7 @@ impl DarkpoolContract {
         vkeys_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(vkeys_address)?;
+        check_address_not_zero(vkeys_address)?;
         storage.borrow_mut().vkeys_address.set(vkeys_address);
         evm::log(VkeysAddressChanged { new_address: vkeys_address });
         Ok(())
@@ -460,7 +460,7 @@ impl DarkpoolContract {
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(merkle_address)?;
+        check_address_not_zero(merkle_address)?;
         storage.borrow_mut().merkle_address.set(merkle_address);
         evm::log(MerkleAddressChanged { new_address: merkle_address });
         Ok(())
@@ -472,7 +472,7 @@ impl DarkpoolContract {
         transfer_executor_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_owner(storage)?;
-        DarkpoolContract::check_address_not_zero(transfer_executor_address)?;
+        check_address_not_zero(transfer_executor_address)?;
 
         storage.borrow_mut().transfer_executor_address.set(transfer_executor_address);
 
@@ -744,11 +744,6 @@ impl DarkpoolContract {
     // ----------------
     // | CORE HELPERS |
     // ----------------
-
-    /// Checks that the given address is not the zero address
-    pub fn check_address_not_zero(address: Address) -> Result<(), Vec<u8>> {
-        assert_result!(address != Address::ZERO, ZERO_ADDRESS_ERROR_MESSAGE)
-    }
 
     /// Get the core wallet ops address
     pub fn get_core_wallet_ops_address(&self) -> Address {

@@ -22,9 +22,12 @@ use stylus_sdk::{
     storage::TopLevelStorage,
 };
 
-use crate::utils::{
-    backends::{PrecompileEcRecoverBackend, StylusHasher},
-    constants::{ECDSA_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE},
+use crate::{
+    utils::{
+        backends::{PrecompileEcRecoverBackend, StylusHasher},
+        constants::{ECDSA_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE},
+    },
+    ZERO_ADDRESS_ERROR_MESSAGE,
 };
 
 use super::constants::{
@@ -229,6 +232,11 @@ pub fn assert_valid_signature(
         .map_err(|_| ECDSA_ERROR_MESSAGE)?,
         INVALID_SIGNATURE_ERROR_MESSAGE
     )
+}
+
+/// Checks that the given address is not the zero address
+pub fn check_address_not_zero(address: Address) -> Result<(), Vec<u8>> {
+    crate::assert_result!(address != Address::ZERO, ZERO_ADDRESS_ERROR_MESSAGE)
 }
 
 /// Expands to the given code block if verification is enabled,
