@@ -425,7 +425,7 @@ pub struct ExternalMatchResult {
     pub direction: bool,
 }
 
-#[cfg(feature = "core-settlement")]
+#[cfg(any(feature = "core-settlement", feature = "gas-sponsor"))]
 impl ExternalMatchResult {
     /// Whether or not the external party is the base-mint seller
     pub fn is_external_party_sell(&self) -> bool {
