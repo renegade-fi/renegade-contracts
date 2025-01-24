@@ -14,8 +14,8 @@ use ethers::{abi::Address, providers::Middleware};
 use eyre::Result;
 use scripts::{
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, PERMIT2_CONTRACT_KEY,
-        TEST_ERC20_TICKER1, TEST_ERC20_TICKER2,
+        PERMIT2_CONTRACT_KEY, PROXY_ADMIN_CONTRACT_KEY, PROXY_CONTRACT_KEY, TEST_ERC20_TICKER1,
+        TEST_ERC20_TICKER2,
     },
     types::StylusContract,
     utils::{
@@ -115,11 +115,10 @@ impl From<Cli> for TestContext {
             Handle::current().block_on(setup_client(&value.priv_key, &value.rpc_url)).unwrap();
 
         let darkpool_proxy_address =
-            read_deployment_address(&value.deployments_file, DARKPOOL_PROXY_CONTRACT_KEY).unwrap();
+            read_deployment_address(&value.deployments_file, PROXY_CONTRACT_KEY).unwrap();
 
         let proxy_admin_address =
-            read_deployment_address(&value.deployments_file, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)
-                .unwrap();
+            read_deployment_address(&value.deployments_file, PROXY_ADMIN_CONTRACT_KEY).unwrap();
 
         let darkpool_impl_address = read_stylus_deployment_address(
             &value.deployments_file,

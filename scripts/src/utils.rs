@@ -40,7 +40,8 @@ use crate::{
         WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
-    solidity::initializeCall,
+    solidity::initialize_0Call as darkpool_initialize_call,
+    solidity::initialize_1Call as gas_sponsor_initialize_call,
     types::StylusContract,
 };
 
@@ -255,7 +256,7 @@ pub fn darkpool_initialize_calldata(
     let protocol_external_fee_collection_address =
         AlloyAddress::from_slice(protocol_external_fee_collection_address.as_bytes());
 
-    Ok(initializeCall::new((
+    Ok(darkpool_initialize_call::new((
         core_wallet_ops_address,
         core_settlement_address,
         verifier_core_address,
@@ -269,6 +270,17 @@ pub fn darkpool_initialize_calldata(
         protocol_external_fee_collection_address,
     ))
     .abi_encode())
+}
+
+/// Prepare calldata for the GasSponsor contract's `initialize` method
+pub fn gas_sponsor_initialize_calldata(
+    darkpool_address: Address,
+    auth_address: Address,
+) -> Result<Vec<u8>, ScriptError> {
+    let darkpool_address = AlloyAddress::from_slice(darkpool_address.as_bytes());
+    let auth_address = AlloyAddress::from_slice(auth_address.as_bytes());
+
+    Ok(gas_sponsor_initialize_call::new((darkpool_address, auth_address)).abi_encode())
 }
 
 /// Executes a command, returning an error if the command fails
