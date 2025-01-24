@@ -113,10 +113,10 @@ pub const DEPLOYMENTS_KEY: &str = "deployments";
 pub const ERC20S_KEY: &str = "erc20s";
 
 /// The darkpool proxy contract key in the `deployments.json` file
-pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
+pub const PROXY_CONTRACT_KEY: &str = "proxy_contract";
 
 /// The darkpool proxy admin contract key in the `deployments.json` file
-pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contract";
+pub const PROXY_ADMIN_CONTRACT_KEY: &str = "proxy_admin_contract";
 
 /// The permit2 contract key in the `deployments.json` file
 pub const PERMIT2_CONTRACT_KEY: &str = "permit2_contract";

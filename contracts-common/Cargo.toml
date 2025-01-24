@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 core-settlement = []
+gas-sponsor = []
 test-helpers = []
 
 [dependencies]

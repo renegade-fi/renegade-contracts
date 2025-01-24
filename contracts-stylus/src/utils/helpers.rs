@@ -43,7 +43,7 @@ pub fn get_weth_address() -> Address {
 }
 
 /// A helper to check if a given address is the address representing native ETH
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+#[cfg(any(feature = "transfer-executor", feature = "core-settlement", feature = "gas-sponsor"))]
 pub fn is_native_eth_address(addr: Address) -> bool {
     use super::constants::NATIVE_ETH_ADDRESS;
     let native_addr = Address::from_str(NATIVE_ETH_ADDRESS).unwrap();
