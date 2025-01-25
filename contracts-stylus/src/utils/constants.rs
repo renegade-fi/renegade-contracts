@@ -14,7 +14,6 @@ pub const VERIFICATION_DISABLED_ERROR_MESSAGE: &[u8] = b"verification disabled o
 
 /// The revert message when a contract/owner address
 /// is attempted to be set to the zero address
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "gas-sponsor"))]
 pub const ZERO_ADDRESS_ERROR_MESSAGE: &[u8] = b"zero address";
 
 /// The revert message when the protocol fee

@@ -220,14 +220,31 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
-    info!("Deploying proxy contract");
-    let deploy_proxy_args = DeployDarkpoolProxyArgs {
+    info!("Deploying darkpool proxy contract");
+    let deploy_darkpool_proxy_args = DeployDarkpoolProxyArgs {
         fee: thread_rng().gen(),
         protocol_public_encryption_key: None,
         protocol_external_fee_collection_address: None,
         test: true,
     };
-    deploy_darkpool_proxy(&deploy_proxy_args, client, deployments_path).await?;
+    deploy_darkpool_proxy(&deploy_darkpool_proxy_args, client.clone(), deployments_path).await?;
+
+    info!("Deploying gas sponsor contract");
+    deploy_stylus_args.contract = StylusContract::GasSponsor;
+    build_and_deploy_stylus_contract(
+        &deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying gas sponsor proxy contract");
+    let deploy_gas_sponsor_proxy_args = DeployGasSponsorProxyArgs {
+        auth_address: format!("{:#x}", client.default_sender().unwrap()),
+    };
+    deploy_gas_sponsor_proxy(&deploy_gas_sponsor_proxy_args, client, deployments_path).await?;
 
     Ok(())
 }

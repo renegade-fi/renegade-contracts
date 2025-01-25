@@ -1,110 +1,25 @@
 //! Integration tests for atomic settlement
 
 use ark_ff::One;
-use circuit_types::{
-    fixed_point::FixedPoint,
-    r#match::{ExternalMatchResult, FeeTake},
-};
-use constants::Scalar;
 use contracts_common::{constants::TEST_MERKLE_HEIGHT, types::ScalarField};
-use contracts_utils::{
-    merkle::new_ark_merkle_tree,
-    proof_system::test_data::{gen_atomic_match_with_match_and_fees, ProcessAtomicMatchSettleData},
-};
+use contracts_utils::merkle::new_ark_merkle_tree;
 use ethers::{
     abi::Address,
     types::{TransactionReceipt, U256},
 };
 use eyre::Result;
-use rand::thread_rng;
-use scripts::constants::TEST_FUNDING_AMOUNT;
+use scripts::utils::LocalWalletHttpClient;
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
+    abis::IAtomicMatchSettleContract,
     utils::{
-        alloy_address_to_ethers_address, alloy_u256_to_ethers_u256, biguint_to_ethers_address,
-        ethers_address_to_biguint, insert_shares_and_get_root, mint_dummy_erc20s,
-        native_eth_address, scalar_to_u256, serialize_to_calldata,
-        setup_external_match_token_approvals, u256_to_alloy_u256, u256_to_scalar,
+        alloy_address_to_ethers_address, alloy_u256_to_ethers_u256, insert_shares_and_get_root,
+        scalar_to_u256, serialize_to_calldata, setup_atomic_match_settle_test,
+        setup_atomic_match_settle_test_native_eth, u256_to_alloy_u256, u256_to_scalar,
     },
     TestContext,
 };
-
-/// Get a dummy `ExternalMatchResult` and `FeeTake` for an atomic match
-async fn dummy_external_match_result_and_fees(
-    buy_side: bool,
-    ctx: &TestContext,
-) -> Result<(ExternalMatchResult, FeeTake)> {
-    let base_mint = ctx.test_erc20_address1;
-    let quote_mint = ctx.test_erc20_address2;
-    let base_amount = TEST_FUNDING_AMOUNT;
-    let quote_amount = TEST_FUNDING_AMOUNT;
-
-    // Ensure that the client has sufficient balances and approvals
-    mint_dummy_erc20s(base_mint, base_amount.into(), ctx).await?;
-    mint_dummy_erc20s(quote_mint, quote_amount.into(), ctx).await?;
-
-    // The price here does not matter for testing, so we just trade the default
-    // funding amount
-    let match_result = ExternalMatchResult {
-        base_mint: ethers_address_to_biguint(&base_mint),
-        quote_mint: ethers_address_to_biguint(&quote_mint),
-        base_amount,
-        quote_amount,
-        direction: buy_side,
-    };
-    setup_external_match_token_approvals(buy_side, &match_result, ctx).await?;
-
-    // Values here don't matter, but importantly are different to ensure the
-    // correct fee ends in the correct address
-    let fees = FeeTake {
-        relayer_fee: TEST_FUNDING_AMOUNT / 100,  // 1%
-        protocol_fee: TEST_FUNDING_AMOUNT / 200, // 0.5%
-    };
-
-    Ok((match_result, fees))
-}
-
-/// Setup an atomic match settle test using native ETH as the base asset
-async fn setup_atomic_match_settle_test_native_eth(
-    buy_side: bool,
-    ctx: &TestContext,
-) -> Result<ProcessAtomicMatchSettleData> {
-    let mut data = setup_atomic_match_settle_test(buy_side, ctx).await?;
-
-    // Replace the base mint with the native ETH address
-    let eth_addr = native_eth_address();
-    data.valid_match_settle_atomic_statement.match_result.base_mint = eth_addr;
-    Ok(data)
-}
-
-/// Setup an atomic match settle test
-async fn setup_atomic_match_settle_test(
-    buy_side: bool,
-    ctx: &TestContext,
-) -> Result<ProcessAtomicMatchSettleData> {
-    let contract = ctx.darkpool_contract();
-
-    // Clear merkle state
-    contract.clear_merkle().send().await?.await?;
-
-    let mut rng = thread_rng();
-    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let (match_result, fees) = dummy_external_match_result_and_fees(buy_side, ctx).await?;
-    let base = biguint_to_ethers_address(&match_result.base_mint);
-    let fee = contract.get_external_match_fee_for_asset(base).call().await?;
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee)?));
-
-    let data = gen_atomic_match_with_match_and_fees(
-        &mut rng,
-        contract_root,
-        protocol_fee,
-        match_result,
-        fees,
-    )?;
-
-    Ok(data)
-}
 
 /// Test a successful call to `process_atomic_match_settle`
 ///
@@ -112,7 +27,12 @@ async fn setup_atomic_match_settle_test(
 #[allow(non_snake_case)]
 async fn test_process_atomic_match_settle__internal_party(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
 
     // Call process_atomic_match_settle
     contract
@@ -153,12 +73,21 @@ integration_test_async!(test_process_atomic_match_settle__internal_party);
 /// Test `process_atomic_match_settle` and verify the external party's state
 /// after update. That is, the erc20 transfers that result from the atomic match
 #[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__external_party_buy_side(ctx: TestContext) -> Result<()> {
+pub async fn _test_process_atomic_match_settle__external_party_buy_side(
+    ctx: TestContext,
+    contract: IAtomicMatchSettleContract<LocalWalletHttpClient>,
+) -> Result<()> {
     // Setup test data
+    let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let base_addr = ctx.test_erc20_address1;
     let quote_addr = ctx.test_erc20_address2;
     let darkpool = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test(
+        true, // buy_side
+        use_gas_sponsor,
+        &ctx,
+    )
+    .await?;
 
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
@@ -172,7 +101,7 @@ async fn test_process_atomic_match_settle__external_party_buy_side(ctx: TestCont
     let initial_protocol_balance = ctx.get_erc20_balance_of(base_addr, protocol_fee_addr).await?;
 
     // Call process_atomic_match_settle
-    darkpool
+    contract
         .process_atomic_match_settle(
             serialize_to_calldata(&data.internal_party_match_payload)?,
             serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
@@ -215,19 +144,34 @@ async fn test_process_atomic_match_settle__external_party_buy_side(ctx: TestCont
 
     Ok(())
 }
+
+/// Run the `test_process_atomic_match_settle__external_party_buy_side` test
+/// through the darkpool contract
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__external_party_buy_side(ctx: TestContext) -> Result<()> {
+    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    _test_process_atomic_match_settle__external_party_buy_side(ctx, contract).await
+}
 integration_test_async!(test_process_atomic_match_settle__external_party_buy_side);
 
 /// Test `process_atomic_match_settle` and verify the external party's state
 /// after update. That is, the erc20 transfers that result from the atomic match
 #[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__external_party_sell_side(
+pub async fn _test_process_atomic_match_settle__external_party_sell_side(
     ctx: TestContext,
+    contract: IAtomicMatchSettleContract<LocalWalletHttpClient>,
 ) -> Result<()> {
     // Setup test data
+    let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let base_addr = ctx.test_erc20_address1;
     let quote_addr = ctx.test_erc20_address2;
     let darkpool = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test(false /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test(
+        false, // buy_side
+        use_gas_sponsor,
+        &ctx,
+    )
+    .await?;
 
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
@@ -241,7 +185,7 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
     let initial_protocol_balance = ctx.get_erc20_balance_of(quote_addr, protocol_fee_addr).await?;
 
     // Call process_atomic_match_settle
-    darkpool
+    contract
         .process_atomic_match_settle(
             serialize_to_calldata(&data.internal_party_match_payload)?,
             serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
@@ -284,15 +228,34 @@ async fn test_process_atomic_match_settle__external_party_sell_side(
 
     Ok(())
 }
+
+/// Run the `test_process_atomic_match_settle__external_party_sell_side` test
+/// through the darkpool contract
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__external_party_sell_side(
+    ctx: TestContext,
+) -> Result<()> {
+    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    _test_process_atomic_match_settle__external_party_sell_side(ctx, contract).await
+}
 integration_test_async!(test_process_atomic_match_settle__external_party_sell_side);
 
 /// Test `process_atomic_match_settle` with the native asset
 #[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__native_asset_sell_side(ctx: TestContext) -> Result<()> {
+pub async fn _test_process_atomic_match_settle__native_asset_sell_side(
+    ctx: TestContext,
+    contract: IAtomicMatchSettleContract<LocalWalletHttpClient>,
+) -> Result<()> {
     // Setup test data
+    let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let quote_addr = ctx.test_erc20_address2;
     let darkpool = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test_native_eth(false /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test_native_eth(
+        false, // buy_side
+        use_gas_sponsor,
+        &ctx,
+    )
+    .await?;
 
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
@@ -354,14 +317,31 @@ async fn test_process_atomic_match_settle__native_asset_sell_side(ctx: TestConte
 
     Ok(())
 }
+
+/// Run the `test_process_atomic_match_settle__native_asset_sell_side` test
+/// through the darkpool contract
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__native_asset_sell_side(ctx: TestContext) -> Result<()> {
+    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    _test_process_atomic_match_settle__native_asset_sell_side(ctx, contract).await
+}
 integration_test_async!(test_process_atomic_match_settle__native_asset_sell_side);
 
 /// Test `process_atomic_match_settle` with native asset on buy side
 #[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__native_asset_buy_side(ctx: TestContext) -> Result<()> {
+pub async fn _test_process_atomic_match_settle__native_asset_buy_side(
+    ctx: TestContext,
+    contract: IAtomicMatchSettleContract<LocalWalletHttpClient>,
+) -> Result<()> {
+    let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let quote_addr = ctx.test_erc20_address2;
     let darkpool = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test_native_eth(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test_native_eth(
+        true, // buy_side
+        use_gas_sponsor,
+        &ctx,
+    )
+    .await?;
 
     let relayer_fee_addr = alloy_address_to_ethers_address(
         &data.valid_match_settle_atomic_statement.relayer_fee_address,
@@ -374,7 +354,7 @@ async fn test_process_atomic_match_settle__native_asset_buy_side(ctx: TestContex
     let initial_relayer_balance = ctx.get_eth_balance_of(relayer_fee_addr).await?;
     let initial_protocol_balance = ctx.get_eth_balance_of(protocol_fee_addr).await?;
 
-    let receipt: TransactionReceipt = darkpool
+    let receipt: TransactionReceipt = contract
         .process_atomic_match_settle(
             serialize_to_calldata(&data.internal_party_match_payload)?,
             serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
@@ -420,12 +400,25 @@ async fn test_process_atomic_match_settle__native_asset_buy_side(ctx: TestContex
 
     Ok(())
 }
+
+/// Run the `test_process_atomic_match_settle__native_asset_buy_side` test
+/// through the darkpool contract
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle__native_asset_buy_side(ctx: TestContext) -> Result<()> {
+    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    _test_process_atomic_match_settle__native_asset_buy_side(ctx, contract).await
+}
 integration_test_async!(test_process_atomic_match_settle__native_asset_buy_side);
 
 /// Test `process_atomic_match_settle` with inconsistent indices
 async fn test_process_atomic_match_settle_inconsistent_indices(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
-    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let mut data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
 
     // Modify the index to make it inconsistent
     data.valid_match_settle_atomic_statement.internal_party_indices.balance_receive += 1;
@@ -450,7 +443,12 @@ async fn test_process_atomic_match_settle_inconsistent_protocol_fee(
     ctx: TestContext,
 ) -> Result<()> {
     let contract = ctx.darkpool_contract();
-    let mut data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let mut data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
 
     // Modify the protocol fee to make it inconsistent
     data.valid_match_settle_atomic_statement.protocol_fee += ScalarField::one();
@@ -475,7 +473,12 @@ async fn test_process_atomic_match_settle_invalid_transaction_value(
     ctx: TestContext,
 ) -> Result<()> {
     let contract = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test_native_eth(false /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test_native_eth(
+        false, // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
 
     // Try to execute with insufficient ETH value
     let required_eth_value = data.valid_match_settle_atomic_statement.match_result.base_amount;
@@ -501,7 +504,12 @@ async fn test_process_atomic_match_settle_nonzero_transaction_value(
     ctx: TestContext,
 ) -> Result<()> {
     let contract = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test_native_eth(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test_native_eth(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
 
     // Try to execute with non-zero ETH value when it should be zero for buy-side
     let call = contract
@@ -522,16 +530,24 @@ integration_test_async!(test_process_atomic_match_settle_nonzero_transaction_val
 /// Test the `process_atomic_match_settle_with_receiver` method on the darkpool
 ///
 /// I.e. test an atomic settlement with a non-sender receiver specified
-async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Result<()> {
+pub async fn _test_process_atomic_match_settle_with_receiver(
+    ctx: TestContext,
+    contract: IAtomicMatchSettleContract<LocalWalletHttpClient>,
+) -> Result<()> {
     // Setup test with a random receiver address
+    let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let receiver = Address::random();
     let base_addr = ctx.test_erc20_address1;
     let quote_addr = ctx.test_erc20_address2;
-    let darkpool = ctx.darkpool_contract();
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test(
+        true, // buy_side
+        use_gas_sponsor,
+        &ctx,
+    )
+    .await?;
 
     // Get pre-balances
-    let darkpool_addr = darkpool.address();
+    let darkpool_addr = ctx.darkpool_contract().address();
     let sender_pre_base_balance = ctx.get_erc20_balance(base_addr).await?;
     let sender_pre_quote_balance = ctx.get_erc20_balance(quote_addr).await?;
     let receiver_pre_base_balance = ctx.get_erc20_balance_of(base_addr, receiver).await?;
@@ -540,7 +556,7 @@ async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Res
     let darkpool_pre_quote_balance = ctx.get_erc20_balance_of(quote_addr, darkpool_addr).await?;
 
     // Execute match with specified receiver
-    darkpool
+    contract
         .process_atomic_match_settle_with_receiver(
             receiver,
             serialize_to_calldata(&data.internal_party_match_payload)?,
@@ -597,6 +613,14 @@ async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Res
 
     Ok(())
 }
+
+/// Run the `test_process_atomic_match_settle_with_receiver` test
+/// through the darkpool contract
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Result<()> {
+    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.client.clone());
+    _test_process_atomic_match_settle_with_receiver(ctx, contract).await
+}
 integration_test_async!(test_process_atomic_match_settle_with_receiver);
 
 /// Test the `process_atomic_match_settle` method with a fee override
@@ -615,7 +639,12 @@ async fn test_atomic_match_settle__fee_override(ctx: TestContext) -> Result<()> 
     assert_eq_result!(fee, new_fee)?;
 
     // Call process_atomic_match_settle with the new fee
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let expected_fee = u256_to_scalar(new_fee)?;
     assert_eq_result!(data.valid_match_settle_atomic_statement.protocol_fee, expected_fee)?;
 
@@ -636,7 +665,12 @@ async fn test_atomic_match_settle__fee_override(ctx: TestContext) -> Result<()> 
     assert_eq_result!(base_fee, default_fee)?;
 
     // Call process_atomic_match_settle again with the default fee
-    let data = setup_atomic_match_settle_test(true /* buy_side */, &ctx).await?;
+    let data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let expected_fee = u256_to_scalar(default_fee)?;
     assert_eq_result!(data.valid_match_settle_atomic_statement.protocol_fee, expected_fee)?;
 

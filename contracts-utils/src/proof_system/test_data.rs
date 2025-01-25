@@ -48,7 +48,7 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
-use ethers::types::Bytes;
+use ethers::types::{Bytes, U256};
 use eyre::Result;
 use jf_primitives::pcs::{prelude::Commitment, StructuredReferenceString};
 
@@ -653,6 +653,16 @@ pub fn generate_match_bundle<R: CryptoRng + RngCore>(
         match_linking_proofs,
         match_linking_wire_poly_comms,
     ))
+}
+
+/// The inputs for the `sponsor_atomic_match_settle` darkpool method
+pub struct SponsoredAtomicMatchSettleData {
+    /// The data used to call `process_atomic_match_settle`
+    pub process_atomic_match_settle_data: ProcessAtomicMatchSettleData,
+    /// The sponsorship nonce
+    pub nonce: U256,
+    /// The signature over the nonce
+    pub signature: Bytes,
 }
 
 /// The inputs for the `process_atomic_match_settle` darkpool method
