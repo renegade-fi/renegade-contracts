@@ -8,6 +8,12 @@
     [PRIME]
 }
 
+/// @dev Add the round constant to the element on top of the stack
+#define macro ADD_RC(RC) = takes(2) returns(1) {
+    // Takes [x, PRIME]
+    <RC> addmod       // [x + RC mod PRIME]
+}
+
 /// @dev Apply the sbox function to the element on top of the stack,
 /// which is replaced by its fifth power mod p
 /// I.e. transforms the stack [x, ...] -> [x^5 mod p, ...]
@@ -27,4 +33,34 @@
     
     // Compute x^5 (mod p)
     mulmod          // [x^5 mod p]
+}
+
+/// @dev Apply the internal MDS matrix to the sponge state
+/// For t = 3, this is the matrix:
+///     [2, 1, 1]
+///     [1, 2, 1]
+///     [1, 1, 3]
+///
+/// This can be done efficiently by adding the sum to each element as in the
+/// external MDS case but adding an additional copy of the final state
+/// element
+/// @param Takes [state[0], state[1], state[2]]
+/// @return [state'[0], state'[1], state'[2]]
+#define macro INTERNAL_MDS() = takes(3) returns(7) {
+    // Takes [state[0], state[1], state[2]]
+    PUSH_PRIME()            // [PRIME, state[0], state[1], state[2]]
+    dup4 dup4 dup4          // [state[0], state[1], state[2], PRIME, state[0], state[1], state[2]]
+
+    // Compute the sum of the elements (mod p)
+    PUSH_PRIME() swap2      // [state[1], state[0], PRIME, state[2], PRIME, state[0], state[1], state[2]]
+    addmod                  // [state[0] + state[1] mod p, state[2], PRIME, state[0], state[1], state[2]]
+    addmod                  // [sum, state[0], state[1], state[2]]
+
+    // Add the sum to each element
+    PUSH_PRIME() dup2       // [sum, PRIME, sum, state[0], state[1], state[2]] 
+    dup6 addmod             // [state[2] + sum, sum, state[0], state[1], state[2]] 
+    PUSH_PRIME() dup3       // [sum, PRIME, state[2] + sum, sum, state[0], state[1], state[2]]
+    dup6 addmod             // [state[1] + sum, state[2] + sum, sum, state[0], state[1], state[2]]
+    PUSH_PRIME() dup4       // [sum, PRIME, state[1] + sum, state[2] + sum, sum, state[0], state[1], state[2]]
+    dup6 addmod             // [state[0] + sum, state[1] + sum, state[2] + sum, sum, state[0], state[1], state[2]]
 }
