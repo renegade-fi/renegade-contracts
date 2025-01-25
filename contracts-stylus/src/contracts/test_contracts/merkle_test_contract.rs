@@ -20,7 +20,7 @@ impl MerkleParams for TestMerkleParams {
 }
 
 /// The test Merkle contract, inheriting from the generic Merkle contract
-#[solidity_storage]
+#[storage]
 #[entrypoint]
 struct TestMerkleContract {
     /// The paremeterized Merkle contract
@@ -28,7 +28,7 @@ struct TestMerkleContract {
     merkle: MerkleContract<TestMerkleParams>,
 }
 
-#[external]
+#[public]
 #[inherit(MerkleContract<TestMerkleParams>)]
 impl TestMerkleContract {
     #[doc(hidden)]
