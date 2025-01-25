@@ -8,6 +8,12 @@
     [PRIME]
 }
 
+/// @dev Add the round constant to the element on top of the stack
+#define macro ADD_RC(RC) = takes(2) returns(1) {
+    // Takes [x, PRIME]
+    <RC> addmod       // [x + RC mod PRIME]
+}
+
 /// @dev Apply the sbox function to the element on top of the stack,
 /// which is replaced by its fifth power mod p
 /// I.e. transforms the stack [x, ...] -> [x^5 mod p, ...]
