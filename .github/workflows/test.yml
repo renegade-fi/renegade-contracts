@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Foundry project
+    name: Foundry checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,5 +41,5 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv
+          forge test --ffi -vvv
         id: test

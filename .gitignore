@@ -1,3 +1,6 @@
+# Workspace 
+.vscode
+
 # Compiler files
 cache/
 out/

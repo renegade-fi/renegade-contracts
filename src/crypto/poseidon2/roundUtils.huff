@@ -1,0 +1,30 @@
+/// Helpers for Poseidon2 round functions
+
+/// @dev The scalar field modulus of BN254
+#define constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 
+
+/// @dev Push the prime onto the stack
+#define macro PUSH_PRIME() = {
+    [PRIME]
+}
+
+/// @dev Apply the sbox function to the element on top of the stack,
+/// which is replaced by its fifth power mod p
+/// I.e. transforms the stack [x, ...] -> [x^5 mod p, ...]
+#define macro SBOX() = takes(2) returns(1) {
+    // Takes [x, PRIME]
+    // Prelude: setup primes on the stack in the order they'll be used
+    dup2 dup1       // [PRIME, PRIME, x, PRIME]
+    dup3            // [x, PRIME, PRIME, x, PRIME]
+    dup1            // [x, x, PRIME, PRIME, x, PRIME]
+
+    // Compute x^2 (mod p)
+    mulmod          // [x^2 mod p, PRIME, x, PRIME]
+
+    // Compute x^4 (mod p)
+    dup1            // [x^2 mod p, x^2 mod p, PRIME, x, PRIME]
+    mulmod          // [x^4 mod p, x, PRIME]
+    
+    // Compute x^5 (mod p)
+    mulmod          // [x^5 mod p]
+}

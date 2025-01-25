@@ -1,0 +1,9 @@
+/// @title Poseidon2
+/// @author @joeykraut
+/// @notice A Poseidon2 implementation in Huff. See https://eprint.iacr.org/2023/323
+/// for more details. Inspired by https://github.com/zemse/poseidon2-evm/tree/main
+
+#define macro MAIN() = takes(0) returns(0) {
+}
+
+
