@@ -3,10 +3,7 @@
 /// @dev The scalar field modulus of BN254
 #define constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 
 
-/// @dev Push the prime onto the stack
-#define macro PUSH_PRIME() = {
-    [PRIME]
-}
+// --- Core Permutation Methods --- //
 
 /// @dev Add the round constant to the element on top of the stack
 #define macro ADD_RC(RC) = takes(2) returns(1) {
@@ -48,13 +45,7 @@
 /// @return [state'[0], state'[1], state'[2]]
 #define macro INTERNAL_MDS() = takes(3) returns(7) {
     // Takes [state[0], state[1], state[2]]
-    PUSH_PRIME()            // [PRIME, state[0], state[1], state[2]]
-    dup4 dup4 dup4          // [state[0], state[1], state[2], PRIME, state[0], state[1], state[2]]
-
-    // Compute the sum of the elements (mod p)
-    PUSH_PRIME() swap2      // [state[1], state[0], PRIME, state[2], PRIME, state[0], state[1], state[2]]
-    addmod                  // [state[0] + state[1] mod p, state[2], PRIME, state[0], state[1], state[2]]
-    addmod                  // [sum, state[0], state[1], state[2]]
+    SUM_FIRST_THREE()                   // [sum, state[0], state[1], state[2]]
 
     // Double the last state element and add the sum to each element
     PUSH_PRIME() dup2 PUSH_PRIME()      // [PRIME, sum, PRIME, sum, state[0], state[1], state[2]] 
@@ -64,4 +55,45 @@
     dup6 addmod                         // [state'[1], state'[2], sum, state[0], state[1], state[2]]
     PUSH_PRIME() dup4                   // [sum, PRIME, state'[1], state'[2], sum, state[0], state[1], state[2]]
     dup6 addmod                         // [state'[0], state'[1], state'[2], sum, state[0], state[1], state[2]]
+}
+
+/// @dev Apply the external MDS matrix to the sponge state
+/// For t = 3, this is the circulant matrix `circ(2, 1, 1)`
+///
+/// This is equivalent to doubling each element then adding the other two to
+/// it, or more efficiently: adding the sum of the elements to each
+/// individual element. This efficient structure is borrowed from:
+///     https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs#L129-L137
+/// @param Takes [state[0], state[1], state[2]]
+/// @return [state'[0], state'[1], state'[2]]
+#define macro EXTERNAL_MDS() = takes(3) returns(7) {
+    // Takes [state[0], state[1], state[2]]
+    SUM_FIRST_THREE()               // [sum, state[0], state[1], state[2]]
+
+    // Add the sum to each element
+    PUSH_PRIME() dup2               // [sum, PRIME, sum, state[0], state[1], state[2]] 
+    dup6 addmod                     // [state'[2], sum, state[0], state[1], state[2]] 
+    PUSH_PRIME() dup3               // [sum, PRIME, state'[2], sum, state[0], state[1], state[2]]
+    dup6 addmod                     // [state'[1], state'[2], sum, state[0], state[1], state[2]]
+    PUSH_PRIME() dup4               // [sum, PRIME, state'[1], state'[2], sum, state[0], state[1], state[2]]
+    dup6 addmod                     // [state'[0], state'[1], state'[2], sum, state[0], state[1], state[2]]
+}
+
+// --- Helper Macros --- //
+
+/// @dev Push the prime onto the stack
+#define macro PUSH_PRIME() = {
+    [PRIME]
+}
+
+/// @dev Sum the first three elements of the stack modulo the prime
+#define macro SUM_FIRST_THREE() = takes(0) returns(1) {
+    // Takes [a, b, c]
+    PUSH_PRIME()            // [PRIME, a, b, c]
+    dup4 dup4 dup4          // [a, b, c, PRIME, a, b, c]
+
+    // Compute the sum of the elements (mod p)
+    PUSH_PRIME() swap2      // [b, a, PRIME, c, PRIME, a, b, c]
+    addmod                  // [a + b mod p, c, PRIME, a, b, c]
+    addmod                  // [sum, a, b, c]
 }
