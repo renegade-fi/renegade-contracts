@@ -8,16 +8,30 @@ core-settlement = []
 test-helpers = []
 
 [dependencies]
+
+# === Arithmetic === #
 ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
+num-bigint = { workspace = true }
+
+# === EVM === #
 alloy-primitives = { workspace = true }
 alloy-sol-types = { workspace = true }
+
+# === Serialization === #
 serde = { workspace = true }
 serde_with = { workspace = true }
 ark-serialize = { workspace = true }
 
+# === Relayer === #
+circuit-types = { workspace = true }
+circuits = { workspace = true }
+constants = { workspace = true }
+common = { path = "../../renegade/common", default-features = false, features = [
+  "proof-system-types",
+] }
+
 [dev-dependencies]
 ark-std = { workspace = true }
-num-bigint = { workspace = true }
 rand = { workspace = true }
