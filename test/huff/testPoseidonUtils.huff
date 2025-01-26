@@ -8,8 +8,10 @@
 #define function testSboxSingle(uint256) nonpayable returns(uint256) 
 /// @dev Test the ADD_RC function applied to a single input
 #define function testAddRc(uint256) nonpayable returns(uint256) 
-/// @dev Test the internal MDS function applied to a single input
+/// @dev Test the internal MDS function applied to a trio of inputs
 #define function testInternalMds(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256)
+/// @dev Test the external MDS function applied to a trio of inputs
+#define function testExternalMds(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256) 
 
 /// @dev The test round constant
 #define constant TEST_RC = 0x1337
@@ -21,6 +23,7 @@
     dup1 __FUNC_SIG(testSboxSingle)     eq testSboxSingle   jumpi
     dup1 __FUNC_SIG(testAddRc)          eq testAddRc        jumpi
     dup1 __FUNC_SIG(testInternalMds)    eq testInternalMds  jumpi
+    dup1 __FUNC_SIG(testExternalMds)    eq testExternalMds  jumpi
 
     // Revert if the function selector is not valid
     0x1 0x0 mstore
@@ -32,7 +35,11 @@
         TEST_ADD_RC()
     testInternalMds:
         TEST_INTERNAL_MDS()
+    testExternalMds:
+        TEST_EXTERNAL_MDS()
 }
+
+// --- Test Cases --- //
 
 /// @notice Test the sbox function applied to a single input
 #define macro TEST_SBOX_SINGLE() = takes(0) returns(0) {
@@ -60,7 +67,7 @@
     RETURN_FIRST()
 }
 
-/// @notice Test the internal MDS function applied to a single input
+/// @notice Test the internal MDS function applied to a trio of inputs
 #define macro TEST_INTERNAL_MDS() = takes(0) returns(0) {
     // Get the input from calldata 
     PUSH_PRIME()
@@ -70,6 +77,21 @@
 
     // Call the internal MDS function
     INTERNAL_MDS()
+
+    // Return the result
+    RETURN_FIRST_THREE()
+}
+
+/// @notice Test the external MDS function applied to a trio of inputs
+#define macro TEST_EXTERNAL_MDS() = takes(0) returns(0) {
+    // Get the input from calldata 
+    PUSH_PRIME()
+    0x44 calldataload
+    0x24 calldataload
+    0x04 calldataload               // [state[0], state[1], state[2], PRIME]
+
+    // Call the internal MDS function
+    EXTERNAL_MDS()
 
     // Return the result
     RETURN_FIRST_THREE()

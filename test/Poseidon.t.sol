@@ -54,6 +54,26 @@ contract PoseidonTest is Test {
         // Calculate the expected results
         uint256 expectedA = addmod(a, sum, PRIME);
         uint256 expectedB = addmod(b, sum, PRIME);
+        uint256 expectedC = addmod(c, addmod(c, sum, PRIME), PRIME);
+        assertEq(a1, expectedA, "Expected result to match a + sum mod p");
+        assertEq(b1, expectedB, "Expected result to match b + sum mod p");
+        assertEq(c1, expectedC, "Expected result to match c + sum mod p");
+    }
+
+    /// @dev Test the external MDS function applied to a trio of inputs
+    function testExternalMds() public {
+        uint256 a = vm.randomUint();
+        uint256 b = vm.randomUint();
+        uint256 c = vm.randomUint();
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalMds(a, b, c);
+
+        // Calculate the sum of the elements
+        uint256 sum = addmod(a, b, PRIME);
+        sum = addmod(sum, c, PRIME);
+
+        // Calculate the expected results
+        uint256 expectedA = addmod(a, sum, PRIME);
+        uint256 expectedB = addmod(b, sum, PRIME);
         uint256 expectedC = addmod(c, sum, PRIME);
         assertEq(a1, expectedA, "Expected result to match a + sum mod p");
         assertEq(b1, expectedB, "Expected result to match b + sum mod p");
@@ -65,4 +85,5 @@ interface PoseidonSuite {
     function testSboxSingle(uint256) external returns (uint256);
     function testAddRc(uint256) external returns (uint256);
     function testInternalMds(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
+    function testExternalMds(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
 }
