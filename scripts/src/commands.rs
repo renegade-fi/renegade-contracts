@@ -10,17 +10,14 @@ use circuits::zk_circuits::{
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlement,
     valid_wallet_create::SizedValidWalletCreate, valid_wallet_update::SizedValidWalletUpdate,
 };
-use contracts_utils::{
-    conversion::to_contract_vkey,
-    proof_system::{
-        dummy_renegade_circuits::{
-            DummyValidCommitments, DummyValidFeeRedemption, DummyValidMatchSettle,
-            DummyValidMatchSettleAtomic, DummyValidOfflineFeeSettlement, DummyValidReblind,
-            DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
-        },
-        gen_match_atomic_linking_vkeys, gen_match_atomic_vkeys, gen_match_linking_vkeys,
-        gen_match_vkeys,
+use contracts_utils::proof_system::{
+    dummy_renegade_circuits::{
+        DummyValidCommitments, DummyValidFeeRedemption, DummyValidMatchSettle,
+        DummyValidMatchSettleAtomic, DummyValidOfflineFeeSettlement, DummyValidReblind,
+        DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
     },
+    gen_match_atomic_linking_vkeys, gen_match_atomic_vkeys, gen_match_linking_vkeys,
+    gen_match_vkeys,
 };
 use ethers::{
     abi::{Address, Contract},
@@ -530,20 +527,20 @@ fn compute_vkeys<
     VMS: SingleProverCircuit,  // VALID MATCH SETTLE
     VMSA: SingleProverCircuit, // VALID MATCH SETTLE ATOMIC
 >() -> Result<RenegadeVerificationKeys, ScriptError> {
-    let valid_wallet_create = to_contract_vkey((*VWC::verifying_key()).clone())
-        .map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_wallet_create =
+        (*VWC::verifying_key()).clone().try_into().map_err(|_| ScriptError::CircuitCreation)?;
 
-    let valid_wallet_update = to_contract_vkey((*VWU::verifying_key()).clone())
-        .map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_wallet_update =
+        (*VWU::verifying_key()).clone().try_into().map_err(|_| ScriptError::CircuitCreation)?;
 
-    let valid_relayer_fee_settlement = to_contract_vkey((*VRFS::verifying_key()).clone())
-        .map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_relayer_fee_settlement =
+        (*VRFS::verifying_key()).clone().try_into().map_err(|_| ScriptError::CircuitCreation)?;
 
-    let valid_offline_fee_settlement = to_contract_vkey((*VOFS::verifying_key()).clone())
-        .map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_offline_fee_settlement =
+        (*VOFS::verifying_key()).clone().try_into().map_err(|_| ScriptError::CircuitCreation)?;
 
-    let valid_fee_redemption = to_contract_vkey((*VFR::verifying_key()).clone())
-        .map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_fee_redemption =
+        (*VFR::verifying_key()).clone().try_into().map_err(|_| ScriptError::CircuitCreation)?;
 
     let match_vkeys = gen_match_vkeys::<VC, VR, VMS>().map_err(|_| ScriptError::CircuitCreation)?;
 

@@ -24,13 +24,16 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 ark-serialize = { workspace = true }
 
-# === Relayer === #
+# === Renegade === #
 circuit-types = { workspace = true }
 circuits = { workspace = true }
 constants = { workspace = true }
 common = { path = "../../renegade/common", default-features = false, features = [
-  "proof-system-types",
+  "wallet",
+  "internal-types",
 ] }
+mpc-plonk = { workspace = true, features = ["test_apis"] }
+mpc-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 
 [dev-dependencies]
 ark-std = { workspace = true }

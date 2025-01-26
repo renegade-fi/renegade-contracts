@@ -1,11 +1,11 @@
 //! Utilities for converting from relayer types to contract types
 
-use std::str::FromStr;
+use std::{error::Error, fmt::Display, str::FromStr};
 
 use alloy_primitives::{Address, U160, U256};
 use circuit_types::{
     elgamal::{ElGamalCiphertext, EncryptionKey},
-    keychain::PublicSigningKey as CircuitPublicSigningKey,
+    keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
     note::NOTE_CIPHERTEXT_SIZE,
     r#match::{
         ExternalMatchResult as CircuitExternalMatchResult, FeeTake as CircuitFeeTake,
@@ -27,16 +27,18 @@ use circuits::zk_circuits::{
     valid_wallet_update::SizedValidWalletUpdateStatement,
 };
 use common::types::transfer_auth::TransferAuth;
-use constants::Scalar;
+use constants::{Scalar, SystemCurve};
+use mpc_plonk::proof_system::structs::VerifyingKey;
+use mpc_relation::proof_linking::GroupLayout;
 use num_bigint::BigUint;
 
 use crate::types::{
     BabyJubJubPoint, ExternalMatchResult, ExternalTransfer, FeeTake, G1Affine, LinkingProof,
-    NoteCiphertext, OrderSettlementIndices, Proof, PublicEncryptionKey, PublicSigningKey,
-    ScalarField, TransferAuxData, ValidCommitmentsStatement, ValidFeeRedemptionStatement,
-    ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement,
-    ValidReblindStatement, ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement,
-    ValidWalletUpdateStatement,
+    LinkingVerificationKey, NoteCiphertext, OrderSettlementIndices, Proof, PublicEncryptionKey,
+    PublicSigningKey, ScalarField, TransferAuxData, ValidCommitmentsStatement,
+    ValidFeeRedemptionStatement, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
+    ValidOfflineFeeSettlementStatement, ValidReblindStatement, ValidRelayerFeeSettlementStatement,
+    ValidWalletCreateStatement, ValidWalletUpdateStatement, VerificationKey,
 };
 
 // --------------
@@ -53,14 +55,48 @@ pub enum ConversionError {
     InvalidUint,
 }
 
+impl Display for ConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl Error for ConversionError {}
+
 // --------------------
 // | CONVERSION IMPLS |
 // --------------------
 
-impl TryFrom<PlonkProof> for Proof {
+impl TryFrom<VerifyingKey<SystemCurve>> for VerificationKey {
     type Error = ConversionError;
 
-    fn try_from(value: PlonkProof) -> Result<Self, Self::Error> {
+    fn try_from(value: VerifyingKey<SystemCurve>) -> Result<Self, Self::Error> {
+        Ok(VerificationKey {
+            n: value.domain_size as u64,
+            l: value.num_inputs as u64,
+            k: value.k.try_into().map_err(|_| ConversionError::InvalidLength)?,
+            q_comms: try_unwrap_commitments(&value.selector_comms)?,
+            sigma_comms: try_unwrap_commitments(&value.sigma_comms)?,
+            g: value.open_key.g,
+            h: value.open_key.h,
+            x_h: value.open_key.beta_h,
+        })
+    }
+}
+
+impl From<&GroupLayout> for LinkingVerificationKey {
+    fn from(value: &GroupLayout) -> Self {
+        LinkingVerificationKey {
+            link_group_generator: value.get_domain_generator(),
+            link_group_offset: value.offset,
+            link_group_size: value.size,
+        }
+    }
+}
+
+impl TryFrom<&PlonkProof> for Proof {
+    type Error = ConversionError;
+
+    fn try_from(value: &PlonkProof) -> Result<Self, Self::Error> {
         Ok(Proof {
             wire_comms: try_unwrap_commitments(&value.wires_poly_comms)?,
             z_comm: value.prod_perm_poly_comm.0,
@@ -84,10 +120,10 @@ impl TryFrom<PlonkProof> for Proof {
     }
 }
 
-impl TryFrom<PlonkLinkProof> for LinkingProof {
+impl TryFrom<&PlonkLinkProof> for LinkingProof {
     type Error = ConversionError;
 
-    fn try_from(value: PlonkLinkProof) -> Result<Self, Self::Error> {
+    fn try_from(value: &PlonkLinkProof) -> Result<Self, Self::Error> {
         Ok(LinkingProof {
             linking_poly_opening: value.opening_proof.proof,
             linking_quotient_poly_comm: value.quotient_commitment.0,
@@ -95,10 +131,10 @@ impl TryFrom<PlonkLinkProof> for LinkingProof {
     }
 }
 
-impl TryFrom<CircuitExternalTransfer> for ExternalTransfer {
+impl TryFrom<&CircuitExternalTransfer> for ExternalTransfer {
     type Error = ConversionError;
 
-    fn try_from(value: CircuitExternalTransfer) -> Result<Self, Self::Error> {
+    fn try_from(value: &CircuitExternalTransfer) -> Result<Self, Self::Error> {
         let account_addr = biguint_to_address(&value.account_addr)?;
         let mint = biguint_to_address(&value.mint)?;
         let amount = amount_to_u256(value.amount)?;
@@ -112,10 +148,10 @@ impl TryFrom<CircuitExternalTransfer> for ExternalTransfer {
     }
 }
 
-impl TryFrom<CircuitPublicSigningKey> for PublicSigningKey {
+impl TryFrom<&CircuitPublicSigningKey> for PublicSigningKey {
     type Error = ConversionError;
 
-    fn try_from(value: CircuitPublicSigningKey) -> Result<Self, Self::Error> {
+    fn try_from(value: &CircuitPublicSigningKey) -> Result<Self, Self::Error> {
         let x = try_unwrap_scalars(&value.x.to_scalars())?;
         let y = try_unwrap_scalars(&value.y.to_scalars())?;
 
@@ -123,8 +159,34 @@ impl TryFrom<CircuitPublicSigningKey> for PublicSigningKey {
     }
 }
 
-impl From<SizedValidWalletCreateStatement> for ValidWalletCreateStatement {
-    fn from(value: SizedValidWalletCreateStatement) -> Self {
+impl From<&PublicSigningKey> for CircuitPublicSigningKey {
+    fn from(value: &PublicSigningKey) -> Self {
+        let x = NonNativeScalar {
+            scalar_words: value
+                .x
+                .into_iter()
+                .map(Scalar::new)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
+
+        let y = NonNativeScalar {
+            scalar_words: value
+                .y
+                .into_iter()
+                .map(Scalar::new)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
+
+        CircuitPublicSigningKey { x, y }
+    }
+}
+
+impl From<&SizedValidWalletCreateStatement> for ValidWalletCreateStatement {
+    fn from(value: &SizedValidWalletCreateStatement) -> Self {
         let public_wallet_shares = wallet_shares_to_scalar_vec(&value.public_wallet_shares);
 
         ValidWalletCreateStatement {
@@ -134,18 +196,18 @@ impl From<SizedValidWalletCreateStatement> for ValidWalletCreateStatement {
     }
 }
 
-impl TryFrom<SizedValidWalletUpdateStatement> for ValidWalletUpdateStatement {
+impl TryFrom<&SizedValidWalletUpdateStatement> for ValidWalletUpdateStatement {
     type Error = ConversionError;
 
-    fn try_from(value: SizedValidWalletUpdateStatement) -> Result<Self, Self::Error> {
+    fn try_from(value: &SizedValidWalletUpdateStatement) -> Result<Self, Self::Error> {
         let new_public_shares = wallet_shares_to_scalar_vec(&value.new_public_shares);
         let external_transfer: Option<ExternalTransfer> = if value.external_transfer.is_default() {
             None
         } else {
-            Some(value.external_transfer.try_into()?)
+            Some((&value.external_transfer).try_into()?)
         };
 
-        let old_pk_root = value.old_pk_root.try_into()?;
+        let old_pk_root = (&value.old_pk_root).try_into()?;
 
         Ok(ValidWalletUpdateStatement {
             old_shares_nullifier: value.old_shares_nullifier.inner(),
@@ -158,10 +220,10 @@ impl TryFrom<SizedValidWalletUpdateStatement> for ValidWalletUpdateStatement {
     }
 }
 
-impl TryFrom<TransferAuth> for TransferAuxData {
+impl TryFrom<&TransferAuth> for TransferAuxData {
     type Error = ConversionError;
 
-    fn try_from(value: TransferAuth) -> Result<Self, Self::Error> {
+    fn try_from(value: &TransferAuth) -> Result<Self, Self::Error> {
         Ok(match value {
             TransferAuth::Deposit(deposit) => TransferAuxData {
                 permit_nonce: Some(
@@ -185,8 +247,8 @@ impl TryFrom<TransferAuth> for TransferAuxData {
     }
 }
 
-impl From<CircuitValidReblindStatement> for ValidReblindStatement {
-    fn from(value: CircuitValidReblindStatement) -> Self {
+impl From<&CircuitValidReblindStatement> for ValidReblindStatement {
+    fn from(value: &CircuitValidReblindStatement) -> Self {
         ValidReblindStatement {
             original_shares_nullifier: value.original_shares_nullifier.inner(),
             reblinded_private_shares_commitment: value.reblinded_private_share_commitment.inner(),
@@ -195,8 +257,8 @@ impl From<CircuitValidReblindStatement> for ValidReblindStatement {
     }
 }
 
-impl From<CircuitOrderSettlementIndices> for OrderSettlementIndices {
-    fn from(value: CircuitOrderSettlementIndices) -> Self {
+impl From<&CircuitOrderSettlementIndices> for OrderSettlementIndices {
+    fn from(value: &CircuitOrderSettlementIndices) -> Self {
         OrderSettlementIndices {
             balance_send: value.balance_send as u64,
             balance_receive: value.balance_receive as u64,
@@ -205,18 +267,18 @@ impl From<CircuitOrderSettlementIndices> for OrderSettlementIndices {
     }
 }
 
-impl From<CircuitValidCommitmentsStatement> for ValidCommitmentsStatement {
-    fn from(value: CircuitValidCommitmentsStatement) -> Self {
-        ValidCommitmentsStatement { indices: value.indices.into() }
+impl From<&CircuitValidCommitmentsStatement> for ValidCommitmentsStatement {
+    fn from(value: &CircuitValidCommitmentsStatement) -> Self {
+        ValidCommitmentsStatement { indices: (&value.indices).into() }
     }
 }
 
-impl From<SizedValidMatchSettleStatement> for ValidMatchSettleStatement {
-    fn from(value: SizedValidMatchSettleStatement) -> Self {
+impl From<&SizedValidMatchSettleStatement> for ValidMatchSettleStatement {
+    fn from(value: &SizedValidMatchSettleStatement) -> Self {
         let party0_modified_shares = wallet_shares_to_scalar_vec(&value.party0_modified_shares);
         let party1_modified_shares = wallet_shares_to_scalar_vec(&value.party1_modified_shares);
-        let party0_indices = value.party0_indices.into();
-        let party1_indices = value.party1_indices.into();
+        let party0_indices = (&value.party0_indices).into();
+        let party1_indices = (&value.party1_indices).into();
 
         ValidMatchSettleStatement {
             party0_modified_shares,
@@ -228,10 +290,10 @@ impl From<SizedValidMatchSettleStatement> for ValidMatchSettleStatement {
     }
 }
 
-impl TryFrom<CircuitExternalMatchResult> for ExternalMatchResult {
+impl TryFrom<&CircuitExternalMatchResult> for ExternalMatchResult {
     type Error = ConversionError;
 
-    fn try_from(value: CircuitExternalMatchResult) -> Result<Self, Self::Error> {
+    fn try_from(value: &CircuitExternalMatchResult) -> Result<Self, Self::Error> {
         let quote_mint = biguint_to_address(&value.quote_mint)?;
         let base_mint = biguint_to_address(&value.base_mint)?;
         let quote_amount = amount_to_u256(value.quote_amount)?;
@@ -247,10 +309,10 @@ impl TryFrom<CircuitExternalMatchResult> for ExternalMatchResult {
     }
 }
 
-impl TryFrom<CircuitFeeTake> for FeeTake {
+impl TryFrom<&CircuitFeeTake> for FeeTake {
     type Error = ConversionError;
 
-    fn try_from(value: CircuitFeeTake) -> Result<Self, Self::Error> {
+    fn try_from(value: &CircuitFeeTake) -> Result<Self, Self::Error> {
         Ok(FeeTake {
             relayer_fee: amount_to_u256(value.relayer_fee)?,
             protocol_fee: amount_to_u256(value.protocol_fee)?,
@@ -258,28 +320,28 @@ impl TryFrom<CircuitFeeTake> for FeeTake {
     }
 }
 
-impl TryFrom<SizedValidMatchSettleAtomicStatement> for ValidMatchSettleAtomicStatement {
+impl TryFrom<&SizedValidMatchSettleAtomicStatement> for ValidMatchSettleAtomicStatement {
     type Error = ConversionError;
 
-    fn try_from(value: SizedValidMatchSettleAtomicStatement) -> Result<Self, Self::Error> {
+    fn try_from(value: &SizedValidMatchSettleAtomicStatement) -> Result<Self, Self::Error> {
         let internal_party_modified_shares =
             wallet_shares_to_scalar_vec(&value.internal_party_modified_shares);
 
         Ok(ValidMatchSettleAtomicStatement {
-            match_result: value.match_result.try_into()?,
-            external_party_fees: value.external_party_fees.try_into()?,
+            match_result: (&value.match_result).try_into()?,
+            external_party_fees: (&value.external_party_fees).try_into()?,
             internal_party_modified_shares,
-            internal_party_indices: value.internal_party_indices.into(),
+            internal_party_indices: (&value.internal_party_indices).into(),
             protocol_fee: value.protocol_fee.repr.inner(),
             relayer_fee_address: biguint_to_address(&value.relayer_fee_address)?,
         })
     }
 }
 
-impl TryFrom<SizedValidRelayerFeeSettlementStatement> for ValidRelayerFeeSettlementStatement {
+impl TryFrom<&SizedValidRelayerFeeSettlementStatement> for ValidRelayerFeeSettlementStatement {
     type Error = ConversionError;
 
-    fn try_from(value: SizedValidRelayerFeeSettlementStatement) -> Result<Self, Self::Error> {
+    fn try_from(value: &SizedValidRelayerFeeSettlementStatement) -> Result<Self, Self::Error> {
         Ok(ValidRelayerFeeSettlementStatement {
             sender_root: value.sender_root.inner(),
             recipient_root: value.recipient_root.inner(),
@@ -299,13 +361,13 @@ impl TryFrom<SizedValidRelayerFeeSettlementStatement> for ValidRelayerFeeSettlem
                 .iter()
                 .map(|s| s.inner())
                 .collect(),
-            recipient_pk_root: value.recipient_pk_root.try_into()?,
+            recipient_pk_root: (&value.recipient_pk_root).try_into()?,
         })
     }
 }
 
-impl From<ElGamalCiphertext<NOTE_CIPHERTEXT_SIZE>> for NoteCiphertext {
-    fn from(value: ElGamalCiphertext<NOTE_CIPHERTEXT_SIZE>) -> Self {
+impl From<&ElGamalCiphertext<NOTE_CIPHERTEXT_SIZE>> for NoteCiphertext {
+    fn from(value: &ElGamalCiphertext<NOTE_CIPHERTEXT_SIZE>) -> Self {
         NoteCiphertext(
             BabyJubJubPoint { x: value.ephemeral_key.x.inner(), y: value.ephemeral_key.y.inner() },
             value.ciphertext[0].inner(),
@@ -315,14 +377,14 @@ impl From<ElGamalCiphertext<NOTE_CIPHERTEXT_SIZE>> for NoteCiphertext {
     }
 }
 
-impl From<EncryptionKey> for PublicEncryptionKey {
-    fn from(value: EncryptionKey) -> Self {
+impl From<&EncryptionKey> for PublicEncryptionKey {
+    fn from(value: &EncryptionKey) -> Self {
         PublicEncryptionKey { x: value.x.inner(), y: value.y.inner() }
     }
 }
 
-impl From<SizedValidOfflineFeeSettlementStatement> for ValidOfflineFeeSettlementStatement {
-    fn from(value: SizedValidOfflineFeeSettlementStatement) -> Self {
+impl From<&SizedValidOfflineFeeSettlementStatement> for ValidOfflineFeeSettlementStatement {
+    fn from(value: &SizedValidOfflineFeeSettlementStatement) -> Self {
         ValidOfflineFeeSettlementStatement {
             merkle_root: value.merkle_root.inner(),
             nullifier: value.nullifier.inner(),
@@ -333,18 +395,18 @@ impl From<SizedValidOfflineFeeSettlementStatement> for ValidOfflineFeeSettlement
                 .iter()
                 .map(|s| s.inner())
                 .collect(),
-            note_ciphertext: value.note_ciphertext.into(),
+            note_ciphertext: (&value.note_ciphertext).into(),
             note_commitment: value.note_commitment.inner(),
-            protocol_key: value.protocol_key.into(),
+            protocol_key: (&value.protocol_key).into(),
             is_protocol_fee: value.is_protocol_fee,
         }
     }
 }
 
-impl TryFrom<SizedValidFeeRedemptionStatement> for ValidFeeRedemptionStatement {
+impl TryFrom<&SizedValidFeeRedemptionStatement> for ValidFeeRedemptionStatement {
     type Error = ConversionError;
 
-    fn try_from(value: SizedValidFeeRedemptionStatement) -> Result<Self, Self::Error> {
+    fn try_from(value: &SizedValidFeeRedemptionStatement) -> Result<Self, Self::Error> {
         Ok(ValidFeeRedemptionStatement {
             wallet_root: value.wallet_root.inner(),
             note_root: value.note_root.inner(),
@@ -357,7 +419,7 @@ impl TryFrom<SizedValidFeeRedemptionStatement> for ValidFeeRedemptionStatement {
                 .iter()
                 .map(|s| s.inner())
                 .collect(),
-            old_pk_root: value.recipient_root_key.try_into()?,
+            old_pk_root: (&value.recipient_root_key).try_into()?,
         })
     }
 }

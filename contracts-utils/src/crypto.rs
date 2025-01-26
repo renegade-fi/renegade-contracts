@@ -1,6 +1,5 @@
 //! Helpful cryptographic utilities
 
-use arbitrum_client::conversion::to_contract_public_signing_key;
 use circuit_types::keychain::PublicSigningKey as CircuitPubkey;
 use contracts_common::{
     backends::HashBackend, constants::HASH_OUTPUT_SIZE, types::PublicSigningKey,
@@ -29,7 +28,7 @@ pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, Publi
     let verifying_key = signing_key.verifying_key();
 
     let circuit_pubkey = CircuitPubkey::from(verifying_key);
-    let contract_pubkey = to_contract_public_signing_key(&circuit_pubkey).unwrap();
+    let contract_pubkey = (&circuit_pubkey).try_into().unwrap();
 
     (signing_key, contract_pubkey)
 }

@@ -233,37 +233,6 @@ checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 [[package]]
 name = "arbitrum-client"
 version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
- "ark-bn254",
- "ark-ec",
- "ark-ff 0.4.2",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
- "common 0.1.0",
- "constants 0.1.0",
- "contracts-common",
- "ethers",
- "itertools 0.12.1",
- "lazy_static",
- "mpc-relation",
- "num-bigint",
- "num-traits",
- "postcard",
- "renegade-crypto 0.1.0",
- "renegade-metrics 0.1.0",
- "ruint",
- "serde",
- "serde_with",
- "tokio",
- "tracing",
- "util 0.1.0",
-]
-
-[[package]]
-name = "arbitrum-client"
-version = "0.1.0"
 source = "git+https://github.com/renegade-fi/renegade.git#ebf5588231b2e3469737945bbfb27aaeb9fbfca3"
 dependencies = [
  "alloy-primitives",
@@ -275,7 +244,7 @@ dependencies = [
  "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "common 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
- "contracts-common",
+ "contracts-common 0.1.0 (git+https://github.com/renegade-fi/renegade-contracts.git)",
  "ethers",
  "itertools 0.12.1",
  "lazy_static",
@@ -284,7 +253,7 @@ dependencies = [
  "num-traits",
  "postcard",
  "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
- "renegade-metrics 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "renegade-metrics",
  "ruint",
  "serde",
  "serde_with",
@@ -1386,7 +1355,7 @@ dependencies = [
  "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
- "contracts-common",
+ "contracts-common 0.1.0 (git+https://github.com/renegade-fi/renegade-contracts.git)",
  "crossbeam",
  "derivative",
  "ecdsa",
@@ -1478,8 +1447,25 @@ dependencies = [
  "circuits 0.1.0",
  "common 0.1.0",
  "constants 0.1.0",
+ "mpc-plonk",
+ "mpc-relation",
  "num-bigint",
  "rand 0.8.5",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
+name = "contracts-common"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade-contracts.git#ee226ebc5ef87df7043922c3e0d93fbda6e26037"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
  "serde",
  "serde_with",
 ]
@@ -1489,7 +1475,6 @@ name = "contracts-core"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
- "arbitrum-client 0.1.0",
  "ark-bn254",
  "ark-crypto-primitives",
  "ark-ec",
@@ -1498,7 +1483,7 @@ dependencies = [
  "circuit-types 0.1.0",
  "circuits 0.1.0",
  "constants 0.1.0",
- "contracts-common",
+ "contracts-common 0.1.0",
  "contracts-utils",
  "ethers",
  "jf-primitives",
@@ -1519,7 +1504,7 @@ dependencies = [
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.4.2",
- "contracts-common",
+ "contracts-common 0.1.0",
  "contracts-core",
  "mini-alloc 0.4.2",
  "postcard",
@@ -1533,7 +1518,6 @@ name = "contracts-utils"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
- "arbitrum-client 0.1.0",
  "ark-crypto-primitives",
  "ark-ec",
  "ark-ff 0.4.2",
@@ -1542,7 +1526,7 @@ dependencies = [
  "circuit-types 0.1.0",
  "circuits 0.1.0",
  "constants 0.1.0",
- "contracts-common",
+ "contracts-common 0.1.0",
  "contracts-core",
  "ethers",
  "eyre",
@@ -3288,7 +3272,6 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
- "arbitrum-client 0.1.0",
  "ark-crypto-primitives",
  "ark-ec",
  "ark-ff 0.4.2",
@@ -3298,7 +3281,7 @@ dependencies = [
  "clap",
  "colored",
  "constants 0.1.0",
- "contracts-common",
+ "contracts-common 0.1.0",
  "contracts-core",
  "contracts-stylus",
  "contracts-utils",
@@ -5071,20 +5054,6 @@ dependencies = [
 [[package]]
 name = "renegade-metrics"
 version = "0.1.0"
-dependencies = [
- "atomic_float",
- "circuit-types 0.1.0",
- "common 0.1.0",
- "lazy_static",
- "metrics",
- "num-bigint",
- "tracing",
- "util 0.1.0",
-]
-
-[[package]]
-name = "renegade-metrics"
-version = "0.1.0"
 source = "git+https://github.com/renegade-fi/renegade.git#ebf5588231b2e3469737945bbfb27aaeb9fbfca3"
 dependencies = [
  "atomic_float",
@@ -5462,7 +5431,7 @@ dependencies = [
  "circuits 0.1.0",
  "clap",
  "constants 0.1.0",
- "contracts-common",
+ "contracts-common 0.1.0",
  "contracts-utils",
  "ethers",
  "hex",
@@ -6173,7 +6142,7 @@ source = "git+https://github.com/renegade-fi/renegade.git#ebf5588231b2e346973794
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
- "arbitrum-client 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "arbitrum-client",
  "ark-ec",
  "ark-mpc",
  "async-trait",

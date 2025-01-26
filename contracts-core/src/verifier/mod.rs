@@ -697,7 +697,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 #[cfg(test)]
 mod tests {
     use alloc::vec;
-    use arbitrum_client::conversion::to_contract_link_proof;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
@@ -716,7 +715,6 @@ mod tests {
     };
     use contracts_utils::{
         constants::DUMMY_CIRCUIT_SRS_DEGREE,
-        conversion::to_linking_vkey,
         crypto::NativeHasher,
         proof_system::{
             dummy_renegade_circuits::{
@@ -789,21 +787,20 @@ mod tests {
             .unwrap()
             .get_group_layout(VALID_REBLIND_COMMITMENTS_LINK);
 
-        let valid_reblind_commitments_linking_vkey =
-            to_linking_vkey(&valid_reblind_commitments_layout);
+        let valid_reblind_commitments_linking_vkey = (&valid_reblind_commitments_layout).into();
 
         let commit_key = SYSTEM_SRS.extract_prover_param(DUMMY_CIRCUIT_SRS_DEGREE);
 
-        let valid_reblind_commitments_proof = to_contract_link_proof(
-            &PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        let valid_reblind_commitments_proof =
+            (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
                 &valid_reblind_hint,
                 &valid_commitments_hint,
                 &valid_reblind_commitments_layout,
                 &commit_key,
             )
-            .unwrap(),
-        )
-        .unwrap();
+            .unwrap())
+                .try_into()
+                .unwrap();
 
         (
             valid_reblind_commitments_proof,

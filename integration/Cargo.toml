@@ -25,7 +25,6 @@ ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
 circuits = { workspace = true }
 constants = { workspace = true }
-arbitrum-client = { workspace = true }
 jf-primitives = { workspace = true }
 itertools = { workspace = true }
 tracing = { workspace = true }

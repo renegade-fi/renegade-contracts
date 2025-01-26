@@ -5,7 +5,6 @@
 #![deny(clippy::missing_docs_in_private_items)]
 
 pub mod constants;
-pub mod conversion;
 pub mod crypto;
 pub mod merkle;
 pub mod proof_system;

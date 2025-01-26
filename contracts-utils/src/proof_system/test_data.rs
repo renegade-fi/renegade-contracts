@@ -1,13 +1,6 @@
 //! Utilities for generating data for the proof system tests
 
 use alloy_primitives::Address;
-use arbitrum_client::conversion::{
-    to_contract_link_proof, to_contract_proof, to_contract_valid_commitments_statement,
-    to_contract_valid_fee_redemption_statement, to_contract_valid_match_settle_atomic_statement,
-    to_contract_valid_match_settle_statement, to_contract_valid_offline_fee_settlement_statement,
-    to_contract_valid_reblind_statement, to_contract_valid_relayer_fee_settlement_statement,
-    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
-};
 use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
@@ -59,7 +52,6 @@ use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{to_circuit_pubkey, to_contract_vkey},
     crypto::{hash_and_sign_message, random_keypair},
     proof_system::dummy_renegade_circuits::DummyValidMatchSettleAtomic,
 };
@@ -203,13 +195,13 @@ pub fn dummy_valid_fee_redemption_statement<R: RngCore + CryptoRng>(
 pub fn gen_verification_bundle<R: CryptoRng + RngCore>(
     rng: &mut R,
 ) -> Result<(ContractValidWalletCreateStatement, ContractProof, VerificationKey)> {
-    let statement = dummy_circuit_type(rng);
-    let contract_statement = to_contract_valid_wallet_create_statement(&statement);
+    let statement: SizedValidWalletCreateStatement = dummy_circuit_type(rng);
+    let contract_statement = (&statement).into();
 
     let jf_proof = DummyValidWalletCreate::prove((), statement)?;
-    let proof = to_contract_proof(&jf_proof)?;
+    let proof = (&jf_proof).try_into()?;
     let jf_vkey = (*DummyValidWalletCreate::verifying_key()).clone();
-    let vkey = to_contract_vkey(jf_vkey)?;
+    let vkey = jf_vkey.try_into()?;
 
     Ok((contract_statement, proof, vkey))
 }
@@ -222,10 +214,10 @@ pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
     // Generate dummy statement & proof
     let statement: SizedValidWalletCreateStatement = dummy_circuit_type(rng);
     let jf_proof = DummyValidWalletCreate::prove((), statement.clone())?;
-    let proof = to_contract_proof(&jf_proof)?;
+    let proof = (&jf_proof).try_into()?;
 
     // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement = to_contract_valid_wallet_create_statement(&statement);
+    let contract_statement = (&statement).into();
 
     Ok((proof, contract_statement))
 }
@@ -241,7 +233,7 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     let (signing_key, contract_pubkey) = random_keypair(rng);
 
     // Convert the public key to the type expected by the circuit
-    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
+    let circuit_pubkey = (&contract_pubkey).into();
 
     // Generate dummy statement & proof
     let statement = dummy_valid_wallet_update_statement(
@@ -251,10 +243,10 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
         circuit_pubkey,
     );
     let jf_proof = DummyValidWalletUpdate::prove((), statement.clone())?;
-    let proof = to_contract_proof(&jf_proof)?;
+    let proof = (&jf_proof).try_into()?;
 
     // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement = to_contract_valid_wallet_update_statement(&statement)?;
+    let contract_statement: ContractValidWalletUpdateStatement = (&statement).try_into()?;
 
     let shares_commitment = compute_poseidon_hash(
         &[
@@ -283,16 +275,15 @@ pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
     let (signing_key, contract_pubkey) = random_keypair(rng);
 
     // Convert the public key to the type expected by the circuit
-    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
+    let circuit_pubkey = (&contract_pubkey).into();
 
     // Generate dummy statement & proof
     let statement = dummy_valid_relayer_fee_settlement_statement(rng, merkle_root, circuit_pubkey);
     let jf_proof = DummyValidRelayerFeeSettlement::prove((), statement.clone())?;
-    let proof = to_contract_proof(&jf_proof)?;
+    let proof = (&jf_proof).try_into()?;
 
     // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement: ContractValidRelayerFeeSettlementStatement =
-        to_contract_valid_relayer_fee_settlement_statement(&statement)?;
+    let contract_statement: ContractValidRelayerFeeSettlementStatement = (&statement).try_into()?;
 
     let shares_commitment = compute_poseidon_hash(
         &[
@@ -326,11 +317,10 @@ pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
         is_protocol_fee,
     );
     let jf_proof = DummyValidOfflineFeeSettlement::prove((), statement.clone())?;
-    let proof = to_contract_proof(&jf_proof)?;
+    let proof = (&jf_proof).try_into()?;
 
     // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement: ContractValidOfflineFeeSettlementStatement =
-        to_contract_valid_offline_fee_settlement_statement(&statement);
+    let contract_statement: ContractValidOfflineFeeSettlementStatement = (&statement).into();
 
     Ok((proof, contract_statement))
 }
@@ -346,16 +336,15 @@ pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
     let (signing_key, contract_pubkey) = random_keypair(rng);
 
     // Convert the public key to the type expected by the circuit
-    let circuit_pubkey = to_circuit_pubkey(contract_pubkey);
+    let circuit_pubkey = (&contract_pubkey).into();
 
     // Generate dummy statement & proof
     let statement = dummy_valid_fee_redemption_statement(rng, merkle_root, circuit_pubkey);
     let jf_proof = DummyValidFeeRedemption::prove((), statement.clone())?;
-    let proof = to_contract_proof(&jf_proof)?;
+    let proof = (&jf_proof).try_into()?;
 
     // Convert the statement & proof types to the ones expected by the contract
-    let contract_statement: ContractValidFeeRedemptionStatement =
-        to_contract_valid_fee_redemption_statement(&statement)?;
+    let contract_statement: ContractValidFeeRedemptionStatement = (&statement).try_into()?;
 
     let shares_commitment = compute_poseidon_hash(
         &[
@@ -449,33 +438,33 @@ fn match_proofs_and_hints(
             valid_commitments_witnesses[0].clone(),
             valid_commitments_statements[0],
         )?;
-    let valid_commitments_0 = to_contract_proof(&valid_commitments_0)?;
+    let valid_commitments_0 = (&valid_commitments_0).try_into()?;
 
     let (valid_commitments_1, valid_commitments_hint_1) =
         DummyValidCommitments::prove_with_link_hint(
             valid_commitments_witnesses[1].clone(),
             valid_commitments_statements[1],
         )?;
-    let valid_commitments_1 = to_contract_proof(&valid_commitments_1)?;
+    let valid_commitments_1 = (&valid_commitments_1).try_into()?;
 
     let (valid_reblind_0, valid_reblind_hint_0) = DummyValidReblind::prove_with_link_hint(
         valid_reblind_witnesses[0].clone(),
         valid_reblind_statements[0].clone(),
     )?;
-    let valid_reblind_0 = to_contract_proof(&valid_reblind_0)?;
+    let valid_reblind_0 = (&valid_reblind_0).try_into()?;
 
     let (valid_reblind_1, valid_reblind_hint_1) = DummyValidReblind::prove_with_link_hint(
         valid_reblind_witnesses[1].clone(),
         valid_reblind_statements[1].clone(),
     )?;
-    let valid_reblind_1 = to_contract_proof(&valid_reblind_1)?;
+    let valid_reblind_1 = (&valid_reblind_1).try_into()?;
 
     let (valid_match_settle, valid_match_settle_hint) =
         DummyValidMatchSettle::prove_with_link_hint(
             valid_match_settle_witness.clone(),
             valid_match_settle_statement.clone(),
         )?;
-    let valid_match_settle = to_contract_proof(&valid_match_settle)?;
+    let valid_match_settle = (&valid_match_settle).try_into()?;
 
     Ok((
         MatchProofs {
@@ -508,39 +497,43 @@ fn match_link_proofs(
 
     let (valid_reblind_hint_0, valid_commitments_hint_0) = &link_hints[0];
     let valid_reblind_commitments_0 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_reblind_hint_0,
             valid_commitments_hint_0,
             &valid_reblind_commitments_layout,
             &commit_key,
-        )?)?;
+        )?)
+            .try_into()?;
 
     let (valid_reblind_hint_1, valid_commitments_hint_1) = &link_hints[1];
     let valid_reblind_commitments_1 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_reblind_hint_1,
             valid_commitments_hint_1,
             &valid_reblind_commitments_layout,
             &commit_key,
-        )?)?;
+        )?)
+            .try_into()?;
 
     let (valid_commitments_hint_0, valid_match_settle_hint_0) = &link_hints[2];
     let valid_commitments_match_settle_0 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_commitments_hint_0,
             valid_match_settle_hint_0,
             &valid_commitments_match_settle_0_layout,
             &commit_key,
-        )?)?;
+        )?)
+            .try_into()?;
 
     let (valid_commitments_hint_1, valid_match_settle_hint_1) = &link_hints[3];
     let valid_commitments_match_settle_1 =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_commitments_hint_1,
             valid_match_settle_hint_1,
             &valid_commitments_match_settle_1_layout,
             &commit_key,
-        )?)?;
+        )?)
+            .try_into()?;
 
     Ok(MatchLinkingProofs {
         valid_reblind_commitments_0,
@@ -571,24 +564,18 @@ pub fn gen_process_match_settle_data<R: CryptoRng + RngCore>(
     let match_linking_proofs = match_link_proofs(link_hints)?;
 
     let match_payload_0 = MatchPayload {
-        valid_commitments_statement: to_contract_valid_commitments_statement(
-            valid_commitments_statements[0],
-        ),
-        valid_reblind_statement: to_contract_valid_reblind_statement(&valid_reblind_statements[0]),
+        valid_commitments_statement: (&valid_commitments_statements[0]).into(),
+        valid_reblind_statement: (&valid_reblind_statements[0]).into(),
     };
     let match_payload_1 = MatchPayload {
-        valid_commitments_statement: to_contract_valid_commitments_statement(
-            valid_commitments_statements[1],
-        ),
-        valid_reblind_statement: to_contract_valid_reblind_statement(&valid_reblind_statements[1]),
+        valid_commitments_statement: (&valid_commitments_statements[1]).into(),
+        valid_reblind_statement: (&valid_reblind_statements[1]).into(),
     };
 
     Ok(ProcessMatchSettleData {
         match_payload_0,
         match_payload_1,
-        valid_match_settle_statement: to_contract_valid_match_settle_statement(
-            &valid_match_settle_statement,
-        ),
+        valid_match_settle_statement: (&valid_match_settle_statement).into(),
         match_proofs,
         match_linking_proofs,
     })
@@ -726,18 +713,18 @@ fn match_atomic_proofs_and_hints(
         valid_commitments_witness.clone(),
         valid_commitments_statement,
     )?;
-    let valid_commitments = to_contract_proof(&valid_commitments)?;
+    let valid_commitments = (&valid_commitments).try_into()?;
 
     let (valid_reblind, valid_reblind_hint) =
         DummyValidReblind::prove_with_link_hint(valid_reblind_witness, valid_reblind_statement)?;
-    let valid_reblind = to_contract_proof(&valid_reblind)?;
+    let valid_reblind = (&valid_reblind).try_into()?;
 
     let (valid_match_settle_atomic, valid_match_settle_atomic_hint) =
         DummyValidMatchSettleAtomic::prove_with_link_hint(
             valid_match_settle_atomic_witness,
             valid_match_settle_atomic_statement,
         )?;
-    let valid_match_settle_atomic = to_contract_proof(&valid_match_settle_atomic)?;
+    let valid_match_settle_atomic = (&valid_match_settle_atomic).try_into()?;
 
     Ok((
         MatchAtomicProofs { valid_commitments, valid_reblind, valid_match_settle_atomic },
@@ -760,21 +747,23 @@ fn match_atomic_link_proofs(
 
     let (valid_reblind_hint, valid_commitments_hint) = &link_hints[0];
     let valid_reblind_commitments =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_reblind_hint,
             valid_commitments_hint,
             &valid_reblind_commitments,
             &commit_key,
-        )?)?;
+        )?)
+            .try_into()?;
 
     let (valid_commitments_hint, valid_match_settle_atomic_hint) = &link_hints[1];
     let valid_commitments_match_settle_atomic =
-        to_contract_link_proof(&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
+        (&PlonkKzgSnark::<SystemCurve>::link_proofs::<SolidityTranscript>(
             valid_commitments_hint,
             valid_match_settle_atomic_hint,
             &valid_commitments_match_settle_0,
             &commit_key,
-        )?)?;
+        )?)
+            .try_into()?;
 
     Ok(MatchAtomicLinkingProofs {
         valid_reblind_commitments,
@@ -807,17 +796,13 @@ pub fn gen_atomic_match_with_match_and_fees<R: CryptoRng + RngCore>(
     let match_atomic_linking_proofs = match_atomic_link_proofs(link_hints)?;
 
     let internal_party_match_payload = MatchPayload {
-        valid_commitments_statement: to_contract_valid_commitments_statement(
-            valid_commitments_statement,
-        ),
-        valid_reblind_statement: to_contract_valid_reblind_statement(&valid_reblind_statement),
+        valid_commitments_statement: (&valid_commitments_statement).into(),
+        valid_reblind_statement: (&valid_reblind_statement).into(),
     };
 
     Ok(ProcessAtomicMatchSettleData {
         internal_party_match_payload,
-        valid_match_settle_atomic_statement: to_contract_valid_match_settle_atomic_statement(
-            &valid_match_settle_atomic_statement,
-        )?,
+        valid_match_settle_atomic_statement: (&valid_match_settle_atomic_statement).try_into()?,
         match_atomic_proofs,
         match_atomic_linking_proofs,
     })

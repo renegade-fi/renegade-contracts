@@ -5,18 +5,16 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use arbitrum_client::errors::ConversionError;
 use circuit_types::{errors::ProverError, traits::SingleProverCircuit};
 use circuits::zk_circuits::{
     VALID_COMMITMENTS_MATCH_SETTLE_LINK0, VALID_COMMITMENTS_MATCH_SETTLE_LINK1,
     VALID_REBLIND_COMMITMENTS_LINK,
 };
-use contracts_common::types::{
-    MatchAtomicLinkingVkeys, MatchAtomicVkeys, MatchLinkingVkeys, MatchVkeys,
+use contracts_common::{
+    conversion::ConversionError,
+    types::{MatchAtomicLinkingVkeys, MatchAtomicVkeys, MatchLinkingVkeys, MatchVkeys},
 };
 use mpc_relation::proof_linking::GroupLayout;
-
-use crate::conversion::{to_contract_vkey, to_linking_vkey};
 
 pub mod dummy_renegade_circuits;
 pub mod test_data;
@@ -37,9 +35,9 @@ where
     R: SingleProverCircuit,
     M: SingleProverCircuit,
 {
-    let valid_commitments_vkey = to_contract_vkey((*C::verifying_key()).clone())?;
-    let valid_reblind_vkey = to_contract_vkey((*R::verifying_key()).clone())?;
-    let valid_match_settle_vkey = to_contract_vkey((*M::verifying_key()).clone())?;
+    let valid_commitments_vkey = (*C::verifying_key()).clone().try_into()?;
+    let valid_reblind_vkey = (*R::verifying_key()).clone().try_into()?;
+    let valid_match_settle_vkey = (*M::verifying_key()).clone().try_into()?;
 
     Ok(MatchVkeys { valid_commitments_vkey, valid_reblind_vkey, valid_match_settle_vkey })
 }
@@ -52,9 +50,9 @@ where
     R: SingleProverCircuit,
     M: SingleProverCircuit,
 {
-    let valid_commitments_vkey = to_contract_vkey((*C::verifying_key()).clone())?;
-    let valid_reblind_vkey = to_contract_vkey((*R::verifying_key()).clone())?;
-    let valid_match_settle_atomic_vkey = to_contract_vkey((*M::verifying_key()).clone())?;
+    let valid_commitments_vkey = (*C::verifying_key()).clone().try_into()?;
+    let valid_reblind_vkey = (*R::verifying_key()).clone().try_into()?;
+    let valid_match_settle_atomic_vkey = (*M::verifying_key()).clone().try_into()?;
 
     Ok(MatchAtomicVkeys {
         valid_commitments_vkey,
@@ -114,9 +112,9 @@ pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
     } = gen_match_layouts::<C>()?;
 
     Ok(MatchLinkingVkeys {
-        valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments),
-        valid_commitments_match_settle_0: to_linking_vkey(&valid_commitments_match_settle_0),
-        valid_commitments_match_settle_1: to_linking_vkey(&valid_commitments_match_settle_1),
+        valid_reblind_commitments: (&valid_reblind_commitments).into(),
+        valid_commitments_match_settle_0: (&valid_commitments_match_settle_0).into(),
+        valid_commitments_match_settle_1: (&valid_commitments_match_settle_1).into(),
     })
 }
 
@@ -128,8 +126,8 @@ pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
         gen_match_layouts::<C>()?;
 
     Ok(MatchAtomicLinkingVkeys {
-        valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments),
-        valid_commitments_match_settle_atomic: to_linking_vkey(&valid_commitments_match_settle_0),
+        valid_reblind_commitments: (&valid_reblind_commitments).into(),
+        valid_commitments_match_settle_atomic: (&valid_commitments_match_settle_0).into(),
     })
 }
 
@@ -149,7 +147,7 @@ pub enum ProofSystemError {
 impl Display for ProofSystemError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ProofSystemError::ConversionError(e) => write!(f, "ConversionError: {}", e),
+            ProofSystemError::ConversionError(e) => write!(f, "ConversionError: {:?}", e),
             ProofSystemError::ProverError(e) => write!(f, "ProverError: {}", e),
         }
     }
