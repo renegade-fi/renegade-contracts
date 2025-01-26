@@ -56,11 +56,12 @@
     addmod                  // [state[0] + state[1] mod p, state[2], PRIME, state[0], state[1], state[2]]
     addmod                  // [sum, state[0], state[1], state[2]]
 
-    // Add the sum to each element
-    PUSH_PRIME() dup2       // [sum, PRIME, sum, state[0], state[1], state[2]] 
-    dup6 addmod             // [state[2] + sum, sum, state[0], state[1], state[2]] 
-    PUSH_PRIME() dup3       // [sum, PRIME, state[2] + sum, sum, state[0], state[1], state[2]]
-    dup6 addmod             // [state[1] + sum, state[2] + sum, sum, state[0], state[1], state[2]]
-    PUSH_PRIME() dup4       // [sum, PRIME, state[1] + sum, state[2] + sum, sum, state[0], state[1], state[2]]
-    dup6 addmod             // [state[0] + sum, state[1] + sum, state[2] + sum, sum, state[0], state[1], state[2]]
+    // Double the last state element and add the sum to each element
+    PUSH_PRIME() dup2 PUSH_PRIME()      // [PRIME, sum, PRIME, sum, state[0], state[1], state[2]] 
+    dup7 dup1 addmod                    // [state[2] * 2, sum, PRIME, sum, state[0], state[1], state[2]] 
+    addmod                              // [state'[2], sum, state[0], state[1], state[2]]           
+    PUSH_PRIME() dup3                   // [sum, PRIME, state'[2], state[0], state[1], state[2]]
+    dup6 addmod                         // [state'[1], state'[2], sum, state[0], state[1], state[2]]
+    PUSH_PRIME() dup4                   // [sum, PRIME, state'[1], state'[2], sum, state[0], state[1], state[2]]
+    dup6 addmod                         // [state'[0], state'[1], state'[2], sum, state[0], state[1], state[2]]
 }
