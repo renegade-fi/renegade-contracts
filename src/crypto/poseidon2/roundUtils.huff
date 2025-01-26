@@ -27,6 +27,22 @@
     EXTERNAL_MDS()
 }
 
+/// @dev Apply an internal round to the state
+/// In an internal round, the round constant is only added to the first element,
+/// and the sbox is applied to the first element only
+/// @param Takes [a, b, c]
+/// @return [a', b', c']
+#define macro INTERNAL_ROUND(RC1) = takes(3) returns(7) {
+    // Add the round constant to the first element
+    PUSH_PRIME() swap1      // [a, PRIME, b, c]
+    ADD_RC(<RC1>)           // [a + RC1, b, c]
+    PUSH_PRIME() swap1      // [a + RC1, PRIME, b, c]
+    SBOX()                  // [(a + RC1)^5, b, c]
+
+    // Apply the internal MDS matrix
+    INTERNAL_MDS()
+}
+
 // --- Core Permutation Methods --- //
 
 /// @dev Add the round constant to the element on top of the stack

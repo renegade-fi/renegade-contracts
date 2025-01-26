@@ -14,6 +14,8 @@
 #define function testExternalMds(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256) 
 /// @dev Test the external round function applied to a trio of inputs
 #define function testExternalRound(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256)
+/// @dev Test the internal round function applied to a trio of inputs
+#define function testInternalRound(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256)
 
 /// @dev The first test round constant
 #define constant TEST_RC1 = 0x1337
@@ -32,6 +34,7 @@
     dup1 __FUNC_SIG(testInternalMds)    eq testInternalMds      jumpi
     dup1 __FUNC_SIG(testExternalMds)    eq testExternalMds      jumpi
     dup1 __FUNC_SIG(testExternalRound)  eq testExternalRound    jumpi
+    dup1 __FUNC_SIG(testInternalRound)  eq testInternalRound    jumpi
 
     // Revert if the function selector is not valid
     0x1 0x0 mstore
@@ -47,6 +50,8 @@
         TEST_EXTERNAL_MDS()
     testExternalRound:
         TEST_EXTERNAL_ROUND()
+    testInternalRound:
+        TEST_INTERNAL_ROUND(TEST_RC1)
 }
 
 // --- Test Cases --- //
@@ -113,7 +118,21 @@
     0x04 calldataload               // [state[0], state[1], state[2], PRIME]
 
     // Apply the external round function 
-    EXTERNAL_ROUND()
+    EXTERNAL_ROUND(TEST_RC1, TEST_RC2, TEST_RC3)
+
+    // Return the result
+    RETURN_FIRST_THREE()
+}
+
+/// @notice Test the internal round function applied to a trio of inputs
+#define macro TEST_INTERNAL_ROUND() = takes(0) returns(0) {
+    // Get the input from calldata 
+    0x44 calldataload
+    0x24 calldataload
+    0x04 calldataload               // [state[0], state[1], state[2], PRIME]
+
+    // Call the internal round function
+    INTERNAL_ROUND(TEST_RC1)
 
     // Return the result
     RETURN_FIRST_THREE()

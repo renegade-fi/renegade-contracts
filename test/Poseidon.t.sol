@@ -65,9 +65,33 @@ contract PoseidonTest is Test {
 
         // Calculate the expected results
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = externalMds(a, b, c);
-        assertEq(a1, expectedA, "Expected result to match a + sum mod p");
-        assertEq(b1, expectedB, "Expected result to match b + sum mod p");
-        assertEq(c1, expectedC, "Expected result to match c + sum mod p");
+        assertEq(a1, expectedA, "Expected result to match a");
+        assertEq(b1, expectedB, "Expected result to match b");
+        assertEq(c1, expectedC, "Expected result to match c");
+    }
+
+    /// @dev Test the external round function applied to a trio of inputs
+    function testExternalRound() public {
+        uint256 a = vm.randomUint();
+        uint256 b = vm.randomUint();
+        uint256 c = vm.randomUint();
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalRound(a, b, c);
+        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = externalRound(a, b, c);
+        assertEq(a1, expectedA, "Expected result to match a");
+        assertEq(b1, expectedB, "Expected result to match b");
+        assertEq(c1, expectedC, "Expected result to match c");
+    }
+
+    /// @dev Test the internal round function applied to a trio of inputs
+    function testInternalRound() public {
+        uint256 a = vm.randomUint();
+        uint256 b = vm.randomUint();
+        uint256 c = vm.randomUint();
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalRound(a, b, c);
+        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = internalRound(a, b, c);
+        assertEq(a1, expectedA, "Expected result to match a");
+        assertEq(b1, expectedB, "Expected result to match b");
+        assertEq(c1, expectedC, "Expected result to match c");
     }
 
     /// --- Helpers --- ///
@@ -97,6 +121,24 @@ contract PoseidonTest is Test {
         return (a1, b1, c1);
     }
 
+    /// @dev Calculate the result of the external round function applied to the inputs
+    function externalRound(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+        uint256 a1 = addmod(a, TEST_RC1, PRIME);
+        uint256 b1 = addmod(b, TEST_RC2, PRIME);
+        uint256 c1 = addmod(c, TEST_RC3, PRIME);
+        uint256 a2 = fifthPower(a1);
+        uint256 b2 = fifthPower(b1);
+        uint256 c2 = fifthPower(c1);
+        return externalMds(a2, b2, c2);
+    }
+
+    /// @dev Calculate the result of the internal round function applied to the inputs
+    function internalRound(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+        uint256 a1 = addmod(a, TEST_RC1, PRIME);
+        uint256 a2 = fifthPower(a1);
+        return internalMds(a2, b, c);
+    }
+
     /// @dev Sum the inputs and return the result
     function sumInputs(uint256 a, uint256 b, uint256 c) internal view returns (uint256) {
         uint256 sum = addmod(a, b, PRIME);
@@ -111,4 +153,5 @@ interface PoseidonSuite {
     function testInternalMds(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
     function testExternalMds(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
     function testExternalRound(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
+    function testInternalRound(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
 }
