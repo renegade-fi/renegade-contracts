@@ -3,6 +3,30 @@
 /// @dev The scalar field modulus of BN254
 #define constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 
 
+/// @dev Apply an external round to the state  
+/// @param Takes [a, b, c]
+/// @return [a', b', c']
+#define macro EXTERNAL_ROUND(RC1, RC2, RC3) = takes(3) returns(7) {
+    // Add the round constants to the state and apply the sbox to individual elements
+    PUSH_PRIME() dup4       // [c, PRIME, a, b, c]
+    ADD_RC(<RC3>)           // [c + RC3, a, b, c]
+    PUSH_PRIME() swap1      // [c + RC3, PRIME, a, b, c]
+    SBOX()                  // [(c + RC3)^5, a, b, c]
+
+    PUSH_PRIME() dup4       // [b, PRIME, (c + RC3)^5, a, b, c]
+    ADD_RC(<RC2>)           // [b + RC2, (c + RC3)^5, a, b, c]
+    PUSH_PRIME() swap1      // [b + RC2, PRIME, (c + RC3)^5, a, b, c]
+    SBOX()                  // [(b + RC2)^5, (c + RC3)^5, a, b, c]
+
+    PUSH_PRIME() dup4       // [a, PRIME, (b + RC2)^5, (c + RC3)^5, a, b, c]
+    ADD_RC(<RC1>)           // [a + RC1, (b + RC2)^5, (c + RC3)^5, a, b, c]
+    PUSH_PRIME() swap1      // [a + RC1, PRIME, (b + RC2)^5, (c + RC3)^5, a, b, c] 
+    SBOX()                  // [(a + RC1)^5, (b + RC2)^5, (c + RC3)^5, a, b, c]
+
+    // Multiply the intermediate state by the external round MDS matrix
+    EXTERNAL_MDS()
+}
+
 // --- Core Permutation Methods --- //
 
 /// @dev Add the round constant to the element on top of the stack
