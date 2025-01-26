@@ -1,9 +1,12 @@
 # Workspace 
 .vscode
+codegen/**/*.huff
 
 # Compiler files
 cache/
 out/
+**/target
+**/Cargo.lock
 
 # Ignores development broadcast logs
 !/broadcast
