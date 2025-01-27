@@ -13,18 +13,19 @@ use circuit_types::{
     },
     traits::BaseType,
     transfers::{ExternalTransfer as CircuitExternalTransfer, ExternalTransferDirection},
-    Amount, PlonkLinkProof, PlonkProof, PolynomialCommitment, SizedWalletShare,
+    wallet::WalletShare,
+    Amount, PlonkLinkProof, PlonkProof, PolynomialCommitment,
 };
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement as CircuitValidCommitmentsStatement,
-    valid_fee_redemption::SizedValidFeeRedemptionStatement,
-    valid_match_settle::SizedValidMatchSettleStatement,
-    valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
-    valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
+    valid_fee_redemption::ValidFeeRedemptionStatement as CircuitValidFeeRedemptionStatement,
+    valid_match_settle::ValidMatchSettleStatement as CircuitValidMatchSettleStatement,
+    valid_match_settle_atomic::ValidMatchSettleAtomicStatement as CircuitValidMatchSettleAtomicStatement,
+    valid_offline_fee_settlement::ValidOfflineFeeSettlementStatement as CircuitValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement as CircuitValidReblindStatement,
-    valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
-    valid_wallet_create::SizedValidWalletCreateStatement,
-    valid_wallet_update::SizedValidWalletUpdateStatement,
+    valid_relayer_fee_settlement::ValidRelayerFeeSettlementStatement as CircuitValidRelayerFeeSettlementStatement,
+    valid_wallet_create::ValidWalletCreateStatement as CircuitValidWalletCreateStatement,
+    valid_wallet_update::ValidWalletUpdateStatement as CircuitValidWalletUpdateStatement,
 };
 use common::types::transfer_auth::TransferAuth;
 use constants::{Scalar, SystemCurve};
@@ -186,8 +187,13 @@ impl From<&PublicSigningKey> for CircuitPublicSigningKey {
     }
 }
 
-impl From<&SizedValidWalletCreateStatement> for ValidWalletCreateStatement {
-    fn from(value: &SizedValidWalletCreateStatement) -> Self {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    From<&CircuitValidWalletCreateStatement<MAX_BALANCES, MAX_ORDERS>>
+    for ValidWalletCreateStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
+    fn from(value: &CircuitValidWalletCreateStatement<MAX_BALANCES, MAX_ORDERS>) -> Self {
         let public_wallet_shares = wallet_shares_to_scalar_vec(&value.public_wallet_shares);
 
         ValidWalletCreateStatement {
@@ -197,10 +203,17 @@ impl From<&SizedValidWalletCreateStatement> for ValidWalletCreateStatement {
     }
 }
 
-impl TryFrom<&SizedValidWalletUpdateStatement> for ValidWalletUpdateStatement {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    TryFrom<&CircuitValidWalletUpdateStatement<MAX_BALANCES, MAX_ORDERS>>
+    for ValidWalletUpdateStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
     type Error = ConversionError;
 
-    fn try_from(value: &SizedValidWalletUpdateStatement) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: &CircuitValidWalletUpdateStatement<MAX_BALANCES, MAX_ORDERS>,
+    ) -> Result<Self, Self::Error> {
         let new_public_shares = wallet_shares_to_scalar_vec(&value.new_public_shares);
         let external_transfer: Option<ExternalTransfer> = if value.external_transfer.is_default() {
             None
@@ -274,8 +287,12 @@ impl From<&CircuitValidCommitmentsStatement> for ValidCommitmentsStatement {
     }
 }
 
-impl From<&SizedValidMatchSettleStatement> for ValidMatchSettleStatement {
-    fn from(value: &SizedValidMatchSettleStatement) -> Self {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    From<&CircuitValidMatchSettleStatement<MAX_BALANCES, MAX_ORDERS>> for ValidMatchSettleStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
+    fn from(value: &CircuitValidMatchSettleStatement<MAX_BALANCES, MAX_ORDERS>) -> Self {
         let party0_modified_shares = wallet_shares_to_scalar_vec(&value.party0_modified_shares);
         let party1_modified_shares = wallet_shares_to_scalar_vec(&value.party1_modified_shares);
         let party0_indices = (&value.party0_indices).into();
@@ -321,10 +338,17 @@ impl TryFrom<&CircuitFeeTake> for FeeTake {
     }
 }
 
-impl TryFrom<&SizedValidMatchSettleAtomicStatement> for ValidMatchSettleAtomicStatement {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    TryFrom<&CircuitValidMatchSettleAtomicStatement<MAX_BALANCES, MAX_ORDERS>>
+    for ValidMatchSettleAtomicStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
     type Error = ConversionError;
 
-    fn try_from(value: &SizedValidMatchSettleAtomicStatement) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: &CircuitValidMatchSettleAtomicStatement<MAX_BALANCES, MAX_ORDERS>,
+    ) -> Result<Self, Self::Error> {
         let internal_party_modified_shares =
             wallet_shares_to_scalar_vec(&value.internal_party_modified_shares);
 
@@ -339,10 +363,17 @@ impl TryFrom<&SizedValidMatchSettleAtomicStatement> for ValidMatchSettleAtomicSt
     }
 }
 
-impl TryFrom<&SizedValidRelayerFeeSettlementStatement> for ValidRelayerFeeSettlementStatement {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    TryFrom<&CircuitValidRelayerFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>>
+    for ValidRelayerFeeSettlementStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
     type Error = ConversionError;
 
-    fn try_from(value: &SizedValidRelayerFeeSettlementStatement) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: &CircuitValidRelayerFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>,
+    ) -> Result<Self, Self::Error> {
         Ok(ValidRelayerFeeSettlementStatement {
             sender_root: value.sender_root.inner(),
             recipient_root: value.recipient_root.inner(),
@@ -384,8 +415,13 @@ impl From<&EncryptionKey> for PublicEncryptionKey {
     }
 }
 
-impl From<&SizedValidOfflineFeeSettlementStatement> for ValidOfflineFeeSettlementStatement {
-    fn from(value: &SizedValidOfflineFeeSettlementStatement) -> Self {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    From<&CircuitValidOfflineFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>>
+    for ValidOfflineFeeSettlementStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
+    fn from(value: &CircuitValidOfflineFeeSettlementStatement<MAX_BALANCES, MAX_ORDERS>) -> Self {
         ValidOfflineFeeSettlementStatement {
             merkle_root: value.merkle_root.inner(),
             nullifier: value.nullifier.inner(),
@@ -404,10 +440,17 @@ impl From<&SizedValidOfflineFeeSettlementStatement> for ValidOfflineFeeSettlemen
     }
 }
 
-impl TryFrom<&SizedValidFeeRedemptionStatement> for ValidFeeRedemptionStatement {
+impl<const MAX_BALANCES: usize, const MAX_ORDERS: usize>
+    TryFrom<&CircuitValidFeeRedemptionStatement<MAX_BALANCES, MAX_ORDERS>>
+    for ValidFeeRedemptionStatement
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
     type Error = ConversionError;
 
-    fn try_from(value: &SizedValidFeeRedemptionStatement) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: &CircuitValidFeeRedemptionStatement<MAX_BALANCES, MAX_ORDERS>,
+    ) -> Result<Self, Self::Error> {
         Ok(ValidFeeRedemptionStatement {
             wallet_root: value.wallet_root.inner(),
             note_root: value.note_root.inner(),
@@ -457,7 +500,12 @@ fn try_unwrap_scalars<const N: usize>(
 
 /// Convert a set of wallet secret shares into a vector of `ScalarField`
 /// elements
-fn wallet_shares_to_scalar_vec(shares: &SizedWalletShare) -> Vec<ScalarField> {
+fn wallet_shares_to_scalar_vec<const MAX_BALANCES: usize, const MAX_ORDERS: usize>(
+    shares: &WalletShare<MAX_BALANCES, MAX_ORDERS>,
+) -> Vec<ScalarField>
+where
+    [(); MAX_BALANCES + MAX_ORDERS]: Sized,
+{
     shares.to_scalars().into_iter().map(|s| s.inner()).collect()
 }
 
