@@ -3,6 +3,7 @@
 /// @notice Test the utils for the Poseidon2 permutation
 
 #include "../../src/crypto/poseidon2/roundUtils.huff"
+#include "../../src/crypto/poseidon2/poseidonPerm.huff"
 
 /// @dev Test the SBOX function applied to a single input
 #define function testSboxSingle(uint256) nonpayable returns(uint256) 
@@ -16,6 +17,8 @@
 #define function testExternalRound(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256)
 /// @dev Test the internal round function applied to a trio of inputs
 #define function testInternalRound(uint256, uint256, uint256) nonpayable returns(uint256, uint256, uint256)
+/// @dev Test the full hash function applied to two inputs
+#define function testFullHash(uint256, uint256) nonpayable returns(uint256)
 
 /// @dev The first test round constant
 #define constant TEST_RC1 = 0x1337
@@ -35,7 +38,7 @@
     dup1 __FUNC_SIG(testExternalMds)    eq testExternalMds      jumpi
     dup1 __FUNC_SIG(testExternalRound)  eq testExternalRound    jumpi
     dup1 __FUNC_SIG(testInternalRound)  eq testInternalRound    jumpi
-
+    dup1 __FUNC_SIG(testFullHash)       eq testFullHash         jumpi
     // Revert if the function selector is not valid
     0x1 0x0 mstore
     0x1 0x0 revert
@@ -52,6 +55,8 @@
         TEST_EXTERNAL_ROUND()
     testInternalRound:
         TEST_INTERNAL_ROUND(TEST_RC1)
+    testFullHash:
+        TEST_FULL_HASH()
 }
 
 // --- Test Cases --- //
@@ -87,7 +92,7 @@
     // Get the input from calldata 
     0x44 calldataload
     0x24 calldataload
-    0x04 calldataload               // [state[0], state[1], state[2], PRIME]
+    0x04 calldataload               // [state[0], state[1], state[2]]
 
     // Call the internal MDS function
     INTERNAL_MDS()
@@ -101,7 +106,7 @@
     // Get the input from calldata 
     0x44 calldataload
     0x24 calldataload
-    0x04 calldataload               // [state[0], state[1], state[2], PRIME]
+    0x04 calldataload               // [state[0], state[1], state[2]]
 
     // Call the internal MDS function
     EXTERNAL_MDS()
@@ -115,7 +120,7 @@
     // Get the input from calldata 
     0x44 calldataload
     0x24 calldataload
-    0x04 calldataload               // [state[0], state[1], state[2], PRIME]
+    0x04 calldataload               // [state[0], state[1], state[2]]
 
     // Apply the external round function 
     EXTERNAL_ROUND(TEST_RC1, TEST_RC2, TEST_RC3)
@@ -129,13 +134,26 @@
     // Get the input from calldata 
     0x44 calldataload
     0x24 calldataload
-    0x04 calldataload               // [state[0], state[1], state[2], PRIME]
+    0x04 calldataload               // [state[0], state[1], state[2]]
 
     // Call the internal round function
     INTERNAL_ROUND(TEST_RC1)
 
     // Return the result
     RETURN_FIRST_THREE()
+}
+
+/// @notice Test the full hash function applied to two inputs
+#define macro TEST_FULL_HASH() = takes(0) returns(0) {
+    // Get the input from calldata 
+    0x24 calldataload
+    0x04 calldataload               // [state[0], state[1]]
+
+    // Call the full hash function
+    POSEIDON_TWO_TO_ONE()
+
+    // Return the result
+    RETURN_FIRST()
 }
 
 // --- Helpers --- //

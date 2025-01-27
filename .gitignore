@@ -1,5 +1,6 @@
 # Workspace 
 .vscode
+**/.DS_Store
 codegen/**/*.huff
 
 # Compiler files
