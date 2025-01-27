@@ -2,7 +2,7 @@
 
 use std::{error::Error, fmt::Display, str::FromStr};
 
-use alloy_primitives::{Address, U160, U256};
+use alloy_primitives::{Address, U256};
 use circuit_types::{
     elgamal::{ElGamalCiphertext, EncryptionKey},
     keychain::{NonNativeScalar, PublicSigningKey as CircuitPublicSigningKey},
@@ -31,6 +31,7 @@ use constants::{Scalar, SystemCurve};
 use mpc_plonk::proof_system::structs::VerifyingKey;
 use mpc_relation::proof_linking::GroupLayout;
 use num_bigint::BigUint;
+use ruint::aliases::U160;
 
 use crate::types::{
     BabyJubJubPoint, ExternalMatchResult, ExternalTransfer, FeeTake, G1Affine, LinkingProof,

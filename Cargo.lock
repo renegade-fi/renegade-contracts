@@ -1053,6 +1053,7 @@ dependencies = [
 [[package]]
 name = "circuit-macros"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "itertools 0.10.5",
  "proc-macro2",
@@ -1074,6 +1075,7 @@ dependencies = [
 [[package]]
 name = "circuit-types"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1083,8 +1085,8 @@ dependencies = [
  "async-trait",
  "bigdecimal",
  "byteorder",
- "circuit-macros 0.1.0",
- "constants 0.1.0",
+ "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "futures",
  "hex",
  "itertools 0.10.5",
@@ -1096,7 +1098,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "rand 0.8.5",
- "renegade-crypto 0.1.0",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "serde",
  "serde_json",
 ]
@@ -1135,6 +1137,7 @@ dependencies = [
 [[package]]
 name = "circuits"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
@@ -1142,9 +1145,9 @@ dependencies = [
  "ark-mpc",
  "bigdecimal",
  "bitvec",
- "circuit-macros 0.1.0",
- "circuit-types 0.1.0",
- "constants 0.1.0",
+ "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "futures",
  "itertools 0.10.5",
  "jf-primitives",
@@ -1154,10 +1157,10 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "rand 0.8.5",
- "renegade-crypto 0.1.0",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "serde",
  "serde_json",
- "util 0.1.0",
+ "util 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
 ]
 
 [[package]]
@@ -1306,15 +1309,16 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "ark-ff 0.4.2",
  "ark-mpc",
  "async-trait",
  "base64 0.22.1",
  "bimap",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
- "constants 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "crossbeam",
  "derivative",
  "ed25519-dalek 1.0.1",
@@ -1330,14 +1334,14 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "rand 0.8.5",
- "renegade-crypto 0.1.0",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
  "signature 2.2.0",
  "tokio",
  "tracing",
- "util 0.1.0",
+ "util 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "uuid 1.12.1",
 ]
 
@@ -1414,6 +1418,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 [[package]]
 name = "constants"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1443,14 +1448,15 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
- "common 0.1.0",
- "constants 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "common 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "mpc-plonk",
  "mpc-relation",
  "num-bigint",
  "rand 0.8.5",
+ "ruint",
  "serde",
  "serde_with",
 ]
@@ -1480,9 +1486,9 @@ dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
- "constants 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "contracts-common 0.1.0",
  "contracts-utils",
  "ethers",
@@ -1490,7 +1496,7 @@ dependencies = [
  "jf-utils",
  "mpc-plonk",
  "rand 0.8.5",
- "renegade-crypto 0.1.0",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "ruint",
  "serde",
  "serde_with",
@@ -1523,9 +1529,9 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
  "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
- "constants 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "contracts-common 0.1.0",
  "contracts-core",
  "ethers",
@@ -1536,7 +1542,7 @@ dependencies = [
  "mpc-relation",
  "num-bigint",
  "rand 0.8.5",
- "renegade-crypto 0.1.0",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "serde",
 ]
 
@@ -3276,11 +3282,11 @@ dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "clap",
  "colored",
- "constants 0.1.0",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "contracts-common 0.1.0",
  "contracts-core",
  "contracts-stylus",
@@ -5017,12 +5023,13 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-mpc",
  "bigdecimal",
- "constants 0.1.0",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "ethers-core",
  "itertools 0.10.5",
  "lazy_static",
@@ -5427,10 +5434,10 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "ark-ed-on-bn254",
- "circuit-types 0.1.0",
- "circuits 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "circuits 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "clap",
- "constants 0.1.0",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "contracts-common 0.1.0",
  "contracts-utils",
  "ethers",
@@ -6759,12 +6766,13 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization#1e71d8ac4a9846f22991fe395d58981cb341a4bb"
 dependencies = [
  "ark-ec",
  "ark-serialize 0.4.2",
  "chrono",
- "circuit-types 0.1.0",
- "constants 0.1.0",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "crossbeam",
  "eyre",
  "futures",
@@ -6783,7 +6791,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "rand 0.8.5",
- "renegade-crypto 0.1.0",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=andrew/internalize-contracts-serialization)",
  "serde",
  "serde_json",
  "tokio",

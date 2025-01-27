@@ -6,6 +6,16 @@ edition = "2021"
 [features]
 core-settlement = []
 test-helpers = []
+conversion = [
+  "dep:num-bigint",
+  "dep:ruint",
+  "dep:circuit-types",
+  "dep:circuits",
+  "dep:constants",
+  "dep:common",
+  "dep:mpc-plonk",
+  "dep:mpc-relation",
+]
 
 [dependencies]
 
@@ -13,7 +23,8 @@ test-helpers = []
 ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
-num-bigint = { workspace = true }
+num-bigint = { workspace = true, optional = true }
+ruint = { workspace = true, features = ["num-bigint"], optional = true }
 
 # === EVM === #
 alloy-primitives = { workspace = true }
@@ -25,16 +36,17 @@ serde_with = { workspace = true }
 ark-serialize = { workspace = true }
 
 # === Renegade === #
-circuit-types = { workspace = true }
-circuits = { workspace = true }
-constants = { workspace = true }
-common = { path = "../../renegade/common", default-features = false, features = [
+circuit-types = { workspace = true, optional = true }
+circuits = { workspace = true, optional = true }
+constants = { workspace = true, optional = true }
+common = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/internalize-contracts-serialization", default-features = false, features = [
   "wallet",
   "internal-types",
-] }
-mpc-plonk = { workspace = true, features = ["test_apis"] }
-mpc-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
+], optional = true }
+mpc-plonk = { workspace = true, features = ["test_apis"], optional = true }
+mpc-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false, optional = true }
 
 [dev-dependencies]
 ark-std = { workspace = true }
 rand = { workspace = true }
+num-bigint = { workspace = true }

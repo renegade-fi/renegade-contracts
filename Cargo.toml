@@ -34,10 +34,10 @@ eyre = "0.6.8"
 ethers = "2.0"
 clap = { version = "4.4.7", features = ["derive"] }
 tokio = { version = "1.12.0", features = ["full"] }
-constants = { path = "../renegade/constants", default-features = false }
-renegade-crypto = { path = "../renegade/renegade-crypto", default-features = false }
-circuits = { path = "../renegade/circuits" }
-circuit-types = { path = "../renegade/circuit-types", features = [
+constants = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/internalize-contracts-serialization", default-features = false }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/internalize-contracts-serialization", default-features = false }
+circuits = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/internalize-contracts-serialization" }
+circuit-types = { git = "https://github.com/renegade-fi/renegade.git", branch = "andrew/internalize-contracts-serialization", features = [
     "test-helpers",
 ] }
 itertools = "0.12"
@@ -47,6 +47,7 @@ jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", defa
 stylus-sdk = { git = "https://github.com/joeykraut/stylus-sdk-rs" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3"
+parity-scale-codec-derive = "=3.6.12"
 
 [profile.release]
 codegen-units = 1        # prefer efficiency to compile time
