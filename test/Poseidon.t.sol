@@ -25,7 +25,7 @@ contract PoseidonTest is Test {
 
     /// @dev Test the sbox function applied to a single input
     function testSboxSingle() public {
-        uint256 testValue = vm.randomUint();
+        uint256 testValue = randomFelt();
         uint256 result = poseidonSuite.testSboxSingle(testValue);
 
         // Calculate expected x^5 mod p
@@ -35,7 +35,7 @@ contract PoseidonTest is Test {
 
     /// @dev Test the add round constant function applied to a single input
     function testAddRcSingle() public {
-        uint256 testValue = vm.randomUint();
+        uint256 testValue = randomFelt();
         uint256 result = poseidonSuite.testAddRc(testValue);
         uint256 expected = addmod(testValue, TEST_RC1, PRIME);
         assertEq(result, expected, "Expected result to match x + RC mod p");
@@ -44,9 +44,9 @@ contract PoseidonTest is Test {
     /// @dev Test the internal MDS function applied to a single input
     /// The internal MDS adds the sum of the elements to each element
     function testInternalMds() public {
-        uint256 a = vm.randomUint();
-        uint256 b = vm.randomUint();
-        uint256 c = vm.randomUint();
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        uint256 c = randomFelt();
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalMds(a, b, c);
 
         // Calculate the expected results
@@ -58,9 +58,9 @@ contract PoseidonTest is Test {
 
     /// @dev Test the external MDS function applied to a trio of inputs
     function testExternalMds() public {
-        uint256 a = vm.randomUint();
-        uint256 b = vm.randomUint();
-        uint256 c = vm.randomUint();
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        uint256 c = randomFelt();
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalMds(a, b, c);
 
         // Calculate the expected results
@@ -72,9 +72,9 @@ contract PoseidonTest is Test {
 
     /// @dev Test the external round function applied to a trio of inputs
     function testExternalRound() public {
-        uint256 a = vm.randomUint();
-        uint256 b = vm.randomUint();
-        uint256 c = vm.randomUint();
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        uint256 c = randomFelt();
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalRound(a, b, c);
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = externalRound(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
@@ -84,9 +84,9 @@ contract PoseidonTest is Test {
 
     /// @dev Test the internal round function applied to a trio of inputs
     function testInternalRound() public {
-        uint256 a = vm.randomUint();
-        uint256 b = vm.randomUint();
-        uint256 c = vm.randomUint();
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        uint256 c = randomFelt();
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalRound(a, b, c);
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = internalRound(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
@@ -94,7 +94,61 @@ contract PoseidonTest is Test {
         assertEq(c1, expectedC, "Expected result to match c");
     }
 
+    /// @dev Test the full hash function applied to two inputs
+    function testFullHash() public {
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+
+        uint256 result = poseidonSuite.testFullHash(a, b);
+        uint256 expected = runReferenceImpl(a, b);
+        assertEq(result, expected, "Hash result does not match reference implementation");
+    }
+
+    /// @dev Helper to run the reference implementation
+    function runReferenceImpl(uint256 a, uint256 b) internal returns (uint256) {
+        // First compile the binary
+        string[] memory compileInputs = new string[](5);
+        compileInputs[0] = "cargo";
+        compileInputs[1] = "build";
+        compileInputs[2] = "--quiet";
+        compileInputs[3] = "--manifest-path";
+        compileInputs[4] = "test/poseidon-reference-implementation/Cargo.toml";
+        vm.ffi(compileInputs);
+
+        // Now run the binary directly from target/debug
+        string[] memory runInputs = new string[](3);
+        runInputs[0] = "./test/poseidon-reference-implementation/target/debug/poseidon-reference-implementation";
+        runInputs[1] = vm.toString(a);
+        runInputs[2] = vm.toString(b);
+
+        bytes memory res = vm.ffi(runInputs);
+        string memory str = string(res);
+
+        // Strip the "RES:" prefix and parse
+        // We prefix here to avoid the FFI interface interpreting the output as either raw bytes or a string
+        // This forces the output to be a string
+        require(
+            bytes(str).length > 4 && bytes(str)[0] == "R" && bytes(str)[1] == "E" && bytes(str)[2] == "S"
+                && bytes(str)[3] == ":",
+            "Invalid output format"
+        );
+
+        // Extract everything after "RES:"
+        bytes memory hexBytes = new bytes(bytes(str).length - 4);
+        for (uint256 i = 4; i < bytes(str).length; i++) {
+            hexBytes[i - 4] = bytes(str)[i];
+        }
+        return vm.parseUint(string(hexBytes));
+    }
+
     /// --- Helpers --- ///
+
+    /// @dev Generates a random input modulo the PRIME
+    /// Note that this is not uniformly distributed over the prime field, because of the "wraparound"
+    /// but it suffices for fuzzing test inputs
+    function randomFelt() internal returns (uint256) {
+        return vm.randomUint() % PRIME;
+    }
 
     /// @dev Calculate the fifth power of an input
     function fifthPower(uint256 x) internal view returns (uint256) {
@@ -154,4 +208,5 @@ interface PoseidonSuite {
     function testExternalMds(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
     function testExternalRound(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
     function testInternalRound(uint256, uint256, uint256) external returns (uint256, uint256, uint256);
+    function testFullHash(uint256, uint256) external returns (uint256);
 }
