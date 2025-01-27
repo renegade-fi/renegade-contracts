@@ -145,12 +145,14 @@ impl GasSponsorContract {
     /// Sponsor the gas costs of an atomic match settlement with the caller as
     /// the receiver
     #[payable]
+    #[allow(clippy::too_many_arguments)]
     pub fn sponsor_atomic_match_settle(
         &mut self,
         internal_party_match_payload: Bytes,
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
+        refund_address: Address,
         nonce: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -161,6 +163,7 @@ impl GasSponsorContract {
             valid_match_settle_atomic_statement,
             match_proofs,
             match_linking_proofs,
+            refund_address,
             nonce,
             signature,
         )
@@ -177,6 +180,7 @@ impl GasSponsorContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
+        refund_address: Address,
         nonce: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -220,7 +224,10 @@ impl GasSponsorContract {
         }
 
         // Refund the user's gas costs
-        transfer_eth(msg::sender(), gas_cost)?;
+        let refund_address =
+            if refund_address == Address::ZERO { tx::origin() } else { refund_address };
+
+        transfer_eth(refund_address, gas_cost)?;
 
         Ok(())
     }
