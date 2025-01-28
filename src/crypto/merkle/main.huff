@@ -4,6 +4,7 @@
 /// for more details. Inspired by https://github.com/zemse/poseidon2-evm/tree/main
 
 #include "../poseidon2/poseidonUtils.huff"
+#include "../poseidon2/poseidonPerm.huff"
 
 // --- Interface --- //
 
@@ -41,6 +42,7 @@
     [SISTER_LEAVES_LENGTH_MISMATCH] 0x00 mstore
     0x20 0x00 revert
 
+    validLen:
     // Setup the return value
     // 1. Store the data offset at position 0x00
     // Offset is always 32 bytes in our case
@@ -88,6 +90,7 @@
     HASH_AND_STORE_MERKLE_LEVEL() // Level 32
 
     // Return the array
+    RETURN_FIRST()
     [RETURN_ARRAY_SIZE] 0x00 return
 }
 
@@ -97,7 +100,7 @@
 #define macro HASH_AND_STORE_MERKLE_LEVEL() = takes(4) returns(4) {
     // Takes [*sister, input, idx, *returnArr]
     // Hash the input with the sister leaves
-    HASH_TWO_LEAVES()               // [*nextSister, hash, nextIdx, *returnArr]
+    HASH_MERKLE_LEVEL()               // [*nextSister, hash, nextIdx, *returnArr]
 
     // Store the hash in the output array
     swap3                           // [*returnArr, hash, nextIdx, *nextSister]

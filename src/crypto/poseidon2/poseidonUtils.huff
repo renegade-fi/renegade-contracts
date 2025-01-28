@@ -21,7 +21,7 @@
 /// @dev Apply an external round to the state  
 /// @param Takes [a, b, c]
 /// @return [a', b', c']
-#define macro EXTERNAL_ROUND(RC1, RC2, RC3) = takes(3) returns(7) {
+#define macro EXTERNAL_ROUND(RC1, RC2, RC3) = takes(3) returns(3) {
     // Add the round constants to the state and apply the sbox to individual elements
     PUSH_PRIME() dup4       // [c, PRIME, a, b, c]
     ADD_RC(<RC3>)           // [c + RC3, a, b, c]
@@ -101,7 +101,7 @@
 /// element
 /// @param Takes [state[0], state[1], state[2]]
 /// @return [state'[0], state'[1], state'[2]]
-#define macro INTERNAL_MDS() = takes(3) returns(7) {
+#define macro INTERNAL_MDS() = takes(3) returns(3) {
     // Takes [state[0], state[1], state[2]]
     SUM_FIRST_THREE()                   // [sum, state[0], state[1], state[2]]
 
@@ -115,9 +115,8 @@
     dup5 addmod                         // [state'[1], sum, state[0], state[1], state'[2]]
     swap3 pop                           // [sum, state[0], state'[1], state'[2]]
 
-    PUSH_PRIME() dup2                   // [sum, PRIME, sum, state[0], state'[1], state'[2]]
-    dup4 addmod                         // [state'[0], sum, state[0], state'[1], state'[2]]
-    swap2 pop pop                       // [state'[0], state'[1], state'[2]]
+    PUSH_PRIME() swap2                  // [state[0], sum, PRIME, state'[1], state'[2]]
+    addmod                              // [state'[0], state'[1], state'[2]]
 }
 
 /// @dev Apply the external MDS matrix to the sponge state
@@ -129,17 +128,21 @@
 ///     https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs#L129-L137
 /// @param Takes [state[0], state[1], state[2]]
 /// @return [state'[0], state'[1], state'[2]]
-#define macro EXTERNAL_MDS() = takes(3) returns(7) {
+#define macro EXTERNAL_MDS() = takes(3) returns(3) {
     // Takes [state[0], state[1], state[2]]
     SUM_FIRST_THREE()               // [sum, state[0], state[1], state[2]]
 
     // Add the sum to each element
     PUSH_PRIME() dup2               // [sum, PRIME, sum, state[0], state[1], state[2]] 
     dup6 addmod                     // [state'[2], sum, state[0], state[1], state[2]] 
-    PUSH_PRIME() dup3               // [sum, PRIME, state'[2], sum, state[0], state[1], state[2]]
-    dup6 addmod                     // [state'[1], state'[2], sum, state[0], state[1], state[2]]
-    PUSH_PRIME() dup4               // [sum, PRIME, state'[1], state'[2], sum, state[0], state[1], state[2]]
-    dup6 addmod                     // [state'[0], state'[1], state'[2], sum, state[0], state[1], state[2]]
+    swap4 pop                       // [sum, state[0], state[1], state'[2]]
+
+    PUSH_PRIME() dup2               // [sum, PRIME, sum, state[0], state[1], state'[2]]
+    dup5 addmod                     // [state'[1], sum, state[0], state[1], state'[2]]
+    swap3 pop                       // [sum, state[0], state'[1], state'[2]]
+
+    PUSH_PRIME() swap2              // [state[0], sum, PRIME, state'[1], state'[2]]
+    addmod                          // [state'[0], state'[1], state'[2]]
 }
 
 // --- Helper Macros --- //
@@ -150,7 +153,7 @@
 }
 
 /// @dev Sum the first three elements of the stack modulo the prime
-#define macro SUM_FIRST_THREE() = takes(0) returns(1) {
+#define macro SUM_FIRST_THREE() = takes(3) returns(4) {
     // Takes [a, b, c]
     PUSH_PRIME()            // [PRIME, a, b, c]
     dup4 dup4 dup4          // [a, b, c, PRIME, a, b, c]
