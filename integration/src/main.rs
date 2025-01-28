@@ -10,7 +10,7 @@ use abis::{DarkpoolTestContract, DummyErc20Contract, GasSponsorContract};
 use alloy_primitives::U256;
 use clap::Parser;
 use cli::Cli;
-use ethers::{abi::Address, providers::Middleware};
+use ethers::{abi::Address, core::k256::ecdsa::SigningKey, providers::Middleware};
 use eyre::Result;
 use scripts::{
     constants::{
@@ -113,6 +113,11 @@ impl TestContext {
     /// Build an instance of the gas sponsor contract
     pub fn gas_sponsor_contract(&self) -> GasSponsorContract<LocalWalletHttpClient> {
         GasSponsorContract::new(self.gas_sponsor_proxy_address, self.client.clone())
+    }
+
+    /// Get the signing key for the client
+    pub fn signing_key(&self) -> &SigningKey {
+        self.client.signer().signer()
     }
 }
 

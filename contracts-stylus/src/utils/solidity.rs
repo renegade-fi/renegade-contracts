@@ -108,3 +108,9 @@ sol_interface! {
         function approve(address spender, uint256 value) external returns (bool);
     }
 }
+
+sol_interface! {
+    interface IArbGasInfo {
+        function getCurrentTxL1GasFees() external view returns (uint256);
+    }
+}
