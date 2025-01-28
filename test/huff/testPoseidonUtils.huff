@@ -2,7 +2,7 @@
 /// @author @joeykraut
 /// @notice Test the utils for the Poseidon2 permutation
 
-#include "../../src/crypto/poseidon2/roundUtils.huff"
+#include "../../src/crypto/poseidon2/poseidonUtils.huff"
 #include "../../src/crypto/poseidon2/poseidonPerm.huff"
 
 /// @dev Test the SBOX function applied to a single input

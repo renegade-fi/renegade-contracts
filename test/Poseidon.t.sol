@@ -4,13 +4,12 @@ pragma solidity ^0.8.0;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {HuffDeployer} from "foundry-huff/HuffDeployer.sol";
+import {TestUtils} from "./utils/TestUtils.sol";
 
-contract PoseidonTest is Test {
+contract PoseidonTest is TestUtils {
     /// @dev The Poseidon main contract
     PoseidonSuite public poseidonSuite;
 
-    /// @dev The BN254 field modulus from roundUtils.huff
-    uint256 PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
     /// @dev The round constant used in testing
     uint256 TEST_RC1 = 0x1337;
     /// @dev The second round constant used in testing
@@ -143,22 +142,15 @@ contract PoseidonTest is Test {
 
     /// --- Helpers --- ///
 
-    /// @dev Generates a random input modulo the PRIME
-    /// Note that this is not uniformly distributed over the prime field, because of the "wraparound"
-    /// but it suffices for fuzzing test inputs
-    function randomFelt() internal returns (uint256) {
-        return vm.randomUint() % PRIME;
-    }
-
     /// @dev Calculate the fifth power of an input
-    function fifthPower(uint256 x) internal view returns (uint256) {
+    function fifthPower(uint256 x) internal pure returns (uint256) {
         uint256 x2 = mulmod(x, x, PRIME);
         uint256 x4 = mulmod(x2, x2, PRIME);
         return mulmod(x, x4, PRIME);
     }
 
     /// @dev Calculate the result of the internal MDS matrix applied to the inputs
-    function internalMds(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+    function internalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
         uint256 sum = sumInputs(a, b, c);
         uint256 a1 = addmod(a, sum, PRIME);
         uint256 b1 = addmod(b, sum, PRIME);
@@ -167,7 +159,7 @@ contract PoseidonTest is Test {
     }
 
     /// @dev Calculate the result of the external MDS matrix applied to the inputs
-    function externalMds(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+    function externalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
         uint256 sum = sumInputs(a, b, c);
         uint256 a1 = addmod(a, sum, PRIME);
         uint256 b1 = addmod(b, sum, PRIME);
@@ -194,7 +186,7 @@ contract PoseidonTest is Test {
     }
 
     /// @dev Sum the inputs and return the result
-    function sumInputs(uint256 a, uint256 b, uint256 c) internal view returns (uint256) {
+    function sumInputs(uint256 a, uint256 b, uint256 c) internal pure returns (uint256) {
         uint256 sum = addmod(a, b, PRIME);
         sum = addmod(sum, c, PRIME);
         return sum;
