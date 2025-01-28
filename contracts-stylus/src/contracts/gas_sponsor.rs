@@ -2,7 +2,7 @@
 //! matches
 
 use contracts_common::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE},
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
     types::ValidMatchSettleAtomicStatement,
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
@@ -41,6 +41,9 @@ const ERR_NONCE_ALREADY_USED: &[u8] = b"nonce already used";
 // -------------
 // | CONSTANTS |
 // -------------
+
+/// The number of bytes in a function selector
+const NUM_BYTES_SELECTOR: usize = 4;
 
 /// The base gas cost of any Ethereum transaction, including the maximum
 /// gas cost of calling a Stylus contract (https://docs.arbitrum.io/stylus/concepts/gas-metering#stylus-gas-costs)
@@ -224,19 +227,23 @@ impl GasSponsorContract {
 
         // Calculate the calldata cost of invoking this method before we consume the
         // args
-        let calldata_len = NUM_BYTES_ADDRESS
+        let calldata_len = NUM_BYTES_SELECTOR
+            + NUM_BYTES_ADDRESS
             + internal_party_match_payload.0.len()
             + valid_match_settle_atomic_statement.0.len()
             + match_proofs.0.len()
             + match_linking_proofs.0.len()
             + NUM_BYTES_ADDRESS
-            + U256::BYTES
+            + NUM_BYTES_U256
             + NUM_BYTES_SIGNATURE;
 
         let calldata_gas = (calldata_len as u64) * GAS_PER_CALLDATA_BYTE;
 
-        // Verify the nonce signature, then mark it as used
-        self.assert_valid_signature(&nonce.to_be_bytes::<32>(), &signature)?;
+        // Verify the signature over the nonce + refund address,
+        // then mark the nonce as used
+        let mut message = nonce.to_be_bytes::<NUM_BYTES_U256>().to_vec();
+        message.extend_from_slice(refund_address.as_slice());
+        self.assert_valid_signature(&message, &signature)?;
         self.mark_nonce_used(nonce)?;
 
         // Invoke the underlying atomic match settlement

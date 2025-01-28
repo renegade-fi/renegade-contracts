@@ -17,7 +17,7 @@ use circuit_types::{
 };
 use constants::Scalar;
 use contracts_common::{
-    constants::NUM_BYTES_FELT,
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U256},
     custom_serde::{pk_to_u256s, BytesDeserializable, BytesSerializable},
     solidity::{DepositWitness, PermitWitnessTransferFrom, TokenPermissions},
     types::{
@@ -403,10 +403,11 @@ pub async fn setup_sponsored_match_test(
 
     let mut rng = thread_rng();
     let nonce = scalar_to_u256(ScalarField::rand(&mut rng));
-    let mut nonce_bytes = [0_u8; 32];
-    nonce.to_big_endian(&mut nonce_bytes);
+    let mut message = [0_u8; NUM_BYTES_U256 + NUM_BYTES_ADDRESS];
+    nonce.to_big_endian(&mut message[..NUM_BYTES_U256]);
+    message[NUM_BYTES_U256..].copy_from_slice(Address::zero().as_bytes());
 
-    let signature = Bytes::from(hash_and_sign_message(ctx.signing_key(), &nonce_bytes).to_vec());
+    let signature = Bytes::from(hash_and_sign_message(ctx.signing_key(), &message).to_vec());
 
     // Fund the gas sponsor with some ETH
     ctx.gas_sponsor_contract().receive_eth().value(parse_ether("0.1")?).send().await?.await?;
