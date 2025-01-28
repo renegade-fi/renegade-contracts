@@ -47,7 +47,7 @@ pub const RUSTFLAGS_ENV_VAR: &str = "RUSTFLAGS";
 pub const DEFAULT_RUSTFLAGS: &str = "-Clink-arg=-zstack-size=131072 -Zlocation-detail=none";
 
 /// The inline threshold flag for the Rust compiler
-pub const INLINE_THRESHOLD_FLAG: &str = "-Cinline-threshold=0";
+pub const INLINE_THRESHOLD_FLAG: &str = "-Cllvm-args=--inline-threshold=0";
 
 /// The optimization level flag for the Rust compiler
 pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";

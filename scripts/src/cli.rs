@@ -97,11 +97,6 @@ impl Command {
 /// keys)
 #[derive(Args)]
 pub struct DeployTestContractsArgs {
-    /// Address of the owner for both the proxy admin contract
-    /// and the underlying darkpool contract
-    #[arg(short, long)]
-    pub owner: String,
-
     /// Whether or not to enable proof & ECDSA verification.
     /// This only applies to the darkpool & Merkle contracts.
     #[arg(long)]

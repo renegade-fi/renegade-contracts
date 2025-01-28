@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use abis::{DarkpoolTestContract, DummyErc20Contract};
+use abis::{DarkpoolTestContract, DummyErc20Contract, GasSponsorContract};
 use alloy_primitives::U256;
 use clap::Parser;
 use cli::Cli;
@@ -70,6 +70,8 @@ pub struct TestContext {
     pub test_upgrade_target_address: Address,
     /// The address of the precompiles testing contract
     pub precompiles_contract_address: Address,
+    /// The address of the gas sponsor proxy contract
+    pub gas_sponsor_proxy_address: Address,
 }
 
 impl TestContext {
@@ -107,6 +109,11 @@ impl TestContext {
     pub fn darkpool_contract(&self) -> DarkpoolTestContract<LocalWalletHttpClient> {
         DarkpoolTestContract::new(self.darkpool_proxy_address, self.client.clone())
     }
+
+    /// Build an instance of the gas sponsor contract
+    pub fn gas_sponsor_contract(&self) -> GasSponsorContract<LocalWalletHttpClient> {
+        GasSponsorContract::new(self.gas_sponsor_proxy_address, self.client.clone())
+    }
 }
 
 impl From<Cli> for TestContext {
@@ -114,11 +121,14 @@ impl From<Cli> for TestContext {
         let client =
             Handle::current().block_on(setup_client(&value.priv_key, &value.rpc_url)).unwrap();
 
+        let darkpool_proxy_key = format!("{}_{}", StylusContract::Darkpool, PROXY_CONTRACT_KEY);
         let darkpool_proxy_address =
-            read_deployment_address(&value.deployments_file, PROXY_CONTRACT_KEY).unwrap();
+            read_deployment_address(&value.deployments_file, &darkpool_proxy_key).unwrap();
 
+        let darkpool_proxy_admin_key =
+            format!("{}_{}", StylusContract::Darkpool, PROXY_ADMIN_CONTRACT_KEY);
         let proxy_admin_address =
-            read_deployment_address(&value.deployments_file, PROXY_ADMIN_CONTRACT_KEY).unwrap();
+            read_deployment_address(&value.deployments_file, &darkpool_proxy_admin_key).unwrap();
 
         let darkpool_impl_address = read_stylus_deployment_address(
             &value.deployments_file,
@@ -188,6 +198,11 @@ impl From<Cli> for TestContext {
         )
         .unwrap();
 
+        let gas_sponsor_proxy_key =
+            format!("{}_{}", StylusContract::GasSponsor, PROXY_CONTRACT_KEY);
+        let gas_sponsor_proxy_address =
+            read_deployment_address(&value.deployments_file, &gas_sponsor_proxy_key).unwrap();
+
         TestContext {
             client,
             darkpool_proxy_address,
@@ -205,6 +220,7 @@ impl From<Cli> for TestContext {
             test_erc20_address2,
             test_upgrade_target_address,
             precompiles_contract_address,
+            gas_sponsor_proxy_address,
         }
     }
 }
