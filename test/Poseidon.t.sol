@@ -19,7 +19,7 @@ contract PoseidonTest is TestUtils {
 
     /// @dev Deploy the PoseidonSuite contract
     function setUp() public {
-        poseidonSuite = PoseidonSuite(HuffDeployer.deploy("test/huff/testPoseidonUtils"));
+        poseidonSuite = PoseidonSuite(HuffDeployer.deploy("../test/huff/testPoseidonUtils"));
     }
 
     /// @dev Test the sbox function applied to a single input
@@ -150,7 +150,7 @@ contract PoseidonTest is TestUtils {
     }
 
     /// @dev Calculate the result of the internal MDS matrix applied to the inputs
-    function internalMds(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+    function internalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
         uint256 sum = sumInputs(a, b, c);
         uint256 a1 = addmod(a, sum, PRIME);
         uint256 b1 = addmod(b, sum, PRIME);
@@ -159,7 +159,7 @@ contract PoseidonTest is TestUtils {
     }
 
     /// @dev Calculate the result of the external MDS matrix applied to the inputs
-    function externalMds(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+    function externalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
         uint256 sum = sumInputs(a, b, c);
         uint256 a1 = addmod(a, sum, PRIME);
         uint256 b1 = addmod(b, sum, PRIME);
@@ -186,7 +186,7 @@ contract PoseidonTest is TestUtils {
     }
 
     /// @dev Sum the inputs and return the result
-    function sumInputs(uint256 a, uint256 b, uint256 c) internal view returns (uint256) {
+    function sumInputs(uint256 a, uint256 b, uint256 c) internal pure returns (uint256) {
         uint256 sum = addmod(a, b, PRIME);
         sum = addmod(sum, c, PRIME);
         return sum;

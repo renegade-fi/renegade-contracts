@@ -27,17 +27,26 @@
 /// 32 bytes offset + 32 bytes length + 32 * 32 bytes data
 #define constant RETURN_ARRAY_SIZE = 0x440 // 1088
 
+// --- Entrypoint --- //
+
 /// @notice Entrypoint for the Poseidon2 Merkle hash
 #define macro MAIN() = takes(0) returns(0) {
     // Currently we only have one function, so we don't need to mux the selector
-    0x04 calldataload                   // [idx]
-    0x24 calldataload                   // [input, idx]
+    // Push the data pointer of the return array onto the stack
+    // The helpers below expect the data pointer to trail the inputs
+    0x40                                // [*returnArr]
 
-    0x44 calldataload                   // [dataOffset, input, idx]
-    0x64 calldataload                   // [len(sisterLeaves), dataOffset, input, idx]
-    
-    // Check that the length of the sister leaves is the correct length
-    [MERKLE_DEPTH] eq validLen jumpi    // [dataOffset, idx, input]
+    // Load the inputs from calldata
+    0x04 calldataload                   // [idx, *returnArr]
+    0x24 calldataload                   // [input, idx, *returnArr]
+
+    // Load the data offset from the array start, then convert it to a data pointer 
+    0x44 calldataload                   // [dataOffset, input, idx, *returnArr]
+    0x24 add                            // [*sisterLeaves, input, idx, *returnArr]
+
+    // Load the length of the sister leaves array, then check its length
+    0x64 calldataload                   // [len(sisterLeaves), dataOffset, input, idx, *returnArr]
+    [MERKLE_DEPTH] eq validLen jumpi    // [dataOffset, idx, input, *returnArr]
 
     [SISTER_LEAVES_LENGTH_MISMATCH] 0x00 mstore
     0x20 0x00 revert
@@ -46,16 +55,13 @@
     // Setup the return value
     // 1. Store the data offset at position 0x00
     // Offset is always 32 bytes in our case
-    0x20 0x00 mstore                    // [dataOffset, idx, input]
+    0x20 0x00 mstore                    // [dataOffset, idx, input, *returnArr]
 
     // 2. Store the length of the return array at position 0x20
     // Length is always 32 in our case
-    0x20 0x20 mstore                    // [dataOffset, idx, input]
+    0x20 0x20 mstore                    // [dataOffset, idx, input, *returnArr]
 
     // 3. Iteratively hash up the tree and store intermediate values in the array
-    // Iteratively hash the input into the sister leaves 
-    0x40                                // [*returnArr, dataOffset, input, idx]
-
     HASH_AND_STORE_MERKLE_LEVEL() // Level 1
     HASH_AND_STORE_MERKLE_LEVEL() // Level 2
     HASH_AND_STORE_MERKLE_LEVEL() // Level 3
@@ -90,7 +96,6 @@
     HASH_AND_STORE_MERKLE_LEVEL() // Level 32
 
     // Return the array
-    RETURN_FIRST()
     [RETURN_ARRAY_SIZE] 0x00 return
 }
 
@@ -118,17 +123,17 @@
 #define macro HASH_MERKLE_LEVEL() = takes(3) returns(3) {
     // Takes [*sister, input, idx]
     // Compute the next sister node location then move to the back of the resident stack
-    dup1 0x20 add                   // [*nextSister, *sister, input, idx]
-    swap3 swap1                     // [*sister, idx, input, *nextSister]
-    calldataload                    // [sister, idx, input, *nextSister]
+    dup1 0x20 add                       // [*nextSister, *sister, input, idx]
+    swap3 swap1                         // [*sister, idx, input, *nextSister]
+    calldataload                        // [sister, idx, input, *nextSister]
 
     // Compute the next index then move it to the back of the resident stack
-    dup2 0x01 add shr               // [nextIdx, sister, idx, input, *nextSister]
-    swap3                           // [input, sister, idx, *nextSister, nextIdx]
+    dup2 0x01 shr                       // [nextIdx, sister, idx, input, *nextSister]
+    swap4 swap3                         // [input, sister, idx, *nextSister, nextIdx]
 
     // Hash the input with the sister node
-    HASH_TWO_LEAVES()               // [hash, *nextSister, nextIdx]
-    swap1                           // [*nextSister, hash, nextIdx]
+    HASH_TWO_LEAVES()                   // [hash, *nextSister, nextIdx]
+    swap1                               // [*nextSister, hash, nextIdx]
 }
 
 /// @dev Hash the given input with the given sister leaf as if inserting into the given index 
@@ -163,6 +168,24 @@
 /// @dev Return the first value on the stack
 #define macro RETURN_FIRST() = returns(0) {
     0x00 mstore
+    0x20 0x00 return
+}
+
+/// @dev Return the second value on the stack
+#define macro RETURN_SECOND() = returns(0) {
+    dup2 0x00 mstore
+    0x20 0x00 return
+}
+
+/// @dev Return the third value on the stack
+#define macro RETURN_THIRD() = returns(0) {
+    dup3 0x00 mstore
+    0x20 0x00 return
+}
+
+/// @dev Return the fourth value on the stack
+#define macro RETURN_FOURTH() = returns(0) {
+    dup4 0x00 mstore
     0x20 0x00 return
 }
 

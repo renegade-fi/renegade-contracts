@@ -26,13 +26,11 @@ contract MerkleTest is TestUtils {
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
             sisterLeaves[i] = randomFelt();
         }
-        uint256[] memory result = merklePoseidon.hashMerkle(input, idx, sisterLeaves);
-        console.log("result length:", result.length);
+        uint256 result = merklePoseidon.hashMerkle(input, idx, sisterLeaves);
+        console.log("result:", result);
     }
 }
 
 interface MerklePoseidon {
-    function hashMerkle(uint256 input, uint256 idx, uint256[] calldata sisterLeaves)
-        external
-        returns (uint256[] memory);
+    function hashMerkle(uint256 input, uint256 idx, uint256[] calldata sisterLeaves) external returns (uint256);
 }

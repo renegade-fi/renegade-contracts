@@ -1,9 +1,7 @@
-use num_bigint::BigUint;
 use renegade_constants::Scalar;
-use renegade_crypto::fields::{biguint_to_scalar, scalar_to_biguint};
+use renegade_crypto::fields::scalar_to_biguint;
 use renegade_crypto::hash::Poseidon2Sponge;
 use std::env;
-use std::str::FromStr;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
