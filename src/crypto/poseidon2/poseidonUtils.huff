@@ -13,7 +13,9 @@
     POSEIDON_PERM()         // [state'[0], state'[1], state'[2]]
 
     // We return the first element past the state capacity, in this case state'[1]
-    dup2                    // [state'[1], state'[0], state'[1], state'[2], ...]
+    // Cleanup the stack before doing so
+    pop                     // [state'[1], state'[2]]
+    swap1 pop               // [state'[1]]
 }
 
 /// @dev Apply an external round to the state  
