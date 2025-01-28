@@ -75,3 +75,133 @@ fn hash_merkle(idx: u64, input: Scalar, sister_leaves: &[Scalar]) -> Vec<Scalar>
 
     results
 }
+
+#[cfg(test)]
+mod tests {
+    //! We test the Merkle tree helper above against the reference implementation in Arkworks
+    //! for a known reference implementation.
+    //!
+    //! It is difficult to test the huff contracts against the Arkworks impl because the Arkworks impl
+    //! handles deep trees very inefficiently, making a 32-depth tree impossible to run.
+    //!
+    //! Instead, we opt to test our helper against Arkworks on a shallower tree, thereby testing the
+    //! huff implementation only transitively.
+
+    use std::borrow::Borrow;
+
+    use ark_crypto_primitives::{
+        crh::{CRHScheme, TwoToOneCRHScheme},
+        merkle_tree::{Config, IdentityDigestConverter, MerkleTree},
+    };
+    use rand::{thread_rng, Rng};
+    use renegade_constants::{Scalar, ScalarField};
+    use renegade_crypto::hash::compute_poseidon_hash;
+
+    use crate::hash_merkle;
+
+    /// The height of the Merkle tree
+    const TEST_TREE_HEIGHT: usize = 10;
+    /// The number of leaves in the tree
+    const N_LEAVES: usize = 1 << (TEST_TREE_HEIGHT - 1);
+
+    // --- Hash Impls --- //
+
+    struct IdentityHasher;
+    impl CRHScheme for IdentityHasher {
+        type Input = ScalarField;
+        type Output = ScalarField;
+        type Parameters = ();
+
+        fn setup<R: Rng>(_: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+            Ok(())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            _parameters: &Self::Parameters,
+            input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            Ok(*input.borrow())
+        }
+    }
+
+    /// A dummy hasher to build an arkworks Merkle tree on top of
+    struct Poseidon2Hasher;
+    impl TwoToOneCRHScheme for Poseidon2Hasher {
+        type Input = ScalarField;
+        type Output = ScalarField;
+        type Parameters = ();
+
+        fn setup<R: Rng>(_: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+            Ok(())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            _parameters: &Self::Parameters,
+            left_input: T,
+            right_input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            let lhs = Scalar::new(*left_input.borrow());
+            let rhs = Scalar::new(*right_input.borrow());
+            let res = compute_poseidon_hash(&[lhs, rhs]);
+
+            Ok(res.inner())
+        }
+
+        fn compress<T: Borrow<Self::Output>>(
+            parameters: &Self::Parameters,
+            left_input: T,
+            right_input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            <Self as TwoToOneCRHScheme>::evaluate(parameters, left_input, right_input)
+        }
+    }
+
+    struct MerkleConfig {}
+    impl Config for MerkleConfig {
+        type Leaf = ScalarField;
+        type LeafDigest = ScalarField;
+        type InnerDigest = ScalarField;
+
+        type LeafHash = IdentityHasher;
+        type TwoToOneHash = Poseidon2Hasher;
+        type LeafInnerDigestConverter = IdentityDigestConverter<ScalarField>;
+    }
+
+    /// Build an arkworks tree and fill it with random values
+    fn build_arkworks_tree() -> MerkleTree<MerkleConfig> {
+        let mut rng = thread_rng();
+
+        let mut tree = MerkleTree::<MerkleConfig>::blank(&(), &(), TEST_TREE_HEIGHT).unwrap();
+        for i in 0..N_LEAVES {
+            let leaf = Scalar::random(&mut rng);
+            tree.update(i, &leaf.inner()).unwrap();
+        }
+
+        tree
+    }
+
+    /// Test the Merkle helper against an arkworks tree
+    #[test]
+    fn test_merkle_tree() {
+        // Build an arkworks tree and fill it with random values
+        let mut rng = thread_rng();
+        let mut tree = build_arkworks_tree();
+
+        // Choose a random index to update into
+        let idx = rng.gen_range(0..N_LEAVES);
+        let input = Scalar::random(&mut rng);
+
+        // Get a sibling path for the input
+        let path = tree.generate_proof(idx).unwrap();
+        let mut sister_scalars = vec![Scalar::new(path.leaf_sibling_hash)];
+        sister_scalars.extend(path.auth_path.into_iter().rev().map(Scalar::new));
+
+        // Get the updated path
+        let res = hash_merkle(idx as u64, input, &sister_scalars);
+        let new_root = res.last().unwrap();
+
+        // Update the tree with the input
+        tree.update(idx, &input.inner()).unwrap();
+        assert_eq!(tree.root(), new_root.inner());
+    }
+}
