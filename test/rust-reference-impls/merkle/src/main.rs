@@ -1,42 +1,77 @@
+use clap::Parser;
 use renegade_constants::Scalar;
 use renegade_crypto::fields::scalar_to_biguint;
-use renegade_crypto::hash::Poseidon2Sponge;
+use renegade_crypto::hash::compute_poseidon_hash;
+
+/// The height of the Merkle tree
+const TREE_HEIGHT: usize = 32;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Index in the Merkle tree
+    idx: u64,
+
+    /// Input value
+    input: String,
+
+    /// Sister leaves (32 values required)
+    #[arg(num_args = 32)]
+    sister_leaves: Vec<String>,
+}
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 4 {
-        eprintln!("Usage: {} <input> <idx> <sister_leaves>", args[0]);
+    let args = Args::parse();
+
+    if args.sister_leaves.len() != TREE_HEIGHT {
+        eprintln!(
+            "Expected {} sister leaves, got {}",
+            TREE_HEIGHT,
+            args.sister_leaves.len()
+        );
         std::process::exit(1);
     }
 
-    let input = Scalar::from_decimal_string(&args[1]).unwrap();
-    let idx = args[2].parse::<u64>().unwrap();
-    let sister_leaves: Vec<Scalar> = args[3]
-        .trim_matches(|c| c == '[' || c == ']')
-        .split(',')
+    let input = Scalar::from_decimal_string(&args.input).unwrap();
+
+    // Parse sister leaves directly from arguments
+    let sister_leaves: Vec<Scalar> = args
+        .sister_leaves
+        .iter()
         .map(|s| Scalar::from_decimal_string(s).unwrap())
         .collect();
 
-    let result = hash_merkle(input, idx, &sister_leaves);
-    let res_biguint = scalar_to_biguint(&result);
-    let res_hex = format!("{res_biguint:x}");
-    println!("RES:0x{}", res_hex);
+    let results = hash_merkle(args.idx, input, &sister_leaves);
+
+    // Output results as space-separated decimal values
+    let result_strings: Vec<String> = results
+        .iter()
+        .map(|r| scalar_to_biguint(r).to_string())
+        .collect();
+
+    println!("{}", result_strings.join(" "));
 }
 
-fn hash_merkle(input: Scalar, idx: u64, sister_leaves: &[Scalar]) -> Scalar {
+/// Hash the input through the Merkle tree using the given sister nodes
+///
+/// Returns the incremental results at each level, representing the updated values to the insertion path
+fn hash_merkle(idx: u64, input: Scalar, sister_leaves: &[Scalar]) -> Vec<Scalar> {
+    let mut results = Vec::with_capacity(TREE_HEIGHT);
     let mut current = input;
     let mut current_idx = idx;
-    let mut sponge = Poseidon2Sponge::new();
 
-    for sister in sister_leaves {
+    for sister in sister_leaves.iter().copied() {
+        // The input is a left-hand node if the index is even at this level
         let inputs = if current_idx % 2 == 0 {
-            [current.inner(), sister.inner()]
+            [current, sister]
         } else {
-            [sister.inner(), current.inner()]
+            [sister, current]
         };
-        current = Scalar::new(sponge.hash(&inputs));
+
+        current = compute_poseidon_hash(&inputs);
+        results.push(current);
         current_idx /= 2;
     }
 
-    current
+    results
 }
