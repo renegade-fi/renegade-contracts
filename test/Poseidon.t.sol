@@ -111,12 +111,12 @@ contract PoseidonTest is TestUtils {
         compileInputs[1] = "build";
         compileInputs[2] = "--quiet";
         compileInputs[3] = "--manifest-path";
-        compileInputs[4] = "test/poseidon-reference-implementation/Cargo.toml";
+        compileInputs[4] = "test/rust-reference-impls/poseidon/Cargo.toml";
         vm.ffi(compileInputs);
 
         // Now run the binary directly from target/debug
         string[] memory runInputs = new string[](3);
-        runInputs[0] = "./test/poseidon-reference-implementation/target/debug/poseidon-reference-implementation";
+        runInputs[0] = "./test/rust-reference-impls/target/debug/poseidon";
         runInputs[1] = vm.toString(a);
         runInputs[2] = vm.toString(b);
 
