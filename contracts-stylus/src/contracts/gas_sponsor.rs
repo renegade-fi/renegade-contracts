@@ -38,6 +38,10 @@ use crate::{
 /// The revert message returned when a nonce has already been used
 const ERR_NONCE_ALREADY_USED: &[u8] = b"nonce already used";
 
+/// The revert message returned when the sponsor does not have enough ETH to
+/// withdraw
+const ERR_INSUFFICIENT_BALANCE: &[u8] = b"insufficient balance";
+
 // -------------
 // | CONSTANTS |
 // -------------
@@ -55,6 +59,11 @@ const GAS_PER_CALLDATA_BYTE: u64 = 16;
 /// The cost in gas of the refund operations which take place after the final
 /// gas metering check, obtained empirically and rounded to a reasonable value
 const REFUND_OPS_GAS_COST: u64 = 10_000;
+
+/// A buffer in gas to account for empirically-observed gas overheads when
+/// selling native ETH. This may be due to some overhead in transferring ETH
+/// from the (Solidity) proxy to the (Stylus) implementation.
+const NATIVE_ETH_SELL_GAS_BUFFER: u64 = 50_000;
 
 /// The address of the ArbGasInfo precompile
 const ARB_GAS_INFO_ADDRESS: Address =
@@ -164,6 +173,15 @@ impl GasSponsorContract {
     #[payable]
     pub fn receive_eth() {}
 
+    /// Withdraws ETH from the gas sponsor contract to the given receiver
+    pub fn withdraw_eth(&mut self, receiver: Address, amount: U256) -> Result<(), Vec<u8>> {
+        self._check_owner()?;
+        let balance = contract::balance();
+        assert_result!(balance >= amount, ERR_INSUFFICIENT_BALANCE)?;
+        call(Call::new().value(amount), receiver, &[])?;
+        Ok(())
+    }
+
     // ------------------------
     // | SPONSORED SETTLEMENT |
     // ------------------------
@@ -264,6 +282,11 @@ impl GasSponsorContract {
 
         let transfer_config = Call::new().gas(REFUND_OPS_GAS_COST);
 
+        // Check if this is a native ETH sell, for which it is sufficient to check that
+        // the message value is non-zero. If this is not a native ETH sell and the value
+        // is non-zero, there will be a revert in the darkpool.
+        let is_native_eth_sell = msg::value() > U256::ZERO;
+
         // Get the L2 gas price. On Arbitrum, this is always the basefee:
         // https://docs.arbitrum.io/how-arbitrum-works/gas-fees#l2-tips
         let gas_price = block::basefee();
@@ -278,7 +301,8 @@ impl GasSponsorContract {
             INVOCATION_BASE_GAS_COST
                 + calldata_gas
                 + (initial_gas - final_gas)
-                + REFUND_OPS_GAS_COST,
+                + REFUND_OPS_GAS_COST
+                + if is_native_eth_sell { NATIVE_ETH_SELL_GAS_BUFFER } else { 0 },
         );
 
         let gas_cost = gas_price * gas_spent + l1_gas_cost;

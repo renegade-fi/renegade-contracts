@@ -398,6 +398,9 @@ pub async fn setup_sponsored_match_test(
     buy_side: bool,
     ctx: &TestContext,
 ) -> Result<SponsoredAtomicMatchSettleData> {
+    // Ensure that the gas sponsor is unpaused
+    ctx.gas_sponsor_contract().unpause().send().await?.await?;
+
     let process_atomic_match_settle_data =
         setup_atomic_match_settle_test(buy_side, true /* use_gas_sponsor */, ctx).await?;
 
