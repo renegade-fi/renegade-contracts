@@ -135,7 +135,7 @@ pub const TEST_ERC20_DECIMALS: u8 = 18;
 
 /// The amount of dummy ERC20 tokens to fund the user with
 /// when deploying the testing contracts
-pub const TEST_FUNDING_AMOUNT: u128 = 1000;
+pub const TEST_FUNDING_AMOUNT: u128 = 100_000;
 
 /// The file name for the VALID WALLET CREATE verification key
 pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";
