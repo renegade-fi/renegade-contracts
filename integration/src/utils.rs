@@ -9,6 +9,7 @@ use alloy_sol_types::{
     Eip712Domain, SolStruct, SolType,
 };
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
+use ark_std::UniformRand;
 use circuit_types::{
     elgamal::EncryptionKey,
     fixed_point::FixedPoint,
@@ -16,7 +17,7 @@ use circuit_types::{
 };
 use constants::Scalar;
 use contracts_common::{
-    constants::NUM_BYTES_FELT,
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U256},
     custom_serde::{pk_to_u256s, BytesDeserializable, BytesSerializable},
     solidity::{DepositWitness, PermitWitnessTransferFrom, TokenPermissions},
     types::{
@@ -32,6 +33,7 @@ use contracts_utils::{
     merkle::MerkleConfig,
     proof_system::test_data::{
         address_to_biguint, gen_atomic_match_with_match_and_fees, ProcessAtomicMatchSettleData,
+        SponsoredAtomicMatchSettleData,
     },
 };
 use ethers::{
@@ -41,6 +43,7 @@ use ethers::{
     providers::{JsonRpcClient, Middleware, PendingTransaction},
     signers::{LocalWallet, Signer},
     types::{Bytes, H256, U256},
+    utils::parse_ether,
 };
 use eyre::{eyre, Result};
 use num_bigint::BigUint;
@@ -387,6 +390,46 @@ pub async fn setup_atomic_match_settle_test_native_eth(
     // Replace the base mint with the native ETH address
     let eth_addr = native_eth_address();
     data.valid_match_settle_atomic_statement.match_result.base_mint = eth_addr;
+    Ok(data)
+}
+
+/// Setup a sponsored atomic match settle test
+pub async fn setup_sponsored_match_test(
+    buy_side: bool,
+    ctx: &TestContext,
+) -> Result<SponsoredAtomicMatchSettleData> {
+    let process_atomic_match_settle_data =
+        setup_atomic_match_settle_test(buy_side, true /* use_gas_sponsor */, ctx).await?;
+
+    let mut rng = thread_rng();
+    let nonce = scalar_to_u256(ScalarField::rand(&mut rng));
+    let mut message = [0_u8; NUM_BYTES_U256 + NUM_BYTES_ADDRESS];
+    nonce.to_big_endian(&mut message[..NUM_BYTES_U256]);
+    message[NUM_BYTES_U256..].copy_from_slice(Address::zero().as_bytes());
+
+    let signature = Bytes::from(hash_and_sign_message(ctx.signing_key(), &message).to_vec());
+
+    // Fund the gas sponsor with some ETH
+    ctx.gas_sponsor_contract().receive_eth().value(parse_ether("0.1")?).send().await?.await?;
+
+    Ok(SponsoredAtomicMatchSettleData { process_atomic_match_settle_data, nonce, signature })
+}
+
+/// Setup a sponsored atomic match settle test using native ETH as the base
+/// asset
+pub async fn setup_sponsored_match_test_native_eth(
+    buy_side: bool,
+    ctx: &TestContext,
+) -> Result<SponsoredAtomicMatchSettleData> {
+    let mut data = setup_sponsored_match_test(buy_side, ctx).await?;
+
+    // Replace the base mint with the native ETH address
+    let eth_addr = native_eth_address();
+    data.process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .base_mint = eth_addr;
+
     Ok(data)
 }
 

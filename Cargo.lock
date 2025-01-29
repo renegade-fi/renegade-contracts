@@ -3159,6 +3159,7 @@ dependencies = [
  "num-bigint",
  "postcard",
  "rand 0.8.5",
+ "ruint",
  "scripts",
  "serde",
  "test-helpers",
