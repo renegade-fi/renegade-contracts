@@ -1,57 +1,39 @@
 use std::env;
 use std::error::Error;
 
-const HASH_STATE_SIZE: usize = 64;
-const CHALLENGE_LOW_BYTES: usize = 31;
-const CHALLENGE_HIGH_BYTES: usize = 17;
+use ark_bn254::Bn254;
+use ark_ec::pairing::Pairing;
+use mpc_plonk::transcript::{PlonkTranscript, SolidityTranscript};
+use renegade_constants::Scalar;
 
-/// Represents a Fiat-Shamir transcript that matches the Solidity implementation
-struct Transcript {
-    /// The hash state of the transcript as a fixed-size byte array
-    hash_state: Vec<u8>,
-    /// The concatenated bytes of all elements
-    elements: Vec<u8>,
-}
-
-impl Transcript {
-    /// Creates a new transcript
-    fn new() -> Self {
-        Self {
-            hash_state: vec![0; HASH_STATE_SIZE],
-            elements: Vec::new(),
-        }
-    }
-
-    /// Appends a message to the transcript
-    fn append_message(&mut self, element: &[u8]) {
-        self.elements.extend_from_slice(element);
-    }
-
-    /// Gets the current challenge from the transcript
-    fn get_challenge(&self) -> String {
-        // Return a fixed dummy value for now
-        // Using 123456789 as an example field element
-        "0x123456789".to_string()
-    }
-}
+/// Type alias for the base field of the Bn254 curve
+type BaseField = <Bn254 as Pairing>::BaseField;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Skip the first argument (program name)
+    // Skip the first argument
     let args: Vec<String> = env::args().skip(1).collect();
+    assert!(args.len() == 1, "Expected 1 argument, got {}", args.len());
 
-    // Create a new transcript
-    let mut transcript = Transcript::new();
+    // Parse the hex string
+    let trimmed = args[0].trim_start_matches("0x");
+    let bytes = hex::decode(trimmed)?;
 
-    // Parse hex strings and append them to the transcript
-    for arg in args {
-        let bytes = hex::decode(arg.trim_start_matches("0x"))?;
-        transcript.append_message(&bytes);
-    }
+    // Create a transcript, append the input, and compute the challenge
+    let mut ts = <SolidityTranscript as PlonkTranscript<BaseField>>::new(b"unused_label");
+    <SolidityTranscript as PlonkTranscript<BaseField>>::append_message(
+        &mut ts,
+        b"unused_label",
+        &bytes,
+    )?;
+    let challenge = <SolidityTranscript as PlonkTranscript<BaseField>>::get_and_append_challenge::<
+        Bn254,
+    >(&mut ts, b"unused_label")?;
 
-    // Get and print the challenge
-    let challenge = transcript.get_challenge();
+    // Return the challenge as a hex string
+    let scalar = Scalar::new(challenge);
+    let hex_str = format!("{:#x}", scalar.to_biguint());
+
     // Prefix with RES: to ensure consistent string parsing
-    println!("RES:{}", challenge);
-
+    println!("RES:{hex_str}");
     Ok(())
 }

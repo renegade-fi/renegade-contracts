@@ -12,23 +12,20 @@ import {TestUtils} from "./utils/TestUtils.sol";
 contract TranscriptTest is TestUtils {
     using TranscriptLib for Transcript;
 
+    /// @dev Number of random bytes to generate for test data
+    uint256 constant TEST_DATA_BYTES = 1024;
+
     /// @notice Test the basic flow of transcript operations
-    /// @dev Verifies:
-    ///      1. Transcript creation
-    ///      2. Message appending
-    ///      3. Challenge generation and non-zero value
     function testTranscriptBasic() public {
         // Create a new transcript
         Transcript memory transcript = TranscriptLib.new_transcript();
 
-        // Append some test data
-        bytes memory testData = hex"deadbeef";
+        // Generate random test data
+        bytes memory testData = vm.randomBytes(TEST_DATA_BYTES);
         transcript.appendMessage(testData);
 
         // Get a challenge from our implementation
         BN254.ScalarField challenge = transcript.getChallenge();
-
-        // Get challenge from reference implementation
         uint256 expectedChallenge = runReferenceImpl(testData);
 
         // Compare results
