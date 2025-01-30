@@ -1,5 +1,5 @@
 [workspace]
-members = ["poseidon", "merkle"]
+members = ["merkle", "poseidon", "transcript"]
 
 [workspace.dependencies]
 renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", default-features = false }

@@ -106,13 +106,7 @@ contract PoseidonTest is TestUtils {
     /// @dev Helper to run the reference implementation
     function runReferenceImpl(uint256 a, uint256 b) internal returns (uint256) {
         // First compile the binary
-        string[] memory compileInputs = new string[](5);
-        compileInputs[0] = "cargo";
-        compileInputs[1] = "build";
-        compileInputs[2] = "--quiet";
-        compileInputs[3] = "--manifest-path";
-        compileInputs[4] = "test/rust-reference-impls/poseidon/Cargo.toml";
-        vm.ffi(compileInputs);
+        compileRustBinary("test/rust-reference-impls/poseidon/Cargo.toml");
 
         // Now run the binary directly from target/debug
         string[] memory runInputs = new string[](3);
@@ -120,24 +114,8 @@ contract PoseidonTest is TestUtils {
         runInputs[1] = vm.toString(a);
         runInputs[2] = vm.toString(b);
 
-        bytes memory res = vm.ffi(runInputs);
-        string memory str = string(res);
-
-        // Strip the "RES:" prefix and parse
-        // We prefix here to avoid the FFI interface interpreting the output as either raw bytes or a string
-        // This forces the output to be a string
-        require(
-            bytes(str).length > 4 && bytes(str)[0] == "R" && bytes(str)[1] == "E" && bytes(str)[2] == "S"
-                && bytes(str)[3] == ":",
-            "Invalid output format"
-        );
-
-        // Extract everything after "RES:"
-        bytes memory hexBytes = new bytes(bytes(str).length - 4);
-        for (uint256 i = 4; i < bytes(str).length; i++) {
-            hexBytes[i - 4] = bytes(str)[i];
-        }
-        return vm.parseUint(string(hexBytes));
+        // Run and parse result
+        return vm.parseUint(runBinaryGetResponse(runInputs));
     }
 
     /// --- Helpers --- ///

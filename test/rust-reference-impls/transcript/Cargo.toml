@@ -1,0 +1,10 @@
+[package]
+name = "transcript"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hex = "0.4"
+sha3 = "0.10"     # For keccak256
+ark-ff = "0.4"    # For field arithmetic
+ark-bn254 = "0.4" # For BN254 curve operations
