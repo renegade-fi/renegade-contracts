@@ -47,7 +47,7 @@ pub const RUSTFLAGS_ENV_VAR: &str = "RUSTFLAGS";
 pub const DEFAULT_RUSTFLAGS: &str = "-Clink-arg=-zstack-size=131072 -Zlocation-detail=none";
 
 /// The inline threshold flag for the Rust compiler
-pub const INLINE_THRESHOLD_FLAG: &str = "-Cinline-threshold=0";
+pub const INLINE_THRESHOLD_FLAG: &str = "-Cllvm-args=--inline-threshold=0";
 
 /// The optimization level flag for the Rust compiler
 pub const OPT_LEVEL_FLAG: &str = "-C opt-level=";
@@ -113,10 +113,10 @@ pub const DEPLOYMENTS_KEY: &str = "deployments";
 pub const ERC20S_KEY: &str = "erc20s";
 
 /// The darkpool proxy contract key in the `deployments.json` file
-pub const DARKPOOL_PROXY_CONTRACT_KEY: &str = "darkpool_proxy_contract";
+pub const PROXY_CONTRACT_KEY: &str = "proxy_contract";
 
 /// The darkpool proxy admin contract key in the `deployments.json` file
-pub const DARKPOOL_PROXY_ADMIN_CONTRACT_KEY: &str = "darkpool_proxy_admin_contract";
+pub const PROXY_ADMIN_CONTRACT_KEY: &str = "proxy_admin_contract";
 
 /// The permit2 contract key in the `deployments.json` file
 pub const PERMIT2_CONTRACT_KEY: &str = "permit2_contract";
@@ -135,7 +135,7 @@ pub const TEST_ERC20_DECIMALS: u8 = 18;
 
 /// The amount of dummy ERC20 tokens to fund the user with
 /// when deploying the testing contracts
-pub const TEST_FUNDING_AMOUNT: u128 = 1000;
+pub const TEST_FUNDING_AMOUNT: u128 = 100_000;
 
 /// The file name for the VALID WALLET CREATE verification key
 pub const VALID_WALLET_CREATE_VKEY_FILE: &str = "valid_wallet_create";

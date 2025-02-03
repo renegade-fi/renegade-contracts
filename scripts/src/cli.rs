@@ -6,8 +6,8 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::{
     commands::{
-        build_and_deploy_stylus_contract, deploy_erc20, deploy_permit2, deploy_proxy,
-        deploy_test_contracts, gen_vkeys, upgrade,
+        build_and_deploy_stylus_contract, deploy_darkpool_proxy, deploy_erc20,
+        deploy_gas_sponsor_proxy, deploy_permit2, deploy_test_contracts, gen_vkeys, upgrade,
     },
     errors::ScriptError,
     types::StylusContract,
@@ -41,8 +41,12 @@ pub enum Command {
     /// Deploy all the testing contracts (includes generating testing
     /// verification keys)
     DeployTestContracts(DeployTestContractsArgs),
-    /// Deploy the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
-    DeployProxy(DeployProxyArgs),
+    /// Deploy the proxy contracts for
+    /// the darkpool
+    DeployDarkpoolProxy(DeployDarkpoolProxyArgs),
+    /// Deploy the proxy contracts for
+    /// the gas sponsor
+    DeployGasSponsorProxy(DeployGasSponsorProxyArgs),
     /// Deploy the `Permit2` contract
     DeployPermit2,
     /// Deploy a Stylus contract
@@ -68,7 +72,12 @@ impl Command {
             Command::DeployTestContracts(args) => {
                 deploy_test_contracts(&args, rpc_url, priv_key, client, deployments_path).await
             },
-            Command::DeployProxy(args) => deploy_proxy(&args, client, deployments_path).await,
+            Command::DeployDarkpoolProxy(args) => {
+                deploy_darkpool_proxy(&args, client, deployments_path).await
+            },
+            Command::DeployGasSponsorProxy(args) => {
+                deploy_gas_sponsor_proxy(&args, client, deployments_path).await
+            },
             Command::DeployPermit2 => deploy_permit2(client, deployments_path).await,
             Command::DeployStylus(args) => {
                 build_and_deploy_stylus_contract(&args, rpc_url, priv_key, client, deployments_path)
@@ -88,11 +97,6 @@ impl Command {
 /// keys)
 #[derive(Args)]
 pub struct DeployTestContractsArgs {
-    /// Address of the owner for both the proxy admin contract
-    /// and the underlying darkpool contract
-    #[arg(short, long)]
-    pub owner: String,
-
     /// Whether or not to enable proof & ECDSA verification.
     /// This only applies to the darkpool & Merkle contracts.
     #[arg(long)]
@@ -112,12 +116,7 @@ pub struct DeployTestContractsArgs {
 /// forwarded to the implementation contract. Upgrade calls can only be made to
 /// the `TransparentUpgradeableProxy` through the `ProxyAdmin`.
 #[derive(Args)]
-pub struct DeployProxyArgs {
-    /// Address of the owner for both the proxy admin contract
-    /// and the underlying darkpool contract
-    #[arg(short, long)]
-    pub owner: String,
-
+pub struct DeployDarkpoolProxyArgs {
     /// The initial protocol fee with which to initialize the darkpool contract.
     /// The fee is a percentage of the trade volume, represented as a
     /// fixed-point number. The `u64` used here should accommodate any fee
@@ -141,6 +140,18 @@ pub struct DeployProxyArgs {
     /// Whether or not to use the test contracts
     #[arg(short, long)]
     pub test: bool,
+}
+
+/// Deploy the gas sponsor upgradeable proxy contract, similar to the darkpool
+/// proxy contract.
+///
+/// Assumes the gas sponsor contract & darkpool proxy contract have already been
+/// deployed by referencing their addresses in the `deployments.json` file.
+#[derive(Args)]
+pub struct DeployGasSponsorProxyArgs {
+    /// The address pertaining to the auth pubkey for gas sponsorship
+    #[arg(short, long)]
+    pub auth_address: String,
 }
 
 /// Deploy a Stylus contract

@@ -19,7 +19,7 @@ rand = { workspace = true }
 clap = { workspace = true }
 postcard = { workspace = true }
 serde = { workspace = true }
-alloy-primitives = { workspace = true }
+alloy-primitives = { workspace = true, features = ["tiny-keccak"] }
 alloy-sol-types = { workspace = true }
 ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
@@ -32,6 +32,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 inventory = "0.3"
 num-bigint = "0.4"
+ruint = { workspace = true }
 
 test-helpers = { git = "https://github.com/renegade-fi/renegade.git" }
 colored = "2"

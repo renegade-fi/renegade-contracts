@@ -14,7 +14,6 @@ pub const VERIFICATION_DISABLED_ERROR_MESSAGE: &[u8] = b"verification disabled o
 
 /// The revert message when a contract/owner address
 /// is attempted to be set to the zero address
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 pub const ZERO_ADDRESS_ERROR_MESSAGE: &[u8] = b"zero address";
 
 /// The revert message when the protocol fee
@@ -28,12 +27,12 @@ pub const VERIFICATION_FAILED_ERROR_MESSAGE: &[u8] = b"verification failed";
 
 /// The revert message when attempting to initialize
 /// the darkpool contract to a past version
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "gas-sponsor"))]
 pub const INVALID_VERSION_ERROR_MESSAGE: &[u8] = b"invalid version";
 
 /// The revert message when calling an owner-only method
 /// when the caller is not the owner
-#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "gas-sponsor"))]
 pub const NOT_OWNER_ERROR_MESSAGE: &[u8] = b"not owner";
 
 /// The revert message when calling an unpaused-only method
@@ -120,7 +119,12 @@ pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer au
 
 /// A dummy address for the native asset, constant across all chains
 /// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement", feature = "test-helpers"))]
+#[cfg(any(
+    feature = "transfer-executor",
+    feature = "core-settlement",
+    feature = "test-helpers",
+    feature = "gas-sponsor"
+))]
 pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 /// The address of the WETH contract

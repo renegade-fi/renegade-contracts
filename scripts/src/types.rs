@@ -32,6 +32,8 @@ pub enum StylusContract {
     TestVkeys,
     /// The transfer executor contract
     TransferExecutor,
+    /// The gas sponsor contract
+    GasSponsor,
     /// The dummy ERC20 contract, containing the
     /// token symbol
     // We skip this value in the CLI as we have
@@ -61,6 +63,7 @@ impl Display for StylusContract {
             StylusContract::Vkeys => write!(f, "vkeys"),
             StylusContract::TestVkeys => write!(f, "test-vkeys"),
             StylusContract::TransferExecutor => write!(f, "transfer-executor"),
+            StylusContract::GasSponsor => write!(f, "gas-sponsor"),
             StylusContract::DummyErc20(_) => write!(f, "dummy-erc20"),
             StylusContract::DummyWeth(_) => write!(f, "dummy-weth"),
             StylusContract::DummyUpgradeTarget => write!(f, "dummy-upgrade-target"),

@@ -32,18 +32,19 @@ use ethers::{
 use rand::{thread_rng, Rng};
 use std::{env, str::FromStr, sync::Arc};
 use tracing::log::info;
+use util::err_str;
 
 use crate::{
     cli::{
-        DeployErc20Args, DeployProxyArgs, DeployStylusArgs, DeployTestContractsArgs, GenVkeysArgs,
-        UpgradeArgs,
+        DeployDarkpoolProxyArgs, DeployErc20Args, DeployGasSponsorProxyArgs, DeployStylusArgs,
+        DeployTestContractsArgs, GenVkeysArgs, UpgradeArgs,
     },
     constants::{
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY, DARKPOOL_PROXY_CONTRACT_KEY, NUM_BYTES_ADDRESS,
-        NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI, PERMIT2_BYTECODE,
-        PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
-        PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE,
-        TEST_ERC20_DECIMALS, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
+        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
+        PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
+        PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI, PROXY_ADMIN_CONTRACT_KEY,
+        PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, PROXY_CONTRACT_KEY, TEST_ERC20_DECIMALS,
+        TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
         VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
         VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
         VALID_WALLET_UPDATE_VKEY_FILE,
@@ -53,10 +54,10 @@ use crate::{
     types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
-        get_protocol_external_fee_collection_address, get_public_encryption_key,
-        read_deployment_address, read_stylus_deployment_address, send_contract_call, setup_client,
-        write_deployment_address, write_stylus_contract_address, write_vkey_file,
-        LocalWalletHttpClient,
+        gas_sponsor_initialize_calldata, get_protocol_external_fee_collection_address,
+        get_public_encryption_key, read_deployment_address, read_stylus_deployment_address,
+        send_contract_call, setup_client, write_deployment_address, write_stylus_contract_address,
+        write_vkey_file, LocalWalletHttpClient,
     },
 };
 
@@ -219,35 +220,70 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
-    info!("Deploying proxy contract");
-    let deploy_proxy_args = DeployProxyArgs {
-        owner: args.owner.clone(),
+    info!("Deploying darkpool proxy contract");
+    let deploy_darkpool_proxy_args = DeployDarkpoolProxyArgs {
         fee: thread_rng().gen(),
         protocol_public_encryption_key: None,
         protocol_external_fee_collection_address: None,
         test: true,
     };
-    deploy_proxy(&deploy_proxy_args, client, deployments_path).await?;
+    deploy_darkpool_proxy(&deploy_darkpool_proxy_args, client.clone(), deployments_path).await?;
+
+    info!("Deploying gas sponsor contract");
+    deploy_stylus_args.contract = StylusContract::GasSponsor;
+    build_and_deploy_stylus_contract(
+        &deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying gas sponsor proxy contract");
+    let deploy_gas_sponsor_proxy_args = DeployGasSponsorProxyArgs {
+        auth_address: format!("{:#x}", client.default_sender().unwrap()),
+    };
+    deploy_gas_sponsor_proxy(&deploy_gas_sponsor_proxy_args, client, deployments_path).await?;
 
     Ok(())
 }
 
-/// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts
-pub async fn deploy_proxy(
-    args: &DeployProxyArgs,
+/// Deploys the proxy & proxy admin contracts for the gas sponsor
+pub async fn deploy_gas_sponsor_proxy(
+    args: &DeployGasSponsorProxyArgs,
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    // Get proxy contract ABI and bytecode
-    let abi: Contract =
-        serde_json::from_str(PROXY_ABI).map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
+    let gas_sponsor_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::GasSponsor)?;
 
-    let bytecode =
-        Bytes::from_hex(PROXY_BYTECODE).map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
+    // Construct gas sponsor calldata
+    let darkpool_proxy_key = format!("{}_{}", StylusContract::Darkpool, PROXY_CONTRACT_KEY);
+    let darkpool_proxy_address = read_deployment_address(deployments_path, &darkpool_proxy_key)?;
+    let auth_address =
+        Address::from_str(&args.auth_address).map_err(err_str!(ScriptError::InvalidArguments))?;
 
-    let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
+    let initialize_calldata =
+        Bytes::from(gas_sponsor_initialize_calldata(darkpool_proxy_address, auth_address)?);
 
-    // Parse proxy contract constructor arguments
+    deploy_proxy(
+        client,
+        gas_sponsor_address,
+        initialize_calldata,
+        &StylusContract::GasSponsor.to_string(),
+        deployments_path,
+    )
+    .await
+}
+
+/// Deploys the proxy & proxy admin contracts for the darkpool
+pub async fn deploy_darkpool_proxy(
+    args: &DeployDarkpoolProxyArgs,
+    client: Arc<LocalWalletHttpClient>,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    // Construct darkpool initialization calldata
 
     let darkpool_contract =
         if args.test { StylusContract::DarkpoolTestContract } else { StylusContract::Darkpool };
@@ -273,9 +309,6 @@ pub async fn deploy_proxy(
 
     let permit2_address = read_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY)?;
 
-    let owner_address = Address::from_str(&args.owner)
-        .map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?;
-
     let protocol_fee = U256::from(args.fee);
 
     let protocol_public_encryption_key =
@@ -285,7 +318,7 @@ pub async fn deploy_proxy(
         args.protocol_external_fee_collection_address.clone(),
     )?;
 
-    let darkpool_calldata = Bytes::from(darkpool_initialize_calldata(
+    let initialize_calldata = Bytes::from(darkpool_initialize_calldata(
         core_wallet_ops_address,
         core_settlement_address,
         verifier_core_address,
@@ -299,9 +332,38 @@ pub async fn deploy_proxy(
         protocol_external_fee_collection_address,
     )?);
 
+    deploy_proxy(
+        client,
+        darkpool_address,
+        initialize_calldata,
+        &StylusContract::Darkpool.to_string(),
+        deployments_path,
+    )
+    .await
+}
+
+/// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts for the
+/// given implementation contract
+async fn deploy_proxy(
+    client: Arc<LocalWalletHttpClient>,
+    implementation_address: Address,
+    initialization_calldata: Bytes,
+    deployment_prefix: &str,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    // Get proxy contract ABI and bytecode
+    let abi: Contract =
+        serde_json::from_str(PROXY_ABI).map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
+
+    let bytecode =
+        Bytes::from_hex(PROXY_BYTECODE).map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
+
+    let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
+
     // Deploy proxy contract
+    let owner_address = client.default_sender().unwrap();
     let proxy_contract = proxy_factory
-        .deploy((darkpool_address, owner_address, darkpool_calldata))
+        .deploy((implementation_address, owner_address, initialization_calldata))
         .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?
         .confirmations(NUM_DEPLOY_CONFIRMATIONS)
         .send()
@@ -331,12 +393,10 @@ pub async fn deploy_proxy(
     info!("Proxy admin contract deployed at address:\n\t{:#x}", proxy_admin_address);
 
     // Write deployed addresses to deployments file
-    write_deployment_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY, proxy_address)?;
-    write_deployment_address(
-        deployments_path,
-        DARKPOOL_PROXY_ADMIN_CONTRACT_KEY,
-        proxy_admin_address,
-    )
+    let proxy_key = format!("{}_{}", deployment_prefix, PROXY_CONTRACT_KEY);
+    let proxy_admin_key = format!("{}_{}", deployment_prefix, PROXY_ADMIN_CONTRACT_KEY);
+    write_deployment_address(deployments_path, &proxy_key, proxy_address)?;
+    write_deployment_address(deployments_path, &proxy_admin_key, proxy_admin_address)
 }
 
 /// Deploys the `Permit2` contract
@@ -497,11 +557,10 @@ pub async fn upgrade(
     client: Arc<LocalWalletHttpClient>,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    let proxy_admin_address =
-        read_deployment_address(deployments_path, DARKPOOL_PROXY_ADMIN_CONTRACT_KEY)?;
+    let proxy_admin_address = read_deployment_address(deployments_path, PROXY_ADMIN_CONTRACT_KEY)?;
     let proxy_admin = ProxyAdminContract::new(proxy_admin_address, client);
 
-    let proxy_address = read_deployment_address(deployments_path, DARKPOOL_PROXY_CONTRACT_KEY)?;
+    let proxy_address = read_deployment_address(deployments_path, PROXY_CONTRACT_KEY)?;
 
     let implementation_address =
         read_stylus_deployment_address(deployments_path, &StylusContract::Darkpool)?;
