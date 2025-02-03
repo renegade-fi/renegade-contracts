@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 # === Renegade Dependencies === #
 mpc-plonk = { workspace = true }
-renegade-constants = { workspace = true }
+renegade-constants = { workspace = true, features = ["mpc-types"] }
 
 # === Misc Dependencies === #
 ark-bn254 = "0.4"

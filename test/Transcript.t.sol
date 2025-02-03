@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
 import {Transcript, TranscriptLib} from "../src/verifier/Transcript.sol";
 import {TestUtils} from "./utils/TestUtils.sol";
+import {console2} from "forge-std/console2.sol";
 
 /// @title Transcript Test Contract
 /// @notice Test contract for verifying the functionality of the Fiat-Shamir transcript
