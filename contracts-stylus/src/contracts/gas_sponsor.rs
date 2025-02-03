@@ -24,7 +24,7 @@ use crate::{
         helpers::{check_address_not_zero, deserialize_from_calldata, is_native_eth_address},
         solidity::{
             GasSponsorPausedFallback, IArbGasInfo, IDarkpool, IErc20, InsufficientSponsorBalance,
-            NonceUsed, OwnershipTransferred, Paused, Unpaused,
+            NonceUsed, OwnershipTransferred, Paused, SponsoredExternalMatch, Unpaused,
         },
     },
     ECDSA_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE,
@@ -320,6 +320,8 @@ impl GasSponsorContract {
             refund_address,
             &[], // calldata
         )?;
+
+        evm::log(SponsoredExternalMatch { amount: gas_cost, nonce });
 
         Ok(())
     }
