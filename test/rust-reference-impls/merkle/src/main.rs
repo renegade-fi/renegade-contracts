@@ -49,7 +49,7 @@ fn main() {
         .map(|r| scalar_to_biguint(r).to_string())
         .collect();
 
-    println!("{}", result_strings.join(" "));
+    println!("RES:{}", result_strings.join(" "));
 }
 
 /// Hash the input through the Merkle tree using the given sister nodes

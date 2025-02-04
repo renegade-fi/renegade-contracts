@@ -47,6 +47,10 @@ contract MerkleTest is TestUtils {
         internal
         returns (uint256[] memory)
     {
+        // First compile the binary
+        compileRustBinary("test/rust-reference-impls/merkle/Cargo.toml");
+
+        // Prepare arguments for the binary
         string[] memory args = new string[](35); // program name + idx + input + 32 sister leaves
         args[0] = "./test/rust-reference-impls/target/debug/merkle";
         args[1] = vm.toString(idx);
@@ -57,72 +61,9 @@ contract MerkleTest is TestUtils {
             args[i + 3] = vm.toString(sisterLeaves[i]);
         }
 
-        bytes memory res = vm.ffi(args);
-        string memory str = string(res);
-
-        // Split by spaces and parse each value
-        string[] memory parts = split(str, " ");
-        require(parts.length == MERKLE_DEPTH, "Expected 32 values");
-
-        uint256[] memory values = new uint256[](MERKLE_DEPTH);
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
-            values[i] = vm.parseUint(parts[i]);
-        }
-
-        return values;
-    }
-
-    /// @dev Helper to split a string by a delimiter
-    function split(string memory _str, string memory _delim) internal pure returns (string[] memory) {
-        bytes memory str = bytes(_str);
-        bytes memory delim = bytes(_delim);
-
-        // Count number of delimiters to size array
-        uint256 count = 1;
-        for (uint256 i = 0; i < str.length; i++) {
-            if (str[i] == delim[0]) {
-                count++;
-            }
-        }
-
-        string[] memory parts = new string[](count);
-        count = 0;
-
-        // Track start of current part
-        uint256 start = 0;
-
-        // Split into parts
-        for (uint256 i = 0; i < str.length; i++) {
-            if (str[i] == delim[0]) {
-                parts[count] = substring(str, start, i);
-                start = i + 1;
-                count++;
-            }
-        }
-        // Add final part
-        parts[count] = substring(str, start, str.length);
-
-        return parts;
-    }
-
-    /// @dev Helper to get a substring
-    function substring(bytes memory _str, uint256 _start, uint256 _end) internal pure returns (string memory) {
-        bytes memory result = new bytes(_end - _start);
-        for (uint256 i = _start; i < _end; i++) {
-            result[i - _start] = _str[i];
-        }
-        return string(result);
-    }
-
-    function arrayToString(uint256[] memory arr) internal pure returns (string memory) {
-        string memory result = "[";
-        for (uint256 i = 0; i < arr.length; i++) {
-            if (i > 0) {
-                result = string(abi.encodePacked(result, ","));
-            }
-            result = string(abi.encodePacked(result, vm.toString(arr[i])));
-        }
-        result = string(abi.encodePacked(result, "]"));
+        // Run binary and parse space-separated array output
+        uint256[] memory result = runBinaryGetArray(args, " ");
+        require(result.length == MERKLE_DEPTH, "Expected 32 values");
         return result;
     }
 }
