@@ -37,8 +37,10 @@ uint256 constant SECOND_CHUNK_OFFSET = 0x20;
 /// @title The Fiat-Shamir transcript used by the verifier
 /// @dev The underlying hash function is keccak256
 struct Transcript {
-    /// @dev The hash state of the transcript as a fixed-size byte array
-    bytes hashState;
+    /// @dev The low 32 bytes of the hash state
+    uint256 hashStateLow;
+    /// @dev The high 32 bytes of the hash state
+    uint256 hashStateHigh;
     /// @dev The concatenated bytes of all elements
     bytes elements;
 }
@@ -49,7 +51,8 @@ struct Transcript {
 library TranscriptLib {
     /// @dev Creates a new transcript in memory
     function new_transcript() internal pure returns (Transcript memory t) {
-        t.hashState = new bytes(HASH_STATE_SIZE);
+        t.hashStateLow = 0;
+        t.hashStateHigh = 0;
         t.elements = new bytes(0);
         return t;
     }
@@ -64,41 +67,54 @@ library TranscriptLib {
     /// @dev Gets the current challenge from the transcript
     /// @param self The transcript
     /// @return Challenge The Fiat-Shamir challenge
-    function getChallenge(Transcript memory self) internal view returns (BN254.ScalarField) {
+    function getChallenge(Transcript memory self) internal pure returns (BN254.ScalarField) {
         // Concatenate state, transcript elements, and 0/1 bytes
-        bytes memory input0 = abi.encodePacked(self.hashState, self.elements, uint8(0));
-        bytes memory input1 = abi.encodePacked(self.hashState, self.elements, uint8(1));
+        bytes memory input0 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(0));
+        bytes memory input1 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(1));
 
-        // Hash inputs
+        // Hash inputs and update the hash state
         bytes32 low = keccak256(input0);
         bytes32 high = keccak256(input1);
+        self.hashStateLow = uint256(low);
+        self.hashStateHigh = uint256(high);
 
-        // Extract challenge bytes
-        bytes memory lowBytes = new bytes(32);
-        bytes memory highBytes = new bytes(32);
+        // Extract challenge bytes, we wish to interpret keccak output in little-endian order,
+        // so we need to reverse the bytes when converting to the scalar type
+        bytes32 lowBytes;
+        bytes32 highBytes;
         assembly {
-            // Store the low and high bytes in the hash state
-            let hashStateBase := mload(add(self, STRUCT_HEADER_OFFSET))
-            let statePtr := add(hashStateBase, ARRAY_LENGTH_OFFSET)
-            mstore(statePtr, low) // Store low 32 bytes
-            mstore(add(statePtr, SECOND_CHUNK_OFFSET), high) // Store high 32 bytes
-
             // Get the data pointer for the bytes arrays
-            let lowBytesPtr := add(lowBytes, 0x20)
-            let highBytesPtr := add(highBytes, 0x20)
+            let lowBytesStatePtr := self
+            let highBytesStatePtr := add(lowBytesStatePtr, CHALLENGE_LOW_BYTES)
 
             // Mask and store the values
-            mstore(lowBytesPtr, and(mload(statePtr), LOW_BYTES_MASK))
-            mstore(highBytesPtr, and(mload(add(statePtr, 31)), HIGH_BYTES_MASK))
+            lowBytes := and(mload(lowBytesStatePtr), LOW_BYTES_MASK)
+            highBytes := and(mload(highBytesStatePtr), HIGH_BYTES_MASK)
         }
 
         // Convert from bytes
-        uint256 lowUint = BN254.fromLeBytesModOrder(lowBytes);
-        uint256 highUint = BN254.fromLeBytesModOrder(highBytes);
-        BN254.ScalarField lowScalar = BN254.ScalarField.wrap(lowUint);
-        BN254.ScalarField highScalar = BN254.ScalarField.wrap(highUint);
+        BN254.ScalarField lowScalar = scalarFromLeBytes(lowBytes);
+        BN254.ScalarField highScalar = scalarFromLeBytes(highBytes);
 
         BN254.ScalarField shiftedHigh = BN254.mul(highScalar, BN254.ScalarField.wrap(CHALLENGE_HIGH_SHIFT));
         return BN254.add(lowScalar, shiftedHigh);
+    }
+
+    /// @dev Converts a little-endian bytes array to a uint256
+    function scalarFromLeBytes(bytes32 buf) internal pure returns (BN254.ScalarField) {
+        // Reverse the byte order
+        bytes32 reversedBuf;
+        assembly {
+            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                // Copy the next byte into the reversed buffer
+                let shift := mul(sub(31, i), 8)
+                reversedBuf := or(shl(shift, and(buf, 0xff)), reversedBuf)
+                buf := shr(8, buf)
+            }
+        }
+
+        // Convert to uint256, reduce via the modulus, and return
+        uint256 reduced = uint256(reversedBuf) % BN254.R_MOD;
+        return BN254.ScalarField.wrap(reduced);
     }
 }
