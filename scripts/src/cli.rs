@@ -19,15 +19,15 @@ use crate::{
 pub struct Cli {
     /// Private key of the deployer
     // TODO: Better key management
-    #[arg(short, long)]
+    #[arg(short, long, env = "PKEY")]
     pub priv_key: String,
 
     /// Network RPC URL
-    #[arg(short, long)]
+    #[arg(short, long, env = "RPC_URL")]
     pub rpc_url: String,
 
     /// Path to a `deployments.json` file
-    #[arg(short, long)]
+    #[arg(short, long, env = "DEPLOYMENTS")]
     pub deployments_path: String,
 
     /// The command to run
