@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 ethers = { workspace = true }
-clap = { workspace = true }
+clap = { workspace = true, features = ["env"] }
 tokio = { workspace = true }
 serde_json = { workspace = true }
 alloy-sol-types = { workspace = true }
