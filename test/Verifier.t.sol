@@ -12,6 +12,9 @@ contract VerifierTest is TestUtils {
     Verifier public verifier;
     TestUtils public testUtils;
 
+    bytes constant INVALID_G1_POINT = "Bn254: invalid G1 point";
+    bytes constant INVALID_SCALAR = "Bn254: invalid scalar field";
+
     function setUp() public {
         verifier = new Verifier();
     }
@@ -57,56 +60,56 @@ contract VerifierTest is TestUtils {
         // Test Case 1: Invalid wire commitment
         uint256 invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.wire_comms[invalidIdx] = invalidPoint;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_G1_POINT);
         verifier.verify(proof, publicInputs);
         proof.wire_comms[invalidIdx] = validPoint; // Reset
 
         // Test Case 2: Invalid z commitment
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.z_comm = invalidPoint;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_G1_POINT);
         verifier.verify(proof, publicInputs);
         proof.z_comm = validPoint; // Reset
 
         // Test Case 3: Invalid quotient commitment
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.quotient_comms[invalidIdx] = invalidPoint;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_G1_POINT);
         verifier.verify(proof, publicInputs);
         proof.quotient_comms[invalidIdx] = validPoint; // Reset
 
         // Test Case 4: Invalid w_zeta
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.w_zeta = invalidPoint;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_G1_POINT);
         verifier.verify(proof, publicInputs);
         proof.w_zeta = validPoint; // Reset
 
         // Test Case 5: Invalid w_zeta_omega
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.w_zeta_omega = invalidPoint;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_G1_POINT);
         verifier.verify(proof, publicInputs);
         proof.w_zeta_omega = validPoint; // Reset
 
         // Test Case 6: Invalid wire evaluation
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.wire_evals[invalidIdx] = invalidScalar;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_SCALAR);
         verifier.verify(proof, publicInputs);
         proof.wire_evals[invalidIdx] = validScalar; // Reset
 
         // Test Case 7: Invalid sigma evaluation
         invalidIdx = randomUint(NUM_WIRE_TYPES - 1);
         proof.sigma_evals[invalidIdx] = invalidScalar;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_SCALAR);
         verifier.verify(proof, publicInputs);
         proof.sigma_evals[invalidIdx] = validScalar; // Reset
 
         // Test Case 8: Invalid z_bar
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.z_bar = invalidScalar;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_SCALAR);
         verifier.verify(proof, publicInputs);
         proof.z_bar = validScalar; // Reset
     }
@@ -157,7 +160,7 @@ contract VerifierTest is TestUtils {
         // Try a random position with an invalid scalar
         uint256 invalidIdx = randomUint(NUM_PUBLIC_INPUTS);
         publicInputs[invalidIdx] = invalidScalar;
-        vm.expectRevert();
+        vm.expectRevert(INVALID_SCALAR);
         verifier.verify(proof, publicInputs);
     }
 }
