@@ -14,6 +14,24 @@ contract TestUtils is Test {
         return vm.randomUint() % PRIME;
     }
 
+    /// @dev Generates a random input between [0, high)
+    function randomUint(uint256 high) internal returns (uint256) {
+        return TestUtils.randomUint(0, high);
+    }
+
+    /// @dev Generates a random input between [low, high)
+    /// The returned value is not uniformly distributed over the range; there is wraparound.
+    /// However, if high << 2^256, the distribution will be close to uniform.
+    function randomUint(uint256 low, uint256 high) internal returns (uint256) {
+        require(low <= high, "low must be less than or equal to high");
+        if (low == high) {
+            return low;
+        }
+
+        uint256 range = high - low;
+        return low + (vm.randomUint() % range);
+    }
+
     // --- FFI Helpers --- //
 
     /// @dev Helper to compile a Rust binary
