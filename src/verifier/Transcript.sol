@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {BN254} from "solidity-bn254/BN254.sol";
 import {console2} from "forge-std/console2.sol";
+import {NUM_WIRE_TYPES, NUM_SELECTORS} from "./Types.sol";
 
 // --- Hash & Transcript Constants --- //
 
@@ -49,8 +50,83 @@ library TranscriptLib {
     /// @dev Appends a message to the transcript
     /// @param self The transcript
     /// @param element The message to append
-    function appendMessage(Transcript memory self, bytes memory element) internal pure {
+    function appendMessage(Transcript memory self, bytes memory element) public pure {
         self.elements = abi.encodePacked(self.elements, element);
+    }
+
+    /// @dev Appends a scalar value to the transcript
+    /// @param self The transcript
+    /// @param element The scalar to append
+    function appendScalar(Transcript memory self, BN254.ScalarField element) public pure {
+        // Convert scalar to little-endian bytes
+        bytes32 leBytes = scalarToLeBytes(element);
+        appendMessage(self, abi.encodePacked(leBytes));
+    }
+
+    /// @dev Append a list of scalars to the transcript
+    /// @param self The transcript
+    /// @param elements The scalars to append
+    function appendScalars(Transcript memory self, BN254.ScalarField[] memory elements) public pure {
+        for (uint256 i = 0; i < elements.length; i++) {
+            appendScalar(self, elements[i]);
+        }
+    }
+
+    /// @dev Append a fixed-size list of scalars to the transcript
+    /// @param self The transcript
+    /// @param elements The scalars to append
+    function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES] memory elements) public pure {
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            appendScalar(self, elements[i]);
+        }
+    }
+
+    /// @dev Append a fixed-size list of scalars to the transcript
+    /// @param self The transcript
+    /// @param elements The scalars to append
+    function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES - 1] memory elements) public pure {
+        for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
+            appendScalar(self, elements[i]);
+        }
+    }
+
+    /// @dev Append a point to the transcript
+    /// @param self The transcript
+    /// @param point The point to append
+    function appendPoint(Transcript memory self, BN254.G1Point memory point) public pure {
+        appendMessage(self, BN254.g1Serialize(point));
+    }
+
+    /// @dev Append a list of points to the transcript
+    /// @param self The transcript
+    /// @param points The points to append
+    function appendPoints(Transcript memory self, BN254.G1Point[] memory points) public pure {
+        // Handle both dynamic and fixed-size arrays using assembly
+        uint256 length;
+        assembly {
+            length := mload(points)
+        }
+        for (uint256 i = 0; i < length; i++) {
+            appendPoint(self, points[i]);
+        }
+    }
+
+    /// @dev Append a fixed-size list of points to the transcript
+    /// @param self The transcript
+    /// @param points The points to append
+    function appendPoints(Transcript memory self, BN254.G1Point[NUM_WIRE_TYPES] memory points) public pure {
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            appendPoint(self, points[i]);
+        }
+    }
+
+    /// @dev Append a fixed-size list of points to the transcript
+    /// @param self The transcript
+    /// @param points The points to append
+    function appendPoints(Transcript memory self, BN254.G1Point[NUM_SELECTORS] memory points) public pure {
+        for (uint256 i = 0; i < NUM_SELECTORS; i++) {
+            appendPoint(self, points[i]);
+        }
     }
 
     /// @dev Gets the current challenge from the transcript
@@ -105,5 +181,22 @@ library TranscriptLib {
         // Convert to uint256, reduce via the modulus, and return
         uint256 reduced = uint256(reversedBuf) % BN254.R_MOD;
         return BN254.ScalarField.wrap(reduced);
+    }
+
+    /// @dev Converts a scalar value to little-endian bytes
+    function scalarToLeBytes(BN254.ScalarField scalar) internal pure returns (bytes32) {
+        uint256 value = BN254.ScalarField.unwrap(scalar);
+        bytes32 result;
+        assembly {
+            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                // Get the next byte from the value
+                let currByte := and(value, 0xff)
+                // Shift the value right by 8 bits
+                value := shr(8, value)
+                // Store the byte in the result
+                result := or(shl(mul(sub(31, i), 8), currByte), result)
+            }
+        }
+        return result;
     }
 }

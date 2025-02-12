@@ -2,10 +2,14 @@
 pragma solidity ^0.8.0;
 
 import {Transcript} from "./Transcript.sol";
-import {PlonkProof, NUM_WIRE_TYPES} from "./Types.sol";
-
+import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES} from "./Types.sol";
+import {TranscriptLib} from "./Transcript.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
 import {console2} from "forge-std/console2.sol";
+
+/// @dev The bytes representation of the number of bits in the scalar field (little-endian)
+/// @dev Shifted to give a little endian representation
+bytes4 constant SCALAR_FIELD_N_BITS = bytes4(uint32(254) << 24);
 
 /// @title A verifier for Plonk proofs
 /// @notice This implementation currently follows that outlined in the paper closely:
@@ -15,10 +19,16 @@ contract Verifier {
     /// https://github.com/renegade-fi/mpc-jellyfish
     /// @param proof The proof to verify
     /// @param publicInputs The public inputs to the proof
+    /// @param vk The verification key for the circuit
     /// @return True if the proof is valid, false otherwise
-    function verify(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs) public pure returns (bool) {
+    function verify(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
+        public
+        pure
+        returns (bool)
+    {
         plonkStep1And2(proof);
         plonkStep3(publicInputs);
+        Challenges memory challenges = plonkStep4(proof, publicInputs, vk);
     }
 
     /// @notice Step 1 and 2 of the plonk verification algorithm
@@ -62,5 +72,58 @@ contract Verifier {
         for (uint256 i = 0; i < publicInputs.length; i++) {
             BN254.validateScalarField(publicInputs[i]);
         }
+    }
+
+    /// @notice Step 4 of the plonk verification algorithm
+    /// @notice Compute the challenges from a Fiat-Shamir transcript
+    /// @dev matches the transcript implementation from `mpc-jellyfish`
+    function plonkStep4(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
+        internal
+        pure
+        returns (Challenges memory challenges)
+    {
+        // Create a new transcript
+        Transcript memory transcript = TranscriptLib.new_transcript();
+
+        // Append the verification key metadata and public inputs
+        bytes memory nBitsBytes = abi.encodePacked(SCALAR_FIELD_N_BITS);
+        bytes memory nBytes = abi.encodePacked(vk.n);
+        bytes memory lBytes = abi.encodePacked(vk.l);
+        TranscriptLib.appendMessage(transcript, nBitsBytes);
+        TranscriptLib.appendMessage(transcript, nBytes);
+        TranscriptLib.appendMessage(transcript, lBytes);
+        TranscriptLib.appendScalars(transcript, vk.k);
+        TranscriptLib.appendPoints(transcript, vk.q_comms);
+        TranscriptLib.appendPoints(transcript, vk.sigma_comms);
+        TranscriptLib.appendScalars(transcript, publicInputs);
+
+        // Round 1: Append the wire commitments and squeeze the permutation challenges
+        TranscriptLib.appendPoints(transcript, proof.wire_comms);
+
+        // Squeeze an unused challenge tau for consistency with the Plookup-enabled prover
+        TranscriptLib.getChallenge(transcript);
+        BN254.ScalarField beta = TranscriptLib.getChallenge(transcript);
+        BN254.ScalarField gamma = TranscriptLib.getChallenge(transcript);
+
+        // Round 2: Append the quotient permutation polynomial commitment and squeeze the quotient challenge
+        TranscriptLib.appendPoint(transcript, proof.z_comm);
+        BN254.ScalarField alpha = TranscriptLib.getChallenge(transcript);
+
+        // Round 3: Append the quotient polynomial commitments and squeeze the evaluation challenge
+        TranscriptLib.appendPoints(transcript, proof.quotient_comms);
+        BN254.ScalarField zeta = TranscriptLib.getChallenge(transcript);
+
+        // Round 4: Append the wire, permutation, and grand product evals and squeeze the v opening challenge
+        TranscriptLib.appendScalars(transcript, proof.wire_evals);
+        TranscriptLib.appendScalars(transcript, proof.sigma_evals);
+        TranscriptLib.appendScalar(transcript, proof.z_bar);
+        BN254.ScalarField v = TranscriptLib.getChallenge(transcript);
+
+        // Round 5: Append the two opening proof commitments and squeeze the multipoint evaluation challenge
+        TranscriptLib.appendPoint(transcript, proof.w_zeta);
+        TranscriptLib.appendPoint(transcript, proof.w_zeta_omega);
+        BN254.ScalarField u = TranscriptLib.getChallenge(transcript);
+
+        return Challenges({beta: beta, gamma: gamma, alpha: alpha, zeta: zeta, v: v, u: u});
     }
 }
