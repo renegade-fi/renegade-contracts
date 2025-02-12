@@ -14,12 +14,14 @@ contract Verifier {
     /// @notice Verify a batch of Plonk proofs using the arithmetization defined in `mpc-jellyfish`:
     /// https://github.com/renegade-fi/mpc-jellyfish
     /// @param proof The proof to verify
+    /// @param publicInputs The public inputs to the proof
     /// @return True if the proof is valid, false otherwise
-    function verify(PlonkProof memory proof) public view returns (bool) {
+    function verify(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs) public pure returns (bool) {
         plonkStep1And2(proof);
+        plonkStep3(publicInputs);
     }
 
-    /// @notice Step 1 of the plonk verification algorithm
+    /// @notice Step 1 and 2 of the plonk verification algorithm
     /// @notice Verify that the G_1 points are on the curve
     function plonkStep1And2(PlonkProof memory proof) internal pure {
         // Check that the commitments to the wire polynomials are on the curve
@@ -51,5 +53,14 @@ contract Verifier {
 
         // Check that the evaluation of the grand product polynomial is in the scalar field
         BN254.validateScalarField(proof.z_bar);
+    }
+
+    /// @notice Step 3 of the plonk verification algorithm
+    /// @notice Verify that the public inputs to the proof are all in the scalar field
+    function plonkStep3(BN254.ScalarField[] memory publicInputs) internal pure {
+        // Check that the public inputs are all in the scalar field
+        for (uint256 i = 0; i < publicInputs.length; i++) {
+            BN254.validateScalarField(publicInputs[i]);
+        }
     }
 }
