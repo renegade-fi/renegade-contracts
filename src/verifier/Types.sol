@@ -32,9 +32,9 @@ struct PlonkProof {
 /// @title A Plonk verification key
 struct VerificationKey {
     /// The number of gates in the circuit
-    uint256 n;
+    uint64 n;
     /// The number of public inputs to the circuit
-    uint256 l;
+    uint64 l;
     /// The constants used to generate the cosets of the evaluation domain
     BN254.ScalarField[NUM_WIRE_TYPES] k;
     /// The commitments to the selector polynomials
@@ -47,4 +47,21 @@ struct VerificationKey {
     BN254.G2Point h;
     /// The secret evaluation point multiplied by the generator of G2
     BN254.G2Point x_h;
+}
+
+/// @title The public coin challenges used throughout the Plonk protocol
+/// @notice These challenges are obtained via a Fiat-Shamir transformation
+struct Challenges {
+    /// @dev The first permutation challenge, used in round 2 of the prover algorithm
+    BN254.ScalarField beta;
+    /// @dev The second permutation challenge, used in round 2 of the prover algorithm
+    BN254.ScalarField gamma;
+    /// @dev The quotient challenge, used in round 3 of the prover algorithm
+    BN254.ScalarField alpha;
+    /// @dev The evaluation challenge, used in round 4 of the prover algorithm
+    BN254.ScalarField zeta;
+    /// @dev The opening challenge, used in round 5 of the prover algorithm
+    BN254.ScalarField v;
+    /// @dev The multipoint evaluation challenge, generated at the end of round 5 of the prover algorithm
+    BN254.ScalarField u;
 }
