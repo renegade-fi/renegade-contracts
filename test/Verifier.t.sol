@@ -202,7 +202,7 @@ contract VerifierTest is TestUtils {
     }
 
     /// @notice Test that a valid proof passes steps 1-3 of Plonk verification
-    function testValidProof() public {
+    function testValidProof() public view {
         // Create a valid scalar and EC point to use as a base
         BN254.G1Point memory validPoint = BN254.P1();
         BN254.ScalarField validScalar = BN254.ScalarField.wrap(1);

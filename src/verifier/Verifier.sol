@@ -53,6 +53,7 @@ contract Verifier {
             proof.sigma_evals,
             proof.z_bar
         );
+        BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, challenges, proof, vk);
 
         // TODO: Check the proof
         return true;
@@ -221,7 +222,7 @@ contract Verifier {
         BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals,
         BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals,
         BN254.ScalarField zEval
-    ) internal view returns (BN254.ScalarField) {
+    ) internal pure returns (BN254.ScalarField) {
         // Term 1: PI(\zeta)
         BN254.ScalarField res = publicInputPolyEval;
 
@@ -251,13 +252,16 @@ contract Verifier {
 
     /// @notice Step 9 of the plonk verification algorithm
     /// @dev Compute a linearized commitment to the combined polynomial relation
-    function plonkStep9(BN254.ScalarField lagrange1Eval, PlonkProof memory proof, VerificationKey memory vk)
-        internal
-        view
-        returns (BN254.G1Point memory)
-    {
+    function plonkStep9(
+        BN254.ScalarField lagrange1Eval,
+        Challenges memory challenges,
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    ) internal view returns (BN254.G1Point memory) {
         // Add in the gate constraints
         BN254.G1Point memory res = plonkStep9GateConstraints(proof, vk);
+        BN254.G1Point memory permTerm = plonkStep9Permutation(lagrange1Eval, challenges, proof, vk);
+        res = BN254.add(res, permTerm);
 
         return res;
     }
@@ -265,13 +269,12 @@ contract Verifier {
     /// @notice Compute the gate constraints contribution to the committed polynomial relation
     /// @dev The selectors are:
     /// @dev q_lc[0:3], q_mul[0:1], q_hash[0:3], q_out, q_const, q_prod
-    function plonkStep9GateConstraints(PlonkProof memory proof, VerificationKey memory vk)
+    function plonkStep9GateTerm(PlonkProof memory proof, VerificationKey memory vk)
         internal
         view
         returns (BN254.G1Point memory)
     {
         BN254.G1Point memory res = BN254.infinity();
-        BN254.ScalarField[] memory msmScalars = new BN254.ScalarField[](NUM_SELECTORS);
 
         // The first four terms are linear combination gates
         res = BN254.add(res, BN254.scalarMul(vk.q_comms[0], proof.wire_evals[0]));
@@ -309,5 +312,39 @@ contract Verifier {
         res = BN254.add(res, BN254.scalarMul(vk.q_comms[12], wireProd));
 
         return res;
+    }
+
+    /// @notice Compute the permutation argument contribution to the committed polynomial relation
+    function plonkStep9PermutationTerm(
+        BN254.ScalarField lagrange1Eval,
+        Challenges memory challenges,
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    ) internal view returns (BN254.G1Point memory) {
+        // The first permutation term, multiplied by the commitment [z]
+        BN254.ScalarField betaZeta = BN254.mul(challenges.beta, challenges.zeta);
+        BN254.ScalarField coeff = challenges.alpha;
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            BN254.ScalarField betaTerm = BN254.mul(betaZeta, vk.k[i]);
+            BN254.ScalarField term = BN254.add(proof.wire_evals[i], betaTerm);
+            BN254.ScalarField coeffTerm = BN254.add(term, challenges.gamma);
+            coeff = BN254.mul(coeff, coeffTerm);
+        }
+
+        BN254.ScalarField lagrangeTerm = BN254.mul(lagrange1Eval, BN254.mul(challenges.alpha, challenges.alpha));
+        coeff = BN254.add(coeff, BN254.add(lagrangeTerm, challenges.u));
+        BN254.G1Point memory res = BN254.scalarMul(proof.z_comm, coeff);
+
+        // The second permutation term, multiplied by the last permutation polynomial's commitment
+        BN254.ScalarField coeff2 = BN254.mul(challenges.alpha, BN254.mul(challenges.beta, proof.z_bar));
+        for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
+            BN254.ScalarField term = proof.wire_evals[i];
+            term = BN254.add(term, BN254.mul(challenges.beta, proof.sigma_evals[i]));
+            term = BN254.add(term, challenges.gamma);
+            coeff2 = BN254.mul(coeff2, term);
+        }
+
+        BN254.G1Point memory permTerm2 = BN254.scalarMul(vk.sigma_comms[NUM_WIRE_TYPES - 1], coeff2);
+        return BN254.add(res, BN254.negate(permTerm2));
     }
 }
