@@ -7,9 +7,20 @@ import {TranscriptLib} from "./Transcript.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
 import {console2} from "forge-std/console2.sol";
 
+// -------------
+// | Constants |
+// -------------
+
+/// @dev Negative one in the scalar field
+BN254.ScalarField constant NEG_ONE = BN254.ScalarField.wrap(BN254.R_MOD - 1);
+
 /// @dev The bytes representation of the number of bits in the scalar field (little-endian)
 /// @dev Shifted to give a little endian representation
 bytes4 constant SCALAR_FIELD_N_BITS = bytes4(uint32(254) << 24);
+
+// ------------
+// | Verifier |
+// ------------
 
 /// @title A verifier for Plonk proofs
 /// @notice This implementation currently follows that outlined in the paper closely:
@@ -29,6 +40,10 @@ contract Verifier {
         plonkStep1And2(proof);
         plonkStep3(publicInputs);
         Challenges memory challenges = plonkStep4(proof, publicInputs, vk);
+        BN254.ScalarField zeroPolyEval = plonkStep5(challenges, vk);
+
+        // TODO: Check the proof
+        return true;
     }
 
     /// @notice Step 1 and 2 of the plonk verification algorithm
@@ -125,5 +140,18 @@ contract Verifier {
         BN254.ScalarField u = TranscriptLib.getChallenge(transcript);
 
         return Challenges({beta: beta, gamma: gamma, alpha: alpha, zeta: zeta, v: v, u: u});
+    }
+
+    /// @notice Plonk step 5, compute the zero polynomial evaluation
+    /// @dev This is (for eval point zeta) zeta^n - 1
+    function plonkStep5(Challenges memory challenges, VerificationKey memory vk)
+        internal
+        pure
+        returns (BN254.ScalarField)
+    {
+        uint256 zetaUint = BN254.ScalarField.unwrap(challenges.zeta);
+        BN254.ScalarField zetaPow = BN254.ScalarField.wrap(BN254.powSmall(zetaUint, vk.n, BN254.R_MOD));
+
+        return BN254.add(zetaPow, NEG_ONE);
     }
 }
