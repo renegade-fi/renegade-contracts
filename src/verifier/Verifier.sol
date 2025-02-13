@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Transcript} from "./Transcript.sol";
-import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES} from "./Types.sol";
+import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS} from "./Types.sol";
 import {TranscriptLib} from "./Transcript.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
 import {BN254Helpers} from "./BN254Helpers.sol";
@@ -245,6 +245,68 @@ contract Verifier {
         BN254.ScalarField lastPermTerm = BN254.add(wireEvals[wireEvals.length - 1], gamma);
         term3 = BN254.mul(term3, lastPermTerm);
         res = BN254.add(res, term3);
+
+        return res;
+    }
+
+    /// @notice Step 9 of the plonk verification algorithm
+    /// @dev Compute a linearized commitment to the combined polynomial relation
+    function plonkStep9(BN254.ScalarField lagrange1Eval, PlonkProof memory proof, VerificationKey memory vk)
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
+        // Add in the gate constraints
+        BN254.G1Point memory res = plonkStep9GateConstraints(proof, vk);
+
+        return res;
+    }
+
+    /// @notice Compute the gate constraints contribution to the committed polynomial relation
+    /// @dev The selectors are:
+    /// @dev q_lc[0:3], q_mul[0:1], q_hash[0:3], q_out, q_const, q_prod
+    function plonkStep9GateConstraints(PlonkProof memory proof, VerificationKey memory vk)
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
+        BN254.G1Point memory res = BN254.infinity();
+        BN254.ScalarField[] memory msmScalars = new BN254.ScalarField[](NUM_SELECTORS);
+
+        // The first four terms are linear combination gates
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[0], proof.wire_evals[0]));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[1], proof.wire_evals[1]));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[2], proof.wire_evals[2]));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[3], proof.wire_evals[3]));
+
+        // The next two terms are multiplication gates
+        BN254.ScalarField mul1 = BN254.mul(proof.wire_evals[0], proof.wire_evals[1]);
+        BN254.ScalarField mul2 = BN254.mul(proof.wire_evals[2], proof.wire_evals[3]);
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[4], mul1));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[5], mul2));
+
+        // The next four terms are hash gates
+        BN254.ScalarField hash1 = BN254Helpers.fifthPower(proof.wire_evals[0]);
+        BN254.ScalarField hash2 = BN254Helpers.fifthPower(proof.wire_evals[1]);
+        BN254.ScalarField hash3 = BN254Helpers.fifthPower(proof.wire_evals[2]);
+        BN254.ScalarField hash4 = BN254Helpers.fifthPower(proof.wire_evals[3]);
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[6], hash1));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[7], hash2));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[8], hash3));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[9], hash4));
+
+        // The next two gates are the output gate and the constant gate (1)
+        BN254.ScalarField negOutput = BN254.negate(proof.wire_evals[4]);
+        BN254.ScalarField one = BN254Helpers.ONE;
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[10], negOutput));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[11], one));
+
+        // Last we have the elliptic curve gate, the product of all wires
+        BN254.ScalarField wireProd = BN254.mul(proof.wire_evals[0], proof.wire_evals[1]);
+        wireProd = BN254.mul(wireProd, proof.wire_evals[2]);
+        wireProd = BN254.mul(wireProd, proof.wire_evals[3]);
+        wireProd = BN254.mul(wireProd, proof.wire_evals[4]);
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[12], wireProd));
 
         return res;
     }
