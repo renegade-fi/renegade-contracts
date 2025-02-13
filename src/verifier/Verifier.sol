@@ -41,7 +41,8 @@ contract Verifier {
 
         // Get the base root of unity for the circuit's evaluation domain
         BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
-        (BN254.ScalarField zeroPolyEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(omega, challenges, vk);
+        (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, omega, challenges.zeta);
+        BN254.ScalarField publicInputPolyEval = plonkStep7(vk.n, challenges.zeta, omega, vanishingEval, publicInputs);
 
         // TODO: Check the proof
         return true;
@@ -147,27 +148,55 @@ contract Verifier {
     /// @dev Step 5: Compute the zero polynomial evaluation
     /// @dev This is (for eval point zeta) zeta^n - 1
     /// @dev Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
+    /// @param n The number of gates in the circuit
     /// @param omega The base root of unity for the evaluation domain
-    /// @param challenges The challenges from the transcript
-    /// @param vk The verification key
+    /// @param zeta The evaluation challenge from the transcript
     /// @return The evaluation of the zero polynomial and the first Lagrange basis polynomial at zeta
-    function plonkStep5And6(BN254.ScalarField omega, Challenges memory challenges, VerificationKey memory vk)
+    function plonkStep5And6(uint256 n, BN254.ScalarField omega, BN254.ScalarField zeta)
         internal
         view
         returns (BN254.ScalarField, BN254.ScalarField)
     {
         // Step 5: Compute the zero polynomial evaluation
-        uint256 zetaUint = BN254.ScalarField.unwrap(challenges.zeta);
-        BN254.ScalarField zetaPow = BN254.ScalarField.wrap(BN254.powSmall(zetaUint, vk.n, BN254.R_MOD));
-        BN254.ScalarField zeroPolyEval = BN254.add(zetaPow, BN254Helpers.NEG_ONE);
+        uint256 zetaUint = BN254.ScalarField.unwrap(zeta);
+        BN254.ScalarField zetaPow = BN254.ScalarField.wrap(BN254.powSmall(zetaUint, n, BN254.R_MOD));
+        BN254.ScalarField vanishingEval = BN254.add(zetaPow, BN254Helpers.NEG_ONE);
 
         // Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
-        BN254.ScalarField nScalar = BN254.ScalarField.wrap(uint256(vk.n));
-        BN254.ScalarField lagrangeDenom = BN254.add(challenges.zeta, BN254.negate(omega));
+        BN254.ScalarField nScalar = BN254.ScalarField.wrap(uint256(n));
+        BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(omega));
         lagrangeDenom = BN254.invert(BN254.mul(nScalar, lagrangeDenom));
-        BN254.ScalarField lagrangeNum = BN254.mul(zeroPolyEval, omega);
+        BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, omega);
         BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
 
-        return (zeroPolyEval, lagrangeEval);
+        return (vanishingEval, lagrangeEval);
+    }
+
+    /// @notice Step 7 of the plonk verification algorithm with full struct
+    /// @dev Compute the evaluation of the public input polynomial
+    /// @dev Over the multiplicative subgroup, each Lagrange basis polynomial L_i(x) takes the form:
+    /// @dev L_i(x) = (zeta^n - 1) / n * (zeta - omega^i)
+    function plonkStep7(
+        uint256 n,
+        BN254.ScalarField zeta,
+        BN254.ScalarField omega,
+        BN254.ScalarField vanishingEval,
+        BN254.ScalarField[] memory publicInputs
+    ) internal view returns (BN254.ScalarField) {
+        BN254.ScalarField nInv = BN254.invert(BN254.ScalarField.wrap(n));
+        BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, nInv);
+
+        BN254.ScalarField result = BN254.ScalarField.wrap(0);
+        BN254.ScalarField currOmega = omega;
+        for (uint256 i = 0; i < publicInputs.length; i++) {
+            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmega));
+            BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
+            currOmega = BN254.mul(currOmega, omega);
+
+            BN254.ScalarField currTerm = BN254.mul(publicInputs[i], lagrangeEval);
+            result = BN254.add(result, currTerm);
+        }
+
+        return result;
     }
 }
