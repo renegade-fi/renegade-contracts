@@ -54,6 +54,7 @@ contract Verifier {
             proof.z_bar
         );
         BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, challenges, proof, vk);
+        BN254.G1Point memory fullCommitment = plonkStep10(committedPoly, challenges, proof, vk);
 
         // TODO: Check the proof
         return true;
@@ -370,6 +371,34 @@ contract Verifier {
         }
 
         res = BN254.scalarMul(res, BN254.negate(vanishingEval));
+        return res;
+    }
+
+    /// @notice Step 10 of the plonk verification algorithm
+    /// @dev Compute the full polynomial relation
+    function plonkStep10(
+        BN254.G1Point memory aggregatePolyComm,
+        Challenges memory challenges,
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    ) internal view returns (BN254.G1Point memory) {
+        BN254.G1Point memory res = aggregatePolyComm;
+
+        // Add in the wire commitments
+        BN254.ScalarField coeff = challenges.v;
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            BN254.G1Point memory term = BN254.scalarMul(proof.wire_comms[i], coeff);
+            res = BN254.add(res, term);
+            coeff = BN254.mul(coeff, challenges.v);
+        }
+
+        // Add in the permutation commitments, except the last
+        for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
+            BN254.G1Point memory term = BN254.scalarMul(vk.q_comms[i], coeff);
+            res = BN254.add(res, term);
+            coeff = BN254.mul(coeff, challenges.v);
+        }
+
         return res;
     }
 }
