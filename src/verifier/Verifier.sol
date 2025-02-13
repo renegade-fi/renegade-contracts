@@ -54,7 +54,8 @@ contract Verifier {
             proof.z_bar
         );
         BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, challenges, proof, vk);
-        BN254.G1Point memory fullCommitment = plonkStep10(committedPoly, challenges, proof, vk);
+        BN254.G1Point memory batchCommitment = plonkStep10(committedPoly, challenges, proof, vk);
+        BN254.G1Point memory batchEval = plonkStep11(linearizationConstTerm, challenges, proof, vk);
 
         // TODO: Check the proof
         return true;
@@ -399,6 +400,35 @@ contract Verifier {
             coeff = BN254.mul(coeff, challenges.v);
         }
 
+        return res;
+    }
+
+    /// @notice Step 11 of the plonk verification algorithm
+    /// @dev Compute the batch evaluation to compare against the claimed openings
+    function plonkStep11(
+        BN254.ScalarField linearizationConstTerm,
+        Challenges memory challenges,
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    ) internal view returns (BN254.G1Point memory) {
+        BN254.ScalarField resCoeff = BN254.negate(linearizationConstTerm);
+        BN254.ScalarField termCoeff = challenges.v;
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            BN254.ScalarField term = BN254.mul(proof.wire_evals[i], termCoeff);
+            resCoeff = BN254.add(resCoeff, term);
+            termCoeff = BN254.mul(termCoeff, challenges.v);
+        }
+
+        for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
+            BN254.ScalarField term = BN254.mul(proof.sigma_evals[i], termCoeff);
+            resCoeff = BN254.add(resCoeff, term);
+            termCoeff = BN254.mul(termCoeff, challenges.v);
+        }
+
+        BN254.ScalarField lastTerm = BN254.mul(proof.z_bar, challenges.u);
+        resCoeff = BN254.add(resCoeff, lastTerm);
+
+        BN254.G1Point memory res = BN254.scalarMul(vk.g, resCoeff);
         return res;
     }
 }
