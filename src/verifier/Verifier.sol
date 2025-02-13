@@ -57,8 +57,20 @@ contract Verifier {
         BN254.G1Point memory batchCommitment = plonkStep10(committedPoly, challenges, proof, vk);
         BN254.G1Point memory batchEval = plonkStep11(linearizationConstTerm, challenges, proof, vk);
 
-        // TODO: Check the proof
-        return true;
+        // Step 12: Batch validate the evaluations
+        // LHS of the pairing check: e(w_zeta + w_zeta_omega * u, x_h)
+        BN254.G1Point memory a1 = BN254.add(proof.w_zeta, BN254.scalarMul(proof.w_zeta_omega, challenges.u));
+        BN254.G2Point memory a2 = vk.x_h;
+
+        // RHS of the pairing check: e(zeta * w_zeta + u * zeta * omega * w_zeta_omega + batchCommitment - batchEval, x_h)
+        BN254.G1Point memory b1 = BN254.add(
+            BN254.scalarMul(proof.w_zeta, challenges.zeta),
+            BN254.scalarMul(proof.w_zeta_omega, BN254.mul(challenges.u, BN254.mul(challenges.zeta, omega)))
+        );
+        b1 = BN254.add(b1, BN254.add(batchCommitment, BN254.negate(batchEval)));
+        BN254.G2Point memory b2 = vk.h;
+
+        return BN254.pairingProd2(a1, a2, b1, b2);
     }
 
     /// @notice Step 1 and 2 of the plonk verification algorithm
