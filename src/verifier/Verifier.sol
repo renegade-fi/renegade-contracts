@@ -43,6 +43,16 @@ contract Verifier {
         BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
         (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, omega, challenges.zeta);
         BN254.ScalarField publicInputPolyEval = plonkStep7(vk.n, challenges.zeta, omega, vanishingEval, publicInputs);
+        BN254.ScalarField linearizationConstTerm = plonkStep8(
+            publicInputPolyEval,
+            lagrangeEval,
+            challenges.alpha,
+            challenges.beta,
+            challenges.gamma,
+            proof.wire_evals,
+            proof.sigma_evals,
+            proof.z_bar
+        );
 
         // TODO: Check the proof
         return true;
@@ -198,5 +208,44 @@ contract Verifier {
         }
 
         return result;
+    }
+
+    /// @notice Step 8 of the plonk verification algorithm
+    /// @dev Compute the constant term of the linearization polynomial
+    function plonkStep8(
+        BN254.ScalarField publicInputPolyEval,
+        BN254.ScalarField lagrange1Eval,
+        BN254.ScalarField alpha,
+        BN254.ScalarField beta,
+        BN254.ScalarField gamma,
+        BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals,
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals,
+        BN254.ScalarField zEval
+    ) internal view returns (BN254.ScalarField) {
+        // Term 1: PI(\zeta)
+        BN254.ScalarField res = publicInputPolyEval;
+
+        // Term 2: -L_1(\zeta) * \alpha^2
+        BN254.ScalarField term2 = BN254.mul(lagrange1Eval, BN254.mul(alpha, alpha));
+        res = BN254.add(res, BN254.negate(term2));
+
+        // Add the terms from the permutation argument
+        BN254.ScalarField term3 = BN254.mul(alpha, zEval);
+        for (uint256 i = 0; i < wireEvals.length - 1; i++) {
+            BN254.ScalarField wireEval = wireEvals[i];
+            BN254.ScalarField sigmaEval = sigmaEvals[i];
+
+            BN254.ScalarField wirePermTerm = BN254.add(wireEval, BN254.mul(beta, sigmaEval));
+            wirePermTerm = BN254.add(wirePermTerm, gamma);
+
+            term3 = BN254.mul(term3, wirePermTerm);
+        }
+
+        // Add in the final term without the sigma eval
+        BN254.ScalarField lastPermTerm = BN254.add(wireEvals[wireEvals.length - 1], gamma);
+        term3 = BN254.mul(term3, lastPermTerm);
+        res = BN254.add(res, term3);
+
+        return res;
     }
 }
