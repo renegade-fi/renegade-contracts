@@ -259,14 +259,19 @@ contract Verifier {
         VerificationKey memory vk
     ) internal view returns (BN254.G1Point memory) {
         // Add in the gate constraints
-        BN254.G1Point memory res = plonkStep9GateConstraints(proof, vk);
-        BN254.G1Point memory permTerm = plonkStep9Permutation(lagrange1Eval, challenges, proof, vk);
+        BN254.G1Point memory res = plonkStep9GateTerm(proof, vk);
+
+        // Add in the permutation argument contribution
+        BN254.G1Point memory permTerm = plonkStep9PermutationTerm(lagrange1Eval, challenges, proof, vk);
         res = BN254.add(res, permTerm);
 
+        // Add in the quotient polynomial contribution
+        BN254.G1Point memory quotientTerm = plonkStep9QuotientTerm(vk.n, challenges.zeta, proof.z_bar, proof);
+        res = BN254.add(res, quotientTerm);
         return res;
     }
 
-    /// @notice Compute the gate constraints contribution to the committed polynomial relation
+    /// @notice Compute the gate constraints contribution to the linearized polynomial relation
     /// @dev The selectors are:
     /// @dev q_lc[0:3], q_mul[0:1], q_hash[0:3], q_out, q_const, q_prod
     function plonkStep9GateTerm(PlonkProof memory proof, VerificationKey memory vk)
@@ -314,7 +319,7 @@ contract Verifier {
         return res;
     }
 
-    /// @notice Compute the permutation argument contribution to the committed polynomial relation
+    /// @notice Compute the permutation argument contribution to the linearized polynomial relation
     function plonkStep9PermutationTerm(
         BN254.ScalarField lagrange1Eval,
         Challenges memory challenges,
@@ -346,5 +351,25 @@ contract Verifier {
 
         BN254.G1Point memory permTerm2 = BN254.scalarMul(vk.sigma_comms[NUM_WIRE_TYPES - 1], coeff2);
         return BN254.add(res, BN254.negate(permTerm2));
+    }
+
+    /// @notice Compute the quotient polynomial contribution to the linearized polynomial relation
+    function plonkStep9QuotientTerm(
+        uint256 n,
+        BN254.ScalarField zeta,
+        BN254.ScalarField vanishingEval,
+        PlonkProof memory proof
+    ) internal view returns (BN254.G1Point memory) {
+        BN254.ScalarField zetaToN =
+            BN254.ScalarField.wrap(BN254.powSmall(BN254.ScalarField.unwrap(zeta), n, BN254.R_MOD));
+        BN254.ScalarField coeff = BN254Helpers.ONE;
+        BN254.G1Point memory res = BN254.infinity();
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            res = BN254.add(res, BN254.scalarMul(proof.quotient_comms[i], coeff));
+            coeff = BN254.mul(coeff, zetaToN);
+        }
+
+        res = BN254.scalarMul(res, BN254.negate(vanishingEval));
+        return res;
     }
 }
