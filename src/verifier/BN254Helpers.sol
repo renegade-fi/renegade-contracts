@@ -8,6 +8,8 @@ import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 /// @title Helper functions for BN254 curve operations
 /// @notice This library contains utility functions for working with the BN254 curve
 library BN254Helpers {
+    /// @dev One in the scalar field
+    BN254.ScalarField constant ONE = BN254.ScalarField.wrap(1);
     /// @dev Negative one in the scalar field
     BN254.ScalarField constant NEG_ONE = BN254.ScalarField.wrap(BN254.R_MOD - 1);
 
@@ -31,5 +33,15 @@ library BN254Helpers {
         }
 
         return BN254.ScalarField.wrap(root);
+    }
+
+    /// @dev Compute the fifth power of a scalar field element
+    /// @param a The scalar field element to raise to the fifth power
+    /// @return The fifth power of the scalar field element
+    function fifthPower(BN254.ScalarField a) internal pure returns (BN254.ScalarField) {
+        BN254.ScalarField a2 = BN254.mul(a, a);
+        BN254.ScalarField a4 = BN254.mul(a2, a2);
+        BN254.ScalarField a5 = BN254.mul(a4, a);
+        return a5;
     }
 }

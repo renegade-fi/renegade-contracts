@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Transcript} from "./Transcript.sol";
-import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES} from "./Types.sol";
+import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS} from "./Types.sol";
 import {TranscriptLib} from "./Transcript.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
 import {BN254Helpers} from "./BN254Helpers.sol";
@@ -53,6 +53,7 @@ contract Verifier {
             proof.sigma_evals,
             proof.z_bar
         );
+        BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, challenges, proof, vk);
 
         // TODO: Check the proof
         return true;
@@ -221,7 +222,7 @@ contract Verifier {
         BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals,
         BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals,
         BN254.ScalarField zEval
-    ) internal view returns (BN254.ScalarField) {
+    ) internal pure returns (BN254.ScalarField) {
         // Term 1: PI(\zeta)
         BN254.ScalarField res = publicInputPolyEval;
 
@@ -246,6 +247,129 @@ contract Verifier {
         term3 = BN254.mul(term3, lastPermTerm);
         res = BN254.add(res, term3);
 
+        return res;
+    }
+
+    /// @notice Step 9 of the plonk verification algorithm
+    /// @dev Compute a linearized commitment to the combined polynomial relation
+    function plonkStep9(
+        BN254.ScalarField lagrange1Eval,
+        Challenges memory challenges,
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    ) internal view returns (BN254.G1Point memory) {
+        // Add in the gate constraints
+        BN254.G1Point memory res = plonkStep9GateTerm(proof, vk);
+
+        // Add in the permutation argument contribution
+        BN254.G1Point memory permTerm = plonkStep9PermutationTerm(lagrange1Eval, challenges, proof, vk);
+        res = BN254.add(res, permTerm);
+
+        // Add in the quotient polynomial contribution
+        BN254.G1Point memory quotientTerm = plonkStep9QuotientTerm(vk.n, challenges.zeta, proof.z_bar, proof);
+        res = BN254.add(res, quotientTerm);
+        return res;
+    }
+
+    /// @notice Compute the gate constraints contribution to the linearized polynomial relation
+    /// @dev The selectors are:
+    /// @dev q_lc[0:3], q_mul[0:1], q_hash[0:3], q_out, q_const, q_prod
+    function plonkStep9GateTerm(PlonkProof memory proof, VerificationKey memory vk)
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
+        BN254.G1Point memory res = BN254.infinity();
+
+        // The first four terms are linear combination gates
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[0], proof.wire_evals[0]));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[1], proof.wire_evals[1]));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[2], proof.wire_evals[2]));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[3], proof.wire_evals[3]));
+
+        // The next two terms are multiplication gates
+        BN254.ScalarField mul1 = BN254.mul(proof.wire_evals[0], proof.wire_evals[1]);
+        BN254.ScalarField mul2 = BN254.mul(proof.wire_evals[2], proof.wire_evals[3]);
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[4], mul1));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[5], mul2));
+
+        // The next four terms are hash gates
+        BN254.ScalarField hash1 = BN254Helpers.fifthPower(proof.wire_evals[0]);
+        BN254.ScalarField hash2 = BN254Helpers.fifthPower(proof.wire_evals[1]);
+        BN254.ScalarField hash3 = BN254Helpers.fifthPower(proof.wire_evals[2]);
+        BN254.ScalarField hash4 = BN254Helpers.fifthPower(proof.wire_evals[3]);
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[6], hash1));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[7], hash2));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[8], hash3));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[9], hash4));
+
+        // The next two gates are the output gate and the constant gate (1)
+        BN254.ScalarField negOutput = BN254.negate(proof.wire_evals[4]);
+        BN254.ScalarField one = BN254Helpers.ONE;
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[10], negOutput));
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[11], one));
+
+        // Last we have the elliptic curve gate, the product of all wires
+        BN254.ScalarField wireProd = BN254.mul(proof.wire_evals[0], proof.wire_evals[1]);
+        wireProd = BN254.mul(wireProd, proof.wire_evals[2]);
+        wireProd = BN254.mul(wireProd, proof.wire_evals[3]);
+        wireProd = BN254.mul(wireProd, proof.wire_evals[4]);
+        res = BN254.add(res, BN254.scalarMul(vk.q_comms[12], wireProd));
+
+        return res;
+    }
+
+    /// @notice Compute the permutation argument contribution to the linearized polynomial relation
+    function plonkStep9PermutationTerm(
+        BN254.ScalarField lagrange1Eval,
+        Challenges memory challenges,
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    ) internal view returns (BN254.G1Point memory) {
+        // The first permutation term, multiplied by the commitment [z]
+        BN254.ScalarField betaZeta = BN254.mul(challenges.beta, challenges.zeta);
+        BN254.ScalarField coeff = challenges.alpha;
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            BN254.ScalarField betaTerm = BN254.mul(betaZeta, vk.k[i]);
+            BN254.ScalarField term = BN254.add(proof.wire_evals[i], betaTerm);
+            BN254.ScalarField coeffTerm = BN254.add(term, challenges.gamma);
+            coeff = BN254.mul(coeff, coeffTerm);
+        }
+
+        BN254.ScalarField lagrangeTerm = BN254.mul(lagrange1Eval, BN254.mul(challenges.alpha, challenges.alpha));
+        coeff = BN254.add(coeff, BN254.add(lagrangeTerm, challenges.u));
+        BN254.G1Point memory res = BN254.scalarMul(proof.z_comm, coeff);
+
+        // The second permutation term, multiplied by the last permutation polynomial's commitment
+        BN254.ScalarField coeff2 = BN254.mul(challenges.alpha, BN254.mul(challenges.beta, proof.z_bar));
+        for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
+            BN254.ScalarField term = proof.wire_evals[i];
+            term = BN254.add(term, BN254.mul(challenges.beta, proof.sigma_evals[i]));
+            term = BN254.add(term, challenges.gamma);
+            coeff2 = BN254.mul(coeff2, term);
+        }
+
+        BN254.G1Point memory permTerm2 = BN254.scalarMul(vk.sigma_comms[NUM_WIRE_TYPES - 1], coeff2);
+        return BN254.add(res, BN254.negate(permTerm2));
+    }
+
+    /// @notice Compute the quotient polynomial contribution to the linearized polynomial relation
+    function plonkStep9QuotientTerm(
+        uint256 n,
+        BN254.ScalarField zeta,
+        BN254.ScalarField vanishingEval,
+        PlonkProof memory proof
+    ) internal view returns (BN254.G1Point memory) {
+        BN254.ScalarField zetaToN =
+            BN254.ScalarField.wrap(BN254.powSmall(BN254.ScalarField.unwrap(zeta), n, BN254.R_MOD));
+        BN254.ScalarField coeff = BN254Helpers.ONE;
+        BN254.G1Point memory res = BN254.infinity();
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            res = BN254.add(res, BN254.scalarMul(proof.quotient_comms[i], coeff));
+            coeff = BN254.mul(coeff, zetaToN);
+        }
+
+        res = BN254.scalarMul(res, BN254.negate(vanishingEval));
         return res;
     }
 }
