@@ -5,14 +5,12 @@ import {Transcript} from "./Transcript.sol";
 import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES} from "./Types.sol";
 import {TranscriptLib} from "./Transcript.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
+import {BN254Helpers} from "./BN254Helpers.sol";
 import {console2} from "forge-std/console2.sol";
 
 // -------------
 // | Constants |
 // -------------
-
-/// @dev Negative one in the scalar field
-BN254.ScalarField constant NEG_ONE = BN254.ScalarField.wrap(BN254.R_MOD - 1);
 
 /// @dev The bytes representation of the number of bits in the scalar field (little-endian)
 /// @dev Shifted to give a little endian representation
@@ -34,13 +32,16 @@ contract Verifier {
     /// @return True if the proof is valid, false otherwise
     function verify(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
         public
-        pure
+        view
         returns (bool)
     {
         plonkStep1And2(proof);
         plonkStep3(publicInputs);
         Challenges memory challenges = plonkStep4(proof, publicInputs, vk);
-        BN254.ScalarField zeroPolyEval = plonkStep5(challenges, vk);
+
+        // Get the base root of unity for the circuit's evaluation domain
+        BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
+        (BN254.ScalarField zeroPolyEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(omega, challenges, vk);
 
         // TODO: Check the proof
         return true;
@@ -142,16 +143,31 @@ contract Verifier {
         return Challenges({beta: beta, gamma: gamma, alpha: alpha, zeta: zeta, v: v, u: u});
     }
 
-    /// @notice Plonk step 5, compute the zero polynomial evaluation
+    /// @notice Plonk step 5 and 6
+    /// @dev Step 5: Compute the zero polynomial evaluation
     /// @dev This is (for eval point zeta) zeta^n - 1
-    function plonkStep5(Challenges memory challenges, VerificationKey memory vk)
+    /// @dev Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
+    /// @param omega The base root of unity for the evaluation domain
+    /// @param challenges The challenges from the transcript
+    /// @param vk The verification key
+    /// @return The evaluation of the zero polynomial and the first Lagrange basis polynomial at zeta
+    function plonkStep5And6(BN254.ScalarField omega, Challenges memory challenges, VerificationKey memory vk)
         internal
-        pure
-        returns (BN254.ScalarField)
+        view
+        returns (BN254.ScalarField, BN254.ScalarField)
     {
+        // Step 5: Compute the zero polynomial evaluation
         uint256 zetaUint = BN254.ScalarField.unwrap(challenges.zeta);
         BN254.ScalarField zetaPow = BN254.ScalarField.wrap(BN254.powSmall(zetaUint, vk.n, BN254.R_MOD));
+        BN254.ScalarField zeroPolyEval = BN254.add(zetaPow, BN254Helpers.NEG_ONE);
 
-        return BN254.add(zetaPow, NEG_ONE);
+        // Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
+        BN254.ScalarField nScalar = BN254.ScalarField.wrap(uint256(vk.n));
+        BN254.ScalarField lagrangeDenom = BN254.add(challenges.zeta, BN254.negate(omega));
+        lagrangeDenom = BN254.invert(BN254.mul(nScalar, lagrangeDenom));
+        BN254.ScalarField lagrangeNum = BN254.mul(zeroPolyEval, omega);
+        BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
+
+        return (zeroPolyEval, lagrangeEval);
     }
 }
