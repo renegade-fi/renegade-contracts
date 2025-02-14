@@ -5,3 +5,16 @@ src = "src"
 out = "out"
 libs = ["lib"]
 remappings = ["forge-std/=lib/forge-std/src/"]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "all"
+quote_style = "double"
+number_underscore = "thousands"
+wrap_comments = true
