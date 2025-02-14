@@ -1,11 +1,14 @@
 [workspace]
-members = ["merkle", "poseidon", "transcript"]
+members = ["merkle", "poseidon", "transcript", "verifier"]
 
 [workspace.dependencies]
 # === Renegade Dependencies === #
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade.git" }
 renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", default-features = false }
 renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git" }
 mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
+mpc-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 
 # === Misc Dependencies === #
 num-bigint = "0.4"
