@@ -202,7 +202,7 @@ contract VerifierTest is TestUtils {
     }
 
     /// @notice Test that a valid proof passes steps 1-3 of Plonk verification
-    function testValidProof() public view {
+    function testDummyProof() public view {
         // Create a valid scalar and EC point to use as a base
         BN254.G1Point memory validPoint = BN254.P1();
         BN254.ScalarField validScalar = BN254.ScalarField.wrap(1);
@@ -243,7 +243,8 @@ contract VerifierTest is TestUtils {
         publicInputs[0] = validScalar;
 
         // This should not revert since we're using valid inputs
-        verifier.verify(proof, publicInputs, vk);
+        bool res = verifier.verify(proof, publicInputs, vk);
+        require(!res, "Proof verification should have failed");
     }
 
     /// @notice Test the verifier against a reference implementation
