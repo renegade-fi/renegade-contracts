@@ -2,6 +2,9 @@
 members = ["merkle", "poseidon", "transcript", "verifier"]
 
 [workspace.dependencies]
+# === EVM Dependencies === #
+alloy = "0.11"
+
 # === Renegade Dependencies === #
 renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git" }
 renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade.git" }

@@ -1,5 +1,4 @@
 use super::*;
-use ark_bn254::Fr;
 use mpc_relation::traits::Circuit;
 use renegade_circuit_types::{traits::SingleProverCircuit, PlonkCircuit};
 use renegade_constants::Scalar;
@@ -34,7 +33,7 @@ impl SingleProverCircuit for SumPowCircuit {
 /// Generate the verification key for the sum-pow circuit
 pub fn generate_verification_key() -> VerificationKey {
     let renegade_vk = SumPowCircuit::verifying_key();
-    VerificationKey::from(renegade_vk.as_ref())
+    VerificationKey::from(renegade_vk.as_ref().clone())
 }
 
 /// Generate a proof for the sum-pow circuit
