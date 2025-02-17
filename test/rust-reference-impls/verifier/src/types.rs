@@ -1,11 +1,11 @@
 //! Types for the verifier solidity interface
 
-use alloy::sol_types::sol;
-use renegade_constants::SystemCurve;
-
-// Constants matching those in Types.sol
-const NUM_WIRE_TYPES: usize = 5;
-const NUM_SELECTORS: usize = 13;
+use alloy::{primitives::U256, sol_types::sol};
+use ark_bn254::{Fq as BnField, Fr as BnScalar, G1Affine as BnG1, G2Affine as BnG2};
+use ark_ec::AffineRepr;
+use itertools::Itertools;
+use num_bigint::BigUint;
+use renegade_constants::{Scalar, SystemCurve};
 
 // -------------
 // | ABI Types |
@@ -86,12 +86,124 @@ type SystemProof = mpc_plonk::proof_system::structs::Proof<SystemCurve>;
 
 impl From<SystemVkey> for VerificationKey {
     fn from(vkey: SystemVkey) -> Self {
-        todo!()
+        VerificationKey {
+            n: vkey.domain_size as u64,
+            l: vkey.num_inputs as u64,
+            k: vkey
+                .k
+                .iter()
+                .copied()
+                .map(u256_from_scalar)
+                .collect_vec()
+                .try_into()
+                .unwrap(),
+            q_comms: vkey
+                .selector_comms
+                .iter()
+                .map(|c| convert_g1_point(c.0))
+                .collect_vec()
+                .try_into()
+                .map_err(|_| "Failed to convert selector commitments to G1Point")
+                .unwrap(),
+            sigma_comms: vkey
+                .sigma_comms
+                .iter()
+                .map(|c| convert_g1_point(c.0))
+                .collect_vec()
+                .try_into()
+                .map_err(|_| "Failed to convert sigma commitments to G1Point")
+                .unwrap(),
+            g: convert_g1_point(vkey.open_key.g),
+            h: convert_g2_point(vkey.open_key.h),
+            x_h: convert_g2_point(vkey.open_key.beta_h),
+        }
     }
 }
 
 impl From<SystemProof> for PlonkProof {
     fn from(proof: SystemProof) -> Self {
-        todo!()
+        PlonkProof {
+            wire_comms: proof
+                .wires_poly_comms
+                .iter()
+                .map(|c| convert_g1_point(c.0))
+                .collect_vec()
+                .try_into()
+                .map_err(|_| "Failed to convert wire commitments to G1Point")
+                .unwrap(),
+            z_comm: convert_g1_point(proof.prod_perm_poly_comm.0),
+            quotient_comms: proof
+                .split_quot_poly_comms
+                .iter()
+                .map(|c| convert_g1_point(c.0))
+                .collect_vec()
+                .try_into()
+                .map_err(|_| "Failed to convert quotient commitments to G1Point")
+                .unwrap(),
+            w_zeta: convert_g1_point(proof.opening_proof.0),
+            w_zeta_omega: convert_g1_point(proof.shifted_opening_proof.0),
+            wire_evals: proof
+                .poly_evals
+                .wires_evals
+                .iter()
+                .copied()
+                .map(u256_from_scalar)
+                .collect_vec()
+                .try_into()
+                .unwrap(),
+            sigma_evals: proof
+                .poly_evals
+                .wire_sigma_evals
+                .iter()
+                .copied()
+                .map(u256_from_scalar)
+                .collect_vec()
+                .try_into()
+                .unwrap(),
+            z_bar: u256_from_scalar(proof.poly_evals.perm_next_eval),
+        }
+    }
+}
+
+// --- Conversion Helpers --- //
+
+/// Create a `U256` from a `ScalarField`
+fn u256_from_scalar(scalar: BnScalar) -> U256 {
+    let bytes = Scalar::new(scalar).to_bytes_be();
+    u256_from_bytes(&bytes)
+}
+
+/// Create a `U256` from a `BaseField`
+fn u256_from_base_field(felt: BnField) -> U256 {
+    let bigint = BigUint::from(felt);
+    u256_from_bytes(&bigint.to_bytes_be())
+}
+
+/// Create a `U256` from big endian bytes
+fn u256_from_bytes(bytes: &[u8]) -> U256 {
+    let mut padded = [0u8; 32];
+    let offset = 32 - bytes.len();
+    padded[offset..].copy_from_slice(bytes);
+    U256::from_be_bytes::<32>(padded)
+}
+
+/// Create a `G1Point` from a `BnG1`
+fn convert_g1_point(point: BnG1) -> G1Point {
+    G1Point {
+        x: u256_from_base_field(point.x),
+        y: u256_from_base_field(point.y),
+    }
+}
+
+/// Create a `G2Point` from a `BnG2`
+fn convert_g2_point(point: BnG2) -> G2Point {
+    let x = point.x().unwrap();
+    let y = point.y().unwrap();
+
+    G2Point {
+        x0: u256_from_base_field(x.c0),
+        x1: u256_from_base_field(x.c1),
+        y0: u256_from_base_field(y.c0),
+        y1: u256_from_base_field(y.c1),
     }
 }
