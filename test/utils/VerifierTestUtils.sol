@@ -60,7 +60,7 @@ contract VerifierTestUtils is TestUtils {
     }
 
     /// @dev Run the reference implementation to generate a proof for the mulTwo circuit
-    function getMulTwoProof(uint256 a, uint256 b) internal returns (PlonkProof memory) {
+    function getMulTwoProof(uint256 a, uint256 b) internal returns (uint256, PlonkProof memory) {
         uint256 c = mulmod(a, b, PRIME);
         string[] memory args = new string[](6);
         args[0] = "./test/rust-reference-impls/target/debug/verifier";
@@ -71,7 +71,7 @@ contract VerifierTestUtils is TestUtils {
         args[5] = Strings.toString(c);
 
         string memory response = runBinaryGetResponse(args);
-        return abi.decode(vm.parseBytes(response), (PlonkProof));
+        return (c, abi.decode(vm.parseBytes(response), (PlonkProof)));
     }
 
     /// @dev Run the reference implementation to generate a vkey for the sumPow circuit
@@ -86,14 +86,14 @@ contract VerifierTestUtils is TestUtils {
     }
 
     /// @dev Run the reference implementation to generate a proof for the sumPow circuit
-    function getSumPowProof(uint256[10] memory witness) internal returns (PlonkProof memory) {
+    function getSumPowProof(uint256[10] memory witness) internal returns (BN254.ScalarField, PlonkProof memory) {
         BN254.ScalarField sum = BN254.ScalarField.wrap(0);
         for (uint256 i = 0; i < witness.length; i++) {
             sum = BN254.add(sum, BN254.ScalarField.wrap(witness[i]));
         }
         BN254.ScalarField expected = BN254Helpers.fifthPower(sum);
 
-        string[] memory args = new string[](6);
+        string[] memory args = new string[](14);
         args[0] = "./test/rust-reference-impls/target/debug/verifier";
         args[1] = "sum-pow";
         args[2] = "prove";
@@ -103,6 +103,6 @@ contract VerifierTestUtils is TestUtils {
         args[13] = Strings.toString(BN254.ScalarField.unwrap(expected));
 
         string memory response = runBinaryGetResponse(args);
-        return abi.decode(vm.parseBytes(response), (PlonkProof));
+        return (expected, abi.decode(vm.parseBytes(response), (PlonkProof)));
     }
 }
