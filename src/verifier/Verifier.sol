@@ -49,7 +49,7 @@ contract Verifier {
 
         // Get the base root of unity for the circuit's evaluation domain
         BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
-        (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, omega, challenges.zeta);
+        (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, challenges.zeta);
         BN254.ScalarField publicInputPolyEval = plonkStep7(vk.n, challenges.zeta, omega, vanishingEval, publicInputs);
         BN254.ScalarField linearizationConstTerm = plonkStep8(
             publicInputPolyEval,
@@ -186,12 +186,10 @@ contract Verifier {
     /// @dev This is (for eval point zeta) zeta^n - 1
     /// @dev Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
     /// @param n The number of gates in the circuit
-    /// @param omega The base root of unity for the evaluation domain
     /// @param zeta The evaluation challenge from the transcript
     /// @return The evaluation of the zero polynomial and the first Lagrange basis polynomial at zeta
     function plonkStep5And6(
         uint256 n,
-        BN254.ScalarField omega,
         BN254.ScalarField zeta
     )
         internal
@@ -205,9 +203,9 @@ contract Verifier {
 
         // Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
         BN254.ScalarField nScalar = BN254.ScalarField.wrap(uint256(n));
-        BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(omega));
+        BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254Helpers.NEG_ONE);
         lagrangeDenom = BN254.invert(BN254.mul(nScalar, lagrangeDenom));
-        BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, omega);
+        BN254.ScalarField lagrangeNum = vanishingEval;
         BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
 
         return (vanishingEval, lagrangeEval);
@@ -229,14 +227,15 @@ contract Verifier {
         returns (BN254.ScalarField)
     {
         BN254.ScalarField nInv = BN254.invert(BN254.ScalarField.wrap(n));
-        BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, nInv);
+        BN254.ScalarField vanishingDivN = BN254.mul(vanishingEval, nInv);
 
         BN254.ScalarField result = BN254.ScalarField.wrap(0);
-        BN254.ScalarField currOmega = omega;
+        BN254.ScalarField currOmegaPow = BN254Helpers.ONE;
         for (uint256 i = 0; i < publicInputs.length; i++) {
-            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmega));
-            BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
-            currOmega = BN254.mul(currOmega, omega);
+            BN254.ScalarField lagrangeNum = BN254.mul(vanishingDivN, currOmegaPow);
+            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmegaPow));
+            BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, BN254.invert(lagrangeDenom));
+            currOmegaPow = BN254.mul(currOmegaPow, omega);
 
             BN254.ScalarField currTerm = BN254.mul(publicInputs[i], lagrangeEval);
             result = BN254.add(result, currTerm);
