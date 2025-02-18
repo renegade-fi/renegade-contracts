@@ -54,6 +54,14 @@ library TranscriptLib {
         self.elements = abi.encodePacked(self.elements, element);
     }
 
+    /// @dev Append a u64 value to the transcript
+    /// @param self The transcript
+    /// @param element The u64 value to append
+    function appendU64(Transcript memory self, uint64 element) internal pure {
+        bytes memory leBytes = u64ToLeBytes(element);
+        appendMessage(self, leBytes);
+    }
+
     /// @dev Appends a scalar value to the transcript
     /// @param self The transcript
     /// @param element The scalar to append
@@ -204,5 +212,22 @@ library TranscriptLib {
             }
         }
         return result;
+    }
+
+    /// @dev Converts a u64 value to little-endian bytes
+    function u64ToLeBytes(uint64 value) internal pure returns (bytes memory) {
+        bytes memory leBytes = new bytes(8);
+        assembly {
+            // Get the pointer to the bytes array data (skip the length prefix)
+            let dataPtr := add(leBytes, 0x20)
+
+            for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+                // Get the next byte from the value and store it
+                mstore8(add(dataPtr, i), and(value, 0xff))
+                // Shift the value right by 8 bits
+                value := shr(8, value)
+            }
+        }
+        return leBytes;
     }
 }
