@@ -282,7 +282,7 @@ contract Verifier {
         // Add in the final term without the sigma eval
         BN254.ScalarField lastPermTerm = BN254.add(wireEvals[wireEvals.length - 1], gamma);
         term3 = BN254.mul(term3, lastPermTerm);
-        res = BN254.add(res, term3);
+        res = BN254.add(res, BN254.negate(term3));
 
         return res;
     }
