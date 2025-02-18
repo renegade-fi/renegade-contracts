@@ -81,9 +81,9 @@ fn main() {
                 println!("RES:{}", hex::encode(encoded));
             }
             MulTwoAction::Prove { a, b, c } => {
-                let a = Scalar::from_hex_string(&a).unwrap();
-                let b = Scalar::from_hex_string(&b).unwrap();
-                let c = Scalar::from_hex_string(&c).unwrap();
+                let a = Scalar::from_decimal_string(&a).unwrap();
+                let b = Scalar::from_decimal_string(&b).unwrap();
+                let c = Scalar::from_decimal_string(&c).unwrap();
                 let proof = mul_two::generate_proof(a, b, c);
                 let encoded = proof.abi_encode();
                 println!("RES:{}", hex::encode(encoded));
@@ -98,9 +98,9 @@ fn main() {
             SumPowAction::Prove { inputs, expected } => {
                 let inputs = inputs
                     .iter()
-                    .map(|s| Scalar::from_hex_string(s).unwrap())
+                    .map(|s| Scalar::from_decimal_string(s).unwrap())
                     .collect_vec();
-                let expected = Scalar::from_hex_string(&expected).unwrap();
+                let expected = Scalar::from_decimal_string(&expected).unwrap();
 
                 let proof = sum_pow::generate_proof(inputs, expected);
                 let encoded = proof.abi_encode();

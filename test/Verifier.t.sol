@@ -222,5 +222,17 @@ contract VerifierTest is VerifierTestUtils {
         // First generate the verification key for the circuit
         compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
         VerificationKey memory vkey = getMulTwoVkey();
+
+        // Generate two random inputs and prove their product
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        uint256 c = mulmod(a, b, PRIME);
+        PlonkProof memory proof = getMulTwoProof(a, b);
+
+        // Verify the proof
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
+        publicInputs[0] = BN254.ScalarField.wrap(c);
+        bool res = verifier.verify(proof, publicInputs, vkey);
+        require(res, "Proof verification should have succeeded");
     }
 }

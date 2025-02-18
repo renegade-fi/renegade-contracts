@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {Transcript} from "./Transcript.sol";
-import {PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS} from "./Types.sol";
-import {TranscriptLib} from "./Transcript.sol";
-import {BN254} from "solidity-bn254/BN254.sol";
-import {BN254Helpers} from "./BN254Helpers.sol";
-import {console2} from "forge-std/console2.sol";
+import { Transcript } from "./Transcript.sol";
+import { PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
+import { TranscriptLib } from "./Transcript.sol";
+import { BN254 } from "solidity-bn254/BN254.sol";
+import { BN254Helpers } from "./BN254Helpers.sol";
+import { console2 } from "forge-std/console2.sol";
+import { Utils } from "solidity-bn254/Utils.sol";
 
 // -------------
 // | Constants |
@@ -24,13 +25,20 @@ bytes4 constant SCALAR_FIELD_N_BITS = bytes4(uint32(254) << 24);
 /// @notice This implementation currently follows that outlined in the paper closely:
 /// https://eprint.iacr.org/2019/953.pdf
 contract Verifier {
+    using TranscriptLib for Transcript;
+
     /// @notice Verify a batch of Plonk proofs using the arithmetization defined in `mpc-jellyfish`:
     /// https://github.com/renegade-fi/mpc-jellyfish
     /// @param proof The proof to verify
     /// @param publicInputs The public inputs to the proof
     /// @param vk The verification key for the circuit
     /// @return True if the proof is valid, false otherwise
-    function verify(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
+
+    function verify(
+        PlonkProof memory proof,
+        BN254.ScalarField[] memory publicInputs,
+        VerificationKey memory vk
+    )
         public
         view
         returns (bool)
@@ -62,7 +70,8 @@ contract Verifier {
         BN254.G1Point memory a1 = BN254.add(proof.w_zeta, BN254.scalarMul(proof.w_zeta_omega, challenges.u));
         BN254.G2Point memory a2 = vk.x_h;
 
-        // RHS of the pairing check: e(zeta * w_zeta + u * zeta * omega * w_zeta_omega + batchCommitment - batchEval, x_h)
+        // RHS of the pairing check: e(zeta * w_zeta + u * zeta * omega * w_zeta_omega + batchCommitment - batchEval,
+        // x_h)
         BN254.G1Point memory b1 = BN254.add(
             BN254.scalarMul(proof.w_zeta, challenges.zeta),
             BN254.scalarMul(proof.w_zeta_omega, BN254.mul(challenges.u, BN254.mul(challenges.zeta, omega)))
@@ -119,7 +128,11 @@ contract Verifier {
     /// @notice Step 4 of the plonk verification algorithm
     /// @notice Compute the challenges from a Fiat-Shamir transcript
     /// @dev matches the transcript implementation from `mpc-jellyfish`
-    function plonkStep4(PlonkProof memory proof, BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
+    function plonkStep4(
+        PlonkProof memory proof,
+        BN254.ScalarField[] memory publicInputs,
+        VerificationKey memory vk
+    )
         internal
         pure
         returns (Challenges memory challenges)
@@ -129,44 +142,43 @@ contract Verifier {
 
         // Append the verification key metadata and public inputs
         bytes memory nBitsBytes = abi.encodePacked(SCALAR_FIELD_N_BITS);
-        bytes memory nBytes = abi.encodePacked(vk.n);
-        bytes memory lBytes = abi.encodePacked(vk.l);
-        TranscriptLib.appendMessage(transcript, nBitsBytes);
-        TranscriptLib.appendMessage(transcript, nBytes);
-        TranscriptLib.appendMessage(transcript, lBytes);
-        TranscriptLib.appendScalars(transcript, vk.k);
-        TranscriptLib.appendPoints(transcript, vk.q_comms);
-        TranscriptLib.appendPoints(transcript, vk.sigma_comms);
-        TranscriptLib.appendScalars(transcript, publicInputs);
+        transcript.appendMessage(nBitsBytes);
+        transcript.appendU64(vk.n);
+        transcript.appendU64(vk.l);
+
+        transcript.appendScalars(vk.k);
+        transcript.appendPoints(vk.q_comms);
+        transcript.appendPoints(vk.sigma_comms);
+        transcript.appendScalars(publicInputs);
 
         // Round 1: Append the wire commitments and squeeze the permutation challenges
-        TranscriptLib.appendPoints(transcript, proof.wire_comms);
+        transcript.appendPoints(proof.wire_comms);
 
         // Squeeze an unused challenge tau for consistency with the Plookup-enabled prover
-        TranscriptLib.getChallenge(transcript);
-        BN254.ScalarField beta = TranscriptLib.getChallenge(transcript);
-        BN254.ScalarField gamma = TranscriptLib.getChallenge(transcript);
+        transcript.getChallenge();
+        BN254.ScalarField beta = transcript.getChallenge();
+        BN254.ScalarField gamma = transcript.getChallenge();
 
         // Round 2: Append the quotient permutation polynomial commitment and squeeze the quotient challenge
-        TranscriptLib.appendPoint(transcript, proof.z_comm);
-        BN254.ScalarField alpha = TranscriptLib.getChallenge(transcript);
+        transcript.appendPoint(proof.z_comm);
+        BN254.ScalarField alpha = transcript.getChallenge();
 
         // Round 3: Append the quotient polynomial commitments and squeeze the evaluation challenge
-        TranscriptLib.appendPoints(transcript, proof.quotient_comms);
-        BN254.ScalarField zeta = TranscriptLib.getChallenge(transcript);
+        transcript.appendPoints(proof.quotient_comms);
+        BN254.ScalarField zeta = transcript.getChallenge();
 
         // Round 4: Append the wire, permutation, and grand product evals and squeeze the v opening challenge
-        TranscriptLib.appendScalars(transcript, proof.wire_evals);
-        TranscriptLib.appendScalars(transcript, proof.sigma_evals);
-        TranscriptLib.appendScalar(transcript, proof.z_bar);
-        BN254.ScalarField v = TranscriptLib.getChallenge(transcript);
+        transcript.appendScalars(proof.wire_evals);
+        transcript.appendScalars(proof.sigma_evals);
+        transcript.appendScalar(proof.z_bar);
+        BN254.ScalarField v = transcript.getChallenge();
 
         // Round 5: Append the two opening proof commitments and squeeze the multipoint evaluation challenge
-        TranscriptLib.appendPoint(transcript, proof.w_zeta);
-        TranscriptLib.appendPoint(transcript, proof.w_zeta_omega);
-        BN254.ScalarField u = TranscriptLib.getChallenge(transcript);
+        transcript.appendPoint(proof.w_zeta);
+        transcript.appendPoint(proof.w_zeta_omega);
+        BN254.ScalarField u = transcript.getChallenge();
 
-        return Challenges({beta: beta, gamma: gamma, alpha: alpha, zeta: zeta, v: v, u: u});
+        return Challenges({ beta: beta, gamma: gamma, alpha: alpha, zeta: zeta, v: v, u: u });
     }
 
     /// @notice Plonk step 5 and 6
@@ -177,7 +189,11 @@ contract Verifier {
     /// @param omega The base root of unity for the evaluation domain
     /// @param zeta The evaluation challenge from the transcript
     /// @return The evaluation of the zero polynomial and the first Lagrange basis polynomial at zeta
-    function plonkStep5And6(uint256 n, BN254.ScalarField omega, BN254.ScalarField zeta)
+    function plonkStep5And6(
+        uint256 n,
+        BN254.ScalarField omega,
+        BN254.ScalarField zeta
+    )
         internal
         view
         returns (BN254.ScalarField, BN254.ScalarField)
@@ -207,7 +223,11 @@ contract Verifier {
         BN254.ScalarField omega,
         BN254.ScalarField vanishingEval,
         BN254.ScalarField[] memory publicInputs
-    ) internal view returns (BN254.ScalarField) {
+    )
+        internal
+        view
+        returns (BN254.ScalarField)
+    {
         BN254.ScalarField nInv = BN254.invert(BN254.ScalarField.wrap(n));
         BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, nInv);
 
@@ -236,7 +256,11 @@ contract Verifier {
         BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals,
         BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals,
         BN254.ScalarField zEval
-    ) internal pure returns (BN254.ScalarField) {
+    )
+        internal
+        pure
+        returns (BN254.ScalarField)
+    {
         // Term 1: PI(\zeta)
         BN254.ScalarField res = publicInputPolyEval;
 
@@ -271,7 +295,11 @@ contract Verifier {
         Challenges memory challenges,
         PlonkProof memory proof,
         VerificationKey memory vk
-    ) internal view returns (BN254.G1Point memory) {
+    )
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
         // Add in the gate constraints
         BN254.G1Point memory res = plonkStep9GateTerm(proof, vk);
 
@@ -288,7 +316,10 @@ contract Verifier {
     /// @notice Compute the gate constraints contribution to the linearized polynomial relation
     /// @dev The selectors are:
     /// @dev q_lc[0:3], q_mul[0:1], q_hash[0:3], q_out, q_const, q_prod
-    function plonkStep9GateTerm(PlonkProof memory proof, VerificationKey memory vk)
+    function plonkStep9GateTerm(
+        PlonkProof memory proof,
+        VerificationKey memory vk
+    )
         internal
         view
         returns (BN254.G1Point memory)
@@ -339,7 +370,11 @@ contract Verifier {
         Challenges memory challenges,
         PlonkProof memory proof,
         VerificationKey memory vk
-    ) internal view returns (BN254.G1Point memory) {
+    )
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
         // The first permutation term, multiplied by the commitment [z]
         BN254.ScalarField betaZeta = BN254.mul(challenges.beta, challenges.zeta);
         BN254.ScalarField coeff = challenges.alpha;
@@ -373,7 +408,11 @@ contract Verifier {
         BN254.ScalarField zeta,
         BN254.ScalarField vanishingEval,
         PlonkProof memory proof
-    ) internal view returns (BN254.G1Point memory) {
+    )
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
         BN254.ScalarField zetaToN =
             BN254.ScalarField.wrap(BN254.powSmall(BN254.ScalarField.unwrap(zeta), n, BN254.R_MOD));
         BN254.ScalarField coeff = BN254Helpers.ONE;
@@ -394,7 +433,11 @@ contract Verifier {
         Challenges memory challenges,
         PlonkProof memory proof,
         VerificationKey memory vk
-    ) internal view returns (BN254.G1Point memory) {
+    )
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
         BN254.G1Point memory res = aggregatePolyComm;
 
         // Add in the wire commitments
@@ -422,7 +465,11 @@ contract Verifier {
         Challenges memory challenges,
         PlonkProof memory proof,
         VerificationKey memory vk
-    ) internal view returns (BN254.G1Point memory) {
+    )
+        internal
+        view
+        returns (BN254.G1Point memory)
+    {
         BN254.ScalarField resCoeff = BN254.negate(linearizationConstTerm);
         BN254.ScalarField termCoeff = challenges.v;
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {

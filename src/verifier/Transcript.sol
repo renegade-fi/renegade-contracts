@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.0;
 
-import {BN254} from "solidity-bn254/BN254.sol";
-import {console2} from "forge-std/console2.sol";
-import {NUM_WIRE_TYPES, NUM_SELECTORS} from "./Types.sol";
+import { BN254 } from "solidity-bn254/BN254.sol";
+import { console2 } from "forge-std/console2.sol";
+import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 
 // --- Hash & Transcript Constants --- //
 
@@ -50,14 +50,22 @@ library TranscriptLib {
     /// @dev Appends a message to the transcript
     /// @param self The transcript
     /// @param element The message to append
-    function appendMessage(Transcript memory self, bytes memory element) public pure {
+    function appendMessage(Transcript memory self, bytes memory element) internal pure {
         self.elements = abi.encodePacked(self.elements, element);
+    }
+
+    /// @dev Append a u64 value to the transcript
+    /// @param self The transcript
+    /// @param element The u64 value to append
+    function appendU64(Transcript memory self, uint64 element) internal pure {
+        bytes memory leBytes = u64ToLeBytes(element);
+        appendMessage(self, leBytes);
     }
 
     /// @dev Appends a scalar value to the transcript
     /// @param self The transcript
     /// @param element The scalar to append
-    function appendScalar(Transcript memory self, BN254.ScalarField element) public pure {
+    function appendScalar(Transcript memory self, BN254.ScalarField element) internal pure {
         // Convert scalar to little-endian bytes
         bytes32 leBytes = scalarToLeBytes(element);
         appendMessage(self, abi.encodePacked(leBytes));
@@ -66,7 +74,7 @@ library TranscriptLib {
     /// @dev Append a list of scalars to the transcript
     /// @param self The transcript
     /// @param elements The scalars to append
-    function appendScalars(Transcript memory self, BN254.ScalarField[] memory elements) public pure {
+    function appendScalars(Transcript memory self, BN254.ScalarField[] memory elements) internal pure {
         for (uint256 i = 0; i < elements.length; i++) {
             appendScalar(self, elements[i]);
         }
@@ -75,7 +83,7 @@ library TranscriptLib {
     /// @dev Append a fixed-size list of scalars to the transcript
     /// @param self The transcript
     /// @param elements The scalars to append
-    function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES] memory elements) public pure {
+    function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES] memory elements) internal pure {
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
             appendScalar(self, elements[i]);
         }
@@ -84,7 +92,13 @@ library TranscriptLib {
     /// @dev Append a fixed-size list of scalars to the transcript
     /// @param self The transcript
     /// @param elements The scalars to append
-    function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES - 1] memory elements) public pure {
+    function appendScalars(
+        Transcript memory self,
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory elements
+    )
+        internal
+        pure
+    {
         for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
             appendScalar(self, elements[i]);
         }
@@ -93,14 +107,14 @@ library TranscriptLib {
     /// @dev Append a point to the transcript
     /// @param self The transcript
     /// @param point The point to append
-    function appendPoint(Transcript memory self, BN254.G1Point memory point) public pure {
+    function appendPoint(Transcript memory self, BN254.G1Point memory point) internal pure {
         appendMessage(self, BN254.g1Serialize(point));
     }
 
     /// @dev Append a list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
-    function appendPoints(Transcript memory self, BN254.G1Point[] memory points) public pure {
+    function appendPoints(Transcript memory self, BN254.G1Point[] memory points) internal pure {
         // Handle both dynamic and fixed-size arrays using assembly
         uint256 length;
         assembly {
@@ -114,7 +128,7 @@ library TranscriptLib {
     /// @dev Append a fixed-size list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
-    function appendPoints(Transcript memory self, BN254.G1Point[NUM_WIRE_TYPES] memory points) public pure {
+    function appendPoints(Transcript memory self, BN254.G1Point[NUM_WIRE_TYPES] memory points) internal pure {
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
             appendPoint(self, points[i]);
         }
@@ -123,7 +137,7 @@ library TranscriptLib {
     /// @dev Append a fixed-size list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
-    function appendPoints(Transcript memory self, BN254.G1Point[NUM_SELECTORS] memory points) public pure {
+    function appendPoints(Transcript memory self, BN254.G1Point[NUM_SELECTORS] memory points) internal pure {
         for (uint256 i = 0; i < NUM_SELECTORS; i++) {
             appendPoint(self, points[i]);
         }
@@ -198,5 +212,22 @@ library TranscriptLib {
             }
         }
         return result;
+    }
+
+    /// @dev Converts a u64 value to little-endian bytes
+    function u64ToLeBytes(uint64 value) internal pure returns (bytes memory) {
+        bytes memory leBytes = new bytes(8);
+        assembly {
+            // Get the pointer to the bytes array data (skip the length prefix)
+            let dataPtr := add(leBytes, 0x20)
+
+            for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+                // Get the next byte from the value and store it
+                mstore8(add(dataPtr, i), and(value, 0xff))
+                // Shift the value right by 8 bits
+                value := shr(8, value)
+            }
+        }
+        return leBytes;
     }
 }

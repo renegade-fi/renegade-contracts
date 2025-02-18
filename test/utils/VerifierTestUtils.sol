@@ -61,7 +61,7 @@ contract VerifierTestUtils is TestUtils {
 
     /// @dev Run the reference implementation to generate a proof for the mulTwo circuit
     function getMulTwoProof(uint256 a, uint256 b) internal returns (PlonkProof memory) {
-        uint256 c = a * b;
+        uint256 c = mulmod(a, b, PRIME);
         string[] memory args = new string[](6);
         args[0] = "./test/rust-reference-impls/target/debug/verifier";
         args[1] = "mul-two";
