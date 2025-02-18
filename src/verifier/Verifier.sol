@@ -49,7 +49,7 @@ contract Verifier {
 
         // Get the base root of unity for the circuit's evaluation domain
         BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
-        (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, omega, challenges.zeta);
+        (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, challenges.zeta);
         BN254.ScalarField publicInputPolyEval = plonkStep7(vk.n, challenges.zeta, omega, vanishingEval, publicInputs);
         BN254.ScalarField linearizationConstTerm = plonkStep8(
             publicInputPolyEval,
@@ -61,7 +61,7 @@ contract Verifier {
             proof.sigma_evals,
             proof.z_bar
         );
-        BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, challenges, proof, vk);
+        BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, vanishingEval, challenges, proof, vk);
         BN254.G1Point memory batchCommitment = plonkStep10(committedPoly, challenges, proof, vk);
         BN254.G1Point memory batchEval = plonkStep11(linearizationConstTerm, challenges, proof, vk);
 
@@ -79,7 +79,7 @@ contract Verifier {
         b1 = BN254.add(b1, BN254.add(batchCommitment, BN254.negate(batchEval)));
         BN254.G2Point memory b2 = vk.h;
 
-        return BN254.pairingProd2(a1, a2, b1, b2);
+        return BN254.pairingProd2(a1, a2, BN254.negate(b1), b2);
     }
 
     /// @notice Step 1 and 2 of the plonk verification algorithm
@@ -186,12 +186,10 @@ contract Verifier {
     /// @dev This is (for eval point zeta) zeta^n - 1
     /// @dev Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
     /// @param n The number of gates in the circuit
-    /// @param omega The base root of unity for the evaluation domain
     /// @param zeta The evaluation challenge from the transcript
     /// @return The evaluation of the zero polynomial and the first Lagrange basis polynomial at zeta
     function plonkStep5And6(
         uint256 n,
-        BN254.ScalarField omega,
         BN254.ScalarField zeta
     )
         internal
@@ -205,9 +203,9 @@ contract Verifier {
 
         // Step 6: Compute the first Lagrange basis polynomial evaluated at zeta
         BN254.ScalarField nScalar = BN254.ScalarField.wrap(uint256(n));
-        BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(omega));
+        BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254Helpers.NEG_ONE);
         lagrangeDenom = BN254.invert(BN254.mul(nScalar, lagrangeDenom));
-        BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, omega);
+        BN254.ScalarField lagrangeNum = vanishingEval;
         BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
 
         return (vanishingEval, lagrangeEval);
@@ -229,14 +227,15 @@ contract Verifier {
         returns (BN254.ScalarField)
     {
         BN254.ScalarField nInv = BN254.invert(BN254.ScalarField.wrap(n));
-        BN254.ScalarField lagrangeNum = BN254.mul(vanishingEval, nInv);
+        BN254.ScalarField vanishingDivN = BN254.mul(vanishingEval, nInv);
 
         BN254.ScalarField result = BN254.ScalarField.wrap(0);
-        BN254.ScalarField currOmega = omega;
+        BN254.ScalarField currOmegaPow = BN254Helpers.ONE;
         for (uint256 i = 0; i < publicInputs.length; i++) {
-            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmega));
-            BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, lagrangeDenom);
-            currOmega = BN254.mul(currOmega, omega);
+            BN254.ScalarField lagrangeNum = BN254.mul(vanishingDivN, currOmegaPow);
+            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmegaPow));
+            BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, BN254.invert(lagrangeDenom));
+            currOmegaPow = BN254.mul(currOmegaPow, omega);
 
             BN254.ScalarField currTerm = BN254.mul(publicInputs[i], lagrangeEval);
             result = BN254.add(result, currTerm);
@@ -283,7 +282,7 @@ contract Verifier {
         // Add in the final term without the sigma eval
         BN254.ScalarField lastPermTerm = BN254.add(wireEvals[wireEvals.length - 1], gamma);
         term3 = BN254.mul(term3, lastPermTerm);
-        res = BN254.add(res, term3);
+        res = BN254.add(res, BN254.negate(term3));
 
         return res;
     }
@@ -292,6 +291,7 @@ contract Verifier {
     /// @dev Compute a linearized commitment to the combined polynomial relation
     function plonkStep9(
         BN254.ScalarField lagrange1Eval,
+        BN254.ScalarField vanishingEval,
         Challenges memory challenges,
         PlonkProof memory proof,
         VerificationKey memory vk
@@ -308,7 +308,7 @@ contract Verifier {
         res = BN254.add(res, permTerm);
 
         // Add in the quotient polynomial contribution
-        BN254.G1Point memory quotientTerm = plonkStep9QuotientTerm(vk.n, challenges.zeta, proof.z_bar, proof);
+        BN254.G1Point memory quotientTerm = plonkStep9QuotientTerm(vk.n, challenges.zeta, vanishingEval, proof);
         res = BN254.add(res, quotientTerm);
         return res;
     }
@@ -413,16 +413,17 @@ contract Verifier {
         view
         returns (BN254.G1Point memory)
     {
-        BN254.ScalarField zetaToN =
-            BN254.ScalarField.wrap(BN254.powSmall(BN254.ScalarField.unwrap(zeta), n, BN254.R_MOD));
-        BN254.ScalarField coeff = BN254Helpers.ONE;
+        // Unlike the plonk paper, Jellyfish uses zeta^(n+2) instead of zeta^n, see:
+        // https://github.com/EspressoSystems/jellyfish/blob/main/plonk/src/proof_system/prover.rs#L893
+        BN254.ScalarField zetaToNPlus2 = BN254.mul(BN254.add(vanishingEval, BN254Helpers.ONE), BN254.mul(zeta, zeta));
+
+        BN254.ScalarField coeff = BN254.negate(vanishingEval);
         BN254.G1Point memory res = BN254.infinity();
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
             res = BN254.add(res, BN254.scalarMul(proof.quotient_comms[i], coeff));
-            coeff = BN254.mul(coeff, zetaToN);
+            coeff = BN254.mul(coeff, zetaToNPlus2);
         }
 
-        res = BN254.scalarMul(res, BN254.negate(vanishingEval));
         return res;
     }
 
@@ -450,7 +451,7 @@ contract Verifier {
 
         // Add in the permutation commitments, except the last
         for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
-            BN254.G1Point memory term = BN254.scalarMul(vk.q_comms[i], coeff);
+            BN254.G1Point memory term = BN254.scalarMul(vk.sigma_comms[i], coeff);
             res = BN254.add(res, term);
             coeff = BN254.mul(coeff, challenges.v);
         }
