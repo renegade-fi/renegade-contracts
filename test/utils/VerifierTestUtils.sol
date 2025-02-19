@@ -148,4 +148,33 @@ contract VerifierTestUtils is TestUtils {
         string memory response = runBinaryGetResponse(args);
         return abi.decode(vm.parseBytes(response), (PlonkProof));
     }
+
+    /// @dev Helper function to create a deep copy of a PlonkProof
+    function clonePlonkProof(PlonkProof memory original) internal pure returns (PlonkProof memory) {
+        BN254.G1Point[NUM_WIRE_TYPES] memory wire_comms;
+        BN254.G1Point[NUM_WIRE_TYPES] memory quotient_comms;
+        BN254.ScalarField[NUM_WIRE_TYPES] memory wire_evals;
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigma_evals;
+
+        // Clone wire commitments
+        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
+            wire_comms[i] = original.wire_comms[i];
+            quotient_comms[i] = original.quotient_comms[i];
+            wire_evals[i] = original.wire_evals[i];
+            if (i < NUM_WIRE_TYPES - 1) {
+                sigma_evals[i] = original.sigma_evals[i];
+            }
+        }
+
+        return PlonkProof({
+            wire_comms: wire_comms,
+            z_comm: original.z_comm,
+            quotient_comms: quotient_comms,
+            w_zeta: original.w_zeta,
+            w_zeta_omega: original.w_zeta_omega,
+            wire_evals: wire_evals,
+            sigma_evals: sigma_evals,
+            z_bar: original.z_bar
+        });
+    }
 }

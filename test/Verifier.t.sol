@@ -20,6 +20,8 @@ contract VerifierTest is VerifierTestUtils {
         verifier = new Verifier();
     }
 
+    // --- Invalid Test Cases --- //
+
     /// @notice Test that the verifier properly validates all proof components in step 1 of Plonk verification
     function testMalformedProof() public {
         // Create a valid scalar and EC point to use as a base
@@ -216,6 +218,101 @@ contract VerifierTest is VerifierTestUtils {
         bool res = verifier.verify(proof, publicInputs, vk);
         require(!res, "Proof verification should have failed");
     }
+
+    /// @notice Test a modified proof that should fail verification
+    function testModifiedProof() public {
+        // First generate the verification key for the circuit
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+        VerificationKey memory vkey = getMulTwoVkey();
+
+        // Create a proof for the mul-two circuit
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        (uint256 c, PlonkProof memory originalProof) = getMulTwoProof(a, b);
+
+        // Create the public inputs array once
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
+        publicInputs[0] = BN254.ScalarField.wrap(c);
+
+        BN254.G1Point memory dummyG1Point = BN254.P1();
+        BN254.ScalarField dummyScalar = BN254.ScalarField.wrap(1);
+
+        bool res;
+
+        // Test Case 1: Modify a wire commitment
+        {
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.wire_comms[randomIdx] = dummyG1Point;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 2: Modify z_comm
+        {
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.z_comm = dummyG1Point;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 3: Modify a quotient commitment
+        {
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.quotient_comms[randomIdx] = dummyG1Point;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 4: Modify w_zeta
+        {
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.w_zeta = dummyG1Point;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 5: Modify w_zeta_omega
+        {
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.w_zeta_omega = dummyG1Point;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 6: Modify a wire evaluation
+        {
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.wire_evals[randomIdx] = dummyScalar;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 7: Modify a sigma evaluation
+        {
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES - 1);
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.sigma_evals[randomIdx] = dummyScalar;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Test Case 8: Modify z_bar
+        {
+            PlonkProof memory proof = clonePlonkProof(originalProof);
+            proof.z_bar = dummyScalar;
+            res = verifier.verify(proof, publicInputs, vkey);
+            require(!res, "Proof verification should have failed");
+        }
+
+        // Verify the original proof still works
+        res = verifier.verify(originalProof, publicInputs, vkey);
+        require(res, "Original proof verification should have succeeded");
+    }
+
+    // --- Valid Test Cases --- //
 
     /// @notice Test the verifier against a reference implementation on the mul-two circuit
     function testVerifierMulTwo() public {
