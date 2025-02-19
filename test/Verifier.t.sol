@@ -217,7 +217,7 @@ contract VerifierTest is VerifierTestUtils {
         require(!res, "Proof verification should have failed");
     }
 
-    /// @notice Test the verifier against a reference implementation
+    /// @notice Test the verifier against a reference implementation on the mul-two circuit
     function testVerifierMulTwo() public {
         // First generate the verification key for the circuit
         compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
@@ -226,12 +226,66 @@ contract VerifierTest is VerifierTestUtils {
         // Generate two random inputs and prove their product
         uint256 a = randomFelt();
         uint256 b = randomFelt();
-        uint256 c = mulmod(a, b, PRIME);
-        PlonkProof memory proof = getMulTwoProof(a, b);
+        (uint256 c, PlonkProof memory proof) = getMulTwoProof(a, b);
 
         // Verify the proof
         BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
         publicInputs[0] = BN254.ScalarField.wrap(c);
+        bool res = verifier.verify(proof, publicInputs, vkey);
+        require(res, "Proof verification should have succeeded");
+    }
+
+    /// @notice Test the verifier against a reference implementation on the sum-pow circuit
+    function testVerifierSumPow() public {
+        uint256 NUM_INPUTS = 10;
+
+        // First generate the verification key for the circuit
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+        VerificationKey memory vkey = getSumPowVkey();
+
+        // Generate ten random inputs
+        uint256[10] memory inputs;
+        for (uint256 i = 0; i < NUM_INPUTS; i++) {
+            inputs[i] = randomFelt();
+        }
+
+        // Get the proof and public input
+        (BN254.ScalarField sumPow, PlonkProof memory proof) = getSumPowProof(inputs);
+
+        // Verify the proof
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
+        publicInputs[0] = sumPow;
+        bool res = verifier.verify(proof, publicInputs, vkey);
+        require(res, "Proof verification should have succeeded");
+    }
+
+    /// @notice Test the verifier against a reference implementation on the permutation circuit
+    function testVerifierPermutation() public {
+        uint256 N = 5;
+        // First generate the verification key for the circuit
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+        VerificationKey memory vkey = getPermutationVkey();
+
+        // Generate a random statement and witness
+        uint256[5] memory statement;
+        uint256[5] memory witness;
+        for (uint256 i = 0; i < N; i++) {
+            uint256 val = randomFelt();
+            statement[i] = val;
+            witness[N - i - 1] = val; // A simple reverse permutation
+        }
+
+        // Get the proof
+        uint256 randomChallenge = randomFelt();
+        PlonkProof memory proof = getPermutationProof(randomChallenge, statement, witness);
+
+        // Verify the proof
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](N + 1);
+        publicInputs[0] = BN254.ScalarField.wrap(randomChallenge);
+        for (uint256 i = 0; i < N; i++) {
+            publicInputs[i + 1] = BN254.ScalarField.wrap(statement[i]);
+        }
+
         bool res = verifier.verify(proof, publicInputs, vkey);
         require(res, "Proof verification should have succeeded");
     }

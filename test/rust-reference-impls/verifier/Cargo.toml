@@ -15,8 +15,9 @@ alloy = "0.11"
 alloy-sol-types = "0.8.21"
 
 # === Renegade === #
-renegade-circuit-types = { workspace = true }
 renegade-circuits = { workspace = true }
+renegade-circuit-types = { workspace = true }
+renegade-circuit-macros = { workspace = true }
 renegade-constants = { workspace = true }
 mpc-plonk = { workspace = true }
 mpc-relation = { workspace = true }

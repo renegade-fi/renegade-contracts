@@ -60,7 +60,7 @@ contract VerifierTestUtils is TestUtils {
     }
 
     /// @dev Run the reference implementation to generate a proof for the mulTwo circuit
-    function getMulTwoProof(uint256 a, uint256 b) internal returns (PlonkProof memory) {
+    function getMulTwoProof(uint256 a, uint256 b) internal returns (uint256, PlonkProof memory) {
         uint256 c = mulmod(a, b, PRIME);
         string[] memory args = new string[](6);
         args[0] = "./test/rust-reference-impls/target/debug/verifier";
@@ -71,7 +71,7 @@ contract VerifierTestUtils is TestUtils {
         args[5] = Strings.toString(c);
 
         string memory response = runBinaryGetResponse(args);
-        return abi.decode(vm.parseBytes(response), (PlonkProof));
+        return (c, abi.decode(vm.parseBytes(response), (PlonkProof)));
     }
 
     /// @dev Run the reference implementation to generate a vkey for the sumPow circuit
@@ -86,14 +86,14 @@ contract VerifierTestUtils is TestUtils {
     }
 
     /// @dev Run the reference implementation to generate a proof for the sumPow circuit
-    function getSumPowProof(uint256[10] memory witness) internal returns (PlonkProof memory) {
+    function getSumPowProof(uint256[10] memory witness) internal returns (BN254.ScalarField, PlonkProof memory) {
         BN254.ScalarField sum = BN254.ScalarField.wrap(0);
         for (uint256 i = 0; i < witness.length; i++) {
             sum = BN254.add(sum, BN254.ScalarField.wrap(witness[i]));
         }
         BN254.ScalarField expected = BN254Helpers.fifthPower(sum);
 
-        string[] memory args = new string[](6);
+        string[] memory args = new string[](14);
         args[0] = "./test/rust-reference-impls/target/debug/verifier";
         args[1] = "sum-pow";
         args[2] = "prove";
@@ -101,6 +101,49 @@ contract VerifierTestUtils is TestUtils {
             args[3 + i] = Strings.toString(witness[i]);
         }
         args[13] = Strings.toString(BN254.ScalarField.unwrap(expected));
+
+        string memory response = runBinaryGetResponse(args);
+        return (expected, abi.decode(vm.parseBytes(response), (PlonkProof)));
+    }
+
+    /// @dev Run the reference implementation to generate a vkey for the permutation circuit
+    function getPermutationVkey() internal returns (VerificationKey memory) {
+        string[] memory args = new string[](3);
+        args[0] = "./test/rust-reference-impls/target/debug/verifier";
+        args[1] = "permutation";
+        args[2] = "print-vkey";
+
+        string memory response = runBinaryGetResponse(args);
+        return abi.decode(vm.parseBytes(response), (VerificationKey));
+    }
+
+    /// @dev Run the reference implementation to generate a proof for the permutation circuit
+    function getPermutationProof(
+        uint256 randomChallenge,
+        uint256[5] memory statement,
+        uint256[5] memory witness
+    )
+        internal
+        returns (PlonkProof memory)
+    {
+        string[] memory args = new string[](17);
+        args[0] = "./test/rust-reference-impls/target/debug/verifier";
+        args[1] = "permutation";
+        args[2] = "prove";
+        args[3] = "--random-challenge";
+        args[4] = Strings.toString(randomChallenge);
+
+        // Encode statement elements
+        args[5] = "--values";
+        for (uint256 i = 0; i < statement.length; i++) {
+            args[6 + i] = Strings.toString(statement[i]);
+        }
+
+        // Encode witness elements
+        args[11] = "--permuted-values";
+        for (uint256 i = 0; i < witness.length; i++) {
+            args[12 + i] = Strings.toString(witness[i]);
+        }
 
         string memory response = runBinaryGetResponse(args);
         return abi.decode(vm.parseBytes(response), (PlonkProof));
