@@ -71,43 +71,91 @@ contract Verifier {
     {
         plonkStep1And2(proofs);
         plonkStep3(publicInputs);
-        Challenges[] memory challenges = plonkStep4(proofs, publicInputs, vks);
-        return true;
+        Challenges[] memory batchChallenges = plonkStep4(proofs, publicInputs, vks);
 
         // Get the base root of unity for the circuit's evaluation domain
-        BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
-        // (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, challenges.zeta);
-        // BN254.ScalarField publicInputPolyEval = plonkStep7(vk.n, challenges.zeta, omega, vanishingEval,
-        // publicInputs);
-        // BN254.ScalarField linearizationConstTerm = plonkStep8(
-        //     publicInputPolyEval,
-        //     lagrangeEval,
-        //     challenges.alpha,
-        //     challenges.beta,
-        //     challenges.gamma,
-        //     proof.wire_evals,
-        //     proof.sigma_evals,
-        //     proof.z_bar
-        // );
-        // BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, vanishingEval, challenges, proof, vk);
-        // BN254.G1Point memory batchCommitment = plonkStep10(committedPoly, challenges, proof, vk);
-        // BN254.G1Point memory batchEval = plonkStep11(linearizationConstTerm, challenges, proof, vk);
+        BN254.ScalarField[] memory lastChallenges = new BN254.ScalarField[](proofs.length);
+        BN254.G1Point[] memory lhsTerms = new BN254.G1Point[](proofs.length);
+        BN254.G1Point[] memory rhsTerms = new BN254.G1Point[](proofs.length);
+        for (uint256 i = 0; i < proofs.length; i++) {
+            PlonkProof memory proof = proofs[i];
+            VerificationKey memory vk = vks[i];
+            Challenges memory challenges = batchChallenges[i];
+            BN254.ScalarField[] memory publicInput = publicInputs[i];
 
-        // // Step 12: Batch validate the evaluations
-        // // LHS of the pairing check: e(w_zeta + w_zeta_omega * u, x_h)
-        // BN254.G1Point memory a1 = BN254.add(proof.w_zeta, BN254.scalarMul(proof.w_zeta_omega, challenges.u));
-        // BN254.G2Point memory a2 = vk.x_h;
+            // Setup the public input polynomial
+            BN254.ScalarField omega = BN254Helpers.rootOfUnity(vk.n);
+            (BN254.ScalarField vanishingEval, BN254.ScalarField lagrangeEval) = plonkStep5And6(vk.n, challenges.zeta);
+            BN254.ScalarField publicInputPolyEval = plonkStep7(vk.n, challenges.zeta, omega, vanishingEval, publicInput);
 
-        // // RHS of the pairing check: e(zeta * w_zeta + u * zeta * omega * w_zeta_omega + batchCommitment - batchEval,
-        // // x_h)
-        // BN254.G1Point memory b1 = BN254.add(
-        //     BN254.scalarMul(proof.w_zeta, challenges.zeta),
-        //     BN254.scalarMul(proof.w_zeta_omega, BN254.mul(challenges.u, BN254.mul(challenges.zeta, omega)))
-        // );
-        // b1 = BN254.add(b1, BN254.add(batchCommitment, BN254.negate(batchEval)));
-        // BN254.G2Point memory b2 = vk.h;
+            // Compute the reduction to a pairing check
+            BN254.ScalarField linearizationConstTerm = plonkStep8(
+                publicInputPolyEval,
+                lagrangeEval,
+                challenges.alpha,
+                challenges.beta,
+                challenges.gamma,
+                proof.wire_evals,
+                proof.sigma_evals,
+                proof.z_bar
+            );
+            BN254.G1Point memory committedPoly = plonkStep9(lagrangeEval, vanishingEval, challenges, proof, vk);
+            BN254.G1Point memory batchCommitment = plonkStep10(committedPoly, challenges, proof, vk);
+            BN254.G1Point memory batchEval = plonkStep11(linearizationConstTerm, challenges, proof, vk);
 
-        // return BN254.pairingProd2(a1, a2, BN254.negate(b1), b2);
+            // Step 12: Batch validate the evaluations
+            // LHS of the pairing check: e(w_zeta + w_zeta_omega * u, x_h)
+            BN254.G1Point memory lhsTerm = BN254.add(proof.w_zeta, BN254.scalarMul(proof.w_zeta_omega, challenges.u));
+
+            // RHS of the pairing check: e(zeta * w_zeta + u * zeta * omega * w_zeta_omega + batchCommitment -
+            // batchEval, x_h)
+            BN254.G1Point memory rhsTerm = BN254.add(
+                BN254.scalarMul(proof.w_zeta, challenges.zeta),
+                BN254.scalarMul(proof.w_zeta_omega, BN254.mul(challenges.u, BN254.mul(challenges.zeta, omega)))
+            );
+            rhsTerm = BN254.add(rhsTerm, BN254.add(batchCommitment, BN254.negate(batchEval)));
+
+            lhsTerms[i] = lhsTerm;
+            rhsTerms[i] = BN254.negate(rhsTerm);
+            lastChallenges[i] = challenges.u;
+        }
+
+        return verifyBatchOpening(vks[0].h, vks[0].x_h, lhsTerms, rhsTerms, lastChallenges);
+    }
+
+    /// Verify a batch opening of proofs
+    function verifyBatchOpening(
+        BN254.G2Point memory h,
+        BN254.G2Point memory x_h,
+        BN254.G1Point[] memory lhsG1Terms,
+        BN254.G1Point[] memory rhsG1Terms,
+        BN254.ScalarField[] memory lastChallenges
+    )
+        public
+        view
+        returns (bool)
+    {
+        uint256 numProofs = lhsG1Terms.length;
+
+        // Sample a random scalar to parameterize the random linear combination
+        // If only one proof is supplied, no randomization is needed
+        BN254.ScalarField r = BN254Helpers.ONE;
+        if (numProofs > 1) {
+            Transcript memory transcript = TranscriptLib.new_transcript();
+            transcript.appendScalars(lastChallenges);
+            r = transcript.getChallenge();
+        }
+
+        BN254.ScalarField rCurr = r;
+        BN254.G1Point memory lhsTerm = lhsG1Terms[0];
+        BN254.G1Point memory rhsTerm = rhsG1Terms[0];
+        for (uint256 i = 1; i < numProofs; i++) {
+            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(lhsG1Terms[i], rCurr));
+            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(rhsG1Terms[i], rCurr));
+            rCurr = BN254.mul(rCurr, r);
+        }
+
+        return BN254.pairingProd2(lhsTerm, x_h, rhsTerm, h);
     }
 
     /// @notice Step 1 and 2 of the plonk verification algorithm
