@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { Utils } from "solidity-bn254/Utils.sol";
+import { BN254Helpers } from "./BN254Helpers.sol";
 import { console2 } from "forge-std/console2.sol";
 import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 
@@ -12,6 +12,8 @@ import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 uint256 constant HASH_STATE_SIZE = 64;
 /// @dev The number of bytes in a scalar serialized for the transcript
 uint256 constant SCALAR_BYTES = 32;
+/// @dev The number of bytes in a G1 point serialized for the transcript
+uint256 constant POINT_BYTES = 32;
 
 // --- Bit Manipulation Constants --- //
 
@@ -57,6 +59,42 @@ library TranscriptLib {
         self.elements = abi.encodePacked(self.elements, element);
     }
 
+    /// @dev Gets the current challenge from the transcript
+    /// @param self The transcript
+    /// @return Challenge The Fiat-Shamir challenge
+    function getChallenge(Transcript memory self) internal pure returns (BN254.ScalarField) {
+        // Concatenate state, transcript elements, and 0/1 bytes
+        bytes memory input0 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(0));
+        bytes memory input1 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(1));
+
+        // Hash inputs and update the hash state
+        bytes32 low = keccak256(input0);
+        bytes32 high = keccak256(input1);
+        self.hashStateLow = uint256(low);
+        self.hashStateHigh = uint256(high);
+
+        // Extract challenge bytes, we wish to interpret keccak output in little-endian order,
+        // so we need to reverse the bytes when converting to the scalar type
+        bytes32 lowBytes;
+        bytes32 highBytes;
+        assembly {
+            // Get the data pointer for the bytes arrays
+            let lowBytesStatePtr := self
+            let highBytesStatePtr := add(lowBytesStatePtr, CHALLENGE_LOW_BYTES)
+
+            // Mask and store the values
+            lowBytes := and(mload(lowBytesStatePtr), LOW_BYTES_MASK)
+            highBytes := and(mload(highBytesStatePtr), HIGH_BYTES_MASK)
+        }
+
+        // Convert from bytes
+        BN254.ScalarField lowScalar = BN254Helpers.scalarFromLeBytes(lowBytes);
+        BN254.ScalarField highScalar = BN254Helpers.scalarFromLeBytes(highBytes);
+
+        BN254.ScalarField shiftedHigh = BN254.mul(highScalar, BN254.ScalarField.wrap(CHALLENGE_HIGH_SHIFT));
+        return BN254.add(lowScalar, shiftedHigh);
+    }
+
     /// @dev Append a u64 value to the transcript
     /// @param self The transcript
     /// @param element The u64 value to append
@@ -65,12 +103,16 @@ library TranscriptLib {
         appendMessage(self, leBytes);
     }
 
+    // -----------
+    // | Scalars |
+    // -----------
+
     /// @dev Appends a scalar value to the transcript
     /// @param self The transcript
     /// @param element The scalar to append
     function appendScalar(Transcript memory self, BN254.ScalarField element) internal pure {
         // Convert scalar to little-endian bytes
-        bytes32 leBytes = scalarToLeBytes(element);
+        bytes32 leBytes = BN254Helpers.scalarToLeBytes(element);
         appendMessage(self, abi.encodePacked(leBytes));
     }
 
@@ -89,7 +131,7 @@ library TranscriptLib {
             }
 
             // Convert to little-endian bytes and store
-            scalarBytes = scalarToLeBytes(BN254.ScalarField.wrap(uint256(scalarBytes)));
+            scalarBytes = BN254Helpers.scalarToLeBytes(BN254.ScalarField.wrap(uint256(scalarBytes)));
             assembly {
                 let destPtr := add(scalarsSerialized, 32)
                 let currDestPtr := add(destPtr, mul(i, SCALAR_BYTES))
@@ -141,92 +183,88 @@ library TranscriptLib {
         appendScalarsHelper(self, dataPtr, NUM_WIRE_TYPES - 1);
     }
 
-    /// @dev Append a point to the transcript
-    /// @param self The transcript
-    /// @param point The point to append
+    // ----------
+    // | Points |
+    // ----------
+
+    /// @dev Append a single point to the transcript
     function appendPoint(Transcript memory self, BN254.G1Point memory point) internal pure {
-        appendMessage(self, BN254.g1Serialize(point));
+        bytes32 serializedPoint = BN254Helpers.serializePoint(point);
+        appendMessage(self, abi.encodePacked(serializedPoint));
     }
 
-    /// @dev Append a list of points to the transcript
+    /// @dev Helper to append multiple points to the transcript using direct memory access
+    /// @param self The transcript
+    /// @param dataPtr Pointer to the start of point data in memory
+    /// @param len Number of points to append
+    function appendPointsHelper(Transcript memory self, uint256 dataPtr, uint256 len) internal pure {
+        // Pre-allocate array for all serialized points
+        // Each G1 point serializes to 64 bytes
+        bytes memory pointsSerialized = new bytes(len * POINT_BYTES);
+
+        for (uint256 i = 0; i < len; i++) {
+            // Each G1Point is 2 words (64 bytes) in memory
+            BN254.G1Point memory point;
+            assembly {
+                // Load the struct pointer
+                let structPtr := mload(add(dataPtr, mul(i, 0x20)))
+                // Load x and y coordinate
+                let x := mload(structPtr)
+                let y := mload(add(structPtr, 0x20))
+
+                // Store in point struct
+                mstore(point, x)
+                mstore(add(point, 0x20), y)
+            }
+
+            bytes32 serializedPoint = BN254Helpers.serializePoint(point);
+            assembly {
+                let destPtr := add(pointsSerialized, add(32, mul(i, POINT_BYTES)))
+                mstore(destPtr, serializedPoint)
+            }
+        }
+
+        appendMessage(self, pointsSerialized);
+    }
+
+    /// @dev Append a list of points to the transcript (dynamic array version)
     /// @param self The transcript
     /// @param points The points to append
     function appendPoints(Transcript memory self, BN254.G1Point[] memory points) internal pure {
-        // Handle both dynamic and fixed-size arrays using assembly
-        uint256 length;
+        uint256 dataPtr;
+        uint256 len;
         assembly {
-            length := mload(points)
+            len := mload(points)
+            dataPtr := add(points, 0x20) // skip length word
         }
-        for (uint256 i = 0; i < length; i++) {
-            appendPoint(self, points[i]);
-        }
+        appendPointsHelper(self, dataPtr, len);
     }
 
     /// @dev Append a fixed-size list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
     function appendPoints(Transcript memory self, BN254.G1Point[NUM_WIRE_TYPES] memory points) internal pure {
-        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            appendPoint(self, points[i]);
+        uint256 dataPtr;
+        assembly {
+            dataPtr := points
         }
+        appendPointsHelper(self, dataPtr, NUM_WIRE_TYPES);
     }
 
     /// @dev Append a fixed-size list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
     function appendPoints(Transcript memory self, BN254.G1Point[NUM_SELECTORS] memory points) internal pure {
-        for (uint256 i = 0; i < NUM_SELECTORS; i++) {
-            appendPoint(self, points[i]);
-        }
-    }
-
-    /// @dev Gets the current challenge from the transcript
-    /// @param self The transcript
-    /// @return Challenge The Fiat-Shamir challenge
-    function getChallenge(Transcript memory self) internal pure returns (BN254.ScalarField) {
-        // Concatenate state, transcript elements, and 0/1 bytes
-        bytes memory input0 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(0));
-        bytes memory input1 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(1));
-
-        // Hash inputs and update the hash state
-        bytes32 low = keccak256(input0);
-        bytes32 high = keccak256(input1);
-        self.hashStateLow = uint256(low);
-        self.hashStateHigh = uint256(high);
-
-        // Extract challenge bytes, we wish to interpret keccak output in little-endian order,
-        // so we need to reverse the bytes when converting to the scalar type
-        bytes32 lowBytes;
-        bytes32 highBytes;
+        uint256 dataPtr;
         assembly {
-            // Get the data pointer for the bytes arrays
-            let lowBytesStatePtr := self
-            let highBytesStatePtr := add(lowBytesStatePtr, CHALLENGE_LOW_BYTES)
-
-            // Mask and store the values
-            lowBytes := and(mload(lowBytesStatePtr), LOW_BYTES_MASK)
-            highBytes := and(mload(highBytesStatePtr), HIGH_BYTES_MASK)
+            dataPtr := points
         }
-
-        // Convert from bytes
-        BN254.ScalarField lowScalar = scalarFromLeBytes(lowBytes);
-        BN254.ScalarField highScalar = scalarFromLeBytes(highBytes);
-
-        BN254.ScalarField shiftedHigh = BN254.mul(highScalar, BN254.ScalarField.wrap(CHALLENGE_HIGH_SHIFT));
-        return BN254.add(lowScalar, shiftedHigh);
+        appendPointsHelper(self, dataPtr, NUM_SELECTORS);
     }
 
-    /// @dev Converts a little-endian bytes array to a uint256
-    function scalarFromLeBytes(bytes32 buf) internal pure returns (BN254.ScalarField) {
-        uint256 scalarBytes = Utils.reverseEndianness(uint256(buf));
-        return BN254.ScalarField.wrap(scalarBytes % BN254.R_MOD);
-    }
-
-    /// @dev Converts a scalar value to little-endian bytes
-    function scalarToLeBytes(BN254.ScalarField scalar) internal returns (bytes32) {
-        uint256 scalarBytes = Utils.reverseEndianness(BN254.ScalarField.unwrap(scalar));
-        return bytes32(scalarBytes);
-    }
+    // -------------------------
+    // | Serialization Helpers |
+    // -------------------------
 
     /// @dev Converts a u64 value to little-endian bytes
     function u64ToLeBytes(uint64 value) internal pure returns (bytes memory) {

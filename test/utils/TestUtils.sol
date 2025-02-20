@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
+import { BN254 } from "lib/solidity-bn254/src/BN254.sol";
 
 contract TestUtils is Test {
     /// @dev The BN254 field modulus from roundUtils.huff
-    uint256 constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
+    uint256 constant PRIME = BN254.R_MOD;
 
     /// @dev Generates a random input modulo the PRIME
     /// Note that this is not uniformly distributed over the prime field, because of the "wraparound"
     /// but it suffices for fuzzing test inputs
     function randomFelt() internal returns (uint256) {
         return vm.randomUint() % PRIME;
+    }
+
+    /// @dev Generate a random G1 point
+    function randomG1Point() internal returns (BN254.G1Point memory) {
+        BN254.ScalarField scalar = BN254.ScalarField.wrap(randomFelt());
+        BN254.G1Point memory point = BN254.scalarMul(BN254.P1(), scalar);
+        return point;
     }
 
     /// @dev Generates a random input between [0, high)
@@ -46,7 +54,10 @@ contract TestUtils is Test {
     }
 
     /// @dev Helper to run a binary and parse its output as a uint256 array
-    function runBinaryGetArray(string[] memory args, string memory delimiter)
+    function runBinaryGetArray(
+        string[] memory args,
+        string memory delimiter
+    )
         internal
         virtual
         returns (uint256[] memory)
@@ -132,7 +143,10 @@ contract TestUtils is Test {
     }
 
     /// @dev Helper to parse a string of space-separated numbers into a uint256 array
-    function parseStringToUintArray(string memory str, string memory delimiter)
+    function parseStringToUintArray(
+        string memory str,
+        string memory delimiter
+    )
         internal
         virtual
         returns (uint256[] memory)
