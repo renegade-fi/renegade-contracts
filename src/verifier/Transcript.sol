@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { Utils } from "solidity-bn254/Utils.sol";
 import { console2 } from "forge-std/console2.sol";
 import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 
@@ -9,6 +10,8 @@ import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 
 /// @dev The size of the hash state in bytes
 uint256 constant HASH_STATE_SIZE = 64;
+/// @dev The number of bytes in a scalar serialized for the transcript
+uint256 constant SCALAR_BYTES = 32;
 
 // --- Bit Manipulation Constants --- //
 
@@ -73,20 +76,52 @@ library TranscriptLib {
 
     /// @dev Append a list of scalars to the transcript
     /// @param self The transcript
+    /// @param dataPtr Pointer to the start of scalar data in memory
+    /// @param len Length of the array
+    function appendScalarsHelper(Transcript memory self, uint256 dataPtr, uint256 len) internal pure {
+        bytes memory scalarsSerialized = new bytes(len * SCALAR_BYTES);
+        for (uint256 i = 0; i < len; i++) {
+            // Load the scalar from memory
+            bytes32 scalarBytes;
+            assembly {
+                let ptr := add(dataPtr, mul(i, SCALAR_BYTES))
+                scalarBytes := mload(ptr)
+            }
+
+            // Convert to little-endian bytes and store
+            scalarBytes = scalarToLeBytes(BN254.ScalarField.wrap(uint256(scalarBytes)));
+            assembly {
+                let destPtr := add(scalarsSerialized, 32)
+                let currDestPtr := add(destPtr, mul(i, SCALAR_BYTES))
+                mstore(currDestPtr, scalarBytes)
+            }
+        }
+
+        appendMessage(self, scalarsSerialized);
+    }
+
+    /// @dev Append a list of scalars to the transcript (dynamic array version)
+    /// @param self The transcript
     /// @param elements The scalars to append
     function appendScalars(Transcript memory self, BN254.ScalarField[] memory elements) internal pure {
-        for (uint256 i = 0; i < elements.length; i++) {
-            appendScalar(self, elements[i]);
+        uint256 dataPtr;
+        uint256 len;
+        assembly {
+            len := mload(elements)
+            dataPtr := add(elements, 0x20) // skip length word
         }
+        appendScalarsHelper(self, dataPtr, len);
     }
 
     /// @dev Append a fixed-size list of scalars to the transcript
     /// @param self The transcript
     /// @param elements The scalars to append
     function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES] memory elements) internal pure {
-        for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            appendScalar(self, elements[i]);
+        uint256 dataPtr;
+        assembly {
+            dataPtr := elements
         }
+        appendScalarsHelper(self, dataPtr, NUM_WIRE_TYPES);
     }
 
     /// @dev Append a fixed-size list of scalars to the transcript
@@ -99,9 +134,11 @@ library TranscriptLib {
         internal
         pure
     {
-        for (uint256 i = 0; i < NUM_WIRE_TYPES - 1; i++) {
-            appendScalar(self, elements[i]);
+        uint256 dataPtr;
+        assembly {
+            dataPtr := elements
         }
+        appendScalarsHelper(self, dataPtr, NUM_WIRE_TYPES - 1);
     }
 
     /// @dev Append a point to the transcript
@@ -181,37 +218,14 @@ library TranscriptLib {
 
     /// @dev Converts a little-endian bytes array to a uint256
     function scalarFromLeBytes(bytes32 buf) internal pure returns (BN254.ScalarField) {
-        // Reverse the byte order
-        bytes32 reversedBuf;
-        assembly {
-            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
-                // Copy the next byte into the reversed buffer
-                let shift := mul(sub(31, i), 8)
-                reversedBuf := or(shl(shift, and(buf, 0xff)), reversedBuf)
-                buf := shr(8, buf)
-            }
-        }
-
-        // Convert to uint256, reduce via the modulus, and return
-        uint256 reduced = uint256(reversedBuf) % BN254.R_MOD;
-        return BN254.ScalarField.wrap(reduced);
+        uint256 scalarBytes = Utils.reverseEndianness(uint256(buf));
+        return BN254.ScalarField.wrap(scalarBytes % BN254.R_MOD);
     }
 
     /// @dev Converts a scalar value to little-endian bytes
-    function scalarToLeBytes(BN254.ScalarField scalar) internal pure returns (bytes32) {
-        uint256 value = BN254.ScalarField.unwrap(scalar);
-        bytes32 result;
-        assembly {
-            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
-                // Get the next byte from the value
-                let currByte := and(value, 0xff)
-                // Shift the value right by 8 bits
-                value := shr(8, value)
-                // Store the byte in the result
-                result := or(shl(mul(sub(31, i), 8), currByte), result)
-            }
-        }
-        return result;
+    function scalarToLeBytes(BN254.ScalarField scalar) internal returns (bytes32) {
+        uint256 scalarBytes = Utils.reverseEndianness(BN254.ScalarField.unwrap(scalar));
+        return bytes32(scalarBytes);
     }
 
     /// @dev Converts a u64 value to little-endian bytes
