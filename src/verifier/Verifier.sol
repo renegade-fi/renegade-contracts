@@ -395,7 +395,7 @@ contract Verifier {
         res = BN254.add(res, permTerm);
 
         // Add in the quotient polynomial contribution
-        BN254.G1Point memory quotientTerm = plonkStep9QuotientTerm(vk.n, challenges.zeta, vanishingEval, proof);
+        BN254.G1Point memory quotientTerm = plonkStep9QuotientTerm(challenges.zeta, vanishingEval, proof);
         res = BN254.add(res, quotientTerm);
         return res;
     }
@@ -491,7 +491,6 @@ contract Verifier {
 
     /// @notice Compute the quotient polynomial contribution to the linearized polynomial relation
     function plonkStep9QuotientTerm(
-        uint256 n,
         BN254.ScalarField zeta,
         BN254.ScalarField vanishingEval,
         PlonkProof memory proof

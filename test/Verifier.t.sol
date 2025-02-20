@@ -312,6 +312,96 @@ contract VerifierTest is VerifierTestUtils {
         require(res, "Original proof verification should have succeeded");
     }
 
+    /// @notice Test that batch verification fails if any proof in the batch is invalid
+    function testInvalidBatchVerification() public {
+        // First generate the verification keys for the circuits
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+
+        // Generate batch test data
+        (PlonkProof[] memory proofs, BN254.ScalarField[][] memory publicInputs, VerificationKey[] memory vks) =
+            generateBatchProofData();
+
+        // Randomly select a proof to modify
+        uint256 proofToModify = randomUint(proofs.length);
+        PlonkProof memory invalidProof = clonePlonkProof(proofs[proofToModify]);
+
+        // Randomly select which part of the proof to modify
+        uint256 modType = randomUint(8);
+        BN254.G1Point memory dummyG1Point = BN254.P1();
+        BN254.ScalarField dummyScalar = BN254.ScalarField.wrap(1);
+
+        if (modType == 0) {
+            // Modify a wire commitment
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
+            invalidProof.wire_comms[randomIdx] = dummyG1Point;
+        } else if (modType == 1) {
+            // Modify z_comm
+            invalidProof.z_comm = dummyG1Point;
+        } else if (modType == 2) {
+            // Modify a quotient commitment
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
+            invalidProof.quotient_comms[randomIdx] = dummyG1Point;
+        } else if (modType == 3) {
+            // Modify w_zeta
+            invalidProof.w_zeta = dummyG1Point;
+        } else if (modType == 4) {
+            // Modify w_zeta_omega
+            invalidProof.w_zeta_omega = dummyG1Point;
+        } else if (modType == 5) {
+            // Modify a wire evaluation
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
+            invalidProof.wire_evals[randomIdx] = dummyScalar;
+        } else if (modType == 6) {
+            // Modify a sigma evaluation
+            uint256 randomIdx = randomUint(NUM_WIRE_TYPES - 1);
+            invalidProof.sigma_evals[randomIdx] = dummyScalar;
+        } else {
+            // Modify z_bar
+            invalidProof.z_bar = dummyScalar;
+        }
+
+        // Replace the selected proof with the invalid one
+        proofs[proofToModify] = invalidProof;
+
+        // Verify the batch - should fail
+        bool res = verifier.batchVerify(proofs, publicInputs, vks);
+        require(!res, "Proof verification should have failed");
+    }
+
+    /// @notice Test the case in which a public input is modified
+    function testModifiedPublicInput() public {
+        // First generate the verification keys for the circuits
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+        VerificationKey memory vkey = getPermutationVkey();
+
+        // Generate data for the permutation circuit
+        uint256 randomChallenge = randomFelt();
+        uint256[5] memory statement;
+        uint256[5] memory witness;
+        for (uint256 i = 0; i < 5; i++) {
+            statement[i] = randomFelt();
+            witness[5 - i - 1] = statement[i];
+        }
+
+        // Get the proof and public input
+        PlonkProof memory proof = getPermutationProof(randomChallenge, statement, witness);
+
+        // Verify the proof
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](6);
+        publicInputs[0] = BN254.ScalarField.wrap(randomChallenge);
+        for (uint256 i = 0; i < 5; i++) {
+            publicInputs[i + 1] = BN254.ScalarField.wrap(statement[i]);
+        }
+
+        // Modify the public input
+        uint256 randomIdx = randomUint(publicInputs.length);
+        publicInputs[randomIdx] = BN254.ScalarField.wrap(randomFelt());
+
+        // Verify the proof
+        bool res = verifier.verify(proof, publicInputs, vkey);
+        require(!res, "Proof verification should have failed");
+    }
+
     // --- Valid Test Cases --- //
 
     /// @notice Test the verifier against a reference implementation on the mul-two circuit
@@ -384,6 +474,20 @@ contract VerifierTest is VerifierTestUtils {
         }
 
         bool res = verifier.verify(proof, publicInputs, vkey);
+        require(res, "Proof verification should have succeeded");
+    }
+
+    /// @notice Test batch verification against all three circuits
+    function testBatchVerification() public {
+        // First generate the verification keys for the circuits
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+
+        // Generate batch test data
+        (PlonkProof[] memory proofs, BN254.ScalarField[][] memory publicInputs, VerificationKey[] memory vks) =
+            generateBatchProofData();
+
+        // Verify the batch
+        bool res = verifier.batchVerify(proofs, publicInputs, vks);
         require(res, "Proof verification should have succeeded");
     }
 }

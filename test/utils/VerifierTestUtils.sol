@@ -177,4 +177,53 @@ contract VerifierTestUtils is TestUtils {
             z_bar: original.z_bar
         });
     }
+
+    /// @dev Helper function to generate a batch of proofs, verification keys, and public inputs
+    function generateBatchProofData()
+        internal
+        returns (PlonkProof[] memory proofs, BN254.ScalarField[][] memory publicInputs, VerificationKey[] memory vks)
+    {
+        proofs = new PlonkProof[](3);
+        vks = new VerificationKey[](3);
+        publicInputs = new BN254.ScalarField[][](3);
+
+        // Generate mul-two proof and data
+        uint256 a = randomFelt();
+        uint256 b = randomFelt();
+        (uint256 c, PlonkProof memory mulTwoProof) = getMulTwoProof(a, b);
+        proofs[0] = mulTwoProof;
+        vks[0] = getMulTwoVkey();
+        publicInputs[0] = new BN254.ScalarField[](1);
+        publicInputs[0][0] = BN254.ScalarField.wrap(c);
+
+        // Generate sum-pow proof and data
+        uint256[10] memory inputs;
+        for (uint256 i = 0; i < 10; i++) {
+            inputs[i] = randomFelt();
+        }
+        (BN254.ScalarField sumPow, PlonkProof memory sumPowProof) = getSumPowProof(inputs);
+        proofs[1] = sumPowProof;
+        vks[1] = getSumPowVkey();
+        publicInputs[1] = new BN254.ScalarField[](1);
+        publicInputs[1][0] = sumPow;
+
+        // Generate permutation proof and data
+        uint256 randomChallenge = randomFelt();
+        uint256[5] memory statement;
+        uint256[5] memory witness;
+        for (uint256 i = 0; i < 5; i++) {
+            statement[i] = randomFelt();
+            witness[5 - i - 1] = statement[i];
+        }
+        PlonkProof memory permutationProof = getPermutationProof(randomChallenge, statement, witness);
+        proofs[2] = permutationProof;
+        vks[2] = getPermutationVkey();
+        publicInputs[2] = new BN254.ScalarField[](6);
+        publicInputs[2][0] = BN254.ScalarField.wrap(randomChallenge);
+        for (uint256 i = 0; i < 5; i++) {
+            publicInputs[2][i + 1] = BN254.ScalarField.wrap(statement[i]);
+        }
+
+        return (proofs, publicInputs, vks);
+    }
 }
