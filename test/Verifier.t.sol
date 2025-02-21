@@ -4,7 +4,14 @@ pragma solidity ^0.8.0;
 import { TestUtils } from "./utils/TestUtils.sol";
 import { VerifierTestUtils } from "./utils/VerifierTestUtils.sol";
 import { Verifier } from "../src/verifier/Verifier.sol";
-import { PlonkProof, NUM_WIRE_TYPES, NUM_SELECTORS, VerificationKey } from "../src/verifier/Types.sol";
+import {
+    PlonkProof,
+    NUM_WIRE_TYPES,
+    NUM_SELECTORS,
+    VerificationKey,
+    OpeningElements,
+    emptyOpeningElements
+} from "../src/verifier/Types.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { console2 } from "forge-std/console2.sol";
@@ -364,7 +371,8 @@ contract VerifierTest is VerifierTestUtils {
         proofs[proofToModify] = invalidProof;
 
         // Verify the batch - should fail
-        bool res = verifier.batchVerify(proofs, publicInputs, vks);
+        OpeningElements memory extraOpeningElements = emptyOpeningElements();
+        bool res = verifier.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
         require(!res, "Proof verification should have failed");
     }
 
@@ -487,7 +495,8 @@ contract VerifierTest is VerifierTestUtils {
             generateBatchProofData();
 
         // Verify the batch
-        bool res = verifier.batchVerify(proofs, publicInputs, vks);
+        OpeningElements memory extraOpeningElements = emptyOpeningElements();
+        bool res = verifier.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
         require(res, "Proof verification should have succeeded");
     }
 }

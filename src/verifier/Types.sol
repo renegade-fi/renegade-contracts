@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {BN254} from "solidity-bn254/BN254.sol";
+import { BN254 } from "solidity-bn254/BN254.sol";
 
 /// @dev The number of wire types in the arithmetization
 uint256 constant NUM_WIRE_TYPES = 5;
@@ -64,4 +64,24 @@ struct Challenges {
     BN254.ScalarField v;
     /// @dev The multipoint evaluation challenge, generated at the end of round 5 of the prover algorithm
     BN254.ScalarField u;
+}
+
+/// @title A set of opening elements used in the final pairing product check
+struct OpeningElements {
+    /// @dev The set of left hand side G1 elements
+    BN254.G1Point[] lhsTerms;
+    /// @dev The set of right hand side G1 elements
+    BN254.G1Point[] rhsTerms;
+    /// @dev The last challenge squeezed from each transcript
+    BN254.ScalarField[] lastChallenges;
+}
+
+/// @notice Create empty opening elements
+/// @return An OpeningElements struct with empty arrays
+function emptyOpeningElements() pure returns (OpeningElements memory) {
+    return OpeningElements({
+        lhsTerms: new BN254.G1Point[](0),
+        rhsTerms: new BN254.G1Point[](0),
+        lastChallenges: new BN254.ScalarField[](0)
+    });
 }

@@ -2,7 +2,15 @@
 pragma solidity ^0.8.0;
 
 import { Transcript } from "./Transcript.sol";
-import { PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
+import {
+    PlonkProof,
+    VerificationKey,
+    Challenges,
+    NUM_WIRE_TYPES,
+    NUM_SELECTORS,
+    OpeningElements,
+    emptyOpeningElements
+} from "./Types.sol";
 import { TranscriptLib } from "./Transcript.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
@@ -50,7 +58,8 @@ contract Verifier {
         VerificationKey[] memory vkArray = new VerificationKey[](1);
         vkArray[0] = vk;
 
-        return batchVerify(proofArray, publicInputsArray, vkArray);
+        OpeningElements memory extraOpeningElements = emptyOpeningElements();
+        return batchVerify(proofArray, publicInputsArray, vkArray, extraOpeningElements);
     }
 
     /// @notice Verify a batch of Plonk proofs using the arithmetization defined in `mpc-jellyfish`:
@@ -62,7 +71,8 @@ contract Verifier {
     function batchVerify(
         PlonkProof[] memory proofs,
         BN254.ScalarField[][] memory publicInputs,
-        VerificationKey[] memory vks
+        VerificationKey[] memory vks,
+        OpeningElements memory extraOpeningElements
     )
         public
         view
@@ -119,38 +129,49 @@ contract Verifier {
             lastChallenges[i] = challenges.u;
         }
 
-        return verifyBatchOpening(vks[0].h, vks[0].x_h, lhsTerms, rhsTerms, lastChallenges);
+        OpeningElements memory openingElements =
+            OpeningElements({ lhsTerms: lhsTerms, rhsTerms: rhsTerms, lastChallenges: lastChallenges });
+        return verifyBatchOpening(vks[0].h, vks[0].x_h, openingElements, extraOpeningElements);
     }
 
     /// Verify a batch opening of proofs
     function verifyBatchOpening(
         BN254.G2Point memory h,
         BN254.G2Point memory x_h,
-        BN254.G1Point[] memory lhsG1Terms,
-        BN254.G1Point[] memory rhsG1Terms,
-        BN254.ScalarField[] memory lastChallenges
+        OpeningElements memory proofOpeningElements,
+        OpeningElements memory extraOpeningElements
     )
         public
         view
         returns (bool)
     {
-        uint256 numProofs = lhsG1Terms.length;
+        uint256 numProofs = proofOpeningElements.lhsTerms.length + extraOpeningElements.lhsTerms.length;
 
         // Sample a random scalar to parameterize the random linear combination
         // If only one proof is supplied, no randomization is needed
         BN254.ScalarField r = BN254Helpers.ONE;
         if (numProofs > 1) {
             Transcript memory transcript = TranscriptLib.new_transcript();
-            transcript.appendScalars(lastChallenges);
+            transcript.appendScalars(proofOpeningElements.lastChallenges);
+            transcript.appendScalars(extraOpeningElements.lastChallenges);
             r = transcript.getChallenge();
         }
 
         BN254.ScalarField rCurr = r;
-        BN254.G1Point memory lhsTerm = lhsG1Terms[0];
-        BN254.G1Point memory rhsTerm = rhsG1Terms[0];
-        for (uint256 i = 1; i < numProofs; i++) {
-            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(lhsG1Terms[i], rCurr));
-            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(rhsG1Terms[i], rCurr));
+        BN254.G1Point memory lhsTerm = proofOpeningElements.lhsTerms[0];
+        BN254.G1Point memory rhsTerm = proofOpeningElements.rhsTerms[0];
+
+        // Add the proof opening elements
+        for (uint256 i = 1; i < proofOpeningElements.lhsTerms.length; i++) {
+            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(proofOpeningElements.lhsTerms[i], rCurr));
+            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(proofOpeningElements.rhsTerms[i], rCurr));
+            rCurr = BN254.mul(rCurr, r);
+        }
+
+        // Add the extra opening elements
+        for (uint256 i = 0; i < extraOpeningElements.lhsTerms.length; i++) {
+            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(extraOpeningElements.lhsTerms[i], rCurr));
+            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(extraOpeningElements.rhsTerms[i], rCurr));
             rCurr = BN254.mul(rCurr, r);
         }
 
