@@ -4,9 +4,9 @@
 [submodule "lib/foundry-huff"]
 	path = lib/foundry-huff
 	url = https://github.com/huff-language/foundry-huff
-[submodule "lib/solidity-bn254"]
-	path = lib/solidity-bn254
-	url = https://github.com/EspressoSystems/solidity-bn254
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/solidity-bn254"]
+	path = lib/solidity-bn254
+	url = https://github.com/joeykraut/solidity-bn254

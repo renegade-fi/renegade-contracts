@@ -6,7 +6,6 @@ import { PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS 
 import { TranscriptLib } from "./Transcript.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
-import { console2 } from "forge-std/console2.sol";
 import { Utils } from "solidity-bn254/Utils.sol";
 
 // -------------
@@ -437,14 +436,11 @@ contract Verifier {
 
         // The next two gates are the output gate and the constant gate (1)
         BN254.ScalarField negOutput = BN254.negate(proof.wire_evals[4]);
-        BN254.ScalarField one = BN254Helpers.ONE;
         res = BN254.add(res, BN254.scalarMul(vk.q_comms[10], negOutput));
-        res = BN254.add(res, BN254.scalarMul(vk.q_comms[11], one));
+        res = BN254.add(res, vk.q_comms[11]); // Omit scalar mul by 1
 
         // Last we have the elliptic curve gate, the product of all wires
-        BN254.ScalarField wireProd = BN254.mul(proof.wire_evals[0], proof.wire_evals[1]);
-        wireProd = BN254.mul(wireProd, proof.wire_evals[2]);
-        wireProd = BN254.mul(wireProd, proof.wire_evals[3]);
+        BN254.ScalarField wireProd = BN254.mul(mul1, mul2);
         wireProd = BN254.mul(wireProd, proof.wire_evals[4]);
         res = BN254.add(res, BN254.scalarMul(vk.q_comms[12], wireProd));
 
@@ -485,8 +481,9 @@ contract Verifier {
             coeff2 = BN254.mul(coeff2, term);
         }
 
+        coeff2 = BN254.negate(coeff2);
         BN254.G1Point memory permTerm2 = BN254.scalarMul(vk.sigma_comms[NUM_WIRE_TYPES - 1], coeff2);
-        return BN254.add(res, BN254.negate(permTerm2));
+        return BN254.add(res, permTerm2);
     }
 
     /// @notice Compute the quotient polynomial contribution to the linearized polynomial relation
