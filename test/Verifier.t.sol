@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { TestUtils } from "./utils/TestUtils.sol";
 import { VerifierTestUtils } from "./utils/VerifierTestUtils.sol";
-import { Verifier } from "../src/verifier/Verifier.sol";
+import { VerifierCore } from "../src/verifier/Verifier.sol";
 import {
     PlonkProof,
     NUM_WIRE_TYPES,
@@ -17,15 +17,12 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { console2 } from "forge-std/console2.sol";
 
 contract VerifierTest is VerifierTestUtils {
-    Verifier public verifier;
     TestUtils public testUtils;
 
     bytes constant INVALID_G1_POINT = "Bn254: invalid G1 point";
     bytes constant INVALID_SCALAR = "Bn254: invalid scalar field";
 
-    function setUp() public {
-        verifier = new Verifier();
-    }
+    function setUp() public { }
 
     // --- Invalid Test Cases --- //
 
@@ -74,56 +71,56 @@ contract VerifierTest is VerifierTestUtils {
         uint256 invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.wire_comms[invalidIdx] = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.wire_comms[invalidIdx] = validPoint; // Reset
 
         // Test Case 2: Invalid z commitment
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.z_comm = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.z_comm = validPoint; // Reset
 
         // Test Case 3: Invalid quotient commitment
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.quotient_comms[invalidIdx] = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.quotient_comms[invalidIdx] = validPoint; // Reset
 
         // Test Case 4: Invalid w_zeta
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.w_zeta = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.w_zeta = validPoint; // Reset
 
         // Test Case 5: Invalid w_zeta_omega
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.w_zeta_omega = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.w_zeta_omega = validPoint; // Reset
 
         // Test Case 6: Invalid wire evaluation
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.wire_evals[invalidIdx] = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.wire_evals[invalidIdx] = validScalar; // Reset
 
         // Test Case 7: Invalid sigma evaluation
         invalidIdx = randomUint(NUM_WIRE_TYPES - 1);
         proof.sigma_evals[invalidIdx] = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.sigma_evals[invalidIdx] = validScalar; // Reset
 
         // Test Case 8: Invalid z_bar
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.z_bar = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
         proof.z_bar = validScalar; // Reset
     }
 
@@ -177,7 +174,7 @@ contract VerifierTest is VerifierTestUtils {
         uint256 invalidIdx = randomUint(NUM_PUBLIC_INPUTS);
         publicInputs[invalidIdx] = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
-        verifier.verify(proof, publicInputs, vk);
+        VerifierCore.verify(proof, publicInputs, vk);
     }
 
     /// @notice Test that a valid proof passes steps 1-3 of Plonk verification
@@ -222,7 +219,7 @@ contract VerifierTest is VerifierTestUtils {
         publicInputs[0] = validScalar;
 
         // This should not revert since we're using valid inputs
-        bool res = verifier.verify(proof, publicInputs, vk);
+        bool res = VerifierCore.verify(proof, publicInputs, vk);
         require(!res, "Proof verification should have failed");
     }
 
@@ -251,7 +248,7 @@ contract VerifierTest is VerifierTestUtils {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.wire_comms[randomIdx] = dummyG1Point;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -259,7 +256,7 @@ contract VerifierTest is VerifierTestUtils {
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.z_comm = dummyG1Point;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -268,7 +265,7 @@ contract VerifierTest is VerifierTestUtils {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.quotient_comms[randomIdx] = dummyG1Point;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -276,7 +273,7 @@ contract VerifierTest is VerifierTestUtils {
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.w_zeta = dummyG1Point;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -284,7 +281,7 @@ contract VerifierTest is VerifierTestUtils {
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.w_zeta_omega = dummyG1Point;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -293,7 +290,7 @@ contract VerifierTest is VerifierTestUtils {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.wire_evals[randomIdx] = dummyScalar;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -302,7 +299,7 @@ contract VerifierTest is VerifierTestUtils {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES - 1);
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.sigma_evals[randomIdx] = dummyScalar;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
@@ -310,12 +307,12 @@ contract VerifierTest is VerifierTestUtils {
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
             proof.z_bar = dummyScalar;
-            res = verifier.verify(proof, publicInputs, vkey);
+            res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
         // Verify the original proof still works
-        res = verifier.verify(originalProof, publicInputs, vkey);
+        res = VerifierCore.verify(originalProof, publicInputs, vkey);
         require(res, "Original proof verification should have succeeded");
     }
 
@@ -372,7 +369,7 @@ contract VerifierTest is VerifierTestUtils {
 
         // Verify the batch - should fail
         OpeningElements memory extraOpeningElements = emptyOpeningElements();
-        bool res = verifier.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
+        bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
         require(!res, "Proof verification should have failed");
     }
 
@@ -406,7 +403,7 @@ contract VerifierTest is VerifierTestUtils {
         publicInputs[randomIdx] = BN254.ScalarField.wrap(randomFelt());
 
         // Verify the proof
-        bool res = verifier.verify(proof, publicInputs, vkey);
+        bool res = VerifierCore.verify(proof, publicInputs, vkey);
         require(!res, "Proof verification should have failed");
     }
 
@@ -426,7 +423,7 @@ contract VerifierTest is VerifierTestUtils {
         // Verify the proof
         BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
         publicInputs[0] = BN254.ScalarField.wrap(c);
-        bool res = verifier.verify(proof, publicInputs, vkey);
+        bool res = VerifierCore.verify(proof, publicInputs, vkey);
         require(res, "Proof verification should have succeeded");
     }
 
@@ -450,7 +447,7 @@ contract VerifierTest is VerifierTestUtils {
         // Verify the proof
         BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
         publicInputs[0] = sumPow;
-        bool res = verifier.verify(proof, publicInputs, vkey);
+        bool res = VerifierCore.verify(proof, publicInputs, vkey);
         require(res, "Proof verification should have succeeded");
     }
 
@@ -481,7 +478,7 @@ contract VerifierTest is VerifierTestUtils {
             publicInputs[i + 1] = BN254.ScalarField.wrap(statement[i]);
         }
 
-        bool res = verifier.verify(proof, publicInputs, vkey);
+        bool res = VerifierCore.verify(proof, publicInputs, vkey);
         require(res, "Proof verification should have succeeded");
     }
 
@@ -496,7 +493,7 @@ contract VerifierTest is VerifierTestUtils {
 
         // Verify the batch
         OpeningElements memory extraOpeningElements = emptyOpeningElements();
-        bool res = verifier.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
+        bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
         require(res, "Proof verification should have succeeded");
     }
 }

@@ -31,10 +31,9 @@ bytes4 constant SCALAR_FIELD_N_BITS = bytes4(uint32(254) << 24);
 /// @title A verifier for Plonk proofs
 /// @notice This implementation currently follows that outlined in the paper closely:
 /// https://eprint.iacr.org/2019/953.pdf
-contract Verifier {
+library VerifierCore {
     using TranscriptLib for Transcript;
 
-    /// @notice Verify a single plonk proof
     /// @notice Verify a single plonk proof
     /// @param proof The proof to verify
     /// @param publicInputs The public inputs to the proof
@@ -67,6 +66,7 @@ contract Verifier {
     /// @param proofs The proofs to verify
     /// @param publicInputs The public inputs to the proofs
     /// @param vks The verification keys for the circuit
+    /// @param extraOpeningElements The extra opening elements to use in the batch verification
     /// @return True if the proofs are valid, false otherwise
     function batchVerify(
         PlonkProof[] memory proofs,
@@ -134,7 +134,12 @@ contract Verifier {
         return verifyBatchOpening(vks[0].h, vks[0].x_h, openingElements, extraOpeningElements);
     }
 
-    /// Verify a batch opening of proofs
+    /// @notice Verify a batch opening of proofs
+    /// @param h The base G2 point
+    /// @param x_h The base G2 point
+    /// @param proofOpeningElements The opening elements for the proofs
+    /// @param extraOpeningElements The extra opening elements to use in the batch verification
+    /// @return True if the batch opening is valid, false otherwise
     function verifyBatchOpening(
         BN254.G2Point memory h,
         BN254.G2Point memory x_h,
