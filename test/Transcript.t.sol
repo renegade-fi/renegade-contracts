@@ -19,7 +19,7 @@ contract TranscriptTest is TestUtils {
         uint256 TEST_DATA_BYTES = 1024;
 
         // Create a new transcript
-        Transcript memory transcript = TranscriptLib.new_transcript();
+        Transcript memory transcript = TranscriptLib.newTranscript();
 
         // Generate random test data
         bytes memory testData = vm.randomBytes(TEST_DATA_BYTES);
@@ -47,7 +47,7 @@ contract TranscriptTest is TestUtils {
         uint256 NUM_TEST_INPUTS = 5;
 
         // Create a new transcript
-        Transcript memory transcript = TranscriptLib.new_transcript();
+        Transcript memory transcript = TranscriptLib.newTranscript();
 
         // Generate multiple random test inputs
         bytes[] memory testInputs = new bytes[](NUM_TEST_INPUTS);
@@ -93,7 +93,7 @@ contract TranscriptTest is TestUtils {
         uint256[] memory expectedChallenges = runReferenceImpl(inputs);
 
         // Create a new transcript
-        Transcript memory transcript = TranscriptLib.new_transcript();
+        Transcript memory transcript = TranscriptLib.newTranscript();
 
         // Append the scalars
         transcript.appendScalars(scalars);
@@ -125,7 +125,7 @@ contract TranscriptTest is TestUtils {
         uint256[] memory expectedChallenges = runReferenceImpl(inputs);
 
         // Create a new transcript
-        Transcript memory transcript = TranscriptLib.new_transcript();
+        Transcript memory transcript = TranscriptLib.newTranscript();
 
         // Append the points
         transcript.appendPoints(points);

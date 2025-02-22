@@ -29,6 +29,14 @@ struct PlonkProof {
     BN254.ScalarField z_bar;
 }
 
+/// @title A proof of a group of linked inputs between two Plonk proofs
+struct LinkingProof {
+    /// @dev The commitment to the linking quotient polynomial
+    BN254.G1Point linking_quotient_poly_comm;
+    /// @dev The opening proof of the linking polynomial
+    BN254.G1Point linking_poly_opening;
+}
+
 /// @title A Plonk verification key
 struct VerificationKey {
     /// The number of gates in the circuit
@@ -49,6 +57,16 @@ struct VerificationKey {
     BN254.G2Point x_h;
 }
 
+/// @title A verification key for the proof linking relation
+struct ProofLinkingVK {
+    /// @dev The generator of the subdomain over which the linked inputs are defined
+    BN254.ScalarField link_group_generator;
+    /// @dev The offset into the domain at which the subdomain begins
+    uint256 link_group_offset;
+    /// @dev The number of linked inputs, equivalently the size of the subdomain
+    uint256 link_group_size;
+}
+
 /// @title The public coin challenges used throughout the Plonk protocol
 /// @notice These challenges are obtained via a Fiat-Shamir transformation
 struct Challenges {
@@ -64,6 +82,18 @@ struct Challenges {
     BN254.ScalarField v;
     /// @dev The multipoint evaluation challenge, generated at the end of round 5 of the prover algorithm
     BN254.ScalarField u;
+}
+
+/// @title An instance of a proof linking argument
+struct ProofLinkingArgument {
+    /// @dev The commitment to the first proof's first wire polynomial
+    BN254.G1Point wire_comm0;
+    /// @dev The commitment to the second proof's first wire polynomial
+    BN254.G1Point wire_comm1;
+    /// @dev The linking proof itself
+    LinkingProof proof;
+    /// @dev The proof linking relation verification key
+    ProofLinkingVK vk;
 }
 
 /// @title A set of opening elements used in the final pairing product check

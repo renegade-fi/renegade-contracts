@@ -122,7 +122,7 @@ library VerifierCore {
                 BN254.scalarMul(proof.w_zeta, challenges.zeta),
                 BN254.scalarMul(proof.w_zeta_omega, BN254.mul(challenges.u, BN254.mul(challenges.zeta, omega)))
             );
-            rhsTerm = BN254.add(rhsTerm, BN254.add(batchCommitment, BN254.negate(batchEval)));
+            rhsTerm = BN254.add(rhsTerm, BN254.sub(batchCommitment, batchEval));
 
             lhsTerms[i] = lhsTerm;
             rhsTerms[i] = BN254.negate(rhsTerm);
@@ -156,7 +156,7 @@ library VerifierCore {
         // If only one proof is supplied, no randomization is needed
         BN254.ScalarField r = BN254Helpers.ONE;
         if (numProofs > 1) {
-            Transcript memory transcript = TranscriptLib.new_transcript();
+            Transcript memory transcript = TranscriptLib.newTranscript();
             transcript.appendScalars(proofOpeningElements.lastChallenges);
             transcript.appendScalars(extraOpeningElements.lastChallenges);
             r = transcript.getChallenge();
@@ -247,7 +247,7 @@ library VerifierCore {
 
         for (uint256 i = 0; i < proofs.length; i++) {
             // Create a new transcript
-            Transcript memory transcript = TranscriptLib.new_transcript();
+            Transcript memory transcript = TranscriptLib.newTranscript();
 
             // Append the verification key metadata and public inputs
             bytes memory nBitsBytes = abi.encodePacked(SCALAR_FIELD_N_BITS);
@@ -345,7 +345,7 @@ library VerifierCore {
         BN254.ScalarField currOmegaPow = BN254Helpers.ONE;
         for (uint256 i = 0; i < publicInputs.length; i++) {
             BN254.ScalarField lagrangeNum = BN254.mul(vanishingDivN, currOmegaPow);
-            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmegaPow));
+            BN254.ScalarField lagrangeDenom = BN254.sub(zeta, currOmegaPow);
             BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, BN254.invert(lagrangeDenom));
             currOmegaPow = BN254.mul(currOmegaPow, omega);
 
@@ -377,7 +377,7 @@ library VerifierCore {
 
         // Term 2: -L_1(\zeta) * \alpha^2
         BN254.ScalarField term2 = BN254.mul(lagrange1Eval, BN254.mul(alpha, alpha));
-        res = BN254.add(res, BN254.negate(term2));
+        res = BN254.sub(res, term2);
 
         // Add the terms from the permutation argument
         BN254.ScalarField term3 = BN254.mul(alpha, zEval);
@@ -394,7 +394,7 @@ library VerifierCore {
         // Add in the final term without the sigma eval
         BN254.ScalarField lastPermTerm = BN254.add(wireEvals[wireEvals.length - 1], gamma);
         term3 = BN254.mul(term3, lastPermTerm);
-        res = BN254.add(res, BN254.negate(term3));
+        res = BN254.sub(res, term3);
 
         return res;
     }
