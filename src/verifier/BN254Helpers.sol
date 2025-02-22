@@ -15,12 +15,10 @@ library BN254Helpers {
 
     /// @dev The 2-adicity of the BN254 scalar field's modulus
     uint256 constant SCALAR_FIELD_TWO_ADICITY = 28;
-    // forge-fmt: disable
     /// @dev The 2-adic root of unity for the BN254 scalar field
     BN254.ScalarField constant TWO_ADIC_ROOT = BN254.ScalarField.wrap(
         19_103_219_067_921_713_944_291_392_827_692_070_036_145_651_957_329_286_315_305_642_004_821_462_161_904
     );
-    // forge-fmt: enable
 
     /// @dev Compute the nth root of unity for the BN254 scalar field
     /// @param n The exponent, assumed to be a power of 2

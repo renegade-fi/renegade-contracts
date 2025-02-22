@@ -45,7 +45,7 @@ struct Transcript {
 /// @title The Fiat-Shamir transcript used by the verifier
 library TranscriptLib {
     /// @dev Creates a new transcript in memory
-    function new_transcript() internal pure returns (Transcript memory t) {
+    function newTranscript() internal pure returns (Transcript memory t) {
         t.hashStateLow = 0;
         t.hashStateHigh = 0;
         t.elements = new bytes(0);

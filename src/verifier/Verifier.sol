@@ -2,7 +2,15 @@
 pragma solidity ^0.8.0;
 
 import { Transcript } from "./Transcript.sol";
-import { PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
+import {
+    PlonkProof,
+    VerificationKey,
+    Challenges,
+    NUM_WIRE_TYPES,
+    NUM_SELECTORS,
+    OpeningElements,
+    emptyOpeningElements
+} from "./Types.sol";
 import { TranscriptLib } from "./Transcript.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
@@ -23,10 +31,9 @@ bytes4 constant SCALAR_FIELD_N_BITS = bytes4(uint32(254) << 24);
 /// @title A verifier for Plonk proofs
 /// @notice This implementation currently follows that outlined in the paper closely:
 /// https://eprint.iacr.org/2019/953.pdf
-contract Verifier {
+library VerifierCore {
     using TranscriptLib for Transcript;
 
-    /// @notice Verify a single plonk proof
     /// @notice Verify a single plonk proof
     /// @param proof The proof to verify
     /// @param publicInputs The public inputs to the proof
@@ -50,7 +57,8 @@ contract Verifier {
         VerificationKey[] memory vkArray = new VerificationKey[](1);
         vkArray[0] = vk;
 
-        return batchVerify(proofArray, publicInputsArray, vkArray);
+        OpeningElements memory extraOpeningElements = emptyOpeningElements();
+        return batchVerify(proofArray, publicInputsArray, vkArray, extraOpeningElements);
     }
 
     /// @notice Verify a batch of Plonk proofs using the arithmetization defined in `mpc-jellyfish`:
@@ -58,11 +66,13 @@ contract Verifier {
     /// @param proofs The proofs to verify
     /// @param publicInputs The public inputs to the proofs
     /// @param vks The verification keys for the circuit
+    /// @param extraOpeningElements The extra opening elements to use in the batch verification
     /// @return True if the proofs are valid, false otherwise
     function batchVerify(
         PlonkProof[] memory proofs,
         BN254.ScalarField[][] memory publicInputs,
-        VerificationKey[] memory vks
+        VerificationKey[] memory vks,
+        OpeningElements memory extraOpeningElements
     )
         public
         view
@@ -112,45 +122,61 @@ contract Verifier {
                 BN254.scalarMul(proof.w_zeta, challenges.zeta),
                 BN254.scalarMul(proof.w_zeta_omega, BN254.mul(challenges.u, BN254.mul(challenges.zeta, omega)))
             );
-            rhsTerm = BN254.add(rhsTerm, BN254.add(batchCommitment, BN254.negate(batchEval)));
+            rhsTerm = BN254.add(rhsTerm, BN254.sub(batchCommitment, batchEval));
 
             lhsTerms[i] = lhsTerm;
             rhsTerms[i] = BN254.negate(rhsTerm);
             lastChallenges[i] = challenges.u;
         }
 
-        return verifyBatchOpening(vks[0].h, vks[0].x_h, lhsTerms, rhsTerms, lastChallenges);
+        OpeningElements memory openingElements =
+            OpeningElements({ lhsTerms: lhsTerms, rhsTerms: rhsTerms, lastChallenges: lastChallenges });
+        return verifyBatchOpening(vks[0].h, vks[0].x_h, openingElements, extraOpeningElements);
     }
 
-    /// Verify a batch opening of proofs
+    /// @notice Verify a batch opening of proofs
+    /// @param h The base G2 point
+    /// @param x_h The base G2 point
+    /// @param proofOpeningElements The opening elements for the proofs
+    /// @param extraOpeningElements The extra opening elements to use in the batch verification
+    /// @return True if the batch opening is valid, false otherwise
     function verifyBatchOpening(
         BN254.G2Point memory h,
         BN254.G2Point memory x_h,
-        BN254.G1Point[] memory lhsG1Terms,
-        BN254.G1Point[] memory rhsG1Terms,
-        BN254.ScalarField[] memory lastChallenges
+        OpeningElements memory proofOpeningElements,
+        OpeningElements memory extraOpeningElements
     )
         public
         view
         returns (bool)
     {
-        uint256 numProofs = lhsG1Terms.length;
+        uint256 numProofs = proofOpeningElements.lhsTerms.length + extraOpeningElements.lhsTerms.length;
 
         // Sample a random scalar to parameterize the random linear combination
         // If only one proof is supplied, no randomization is needed
         BN254.ScalarField r = BN254Helpers.ONE;
         if (numProofs > 1) {
-            Transcript memory transcript = TranscriptLib.new_transcript();
-            transcript.appendScalars(lastChallenges);
+            Transcript memory transcript = TranscriptLib.newTranscript();
+            transcript.appendScalars(proofOpeningElements.lastChallenges);
+            transcript.appendScalars(extraOpeningElements.lastChallenges);
             r = transcript.getChallenge();
         }
 
         BN254.ScalarField rCurr = r;
-        BN254.G1Point memory lhsTerm = lhsG1Terms[0];
-        BN254.G1Point memory rhsTerm = rhsG1Terms[0];
-        for (uint256 i = 1; i < numProofs; i++) {
-            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(lhsG1Terms[i], rCurr));
-            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(rhsG1Terms[i], rCurr));
+        BN254.G1Point memory lhsTerm = proofOpeningElements.lhsTerms[0];
+        BN254.G1Point memory rhsTerm = proofOpeningElements.rhsTerms[0];
+
+        // Add the proof opening elements
+        for (uint256 i = 1; i < proofOpeningElements.lhsTerms.length; i++) {
+            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(proofOpeningElements.lhsTerms[i], rCurr));
+            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(proofOpeningElements.rhsTerms[i], rCurr));
+            rCurr = BN254.mul(rCurr, r);
+        }
+
+        // Add the extra opening elements
+        for (uint256 i = 0; i < extraOpeningElements.lhsTerms.length; i++) {
+            lhsTerm = BN254.add(lhsTerm, BN254.scalarMul(extraOpeningElements.lhsTerms[i], rCurr));
+            rhsTerm = BN254.add(rhsTerm, BN254.scalarMul(extraOpeningElements.rhsTerms[i], rCurr));
             rCurr = BN254.mul(rCurr, r);
         }
 
@@ -221,7 +247,7 @@ contract Verifier {
 
         for (uint256 i = 0; i < proofs.length; i++) {
             // Create a new transcript
-            Transcript memory transcript = TranscriptLib.new_transcript();
+            Transcript memory transcript = TranscriptLib.newTranscript();
 
             // Append the verification key metadata and public inputs
             bytes memory nBitsBytes = abi.encodePacked(SCALAR_FIELD_N_BITS);
@@ -319,7 +345,7 @@ contract Verifier {
         BN254.ScalarField currOmegaPow = BN254Helpers.ONE;
         for (uint256 i = 0; i < publicInputs.length; i++) {
             BN254.ScalarField lagrangeNum = BN254.mul(vanishingDivN, currOmegaPow);
-            BN254.ScalarField lagrangeDenom = BN254.add(zeta, BN254.negate(currOmegaPow));
+            BN254.ScalarField lagrangeDenom = BN254.sub(zeta, currOmegaPow);
             BN254.ScalarField lagrangeEval = BN254.mul(lagrangeNum, BN254.invert(lagrangeDenom));
             currOmegaPow = BN254.mul(currOmegaPow, omega);
 
@@ -351,7 +377,7 @@ contract Verifier {
 
         // Term 2: -L_1(\zeta) * \alpha^2
         BN254.ScalarField term2 = BN254.mul(lagrange1Eval, BN254.mul(alpha, alpha));
-        res = BN254.add(res, BN254.negate(term2));
+        res = BN254.sub(res, term2);
 
         // Add the terms from the permutation argument
         BN254.ScalarField term3 = BN254.mul(alpha, zEval);
@@ -368,7 +394,7 @@ contract Verifier {
         // Add in the final term without the sigma eval
         BN254.ScalarField lastPermTerm = BN254.add(wireEvals[wireEvals.length - 1], gamma);
         term3 = BN254.mul(term3, lastPermTerm);
-        res = BN254.add(res, BN254.negate(term3));
+        res = BN254.sub(res, term3);
 
         return res;
     }
