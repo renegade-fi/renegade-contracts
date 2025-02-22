@@ -8,6 +8,7 @@ use alloy_sol_types::SolValue;
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use permutation::PermutationStatement;
+use proof_link::{ProductCircuitWitness, SumCircuitWitness};
 use renegade_constants::Scalar;
 use types::*;
 
@@ -42,6 +43,11 @@ enum Commands {
     Permutation {
         #[command(subcommand)]
         action: PermutationAction,
+    },
+    /// Commands for the linked sum and product circuits
+    ProofLink {
+        #[command(subcommand)]
+        action: ProofLinkAction,
     },
 }
 
@@ -89,6 +95,28 @@ enum PermutationAction {
         /// The permuted values (as hex strings)
         #[arg(long, required = true, num_args = permutation::N)]
         permuted_values: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProofLinkAction {
+    /// Generate verification key for the sum circuit
+    GenSumVk,
+    /// Generate verification key for the product circuit
+    GenProdVk,
+    /// Generate verification key for the linking relation
+    GenLinkVk,
+    /// Generate proofs for both circuits with a linking argument
+    Prove {
+        /// The shared witness values (as hex strings)
+        #[arg(long, required = true, num_args = proof_link::LINKING_WITNESS_SIZE)]
+        shared: Vec<String>,
+        /// Private witness for sum circuit (as hex string)
+        #[arg(long)]
+        sum_private: String,
+        /// Private witness for product circuit (as hex string)
+        #[arg(long)]
+        prod_private: String,
     },
 }
 
@@ -166,6 +194,52 @@ fn main() {
 
                 let proof = permutation::generate_proof(statement, witness);
                 let encoded = proof.abi_encode();
+                println!("RES:{}", hex::encode(encoded));
+            }
+        },
+        Commands::ProofLink { action } => match action {
+            ProofLinkAction::GenSumVk => {
+                let vk = proof_link::generate_sum_circuit_verification_key();
+                let encoded = vk.abi_encode();
+                println!("RES:{}", hex::encode(encoded));
+            }
+            ProofLinkAction::GenProdVk => {
+                let vk = proof_link::generate_product_circuit_verification_key();
+                let encoded = vk.abi_encode();
+                println!("RES:{}", hex::encode(encoded));
+            }
+            ProofLinkAction::GenLinkVk => {
+                let vk = proof_link::generate_sum_product_linking_verification_key();
+                let encoded = vk.abi_encode();
+                println!("RES:{}", hex::encode(encoded));
+            }
+            ProofLinkAction::Prove {
+                shared,
+                sum_private,
+                prod_private,
+            } => {
+                let shared_vals: Vec<Scalar> = shared
+                    .iter()
+                    .map(|s| Scalar::from_decimal_string(s).unwrap())
+                    .collect();
+                let sum_private = Scalar::from_decimal_string(&sum_private).unwrap();
+                let prod_private = Scalar::from_decimal_string(&prod_private).unwrap();
+
+                let shared_array = shared_vals.try_into().unwrap();
+
+                let sum_witness = SumCircuitWitness {
+                    shared_witness: shared_array,
+                    private_witness: sum_private,
+                };
+                let prod_witness = ProductCircuitWitness {
+                    shared_witness: shared_array,
+                    private_witness: prod_private,
+                };
+
+                let (sum_proof, prod_proof, link_proof) =
+                    proof_link::generate_proofs(sum_witness, prod_witness);
+
+                let encoded = (sum_proof, prod_proof, link_proof).abi_encode();
                 println!("RES:{}", hex::encode(encoded));
             }
         },
