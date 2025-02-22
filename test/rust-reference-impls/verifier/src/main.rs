@@ -1,5 +1,6 @@
 mod mul_two;
 mod permutation;
+mod proof_link;
 mod sum_pow;
 mod types;
 
