@@ -408,6 +408,51 @@ contract VerifierTest is VerifierTestUtils {
         require(!res, "Proof verification should have failed");
     }
 
+    /// @notice Test the verifier against an invalid proof-linking relation
+    function testInvalidProofLinking() public {
+        // First generate the verification keys for the circuits
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+
+        // Generate the inputs
+        uint256[5] memory sharedInputs;
+        uint256 sumPrivateInput = randomFelt();
+        uint256 productPrivateInput = randomFelt();
+        for (uint256 i = 0; i < 5; i++) {
+            sharedInputs[i] = randomFelt();
+        }
+
+        // Generate the proofs and proof linking argument
+        (
+            PlonkProof[] memory proofs,
+            BN254.ScalarField[][] memory publicInputs,
+            VerificationKey[] memory vks,
+            ProofLinkingArgument memory linkArg
+        ) = getSumProductProofsAndLinkingArgument(sharedInputs, sumPrivateInput, productPrivateInput);
+
+        uint256 modType = randomUint(4);
+        BN254.G1Point memory dummyG1Point = randomG1Point();
+        if (modType == 0) {
+            // Modify the first wire commitment
+            linkArg.wire_comm0 = dummyG1Point;
+        } else if (modType == 1) {
+            // Modify the second wire commitment
+            linkArg.wire_comm1 = dummyG1Point;
+        } else if (modType == 2) {
+            // Modify the proof linking relation
+            linkArg.proof.linking_quotient_poly_comm = dummyG1Point;
+        } else {
+            // Modify the proof linking relation verification key
+            linkArg.proof.linking_poly_opening = dummyG1Point;
+        }
+
+        // Assert that verification fails
+        ProofLinkingArgument[] memory linkArgs = new ProofLinkingArgument[](1);
+        linkArgs[0] = linkArg;
+        OpeningElements memory linkOpeningElements = ProofLinkingCore.createOpeningElements(linkArgs);
+        bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpeningElements);
+        require(!res, "Proof verification should have failed");
+    }
+
     // --- Valid Test Cases --- //
 
     /// @notice Test the verifier against a reference implementation on the mul-two circuit
