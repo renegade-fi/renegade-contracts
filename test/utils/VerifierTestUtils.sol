@@ -3,7 +3,15 @@ pragma solidity ^0.8.0;
 
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./TestUtils.sol";
-import { VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES, PlonkProof } from "../../src/verifier/Types.sol";
+import {
+    VerificationKey,
+    NUM_SELECTORS,
+    NUM_WIRE_TYPES,
+    PlonkProof,
+    ProofLinkingVK,
+    ProofLinkingArgument,
+    LinkingProof
+} from "../../src/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "../../src/verifier/BN254Helpers.sol";
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -47,6 +55,8 @@ contract VerifierTestUtils is TestUtils {
     // -----------------------------
     // | Reference Implementations |
     // -----------------------------
+
+    /// --- Basic Circuits --- ///
 
     /// @dev Run the reference implementation to generate a vkey for the mulTwo circuit
     function getMulTwoVkey() internal returns (VerificationKey memory) {
@@ -225,5 +235,122 @@ contract VerifierTestUtils is TestUtils {
         }
 
         return (proofs, publicInputs, vks);
+    }
+
+    /// --- Proof Linking Circuits --- ///
+
+    /// @dev Run the reference implementation to generate a vkey for the sum proof linking circuit
+    function getSumLinkedVkey() internal returns (VerificationKey memory) {
+        string[] memory args = new string[](3);
+        args[0] = "./test/rust-reference-impls/target/debug/verifier";
+        args[1] = "proof-link";
+        args[2] = "gen-sum-vk";
+
+        string memory response = runBinaryGetResponse(args);
+        return abi.decode(vm.parseBytes(response), (VerificationKey));
+    }
+
+    /// @dev Run the reference implementation to generate a vkey for the product proof linking circuit
+    function getProductLinkedVkey() internal returns (VerificationKey memory) {
+        string[] memory args = new string[](3);
+        args[0] = "./test/rust-reference-impls/target/debug/verifier";
+        args[1] = "proof-link";
+        args[2] = "gen-prod-vk";
+
+        string memory response = runBinaryGetResponse(args);
+        return abi.decode(vm.parseBytes(response), (VerificationKey));
+    }
+
+    /// @dev Run the reference implementation to generate the proof linking vkey for the two linked circuits
+    function getSumProductProofLinkingVk() internal returns (ProofLinkingVK memory) {
+        string[] memory args = new string[](3);
+        args[0] = "./test/rust-reference-impls/target/debug/verifier";
+        args[1] = "proof-link";
+        args[2] = "gen-link-vk";
+
+        string memory response = runBinaryGetResponse(args);
+        return abi.decode(vm.parseBytes(response), (ProofLinkingVK));
+    }
+
+    /// @dev Run the reference implementation to generate proofs of both the sum and product circuits as
+    /// well as the proof linking argument
+    function getSumProductProofsAndLinkingArgument(
+        uint256[5] memory sharedInputs,
+        uint256 sumPrivateInput,
+        uint256 productPrivateInput
+    )
+        internal
+        returns (
+            PlonkProof[] memory proofs,
+            BN254.ScalarField[][] memory publicInputs,
+            VerificationKey[] memory vks,
+            ProofLinkingArgument memory linkingArgument
+        )
+    {
+        // Compute the expected sum and product, these are used as public inputs
+        uint256 sum = 0;
+        uint256 product = 1;
+        for (uint256 i = 0; i < 5; i++) {
+            sum += sharedInputs[i];
+            product *= sharedInputs[i];
+        }
+        sum += sumPrivateInput;
+        product *= productPrivateInput;
+
+        // Get the verification keys for the sum and product circuits
+        VerificationKey memory sumVkey = getSumLinkedVkey();
+        VerificationKey memory productVkey = getProductLinkedVkey();
+
+        // Get the proof linking vkey
+        ProofLinkingVK memory linkVkey = getSumProductProofLinkingVk();
+
+        string[] memory args = new string[](13);
+        args[0] = "./test/rust-reference-impls/target/debug/verifier";
+        args[1] = "proof-link";
+        args[2] = "prove";
+
+        // Encode shared inputs
+        args[3] = "--shared";
+        for (uint256 i = 0; i < sharedInputs.length; i++) {
+            args[4 + i] = Strings.toString(sharedInputs[i]);
+        }
+
+        // Encode sum private input
+        args[9] = "--sum-private";
+        args[10] = Strings.toString(sumPrivateInput);
+
+        // Encode product private input
+        args[11] = "--product-private";
+        args[12] = Strings.toString(productPrivateInput);
+
+        // Run the binary and decode the output into the return data
+        string memory response = runBinaryGetResponse(args);
+        (PlonkProof memory sumProof, PlonkProof memory productProof, LinkingProof memory linkProof) =
+            abi.decode(vm.parseBytes(response), (PlonkProof, PlonkProof, LinkingProof));
+
+        // Create a linking argument from the linking proof
+        ProofLinkingArgument memory linkArg = ProofLinkingArgument({
+            wire_comm0: sumProof.wire_comms[0],
+            wire_comm1: productProof.wire_comms[0],
+            proof: linkProof,
+            vk: linkVkey
+        });
+
+        // Build the return data
+        proofs = new PlonkProof[](2);
+        proofs[0] = sumProof;
+        proofs[1] = productProof;
+
+        publicInputs = new BN254.ScalarField[][](2);
+        publicInputs[0] = new BN254.ScalarField[](1);
+        publicInputs[0][0] = BN254.ScalarField.wrap(sum);
+        publicInputs[1] = new BN254.ScalarField[](1);
+        publicInputs[1][0] = BN254.ScalarField.wrap(product);
+
+        vks = new VerificationKey[](2);
+        vks[0] = sumVkey;
+        vks[1] = productVkey;
+
+        return (proofs, publicInputs, vks, linkArg);
     }
 }

@@ -9,7 +9,7 @@ import { ProofLinkingArgument, OpeningElements, LinkingProof, ProofLinkingVK } f
 import { BN254Helpers } from "./BN254Helpers.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
-library ProofLinking {
+library ProofLinkingCore {
     using TranscriptLib for Transcript;
 
     /// @notice Create a set of opening elements for the proof linking relation
