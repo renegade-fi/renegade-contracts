@@ -10,9 +10,10 @@ import {
     NUM_SELECTORS,
     VerificationKey,
     OpeningElements,
-    emptyOpeningElements
+    emptyOpeningElements,
+    ProofLinkingArgument
 } from "../src/verifier/Types.sol";
-
+import { ProofLinkingCore } from "../src/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { console2 } from "forge-std/console2.sol";
 
@@ -494,6 +495,39 @@ contract VerifierTest is VerifierTestUtils {
         // Verify the batch
         OpeningElements memory extraOpeningElements = emptyOpeningElements();
         bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
+        require(res, "Proof verification should have succeeded");
+    }
+
+    /// --- Proof Linking Test Cases --- ///
+
+    /// @notice Test the verifier on a proof-linking relation in addition to the sum and product circuits
+    function testSumProductProofLinking() public {
+        // First generate the verification keys for the circuits
+        compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
+
+        // Generate the inputs
+        uint256[5] memory sharedInputs;
+        uint256 sumPrivateInput = randomFelt();
+        uint256 productPrivateInput = randomFelt();
+        for (uint256 i = 0; i < 5; i++) {
+            sharedInputs[i] = randomFelt();
+        }
+
+        // Generate the proofs and proof linking argument
+        (
+            PlonkProof[] memory proofs,
+            BN254.ScalarField[][] memory publicInputs,
+            VerificationKey[] memory vks,
+            ProofLinkingArgument memory linkArg
+        ) = getSumProductProofsAndLinkingArgument(sharedInputs, sumPrivateInput, productPrivateInput);
+
+        // Create extra opening elements for the proof linking relation
+        ProofLinkingArgument[] memory linkArgs = new ProofLinkingArgument[](1);
+        linkArgs[0] = linkArg;
+        OpeningElements memory linkingOpeningElements = ProofLinkingCore.createOpeningElements(linkArgs);
+
+        // Verify the proofs with the extra opening elements
+        bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, linkingOpeningElements);
         require(res, "Proof verification should have succeeded");
     }
 }

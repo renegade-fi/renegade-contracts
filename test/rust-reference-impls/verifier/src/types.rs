@@ -4,7 +4,9 @@ use alloy::{primitives::U256, sol_types::sol};
 use ark_bn254::{Fq as BnField, Fr as BnScalar, G1Affine as BnG1, G2Affine as BnG2};
 use ark_ec::AffineRepr;
 use itertools::Itertools;
+use mpc_relation::proof_linking::GroupLayout;
 use num_bigint::BigUint;
+use renegade_circuit_types::PlonkLinkProof;
 use renegade_constants::{Scalar, SystemCurve};
 
 // -------------
@@ -74,6 +76,24 @@ sol! {
         G2Point h;
         /// The secret evaluation point multiplied by the generator of G2
         G2Point x_h;
+    }
+
+    /// @title A proof of a group of linked inputs between two Plonk proofs
+    struct LinkingProof {
+        /// @dev The commitment to the linking quotient polynomial
+        G1Point linking_quotient_poly_comm;
+        /// @dev The opening proof of the linking polynomial
+        G1Point linking_poly_opening;
+    }
+
+    /// @title A verification key for the proof linking relation
+    struct ProofLinkingVK {
+        /// @dev The generator of the subdomain over which the linked inputs are defined
+        ScalarField link_group_generator;
+        /// @dev The offset into the domain at which the subdomain begins
+        uint256 link_group_offset;
+        /// @dev The number of linked inputs, equivalently the size of the subdomain
+        uint256 link_group_size;
     }
 }
 
@@ -161,6 +181,26 @@ impl From<SystemProof> for PlonkProof {
                 .try_into()
                 .unwrap(),
             z_bar: u256_from_scalar(proof.poly_evals.perm_next_eval),
+        }
+    }
+}
+
+impl From<GroupLayout> for ProofLinkingVK {
+    fn from(layout: GroupLayout) -> Self {
+        let generator = layout.get_domain_generator();
+        ProofLinkingVK {
+            link_group_generator: u256_from_scalar(generator),
+            link_group_offset: U256::from(layout.offset),
+            link_group_size: U256::from(layout.size),
+        }
+    }
+}
+
+impl From<PlonkLinkProof> for LinkingProof {
+    fn from(proof: PlonkLinkProof) -> Self {
+        LinkingProof {
+            linking_quotient_poly_comm: convert_g1_point(proof.quotient_commitment.0),
+            linking_poly_opening: convert_g1_point(proof.opening_proof.proof),
         }
     }
 }

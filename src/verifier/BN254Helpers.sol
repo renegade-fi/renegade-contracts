@@ -8,6 +8,8 @@ import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 /// @title Helper functions for BN254 curve operations
 /// @notice This library contains utility functions for working with the BN254 curve
 library BN254Helpers {
+    /// @dev Zero in the scalar field
+    BN254.ScalarField constant ZERO = BN254.ScalarField.wrap(0);
     /// @dev One in the scalar field
     BN254.ScalarField constant ONE = BN254.ScalarField.wrap(1);
     /// @dev Negative one in the scalar field
