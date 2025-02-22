@@ -8,6 +8,7 @@ import { TranscriptLib, Transcript } from "./Transcript.sol";
 import { ProofLinkingArgument, OpeningElements, LinkingProof, ProofLinkingVK } from "./Types.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { console2 } from "forge-std/console2.sol";
 
 library ProofLinkingCore {
     using TranscriptLib for Transcript;
@@ -57,18 +58,18 @@ library ProofLinkingCore {
             // Instead of checking the traditional form of KZG opening, e.g (for opening proof pi):
             //  e(\pi, [x-challenge]_2) ?= e(comm - eval, [1]_2)
             // We manipulate the relation to fit into the existing PlonK opening check:
-            //  e(\pi, [x]_2) ?= e(comm - eval - \pi * challenge, [1]_2)
+            //  e(\pi, [x]_2) ?= e(comm - eval + \pi * challenge, [1]_2)
             // The eval should be zero at the challenge point, so this simplifies to:
-            //  e(\pi, [x]_2) ?= e(comm - \pi * challenge, [1]_2)
+            //  e(\pi, [x]_2) ?= e(comm + \pi * challenge, [1]_2)
             // Finally, the calling interface expects the right hand side to be negated, so we return:
-            //  \pi * challenge - comm
+            //  - (comm + \pi * challenge)
             // for the RHS point
             BN254.G1Point memory lhs = linkingProof.linking_poly_opening;
             BN254.G1Point memory rhs =
-                BN254.sub(BN254.scalarMul(linkingProof.linking_poly_opening, challenge), linkingPolyComm);
+                BN254.add(BN254.scalarMul(linkingProof.linking_poly_opening, challenge), linkingPolyComm);
 
             lhsPoints[i] = lhs;
-            rhsPoints[i] = rhs;
+            rhsPoints[i] = BN254.negate(rhs);
             challenges[i] = challenge;
         }
 

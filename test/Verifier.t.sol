@@ -507,12 +507,10 @@ contract VerifierTest is VerifierTestUtils {
 
         // Generate the inputs
         uint256[5] memory sharedInputs;
-        uint256 sumPrivateInput;
-        uint256 productPrivateInput;
+        uint256 sumPrivateInput = randomFelt();
+        uint256 productPrivateInput = randomFelt();
         for (uint256 i = 0; i < 5; i++) {
             sharedInputs[i] = randomFelt();
-            sumPrivateInput += sharedInputs[i];
-            productPrivateInput *= sharedInputs[i];
         }
 
         // Generate the proofs and proof linking argument

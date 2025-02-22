@@ -12,6 +12,7 @@ import {
     ProofLinkingArgument,
     LinkingProof
 } from "../../src/verifier/Types.sol";
+import { console2 } from "forge-std/console2.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "../../src/verifier/BN254Helpers.sol";
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -288,14 +289,14 @@ contract VerifierTestUtils is TestUtils {
         )
     {
         // Compute the expected sum and product, these are used as public inputs
-        uint256 sum = 0;
-        uint256 product = 1;
+        BN254.ScalarField sum = BN254Helpers.ZERO;
+        BN254.ScalarField product = BN254Helpers.ONE;
         for (uint256 i = 0; i < 5; i++) {
-            sum += sharedInputs[i];
-            product *= sharedInputs[i];
+            sum = BN254.add(sum, BN254.ScalarField.wrap(sharedInputs[i]));
+            product = BN254.mul(product, BN254.ScalarField.wrap(sharedInputs[i]));
         }
-        sum += sumPrivateInput;
-        product *= productPrivateInput;
+        sum = BN254.add(sum, BN254.ScalarField.wrap(sumPrivateInput));
+        product = BN254.mul(product, BN254.ScalarField.wrap(productPrivateInput));
 
         // Get the verification keys for the sum and product circuits
         VerificationKey memory sumVkey = getSumLinkedVkey();
@@ -320,7 +321,7 @@ contract VerifierTestUtils is TestUtils {
         args[10] = Strings.toString(sumPrivateInput);
 
         // Encode product private input
-        args[11] = "--product-private";
+        args[11] = "--prod-private";
         args[12] = Strings.toString(productPrivateInput);
 
         // Run the binary and decode the output into the return data
@@ -343,9 +344,9 @@ contract VerifierTestUtils is TestUtils {
 
         publicInputs = new BN254.ScalarField[][](2);
         publicInputs[0] = new BN254.ScalarField[](1);
-        publicInputs[0][0] = BN254.ScalarField.wrap(sum);
+        publicInputs[0][0] = sum;
         publicInputs[1] = new BN254.ScalarField[](1);
-        publicInputs[1][0] = BN254.ScalarField.wrap(product);
+        publicInputs[1][0] = product;
 
         vks = new VerificationKey[](2);
         vks[0] = sumVkey;
