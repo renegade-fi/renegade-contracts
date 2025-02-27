@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {HuffDeployer} from "foundry-huff/HuffDeployer.sol";
-import {TestUtils} from "./utils/TestUtils.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
+import { TestUtils } from "./utils/TestUtils.sol";
 
 contract PoseidonTest is TestUtils {
     /// @dev The Poseidon main contract

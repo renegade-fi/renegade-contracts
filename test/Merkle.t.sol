@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {HuffDeployer} from "foundry-huff/HuffDeployer.sol";
-import {TestUtils} from "./utils/TestUtils.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
+import { TestUtils } from "./utils/TestUtils.sol";
 
 contract MerkleTest is TestUtils {
     /// @dev The Merkle depth
@@ -15,7 +15,7 @@ contract MerkleTest is TestUtils {
 
     /// @dev Deploy the MerklePoseidon contract
     function setUp() public {
-        merklePoseidon = MerklePoseidon(HuffDeployer.deploy("crypto/merkle/main"));
+        merklePoseidon = MerklePoseidon(HuffDeployer.deploy("libraries/merkle/main"));
     }
 
     /// @dev Test the hashMerkle function with sequential inserts
@@ -43,7 +43,11 @@ contract MerkleTest is TestUtils {
     }
 
     /// @dev Helper to run the reference implementation
-    function runReferenceImpl(uint256 idx, uint256 input, uint256[] memory sisterLeaves)
+    function runReferenceImpl(
+        uint256 idx,
+        uint256 input,
+        uint256[] memory sisterLeaves
+    )
         internal
         returns (uint256[] memory)
     {
@@ -69,7 +73,11 @@ contract MerkleTest is TestUtils {
 }
 
 interface MerklePoseidon {
-    function hashMerkle(uint256 idx, uint256 input, uint256[] calldata sisterLeaves)
+    function hashMerkle(
+        uint256 idx,
+        uint256 input,
+        uint256[] calldata sisterLeaves
+    )
         external
         returns (uint256[] memory);
 }
