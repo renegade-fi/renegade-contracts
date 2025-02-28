@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
-import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "../src/verifier/BN254Helpers.sol";
-import { Transcript, TranscriptLib } from "../src/verifier/Transcript.sol";
-import { TestUtils } from "./utils/TestUtils.sol";
-import { console2 } from "forge-std/console2.sol";
+import {Test} from "forge-std/Test.sol";
+import {BN254} from "solidity-bn254/BN254.sol";
+import {BN254Helpers} from "../src/libraries/verifier/BN254Helpers.sol";
+import {Transcript, TranscriptLib} from "../src/libraries/verifier/Transcript.sol";
+import {TestUtils} from "./utils/TestUtils.sol";
+import {console2} from "forge-std/console2.sol";
 
 /// @title Transcript Test Contract
 /// @notice Test contract for verifying the functionality of the Fiat-Shamir transcript

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import { TestUtils } from "./utils/TestUtils.sol";
-import { VerifierTestUtils } from "./utils/VerifierTestUtils.sol";
-import { VerifierCore } from "../src/verifier/Verifier.sol";
+import {TestUtils} from "./utils/TestUtils.sol";
+import {VerifierTestUtils} from "./utils/VerifierTestUtils.sol";
+import {VerifierCore} from "../src/libraries/verifier/Verifier.sol";
 import {
     PlonkProof,
     NUM_WIRE_TYPES,
@@ -12,10 +12,10 @@ import {
     OpeningElements,
     emptyOpeningElements,
     ProofLinkingArgument
-} from "../src/verifier/Types.sol";
-import { ProofLinkingCore } from "../src/verifier/ProofLinking.sol";
-import { BN254 } from "solidity-bn254/BN254.sol";
-import { console2 } from "forge-std/console2.sol";
+} from "../src/libraries/verifier/Types.sol";
+import {ProofLinkingCore} from "../src/libraries/verifier/ProofLinking.sol";
+import {BN254} from "solidity-bn254/BN254.sol";
+import {console2} from "forge-std/console2.sol";
 
 contract VerifierTest is VerifierTestUtils {
     TestUtils public testUtils;
@@ -23,7 +23,7 @@ contract VerifierTest is VerifierTestUtils {
     bytes constant INVALID_G1_POINT = "Bn254: invalid G1 point";
     bytes constant INVALID_SCALAR = "Bn254: invalid scalar field";
 
-    function setUp() public { }
+    function setUp() public {}
 
     // --- Invalid Test Cases --- //
 
@@ -31,7 +31,8 @@ contract VerifierTest is VerifierTestUtils {
     function testMalformedProof() public {
         // Create a valid scalar and EC point to use as a base
         BN254.G1Point memory validPoint = BN254.P1();
-        BN254.G1Point memory invalidPoint = BN254.G1Point({ x: BN254.BaseField.wrap(42), y: BN254.BaseField.wrap(0) });
+        BN254.G1Point memory invalidPoint =
+            BN254.G1Point({x: BN254.BaseField.wrap(42), y: BN254.BaseField.wrap(0)});
         BN254.ScalarField validScalar = BN254.ScalarField.wrap(1);
         BN254.ScalarField invalidScalar = BN254.ScalarField.wrap(BN254.R_MOD);
 
@@ -323,8 +324,11 @@ contract VerifierTest is VerifierTestUtils {
         compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
 
         // Generate batch test data
-        (PlonkProof[] memory proofs, BN254.ScalarField[][] memory publicInputs, VerificationKey[] memory vks) =
-            generateBatchProofData();
+        (
+            PlonkProof[] memory proofs,
+            BN254.ScalarField[][] memory publicInputs,
+            VerificationKey[] memory vks
+        ) = generateBatchProofData();
 
         // Randomly select a proof to modify
         uint256 proofToModify = randomUint(proofs.length);
@@ -427,7 +431,9 @@ contract VerifierTest is VerifierTestUtils {
             BN254.ScalarField[][] memory publicInputs,
             VerificationKey[] memory vks,
             ProofLinkingArgument memory linkArg
-        ) = getSumProductProofsAndLinkingArgument(sharedInputs, sumPrivateInput, productPrivateInput);
+        ) = getSumProductProofsAndLinkingArgument(
+            sharedInputs, sumPrivateInput, productPrivateInput
+        );
 
         uint256 modType = randomUint(4);
         BN254.G1Point memory dummyG1Point = randomG1Point();
@@ -448,7 +454,8 @@ contract VerifierTest is VerifierTestUtils {
         // Assert that verification fails
         ProofLinkingArgument[] memory linkArgs = new ProofLinkingArgument[](1);
         linkArgs[0] = linkArg;
-        OpeningElements memory linkOpeningElements = ProofLinkingCore.createOpeningElements(linkArgs);
+        OpeningElements memory linkOpeningElements =
+            ProofLinkingCore.createOpeningElements(linkArgs);
         bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpeningElements);
         require(!res, "Proof verification should have failed");
     }
@@ -534,8 +541,11 @@ contract VerifierTest is VerifierTestUtils {
         compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
 
         // Generate batch test data
-        (PlonkProof[] memory proofs, BN254.ScalarField[][] memory publicInputs, VerificationKey[] memory vks) =
-            generateBatchProofData();
+        (
+            PlonkProof[] memory proofs,
+            BN254.ScalarField[][] memory publicInputs,
+            VerificationKey[] memory vks
+        ) = generateBatchProofData();
 
         // Verify the batch
         OpeningElements memory extraOpeningElements = emptyOpeningElements();
@@ -564,12 +574,15 @@ contract VerifierTest is VerifierTestUtils {
             BN254.ScalarField[][] memory publicInputs,
             VerificationKey[] memory vks,
             ProofLinkingArgument memory linkArg
-        ) = getSumProductProofsAndLinkingArgument(sharedInputs, sumPrivateInput, productPrivateInput);
+        ) = getSumProductProofsAndLinkingArgument(
+            sharedInputs, sumPrivateInput, productPrivateInput
+        );
 
         // Create extra opening elements for the proof linking relation
         ProofLinkingArgument[] memory linkArgs = new ProofLinkingArgument[](1);
         linkArgs[0] = linkArg;
-        OpeningElements memory linkingOpeningElements = ProofLinkingCore.createOpeningElements(linkArgs);
+        OpeningElements memory linkingOpeningElements =
+            ProofLinkingCore.createOpeningElements(linkArgs);
 
         // Verify the proofs with the extra opening elements
         bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, linkingOpeningElements);

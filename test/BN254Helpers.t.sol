@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {Test} from "forge-std/Test.sol";
 import {TestUtils} from "./utils/TestUtils.sol";
 import {BN254} from "solidity-bn254/BN254.sol";
-import {BN254Helpers} from "../src/verifier/BN254Helpers.sol";
+import {BN254Helpers} from "../src/libraries/verifier/BN254Helpers.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract BN254HelpersTest is TestUtils {
@@ -21,7 +21,7 @@ contract BN254HelpersTest is TestUtils {
         testCases[0] = RootOfUnityTest({
             powerOfTwo: 1,
             expectedRoot: BN254.ScalarField.wrap(
-                21888242871839275222246405745257275088548364400416034343698204186575808495616
+                21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_616
             )
         });
 
@@ -29,7 +29,7 @@ contract BN254HelpersTest is TestUtils {
         testCases[1] = RootOfUnityTest({
             powerOfTwo: 2,
             expectedRoot: BN254.ScalarField.wrap(
-                21888242871839275217838484774961031246007050428528088939761107053157389710902
+                21_888_242_871_839_275_217_838_484_774_961_031_246_007_050_428_528_088_939_761_107_053_157_389_710_902
             )
         });
 
@@ -37,7 +37,7 @@ contract BN254HelpersTest is TestUtils {
         testCases[2] = RootOfUnityTest({
             powerOfTwo: 4,
             expectedRoot: BN254.ScalarField.wrap(
-                14940766826517323942636479241147756311199852622225275649687664389641784935947
+                14_940_766_826_517_323_942_636_479_241_147_756_311_199_852_622_225_275_649_687_664_389_641_784_935_947
             )
         });
 
@@ -45,7 +45,7 @@ contract BN254HelpersTest is TestUtils {
         testCases[3] = RootOfUnityTest({
             powerOfTwo: 8,
             expectedRoot: BN254.ScalarField.wrap(
-                3478517300119284901893091970156912948790432420133812234316178878452092729974
+                3_478_517_300_119_284_901_893_091_970_156_912_948_790_432_420_133_812_234_316_178_878_452_092_729_974
             )
         });
 
@@ -53,7 +53,7 @@ contract BN254HelpersTest is TestUtils {
         testCases[4] = RootOfUnityTest({
             powerOfTwo: 16,
             expectedRoot: BN254.ScalarField.wrap(
-                421743594562400382753388642386256516545992082196004333756405989743524594615
+                421_743_594_562_400_382_753_388_642_386_256_516_545_992_082_196_004_333_756_405_989_743_524_594_615
             )
         });
 
@@ -61,7 +61,7 @@ contract BN254HelpersTest is TestUtils {
         testCases[5] = RootOfUnityTest({
             powerOfTwo: 20,
             expectedRoot: BN254.ScalarField.wrap(
-                17220337697351015657950521176323262483320249231368149235373741788599650842711
+                17_220_337_697_351_015_657_950_521_176_323_262_483_320_249_231_368_149_235_373_741_788_599_650_842_711
             )
         });
 

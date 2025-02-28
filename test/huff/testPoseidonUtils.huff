@@ -2,8 +2,8 @@
 /// @author @joeykraut
 /// @notice Test the utils for the Poseidon2 permutation
 
-#include "../../src/crypto/poseidon2/poseidonUtils.huff"
-#include "../../src/crypto/poseidon2/poseidonPerm.huff"
+#include "../../src/libraries/poseidon2/poseidonUtils.huff"
+#include "../../src/libraries/poseidon2/poseidonPerm.huff"
 
 /// @dev Test the SBOX function applied to a single input
 #define function testSboxSingle(uint256) nonpayable returns(uint256) 

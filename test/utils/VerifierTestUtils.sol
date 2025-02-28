@@ -11,10 +11,10 @@ import {
     ProofLinkingVK,
     ProofLinkingArgument,
     LinkingProof
-} from "../../src/verifier/Types.sol";
+} from "../../src/libraries/verifier/Types.sol";
 import { console2 } from "forge-std/console2.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "../../src/verifier/BN254Helpers.sol";
+import { BN254Helpers } from "../../src/libraries/verifier/BN254Helpers.sol";
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract VerifierTestUtils is TestUtils {

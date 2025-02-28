@@ -2,7 +2,6 @@ mod mul_two;
 mod permutation;
 mod proof_link;
 mod sum_pow;
-mod types;
 
 use alloy_sol_types::SolValue;
 use clap::{Parser, Subcommand};
@@ -10,7 +9,6 @@ use itertools::Itertools;
 use permutation::PermutationStatement;
 use proof_link::{ProductCircuitWitness, SumCircuitWitness};
 use renegade_constants::Scalar;
-use types::*;
 
 // -------
 // | CLI |
