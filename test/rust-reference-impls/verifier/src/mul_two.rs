@@ -1,4 +1,4 @@
-use super::*;
+use common::abi_types::{PlonkProof, VerificationKey};
 use mpc_relation::traits::Circuit;
 use renegade_circuit_types::{traits::SingleProverCircuit, PlonkCircuit};
 use renegade_constants::Scalar;

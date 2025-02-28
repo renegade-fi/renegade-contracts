@@ -1,6 +1,6 @@
 //! Defines a circuit that checks if the witness is a permutation of the public input
 
-use super::*;
+use common::abi_types::{PlonkProof, VerificationKey};
 use mpc_plonk::errors::PlonkError;
 use mpc_relation::{traits::Circuit, Variable};
 use renegade_circuit_macros::circuit_type;

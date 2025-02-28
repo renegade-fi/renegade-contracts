@@ -4,7 +4,7 @@
 //! and one which constrains their sum. We create a linking group between `LINKING_WITNESS_SIZE`
 //! elements in each circuit's witness.
 
-use super::*;
+use common::abi_types::{LinkingProof, PlonkProof, ProofLinkingVK, VerificationKey};
 use mpc_plonk::{errors::PlonkError, proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
 use mpc_relation::{
     proof_linking::{GroupLayout, LinkableCircuit},
