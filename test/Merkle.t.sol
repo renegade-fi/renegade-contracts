@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
+import { console2 } from "forge-std/console2.sol";
 
 contract MerkleTest is TestUtils {
     /// @dev The Merkle depth
@@ -26,13 +27,24 @@ contract MerkleTest is TestUtils {
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
             sisterLeaves[i] = randomFelt();
         }
-        uint256[] memory results = merklePoseidon.hashMerkle(idx, input, sisterLeaves);
+        uint256[] memory results = merklePoseidon.merkleHash(idx, input, sisterLeaves);
         uint256[] memory expected = runReferenceImpl(idx, input, sisterLeaves);
         assertEq(results.length, MERKLE_DEPTH, "Expected 32 results");
 
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
             assertEq(results[i], expected[i], string(abi.encodePacked("Result mismatch at index ", vm.toString(i))));
         }
+    }
+
+    /// @dev Test the spongeHash function
+    function testSpongeHash() public {
+        uint256[] memory inputs = new uint256[](3);
+        inputs[0] = randomFelt();
+        inputs[1] = randomFelt();
+        inputs[2] = randomFelt();
+
+        uint256 result = merklePoseidon.spongeHash(inputs);
+        console2.log("Result: %s", result);
     }
 
     // --- Helpers --- //
@@ -73,11 +85,13 @@ contract MerkleTest is TestUtils {
 }
 
 interface MerklePoseidon {
-    function hashMerkle(
+    function merkleHash(
         uint256 idx,
         uint256 input,
         uint256[] calldata sisterLeaves
     )
         external
         returns (uint256[] memory);
+
+    function spongeHash(uint256[] calldata inputs) external returns (uint256);
 }

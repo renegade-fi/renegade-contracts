@@ -13,12 +13,22 @@
 /// @param idx The index of the input in the Merkle tree
 /// @param sisterLeaves An array of sister leaves to hash with
 /// @return The intermediate hashes of the input and sister leaves, with the root at the start
-#define function hashMerkle(uint256 idx, uint256 input, uint256[] sisterLeaves) nonpayable returns(uint256)
+#define function merkleHash(uint256 idx, uint256 input, uint256[] sisterLeaves) nonpayable returns(uint256)
+
+/// @notice Hash a series of inputs into a sponge and squeeze the first output
+/// @param inputs The inputs to hash
+/// @return The first output of the sponge
+#define function spongeHash(uint256[] inputs) nonpayable returns(uint256)
 
 // --- Constants --- //
 
 /// @notice The depth of the Merkle tree
 #define constant MERKLE_DEPTH = 0x20 // 32
+
+/// @dev The capacity of the sponge
+#define constant SPONGE_CAPACITY = 0x01
+/// @dev The rate of the sponge 
+#define constant SPONGE_RATE = 0x02 
 
 /// @dev The revert code for the `sisterLeaves` array length mismatch
 #define constant SISTER_LEAVES_LENGTH_MISMATCH = 0x01
@@ -31,7 +41,27 @@
 
 /// @notice Entrypoint for the Poseidon2 Merkle hash
 #define macro MAIN() = takes(0) returns(0) {
-    // Currently we only have one function, so we don't need to mux the selector
+    // Load the selector
+    0x00 calldataload 0xe0 shr          // [selector]
+    dup1 __FUNC_SIG(merkleHash) eq doMerkleHash jumpi
+    dup1 __FUNC_SIG(spongeHash) eq doSpongeHash jumpi
+    invalidSelector jump 
+
+    doMerkleHash:
+        MERKLE_HASH()
+    doSpongeHash:
+        SPONGE_HASH()
+    invalidSelector:
+    0x00 revert
+}
+
+// ----------
+// | Merkle |
+// ----------
+
+/// @dev Merkle hash the inputs
+/// @return The Merkle hash of the inputs
+#define macro MERKLE_HASH() = takes(0) returns(0) {
     // Push the data pointer of the return array onto the stack
     // The helpers below expect the data pointer to trail the inputs
     0x40                                // [*returnArr]
@@ -42,24 +72,24 @@
 
     // Load the data offset from the array start, then convert it to a data pointer 
     0x44 calldataload                   // [dataOffset, input, idx, *returnArr]
-    0x24 add                            // [*sisterLeaves, input, idx, *returnArr]
 
     // Load the length of the sister leaves array, then check its length
-    0x64 calldataload                   // [len(sisterLeaves), dataOffset, input, idx, *returnArr]
+    0x04 add dup1 calldataload          // [len(sisterLeaves), dataOffset, input, idx, *returnArr]
     [MERKLE_DEPTH] eq validLen jumpi    // [dataOffset, idx, input, *returnArr]
 
     [SISTER_LEAVES_LENGTH_MISMATCH] 0x00 mstore
     0x20 0x00 revert
 
     validLen:
+    0x20 add                            // [*sisterLeaves, input, idx, *returnArr]
     // Setup the return value
     // 1. Store the data offset at position 0x00
     // Offset is always 32 bytes in our case
-    0x20 0x00 mstore                    // [dataOffset, idx, input, *returnArr]
+    0x20 0x00 mstore                    // [*sisterLeaves, idx, input, *returnArr]
 
     // 2. Store the length of the return array at position 0x20
     // Length is always 32 in our case
-    0x20 0x20 mstore                    // [dataOffset, idx, input, *returnArr]
+    0x20 0x20 mstore                    // [*sisterLeaves, idx, input, *returnArr]
 
     // 3. Iteratively hash up the tree and store intermediate values in the array
     HASH_AND_STORE_MERKLE_LEVEL() // Level 1
@@ -152,7 +182,18 @@
         POSEIDON_TWO_TO_ONE()       // [hash]
 }
 
-// --- Helpers --- //
+// ----------
+// | Sponge |
+// ----------
+
+#define macro SPONGE_HASH() = takes(0) returns(0) {
+    0x04
+    RETURN_FIRST()
+}
+
+// -----------
+// | Helpers |
+// -----------
 
 /// @dev Push the lowest order bit of the input onto the stack
 #define macro LOWEST_BIT(input) = takes(1) returns(1) {
