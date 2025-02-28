@@ -1,0 +1,49 @@
+
+/// @dev Absorb elements from calldata into the sponge state
+#define macro POSEIDON_SPONGE_ABSORB() = takes(5) returns(3) {
+    // Takes    [len(inputs), *nextElem, state[0], state[1], state[2]]
+    // Returns  [state'[0], state'[1], state'[2]]
+
+    loopStart:
+    // If we have one or zero elements left, the loop is done
+    dup1 0x02 gt lastInput jumpi            // [len(inputs), *nextElem, state[0], state[1], state[2]]
+    0x02 swap1 sub                          // [len(inputs) - 2, *nextElem, state[0], state[1], state[2]]
+    swap1                                   // [*nextElem, len(inputs) - 2, state[0], state[1], state[2]]
+
+    // Otherwise, absorb the next two elements
+    dup1 calldataload swap1                 // [*nextElem, elem1, PRIME, len(inputs) - 2, state[0], state[1], state[2]]
+    0x20 add dup1 calldataload swap1        // [*nextElem, elem2, elem1, len(inputs) - 2, state[0], state[1], state[2]]
+    0x20 add swap3                          // [len(inputs) - 2, elem2, elem1, *nextElem, state[0], state[1], state[2]]
+    swap1 dup7 PUSH_PRIME() swap2 addmod    // [state'[2], len(inputs) - 2, elem1, *nextElem, state[0], state[1], state[2]]                              
+    swap2 dup6 PUSH_PRIME() swap2 addmod    // [state'[1], len(inputs) - 2, state'[2], *nextElem, state[0], state[1], state[2]]
+    swap1 swap5                             // [state[0], state'[1], state'[2], *nextElem, len(inputs) - 2, state[1], state[2]]
+    POSEIDON_PERM()                         // [state'[0], state'[1], state'[2], *nextElem, len(inputs) - 2, state[1], state[2]]
+
+    // Cleanup for next round
+    swap4 swap1                             // [state'[1], len(inputs) - 2, state'[2], *nextElem, state'[0], state[1], state[2]]   
+    swap5 pop swap1                         // [state'[2], len(inputs) - 2, *nextElem, state'[0], state'[1], state[2]]
+    swap5 pop                               // [len(inputs) - 2, *nextElem, state'[0], state'[1], state'[2]]
+    loopStart jump
+    
+    lastInput:                              // [len(inputs), *nextElem, state[0], state[1], state[2]]
+    0x00 eq allAbsorbed jumpi               // [*nextElem, state[0], state[1], state[2]]
+    dup1 calldataload                       // [elem1, *nextElem, state[0], state[1], state[2]]
+    dup4 PUSH_PRIME() swap2 addmod          // [state'[1], *nextElem, state[0], state[1], state[2]]
+    swap3 pop                               // [*nextElem, state[0], state'[1], state[2]]
+
+    allAbsorbed:                            // [*nextElem, state[0], state[1], state[2]]
+    pop                                     // [state[0], state[1], state[2]]
+}
+
+/// @dev Squeeze a scalar from a poseidon sponge
+#define macro POSEIDON_SPONGE_SQUEEZE() = takes(3) returns(4) {
+    // Takes    [state[0], state[1], state[2]]
+    // Returns  [squeezed, state[0], state[1], state[2]]
+
+    // 1. Apply the permutation when the squeeze state starts
+    POSEIDON_PERM()         // [state'[0], state'[1], state'[2]]
+
+    // We do not squeeze from the first `CAPACITY` state elements, in our
+    // case, `CAPACITY = 1`, so we return the second element after permutation
+    dup2                    // [state'[1], state'[0], state'[1], state'[2]]
+}

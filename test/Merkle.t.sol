@@ -38,10 +38,11 @@ contract MerkleTest is TestUtils {
 
     /// @dev Test the spongeHash function
     function testSpongeHash() public {
-        uint256[] memory inputs = new uint256[](3);
-        inputs[0] = randomFelt();
-        inputs[1] = randomFelt();
-        inputs[2] = randomFelt();
+        uint256[] memory inputs = new uint256[](4);
+        inputs[0] = 1;
+        inputs[1] = 2;
+        inputs[2] = 3;
+        inputs[3] = 4;
 
         uint256 result = merklePoseidon.spongeHash(inputs);
         console2.log("Result: %s", result);

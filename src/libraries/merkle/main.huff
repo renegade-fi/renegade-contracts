@@ -5,6 +5,7 @@
 
 #include "../poseidon2/poseidonUtils.huff"
 #include "../poseidon2/poseidonPerm.huff"
+#include "../poseidon2/poseidonSponge.huff"
 
 // --- Interface --- //
 
@@ -186,8 +187,20 @@
 // | Sponge |
 // ----------
 
+/// @dev Sponge hash the given inputs in calldata
+/// @param inputs A uint256 array of inputs to absorb
+/// @return The first squeezed scalar from the Poseidon sponge
 #define macro SPONGE_HASH() = takes(0) returns(0) {
-    0x04
+    // Load an initially zeroed sponge state
+    push0 push0 push0                           // [state[0], state[1], state[2]]
+
+    // Load the inputs from calldata
+    0x04 calldataload                           // [dataOffset, state[0], state[1], state[2]]
+    0x04 add dup1 calldataload                  // [len(inputs), *arr, state[0], state[1], state[2]]
+
+    swap1 0x20 add                              // [*nextElem, len(inputs), state[0], state[1], state[2]]
+    POSEIDON_SPONGE_ABSORB()                    // [state'[0], state'[1], state'[2]]
+    POSEIDON_SPONGE_SQUEEZE()                   // [state'[1], state'[0], state'[1], state'[2]]
     RETURN_FIRST()
 }
 
