@@ -9,7 +9,6 @@
     dup4 0x1 eq lastInput jumpi
     // Absorb the first two inputs 
     ABSORB_NEXT_TWO()                       // [state[0], state[1], state[2], len(inputs), *nextElem]
-    
     loopStart:
     // If we have one or zero elements left, the loop is done
     dup4 0x00 eq allAbsorbed jumpi          // [state[0], state[1], state[2], len(inputs), *nextElem]

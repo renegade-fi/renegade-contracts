@@ -6,17 +6,18 @@ import { console } from "forge-std/console.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { console2 } from "forge-std/console2.sol";
+import { IHasher } from "../src/libraries/merkle/IHasher.sol";
 
 contract MerkleTest is TestUtils {
     /// @dev The Merkle depth
     uint256 constant MERKLE_DEPTH = 32;
 
     /// @dev The MerklePoseidon contract
-    MerklePoseidon public merklePoseidon;
+    IHasher public hasher;
 
     /// @dev Deploy the MerklePoseidon contract
     function setUp() public {
-        merklePoseidon = MerklePoseidon(HuffDeployer.deploy("libraries/merkle/main"));
+        hasher = IHasher(HuffDeployer.deploy("libraries/merkle/main"));
     }
 
     /// @dev Test the hashMerkle function with sequential inserts
@@ -27,7 +28,7 @@ contract MerkleTest is TestUtils {
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
             sisterLeaves[i] = randomFelt();
         }
-        uint256[] memory results = merklePoseidon.merkleHash(idx, input, sisterLeaves);
+        uint256[] memory results = hasher.merkleHash(idx, input, sisterLeaves);
         uint256[] memory expected = runMerkleReferenceImpl(idx, input, sisterLeaves);
         assertEq(results.length, MERKLE_DEPTH, "Expected 32 results");
 
@@ -45,7 +46,7 @@ contract MerkleTest is TestUtils {
         }
 
         uint256 expected = runSpongeHashReferenceImpl(inputs);
-        uint256 result = merklePoseidon.spongeHash(inputs);
+        uint256 result = hasher.spongeHash(inputs);
         assertEq(result, expected, "Sponge hash result does not match reference implementation");
     }
 
@@ -104,18 +105,4 @@ contract MerkleTest is TestUtils {
         require(result.length == MERKLE_DEPTH, "Expected 32 values");
         return result;
     }
-}
-
-interface MerklePoseidon {
-    /// @dev Hash a merkle leaf into the tree, return the intermediate hashes including the root
-    function merkleHash(
-        uint256 idx,
-        uint256 input,
-        uint256[] calldata sisterLeaves
-    )
-        external
-        returns (uint256[] memory);
-
-    /// @dev Hash an array of inputs using the Poseidon sponge
-    function spongeHash(uint256[] calldata inputs) external returns (uint256);
 }

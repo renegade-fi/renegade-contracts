@@ -6,16 +6,32 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { VerifierCore } from "./libraries/verifier/Verifier.sol";
 import { VerificationKeys } from "./VerificationKeys.sol";
 import { console2 } from "forge-std/console2.sol";
+import { IHasher } from "./libraries/merkle/IHasher.sol";
+import { ValidWalletCreateStatement, StatementSerializer } from "./libraries/darkpool/PublicInputs.sol";
+
+// Use the StatementSerializer for all statements
+using StatementSerializer for ValidWalletCreateStatement;
 
 contract Darkpool {
+    /// @notice The hasher for the darkpool
+    IHasher public hasher;
+
+    /// @notice The constructor for the darkpool
+    /// @param hasher_ The hasher for the darkpool
+    constructor(IHasher hasher_) {
+        hasher = hasher_;
+    }
+
     /// @notice Create a wallet in the darkpool
-    /// @param publicInputs The public inputs to the proof
+    /// @param statement The statement to verify
     /// @param proof The proof of `VALID WALLET CREATE`
-    function createWallet(BN254.ScalarField[] memory publicInputs, PlonkProof memory proof) public {
+    function createWallet(ValidWalletCreateStatement memory statement, PlonkProof memory proof) public view {
         // Load the verification key from the constant
         VerificationKey memory vk = abi.decode(VerificationKeys.VALID_WALLET_CREATE_VKEY, (VerificationKey));
 
         // 1. Verify the proof
-        // VerifierCore.verify(proof, publicInputs, vk);
+        // Serialize the public inputs
+        BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
+        VerifierCore.verify(proof, publicInputs, vk);
     }
 }
