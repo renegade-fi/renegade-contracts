@@ -28,7 +28,7 @@ contract MerkleTest is TestUtils {
             sisterLeaves[i] = randomFelt();
         }
         uint256[] memory results = merklePoseidon.merkleHash(idx, input, sisterLeaves);
-        uint256[] memory expected = runReferenceImpl(idx, input, sisterLeaves);
+        uint256[] memory expected = runMerkleReferenceImpl(idx, input, sisterLeaves);
         assertEq(results.length, MERKLE_DEPTH, "Expected 32 results");
 
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
@@ -38,14 +38,15 @@ contract MerkleTest is TestUtils {
 
     /// @dev Test the spongeHash function
     function testSpongeHash() public {
-        uint256[] memory inputs = new uint256[](4);
-        inputs[0] = 1;
-        inputs[1] = 2;
-        inputs[2] = 3;
-        inputs[3] = 4;
+        uint256 n = randomUint(1, 10);
+        uint256[] memory inputs = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            inputs[i] = randomFelt();
+        }
 
+        uint256 expected = runSpongeHashReferenceImpl(inputs);
         uint256 result = merklePoseidon.spongeHash(inputs);
-        console2.log("Result: %s", result);
+        assertEq(result, expected, "Sponge hash result does not match reference implementation");
     }
 
     // --- Helpers --- //
@@ -55,8 +56,27 @@ contract MerkleTest is TestUtils {
         return vm.randomUint() % (2 ** MERKLE_DEPTH);
     }
 
+    /// @dev Helper to run the sponge hash reference implementation
+    function runSpongeHashReferenceImpl(uint256[] memory inputs) internal returns (uint256) {
+        // First compile the binary
+        compileRustBinary("test/rust-reference-impls/merkle/Cargo.toml");
+
+        // Prepare arguments for the binary
+        string[] memory args = new string[](inputs.length + 2);
+        args[0] = "./test/rust-reference-impls/target/debug/merkle";
+        args[1] = "sponge-hash";
+
+        // Pass inputs as space-separated arguments
+        for (uint256 i = 0; i < inputs.length; i++) {
+            args[i + 2] = vm.toString(inputs[i]);
+        }
+
+        // Run binary and parse space-separated array output
+        return vm.parseUint(runBinaryGetResponse(args));
+    }
+
     /// @dev Helper to run the reference implementation
-    function runReferenceImpl(
+    function runMerkleReferenceImpl(
         uint256 idx,
         uint256 input,
         uint256[] memory sisterLeaves
@@ -68,14 +88,15 @@ contract MerkleTest is TestUtils {
         compileRustBinary("test/rust-reference-impls/merkle/Cargo.toml");
 
         // Prepare arguments for the binary
-        string[] memory args = new string[](35); // program name + idx + input + 32 sister leaves
+        string[] memory args = new string[](36); // program name + idx + input + 32 sister leaves
         args[0] = "./test/rust-reference-impls/target/debug/merkle";
-        args[1] = vm.toString(idx);
-        args[2] = vm.toString(input);
+        args[1] = "merkle-hash";
+        args[2] = vm.toString(idx);
+        args[3] = vm.toString(input);
 
         // Pass sister leaves as individual arguments
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
-            args[i + 3] = vm.toString(sisterLeaves[i]);
+            args[i + 4] = vm.toString(sisterLeaves[i]);
         }
 
         // Run binary and parse space-separated array output
@@ -86,6 +107,7 @@ contract MerkleTest is TestUtils {
 }
 
 interface MerklePoseidon {
+    /// @dev Hash a merkle leaf into the tree, return the intermediate hashes including the root
     function merkleHash(
         uint256 idx,
         uint256 input,
@@ -94,5 +116,6 @@ interface MerklePoseidon {
         external
         returns (uint256[] memory);
 
+    /// @dev Hash an array of inputs using the Poseidon sponge
     function spongeHash(uint256[] calldata inputs) external returns (uint256);
 }

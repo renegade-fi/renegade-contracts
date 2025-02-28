@@ -191,14 +191,14 @@
 /// @param inputs A uint256 array of inputs to absorb
 /// @return The first squeezed scalar from the Poseidon sponge
 #define macro SPONGE_HASH() = takes(0) returns(0) {
-    // Load an initially zeroed sponge state
-    push0 push0 push0                           // [state[0], state[1], state[2]]
-
     // Load the inputs from calldata
-    0x04 calldataload                           // [dataOffset, state[0], state[1], state[2]]
-    0x04 add dup1 calldataload                  // [len(inputs), *arr, state[0], state[1], state[2]]
+    0x04 calldataload                           // [dataOffset]
+    0x04 add dup1 calldataload                  // [len(inputs), *arr]
+    dup2 0x20 add swap2 pop                     // [len(inputs), *nextElem]
 
-    swap1 0x20 add                              // [*nextElem, len(inputs), state[0], state[1], state[2]]
+    // Load the initially zero'd sponge state
+    push0 push0 push0                           // [state[0], state[1], state[2], len(inputs), *nextElem]
+
     POSEIDON_SPONGE_ABSORB()                    // [state'[0], state'[1], state'[2]]
     POSEIDON_SPONGE_SQUEEZE()                   // [state'[1], state'[0], state'[1], state'[2]]
     RETURN_FIRST()
@@ -240,6 +240,12 @@
 /// @dev Return the fourth value on the stack
 #define macro RETURN_FOURTH() = returns(0) {
     dup4 0x00 mstore
+    0x20 0x00 return
+}
+
+/// @dev Return the fifth value on the stack
+#define macro RETURN_FIFTH() = returns(0) {
+    dup5 0x00 mstore
     0x20 0x00 return
 }
 

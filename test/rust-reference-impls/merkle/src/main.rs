@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use renegade_constants::Scalar;
 use renegade_crypto::fields::scalar_to_biguint;
 use renegade_crypto::hash::compute_poseidon_hash;
@@ -8,7 +8,22 @@ const TREE_HEIGHT: usize = 32;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct Args {
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Hash through a Merkle tree
+    MerkleHash(MerkleHashArgs),
+
+    /// Hash inputs using a Poseidon sponge
+    SpongeHash(SpongeHashArgs),
+}
+
+#[derive(Parser)]
+struct MerkleHashArgs {
     /// Index in the Merkle tree
     idx: u64,
 
@@ -20,9 +35,23 @@ struct Args {
     sister_leaves: Vec<String>,
 }
 
-fn main() {
-    let args = Args::parse();
+#[derive(Parser)]
+struct SpongeHashArgs {
+    /// Input values to hash
+    #[arg(required = true)]
+    inputs: Vec<String>,
+}
 
+fn main() {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::MerkleHash(args) => handle_merkle_hash(args),
+        Commands::SpongeHash(args) => handle_sponge_hash(args),
+    }
+}
+
+fn handle_merkle_hash(args: MerkleHashArgs) {
     if args.sister_leaves.len() != TREE_HEIGHT {
         eprintln!(
             "Expected {} sister leaves, got {}",
@@ -50,6 +79,19 @@ fn main() {
         .collect();
 
     println!("RES:{}", result_strings.join(" "));
+}
+
+fn handle_sponge_hash(args: SpongeHashArgs) {
+    // Parse input values to Scalars
+    let inputs: Vec<Scalar> = args
+        .inputs
+        .iter()
+        .map(|s| Scalar::from_decimal_string(s).unwrap())
+        .collect();
+
+    let res = compute_poseidon_hash(&inputs);
+    let res_hex = format!("{:x}", res.to_biguint());
+    println!("RES:0x{res_hex}");
 }
 
 /// Hash the input through the Merkle tree using the given sister nodes
