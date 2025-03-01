@@ -127,8 +127,6 @@ contract VerifierTest is VerifierTestUtils {
 
     /// @notice Test that the verifier properly validates public inputs in step 3 of Plonk verification
     function testInvalidPublicInputs() public {
-        uint256 NUM_PUBLIC_INPUTS = 3;
-
         // Create a valid scalar and EC point to use as a base
         BN254.G1Point memory validPoint = BN254.P1();
         BN254.ScalarField validScalar = BN254.ScalarField.wrap(1);
@@ -164,6 +162,7 @@ contract VerifierTest is VerifierTestUtils {
 
         // Create a mock verification key
         VerificationKey memory vk = createMockVerificationKey();
+        uint256 NUM_PUBLIC_INPUTS = vk.l;
 
         // Test Case: Invalid public input
         BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](NUM_PUBLIC_INPUTS);
@@ -216,8 +215,10 @@ contract VerifierTest is VerifierTestUtils {
         VerificationKey memory vk = createMockVerificationKey();
 
         // Create a valid public input
-        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
-        publicInputs[0] = validScalar;
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](vk.l);
+        for (uint256 i = 0; i < vk.l; i++) {
+            publicInputs[i] = validScalar;
+        }
 
         // This should not revert since we're using valid inputs
         bool res = VerifierCore.verify(proof, publicInputs, vk);

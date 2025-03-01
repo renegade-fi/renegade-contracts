@@ -5,9 +5,6 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 // This file represents the public inputs (statements) for various proofs used by the darkpool
 
-/// @dev The number of public shares in a wallet
-uint256 constant N_WALLET_SHARES = 70;
-
 // -------------------
 // | Statement Types |
 // -------------------
