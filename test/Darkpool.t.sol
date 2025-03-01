@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
+import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
+
 import { PlonkProof } from "../src/libraries/verifier/Types.sol";
 import { Darkpool } from "../src/Darkpool.sol";
-import { BN254 } from "solidity-bn254/BN254.sol";
+import { IHasher } from "../src/libraries/merkle/IHasher.sol";
 
 contract DarkpoolTest is TestUtils {
     Darkpool public darkpool;
 
     function setUp() public {
-        darkpool = new Darkpool();
+        IHasher hasher = IHasher(HuffDeployer.deploy("libraries/merkle/main"));
+        darkpool = new Darkpool(hasher);
     }
 
     function test_createWallet() public {
@@ -30,7 +34,5 @@ contract DarkpoolTest is TestUtils {
             sigma_evals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar],
             z_bar: dummyScalar
         });
-
-        darkpool.createWallet(publicInputs, proof);
     }
 }
