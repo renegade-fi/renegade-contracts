@@ -79,7 +79,7 @@ library VerifierCore {
         returns (bool)
     {
         plonkStep1And2(proofs);
-        plonkStep3(publicInputs);
+        plonkStep3(publicInputs, vks);
         Challenges[] memory batchChallenges = plonkStep4(proofs, publicInputs, vks);
 
         // Get the base root of unity for the circuit's evaluation domain
@@ -222,9 +222,10 @@ library VerifierCore {
 
     /// @notice Step 3 of the plonk verification algorithm
     /// @notice Verify that the public inputs to the proof are all in the scalar field
-    function plonkStep3(BN254.ScalarField[][] memory publicInputs) internal pure {
+    function plonkStep3(BN254.ScalarField[][] memory publicInputs, VerificationKey[] memory vks) internal pure {
         // Check that the public inputs are all in the scalar field
         for (uint256 i = 0; i < publicInputs.length; i++) {
+            require(publicInputs[i].length == vks[i].l, "Invalid public input length");
             for (uint256 j = 0; j < publicInputs[i].length; j++) {
                 BN254.validateScalarField(publicInputs[i][j]);
             }
