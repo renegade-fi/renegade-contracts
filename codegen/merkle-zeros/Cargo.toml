@@ -9,4 +9,3 @@ renegade-constants = { package = "constants", git = "https://github.com/renegade
 clap = { version = "4.5.1", features = ["derive"] }
 anyhow = "1.0"
 tiny-keccak = { version = "2.0", features = ["keccak"] }
-hex = "0.4"
