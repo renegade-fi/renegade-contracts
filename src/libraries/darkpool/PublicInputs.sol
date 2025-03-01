@@ -5,6 +5,9 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 // This file represents the public inputs (statements) for various proofs used by the darkpool
 
+/// @dev The number of public shares in a wallet
+uint256 constant N_WALLET_SHARES = 70;
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -12,7 +15,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 /// @title ValidWalletCreateStatement the statement type for the `VALID WALLET CREATE` proof
 struct ValidWalletCreateStatement {
     /// @dev The commitment to the wallet's private shares
-    BN254.ScalarField walletCommitment;
+    BN254.ScalarField privateShareCommitment;
     /// @dev The public wallet shares of the wallet
     BN254.ScalarField[] publicShares;
 }
@@ -33,11 +36,11 @@ library StatementSerializer {
         pure
         returns (BN254.ScalarField[] memory)
     {
-        // Create array with size = 1 (for walletCommitment) + publicShares.length
+        // Create array with size = 1 (for privateShareCommitment) + publicShares.length
         BN254.ScalarField[] memory serialized = new BN254.ScalarField[](1 + self.publicShares.length);
 
         // Add the wallet commitment
-        serialized[0] = self.walletCommitment;
+        serialized[0] = self.privateShareCommitment;
 
         // Add all public shares
         for (uint256 i = 0; i < self.publicShares.length; i++) {
@@ -57,8 +60,8 @@ library StatementSerializer {
     {
         require(serialized.length >= 1, "Invalid serialized statement length");
 
-        // Extract the wallet commitment
-        statement.walletCommitment = serialized[0];
+        // Extract the private share commitment
+        statement.privateShareCommitment = serialized[0];
 
         // Extract the public shares
         statement.publicShares = new BN254.ScalarField[](serialized.length - 1);

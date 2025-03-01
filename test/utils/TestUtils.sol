@@ -3,10 +3,13 @@ pragma solidity ^0.8.0;
 
 import { Test } from "forge-std/Test.sol";
 import { BN254 } from "lib/solidity-bn254/src/BN254.sol";
+import { N_WALLET_SHARES } from "src/libraries/darkpool/PublicInputs.sol";
 
 contract TestUtils is Test {
     /// @dev The BN254 field modulus from roundUtils.huff
     uint256 constant PRIME = BN254.R_MOD;
+
+    // --- Fuzzing Helpers --- //
 
     /// @dev Generates a random input modulo the PRIME
     /// Note that this is not uniformly distributed over the prime field, because of the "wraparound"
@@ -38,6 +41,15 @@ contract TestUtils is Test {
 
         uint256 range = high - low;
         return low + (vm.randomUint() % range);
+    }
+
+    /// @dev Generate a random set of wallet shares
+    function randomWalletShares() internal returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory shares = new BN254.ScalarField[](N_WALLET_SHARES);
+        for (uint256 i = 0; i < N_WALLET_SHARES; i++) {
+            shares[i] = BN254.ScalarField.wrap(randomFelt());
+        }
+        return shares;
     }
 
     // --- FFI Helpers --- //

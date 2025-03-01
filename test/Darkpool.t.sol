@@ -9,13 +9,17 @@ import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { PlonkProof } from "../src/libraries/verifier/Types.sol";
 import { Darkpool } from "../src/Darkpool.sol";
 import { IHasher } from "../src/libraries/merkle/IHasher.sol";
+import { IVerifier } from "../src/libraries/verifier/IVerifier.sol";
+import { TestVerifier } from "./test-contracts/TestVerifier.sol";
+import { ValidWalletCreateStatement } from "../src/libraries/darkpool/PublicInputs.sol";
 
 contract DarkpoolTest is TestUtils {
     Darkpool public darkpool;
 
     function setUp() public {
         IHasher hasher = IHasher(HuffDeployer.deploy("libraries/merkle/main"));
-        darkpool = new Darkpool(hasher);
+        IVerifier verifier = new TestVerifier();
+        darkpool = new Darkpool(hasher, verifier);
     }
 
     function test_createWallet() public {
@@ -34,5 +38,12 @@ contract DarkpoolTest is TestUtils {
             sigma_evals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar],
             z_bar: dummyScalar
         });
+
+        BN254.ScalarField privateShareCommitment = BN254.ScalarField.wrap(randomFelt());
+        BN254.ScalarField[] memory publicShares = randomWalletShares();
+        ValidWalletCreateStatement memory statement =
+            ValidWalletCreateStatement({ privateShareCommitment: privateShareCommitment, publicShares: publicShares });
+
+        darkpool.createWallet(statement, proof);
     }
 }
