@@ -6,7 +6,7 @@ import { console } from "forge-std/console.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { console2 } from "forge-std/console2.sol";
-import { IHasher } from "../src/libraries/merkle/IHasher.sol";
+import { IHasher } from "../src/libraries/poseidon2/IHasher.sol";
 
 contract MerkleTest is TestUtils {
     /// @dev The Merkle depth
@@ -17,7 +17,7 @@ contract MerkleTest is TestUtils {
 
     /// @dev Deploy the MerklePoseidon contract
     function setUp() public {
-        hasher = IHasher(HuffDeployer.deploy("libraries/merkle/main"));
+        hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
     }
 
     /// @dev Test the hashMerkle function with sequential inserts

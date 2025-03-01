@@ -8,7 +8,7 @@ import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 
 import { PlonkProof } from "../src/libraries/verifier/Types.sol";
 import { Darkpool } from "../src/Darkpool.sol";
-import { IHasher } from "../src/libraries/merkle/IHasher.sol";
+import { IHasher } from "../src/libraries/poseidon2/IHasher.sol";
 import { IVerifier } from "../src/libraries/verifier/IVerifier.sol";
 import { TestVerifier } from "./test-contracts/TestVerifier.sol";
 import { ValidWalletCreateStatement } from "../src/libraries/darkpool/PublicInputs.sol";
@@ -17,7 +17,7 @@ contract DarkpoolTest is TestUtils {
     Darkpool public darkpool;
 
     function setUp() public {
-        IHasher hasher = IHasher(HuffDeployer.deploy("libraries/merkle/main"));
+        IHasher hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
         darkpool = new Darkpool(hasher, verifier);
     }

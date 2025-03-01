@@ -43,7 +43,7 @@ contract VerifierTestUtils is TestUtils {
 
         return VerificationKey({
             n: 8, // Small power of 2 for testing
-            l: 1, // Single public input
+            l: 3,
             k: k,
             q_comms: q_comms,
             sigma_comms: sigma_comms,
