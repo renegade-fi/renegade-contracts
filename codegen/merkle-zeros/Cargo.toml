@@ -1,13 +1,12 @@
 [package]
-name = "poseidon-codegen"
+name = "merkle-zeros-codegen"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git" }
 renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", default-features = false }
-
-anyhow = "1.0"
 clap = { version = "4.5.1", features = ["derive"] }
-itertools = "0.14"
-num-bigint = "0.4"
+anyhow = "1.0"
+tiny-keccak = { version = "2.0", features = ["keccak"] }
+hex = "0.4"
