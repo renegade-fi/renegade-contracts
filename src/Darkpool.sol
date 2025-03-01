@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "./libraries/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { VerifierCore } from "./libraries/verifier/Verifier.sol";
-import { VerificationKeys } from "./VerificationKeys.sol";
+import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
+import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { console2 } from "forge-std/console2.sol";
 import { IHasher } from "./libraries/merkle/IHasher.sol";
 import { ValidWalletCreateStatement, StatementSerializer } from "./libraries/darkpool/PublicInputs.sol";
