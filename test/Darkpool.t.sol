@@ -5,6 +5,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
+import { console2 } from "forge-std/console2.sol";
 
 import { PlonkProof } from "../src/libraries/verifier/Types.sol";
 import { Darkpool } from "../src/Darkpool.sol";
@@ -44,6 +45,9 @@ contract DarkpoolTest is TestUtils {
         ValidWalletCreateStatement memory statement =
             ValidWalletCreateStatement({ privateShareCommitment: privateShareCommitment, publicShares: publicShares });
 
+        uint256 gasStart = gasleft();
         darkpool.createWallet(statement, proof);
+        uint256 gasEnd = gasleft();
+        console2.log("Gas used:", gasStart - gasEnd);
     }
 }

@@ -8,12 +8,11 @@ import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IHasher } from "./libraries/poseidon2/IHasher.sol";
 import { IVerifier } from "./libraries/verifier/IVerifier.sol";
 import { ValidWalletCreateStatement, StatementSerializer } from "./libraries/darkpool/PublicInputs.sol";
-import { MerkleTypes } from "./libraries/merkle/MerkleTypes.sol";
-import { MerkleTreeLib } from "./libraries/merkle/MerkleTreeLib.sol";
+import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 
 // Use the StatementSerializer for all statements
 using StatementSerializer for ValidWalletCreateStatement;
-using MerkleTreeLib for MerkleTypes.MerkleTree;
+using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
 contract Darkpool {
     /// @notice The hasher for the darkpool
@@ -22,7 +21,7 @@ contract Darkpool {
     IVerifier public verifier;
 
     /// @notice The Merkle tree for wallet commitments
-    MerkleTypes.MerkleTree public walletTree;
+    MerkleTreeLib.MerkleTree public walletTree;
 
     /// @notice The constructor for the darkpool
     /// @param hasher_ The hasher for the darkpool
@@ -30,6 +29,7 @@ contract Darkpool {
     constructor(IHasher hasher_, IVerifier verifier_) {
         hasher = hasher_;
         verifier = verifier_;
+        walletTree.initialize();
     }
 
     /// @notice Create a wallet in the darkpool
@@ -48,25 +48,7 @@ contract Darkpool {
         uint256 walletCommitment = hasher.spongeHash(hashInputs);
 
         // 3. Insert the wallet commitment into the Merkle tree
-        require(walletTree.isInitialized, "Merkle tree not initialized");
-        bytes32 leaf = bytes32(walletCommitment);
-        walletTree.insertLeaf(hasher, leaf);
-    }
-
-    /// @notice Initialize the Merkle tree for wallet commitments
-    /// @param depth The depth of the Merkle tree
-    function initializeMerkleTree(uint8 depth) public {
-        require(!walletTree.isInitialized, "Merkle tree already initialized");
-
-        walletTree.depth = depth;
-        walletTree.isInitialized = true;
-        walletTree.nextLeafIndex = 0;
-        walletTree.maxLeaves = 1 << depth; // 2^depth
-        walletTree.rootHistorySize = 0;
-
-        // Initialize the root to a default value (implementation-specific)
-        // This would typically involve computing the root of an empty tree
-        // based on your specific hashing implementation
-        walletTree.root = bytes32(0);
+        BN254.ScalarField walletCommitmentScalar = BN254.ScalarField.wrap(walletCommitment);
+        walletTree.insertLeaf(walletCommitmentScalar, hasher);
     }
 }

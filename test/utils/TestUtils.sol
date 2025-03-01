@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Test } from "forge-std/Test.sol";
 import { BN254 } from "lib/solidity-bn254/src/BN254.sol";
-import { N_WALLET_SHARES } from "src/libraries/darkpool/PublicInputs.sol";
+import { DarkpoolConstants } from "src/libraries/darkpool/Constants.sol";
 
 contract TestUtils is Test {
     /// @dev The BN254 field modulus from roundUtils.huff
@@ -45,8 +45,8 @@ contract TestUtils is Test {
 
     /// @dev Generate a random set of wallet shares
     function randomWalletShares() internal returns (BN254.ScalarField[] memory) {
-        BN254.ScalarField[] memory shares = new BN254.ScalarField[](N_WALLET_SHARES);
-        for (uint256 i = 0; i < N_WALLET_SHARES; i++) {
+        BN254.ScalarField[] memory shares = new BN254.ScalarField[](DarkpoolConstants.N_WALLET_SHARES);
+        for (uint256 i = 0; i < DarkpoolConstants.N_WALLET_SHARES; i++) {
             shares[i] = BN254.ScalarField.wrap(randomFelt());
         }
         return shares;
