@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "../poseidon2/IHasher.sol";
 import { DarkpoolConstants } from "../darkpool/Constants.sol";
+import { MerkleZeros } from "./MerkleZeros.sol";
 
 /// @title MerkleTreeLib
 /// @notice Library for Merkle tree operations
@@ -21,17 +22,24 @@ library MerkleTreeLib {
         mapping(BN254.ScalarField => bool) rootHistory;
     }
 
+    /// @notice Get the zero value for a given height in the Merkle tree
+    /// @param height The height in the Merkle tree
+    /// @return The zero value for the given height
+    function zeroValue(uint256 height) internal pure returns (BN254.ScalarField) {
+        // Use the assembly-based getter for maximum gas efficiency
+        return BN254.ScalarField.wrap(MerkleZeros.getZeroValue(height));
+    }
+
     /// @notice Initialize the Merkle tree
     /// @param tree The tree to initialize
     function initialize(MerkleTree storage tree) internal {
         tree.nextIndex = 0;
         tree.root = BN254.ScalarField.wrap(0);
 
-        // Initialize the sibling path
-        BN254.ScalarField zero = BN254.ScalarField.wrap(0);
+        // Initialize the sibling path array
         tree.siblingPath = new BN254.ScalarField[](DarkpoolConstants.MERKLE_DEPTH);
         for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; i++) {
-            tree.siblingPath[i] = zero;
+            tree.siblingPath[i] = zeroValue(i);
         }
     }
 
@@ -78,8 +86,7 @@ library MerkleTreeLib {
             } else {
                 // Right node, the new sibling is in a new sub-tree, and is the zero value
                 // for this depth in the tree
-                // TODO: Use depth-dependent zero values
-                tree.siblingPath[i] = BN254.ScalarField.wrap(0);
+                tree.siblingPath[i] = zeroValue(i);
             }
         }
     }

@@ -38,4 +38,49 @@ library MerkleZeros {
 	uint256 constant public ZERO_VALUE_30 = 7035835480239620343712770214636030506415861196323445446427955599547555378646;
 	uint256 constant public ZERO_VALUE_31 = 3570982782379586050211724779746612745305269241448247085265205218748662232570;
 	uint256 constant public ZERO_VALUE_ROOT = 21822647340628839684360703580761466999432252031123851327655447000077200870350;
+
+	/// @notice Get zero value for a given height
+	/// @param height The height in the Merkle tree
+	/// @return The zero value for the given height
+	function getZeroValue(uint256 height) internal pure returns (uint256) {
+		// Require height to be within valid range
+		require(height <= 31, "MerkleZeros: height must be <= 31");
+
+		uint256 result;
+		assembly {
+			switch height
+			case 0 { result := ZERO_VALUE_0 }
+			case 1 { result := ZERO_VALUE_1 }
+			case 2 { result := ZERO_VALUE_2 }
+			case 3 { result := ZERO_VALUE_3 }
+			case 4 { result := ZERO_VALUE_4 }
+			case 5 { result := ZERO_VALUE_5 }
+			case 6 { result := ZERO_VALUE_6 }
+			case 7 { result := ZERO_VALUE_7 }
+			case 8 { result := ZERO_VALUE_8 }
+			case 9 { result := ZERO_VALUE_9 }
+			case 10 { result := ZERO_VALUE_10 }
+			case 11 { result := ZERO_VALUE_11 }
+			case 12 { result := ZERO_VALUE_12 }
+			case 13 { result := ZERO_VALUE_13 }
+			case 14 { result := ZERO_VALUE_14 }
+			case 15 { result := ZERO_VALUE_15 }
+			case 16 { result := ZERO_VALUE_16 }
+			case 17 { result := ZERO_VALUE_17 }
+			case 18 { result := ZERO_VALUE_18 }
+			case 19 { result := ZERO_VALUE_19 }
+			case 20 { result := ZERO_VALUE_20 }
+			case 21 { result := ZERO_VALUE_21 }
+			case 22 { result := ZERO_VALUE_22 }
+			case 23 { result := ZERO_VALUE_23 }
+			case 24 { result := ZERO_VALUE_24 }
+			case 25 { result := ZERO_VALUE_25 }
+			case 26 { result := ZERO_VALUE_26 }
+			case 27 { result := ZERO_VALUE_27 }
+			case 28 { result := ZERO_VALUE_28 }
+			case 29 { result := ZERO_VALUE_29 }
+			case 30 { result := ZERO_VALUE_30 }
+			case 31 { result := ZERO_VALUE_31 }
+		}
+	}
 }
