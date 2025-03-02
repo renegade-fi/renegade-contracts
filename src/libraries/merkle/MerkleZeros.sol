@@ -41,12 +41,11 @@ library MerkleZeros {
 
 	/// @notice Get zero value for a given height
 	/// @param height The height in the Merkle tree
-	/// @return The zero value for the given height
-	function getZeroValue(uint256 height) internal pure returns (uint256) {
+	/// @return result the zero value for the given height
+	function getZeroValue(uint256 height) internal pure returns (uint256 result) {
 		// Require height to be within valid range
 		require(height <= 31, "MerkleZeros: height must be <= 31");
 
-		uint256 result;
 		assembly {
 			switch height
 			case 0 { result := ZERO_VALUE_0 }

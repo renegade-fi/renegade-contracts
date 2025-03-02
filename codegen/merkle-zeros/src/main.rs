@@ -58,13 +58,13 @@ fn generate_solidity_contract() -> Result<String> {
     // Add an assembly-based getter function for gas-efficient constant-time access
     contract.push_str("\n\t/// @notice Get zero value for a given height\n");
     contract.push_str("\t/// @param height The height in the Merkle tree\n");
-    contract.push_str("\t/// @return The zero value for the given height\n");
-    contract
-        .push_str("\tfunction getZeroValue(uint256 height) internal pure returns (uint256) {\n");
+    contract.push_str("\t/// @return result the zero value for the given height\n");
+    contract.push_str(
+        "\tfunction getZeroValue(uint256 height) internal pure returns (uint256 result) {\n",
+    );
     contract.push_str("\t\t// Require height to be within valid range\n");
     contract.push_str("\t\trequire(height <= 31, \"MerkleZeros: height must be <= 31\");\n\n");
 
-    contract.push_str("\t\tuint256 result;\n");
     contract.push_str("\t\tassembly {\n");
     contract.push_str("\t\t\tswitch height\n");
 

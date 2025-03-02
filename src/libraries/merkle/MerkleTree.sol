@@ -52,10 +52,10 @@ library MerkleTreeLib {
 
     /// @notice Returns whether the given root is in the history of the tree
     /// @param tree The tree to check the root history of
-    /// @param root The root to check
+    /// @param historicalRoot The root to check
     /// @return Whether the root is in the history of the tree
-    function rootInHistory(MerkleTree storage tree, BN254.ScalarField root) internal view returns (bool) {
-        return tree.rootHistory[root];
+    function rootInHistory(MerkleTree storage tree, BN254.ScalarField historicalRoot) internal view returns (bool) {
+        return tree.rootHistory[historicalRoot];
     }
 
     /// @notice Insert a leaf into the tree
