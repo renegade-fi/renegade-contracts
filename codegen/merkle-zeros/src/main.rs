@@ -44,7 +44,7 @@ fn generate_solidity_contract() -> Result<String> {
     let root = zero_values[MERKLE_HEIGHT];
 
     // Add the constant values to the contract
-    for (i, value) in zero_values[..MERKLE_HEIGHT].iter().rev().enumerate() {
+    for (i, value) in zero_values[..MERKLE_HEIGHT].iter().enumerate() {
         contract.push_str(&format!(
             "\tuint256 constant public ZERO_VALUE_{} = {};\n",
             i, value

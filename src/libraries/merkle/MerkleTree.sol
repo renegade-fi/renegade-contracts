@@ -34,7 +34,8 @@ library MerkleTreeLib {
     /// @param tree The tree to initialize
     function initialize(MerkleTree storage tree) internal {
         tree.nextIndex = 0;
-        tree.root = BN254.ScalarField.wrap(0);
+        tree.root = BN254.ScalarField.wrap(MerkleZeros.ZERO_VALUE_ROOT);
+        tree.rootHistory[tree.root] = true;
 
         // Initialize the sibling path array
         tree.siblingPath = new BN254.ScalarField[](DarkpoolConstants.MERKLE_DEPTH);
@@ -46,7 +47,7 @@ library MerkleTreeLib {
     /// @notice Returns the root of the tree
     /// @param tree The tree to get the root of
     /// @return The root of the tree
-    function root(MerkleTree storage tree) internal view returns (BN254.ScalarField) {
+    function getRoot(MerkleTree storage tree) internal view returns (BN254.ScalarField) {
         return tree.root;
     }
 
