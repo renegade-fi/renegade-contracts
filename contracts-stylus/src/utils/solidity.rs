@@ -96,7 +96,7 @@ sol! {
     event InsufficientSponsorBalance(uint256 indexed nonce);
     event NonceUsed(uint256 indexed nonce);
     event GasSponsorPausedFallback(uint256 indexed nonce);
-    event SponsoredExternalMatch(uint256 indexed amount, uint256 indexed nonce);
+    event SponsoredExternalMatch(uint256 indexed amount, address indexed token, uint256 indexed nonce);
 }
 
 sol_interface! {
@@ -106,7 +106,9 @@ sol_interface! {
 
     interface IErc20 {
         function transferFrom(address from, address to, uint256 value) external returns (bool);
+        function transfer(address to, uint256 value) external returns (bool);
         function approve(address spender, uint256 value) external returns (bool);
+        function balanceOf(address account) external view returns (uint256);
     }
 }
 

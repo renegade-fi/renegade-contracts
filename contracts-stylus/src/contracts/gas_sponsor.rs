@@ -3,14 +3,14 @@
 
 use contracts_common::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
-    types::ValidMatchSettleAtomicStatement,
+    types::{ExternalMatchResult, ValidMatchSettleAtomicStatement},
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{hex, Address, U256, U64},
     block,
-    call::{call, Call},
+    call::Call,
     console, contract, evm, msg,
     prelude::*,
     storage::{StorageAddress, StorageBool, StorageMap, StorageU64},
@@ -169,16 +169,26 @@ impl GasSponsorContract {
     // | FUNDING |
     // -----------
 
-    /// Receives ETH from the caller.
-    #[payable]
-    pub fn receive_eth() {}
+    /// Receives ERC20 tokens from the caller.
+    pub fn receive_tokens(&mut self, token: Address, amount: U256) -> Result<(), Vec<u8>> {
+        let token_contract = IErc20::new(token);
+        token_contract.transfer_from(Call::new(), msg::sender(), contract::address(), amount)?;
+        Ok(())
+    }
 
-    /// Withdraws ETH from the gas sponsor contract to the given receiver
-    pub fn withdraw_eth(&mut self, receiver: Address, amount: U256) -> Result<(), Vec<u8>> {
+    /// Withdraws ERC20 tokens from the gas sponsor contract to the given
+    /// receiver
+    pub fn withdraw_tokens(
+        &mut self,
+        receiver: Address,
+        token: Address,
+        amount: U256,
+    ) -> Result<(), Vec<u8>> {
         self._check_owner()?;
-        let balance = contract::balance();
+        let token_contract = IErc20::new(token);
+        let balance = token_contract.balance_of(Call::new(), contract::address())?;
         assert_result!(balance >= amount, ERR_INSUFFICIENT_BALANCE)?;
-        call(Call::new().value(amount), receiver, &[])?;
+        token_contract.transfer(Call::new(), receiver, amount)?;
         Ok(())
     }
 
@@ -198,6 +208,7 @@ impl GasSponsorContract {
         match_linking_proofs: Bytes,
         refund_address: Address,
         nonce: U256,
+        conversion_rate: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let receiver = msg::sender();
@@ -209,6 +220,7 @@ impl GasSponsorContract {
             match_linking_proofs,
             refund_address,
             nonce,
+            conversion_rate,
             signature,
         )
     }
@@ -226,6 +238,7 @@ impl GasSponsorContract {
         match_linking_proofs: Bytes,
         refund_address: Address,
         nonce: U256,
+        conversion_rate: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         // Take note of the initial tx gas budget
@@ -257,21 +270,25 @@ impl GasSponsorContract {
 
         let calldata_gas = (calldata_len as u64) * GAS_PER_CALLDATA_BYTE;
 
-        // Verify the signature over the nonce + refund address,
+        // Verify the signature over the nonce + refund address + conversion rate,
         // then mark the nonce as used
         let mut message = nonce.to_be_bytes::<NUM_BYTES_U256>().to_vec();
         message.extend_from_slice(refund_address.as_slice());
+        message.extend_from_slice(conversion_rate.to_be_bytes::<NUM_BYTES_U256>().as_slice());
         self.assert_valid_signature(&message, &signature)?;
         self.mark_nonce_used(nonce)?;
 
         // Invoke the underlying atomic match settlement
-        self.process_atomic_match_settle_with_receiver(
+        let match_result = self.atomic_match_inner(
             receiver,
             internal_party_match_payload,
             valid_match_settle_atomic_statement,
             match_proofs,
             match_linking_proofs,
         )?;
+
+        let (buy_token_addr, _) = match_result.external_party_buy_mint_amount();
+        let buy_token = IErc20::new(buy_token_addr);
 
         // Track the total gas spent, including cost of remaining operations.
         // We frontload as many operations as possible so the final evm::gas_left()
@@ -307,21 +324,24 @@ impl GasSponsorContract {
 
         let gas_cost = gas_price * gas_spent + l1_gas_cost;
 
-        // If the gas sponsor doesn't have enough Ether to refund the user,
-        // emit an event but don't revert.
-        if contract::balance() < gas_cost {
+        // Convert the gas cost to the buy-side token.
+        let buy_token_surplus = gas_cost * conversion_rate;
+
+        // If the gas sponsor doesn't have enough of the buy-side token to refund the
+        // user, emit an event but don't revert.
+        if buy_token.balance_of(Call::new(), contract::address())? < buy_token_surplus {
             evm::log(InsufficientSponsorBalance { nonce });
             return Ok(());
         }
 
         // Refund the user's gas costs
-        call(
-            transfer_config.value(gas_cost),
-            refund_address,
-            &[], // calldata
-        )?;
+        buy_token.transfer(transfer_config, refund_address, buy_token_surplus)?;
 
-        evm::log(SponsoredExternalMatch { amount: gas_cost, nonce });
+        evm::log(SponsoredExternalMatch {
+            amount: buy_token_surplus,
+            token: buy_token_addr,
+            nonce,
+        });
 
         Ok(())
     }
@@ -361,37 +381,13 @@ impl GasSponsorContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let sender = msg::sender();
-        let sponsor = contract::address();
-        let darkpool_address = self.darkpool_address.get();
-
-        // Transfer the input tokens from the caller to the gas sponsor
-        let statement: ValidMatchSettleAtomicStatement =
-            deserialize_from_calldata(&valid_match_settle_atomic_statement)?;
-
-        let match_result = &statement.match_result;
-        let (send_mint, send_amount) = match_result.external_party_sell_mint_amount();
-
-        // Only execute an ERC20 transfer if the input token is not the native asset
-        if !is_native_eth_address(send_mint) {
-            let send_token = IErc20::new(send_mint);
-            send_token.approve(Call::new(), darkpool_address, send_amount)?;
-            send_token.transfer_from(Call::new(), sender, sponsor, send_amount)?;
-        }
-
-        // Call the darkpool contract's `process_atomic_match_settle_with_receiver`
-        // method. We pass along the message value in case the input token is
-        // the native asset
-        let darkpool = IDarkpool::new(darkpool_address);
-        darkpool.process_atomic_match_settle_with_receiver(
-            Call::new().value(msg::value()),
+        self.atomic_match_inner(
             receiver,
-            internal_party_match_payload.0.into(),
-            valid_match_settle_atomic_statement.0.into(),
-            match_proofs.0.into(),
-            match_linking_proofs.0.into(),
+            internal_party_match_payload,
+            valid_match_settle_atomic_statement,
+            match_proofs,
+            match_linking_proofs,
         )?;
-
         Ok(())
     }
 }
@@ -442,5 +438,49 @@ impl GasSponsorContract {
         evm::log(NonceUsed { nonce });
 
         Ok(())
+    }
+
+    /// Invokes the actual atomic match path on the darkpool contract,
+    /// returning the match result
+    pub fn atomic_match_inner(
+        &mut self,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<ExternalMatchResult, Vec<u8>> {
+        let sender = msg::sender();
+        let sponsor = contract::address();
+        let darkpool_address = self.darkpool_address.get();
+
+        // Transfer the input tokens from the caller to the gas sponsor
+        let statement: ValidMatchSettleAtomicStatement =
+            deserialize_from_calldata(&valid_match_settle_atomic_statement)?;
+
+        let match_result = statement.match_result;
+        let (send_mint, send_amount) = match_result.external_party_sell_mint_amount();
+
+        // Only execute an ERC20 transfer if the input token is not the native asset
+        if !is_native_eth_address(send_mint) {
+            let send_token = IErc20::new(send_mint);
+            send_token.approve(Call::new(), darkpool_address, send_amount)?;
+            send_token.transfer_from(Call::new(), sender, sponsor, send_amount)?;
+        }
+
+        // Call the darkpool contract's `process_atomic_match_settle_with_receiver`
+        // method. We pass along the message value in case the input token is
+        // the native asset
+        let darkpool = IDarkpool::new(darkpool_address);
+        darkpool.process_atomic_match_settle_with_receiver(
+            Call::new().value(msg::value()),
+            receiver,
+            internal_party_match_payload.0.into(),
+            valid_match_settle_atomic_statement.0.into(),
+            match_proofs.0.into(),
+            match_linking_proofs.0.into(),
+        )?;
+
+        Ok(match_result)
     }
 }
