@@ -36,7 +36,7 @@
 
 /// @dev The total size of the return array (in bytes)
 /// 32 bytes offset + 32 bytes length + 32 * 32 bytes data
-#define constant RETURN_ARRAY_SIZE = 0x440 // 1088
+#define constant RETURN_ARRAY_SIZE = 0x460 // 1120 
 
 // --- Entrypoint --- //
 
@@ -86,13 +86,18 @@
     // Setup the return value
     // 1. Store the data offset at position 0x00
     // Offset is always 32 bytes in our case
-    0x20 0x00 mstore                    // [*sisterLeaves, idx, input, *returnArr]
+    0x20 0x00 mstore                    // [*sisterLeaves, input, idx, *returnArr]
 
     // 2. Store the length of the return array at position 0x20
-    // Length is always 32 in our case
-    0x20 0x20 mstore                    // [*sisterLeaves, idx, input, *returnArr]
+    // Length is always 33 in our case, 32 sister leaves and one root
+    0x21 0x20 mstore                    // [*sisterLeaves, input, idx, *returnArr]
 
-    // 3. Iteratively hash up the tree and store intermediate values in the array
+    // 3. Store the leaf as the first output 
+    swap3 dup2 dup2                     // [*returnArr, input, *returnArr, idx, input, *sisterLeaves] 
+    mstore                              // [*returnArr, input, idx, *sisterLeaves]
+    0x20 add swap3                      // [*sisterLeaves, input, idx, *nextReturnArr]
+
+    // 4. Iteratively hash up the tree and store intermediate values in the array
     HASH_AND_STORE_MERKLE_LEVEL() // Level 1
     HASH_AND_STORE_MERKLE_LEVEL() // Level 2
     HASH_AND_STORE_MERKLE_LEVEL() // Level 3

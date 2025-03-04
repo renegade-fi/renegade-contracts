@@ -24,7 +24,7 @@ enum Commands {
     SpongeHash(SpongeHashArgs),
 
     /// Compute the root after inserting elements into a Merkle tree sequentially
-    InsertRoot(InsertRootArgs),
+    InsertAndGetRoot(InsertAndGetRootArgs),
 }
 
 #[derive(Parser)]
@@ -48,7 +48,7 @@ struct SpongeHashArgs {
 }
 
 #[derive(Parser)]
-struct InsertRootArgs {
+struct InsertAndGetRootArgs {
     /// Input values to insert sequentially (starting from index 0)
     #[arg(required = true)]
     inputs: Vec<String>,
@@ -60,6 +60,6 @@ fn main() {
     match cli.command {
         Commands::MerkleHash(args) => merkle_hash::handle_merkle_hash(args),
         Commands::SpongeHash(args) => sponge_hash::handle_sponge_hash(args),
-        Commands::InsertRoot(args) => merkle_insert::handle_insert_root(args),
+        Commands::InsertAndGetRoot(args) => merkle_insert::handle_insert_get_root(args),
     }
 }
