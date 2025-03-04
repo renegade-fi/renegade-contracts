@@ -145,18 +145,18 @@ contract MerkleTest is TestUtils {
         uint256 expectedRoot = BN254.ScalarField.unwrap(tree.getRoot());
         uint256 openedRoot = nextInput;
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
-            uint256[] memory inputs = new uint256[](2);
+            uint256[] memory hashTwoInputs = new uint256[](2);
             uint256 ithBit = (idx >> i) & 1;
             if (ithBit == 0) {
                 // Left child
-                inputs[0] = openedRoot;
-                inputs[1] = siblingPath[i];
+                hashTwoInputs[0] = openedRoot;
+                hashTwoInputs[1] = siblingPath[i];
             } else {
                 // Right child
-                inputs[0] = siblingPath[i];
-                inputs[1] = openedRoot;
+                hashTwoInputs[0] = siblingPath[i];
+                hashTwoInputs[1] = openedRoot;
             }
-            openedRoot = hasher.spongeHash(inputs);
+            openedRoot = hasher.spongeHash(hashTwoInputs);
         }
 
         assertEq(openedRoot, expectedRoot);
