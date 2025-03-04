@@ -17,8 +17,6 @@ struct ExternalTransfer {
     address mint;
     /// @dev The amount of the transfer
     uint256 amount;
-    /// @dev The timestamp of the transfer
-    uint256 timestamp;
     /// @dev Indicates if it's a deposit or withdrawal
     TransferType transferType;
 }

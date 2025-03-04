@@ -45,6 +45,11 @@ library StatementSerializer {
     using StatementSerializer for ExternalTransfer;
     using StatementSerializer for PublicRootKey;
 
+    /// @notice The number of scalar field elements in a ValidWalletCreateStatement
+    uint256 constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
+    /// @notice The number of scalar field elements in a ValidWalletUpdateStatement
+    uint256 constant VALID_WALLET_UPDATE_SCALAR_SIZE = 81;
+
     // --- Valid Wallet Create --- //
 
     /// @notice Serializes a ValidWalletCreateStatement into an array of scalar field elements
@@ -56,7 +61,7 @@ library StatementSerializer {
         returns (BN254.ScalarField[] memory)
     {
         // Create array with size = 1 (for privateShareCommitment) + publicShares.length
-        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](1 + self.publicShares.length);
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_WALLET_CREATE_SCALAR_SIZE);
 
         // Add the wallet commitment
         serialized[0] = self.privateShareCommitment;
@@ -79,7 +84,7 @@ library StatementSerializer {
         pure
         returns (BN254.ScalarField[] memory)
     {
-        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](1 + 1 + self.newPublicShares.length);
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_WALLET_UPDATE_SCALAR_SIZE);
         serialized[0] = self.previousNullifier;
         serialized[1] = self.newPrivateShareCommitment;
 
@@ -114,7 +119,7 @@ library StatementSerializer {
         serialized[0] = BN254.ScalarField.wrap(uint256(uint160(self.account)));
         serialized[1] = BN254.ScalarField.wrap(uint256(uint160(self.mint)));
         serialized[2] = BN254.ScalarField.wrap(self.amount);
-        serialized[3] = BN254.ScalarField.wrap(self.timestamp);
+        serialized[3] = BN254.ScalarField.wrap(uint256(self.transferType));
 
         return serialized;
     }

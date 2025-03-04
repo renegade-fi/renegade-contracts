@@ -6,8 +6,8 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 /// @title NullifierSet
 /// @notice Tracks the set of spent nullifiers in the darkpool, ensuring that a pre-update wallet
 /// @notice cannot create two separate post-update wallets
-library Nullifiers {
-    using Nullifiers for Nullifiers.NullifierSet;
+library NullifierLib {
+    using NullifierLib for NullifierLib.NullifierSet;
 
     /// @notice The nullifiers in the set
     struct NullifierSet {
