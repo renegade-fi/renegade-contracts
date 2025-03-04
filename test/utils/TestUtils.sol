@@ -2,12 +2,21 @@
 pragma solidity ^0.8.0;
 
 import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "lib/solidity-bn254/src/BN254.sol";
 import { DarkpoolConstants } from "src/libraries/darkpool/Constants.sol";
+
+/// @dev Split a uint256 into a pair of BN254.ScalarField words, in little-endian order
+function uintToScalarWords(uint256 value) pure returns (BN254.ScalarField low, BN254.ScalarField high) {
+    low = BN254.ScalarField.wrap(value % BN254.R_MOD);
+    high = BN254.ScalarField.wrap(value / BN254.R_MOD);
+}
 
 contract TestUtils is Test {
     /// @dev The BN254 field modulus from roundUtils.huff
     uint256 constant PRIME = BN254.R_MOD;
+    /// @dev The scalar field modulus for K256
+    uint256 constant K256_SCALAR_MOD = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141;
 
     // --- Fuzzing Helpers --- //
 
@@ -16,6 +25,11 @@ contract TestUtils is Test {
     /// but it suffices for fuzzing test inputs
     function randomFelt() internal returns (uint256) {
         return vm.randomUint() % PRIME;
+    }
+
+    /// @dev Generate a random BN254 scalar field element
+    function randomScalar() internal returns (BN254.ScalarField) {
+        return BN254.ScalarField.wrap(randomFelt());
     }
 
     /// @dev Generate a random G1 point
@@ -50,6 +64,12 @@ contract TestUtils is Test {
             shares[i] = BN254.ScalarField.wrap(randomFelt());
         }
         return shares;
+    }
+
+    /// @dev Generate a random ethereum wallet
+    function randomEthereumWallet() internal returns (Vm.Wallet memory) {
+        uint256 seed = vm.randomUint() % K256_SCALAR_MOD;
+        return vm.createWallet(seed);
     }
 
     // --- FFI Helpers --- //
