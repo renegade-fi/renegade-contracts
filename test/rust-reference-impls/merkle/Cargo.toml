@@ -16,3 +16,4 @@ rand = "0.8"
 
 renegade-constants = { workspace = true }
 renegade-crypto = { workspace = true }
+common = { workspace = true }
