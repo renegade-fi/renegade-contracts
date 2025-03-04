@@ -661,6 +661,8 @@ pub struct SponsoredAtomicMatchSettleData {
     pub process_atomic_match_settle_data: ProcessAtomicMatchSettleData,
     /// The sponsorship nonce
     pub nonce: U256,
+    /// The conversion rate
+    pub conversion_rate: U256,
     /// The signature over the nonce
     pub signature: Bytes,
 }

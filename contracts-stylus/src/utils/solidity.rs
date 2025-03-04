@@ -62,6 +62,9 @@ sol! {
     // Testing functions
     function isDummyUpgradeTarget() external view returns (bool);
 
+    // Gas sponsorship functions
+    function sponsorAtomicMatchSettleWithReceiver(address receiver, bytes internal_party_match_payload, bytes valid_match_settle_atomic_statement, bytes match_proofs, bytes match_linking_proofs, uint256 nonce, uint256 conversion_rate, bytes signature) external payable;
+
     // ----------
     // | EVENTS |
     // ----------
@@ -115,5 +118,11 @@ sol_interface! {
 sol_interface! {
     interface IArbGasInfo {
         function getCurrentTxL1GasFees() external view returns (uint256);
+    }
+}
+
+sol_interface! {
+    interface IArbWasm {
+        function programInitGas(address program) external view returns (uint64 gas, uint64 gasWhenCached);
     }
 }

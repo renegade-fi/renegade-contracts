@@ -17,7 +17,7 @@ use circuit_types::{
 };
 use constants::Scalar;
 use contracts_common::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U256},
+    constants::{NUM_BYTES_FELT, NUM_BYTES_U256},
     custom_serde::{pk_to_u256s, BytesDeserializable, BytesSerializable},
     solidity::{DepositWitness, PermitWitnessTransferFrom, TokenPermissions},
     types::{
@@ -42,7 +42,7 @@ use ethers::{
     core::k256::ecdsa::SigningKey,
     providers::{JsonRpcClient, Middleware, PendingTransaction},
     signers::{LocalWallet, Signer},
-    types::{Bytes, H256, U256},
+    types::{Bytes, TransactionReceipt, H256, U256},
     utils::parse_ether,
 };
 use eyre::{eyre, Result};
@@ -50,10 +50,11 @@ use num_bigint::BigUint;
 use rand::{thread_rng, RngCore};
 use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletHttpClient};
 use serde::Serialize;
+use tracing::info;
 
 use crate::{
     abis::{DarkpoolTestContract, DummyErc20Contract, TransferExecutorContract},
-    constants::PERMIT2_EIP712_DOMAIN_NAME,
+    constants::{CONVERSION_RATE_PRECISION, GAS_COST_TOLERANCE, PERMIT2_EIP712_DOMAIN_NAME},
     TestContext,
 };
 
@@ -399,23 +400,42 @@ pub async fn setup_sponsored_match_test(
     ctx: &TestContext,
 ) -> Result<SponsoredAtomicMatchSettleData> {
     // Ensure that the gas sponsor is unpaused
-    ctx.gas_sponsor_contract().unpause().send().await?.await?;
+    // ctx.gas_sponsor_contract().unpause().send().await?.await?;
 
     let process_atomic_match_settle_data =
         setup_atomic_match_settle_test(buy_side, true /* use_gas_sponsor */, ctx).await?;
 
+    // The conversion rate between native ether and the buy-side token in an
+    // external match test. Regardless of which token is the buy-side, we'll
+    // use a conversion rate of 0.5 - i.e., the token is 2x more expensive
+    // than ETH.
+    //
+    // Since the conversion rate precision is 10^18, this
+    // implies a rate of 5 * 10^17.
+    let conversion_rate = U256::from(500_000_000_000_000_000u64);
+
     let mut rng = thread_rng();
     let nonce = scalar_to_u256(ScalarField::rand(&mut rng));
-    let mut message = [0_u8; NUM_BYTES_U256 + NUM_BYTES_ADDRESS];
+    let mut message = [0_u8; NUM_BYTES_U256 * 2];
     nonce.to_big_endian(&mut message[..NUM_BYTES_U256]);
-    message[NUM_BYTES_U256..].copy_from_slice(Address::zero().as_bytes());
+    conversion_rate.to_big_endian(&mut message[NUM_BYTES_U256..]);
 
     let signature = Bytes::from(hash_and_sign_message(ctx.signing_key(), &message).to_vec());
 
-    // Fund the gas sponsor with some ETH
+    // Fund the gas sponsor with some ETH & ERC20s
     ctx.gas_sponsor_contract().receive_eth().value(parse_ether("0.1")?).send().await?.await?;
 
-    Ok(SponsoredAtomicMatchSettleData { process_atomic_match_settle_data, nonce, signature })
+    let erc20_addr1 = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
+    erc20_addr1.mint(ctx.gas_sponsor_proxy_address, parse_ether("0.05")?).send().await?.await?;
+    let erc20_addr2 = DummyErc20Contract::new(ctx.test_erc20_address2, ctx.client.clone());
+    erc20_addr2.mint(ctx.gas_sponsor_proxy_address, parse_ether("0.05")?).send().await?.await?;
+
+    Ok(SponsoredAtomicMatchSettleData {
+        process_atomic_match_settle_data,
+        nonce,
+        conversion_rate,
+        signature,
+    })
 }
 
 /// Setup a sponsored atomic match settle test using native ETH as the base
@@ -568,6 +588,30 @@ pub async fn assert_all_succeed<'a>(
     }
 
     Ok(())
+}
+
+/// Asserts that the gas refund through the buy-side token is within the
+/// acceptable tolerance
+pub fn assert_token_gas_refund(
+    gas_sponsor_initial_balance: AlloyU256,
+    gas_sponsor_final_balance: AlloyU256,
+    conversion_rate: U256,
+    receipt: TransactionReceipt,
+) {
+    let alloy_inv_conversion_rate = u256_to_alloy_u256(CONVERSION_RATE_PRECISION / conversion_rate);
+
+    let gas_units_used = u256_to_alloy_u256(receipt.gas_used.unwrap());
+    let gas_price = u256_to_alloy_u256(receipt.effective_gas_price.unwrap());
+
+    let gas_units_refunded = ((gas_sponsor_initial_balance - gas_sponsor_final_balance)
+        * alloy_inv_conversion_rate)
+        / gas_price;
+
+    info!("gas units used: {}", gas_units_used);
+    info!("gas units refunded: {}", gas_units_refunded);
+
+    let gas_diff = gas_units_used.checked_sub(gas_units_refunded).unwrap_or_default();
+    assert!(gas_diff < GAS_COST_TOLERANCE, "Unrefunded gas amount of {gas_diff} is too high");
 }
 
 // ---------------------------

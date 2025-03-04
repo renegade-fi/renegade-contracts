@@ -1,8 +1,9 @@
 //! The gas sponsor contract, used to sponsor the gas costs of external (atomic)
 //! matches
 
+use alloy_sol_types::SolCall;
 use contracts_common::{
-    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE, NUM_BYTES_U256},
+    constants::NUM_BYTES_U256,
     types::{ExternalMatchResult, ValidMatchSettleAtomicStatement},
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
@@ -10,11 +11,10 @@ use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{hex, Address, U256, U64},
     block,
-    call::Call,
+    call::{call, Call},
     console, contract, evm, msg,
     prelude::*,
-    storage::{StorageAddress, StorageBool, StorageMap, StorageU64},
-    tx,
+    storage::{GlobalStorage, StorageAddress, StorageBool, StorageCache, StorageMap, StorageU64},
 };
 
 use crate::{
@@ -23,8 +23,9 @@ use crate::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
         helpers::{check_address_not_zero, deserialize_from_calldata, is_native_eth_address},
         solidity::{
-            GasSponsorPausedFallback, IArbGasInfo, IDarkpool, IErc20, InsufficientSponsorBalance,
-            NonceUsed, OwnershipTransferred, Paused, SponsoredExternalMatch, Unpaused,
+            sponsorAtomicMatchSettleWithReceiverCall, GasSponsorPausedFallback, IArbGasInfo,
+            IArbWasm, IDarkpool, IErc20, InsufficientSponsorBalance, NonceUsed,
+            OwnershipTransferred, Paused, SponsoredExternalMatch, Unpaused,
         },
     },
     ECDSA_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE,
@@ -46,28 +47,50 @@ const ERR_INSUFFICIENT_BALANCE: &[u8] = b"insufficient balance";
 // | CONSTANTS |
 // -------------
 
-/// The number of bytes in a function selector
-const NUM_BYTES_SELECTOR: usize = 4;
-
-/// The base gas cost of any Ethereum transaction, including the maximum
-/// gas cost of calling a Stylus contract (https://docs.arbitrum.io/stylus/concepts/gas-metering#stylus-gas-costs)
-const INVOCATION_BASE_GAS_COST: u64 = 21_000 + 2048;
+/// The cost of invoking a sponsored match settlement, which includes:
+/// 1. The base gas cost of any Ethereum transaction
+/// 2. The overhead of the delegatecall from the proxy, assuming the contract
+///    address is cold and using an empirical estimate of calldata size, rounded
+///    to a reasonable value
+const INVOCATION_BASE_GAS_COST: u64 = 21_000 + 3500;
 
 /// The cost in gas of a (non-zero) byte of calldata
 const GAS_PER_CALLDATA_BYTE: u64 = 16;
 
-/// The cost in gas of the refund operations which take place after the final
-/// gas metering check, obtained empirically and rounded to a reasonable value
-const REFUND_OPS_GAS_COST: u64 = 10_000;
+/// The cost in gas of the buy-side token refund operations which take place
+/// after the final gas metering check, obtained empirically and rounded to a
+/// reasonable value
+const TOKEN_REFUND_OPS_GAS_COST: u64 = 55_000;
+
+/// The cost in gas of the native ETH refund operations which take place after
+/// the final gas metering check, obtained empirically and rounded to a
+/// reasonable value
+const NATIVE_REFUND_OPS_GAS_COST: u64 = 12_500;
 
 /// A buffer in gas to account for empirically-observed gas overheads when
-/// selling native ETH. This may be due to some overhead in transferring ETH
-/// from the (Solidity) proxy to the (Stylus) implementation.
-const NATIVE_ETH_SELL_GAS_BUFFER: u64 = 50_000;
+/// selling native ETH. It is not entirely clear what the cause of this overhead
+/// is.
+const NATIVE_ETH_SELL_GAS_BUFFER: u64 = 20_000;
 
 /// The address of the ArbGasInfo precompile
 const ARB_GAS_INFO_ADDRESS: Address =
     Address::new(hex!("000000000000000000000000000000000000006C"));
+
+/// The address of the ArbWasm precompile
+const ARB_WASM_ADDRESS: Address = Address::new(hex!("0000000000000000000000000000000000000071"));
+
+/// The storage slot at which the implementation address of the gas sponsor
+/// contract is stored, as specified by EIP-1967:
+///
+/// https://eips.ethereum.org/EIPS/eip-1967#logic-contract-address
+const IMPL_ADDRESS_STORAGE_SLOT: U256 =
+    U256::from_be_bytes(hex!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"));
+
+/// The fixed-point precision of the conversion rate used to convert the gas
+/// cost to the buy-side token.
+///
+/// Concretely, this is 18 decimal places i.e. 10^18.
+const CONVERSION_RATE_PRECISION: U256 = U256::from_limbs([1_000_000_000_000_000_000u64, 0, 0, 0]);
 
 // -----------------------
 // | CONTRACT DEFINITION |
@@ -169,6 +192,19 @@ impl GasSponsorContract {
     // | FUNDING |
     // -----------
 
+    /// Receives ETH from the caller.
+    #[payable]
+    pub fn receive_eth() {}
+
+    /// Withdraws ETH from the gas sponsor contract to the given receiver
+    pub fn withdraw_eth(&mut self, receiver: Address, amount: U256) -> Result<(), Vec<u8>> {
+        self._check_owner()?;
+        let balance = contract::balance();
+        assert_result!(balance >= amount, ERR_INSUFFICIENT_BALANCE)?;
+        call(Call::new().value(amount), receiver, &[])?;
+        Ok(())
+    }
+
     /// Receives ERC20 tokens from the caller.
     pub fn receive_tokens(&mut self, token: Address, amount: U256) -> Result<(), Vec<u8>> {
         let token_contract = IErc20::new(token);
@@ -206,7 +242,6 @@ impl GasSponsorContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-        refund_address: Address,
         nonce: U256,
         conversion_rate: U256,
         signature: Bytes,
@@ -218,7 +253,6 @@ impl GasSponsorContract {
             valid_match_settle_atomic_statement,
             match_proofs,
             match_linking_proofs,
-            refund_address,
             nonce,
             conversion_rate,
             signature,
@@ -236,7 +270,6 @@ impl GasSponsorContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-        refund_address: Address,
         nonce: U256,
         conversion_rate: U256,
         signature: Bytes,
@@ -247,33 +280,39 @@ impl GasSponsorContract {
         // If gas sponsorship is paused, follow through with naive settlement
         if self.is_paused()? {
             evm::log(GasSponsorPausedFallback { nonce });
-            return self.process_atomic_match_settle_with_receiver(
+            self.atomic_match_inner(
                 receiver,
                 internal_party_match_payload,
                 valid_match_settle_atomic_statement,
                 match_proofs,
                 match_linking_proofs,
-            );
+            )?;
+            return Ok(());
         }
 
         // Calculate the calldata cost of invoking this method before we consume the
         // args
-        let calldata_len = NUM_BYTES_SELECTOR
-            + NUM_BYTES_ADDRESS
-            + internal_party_match_payload.0.len()
-            + valid_match_settle_atomic_statement.0.len()
-            + match_proofs.0.len()
-            + match_linking_proofs.0.len()
-            + NUM_BYTES_ADDRESS
-            + NUM_BYTES_U256
-            + NUM_BYTES_SIGNATURE;
+
+        let calldata_len = sponsorAtomicMatchSettleWithReceiverCall {
+            receiver,
+            internal_party_match_payload: internal_party_match_payload.0.clone().into(),
+            valid_match_settle_atomic_statement: valid_match_settle_atomic_statement
+                .0
+                .clone()
+                .into(),
+            match_proofs: match_proofs.0.clone().into(),
+            match_linking_proofs: match_linking_proofs.0.clone().into(),
+            nonce,
+            conversion_rate,
+            signature: signature.0.clone().into(),
+        }
+        .abi_encoded_size();
 
         let calldata_gas = (calldata_len as u64) * GAS_PER_CALLDATA_BYTE;
 
-        // Verify the signature over the nonce + refund address + conversion rate,
+        // Verify the signature over the nonce + conversion rate,
         // then mark the nonce as used
         let mut message = nonce.to_be_bytes::<NUM_BYTES_U256>().to_vec();
-        message.extend_from_slice(refund_address.as_slice());
         message.extend_from_slice(conversion_rate.to_be_bytes::<NUM_BYTES_U256>().as_slice());
         self.assert_valid_signature(&message, &signature)?;
         self.mark_nonce_used(nonce)?;
@@ -288,21 +327,33 @@ impl GasSponsorContract {
         )?;
 
         let (buy_token_addr, _) = match_result.external_party_buy_mint_amount();
-        let buy_token = IErc20::new(buy_token_addr);
 
         // Track the total gas spent, including cost of remaining operations.
         // We frontload as many operations as possible so the final evm::gas_left()
         // call is as accurate as possible.
 
-        let refund_address =
-            if refund_address == Address::ZERO { tx::origin() } else { refund_address };
+        // We begin by computing the initialization gas cost, pessimistically assuming
+        // that the gas sponsor contract is uncached.
 
-        let transfer_config = Call::new().gas(REFUND_OPS_GAS_COST);
+        // TODO: Check the `ArbWasmCache` precompile to see if the gas sponsor
+        // contract is cached
+
+        // We need to use the address of the gas sponsor implementation contract, not
+        // the proxy from which we assume this method is being delegate-called.
+        // To do so, we read the implementation address from the designated
+        // EIP-1967 storage slot.
+        let gas_sponsor_impl_address_slot = StorageCache::get_word(IMPL_ADDRESS_STORAGE_SLOT);
+        let gas_sponsor_impl_address = Address::from_word(gas_sponsor_impl_address_slot);
+
+        let (init_gas, _) = IArbWasm::new(ARB_WASM_ADDRESS)
+            .program_init_gas(Call::new(), gas_sponsor_impl_address)?;
 
         // Check if this is a native ETH sell, for which it is sufficient to check that
         // the message value is non-zero. If this is not a native ETH sell and the value
         // is non-zero, there will be a revert in the darkpool.
         let is_native_eth_sell = msg::value() > U256::ZERO;
+
+        let is_native_eth_buy = is_native_eth_address(buy_token_addr);
 
         // Get the L2 gas price. On Arbitrum, this is always the basefee:
         // https://docs.arbitrum.io/how-arbitrum-works/gas-fees#l2-tips
@@ -316,32 +367,20 @@ impl GasSponsorContract {
 
         let gas_spent = U256::from(
             INVOCATION_BASE_GAS_COST
+                + init_gas
                 + calldata_gas
                 + (initial_gas - final_gas)
-                + REFUND_OPS_GAS_COST
+                + if is_native_eth_buy {
+                    NATIVE_REFUND_OPS_GAS_COST
+                } else {
+                    TOKEN_REFUND_OPS_GAS_COST
+                }
                 + if is_native_eth_sell { NATIVE_ETH_SELL_GAS_BUFFER } else { 0 },
         );
 
         let gas_cost = gas_price * gas_spent + l1_gas_cost;
 
-        // Convert the gas cost to the buy-side token.
-        let buy_token_surplus = gas_cost * conversion_rate;
-
-        // If the gas sponsor doesn't have enough of the buy-side token to refund the
-        // user, emit an event but don't revert.
-        if buy_token.balance_of(Call::new(), contract::address())? < buy_token_surplus {
-            evm::log(InsufficientSponsorBalance { nonce });
-            return Ok(());
-        }
-
-        // Refund the user's gas costs
-        buy_token.transfer(transfer_config, refund_address, buy_token_surplus)?;
-
-        evm::log(SponsoredExternalMatch {
-            amount: buy_token_surplus,
-            token: buy_token_addr,
-            nonce,
-        });
+        refund_gas_through_buy_token(buy_token_addr, gas_cost, conversion_rate, receiver, nonce)?;
 
         Ok(())
     }
@@ -483,4 +522,59 @@ impl GasSponsorContract {
 
         Ok(match_result)
     }
+}
+
+// ----------------------
+// | NON-MEMBER HELPERS |
+// ----------------------
+
+/// Refunds the user's gas costs through the buy-side token, which may be native
+/// ETH.
+fn refund_gas_through_buy_token(
+    buy_token_addr: Address,
+    gas_cost: U256,
+    conversion_rate: U256,
+    receiver: Address,
+    nonce: U256,
+) -> Result<(), Vec<u8>> {
+    let is_native_eth_buy = is_native_eth_address(buy_token_addr);
+
+    if is_native_eth_buy {
+        // If the gas sponsor doesn't have enough Ether to refund the user,
+        // emit an event but don't revert.
+        if contract::balance() < gas_cost {
+            evm::log(InsufficientSponsorBalance { nonce });
+            return Ok(());
+        }
+
+        call(
+            Call::new().value(gas_cost),
+            receiver,
+            &[], // calldata
+        )?;
+
+        evm::log(SponsoredExternalMatch { amount: gas_cost, token: buy_token_addr, nonce });
+
+        return Ok(());
+    }
+
+    let buy_token = IErc20::new(buy_token_addr);
+
+    // Convert the gas cost to the buy-side token. The conversion rate is expected
+    // to be a fixed-point number with CONVERSION_RATE_PRECISION decimal places.
+    let buy_token_surplus = gas_cost * conversion_rate / CONVERSION_RATE_PRECISION;
+
+    // If the gas sponsor doesn't have enough of the buy-side token to refund the
+    // user, emit an event but don't revert.
+    if buy_token.balance_of(Call::new(), contract::address())? < buy_token_surplus {
+        evm::log(InsufficientSponsorBalance { nonce });
+        return Ok(());
+    }
+
+    // Refund the user's gas costs
+    buy_token.transfer(Call::new(), receiver, buy_token_surplus)?;
+
+    evm::log(SponsoredExternalMatch { amount: buy_token_surplus, token: buy_token_addr, nonce });
+
+    Ok(())
 }
