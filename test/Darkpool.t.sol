@@ -9,13 +9,17 @@ import { console2 } from "forge-std/console2.sol";
 
 import { PlonkProof } from "../src/libraries/verifier/Types.sol";
 import { Darkpool } from "../src/Darkpool.sol";
+import { Nullifiers } from "../src/libraries/darkpool/NullifierSet.sol";
 import { IHasher } from "../src/libraries/poseidon2/IHasher.sol";
 import { IVerifier } from "../src/libraries/verifier/IVerifier.sol";
 import { TestVerifier } from "./test-contracts/TestVerifier.sol";
 import { ValidWalletCreateStatement } from "../src/libraries/darkpool/PublicInputs.sol";
 
 contract DarkpoolTest is TestUtils {
+    using Nullifiers for Nullifiers.NullifierSet;
+
     Darkpool public darkpool;
+    Nullifiers.NullifierSet private testNullifierSet;
 
     function setUp() public {
         IHasher hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
@@ -23,6 +27,24 @@ contract DarkpoolTest is TestUtils {
         darkpool = new Darkpool(hasher, verifier);
     }
 
+    // --- Library Primitive Tests --- //
+
+    /// @notice Test the nullifier set
+    function test_nullifierSet() public {
+        BN254.ScalarField nullifier = BN254.ScalarField.wrap(randomFelt());
+        testNullifierSet.spend(nullifier); // Should succeed
+
+        // Check that the nullifier is spent
+        assertEq(testNullifierSet.isSpent(nullifier), true);
+
+        // Should fail
+        vm.expectRevert("Nullifier already spent");
+        testNullifierSet.spend(nullifier);
+    }
+
+    // --- Darkpool Method Tests --- //
+
+    /// @notice Test creating a wallet
     function test_createWallet() public {
         BN254.ScalarField dummyScalar = BN254.ScalarField.wrap(1);
         BN254.G1Point memory dummyPoint = BN254.P1();
