@@ -5,6 +5,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "../poseidon2/IHasher.sol";
 import { DarkpoolConstants } from "../darkpool/Constants.sol";
 import { MerkleZeros } from "./MerkleZeros.sol";
+import { console2 } from "forge-std/console2.sol";
 
 /// @title MerkleTreeLib
 /// @notice Library for Merkle tree operations
@@ -79,16 +80,26 @@ library MerkleTreeLib {
         tree.rootHistory[newRoot] = true;
 
         // Update the sibling paths, switching between left and right nodes as appropriate
+        // `subtreeFilled` maintains whether the subtree rooted at the current node is full
+        // This is initially true, as the current node is the leaf being inserted
+        bool subtreeFilled = true;
         for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; i++) {
+            // If the subtree is full, we need to switch the sibling path entry at this height
             uint256 idxBit = (idx >> i) & 1;
-            if (idxBit == 0) {
-                // Left node, the new sibling is the intermediate hash computed in the merkle insertion
-                tree.siblingPath[i] = BN254.ScalarField.wrap(hashes[i]);
-            } else {
-                // Right node, the new sibling is in a new sub-tree, and is the zero value
-                // for this depth in the tree
-                tree.siblingPath[i] = zeroValue(i);
+            bool isRightChild = idxBit == 1;
+            if (subtreeFilled) {
+                if (isRightChild) {
+                    // Right node, the new sibling is in a new sub-tree, and is the zero value
+                    // for this depth in the tree
+                    tree.siblingPath[i] = zeroValue(i);
+                } else {
+                    // Left node, the new sibling is the intermediate hash computed in the merkle insertion
+                    tree.siblingPath[i] = BN254.ScalarField.wrap(hashes[i]);
+                }
             }
+
+            // The parent's subtree is full if the current node is the right child, and its subtree is full
+            subtreeFilled = isRightChild && subtreeFilled;
         }
     }
 }
