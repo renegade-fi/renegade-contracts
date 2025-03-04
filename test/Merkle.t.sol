@@ -116,6 +116,52 @@ contract MerkleTest is TestUtils {
         assertEq(tree.nextIndex, N_INSERTS);
     }
 
+    /// @notice Test the sibling path after a number of inserts
+    /// @dev This is effectively testing the consistency of the sibling path across successive insertions
+    function test_siblingPathAfterMultiInsert() public {
+        uint256 N_INSERTS = randomUint(1, 20);
+        uint256[] memory inputs = new uint256[](N_INSERTS);
+        for (uint256 i = 0; i < N_INSERTS; i++) {
+            inputs[i] = randomFelt();
+        }
+
+        // Insert into the solidity Merkle tree
+        for (uint256 i = 0; i < N_INSERTS; i++) {
+            tree.insertLeaf(BN254.ScalarField.wrap(inputs[i]), hasher);
+        }
+
+        // Now fetch the sibling path, this will be the opening for the next insert
+        uint256[] memory siblingPath = new uint256[](MERKLE_DEPTH);
+        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+            siblingPath[i] = BN254.ScalarField.unwrap(tree.siblingPath[i]);
+        }
+
+        // Insert one more leaf into the tree
+        uint256 nextInput = randomFelt();
+        tree.insertLeaf(BN254.ScalarField.wrap(nextInput), hasher);
+
+        // Check that the sibling path from the previous insert opens the new leaf to the current root
+        uint256 idx = N_INSERTS;
+        uint256 expectedRoot = BN254.ScalarField.unwrap(tree.getRoot());
+        uint256 openedRoot = nextInput;
+        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+            uint256[] memory inputs = new uint256[](2);
+            uint256 ithBit = (idx >> i) & 1;
+            if (ithBit == 0) {
+                // Left child
+                inputs[0] = openedRoot;
+                inputs[1] = siblingPath[i];
+            } else {
+                // Right child
+                inputs[0] = siblingPath[i];
+                inputs[1] = openedRoot;
+            }
+            openedRoot = hasher.spongeHash(inputs);
+        }
+
+        assertEq(openedRoot, expectedRoot);
+    }
+
     // --- Helpers --- //
 
     /// @dev Generate a random index in the Merkle tree
