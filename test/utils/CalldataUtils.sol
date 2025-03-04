@@ -3,10 +3,13 @@ pragma solidity ^0.8.20;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { TestUtils, uintToScalarWords } from "./TestUtils.sol";
+import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof } from "../../src/libraries/verifier/Types.sol";
+import { IHasher } from "../../src/libraries/poseidon2/IHasher.sol";
 import { ExternalTransfer, PublicRootKey, TransferType } from "../../src/libraries/darkpool/Types.sol";
+import { uintToScalarWords, WalletOperations } from "../../src/libraries/darkpool/WalletOperations.sol";
 import { ValidWalletCreateStatement, ValidWalletUpdateStatement } from "../../src/libraries/darkpool/PublicInputs.sol";
+import { console2 } from "forge-std/console2.sol";
 
 // Utilities for generating darkpool calldata
 
@@ -33,19 +36,33 @@ contract CalldataUtils is TestUtils {
     }
 
     /// @notice Generate calldata for updating a wallet
-    function updateWalletCalldata()
+    function updateWalletCalldata(IHasher hasher)
         internal
-        returns (ValidWalletUpdateStatement memory statement, PlonkProof memory proof)
+        returns (
+            bytes memory newSharesCommitmentSig,
+            ValidWalletUpdateStatement memory statement,
+            PlonkProof memory proof
+        )
     {
+        Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
         statement = ValidWalletUpdateStatement({
             previousNullifier: randomScalar(),
             newPublicShares: randomWalletShares(),
             newPrivateShareCommitment: randomScalar(),
             merkleRoot: randomScalar(),
             externalTransfer: emptyExternalTransfer(),
-            oldPkRoot: randomRootKey()
+            oldPkRoot: forgeWalletToRootKey(rootKeyWallet)
         });
         proof = dummyPlonkProof();
+
+        // Sign the new shares commitment
+        BN254.ScalarField newSharesCommitment = WalletOperations.computeWalletCommitment(
+            statement.newPublicShares, statement.newPrivateShareCommitment, hasher
+        );
+
+        bytes32 digest = WalletOperations.walletCommitmentDigest(newSharesCommitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(rootKeyWallet.privateKey, digest);
+        newSharesCommitmentSig = abi.encodePacked(r, s, v);
     }
 
     // ------------------
@@ -61,6 +78,11 @@ contract CalldataUtils is TestUtils {
     /// @notice Generate a random root key
     function randomRootKey() internal returns (PublicRootKey memory rootKey) {
         Vm.Wallet memory wallet = randomEthereumWallet();
+        rootKey = forgeWalletToRootKey(wallet);
+    }
+
+    /// @notice Convert a forge wallet to a public root key
+    function forgeWalletToRootKey(Vm.Wallet memory wallet) internal returns (PublicRootKey memory rootKey) {
         (BN254.ScalarField xLow, BN254.ScalarField xHigh) = uintToScalarWords(wallet.publicKeyX);
         (BN254.ScalarField yLow, BN254.ScalarField yHigh) = uintToScalarWords(wallet.publicKeyY);
         rootKey = PublicRootKey({ x: [xLow, xHigh], y: [yLow, yHigh] });
