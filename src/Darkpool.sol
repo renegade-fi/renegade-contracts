@@ -13,6 +13,7 @@ import {
     ValidWalletUpdateStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
+import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 
@@ -75,14 +76,22 @@ contract Darkpool {
 
         // 2. Compute a commitment to the wallet shares, and insert into the Merkle tree
         BN254.ScalarField walletCommitment =
-            computeWalletCommitment(statement.publicShares, statement.privateShareCommitment);
+            WalletOperations.computeWalletCommitment(statement.publicShares, statement.privateShareCommitment, hasher);
         merkleTree.insertLeaf(walletCommitment, hasher);
     }
 
     /// @notice Update a wallet in the darkpool
+    /// @param newSharesCommitmentSig The signature of the new wallet shares commitment by the
+    /// old wallet's root key
     /// @param statement The statement to verify
     /// @param proof The proof of `VALID WALLET UPDATE`
-    function updateWallet(ValidWalletUpdateStatement memory statement, PlonkProof memory proof) public {
+    function updateWallet(
+        bytes calldata newSharesCommitmentSig,
+        ValidWalletUpdateStatement memory statement,
+        PlonkProof memory proof
+    )
+        public
+    {
         // 1. Verify the Merkle root to which the pre-update wallet's inclusion proof opens,
         // and check that the nullifier has not been spent
         require(merkleTree.rootInHistory(statement.merkleRoot), "Invalid Merkle root");
@@ -92,29 +101,14 @@ contract Darkpool {
         verifier.verifyValidWalletUpdate(statement, proof);
 
         // 2. Compute a commitment to the wallet shares, and insert into the Merkle tree
-        BN254.ScalarField walletCommitment =
-            computeWalletCommitment(statement.newPublicShares, statement.newPrivateShareCommitment);
+        BN254.ScalarField walletCommitment = WalletOperations.computeWalletCommitment(
+            statement.newPublicShares, statement.newPrivateShareCommitment, hasher
+        );
         merkleTree.insertLeaf(walletCommitment, hasher);
-    }
 
-    // --- Helper Methods --- //
-
-    /// @dev Compute a commitment to a wallet's shares
-    function computeWalletCommitment(
-        BN254.ScalarField[] memory publicShares,
-        BN254.ScalarField privateShareCommitment
-    )
-        internal
-        view
-        returns (BN254.ScalarField)
-    {
-        uint256[] memory hashInputs = new uint256[](publicShares.length + 1);
-        hashInputs[0] = BN254.ScalarField.unwrap(privateShareCommitment);
-        for (uint256 i = 1; i <= publicShares.length; i++) {
-            hashInputs[i] = BN254.ScalarField.unwrap(publicShares[i - 1]);
-        }
-
-        uint256 walletCommitment = hasher.spongeHash(hashInputs);
-        return BN254.ScalarField.wrap(walletCommitment);
+        // 3. Verify the signature of the new shares commitment by the root key
+        bool validSig =
+            WalletOperations.verifyWalletUpdateSignature(walletCommitment, newSharesCommitmentSig, statement.oldPkRoot);
+        require(validSig, "Invalid signature");
     }
 }

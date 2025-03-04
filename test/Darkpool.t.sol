@@ -20,10 +20,11 @@ contract DarkpoolTest is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
 
     Darkpool public darkpool;
+    IHasher public hasher;
     NullifierLib.NullifierSet private testNullifierSet;
 
     function setUp() public {
-        IHasher hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
+        hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
         darkpool = new Darkpool(hasher, verifier);
     }
@@ -54,43 +55,65 @@ contract DarkpoolTest is CalldataUtils {
     /// @notice Test updating a wallet
     function test_updateWallet_validUpdate() public {
         // Setup calldata
-        (ValidWalletUpdateStatement memory statement, PlonkProof memory proof) = updateWalletCalldata();
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
 
         // Modify the merkle root to be valid
         BN254.ScalarField currRoot = darkpool.getMerkleRoot();
         statement.merkleRoot = currRoot;
 
         // Update the wallet
-        darkpool.updateWallet(statement, proof);
+        darkpool.updateWallet(newSharesCommitmentSig, statement, proof);
     }
 
     /// @notice Test updating a wallet with an invalid Merkle root
     function test_updateWallet_invalidMerkleRoot() public {
         // Setup calldata
-        (ValidWalletUpdateStatement memory statement, PlonkProof memory proof) = updateWalletCalldata();
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
 
         // Modify the merkle root to be invalid
         statement.merkleRoot = randomScalar();
 
         // Should fail
         vm.expectRevert("Invalid Merkle root");
-        darkpool.updateWallet(statement, proof);
+        darkpool.updateWallet(newSharesCommitmentSig, statement, proof);
     }
 
     /// @notice Test updating a wallet with a spent nullifier
     function test_updateWallet_spentNullifier() public {
         // Setup calldata
-        (ValidWalletUpdateStatement memory statement, PlonkProof memory proof) = updateWalletCalldata();
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
 
         // Modify the merkle root to be valid
         BN254.ScalarField currRoot = darkpool.getMerkleRoot();
         statement.merkleRoot = currRoot;
 
         // First update should succeed
-        darkpool.updateWallet(statement, proof);
+        darkpool.updateWallet(newSharesCommitmentSig, statement, proof);
 
         // Second update with same nullifier should fail
         vm.expectRevert("Nullifier already spent");
-        darkpool.updateWallet(statement, proof);
+        darkpool.updateWallet(newSharesCommitmentSig, statement, proof);
+    }
+
+    /// @notice Test updating a wallet with an invalid signature
+    function test_updateWallet_invalidSignature() public {
+        // Setup calldata
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+
+        // Use the current Merkle root to isolate the signature check directly
+        BN254.ScalarField currRoot = darkpool.getMerkleRoot();
+        statement.merkleRoot = currRoot;
+
+        // Modify a random byte of the signature
+        uint256 randIdx = randomUint(newSharesCommitmentSig.length);
+        newSharesCommitmentSig[randIdx] = randomByte();
+
+        // Should fail
+        vm.expectRevert("Invalid signature");
+        darkpool.updateWallet(newSharesCommitmentSig, statement, proof);
     }
 }

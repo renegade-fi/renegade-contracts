@@ -6,12 +6,6 @@ import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "lib/solidity-bn254/src/BN254.sol";
 import { DarkpoolConstants } from "src/libraries/darkpool/Constants.sol";
 
-/// @dev Split a uint256 into a pair of BN254.ScalarField words, in little-endian order
-function uintToScalarWords(uint256 value) pure returns (BN254.ScalarField low, BN254.ScalarField high) {
-    low = BN254.ScalarField.wrap(value % BN254.R_MOD);
-    high = BN254.ScalarField.wrap(value / BN254.R_MOD);
-}
-
 contract TestUtils is Test {
     /// @dev The BN254 field modulus from roundUtils.huff
     uint256 constant PRIME = BN254.R_MOD;
@@ -20,11 +14,14 @@ contract TestUtils is Test {
 
     // --- Fuzzing Helpers --- //
 
+    /// @dev Generates a random byte
+    function randomByte() internal returns (bytes1) {
+        return bytes1(uint8(randomFelt() % 256));
+    }
+
     /// @dev Generates a random input modulo the PRIME
-    /// Note that this is not uniformly distributed over the prime field, because of the "wraparound"
-    /// but it suffices for fuzzing test inputs
     function randomFelt() internal returns (uint256) {
-        return vm.randomUint() % PRIME;
+        return vm.randomUint(0, BN254.R_MOD);
     }
 
     /// @dev Generate a random BN254 scalar field element
@@ -45,16 +42,8 @@ contract TestUtils is Test {
     }
 
     /// @dev Generates a random input between [low, high)
-    /// The returned value is not uniformly distributed over the range; there is wraparound.
-    /// However, if high << 2^256, the distribution will be close to uniform.
     function randomUint(uint256 low, uint256 high) internal returns (uint256) {
-        require(low <= high, "low must be less than or equal to high");
-        if (low == high) {
-            return low;
-        }
-
-        uint256 range = high - low;
-        return low + (vm.randomUint() % range);
+        return vm.randomUint(low, high);
     }
 
     /// @dev Generate a random set of wallet shares
