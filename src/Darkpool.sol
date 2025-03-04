@@ -8,7 +8,11 @@ import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IHasher } from "./libraries/poseidon2/IHasher.sol";
 import { IVerifier } from "./libraries/verifier/IVerifier.sol";
-import { ValidWalletCreateStatement, StatementSerializer } from "./libraries/darkpool/PublicInputs.sol";
+import {
+    ValidWalletCreateStatement,
+    ValidWalletUpdateStatement,
+    StatementSerializer
+} from "./libraries/darkpool/PublicInputs.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 
 // Use the StatementSerializer for all statements
@@ -40,16 +44,41 @@ contract Darkpool {
         // 1. Verify the proof
         verifier.verifyValidWalletCreate(statement, proof);
 
-        // 2. Compute a commitment to the wallet shares
-        uint256[] memory hashInputs = new uint256[](statement.publicShares.length + 1);
-        hashInputs[0] = BN254.ScalarField.unwrap(statement.privateShareCommitment);
-        for (uint256 i = 1; i <= statement.publicShares.length; i++) {
-            hashInputs[i] = BN254.ScalarField.unwrap(statement.publicShares[i - 1]);
-        }
-        uint256 walletCommitment = hasher.spongeHash(hashInputs);
+        // 2. Compute a commitment to the wallet shares, and insert into the Merkle tree
+        BN254.ScalarField walletCommitment =
+            computeWalletCommitment(statement.publicShares, statement.privateShareCommitment);
+        walletTree.insertLeaf(walletCommitment, hasher);
+    }
 
-        // 3. Insert the wallet commitment into the Merkle tree
-        BN254.ScalarField walletCommitmentScalar = BN254.ScalarField.wrap(walletCommitment);
-        walletTree.insertLeaf(walletCommitmentScalar, hasher);
+    /// @notice Update a wallet in the darkpool
+    /// @param statement The statement to verify
+    /// @param proof The proof of `VALID WALLET UPDATE`
+    function updateWallet(ValidWalletUpdateStatement memory statement, PlonkProof memory proof) public {
+        // 1. Verify the proof
+        verifier.verifyValidWalletUpdate(statement, proof);
+
+        // 2. Compute a commitment to the wallet shares, and insert into the Merkle tree
+        BN254.ScalarField walletCommitment =
+            computeWalletCommitment(statement.newPublicShares, statement.newPrivateShareCommitment);
+        walletTree.insertLeaf(walletCommitment, hasher);
+    }
+
+    /// @dev Compute a commitment to a wallet's shares
+    function computeWalletCommitment(
+        BN254.ScalarField[] memory publicShares,
+        BN254.ScalarField privateShareCommitment
+    )
+        internal
+        view
+        returns (BN254.ScalarField)
+    {
+        uint256[] memory hashInputs = new uint256[](publicShares.length + 1);
+        hashInputs[0] = BN254.ScalarField.unwrap(privateShareCommitment);
+        for (uint256 i = 1; i <= publicShares.length; i++) {
+            hashInputs[i] = BN254.ScalarField.unwrap(publicShares[i - 1]);
+        }
+
+        uint256 walletCommitment = hasher.spongeHash(hashInputs);
+        return BN254.ScalarField.wrap(walletCommitment);
     }
 }
