@@ -87,7 +87,7 @@ library WalletOperations {
     }
 
     /// @notice Get an ethereum address from a public root key
-    function addressFromRootKey(PublicRootKey memory rootKey) internal view returns (address) {
+    function addressFromRootKey(PublicRootKey memory rootKey) internal pure returns (address) {
         uint256 x = scalarWordsToUint(rootKey.x[0], rootKey.x[1]);
         uint256 y = scalarWordsToUint(rootKey.y[0], rootKey.y[1]);
         // Pack x and y into 64 bytes

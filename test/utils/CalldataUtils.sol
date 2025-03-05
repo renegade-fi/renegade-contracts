@@ -82,7 +82,7 @@ contract CalldataUtils is TestUtils {
     }
 
     /// @notice Convert a forge wallet to a public root key
-    function forgeWalletToRootKey(Vm.Wallet memory wallet) internal returns (PublicRootKey memory rootKey) {
+    function forgeWalletToRootKey(Vm.Wallet memory wallet) internal pure returns (PublicRootKey memory rootKey) {
         (BN254.ScalarField xLow, BN254.ScalarField xHigh) = uintToScalarWords(wallet.publicKeyX);
         (BN254.ScalarField yLow, BN254.ScalarField yHigh) = uintToScalarWords(wallet.publicKeyY);
         rootKey = PublicRootKey({ x: [xLow, xHigh], y: [yLow, yHigh] });

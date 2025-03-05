@@ -21,7 +21,7 @@ contract TestUtils is Test {
 
     /// @dev Generates a random input modulo the PRIME
     function randomFelt() internal returns (uint256) {
-        return vm.randomUint(0, BN254.R_MOD);
+        return vm.randomUint(0, BN254.R_MOD - 1);
     }
 
     /// @dev Generate a random BN254 scalar field element
@@ -43,7 +43,7 @@ contract TestUtils is Test {
 
     /// @dev Generates a random input between [low, high)
     function randomUint(uint256 low, uint256 high) internal returns (uint256) {
-        return vm.randomUint(low, high);
+        return vm.randomUint(low, high - 1);
     }
 
     /// @dev Generate a random set of wallet shares
