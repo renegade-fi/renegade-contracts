@@ -63,7 +63,7 @@ sol! {
     function isDummyUpgradeTarget() external view returns (bool);
 
     // Gas sponsorship functions
-    function sponsorAtomicMatchSettleWithReceiver(address receiver, bytes internal_party_match_payload, bytes valid_match_settle_atomic_statement, bytes match_proofs, bytes match_linking_proofs, uint256 nonce, address refund_address, bool refund_native_eth, uint256 conversion_rate, bytes signature) external payable;
+    function sponsorAtomicMatchSettleWithRefundOptions(address receiver, bytes internal_party_match_payload, bytes valid_match_settle_atomic_statement, bytes match_proofs, bytes match_linking_proofs, address refund_address, uint256 nonce, bool refund_native_eth, uint256 conversion_rate, bytes signature) external payable;
 
     // ----------
     // | EVENTS |

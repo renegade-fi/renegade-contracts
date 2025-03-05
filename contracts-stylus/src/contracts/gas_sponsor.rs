@@ -24,7 +24,7 @@ use crate::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
         helpers::{check_address_not_zero, deserialize_from_calldata, is_native_eth_address},
         solidity::{
-            sponsorAtomicMatchSettleWithReceiverCall, GasSponsorPausedFallback, IArbGasInfo,
+            sponsorAtomicMatchSettleWithRefundOptionsCall, GasSponsorPausedFallback, IArbGasInfo,
             IArbWasm, IDarkpool, IErc20, InsufficientSponsorBalance, NonceUsed,
             OwnershipTransferred, Paused, SponsoredExternalMatch, Unpaused,
         },
@@ -206,13 +206,6 @@ impl GasSponsorContract {
         Ok(())
     }
 
-    /// Receives ERC20 tokens from the caller.
-    pub fn receive_tokens(&mut self, token: Address, amount: U256) -> Result<(), Vec<u8>> {
-        let token_contract = IErc20::new(token);
-        token_contract.transfer_from(Call::new(), msg::sender(), contract::address(), amount)?;
-        Ok(())
-    }
-
     /// Withdraws ERC20 tokens from the gas sponsor contract to the given
     /// receiver
     pub fn withdraw_tokens(
@@ -243,10 +236,8 @@ impl GasSponsorContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-        nonce: U256,
         refund_address: Address,
-        refund_native_eth: bool,
-        conversion_rate: U256,
+        nonce: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let receiver = msg::sender();
@@ -256,10 +247,8 @@ impl GasSponsorContract {
             valid_match_settle_atomic_statement,
             match_proofs,
             match_linking_proofs,
-            nonce,
             refund_address,
-            refund_native_eth,
-            conversion_rate,
+            nonce,
             signature,
         )
     }
@@ -275,8 +264,41 @@ impl GasSponsorContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-        nonce: U256,
         refund_address: Address,
+        nonce: U256,
+        signature: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        self.sponsor_atomic_match_settle_with_refund_options(
+            receiver,
+            internal_party_match_payload,
+            valid_match_settle_atomic_statement,
+            match_proofs,
+            match_linking_proofs,
+            refund_address,
+            nonce,
+            true,       // refund_native_eth
+            U256::ZERO, // conversion_rate
+            signature,
+        )
+    }
+
+    /// Sponsor the gas costs of an atomic match settlement, with the given
+    /// options (receiver, refund address, native ETH vs buy-side token
+    /// refund). The `gas_cost` is the estimated gas cost of the transaction
+    /// in units of wei, and the `conversion_rate` is the signed price of
+    /// the buy-side token in units of `token/wei *
+    /// CONVERSION_RATE_PRECISION`.
+    #[payable]
+    #[allow(clippy::too_many_arguments)]
+    pub fn sponsor_atomic_match_settle_with_refund_options(
+        &mut self,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+        refund_address: Address,
+        nonce: U256,
         refund_native_eth: bool,
         conversion_rate: U256,
         signature: Bytes,
@@ -297,11 +319,8 @@ impl GasSponsorContract {
             return Ok(());
         }
 
-        // Verify the signature over the conversion rate, nonce, and refund address
-        let mut message = conversion_rate.to_be_bytes::<NUM_BYTES_U256>().to_vec();
-        message.extend_from_slice(nonce.to_be_bytes::<NUM_BYTES_U256>().as_slice());
-        message.extend_from_slice(refund_address.as_slice());
-        self.assert_valid_signature(&message, &signature)?;
+        // Verify the sponsorship signature
+        self.assert_sponsorship_signature(&nonce, &refund_address, &conversion_rate, &signature)?;
 
         // Mark the nonce as used
         self.mark_nonce_used(nonce)?;
@@ -326,8 +345,8 @@ impl GasSponsorContract {
             valid_match_settle_atomic_statement,
             match_proofs,
             match_linking_proofs,
-            nonce,
             refund_address,
+            nonce,
             refund_native_eth,
             conversion_rate,
             signature,
@@ -417,6 +436,23 @@ impl GasSponsorContract {
         evm::log(OwnershipTransferred { new_owner })
     }
 
+    /// Verify the signature over the nonce, refund address, and potentially
+    /// conversion rate
+    fn assert_sponsorship_signature(
+        &self,
+        nonce: &U256,
+        refund_address: &Address,
+        conversion_rate: &U256,
+        signature: &[u8],
+    ) -> Result<(), Vec<u8>> {
+        let mut message = nonce.to_be_bytes::<NUM_BYTES_U256>().to_vec();
+        message.extend_from_slice(refund_address.as_slice());
+        if !conversion_rate.is_zero() {
+            message.extend_from_slice(conversion_rate.to_be_bytes::<NUM_BYTES_U256>().as_slice());
+        }
+        self.assert_valid_signature(&message, signature)
+    }
+
     /// Asserts the validity of the given signature using the auth address
     fn assert_valid_signature(&self, message: &[u8], signature: &[u8]) -> Result<(), Vec<u8>> {
         let auth_address = self.auth_address.get();
@@ -499,21 +535,21 @@ fn estimate_invocation_gas(
     valid_match_settle_atomic_statement: Bytes,
     match_proofs: Bytes,
     match_linking_proofs: Bytes,
-    nonce: U256,
     refund_address: Address,
+    nonce: U256,
     refund_native_eth: bool,
     conversion_rate: U256,
     signature: Bytes,
 ) -> Result<u64, Vec<u8>> {
     // Compute the cost of calldata, assuming no zero bytes
-    let calldata = sponsorAtomicMatchSettleWithReceiverCall {
+    let calldata = sponsorAtomicMatchSettleWithRefundOptionsCall {
         receiver,
         internal_party_match_payload: internal_party_match_payload.0.into(),
         valid_match_settle_atomic_statement: valid_match_settle_atomic_statement.0.into(),
         match_proofs: match_proofs.0.into(),
         match_linking_proofs: match_linking_proofs.0.into(),
-        nonce,
         refund_address,
+        nonce,
         refund_native_eth,
         conversion_rate,
         signature: signature.0.into(),
@@ -571,8 +607,8 @@ fn estimate_final_gas_cost(
     valid_match_settle_atomic_statement: Bytes,
     match_proofs: Bytes,
     match_linking_proofs: Bytes,
-    nonce: U256,
     refund_address: Address,
+    nonce: U256,
     refund_native_eth: bool,
     conversion_rate: U256,
     signature: Bytes,
@@ -584,8 +620,8 @@ fn estimate_final_gas_cost(
         valid_match_settle_atomic_statement,
         match_proofs,
         match_linking_proofs,
-        nonce,
         refund_address,
+        nonce,
         refund_native_eth,
         conversion_rate,
         signature,
@@ -637,6 +673,7 @@ fn resolve_refund_address(
 }
 
 /// Refunds the user's gas costs through native ETH.
+/// The `gas_cost` is the estimated gas cost of the transaction in units of wei.
 fn refund_through_native_eth(
     refund_address: Address,
     gas_cost: U256,
@@ -661,6 +698,9 @@ fn refund_through_native_eth(
 }
 
 /// Refunds the user's gas costs through the buy-side token.
+/// The `gas_cost` is the estimated gas cost of the transaction in units of wei,
+/// and the `conversion_rate` is the price of the buy-side token in units of
+/// `token/wei * CONVERSION_RATE_PRECISION`.
 fn refund_through_buy_token(
     refund_address: Address,
     buy_token_addr: Address,
@@ -691,6 +731,9 @@ fn refund_through_buy_token(
 
 /// Refunds the user's gas costs, either through native ETH or the buy-side
 /// token.
+/// The `gas_cost` is the estimated gas cost of the transaction in units of wei,
+/// and the `conversion_rate` is the price of the buy-side token in units of
+/// `token/wei * CONVERSION_RATE_PRECISION`.
 fn refund_gas_cost(
     refund_native_eth: bool,
     refund_address: Address,
