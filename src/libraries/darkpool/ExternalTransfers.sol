@@ -11,7 +11,9 @@ import {
     hashDepositWitness,
     DEPOSIT_WITNESS_TYPE_STRING
 } from "../darkpool/Types.sol";
+import { WalletOperations } from "../darkpool/WalletOperations.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 
 // @title TransferExecutor
@@ -35,7 +37,7 @@ library TransferExecutor {
         if (isDeposit) {
             executeDeposit(oldPkRoot, transfer, authorization, permit2);
         } else {
-            executeWithdrawal(transfer);
+            executeWithdrawal(oldPkRoot, transfer, authorization);
         }
     }
 
@@ -80,18 +82,26 @@ library TransferExecutor {
         );
     }
 
-    /// @notice Builds the deposit witness hash from the public root key
-    /// @param oldPkRoot The public root key of the sender's Renegade wallet
-    /// @return The deposit witness hash
-    function buildDepositWitnessHash(PublicRootKey calldata oldPkRoot) internal pure returns (bytes32) {
-        return keccak256(abi.encode(oldPkRoot));
-    }
-
     // --- Withdrawal --- //
 
     /// @notice Executes a withdrawal of shares from the darkpool
     /// @param transfer The transfer to execute
-    function executeWithdrawal(ExternalTransfer calldata transfer) internal {
-        // TODO: Implement withdrawal logic
+    function executeWithdrawal(
+        PublicRootKey calldata oldPkRoot,
+        ExternalTransfer calldata transfer,
+        TransferAuthorization calldata authorization
+    )
+        internal
+    {
+        // 1. Verify the signature of the withdrawal
+        bytes memory transferBytes = abi.encode(transfer);
+        bytes32 transferHash = keccak256(transferBytes);
+        bool sigValid =
+            WalletOperations.verifyRootKeySignature(transferHash, authorization.externalTransferSignature, oldPkRoot);
+        require(sigValid, "Invalid withdrawal signature");
+
+        // 2. Execute the withdrawal as a direct ERC20 transfer
+        IERC20 token = IERC20(transfer.mint);
+        token.transfer(transfer.account, transfer.amount);
     }
 }

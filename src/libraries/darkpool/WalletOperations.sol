@@ -61,23 +61,36 @@ library WalletOperations {
         bytes32 commitmentHash = walletCommitmentDigest(walletCommitment);
 
         // 2. Verify the signature
-        require(newSharesCommitmentSig.length == 65, "Invalid signature length");
+        return verifyRootKeySignature(commitmentHash, newSharesCommitmentSig, oldRootKey);
+    }
 
-        bytes32 r = bytes32(newSharesCommitmentSig[:32]);
-        bytes32 s = bytes32(newSharesCommitmentSig[32:64]);
-        uint8 v = uint8(newSharesCommitmentSig[64]);
+    /// @notice Verify the root key signature of a digest
+    function verifyRootKeySignature(
+        bytes32 digest,
+        bytes calldata signature,
+        PublicRootKey memory rootKey
+    )
+        internal
+        view
+        returns (bool)
+    {
+        // Split the signature into r, s and v
+        require(signature.length == 65, "Invalid signature length");
+        bytes32 r = bytes32(signature[:32]);
+        bytes32 s = bytes32(signature[32:64]);
+        uint8 v = uint8(signature[64]);
         // Clients (notably ethers) sometimes use v = 0 or 1, the ecrecover precompile expects 27 or 28
         if (v == 0 || v == 1) {
             v += 27;
         }
 
         // Recover signer address using ecrecover
-        address signer = ecrecover(commitmentHash, v, r, s);
+        address signer = ecrecover(digest, v, r, s);
         require(signer != address(0), "Invalid signature");
 
         // Convert oldRootKey to address and compare
-        address oldRootKeyAddress = addressFromRootKey(oldRootKey);
-        return signer == oldRootKeyAddress;
+        address rootKeyAddress = addressFromRootKey(rootKey);
+        return signer == rootKeyAddress;
     }
 
     /// @notice Get the digest of a wallet commitment
