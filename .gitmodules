@@ -10,3 +10,6 @@
 [submodule "lib/solidity-bn254"]
 	path = lib/solidity-bn254
 	url = https://github.com/joeykraut/solidity-bn254
+[submodule "lib/permit2"]
+	path = lib/permit2
+	url = https://github.com/Uniswap/permit2
