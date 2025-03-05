@@ -62,6 +62,9 @@ sol! {
     // Testing functions
     function isDummyUpgradeTarget() external view returns (bool);
 
+    // Gas sponsorship functions
+    function sponsorAtomicMatchSettleWithReceiver(address receiver, bytes internal_party_match_payload, bytes valid_match_settle_atomic_statement, bytes match_proofs, bytes match_linking_proofs, uint256 nonce, address refund_address, bool refund_native_eth, uint256 conversion_rate, bytes signature) external payable;
+
     // ----------
     // | EVENTS |
     // ----------
@@ -96,7 +99,7 @@ sol! {
     event InsufficientSponsorBalance(uint256 indexed nonce);
     event NonceUsed(uint256 indexed nonce);
     event GasSponsorPausedFallback(uint256 indexed nonce);
-    event SponsoredExternalMatch(uint256 indexed amount, uint256 indexed nonce);
+    event SponsoredExternalMatch(uint256 indexed amount, address indexed token, uint256 indexed nonce);
 }
 
 sol_interface! {
@@ -106,12 +109,20 @@ sol_interface! {
 
     interface IErc20 {
         function transferFrom(address from, address to, uint256 value) external returns (bool);
+        function transfer(address to, uint256 value) external returns (bool);
         function approve(address spender, uint256 value) external returns (bool);
+        function balanceOf(address account) external view returns (uint256);
     }
 }
 
 sol_interface! {
     interface IArbGasInfo {
         function getCurrentTxL1GasFees() external view returns (uint256);
+    }
+}
+
+sol_interface! {
+    interface IArbWasm {
+        function programInitGas(address program) external view returns (uint64 gas, uint64 gasWhenCached);
     }
 }
