@@ -1,5 +1,9 @@
 //! Constants used in the integration tests
 
+use alloy_primitives::U256 as AlloyU256;
+use ethers::types::U256;
+use ruint::uint;
+
 /// The default hostport that the Nitro devnet L2 node runs on
 pub(crate) const DEFAULT_DEVNET_HOSTPORT: &str = "http://localhost:8547";
 
@@ -46,3 +50,13 @@ pub(crate) const SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME: &str = "setTransferE
 
 /// The name of the domain separator for Permit2 typed data
 pub(crate) const PERMIT2_EIP712_DOMAIN_NAME: &str = "Permit2";
+
+/// The gas cost tolerance, i.e. the margin of error in units of gas
+/// that is permissible in our gas refund accounting
+pub(crate) const GAS_COST_TOLERANCE: AlloyU256 = uint!(15_000U256);
+
+/// The fixed-point precision of the conversion rate used to convert the gas
+/// cost to the buy-side token.
+///
+/// Concretely, this is 18 decimal places i.e. 10^18.
+pub(crate) const CONVERSION_RATE_PRECISION: U256 = U256([1_000_000_000_000_000_000u64, 0, 0, 0]);

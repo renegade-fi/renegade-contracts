@@ -10,7 +10,7 @@ use crate::{
     abis::IAtomicMatchSettleContract,
     utils::{
         alloy_u256_to_ethers_u256, serialize_to_calldata, setup_sponsored_match_test,
-        setup_sponsored_match_test_native_eth, u256_to_alloy_u256,
+        u256_to_alloy_u256, SponsoredMatchTestOptions,
     },
     TestContext,
 };
@@ -82,8 +82,9 @@ integration_test_async!(test_unsponsored_match_with_receiver);
 /// Test a sponsored match through the gas sponsor.
 ///
 /// Asserts that the refunded amount is ~equal to the gas paid.
-pub async fn test_sponsored_match_refund(ctx: TestContext) -> Result<()> {
-    let data = setup_sponsored_match_test(true /* buy_side */, &ctx).await?;
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_refund__simple(ctx: TestContext) -> Result<()> {
+    let data = setup_sponsored_match_test(Default::default() /* options */, &ctx).await?;
 
     let initial_eth_balance = ctx.get_eth_balance().await?;
 
@@ -100,7 +101,7 @@ pub async fn test_sponsored_match_refund(ctx: TestContext) -> Result<()> {
             serialize_to_calldata(
                 &data.process_atomic_match_settle_data.match_atomic_linking_proofs,
             )?,
-            Address::zero(),
+            data.refund_address,
             data.nonce,
             data.signature,
         )
@@ -112,19 +113,24 @@ pub async fn test_sponsored_match_refund(ctx: TestContext) -> Result<()> {
     let gas_price = u256_to_alloy_u256(receipt.effective_gas_price.unwrap());
     let final_eth_balance = ctx.get_eth_balance().await?;
 
-    let gas_diff = (initial_eth_balance - final_eth_balance) / gas_price;
+    let eth_diff = initial_eth_balance.checked_sub(final_eth_balance).unwrap_or_default();
+    let gas_diff = eth_diff / gas_price;
     assert!(gas_diff < GAS_COST_TOLERANCE, "Unrefunded gas amount of {gas_diff} is too high");
 
     Ok(())
 }
-integration_test_async!(test_sponsored_match_refund);
+integration_test_async!(test_sponsored_match_refund__simple);
 
 /// Test a sponsored match through the gas sponsor, buying the native asset.
 ///
 /// Asserts that the refunded amount is ~equal to the gas paid.
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match_refund__native_asset_buy(ctx: TestContext) -> Result<()> {
-    let data = setup_sponsored_match_test_native_eth(true /* buy_side */, &ctx).await?;
+    let data = setup_sponsored_match_test(
+        SponsoredMatchTestOptions { trade_native_eth: true, ..Default::default() },
+        &ctx,
+    )
+    .await?;
 
     let initial_eth_balance = ctx.get_eth_balance().await?;
 
@@ -141,7 +147,7 @@ pub async fn test_sponsored_match_refund__native_asset_buy(ctx: TestContext) -> 
             serialize_to_calldata(
                 &data.process_atomic_match_settle_data.match_atomic_linking_proofs,
             )?,
-            Address::zero(),
+            data.refund_address,
             data.nonce,
             data.signature,
         )
@@ -162,8 +168,10 @@ pub async fn test_sponsored_match_refund__native_asset_buy(ctx: TestContext) -> 
 
     let gas_price = u256_to_alloy_u256(receipt.effective_gas_price.unwrap());
     let final_eth_balance = ctx.get_eth_balance().await?;
+    let post_refund_eth_balance = final_eth_balance - eth_received_in_match;
 
-    let gas_diff = (initial_eth_balance - (final_eth_balance - eth_received_in_match)) / gas_price;
+    let eth_diff = initial_eth_balance.checked_sub(post_refund_eth_balance).unwrap_or_default();
+    let gas_diff = eth_diff / gas_price;
     assert!(gas_diff < GAS_COST_TOLERANCE, "Unrefunded gas amount of {gas_diff} is too high");
 
     Ok(())
@@ -175,7 +183,11 @@ integration_test_async!(test_sponsored_match_refund__native_asset_buy);
 /// Asserts that the refunded amount is ~equal to the gas paid.
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match_refund__native_asset_sell(ctx: TestContext) -> Result<()> {
-    let data = setup_sponsored_match_test_native_eth(false /* buy_side */, &ctx).await?;
+    let data = setup_sponsored_match_test(
+        SponsoredMatchTestOptions { sell_side: true, trade_native_eth: true, ..Default::default() },
+        &ctx,
+    )
+    .await?;
 
     let base_amount = data
         .process_atomic_match_settle_data
@@ -200,7 +212,7 @@ pub async fn test_sponsored_match_refund__native_asset_sell(ctx: TestContext) ->
             serialize_to_calldata(
                 &data.process_atomic_match_settle_data.match_atomic_linking_proofs,
             )?,
-            Address::zero(),
+            data.refund_address,
             data.nonce,
             data.signature,
         )
@@ -225,8 +237,8 @@ integration_test_async!(test_sponsored_match_refund__native_asset_sell);
 /// Asserts that the match w/ the duplicate nonce fails.
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match__duplicate_nonce(ctx: TestContext) -> Result<()> {
-    let data1 = setup_sponsored_match_test(true /* buy_side */, &ctx).await?;
-    let data2 = setup_sponsored_match_test(true /* buy_side */, &ctx).await?;
+    let data1 = setup_sponsored_match_test(Default::default() /* options */, &ctx).await?;
+    let data2 = setup_sponsored_match_test(Default::default() /* options */, &ctx).await?;
 
     ctx.gas_sponsor_contract()
         .sponsor_atomic_match_settle(
@@ -240,7 +252,7 @@ pub async fn test_sponsored_match__duplicate_nonce(ctx: TestContext) -> Result<(
             serialize_to_calldata(
                 &data1.process_atomic_match_settle_data.match_atomic_linking_proofs,
             )?,
-            Address::zero(),
+            data1.refund_address,
             data1.nonce,
             data1.signature.clone(),
         )
@@ -258,8 +270,8 @@ pub async fn test_sponsored_match__duplicate_nonce(ctx: TestContext) -> Result<(
         )?,
         serialize_to_calldata(&data2.process_atomic_match_settle_data.match_atomic_proofs)?,
         serialize_to_calldata(&data2.process_atomic_match_settle_data.match_atomic_linking_proofs)?,
-        Address::zero(),
-        // Here, we reuse the nonce + signature from the first match
+        // Here, we reuse the refund address + nonce + signature from the first match
+        data1.refund_address,
         data1.nonce,
         data1.signature,
     );
@@ -278,7 +290,7 @@ integration_test_async!(test_sponsored_match__duplicate_nonce);
 /// Asserts that the match fails on account of an invalid signature.
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match__invalid_signature(ctx: TestContext) -> Result<()> {
-    let data = setup_sponsored_match_test(true /* buy_side */, &ctx).await?;
+    let data = setup_sponsored_match_test(Default::default() /* options */, &ctx).await?;
 
     let call = ctx.gas_sponsor_contract().sponsor_atomic_match_settle(
         serialize_to_calldata(&data.process_atomic_match_settle_data.internal_party_match_payload)?,
@@ -305,7 +317,7 @@ integration_test_async!(test_sponsored_match__invalid_signature);
 /// Asserts that the match succeeds but is not sponsored.
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match__paused(ctx: TestContext) -> Result<()> {
-    let data = setup_sponsored_match_test(true /* buy_side */, &ctx).await?;
+    let data = setup_sponsored_match_test(Default::default() /* options */, &ctx).await?;
 
     // Pause the gas sponsor
     let gas_sponsor_contract = ctx.gas_sponsor_contract();
@@ -325,7 +337,7 @@ pub async fn test_sponsored_match__paused(ctx: TestContext) -> Result<()> {
             serialize_to_calldata(
                 &data.process_atomic_match_settle_data.match_atomic_linking_proofs,
             )?,
-            Address::zero(),
+            data.refund_address,
             data.nonce,
             data.signature,
         )
@@ -352,7 +364,7 @@ integration_test_async!(test_sponsored_match__paused);
 /// Asserts that the match succeeds but is not sponsored.
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match__underfunded(ctx: TestContext) -> Result<()> {
-    let data = setup_sponsored_match_test(true /* buy_side */, &ctx).await?;
+    let data = setup_sponsored_match_test(Default::default() /* options */, &ctx).await?;
 
     // Withdraw all ETH from the gas sponsor
     let gas_sponsor_contract = ctx.gas_sponsor_contract();
@@ -374,7 +386,7 @@ pub async fn test_sponsored_match__underfunded(ctx: TestContext) -> Result<()> {
             serialize_to_calldata(
                 &data.process_atomic_match_settle_data.match_atomic_linking_proofs,
             )?,
-            Address::zero(),
+            data.refund_address,
             data.nonce,
             data.signature,
         )
