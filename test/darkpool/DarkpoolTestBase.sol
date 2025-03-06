@@ -31,6 +31,10 @@ contract DarkpoolTestBase is CalldataUtils {
     ERC20Mock public token1;
     ERC20Mock public token2;
 
+    bytes constant INVALID_NULLIFIER_REVERT_STRING = "Nullifier already spent";
+    bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
+    bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
+
     function setUp() public {
         // Deploy a Permit2 instance for testing
         DeployPermit2 permit2Deployer = new DeployPermit2();

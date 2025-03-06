@@ -26,6 +26,10 @@ contract UpdateWalletTest is DarkpoolTestBase {
 
         // Update the wallet
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+
+        // Check that the nullifier is used
+        BN254.ScalarField nullifier = statement.previousNullifier;
+        assertEq(darkpool.nullifierSpent(nullifier), true);
     }
 
     /// @notice Test updating a wallet with an invalid Merkle root
@@ -39,7 +43,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         statement.merkleRoot = randomScalar();
 
         // Should fail
-        vm.expectRevert("Merkle root not in history");
+        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
@@ -58,7 +62,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
         // Second update with same nullifier should fail
-        vm.expectRevert("Nullifier already spent");
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
@@ -78,7 +82,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         newSharesCommitmentSig[randIdx] = randomByte();
 
         // Should fail
-        vm.expectRevert("Invalid signature");
+        vm.expectRevert(INVALID_SIGNATURE_REVERT_STRING);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
