@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { BN254, Utils as BN254Util } from "solidity-bn254/BN254.sol";
-import { console2 } from "forge-std/console2.sol";
 import { Math } from "oz-contracts/utils/math/Math.sol";
 
 /// @title Helper functions for BN254 curve operations

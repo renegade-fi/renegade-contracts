@@ -5,7 +5,6 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "../poseidon2/IHasher.sol";
 import { DarkpoolConstants } from "../darkpool/Constants.sol";
 import { MerkleZeros } from "./MerkleZeros.sol";
-import { console2 } from "forge-std/console2.sol";
 
 /// @title MerkleTreeLib
 /// @notice Library for Merkle tree operations

@@ -15,7 +15,6 @@ import {
 } from "../src/libraries/verifier/Types.sol";
 import { ProofLinkingCore } from "../src/libraries/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { console2 } from "forge-std/console2.sol";
 
 contract VerifierTest is VerifierTestUtils {
     TestUtils public testUtils;

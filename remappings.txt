@@ -7,3 +7,4 @@ solidity-bn254/=lib/solidity-bn254/src/
 permit2/=lib/permit2/src/
 permit2-test/=lib/permit2/test/
 oz-contracts/=lib/openzeppelin-contracts/contracts
+renegade/=src
