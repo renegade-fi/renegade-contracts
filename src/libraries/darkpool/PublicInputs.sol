@@ -36,6 +36,24 @@ struct ValidWalletUpdateStatement {
     PublicRootKey oldPkRoot;
 }
 
+/// @title ValidReblindStatement
+/// @notice The statement type for the `VALID REBLIND` proof
+struct ValidReblindStatement {
+    /// @dev The nullifier of the original wallet
+    BN254.ScalarField originalSharesNullifier;
+    /// @dev A commitment to the new private shares of the reblinded wallet
+    BN254.ScalarField newPrivateShareCommitment;
+    /// @dev The global Merkle root that the new wallet shares open into
+    BN254.ScalarField merkleRoot;
+}
+
+/// @title ValidCommitmentsStatement
+/// @notice The statement type for the `VALID COMMITMENTS` proof
+struct ValidCommitmentsStatement {
+    /// @dev The order settlement indices of the party for which this statement is generated
+    OrderSettlementIndices indices;
+}
+
 /// @title ValidMatchSettleStatement
 /// @notice The statement type for the `VALID MATCH SETTLE` proof
 struct ValidMatchSettleStatement {
@@ -62,6 +80,9 @@ struct ValidMatchSettleStatement {
 library StatementSerializer {
     using StatementSerializer for ValidWalletCreateStatement;
     using StatementSerializer for ValidWalletUpdateStatement;
+    using StatementSerializer for ValidReblindStatement;
+    using StatementSerializer for ValidCommitmentsStatement;
+    using StatementSerializer for ValidMatchSettleStatement;
     using StatementSerializer for ExternalTransfer;
     using StatementSerializer for PublicRootKey;
     using StatementSerializer for OrderSettlementIndices;
@@ -70,6 +91,10 @@ library StatementSerializer {
     uint256 constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
     /// @notice The number of scalar field elements in a ValidWalletUpdateStatement
     uint256 constant VALID_WALLET_UPDATE_SCALAR_SIZE = 81;
+    /// @notice The number of scalar field elements in a ValidReblindStatement
+    uint256 constant VALID_REBLIND_SCALAR_SIZE = 3;
+    /// @notice The number of scalar field elements in a ValidCommitmentsStatement
+    uint256 constant VALID_COMMITMENTS_SCALAR_SIZE = 3;
     /// @notice The number of scalar field elements in a ValidMatchSettleStatement
     uint256 constant VALID_MATCH_SETTLE_SCALAR_SIZE = 147;
 
@@ -127,6 +152,38 @@ library StatementSerializer {
         for (uint256 i = 0; i < oldPkRootSerialized.length; i++) {
             serialized[n + 3 + externalTransferSerialized.length + i] = oldPkRootSerialized[i];
         }
+
+        return serialized;
+    }
+
+    // --- Valid Reblind --- //
+
+    /// @notice Serializes a ValidReblindStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidReblindStatement memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_REBLIND_SCALAR_SIZE);
+        serialized[0] = self.originalSharesNullifier;
+        serialized[1] = self.newPrivateShareCommitment;
+        serialized[2] = self.merkleRoot;
+
+        return serialized;
+    }
+
+    // --- Valid Commitments --- //
+
+    /// @notice Serializes a ValidCommitmentsStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidCommitmentsStatement memory self)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_COMMITMENTS_SCALAR_SIZE);
+        serialized[0] = BN254.ScalarField.wrap(self.indices.balanceSend);
+        serialized[1] = BN254.ScalarField.wrap(self.indices.balanceReceive);
+        serialized[2] = BN254.ScalarField.wrap(self.indices.order);
 
         return serialized;
     }
