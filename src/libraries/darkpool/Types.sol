@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 // This file contains the types used in the darkpool
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { ValidCommitmentsStatement, ValidReblindStatement } from "./PublicInputs.sol";
+import { PlonkProof } from "../verifier/Types.sol";
 
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
@@ -81,6 +83,30 @@ function hashDepositWitness(DepositWitness memory witness) pure returns (bytes32
 // --------------------
 // | Settlement Types |
 // --------------------
+
+/// @title PartyMatchPayload
+/// @notice Contains the statement types for a single party's validity proofs in a match
+struct PartyMatchPayload {
+    /// @dev The statement types for the `VALID COMMITMENTS` proof
+    ValidCommitmentsStatement validCommitmentsStatement;
+    /// @dev The statement types for the `VALID REBLIND` proof
+    ValidReblindStatement validReblindStatement;
+}
+
+/// @title MatchProofs
+/// @notice Contains the proofs for a match between two parties in the darkpool
+struct MatchProofs {
+    /// @dev The first party's proof of `VALID COMMITMENTS`
+    PlonkProof validCommitments0;
+    /// @dev The first party's proof of `VALID REBLIND`
+    PlonkProof validReblind0;
+    /// @dev The second party's proof of `VALID COMMITMENTS`
+    PlonkProof validCommitments1;
+    /// @dev The second party's proof of `VALID REBLIND`
+    PlonkProof validReblind1;
+    /// @dev The proof of `VALID MATCH SETTLE`
+    PlonkProof validMatchSettle;
+}
 
 /// @notice A set of indices into a settlement party's wallet for the receive balance
 struct OrderSettlementIndices {

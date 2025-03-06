@@ -5,10 +5,13 @@ import { PlonkProof, VerificationKey } from "../../src/libraries/verifier/Types.
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
+    ValidMatchSettleStatement,
     StatementSerializer
 } from "../../src/libraries/darkpool/PublicInputs.sol";
+import { PartyMatchPayload, MatchProofs } from "../../src/libraries/darkpool/Types.sol";
 import { VerificationKeys } from "../../src/libraries/darkpool/VerificationKeys.sol";
 import { IVerifier } from "../../src/libraries/verifier/IVerifier.sol";
+import { Verifier } from "../../src/Verifier.sol";
 import { VerifierCore } from "../../src/libraries/verifier/VerifierCore.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
@@ -19,21 +22,25 @@ using StatementSerializer for ValidWalletUpdateStatement;
 /// @notice This is a test implementation of the `IVerifier` interface that always returns true
 /// @notice even if verification fails
 contract TestVerifier is IVerifier {
+    Verifier private verifier;
+
+    constructor() {
+        verifier = new Verifier();
+    }
+
     /// @notice Verify a proof of `VALID WALLET CREATE`
     /// @param statement The public inputs to the proof
     /// @param proof The proof to verify
     /// @return True always, regardless of the proof
     function verifyValidWalletCreate(
-        ValidWalletCreateStatement memory statement,
-        PlonkProof memory proof
+        ValidWalletCreateStatement calldata statement,
+        PlonkProof calldata proof
     )
         external
         view
         returns (bool)
     {
-        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_WALLET_CREATE_VKEY, (VerificationKey));
-        BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
-        VerifierCore.verify(proof, publicInputs, vk);
+        bool _res = verifier.verifyValidWalletCreate(statement, proof);
         return true;
     }
 
@@ -42,16 +49,34 @@ contract TestVerifier is IVerifier {
     /// @param proof The proof to verify
     /// @return True if the proof is valid, false otherwise
     function verifyValidWalletUpdate(
-        ValidWalletUpdateStatement memory statement,
-        PlonkProof memory proof
+        ValidWalletUpdateStatement calldata statement,
+        PlonkProof calldata proof
     )
         external
         view
         returns (bool)
     {
-        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_WALLET_UPDATE_VKEY, (VerificationKey));
-        BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
-        VerifierCore.verify(proof, publicInputs, vk);
+        bool _res = verifier.verifyValidWalletUpdate(statement, proof);
+        return true;
+    }
+
+    /// @notice Verify a match bundle
+    /// @param party0MatchPayload The payload for the first party
+    /// @param party1MatchPayload The payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
+    /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @return True always, regardless of the proof
+    function verifyMatchBundle(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        bool _res = verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs);
         return true;
     }
 }
