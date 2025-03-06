@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { console2 } from "forge-std/console2.sol";
+import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "./libraries/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
@@ -14,6 +14,8 @@ import {
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
+import { TransferExecutor } from "./libraries/darkpool/ExternalTransfers.sol";
+import { TransferAuthorization, isZero } from "./libraries/darkpool/Types.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 
@@ -25,6 +27,8 @@ contract Darkpool {
     IHasher public hasher;
     /// @notice The verifier for the darkpool
     IVerifier public verifier;
+    /// @notice The Permit2 contract instance for handling deposits
+    IPermit2 public permit2;
 
     /// @notice The Merkle tree for wallet commitments
     MerkleTreeLib.MerkleTree private merkleTree;
@@ -37,9 +41,11 @@ contract Darkpool {
     /// @notice The constructor for the darkpool
     /// @param hasher_ The hasher for the darkpool
     /// @param verifier_ The verifier for the darkpool
-    constructor(IHasher hasher_, IVerifier verifier_) {
+    /// @param permit2_ The Permit2 contract instance for handling deposits
+    constructor(IHasher hasher_, IVerifier verifier_, IPermit2 permit2_) {
         hasher = hasher_;
         verifier = verifier_;
+        permit2 = permit2_;
         merkleTree.initialize();
     }
 
@@ -70,7 +76,7 @@ contract Darkpool {
     /// @notice Create a wallet in the darkpool
     /// @param statement The statement to verify
     /// @param proof The proof of `VALID WALLET CREATE`
-    function createWallet(ValidWalletCreateStatement memory statement, PlonkProof memory proof) public {
+    function createWallet(ValidWalletCreateStatement calldata statement, PlonkProof calldata proof) public {
         // 1. Verify the proof
         verifier.verifyValidWalletCreate(statement, proof);
 
@@ -87,8 +93,9 @@ contract Darkpool {
     /// @param proof The proof of `VALID WALLET UPDATE`
     function updateWallet(
         bytes calldata newSharesCommitmentSig,
-        ValidWalletUpdateStatement memory statement,
-        PlonkProof memory proof
+        TransferAuthorization calldata transferAuthorization,
+        ValidWalletUpdateStatement calldata statement,
+        PlonkProof calldata proof
     )
         public
     {
@@ -110,5 +117,12 @@ contract Darkpool {
         bool validSig =
             WalletOperations.verifyWalletUpdateSignature(walletCommitment, newSharesCommitmentSig, statement.oldPkRoot);
         require(validSig, "Invalid signature");
+
+        // 4. Execute the external transfer if it is non-zero
+        if (!isZero(statement.externalTransfer)) {
+            TransferExecutor.executeTransfer(
+                statement.externalTransfer, statement.oldPkRoot, transferAuthorization, permit2
+            );
+        }
     }
 }

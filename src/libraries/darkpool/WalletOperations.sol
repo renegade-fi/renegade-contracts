@@ -71,7 +71,7 @@ library WalletOperations {
         PublicRootKey memory rootKey
     )
         internal
-        view
+        pure
         returns (bool)
     {
         // Split the signature into r, s and v

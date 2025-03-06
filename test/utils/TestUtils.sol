@@ -36,6 +36,11 @@ contract TestUtils is Test {
         return point;
     }
 
+    /// @dev Generates a random uint256
+    function randomUint() internal returns (uint256) {
+        return vm.randomUint();
+    }
+
     /// @dev Generates a random input between [0, high)
     function randomUint(uint256 high) internal returns (uint256) {
         return TestUtils.randomUint(0, high);

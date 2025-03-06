@@ -27,6 +27,13 @@ struct ExternalTransfer {
     TransferType transferType;
 }
 
+/// @notice Checks if an ExternalTransfer has zero values
+/// @param transfer The ExternalTransfer to check
+/// @return True if the amount is zero
+function isZero(ExternalTransfer memory transfer) pure returns (bool) {
+    return transfer.amount == 0;
+}
+
 /// @notice The type of transfer
 enum TransferType {
     Deposit,
