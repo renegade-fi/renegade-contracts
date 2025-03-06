@@ -661,6 +661,8 @@ pub struct SponsoredAtomicMatchSettleData {
     pub process_atomic_match_settle_data: ProcessAtomicMatchSettleData,
     /// The address to refund to
     pub refund_address: Address,
+    /// The address to receive the tokens
+    pub receiver: Address,
     /// The sponsorship nonce
     pub nonce: U256,
     /// Whether to refund through native ETH

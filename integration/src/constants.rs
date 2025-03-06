@@ -60,3 +60,12 @@ pub(crate) const GAS_COST_TOLERANCE: AlloyU256 = uint!(15_000U256);
 ///
 /// Concretely, this is 18 decimal places i.e. 10^18.
 pub(crate) const CONVERSION_RATE_PRECISION: U256 = U256([1_000_000_000_000_000_000u64, 0, 0, 0]);
+
+/// The conversion rate between native ether and the buy-side token in an
+/// external match test. Regardless of which token is the buy-side, we'll
+/// use a conversion rate of 0.5 - i.e., the token is 2x more expensive
+/// than ETH.
+///
+/// Since the conversion rate precision is 10^18, thisn
+/// implies a rate of 5 * 10^17.
+pub(crate) const CONVERSION_RATE: U256 = U256([500_000_000_000_000_000u64, 0, 0, 0]);
