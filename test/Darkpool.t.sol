@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { ERC20Mock } from "@oz-contracts/contracts/mocks/token/ERC20Mock.sol";
+import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
-import { DeployPermit2 } from "permit2/../test/utils/DeployPermit2.sol";
+import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { CalldataUtils } from "./utils/CalldataUtils.sol";
@@ -81,12 +81,9 @@ contract DarkpoolTest is CalldataUtils {
     /// @notice Test updating a wallet
     function test_updateWallet_validUpdate() public {
         // Setup calldata
-        (
-            bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
-            ValidWalletUpdateStatement memory statement,
-            PlonkProof memory proof
-        ) = updateWalletCalldata(hasher);
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Modify the merkle root to be valid
         BN254.ScalarField currRoot = darkpool.getMerkleRoot();
@@ -99,12 +96,9 @@ contract DarkpoolTest is CalldataUtils {
     /// @notice Test updating a wallet with an invalid Merkle root
     function test_updateWallet_invalidMerkleRoot() public {
         // Setup calldata
-        (
-            bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
-            ValidWalletUpdateStatement memory statement,
-            PlonkProof memory proof
-        ) = updateWalletCalldata(hasher);
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Modify the merkle root to be invalid
         statement.merkleRoot = randomScalar();
@@ -117,12 +111,9 @@ contract DarkpoolTest is CalldataUtils {
     /// @notice Test updating a wallet with a spent nullifier
     function test_updateWallet_spentNullifier() public {
         // Setup calldata
-        (
-            bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
-            ValidWalletUpdateStatement memory statement,
-            PlonkProof memory proof
-        ) = updateWalletCalldata(hasher);
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Modify the merkle root to be valid
         BN254.ScalarField currRoot = darkpool.getMerkleRoot();
@@ -139,12 +130,9 @@ contract DarkpoolTest is CalldataUtils {
     /// @notice Test updating a wallet with an invalid signature
     function test_updateWallet_invalidSignature() public {
         // Setup calldata
-        (
-            bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
-            ValidWalletUpdateStatement memory statement,
-            PlonkProof memory proof
-        ) = updateWalletCalldata(hasher);
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Use the current Merkle root to isolate the signature check directly
         BN254.ScalarField currRoot = darkpool.getMerkleRoot();
@@ -167,9 +155,6 @@ contract DarkpoolTest is CalldataUtils {
         Vm.Wallet memory userWallet = randomEthereumWallet();
         Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
         token1.mint(userWallet.addr, depositAmount);
-        vm.startBroadcast(userWallet.addr);
-        token1.approve(address(permit2), depositAmount);
-        vm.stopBroadcast();
 
         uint256 darkpoolBalanceBefore = token1.balanceOf(address(darkpool));
         uint256 userBalanceBefore = token1.balanceOf(userWallet.addr);
@@ -181,7 +166,7 @@ contract DarkpoolTest is CalldataUtils {
             amount: depositAmount,
             transferType: TransferType.Deposit
         });
-        (bytes memory newSharesCommitmentSig,, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
             generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
         statement.merkleRoot = darkpool.getMerkleRoot();
 
@@ -218,7 +203,7 @@ contract DarkpoolTest is CalldataUtils {
             amount: withdrawalAmount,
             transferType: TransferType.Withdrawal
         });
-        (bytes memory newSharesCommitmentSig,, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
             generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
         statement.merkleRoot = darkpool.getMerkleRoot();
 

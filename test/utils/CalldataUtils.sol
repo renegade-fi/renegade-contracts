@@ -4,9 +4,8 @@ pragma solidity ^0.8.20;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
-import { PermitSignature } from "permit2/../test/utils/PermitSignature.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
-import { IERC20 } from "@oz-contracts/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof } from "../../src/libraries/verifier/Types.sol";
 import { IHasher } from "../../src/libraries/poseidon2/IHasher.sol";
@@ -58,7 +57,6 @@ contract CalldataUtils is TestUtils {
         internal
         returns (
             bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
             ValidWalletUpdateStatement memory statement,
             PlonkProof memory proof
         )
@@ -75,7 +73,6 @@ contract CalldataUtils is TestUtils {
         internal
         returns (
             bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
             ValidWalletUpdateStatement memory statement,
             PlonkProof memory proof
         )
@@ -93,7 +90,6 @@ contract CalldataUtils is TestUtils {
         internal
         returns (
             bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
             ValidWalletUpdateStatement memory statement,
             PlonkProof memory proof
         )
@@ -116,9 +112,6 @@ contract CalldataUtils is TestUtils {
         bytes32 digest = WalletOperations.walletCommitmentDigest(newSharesCommitment);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(rootKeyWallet.privateKey, digest);
         newSharesCommitmentSig = abi.encodePacked(r, s, v);
-
-        // TODO: Add transfer authorization
-        transferAuthorization = emptyTransferAuthorization();
     }
 
     // --------------------
@@ -159,7 +152,9 @@ contract CalldataUtils is TestUtils {
 
         // 1. Approve the permit2 contract
         IERC20 token = IERC20(transfer.mint);
+        vm.startBroadcast(wallet.addr);
         token.approve(address(permit2), transfer.amount);
+        vm.stopBroadcast();
 
         // 2. Generate a permit2 signature
         uint256 nonce = randomUint();
