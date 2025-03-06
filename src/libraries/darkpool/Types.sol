@@ -78,6 +78,22 @@ function hashDepositWitness(DepositWitness memory witness) pure returns (bytes32
     return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, pkRootHash));
 }
 
+// --------------------
+// | Settlement Types |
+// --------------------
+
+/// @notice A set of indices into a settlement party's wallet for the receive balance
+struct OrderSettlementIndices {
+    /// @dev The index of the balance holding the mint which teh wallet will
+    /// @dev sell in a match
+    uint256 balanceSend;
+    /// @dev The index of the balance holding the mint which the wallet will
+    /// @dev buy in a match
+    uint256 balanceReceive;
+    /// @dev the index of the order that is matched in the wallet
+    uint256 order;
+}
+
 // ------------
 // | Keychain |
 // ------------
