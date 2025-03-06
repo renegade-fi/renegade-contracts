@@ -1,6 +1,6 @@
 //! Utilities for generating data for the proof system tests
 
-use alloy_primitives::Address;
+use alloy_primitives::Address as AlloyAddress;
 use arbitrum_client::conversion::{
     to_contract_link_proof, to_contract_proof, to_contract_valid_commitments_statement,
     to_contract_valid_fee_redemption_statement, to_contract_valid_match_settle_atomic_statement,
@@ -48,7 +48,7 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
-use ethers::types::{Bytes, U256};
+use ethers::types::{Address, Bytes, U256};
 use eyre::Result;
 use jf_primitives::pcs::{prelude::Commitment, StructuredReferenceString};
 
@@ -85,14 +85,14 @@ pub fn random_commitments(n: usize, rng: &mut impl Rng) -> Vec<PolynomialCommitm
 }
 
 /// Generates a random `Address`
-pub fn random_address(rng: &mut impl Rng) -> Address {
+pub fn random_address(rng: &mut impl Rng) -> AlloyAddress {
     let mut bytes = [0u8; 20];
     rng.fill(&mut bytes);
-    Address::new(bytes)
+    AlloyAddress::new(bytes)
 }
 
 /// Converts an `Address` to a `BigUint`
-pub fn address_to_biguint(address: Address) -> BigUint {
+pub fn address_to_biguint(address: AlloyAddress) -> BigUint {
     let bytes = address.0 .0.to_vec();
     BigUint::from_bytes_be(&bytes)
 }
@@ -659,8 +659,16 @@ pub fn generate_match_bundle<R: CryptoRng + RngCore>(
 pub struct SponsoredAtomicMatchSettleData {
     /// The data used to call `process_atomic_match_settle`
     pub process_atomic_match_settle_data: ProcessAtomicMatchSettleData,
+    /// The address to refund to
+    pub refund_address: Address,
+    /// The address to receive the tokens
+    pub receiver: Address,
     /// The sponsorship nonce
     pub nonce: U256,
+    /// Whether to refund through native ETH
+    pub refund_native_eth: bool,
+    /// The conversion rate
+    pub conversion_rate: U256,
     /// The signature over the nonce
     pub signature: Bytes,
 }

@@ -1,5 +1,9 @@
 //! Constants used in the integration tests
 
+use alloy_primitives::U256 as AlloyU256;
+use ethers::types::U256;
+use ruint::uint;
+
 /// The default hostport that the Nitro devnet L2 node runs on
 pub(crate) const DEFAULT_DEVNET_HOSTPORT: &str = "http://localhost:8547";
 
@@ -46,3 +50,15 @@ pub(crate) const SET_TRANSFER_EXECUTOR_ADDRESS_METHOD_NAME: &str = "setTransferE
 
 /// The name of the domain separator for Permit2 typed data
 pub(crate) const PERMIT2_EIP712_DOMAIN_NAME: &str = "Permit2";
+
+/// The gas cost tolerance, i.e. the margin of error in units of gas
+/// that is permissible in our gas refund accounting
+pub(crate) const GAS_COST_TOLERANCE: AlloyU256 = uint!(15_000U256);
+
+/// The conversion rate between native ether and the buy-side token in an
+/// external match test. Regardless of which token is the buy-side, we'll
+/// use a conversion rate of 0.5 - i.e., 1 unit of the token is worth 2 wei.
+///
+/// Since the conversion rate is in terms of token/eth, this implies a rate of 5
+/// * 10^17.
+pub(crate) const CONVERSION_RATE: U256 = U256([500_000_000_000_000_000u64, 0, 0, 0]);
