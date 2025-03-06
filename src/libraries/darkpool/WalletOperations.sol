@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PublicRootKey } from "./Types.sol";
 import { IHasher } from "../poseidon2/IHasher.sol";
-import { console2 } from "forge-std/console2.sol";
 
 // --- Helpers --- //
 
@@ -54,7 +53,7 @@ library WalletOperations {
         PublicRootKey memory oldRootKey
     )
         internal
-        view
+        pure
         returns (bool)
     {
         // 1. Hash the wallet commitment

@@ -2,19 +2,21 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { ERC20Mock } from "openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
+import { ERC20Mock } from "@oz-contracts/contracts/mocks/token/ERC20Mock.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { DeployPermit2 } from "permit2/../test/utils/DeployPermit2.sol";
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { CalldataUtils } from "./utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
-import { console2 } from "forge-std/console2.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { PlonkProof } from "../src/libraries/verifier/Types.sol";
-import { ExternalTransfer, TransferType, TransferAuthorization } from "../src/libraries/darkpool/Types.sol";
+import {
+    ExternalTransfer, TransferType, TransferAuthorization, PublicRootKey
+} from "../src/libraries/darkpool/Types.sol";
 import { Darkpool } from "../src/Darkpool.sol";
 import { NullifierLib } from "../src/libraries/darkpool/NullifierSet.sol";
+import { WalletOperations } from "../src/libraries/darkpool/WalletOperations.sol";
 import { IHasher } from "../src/libraries/poseidon2/IHasher.sol";
 import { IVerifier } from "../src/libraries/verifier/IVerifier.sol";
 import { TestVerifier } from "./test-contracts/TestVerifier.sol";
@@ -168,18 +170,54 @@ contract DarkpoolTest is CalldataUtils {
         });
 
         // Setup calldata
-        (
-            bytes memory newSharesCommitmentSig,
-            TransferAuthorization memory transferAuthorization,
-            ValidWalletUpdateStatement memory statement,
-            PlonkProof memory proof
-        ) = updateWalletWithExternalTransferCalldata(hasher, transfer);
+        (bytes memory newSharesCommitmentSig,, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletWithExternalTransferCalldata(hasher, transfer);
         statement.merkleRoot = darkpool.getMerkleRoot();
+
+        // Authorize the deposit
+        PublicRootKey memory oldPkRoot = statement.oldPkRoot;
+        TransferAuthorization memory transferAuthorization =
+            authorizeDeposit(transfer, oldPkRoot, address(darkpool), permit2, userWallet);
 
         // Update the wallet
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
         // Check that the token balance has increased
         // TODO: Implement this
+    }
+
+    /// @notice Test updating a wallet with a withdrawal
+    function test_updateWallet_withdrawal() public {
+        uint256 withdrawalAmount = 100;
+
+        // Generate keys for the on-chain wallet and the Renegade wallet
+        Vm.Wallet memory userWallet = randomEthereumWallet();
+        Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
+        token1.mint(address(darkpool), withdrawalAmount);
+        uint256 darkpoolBalanceBefore = token1.balanceOf(address(darkpool));
+        uint256 userBalanceBefore = token1.balanceOf(userWallet.addr);
+
+        // Setup calldata
+        ExternalTransfer memory transfer = ExternalTransfer({
+            account: userWallet.addr,
+            mint: address(token1),
+            amount: withdrawalAmount,
+            transferType: TransferType.Withdrawal
+        });
+        (bytes memory newSharesCommitmentSig,, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
+        statement.merkleRoot = darkpool.getMerkleRoot();
+
+        // Authorize the withdrawal
+        TransferAuthorization memory transferAuthorization = authorizeWithdrawal(transfer, rootKeyWallet);
+
+        // Update the wallet
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+
+        // Check that the token balance has increased
+        uint256 darkpoolBalanceAfter = token1.balanceOf(address(darkpool));
+        uint256 userBalanceAfter = token1.balanceOf(userWallet.addr);
+        assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore - withdrawalAmount);
+        assertEq(userBalanceAfter, userBalanceBefore + withdrawalAmount);
     }
 }

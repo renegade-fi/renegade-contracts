@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
+import { PermitSignature } from "permit2/../test/utils/PermitSignature.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
-import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "@oz-contracts/contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof } from "../../src/libraries/verifier/Types.sol";
 import { IHasher } from "../../src/libraries/poseidon2/IHasher.sol";
@@ -15,10 +16,16 @@ import {
     TransferType,
     TransferAuthorization,
     DepositWitness,
+    hashDepositWitness,
     publicKeyToUints
 } from "../../src/libraries/darkpool/Types.sol";
 import { uintToScalarWords, WalletOperations } from "../../src/libraries/darkpool/WalletOperations.sol";
 import { ValidWalletCreateStatement, ValidWalletUpdateStatement } from "../../src/libraries/darkpool/PublicInputs.sol";
+
+/// @dev The typehash for the PermitWitnessTransferFrom parameters
+bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
+    "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)"
+);
 
 /// @title Calldata Utils
 /// @notice Utilities for generating darkpool calldata
@@ -27,6 +34,8 @@ contract CalldataUtils is TestUtils {
     address public constant DUMMY_ADDRESS = address(0x1);
     /// @dev A dummy wallet address
     address public constant DUMMY_WALLET_ADDRESS = address(0x2);
+
+    bytes32 public constant _TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
 
     // ---------------------
     // | Darkpool Calldata |
@@ -72,6 +81,23 @@ contract CalldataUtils is TestUtils {
         )
     {
         Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
+        return generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
+    }
+
+    /// @notice Generate update wallet calldata for a given transfer using a given root key wallet
+    function generateUpdateWalletCalldata(
+        IHasher hasher,
+        ExternalTransfer memory transfer,
+        Vm.Wallet memory rootKeyWallet
+    )
+        internal
+        returns (
+            bytes memory newSharesCommitmentSig,
+            TransferAuthorization memory transferAuthorization,
+            ValidWalletUpdateStatement memory statement,
+            PlonkProof memory proof
+        )
+    {
         statement = ValidWalletUpdateStatement({
             previousNullifier: randomScalar(),
             newPublicShares: randomWalletShares(),
@@ -98,6 +124,8 @@ contract CalldataUtils is TestUtils {
     // --------------------
     // | Calldata Helpers |
     // --------------------
+
+    /// --- External Transfers --- ///
 
     /// @notice Generate an empty external transfer
     function emptyExternalTransfer() internal pure returns (ExternalTransfer memory transfer) {
@@ -141,6 +169,43 @@ contract CalldataUtils is TestUtils {
         ISignatureTransfer.PermitTransferFrom memory permit =
             ISignatureTransfer.PermitTransferFrom({ permitted: tokenPermissions, nonce: nonce, deadline: deadline });
         DepositWitness memory depositWitness = DepositWitness({ pkRoot: publicKeyToUints(oldPkRoot) });
+        bytes32 depositWitnessHash = hashDepositWitness(depositWitness);
+
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, wallet.privateKey, PERMIT_TRANSFER_FROM_TYPEHASH, depositWitnessHash, permit2.DOMAIN_SEPARATOR()
+        );
+
+        authorization.permit2Nonce = nonce;
+        authorization.permit2Deadline = deadline;
+        authorization.permit2Signature = sig;
+    }
+
+    /// @notice Generate a permit2 signature for a witness transfer
+    /// @dev Borrowed from `permit2/test/utils/PermitSignature.sol`, solc cannot infer types correctly
+    /// @dev if the import is directly from `permit2/test/utils/PermitSignature.sol`
+    function getPermitWitnessTransferSignature(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        uint256 privateKey,
+        bytes32 typehash,
+        bytes32 witness,
+        bytes32 domainSeparator
+    )
+        internal
+        view
+        returns (bytes memory sig)
+    {
+        bytes32 tokenPermissions = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));
+
+        bytes32 msgHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                keccak256(abi.encode(typehash, tokenPermissions, address(this), permit.nonce, permit.deadline, witness))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, msgHash);
+        return bytes.concat(r, s, bytes1(v));
     }
 
     /// @notice Authorize a withdrawal
@@ -148,7 +213,7 @@ contract CalldataUtils is TestUtils {
         ExternalTransfer memory transfer,
         Vm.Wallet memory wallet
     )
-        internal
+        pure
         returns (TransferAuthorization memory authorization)
     {
         // Default to empty transfer auth, we only fill in the withdrawal signature
@@ -159,6 +224,8 @@ contract CalldataUtils is TestUtils {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet.privateKey, digest);
         authorization.externalTransferSignature = abi.encodePacked(r, s, v);
     }
+
+    /// --- Wallets --- ///
 
     /// @notice Generate a random root key
     function randomRootKey() internal returns (PublicRootKey memory rootKey) {
@@ -172,6 +239,8 @@ contract CalldataUtils is TestUtils {
         (BN254.ScalarField yLow, BN254.ScalarField yHigh) = uintToScalarWords(wallet.publicKeyY);
         rootKey = PublicRootKey({ x: [xLow, xHigh], y: [yLow, yHigh] });
     }
+
+    /// --- Plonk Proofs --- ///
 
     /// @notice Generates a dummy PlonK proof
     function dummyPlonkProof() internal pure returns (PlonkProof memory proof) {
