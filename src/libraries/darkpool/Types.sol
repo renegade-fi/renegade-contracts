@@ -8,6 +8,12 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
 /// @dev The type string for the DepositWitness struct
+/// @dev We must include the `TokenPermission` type encoding as well as this is concatenated with
+/// @dev the `PermitWitnessTransferFrom` type encoding stub of the form:
+/// @dev `PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,`
+/// @dev So we must prepare our type string to concatenate to the entire type encoding
+/// @dev See:
+/// https://github.com/Uniswap/permit2/blob/cc56ad0f3439c502c246fc5cfcc3db92bb8b7219/src/libraries/PermitHash.sol#L31-L32
 string constant DEPOSIT_WITNESS_TYPE_STRING =
     "DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)";
 

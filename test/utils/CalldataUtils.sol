@@ -172,7 +172,12 @@ contract CalldataUtils is TestUtils {
         bytes32 depositWitnessHash = hashDepositWitness(depositWitness);
 
         bytes memory sig = getPermitWitnessTransferSignature(
-            permit, wallet.privateKey, PERMIT_TRANSFER_FROM_TYPEHASH, depositWitnessHash, permit2.DOMAIN_SEPARATOR()
+            permit,
+            darkpoolAddress,
+            wallet.privateKey,
+            PERMIT_TRANSFER_FROM_TYPEHASH,
+            depositWitnessHash,
+            permit2.DOMAIN_SEPARATOR()
         );
 
         authorization.permit2Nonce = nonce;
@@ -185,6 +190,7 @@ contract CalldataUtils is TestUtils {
     /// @dev if the import is directly from `permit2/test/utils/PermitSignature.sol`
     function getPermitWitnessTransferSignature(
         ISignatureTransfer.PermitTransferFrom memory permit,
+        address receiver,
         uint256 privateKey,
         bytes32 typehash,
         bytes32 witness,
@@ -200,7 +206,7 @@ contract CalldataUtils is TestUtils {
             abi.encodePacked(
                 "\x19\x01",
                 domainSeparator,
-                keccak256(abi.encode(typehash, tokenPermissions, address(this), permit.nonce, permit.deadline, witness))
+                keccak256(abi.encode(typehash, tokenPermissions, receiver, permit.nonce, permit.deadline, witness))
             )
         );
 
@@ -213,6 +219,7 @@ contract CalldataUtils is TestUtils {
         ExternalTransfer memory transfer,
         Vm.Wallet memory wallet
     )
+        internal
         pure
         returns (TransferAuthorization memory authorization)
     {

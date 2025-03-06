@@ -161,29 +161,43 @@ contract DarkpoolTest is CalldataUtils {
 
     /// @notice Test updating a wallet with a deposit
     function test_updateWallet_deposit() public {
+        uint256 depositAmount = 100;
+
+        // Generate keys for the on-chain wallet and the user wallet
         Vm.Wallet memory userWallet = randomEthereumWallet();
+        Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
+        token1.mint(userWallet.addr, depositAmount);
+        vm.startBroadcast(userWallet.addr);
+        token1.approve(address(permit2), depositAmount);
+        vm.stopBroadcast();
+
+        uint256 darkpoolBalanceBefore = token1.balanceOf(address(darkpool));
+        uint256 userBalanceBefore = token1.balanceOf(userWallet.addr);
+
+        // Setup calldata
         ExternalTransfer memory transfer = ExternalTransfer({
             account: userWallet.addr,
             mint: address(token1),
-            amount: 100,
+            amount: depositAmount,
             transferType: TransferType.Deposit
         });
-
-        // Setup calldata
         (bytes memory newSharesCommitmentSig,, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletWithExternalTransferCalldata(hasher, transfer);
+            generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
         statement.merkleRoot = darkpool.getMerkleRoot();
 
         // Authorize the deposit
-        PublicRootKey memory oldPkRoot = statement.oldPkRoot;
+        PublicRootKey memory oldPkRoot = forgeWalletToRootKey(rootKeyWallet);
         TransferAuthorization memory transferAuthorization =
             authorizeDeposit(transfer, oldPkRoot, address(darkpool), permit2, userWallet);
 
         // Update the wallet
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
-        // Check that the token balance has increased
-        // TODO: Implement this
+        // Check that the user token balance has decreased
+        uint256 darkpoolBalanceAfter = token1.balanceOf(address(darkpool));
+        uint256 userBalanceAfter = token1.balanceOf(userWallet.addr);
+        assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore + depositAmount);
+        assertEq(userBalanceAfter, userBalanceBefore - depositAmount);
     }
 
     /// @notice Test updating a wallet with a withdrawal
@@ -214,7 +228,7 @@ contract DarkpoolTest is CalldataUtils {
         // Update the wallet
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
-        // Check that the token balance has increased
+        // Check that the user token balance has increased
         uint256 darkpoolBalanceAfter = token1.balanceOf(address(darkpool));
         uint256 userBalanceAfter = token1.balanceOf(userWallet.addr);
         assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore - withdrawalAmount);
