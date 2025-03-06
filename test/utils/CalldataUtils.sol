@@ -106,7 +106,7 @@ contract CalldataUtils is TestUtils {
 
         // Sign the new shares commitment
         BN254.ScalarField newSharesCommitment = WalletOperations.computeWalletCommitment(
-            statement.newPublicShares, statement.newPrivateShareCommitment, hasher
+            statement.newPrivateShareCommitment, statement.newPublicShares, hasher
         );
 
         bytes32 digest = WalletOperations.walletCommitmentDigest(newSharesCommitment);

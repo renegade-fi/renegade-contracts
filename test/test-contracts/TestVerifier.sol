@@ -40,14 +40,14 @@ contract TestVerifier is IVerifier {
         view
         returns (bool)
     {
-        bool _res = verifier.verifyValidWalletCreate(statement, proof);
+        verifier.verifyValidWalletCreate(statement, proof);
         return true;
     }
 
     /// @notice Verify a proof of `VALID WALLET UPDATE`
     /// @param statement The public inputs to the proof
     /// @param proof The proof to verify
-    /// @return True if the proof is valid, false otherwise
+    /// @return True always, regardless of the proof
     function verifyValidWalletUpdate(
         ValidWalletUpdateStatement calldata statement,
         PlonkProof calldata proof
@@ -56,7 +56,7 @@ contract TestVerifier is IVerifier {
         view
         returns (bool)
     {
-        bool _res = verifier.verifyValidWalletUpdate(statement, proof);
+        verifier.verifyValidWalletUpdate(statement, proof);
         return true;
     }
 
@@ -76,7 +76,7 @@ contract TestVerifier is IVerifier {
         view
         returns (bool)
     {
-        bool _res = verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs);
+        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs);
         return true;
     }
 }

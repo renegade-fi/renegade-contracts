@@ -39,7 +39,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         statement.merkleRoot = randomScalar();
 
         // Should fail
-        vm.expectRevert("Invalid Merkle root");
+        vm.expectRevert("Merkle root not in history");
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 

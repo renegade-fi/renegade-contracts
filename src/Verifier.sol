@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { PlonkProof, VerificationKey } from "./libraries/verifier/Types.sol";
+import { PlonkProof, VerificationKey, OpeningElements, emptyOpeningElements } from "./libraries/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
+    ValidCommitmentsStatement,
+    ValidReblindStatement,
     ValidMatchSettleStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
@@ -16,11 +18,15 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 using StatementSerializer for ValidWalletCreateStatement;
 using StatementSerializer for ValidWalletUpdateStatement;
+using StatementSerializer for ValidCommitmentsStatement;
+using StatementSerializer for ValidReblindStatement;
 using StatementSerializer for ValidMatchSettleStatement;
 
 /// @title PlonK Verifier with the Jellyfish-style arithmetization
 /// @notice The methods on this contract are darkpool-specific
 contract Verifier is IVerifier {
+    uint256 public constant NUM_MATCH_PROOFS = 5;
+
     /// @notice Verify a proof of `VALID WALLET CREATE`
     /// @param statement The public inputs to the proof
     /// @param proof The proof to verify
@@ -59,18 +65,49 @@ contract Verifier is IVerifier {
     /// @param party0MatchPayload The payload for the first party
     /// @param party1MatchPayload The payload for the second party
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
-    /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param matchProofs The proofs for the match, including two sets of validity proofs and a settlement proof
     /// @return True if the match bundle is valid, false otherwise
     function verifyMatchBundle(
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
-        MatchProofs calldata proofs
+        MatchProofs calldata matchProofs
     )
         external
         view
         returns (bool)
     {
-        return false;
+        // Load the verification keys
+        VerificationKey memory commitmentsVk = abi.decode(VerificationKeys.VALID_COMMITMENTS_VKEY, (VerificationKey));
+        VerificationKey memory reblindVk = abi.decode(VerificationKeys.VALID_REBLIND_VKEY, (VerificationKey));
+        VerificationKey memory settleVk = abi.decode(VerificationKeys.VALID_MATCH_SETTLE_VKEY, (VerificationKey));
+
+        // Build the batch
+        PlonkProof[] memory proofs = new PlonkProof[](NUM_MATCH_PROOFS);
+        BN254.ScalarField[][] memory publicInputs = new BN254.ScalarField[][](NUM_MATCH_PROOFS);
+        VerificationKey[] memory vks = new VerificationKey[](NUM_MATCH_PROOFS);
+        proofs[0] = matchProofs.validCommitments0;
+        proofs[1] = matchProofs.validReblind0;
+        proofs[2] = matchProofs.validCommitments1;
+        proofs[3] = matchProofs.validReblind1;
+        proofs[4] = matchProofs.validMatchSettle;
+
+        publicInputs[0] = party0MatchPayload.validCommitmentsStatement.scalarSerialize();
+        publicInputs[1] = party0MatchPayload.validReblindStatement.scalarSerialize();
+        publicInputs[2] = party1MatchPayload.validCommitmentsStatement.scalarSerialize();
+        publicInputs[3] = party1MatchPayload.validReblindStatement.scalarSerialize();
+        publicInputs[4] = matchSettleStatement.scalarSerialize();
+
+        vks[0] = commitmentsVk;
+        vks[1] = reblindVk;
+        vks[2] = commitmentsVk;
+        vks[3] = reblindVk;
+        vks[4] = settleVk;
+
+        // TODO: Add in proof linking
+        OpeningElements memory extraOpeningElements = emptyOpeningElements();
+
+        // Verify the batch
+        return VerifierCore.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
     }
 }
