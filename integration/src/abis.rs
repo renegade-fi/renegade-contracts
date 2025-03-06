@@ -139,5 +139,6 @@ abigen!(
         function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable
         function sponsorAtomicMatchSettle(bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs, address memory refund_address, uint256 memory nonce, bytes memory signature) external payable
         function sponsorAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs, address memory refund_address, uint256 memory nonce, bytes memory signature) external payable
+        function sponsorAtomicMatchSettleWithRefundOptions(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs, address memory refund_address, uint256 memory nonce, bool memory refund_native_eth, uint256 memory conversion_rate, bytes memory signature) external payable
     ]"#
 );
