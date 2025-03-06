@@ -116,4 +116,21 @@ contract SettleMatchTest is DarkpoolTestBase {
         vm.expectRevert(revertString);
         darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs);
     }
+
+    /// @notice Test settling a match in which the protocol fee rate is invalid
+    function test_settleMatch_invalidProtocolFeeRate() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleStatement memory statement,
+            MatchProofs memory proofs
+        ) = settleMatchCalldata(merkleRoot);
+        statement.protocolFeeRate = BN254.ScalarField.unwrap(randomScalar());
+
+        // Should fail
+        vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
+        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs);
+    }
 }

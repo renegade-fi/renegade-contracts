@@ -28,6 +28,13 @@ using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 using NullifierLib for NullifierLib.NullifierSet;
 
 contract Darkpool {
+    /// @notice The protocol fee rate for the darkpool
+    /// @dev This is the fixed point representation of a real number between 0 and 1.
+    /// @dev To convert to its floating point representation, divide by the fixed point
+    /// @dev precision, i.e. `fee = protocolFeeRate / FIXED_POINT_PRECISION`.
+    /// @dev The current precision is `2 ** 63`.
+    uint256 public protocolFeeRate;
+
     /// @notice The hasher for the darkpool
     IHasher public hasher;
     /// @notice The verifier for the darkpool
@@ -47,7 +54,8 @@ contract Darkpool {
     /// @param hasher_ The hasher for the darkpool
     /// @param verifier_ The verifier for the darkpool
     /// @param permit2_ The Permit2 contract instance for handling deposits
-    constructor(IHasher hasher_, IVerifier verifier_, IPermit2 permit2_) {
+    constructor(uint256 protocolFeeRate_, IHasher hasher_, IVerifier verifier_, IPermit2 permit2_) {
+        protocolFeeRate = protocolFeeRate_;
         hasher = hasher_;
         verifier = verifier_;
         permit2 = permit2_;
@@ -161,7 +169,8 @@ contract Darkpool {
         require(party0ValidIndices, "Invalid party 0 order settlement indices");
         require(party1ValidIndices, "Invalid party 1 order settlement indices");
 
-        // 3. TODO: Validate the protocol fee rate used in the settlement
+        // 3. Validate the protocol fee rate used in the settlement
+        require(matchSettleStatement.protocolFeeRate == protocolFeeRate, "Invalid protocol fee rate");
 
         // 4. Insert the new shares into the Merkle tree
         WalletOperations.rotateWallet(
