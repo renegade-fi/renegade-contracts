@@ -7,8 +7,8 @@ import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
-import { PlonkProof } from "../../src/libraries/verifier/Types.sol";
-import { IHasher } from "../../src/libraries/poseidon2/IHasher.sol";
+import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
+import { IHasher } from "renegade/libraries/poseidon2/IHasher.sol";
 import {
     ExternalTransfer,
     PublicRootKey,
@@ -16,10 +16,20 @@ import {
     TransferAuthorization,
     DepositWitness,
     hashDepositWitness,
-    publicKeyToUints
-} from "../../src/libraries/darkpool/Types.sol";
-import { uintToScalarWords, WalletOperations } from "../../src/libraries/darkpool/WalletOperations.sol";
-import { ValidWalletCreateStatement, ValidWalletUpdateStatement } from "../../src/libraries/darkpool/PublicInputs.sol";
+    publicKeyToUints,
+    MatchProofs,
+    PartyMatchPayload,
+    OrderSettlementIndices
+} from "renegade/libraries/darkpool/Types.sol";
+import { DarkpoolConstants } from "renegade/libraries/darkpool/Constants.sol";
+import { uintToScalarWords, WalletOperations } from "renegade/libraries/darkpool/WalletOperations.sol";
+import {
+    ValidWalletCreateStatement,
+    ValidWalletUpdateStatement,
+    ValidCommitmentsStatement,
+    ValidReblindStatement,
+    ValidMatchSettleStatement
+} from "renegade/libraries/darkpool/PublicInputs.sol";
 
 /// @dev The typehash for the PermitWitnessTransferFrom parameters
 bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
@@ -29,16 +39,19 @@ bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
 /// @title Calldata Utils
 /// @notice Utilities for generating darkpool calldata
 contract CalldataUtils is TestUtils {
-    /// @dev The first testing address
-    address public constant DUMMY_ADDRESS = address(0x1);
-    /// @dev A dummy wallet address
-    address public constant DUMMY_WALLET_ADDRESS = address(0x2);
+    /// @notice The protocol fee rate used for testing
+    /// @dev This is the fixed point representation of 0.0001 (1bp)
+    /// @dev computed as `floor(0.0001 * 2 ** 63)`
+    uint256 public constant TEST_PROTOCOL_FEE = 922_337_203_685_477;
 
+    /// @dev The typehash for the TokenPermissions parameters
     bytes32 public constant _TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
 
     // ---------------------
     // | Darkpool Calldata |
     // ---------------------
+
+    /// --- Create Wallet --- ///
 
     /// @notice Generate calldata for creating a wallet
     function createWalletCalldata()
@@ -51,6 +64,8 @@ contract CalldataUtils is TestUtils {
         });
         proof = dummyPlonkProof();
     }
+
+    /// --- Update Wallet --- ///
 
     /// @notice Generate calldata for updating a wallet
     function updateWalletCalldata(IHasher hasher)
@@ -114,9 +129,68 @@ contract CalldataUtils is TestUtils {
         newSharesCommitmentSig = abi.encodePacked(r, s, v);
     }
 
+    /// --- Settle Match --- ///
+
+    /// @notice Generate calldata for settling a match
+    function settleMatchCalldata(BN254.ScalarField merkleRoot)
+        internal
+        returns (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleStatement memory statement,
+            MatchProofs memory proofs
+        )
+    {
+        party0Payload = generatePartyMatchPayload(merkleRoot);
+        party1Payload = generatePartyMatchPayload(merkleRoot);
+
+        OrderSettlementIndices memory indices0 = party0Payload.validCommitmentsStatement.indices;
+        OrderSettlementIndices memory indices1 = party1Payload.validCommitmentsStatement.indices;
+        statement = ValidMatchSettleStatement({
+            firstPartyPublicShares: randomWalletShares(),
+            secondPartyPublicShares: randomWalletShares(),
+            firstPartySettlementIndices: indices0,
+            secondPartySettlementIndices: indices1,
+            protocolFeeRate: TEST_PROTOCOL_FEE
+        });
+        proofs = MatchProofs({
+            validCommitments0: dummyPlonkProof(),
+            validReblind0: dummyPlonkProof(),
+            validCommitments1: dummyPlonkProof(),
+            validReblind1: dummyPlonkProof(),
+            validMatchSettle: dummyPlonkProof()
+        });
+    }
+
     // --------------------
     // | Calldata Helpers |
     // --------------------
+
+    /// --- Match Bundles --- ///
+
+    /// @notice Generate a match payload for a single party in a match
+    function generatePartyMatchPayload(BN254.ScalarField merkleRoot)
+        internal
+        returns (PartyMatchPayload memory payload)
+    {
+        payload = PartyMatchPayload({
+            validCommitmentsStatement: ValidCommitmentsStatement({ indices: randomOrderSettlementIndices() }),
+            validReblindStatement: ValidReblindStatement({
+                originalSharesNullifier: randomScalar(),
+                newPrivateShareCommitment: randomScalar(),
+                merkleRoot: merkleRoot
+            })
+        });
+    }
+
+    /// @notice Generate a random set of order settlement indices
+    function randomOrderSettlementIndices() internal returns (OrderSettlementIndices memory indices) {
+        indices = OrderSettlementIndices({
+            balanceSend: randomUint(DarkpoolConstants.MAX_BALANCES),
+            balanceReceive: randomUint(DarkpoolConstants.MAX_BALANCES),
+            order: randomUint(DarkpoolConstants.MAX_ORDERS)
+        });
+    }
 
     /// --- External Transfers --- ///
 

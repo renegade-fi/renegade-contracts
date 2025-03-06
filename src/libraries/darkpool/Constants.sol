@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 /// @title Darkpool Constants
 /// @notice Constants used in the darkpool
 library DarkpoolConstants {
+    /// @notice The maximum number of orders in a wallet
+    uint256 constant MAX_ORDERS = 4;
+    /// @notice The maximum number of balances in a wallet
+    uint256 constant MAX_BALANCES = 10;
     /// @notice The number of shares in a wallet
     uint256 constant N_WALLET_SHARES = 70;
     /// @notice The depth of the Merkle tree
