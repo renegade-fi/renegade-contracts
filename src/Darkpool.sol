@@ -11,11 +11,16 @@ import { IVerifier } from "./libraries/verifier/IVerifier.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
+    ValidCommitmentsStatement,
+    ValidReblindStatement,
+    ValidMatchSettleStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
 import { TransferExecutor } from "./libraries/darkpool/ExternalTransfers.sol";
-import { TransferAuthorization, isZero } from "./libraries/darkpool/Types.sol";
+import {
+    TransferAuthorization, isZero, PartyMatchPayload, MatchProofs, indicesEqual
+} from "./libraries/darkpool/Types.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 
@@ -80,10 +85,10 @@ contract Darkpool {
         // 1. Verify the proof
         verifier.verifyValidWalletCreate(statement, proof);
 
-        // 2. Compute a commitment to the wallet shares, and insert into the Merkle tree
-        BN254.ScalarField walletCommitment =
-            WalletOperations.computeWalletCommitment(statement.publicShares, statement.privateShareCommitment, hasher);
-        merkleTree.insertLeaf(walletCommitment, hasher);
+        // 2. Insert the wallet shares into the Merkle tree
+        WalletOperations.insertWalletCommitment(
+            statement.privateShareCommitment, statement.publicShares, merkleTree, hasher
+        );
     }
 
     /// @notice Update a wallet in the darkpool
@@ -99,23 +104,23 @@ contract Darkpool {
     )
         public
     {
-        // 1. Verify the Merkle root to which the pre-update wallet's inclusion proof opens,
-        // and check that the nullifier has not been spent
-        require(merkleTree.rootInHistory(statement.merkleRoot), "Invalid Merkle root");
-        nullifierSet.spend(statement.previousNullifier);
-
-        // 2. Verify the proof
+        // 1. Verify the proof
         verifier.verifyValidWalletUpdate(statement, proof);
 
-        // 2. Compute a commitment to the wallet shares, and insert into the Merkle tree
-        BN254.ScalarField walletCommitment = WalletOperations.computeWalletCommitment(
-            statement.newPublicShares, statement.newPrivateShareCommitment, hasher
+        // 2. Rotate the wallet's shares into the Merkle tree
+        BN254.ScalarField newCommitment = WalletOperations.rotateWallet(
+            statement.previousNullifier,
+            statement.merkleRoot,
+            statement.newPrivateShareCommitment,
+            statement.newPublicShares,
+            nullifierSet,
+            merkleTree,
+            hasher
         );
-        merkleTree.insertLeaf(walletCommitment, hasher);
 
         // 3. Verify the signature of the new shares commitment by the root key
         bool validSig =
-            WalletOperations.verifyWalletUpdateSignature(walletCommitment, newSharesCommitmentSig, statement.oldPkRoot);
+            WalletOperations.verifyWalletUpdateSignature(newCommitment, newSharesCommitmentSig, statement.oldPkRoot);
         require(validSig, "Invalid signature");
 
         // 4. Execute the external transfer if it is non-zero
@@ -127,7 +132,55 @@ contract Darkpool {
     }
 
     /// @notice Settle a match in the darkpool
-    function processMatchSettle() public {
-        //
+    /// @param party0MatchPayload The validity proofs payload for the first party
+    /// @param party1MatchPayload The validity proofs payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
+    /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    function processMatchSettle(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs
+    )
+        public
+    {
+        ValidCommitmentsStatement calldata commitmentsStatement0 = party0MatchPayload.validCommitmentsStatement;
+        ValidCommitmentsStatement calldata commitmentsStatement1 = party1MatchPayload.validCommitmentsStatement;
+        ValidReblindStatement calldata reblindStatement0 = party0MatchPayload.validReblindStatement;
+        ValidReblindStatement calldata reblindStatement1 = party1MatchPayload.validReblindStatement;
+
+        // 1. Verify the proofs
+        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs);
+
+        // 2. Check statement consistency between the proofs for the two parties
+        // I.e. public inputs used in multiple proofs should take the same values
+        bool party0ValidIndices =
+            indicesEqual(commitmentsStatement0.indices, matchSettleStatement.firstPartySettlementIndices);
+        bool party1ValidIndices =
+            indicesEqual(commitmentsStatement1.indices, matchSettleStatement.secondPartySettlementIndices);
+        require(party0ValidIndices, "Invalid party 0 order settlement indices");
+        require(party1ValidIndices, "Invalid party 1 order settlement indices");
+
+        // 3. TODO: Validate the protocol fee rate used in the settlement
+
+        // 4. Insert the new shares into the Merkle tree
+        WalletOperations.rotateWallet(
+            reblindStatement0.originalSharesNullifier,
+            reblindStatement0.merkleRoot,
+            reblindStatement0.newPrivateShareCommitment,
+            matchSettleStatement.firstPartyPublicShares,
+            nullifierSet,
+            merkleTree,
+            hasher
+        );
+        WalletOperations.rotateWallet(
+            reblindStatement1.originalSharesNullifier,
+            reblindStatement1.merkleRoot,
+            reblindStatement1.newPrivateShareCommitment,
+            matchSettleStatement.secondPartyPublicShares,
+            nullifierSet,
+            merkleTree,
+            hasher
+        );
     }
 }

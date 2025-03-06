@@ -120,6 +120,14 @@ struct OrderSettlementIndices {
     uint256 order;
 }
 
+/// @notice Return whether two sets of indices are equal
+/// @param a The first set of indices
+/// @param b The second set of indices
+/// @return True if the indices are equal, false otherwise
+function indicesEqual(OrderSettlementIndices memory a, OrderSettlementIndices memory b) pure returns (bool) {
+    return a.balanceSend == b.balanceSend && a.balanceReceive == b.balanceReceive && a.order == b.order;
+}
+
 // ------------
 // | Keychain |
 // ------------

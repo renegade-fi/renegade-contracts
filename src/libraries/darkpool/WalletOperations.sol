@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PublicRootKey } from "./Types.sol";
 import { IHasher } from "../poseidon2/IHasher.sol";
+import { MerkleTreeLib } from "../merkle/MerkleTree.sol";
+import { NullifierLib } from "./NullifierSet.sol";
 
 // --- Helpers --- //
 
@@ -21,10 +23,65 @@ function uintToScalarWords(uint256 value) pure returns (BN254.ScalarField low, B
 // --- Library --- //
 
 library WalletOperations {
-    /// @notice Compute a commitment to a wallet's shares
-    function computeWalletCommitment(
-        BN254.ScalarField[] memory publicShares,
+    using NullifierLib for NullifierLib.NullifierSet;
+    using MerkleTreeLib for MerkleTreeLib.MerkleTree;
+
+    /// @notice Rotate a wallet's shares, nullifying the previous shares and inserting the new shares
+    /// @param nullifier The nullifier of the previous wallet's shares
+    /// @param historicalMerkleRoot The merkle root to which the previous wallet's share are committed
+    /// @param newPrivateShareCommitment The commitment to the new private shares
+    /// @param newPublicShares The new shares of the wallet to commit to
+    /// @param nullifierSet The set of nullifiers for the darkpool
+    /// @param merkleTree The merkle tree for the darkpool
+    /// @param hasher The hasher for the darkpool
+
+    function rotateWallet(
+        BN254.ScalarField nullifier,
+        BN254.ScalarField historicalMerkleRoot,
+        BN254.ScalarField newPrivateShareCommitment,
+        BN254.ScalarField[] calldata newPublicShares,
+        NullifierLib.NullifierSet storage nullifierSet,
+        MerkleTreeLib.MerkleTree storage merkleTree,
+        IHasher hasher
+    )
+        internal
+        returns (BN254.ScalarField newCommitment)
+    {
+        // 1. Nullify the previous wallet's shares
+        nullifierSet.spend(nullifier);
+
+        // 2. Check that the Merkle root is in the historical Merkle roots
+        require(merkleTree.rootInHistory(historicalMerkleRoot), "Merkle root not in history");
+
+        // 3. Insert the new shares into the Merkle tree
+        newCommitment = insertWalletCommitment(newPrivateShareCommitment, newPublicShares, merkleTree, hasher);
+    }
+
+    /// @notice Insert a wallet's shares into the Merkle tree
+    /// @param walletCommitment The commitment to the wallet's shares
+    /// @param merkleTree The merkle tree for the darkpool
+    /// @param hasher The hasher for the darkpool
+    function insertWalletCommitment(
         BN254.ScalarField privateShareCommitment,
+        BN254.ScalarField[] memory publicShares,
+        MerkleTreeLib.MerkleTree storage merkleTree,
+        IHasher hasher
+    )
+        internal
+        returns (BN254.ScalarField walletCommitment)
+    {
+        walletCommitment = computeWalletCommitment(privateShareCommitment, publicShares, hasher);
+        merkleTree.insertLeaf(walletCommitment, hasher);
+    }
+
+    /// @notice Compute a commitment to a wallet's shares
+    /// @param publicShares The public shares of the wallet
+    /// @param privateShareCommitment The commitment to the private shares
+    /// @param hasher The hasher for the darkpool
+    /// @return The commitment to the wallet's shares
+    function computeWalletCommitment(
+        BN254.ScalarField privateShareCommitment,
+        BN254.ScalarField[] memory publicShares,
         IHasher hasher
     )
         internal
