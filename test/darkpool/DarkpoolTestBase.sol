@@ -34,6 +34,7 @@ contract DarkpoolTestBase is CalldataUtils {
     bytes constant INVALID_NULLIFIER_REVERT_STRING = "Nullifier already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
     bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
+    bytes constant INVALID_PROTOCOL_FEE_REVERT_STRING = "Invalid protocol fee rate";
 
     function setUp() public {
         // Deploy a Permit2 instance for testing
@@ -47,7 +48,7 @@ contract DarkpoolTestBase is CalldataUtils {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
-        darkpool = new Darkpool(hasher, verifier, permit2);
+        darkpool = new Darkpool(TEST_PROTOCOL_FEE, hasher, verifier, permit2);
     }
 
     // ---------------------------
