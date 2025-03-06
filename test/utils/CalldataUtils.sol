@@ -192,7 +192,7 @@ contract CalldataUtils is TestUtils {
         bytes32 domainSeparator
     )
         internal
-        view
+        pure
         returns (bytes memory sig)
     {
         bytes32 tokenPermissions = keccak256(abi.encode(_TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));

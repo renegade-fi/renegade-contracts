@@ -5,8 +5,10 @@ import { PlonkProof, VerificationKey } from "./libraries/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
+    ValidMatchSettleStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
+import { PartyMatchPayload, MatchProofs } from "./libraries/darkpool/Types.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IVerifier } from "./libraries/verifier/IVerifier.sol";
 import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
@@ -14,6 +16,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 using StatementSerializer for ValidWalletCreateStatement;
 using StatementSerializer for ValidWalletUpdateStatement;
+using StatementSerializer for ValidMatchSettleStatement;
 
 /// @title PlonK Verifier with the Jellyfish-style arithmetization
 /// @notice The methods on this contract are darkpool-specific
@@ -50,5 +53,24 @@ contract Verifier is IVerifier {
         VerificationKey memory vk = abi.decode(VerificationKeys.VALID_WALLET_UPDATE_VKEY, (VerificationKey));
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
+    }
+
+    /// @notice Verify a match bundle
+    /// @param party0MatchPayload The payload for the first party
+    /// @param party1MatchPayload The payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
+    /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @return True if the match bundle is valid, false otherwise
+    function verifyMatchBundle(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        return false;
     }
 }

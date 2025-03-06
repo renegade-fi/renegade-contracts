@@ -6,7 +6,6 @@ import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
-import { console2 } from "forge-std/console2.sol";
 import { IHasher } from "../src/libraries/poseidon2/IHasher.sol";
 import { MerkleTreeLib } from "../src/libraries/merkle/MerkleTree.sol";
 import { MerkleZeros } from "../src/libraries/merkle/MerkleZeros.sol";

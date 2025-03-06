@@ -125,4 +125,9 @@ contract Darkpool {
             );
         }
     }
+
+    /// @notice Settle a match in the darkpool
+    function processMatchSettle() public {
+        //
+    }
 }

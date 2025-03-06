@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
-import { console2 } from "forge-std/console2.sol";
 import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 
 // --- Hash & Transcript Constants --- //

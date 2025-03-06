@@ -8,7 +8,6 @@ import { TranscriptLib, Transcript } from "./Transcript.sol";
 import { ProofLinkingArgument, OpeningElements, LinkingProof, ProofLinkingVK } from "./Types.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { console2 } from "forge-std/console2.sol";
 
 library ProofLinkingCore {
     using TranscriptLib for Transcript;
