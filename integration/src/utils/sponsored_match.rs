@@ -8,7 +8,7 @@ use contracts_utils::{
 };
 use ethers::{
     types::{Address, Bytes, TransactionReceipt, U256},
-    utils::parse_ether,
+    utils::{parse_ether, WEI_IN_ETHER},
 };
 use eyre::Result;
 use rand::thread_rng;
@@ -16,7 +16,7 @@ use tracing::info;
 
 use crate::{
     abis::DummyErc20Contract,
-    constants::{CONVERSION_RATE, CONVERSION_RATE_PRECISION, GAS_COST_TOLERANCE},
+    constants::{CONVERSION_RATE, GAS_COST_TOLERANCE},
     utils::u256_to_alloy_u256,
     TestContext,
 };
@@ -111,14 +111,16 @@ pub async fn setup_sponsored_match_test(
 }
 
 /// Asserts that the gas refund through the buy-side token is within the
-/// acceptable tolerance
+/// acceptable tolerance.
+/// The conversion rate is expected to be in units of token/eth.
 pub fn assert_token_gas_refund(
     gas_sponsor_initial_balance: AlloyU256,
     gas_sponsor_final_balance: AlloyU256,
     conversion_rate: U256,
     receipt: TransactionReceipt,
 ) {
-    let alloy_inv_conversion_rate = u256_to_alloy_u256(CONVERSION_RATE_PRECISION / conversion_rate);
+    // Get the conversion rate in units of wei/token
+    let alloy_inv_conversion_rate = u256_to_alloy_u256(WEI_IN_ETHER / conversion_rate);
 
     let gas_units_used = u256_to_alloy_u256(receipt.gas_used.unwrap());
     let gas_price = u256_to_alloy_u256(receipt.effective_gas_price.unwrap());

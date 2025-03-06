@@ -87,11 +87,8 @@ const ARB_WASM_ADDRESS: Address = Address::new(hex!("000000000000000000000000000
 const IMPL_ADDRESS_STORAGE_SLOT: U256 =
     U256::from_be_bytes(hex!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"));
 
-/// The fixed-point precision of the conversion rate used to convert the gas
-/// cost to the buy-side token.
-///
-/// Concretely, this is 18 decimal places i.e. 10^18.
-const CONVERSION_RATE_PRECISION: U256 = U256::from_limbs([1_000_000_000_000_000_000u64, 0, 0, 0]);
+/// The number of wei per ETH, i.e. 10^18
+const WEI_PER_ETH: U256 = U256::from_limbs([1_000_000_000_000_000_000u64, 0, 0, 0]);
 
 // -----------------------
 // | CONTRACT DEFINITION |
@@ -288,8 +285,7 @@ impl GasSponsorContract {
     /// refund).
     /// The `gas_cost` is the estimated gas cost of the transaction
     /// in units of wei, and the `conversion_rate` is the signed price of
-    /// the buy-side token in units of
-    /// `token/wei * CONVERSION_RATE_PRECISION`.
+    /// the buy-side token in units of token/wei.
     /// If the `receiver` is the zero address, we use `msg::sender()` as the
     /// receiver.
     #[payable]
@@ -702,7 +698,7 @@ fn refund_through_native_eth(
 /// Refunds the user's gas costs through the buy-side token.
 /// The `gas_cost` is the estimated gas cost of the transaction in units of wei,
 /// and the `conversion_rate` is the price of the buy-side token in units of
-/// `token/wei * CONVERSION_RATE_PRECISION`.
+/// token/eth
 fn refund_through_buy_token(
     refund_address: Address,
     buy_token_addr: Address,
@@ -712,9 +708,9 @@ fn refund_through_buy_token(
 ) -> Result<(), Vec<u8>> {
     let buy_token = IErc20::new(buy_token_addr);
 
-    // Convert the gas cost to the buy-side token. The conversion rate is expected
-    // to be a fixed-point number with CONVERSION_RATE_PRECISION decimal places.
-    let buy_token_surplus = gas_cost * conversion_rate / CONVERSION_RATE_PRECISION;
+    // Convert the gas cost to the buy-side token. The conversion rate is in terms
+    // of token/eth, so we divide by wei/eth to get token/wei.
+    let buy_token_surplus = gas_cost * conversion_rate / WEI_PER_ETH;
 
     // If the gas sponsor doesn't have enough of the buy-side token to refund the
     // user, emit an event but don't revert.
@@ -735,7 +731,7 @@ fn refund_through_buy_token(
 /// token.
 /// The `gas_cost` is the estimated gas cost of the transaction in units of wei,
 /// and the `conversion_rate` is the price of the buy-side token in units of
-/// `token/wei * CONVERSION_RATE_PRECISION`.
+/// token/wei
 fn refund_gas_cost(
     refund_native_eth: bool,
     refund_address: Address,
