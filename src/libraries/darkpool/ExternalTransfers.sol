@@ -13,8 +13,8 @@ import {
 } from "../darkpool/Types.sol";
 import { WalletOperations } from "../darkpool/WalletOperations.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 // @title TransferExecutor
 // @notice This library implements the logic for executing external transfers

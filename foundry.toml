@@ -1,5 +1,4 @@
 [profile.default]
-solc_version = "0.8.20"
 evm_version = "cancun"
 src = "src"
 out = "out"

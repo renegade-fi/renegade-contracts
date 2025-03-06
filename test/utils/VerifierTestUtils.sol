@@ -15,7 +15,7 @@ import {
 import { console2 } from "forge-std/console2.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "../../src/libraries/verifier/BN254Helpers.sol";
-import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import { Strings } from "oz-contracts/utils/Strings.sol";
 
 contract VerifierTestUtils is TestUtils {
     // ---------
