@@ -113,7 +113,7 @@ contract Verifier is IVerifier {
         vks[3] = reblindVk;
         vks[4] = settleVk;
 
-        // TODO: Add in proof linking
+        // Add proof linking instances to the opening
         ProofLinkingInstance[] memory instances = createMatchLinkingInstances(matchProofs, matchLinkingProofs);
         OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
 
