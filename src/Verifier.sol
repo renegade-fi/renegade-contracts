@@ -136,13 +136,19 @@ contract Verifier is IVerifier {
         returns (ProofLinkingInstance[] memory instances)
     {
         instances = new ProofLinkingInstance[](NUM_MATCH_LINKING_PROOFS);
+        ProofLinkingVK memory reblindCommitmentsVk =
+            abi.decode(VerificationKeys.VALID_REBLIND_COMMITMENTS_LINK_VKEY, (ProofLinkingVK));
+        ProofLinkingVK memory commitmentsMatchSettleVk0 =
+            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK0_VKEY, (ProofLinkingVK));
+        ProofLinkingVK memory commitmentsMatchSettleVk1 =
+            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK1_VKEY, (ProofLinkingVK));
 
         // Party 0: VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
             wire_comm0: matchProofs.validReblind0.wire_comms[0],
             wire_comm1: matchProofs.validCommitments0.wire_comms[0],
             proof: matchLinkingProofs.validReblindCommitments0,
-            vk: dummyProofLinkingVk()
+            vk: reblindCommitmentsVk
         });
 
         // Party 0: VALID COMMITMENTS -> VALID MATCH SETTLE
@@ -150,7 +156,7 @@ contract Verifier is IVerifier {
             wire_comm0: matchProofs.validCommitments0.wire_comms[0],
             wire_comm1: matchProofs.validMatchSettle.wire_comms[0],
             proof: matchLinkingProofs.validCommitmentsMatchSettle0,
-            vk: dummyProofLinkingVk()
+            vk: commitmentsMatchSettleVk0
         });
 
         // Party 1: VALID REBLIND -> VALID COMMITMENTS
@@ -158,7 +164,7 @@ contract Verifier is IVerifier {
             wire_comm0: matchProofs.validReblind1.wire_comms[0],
             wire_comm1: matchProofs.validCommitments1.wire_comms[0],
             proof: matchLinkingProofs.validReblindCommitments1,
-            vk: dummyProofLinkingVk()
+            vk: reblindCommitmentsVk
         });
 
         // Party 1: VALID COMMITMENTS -> VALID MATCH SETTLE
@@ -166,13 +172,7 @@ contract Verifier is IVerifier {
             wire_comm0: matchProofs.validCommitments1.wire_comms[0],
             wire_comm1: matchProofs.validMatchSettle.wire_comms[0],
             proof: matchLinkingProofs.validCommitmentsMatchSettle1,
-            vk: dummyProofLinkingVk()
+            vk: commitmentsMatchSettleVk1
         });
-    }
-
-    /// @dev Create a dummy proof linking verification key
-    /// @dev TODO: Remove this
-    function dummyProofLinkingVk() internal pure returns (ProofLinkingVK memory vk) {
-        vk = ProofLinkingVK({ link_group_generator: BN254.ScalarField.wrap(0), link_group_offset: 0, link_group_size: 0 });
     }
 }

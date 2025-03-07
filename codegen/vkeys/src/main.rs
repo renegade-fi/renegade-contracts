@@ -9,7 +9,7 @@ use clap::Parser;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use vkeys::Circuit;
+use vkeys::{Circuit, LinkingInstance};
 
 const CONTRACT_NAME: &str = "VerificationKeys";
 
@@ -38,6 +38,17 @@ fn generate_solidity_contract() -> Result<String> {
         println!("Generating vkey for {}", name);
         let const_name = format!("{}_VKEY", name);
         let vkey = circuit.vkey();
+        let abi_bytes = vkey.abi_encode();
+        add_constant(&mut contract, &const_name, &abi_bytes);
+    }
+
+    // Push all linking vkeys to the contract string
+    let linking_instances = LinkingInstance::all();
+    for instance in linking_instances.iter() {
+        let name = instance.name();
+        println!("Generating vkey for {}", name);
+        let const_name = format!("{}_VKEY", name);
+        let vkey = instance.vkey();
         let abi_bytes = vkey.abi_encode();
         add_constant(&mut contract, &const_name, &abi_bytes);
     }

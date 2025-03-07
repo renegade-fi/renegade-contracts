@@ -8,6 +8,7 @@ edition = "2021"
 reference-impl-common = { package = "common", path = "../../test/rust-reference-impls/common" }
 renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade.git" }
 renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git" }
 
 # === EVM === #
 alloy = "0.11"
