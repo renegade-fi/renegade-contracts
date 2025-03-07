@@ -7,7 +7,7 @@ import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
-import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
+import { PlonkProof, LinkingProof } from "renegade/libraries/verifier/Types.sol";
 import { IHasher } from "renegade/libraries/poseidon2/IHasher.sol";
 import {
     ExternalTransfer,
@@ -18,6 +18,7 @@ import {
     hashDepositWitness,
     publicKeyToUints,
     MatchProofs,
+    MatchLinkingProofs,
     PartyMatchPayload,
     OrderSettlementIndices
 } from "renegade/libraries/darkpool/Types.sol";
@@ -138,7 +139,8 @@ contract CalldataUtils is TestUtils {
             PartyMatchPayload memory party0Payload,
             PartyMatchPayload memory party1Payload,
             ValidMatchSettleStatement memory statement,
-            MatchProofs memory proofs
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
         )
     {
         party0Payload = generatePartyMatchPayload(merkleRoot);
@@ -159,6 +161,12 @@ contract CalldataUtils is TestUtils {
             validCommitments1: dummyPlonkProof(),
             validReblind1: dummyPlonkProof(),
             validMatchSettle: dummyPlonkProof()
+        });
+        linkingProofs = MatchLinkingProofs({
+            validReblindCommitments0: dummyLinkingProof(),
+            validCommitmentsMatchSettle0: dummyLinkingProof(),
+            validReblindCommitments1: dummyLinkingProof(),
+            validCommitmentsMatchSettle1: dummyLinkingProof()
         });
     }
 
@@ -335,5 +343,11 @@ contract CalldataUtils is TestUtils {
             sigma_evals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar],
             z_bar: dummyScalar
         });
+    }
+
+    /// @notice Generates a dummy linking proof
+    function dummyLinkingProof() internal pure returns (LinkingProof memory proof) {
+        BN254.G1Point memory dummyPoint = BN254.P1();
+        proof = LinkingProof({ linking_quotient_poly_comm: dummyPoint, linking_poly_opening: dummyPoint });
     }
 }

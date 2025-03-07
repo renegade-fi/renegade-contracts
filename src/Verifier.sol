@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { PlonkProof, VerificationKey, OpeningElements, emptyOpeningElements } from "./libraries/verifier/Types.sol";
+import {
+    PlonkProof,
+    VerificationKey,
+    OpeningElements,
+    ProofLinkingVK,
+    ProofLinkingInstance
+} from "./libraries/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -10,10 +16,11 @@ import {
     ValidMatchSettleStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
-import { PartyMatchPayload, MatchProofs } from "./libraries/darkpool/Types.sol";
+import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "./libraries/darkpool/Types.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IVerifier } from "./libraries/verifier/IVerifier.sol";
 import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
+import { ProofLinkingCore } from "./libraries/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 using StatementSerializer for ValidWalletCreateStatement;
@@ -26,6 +33,7 @@ using StatementSerializer for ValidMatchSettleStatement;
 /// @notice The methods on this contract are darkpool-specific
 contract Verifier is IVerifier {
     uint256 public constant NUM_MATCH_PROOFS = 5;
+    uint256 public constant NUM_MATCH_LINKING_PROOFS = 4;
 
     /// @notice Verify a proof of `VALID WALLET CREATE`
     /// @param statement The public inputs to the proof
@@ -71,7 +79,8 @@ contract Verifier is IVerifier {
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
-        MatchProofs calldata matchProofs
+        MatchProofs calldata matchProofs,
+        MatchLinkingProofs calldata matchLinkingProofs
     )
         external
         view
@@ -105,9 +114,65 @@ contract Verifier is IVerifier {
         vks[4] = settleVk;
 
         // TODO: Add in proof linking
-        OpeningElements memory extraOpeningElements = emptyOpeningElements();
+        ProofLinkingInstance[] memory instances = createMatchLinkingInstances(matchProofs, matchLinkingProofs);
+        OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
 
         // Verify the batch
-        return VerifierCore.batchVerify(proofs, publicInputs, vks, extraOpeningElements);
+        return VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpenings);
+    }
+
+    // --- Helpers --- //
+
+    /// @notice Create a set of match linking instances
+    /// @param matchProofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param matchLinkingProofs The proof linking arguments for the match
+    /// @return instances A set of match linking instances
+    function createMatchLinkingInstances(
+        MatchProofs calldata matchProofs,
+        MatchLinkingProofs calldata matchLinkingProofs
+    )
+        internal
+        pure
+        returns (ProofLinkingInstance[] memory instances)
+    {
+        instances = new ProofLinkingInstance[](NUM_MATCH_LINKING_PROOFS);
+
+        // Party 0: VALID REBLIND -> VALID COMMITMENTS
+        instances[0] = ProofLinkingInstance({
+            wire_comm0: matchProofs.validReblind0.wire_comms[0],
+            wire_comm1: matchProofs.validCommitments0.wire_comms[0],
+            proof: matchLinkingProofs.validReblindCommitments0,
+            vk: dummyProofLinkingVk()
+        });
+
+        // Party 0: VALID COMMITMENTS -> VALID MATCH SETTLE
+        instances[1] = ProofLinkingInstance({
+            wire_comm0: matchProofs.validCommitments0.wire_comms[0],
+            wire_comm1: matchProofs.validMatchSettle.wire_comms[0],
+            proof: matchLinkingProofs.validCommitmentsMatchSettle0,
+            vk: dummyProofLinkingVk()
+        });
+
+        // Party 1: VALID REBLIND -> VALID COMMITMENTS
+        instances[2] = ProofLinkingInstance({
+            wire_comm0: matchProofs.validReblind1.wire_comms[0],
+            wire_comm1: matchProofs.validCommitments1.wire_comms[0],
+            proof: matchLinkingProofs.validReblindCommitments1,
+            vk: dummyProofLinkingVk()
+        });
+
+        // Party 1: VALID COMMITMENTS -> VALID MATCH SETTLE
+        instances[3] = ProofLinkingInstance({
+            wire_comm0: matchProofs.validCommitments1.wire_comms[0],
+            wire_comm1: matchProofs.validMatchSettle.wire_comms[0],
+            proof: matchLinkingProofs.validCommitmentsMatchSettle1,
+            vk: dummyProofLinkingVk()
+        });
+    }
+
+    /// @dev Create a dummy proof linking verification key
+    /// @dev TODO: Remove this
+    function dummyProofLinkingVk() internal pure returns (ProofLinkingVK memory vk) {
+        vk = ProofLinkingVK({ link_group_generator: BN254.ScalarField.wrap(0), link_group_offset: 0, link_group_size: 0 });
     }
 }

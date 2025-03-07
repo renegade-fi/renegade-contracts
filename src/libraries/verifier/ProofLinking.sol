@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 /// https://renegade-fi.notion.site/Proof-Linking-PlonK-00964f558b184e4c94b92247f4ebc5d8
 
 import { TranscriptLib, Transcript } from "./Transcript.sol";
-import { ProofLinkingArgument, OpeningElements, LinkingProof, ProofLinkingVK } from "./Types.sol";
+import { ProofLinkingInstance, OpeningElements, LinkingProof, ProofLinkingVK } from "./Types.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
@@ -15,7 +15,7 @@ library ProofLinkingCore {
     /// @notice Create a set of opening elements for the proof linking relation
     /// @param arguments The proof linking arguments to create opening elements for
     /// @return The opening elements
-    function createOpeningElements(ProofLinkingArgument[] memory arguments)
+    function createOpeningElements(ProofLinkingInstance[] memory arguments)
         internal
         view
         returns (OpeningElements memory)

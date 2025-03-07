@@ -19,7 +19,12 @@ import {
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
 import { TransferExecutor } from "./libraries/darkpool/ExternalTransfers.sol";
 import {
-    TransferAuthorization, isZero, PartyMatchPayload, MatchProofs, indicesEqual
+    TransferAuthorization,
+    isZero,
+    PartyMatchPayload,
+    MatchProofs,
+    MatchLinkingProofs,
+    indicesEqual
 } from "./libraries/darkpool/Types.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
@@ -148,7 +153,8 @@ contract Darkpool {
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
-        MatchProofs calldata proofs
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
     )
         public
     {
@@ -158,7 +164,7 @@ contract Darkpool {
         ValidReblindStatement calldata reblindStatement1 = party1MatchPayload.validReblindStatement;
 
         // 1. Verify the proofs
-        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs);
+        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs);
 
         // 2. Check statement consistency between the proofs for the two parties
         // I.e. public inputs used in multiple proofs should take the same values

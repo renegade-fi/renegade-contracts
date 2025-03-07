@@ -85,7 +85,7 @@ struct Challenges {
 }
 
 /// @title An instance of a proof linking argument
-struct ProofLinkingArgument {
+struct ProofLinkingInstance {
     /// @dev The commitment to the first proof's first wire polynomial
     BN254.G1Point wire_comm0;
     /// @dev The commitment to the second proof's first wire polynomial

@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ValidCommitmentsStatement, ValidReblindStatement } from "./PublicInputs.sol";
-import { PlonkProof } from "../verifier/Types.sol";
+import { PlonkProof, LinkingProof } from "../verifier/Types.sol";
 
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
@@ -106,6 +106,19 @@ struct MatchProofs {
     PlonkProof validReblind1;
     /// @dev The proof of `VALID MATCH SETTLE`
     PlonkProof validMatchSettle;
+}
+
+/// @title MatchLinkingProofs
+/// @notice Contains the proof linking arguments for a match
+struct MatchLinkingProofs {
+    /// @dev The proof of linked inputs between PARTY 0 VALID REBLIND <-> PARTY 0 VALID COMMITMENTS
+    LinkingProof validReblindCommitments0;
+    /// @dev The proof of linked inputs between PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE
+    LinkingProof validCommitmentsMatchSettle0;
+    /// @dev The proof of linked inputs between PARTY 1 VALID REBLIND <-> PARTY 1 VALID COMMITMENTS
+    LinkingProof validReblindCommitments1;
+    /// @dev The proof of linked inputs between PARTY 1 VALID COMMITMENTS <-> VALID MATCH SETTLE
+    LinkingProof validCommitmentsMatchSettle1;
 }
 
 /// @notice A set of indices into a settlement party's wallet for the receive balance

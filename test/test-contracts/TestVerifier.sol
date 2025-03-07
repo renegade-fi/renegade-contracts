@@ -8,7 +8,7 @@ import {
     ValidMatchSettleStatement,
     StatementSerializer
 } from "../../src/libraries/darkpool/PublicInputs.sol";
-import { PartyMatchPayload, MatchProofs } from "../../src/libraries/darkpool/Types.sol";
+import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "../../src/libraries/darkpool/Types.sol";
 import { VerificationKeys } from "../../src/libraries/darkpool/VerificationKeys.sol";
 import { IVerifier } from "../../src/libraries/verifier/IVerifier.sol";
 import { Verifier } from "../../src/Verifier.sol";
@@ -70,13 +70,14 @@ contract TestVerifier is IVerifier {
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
-        MatchProofs calldata proofs
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
     )
         external
         view
         returns (bool)
     {
-        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs);
+        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs);
         return true;
     }
 }
