@@ -18,7 +18,7 @@ import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
 contract SettleAtomicMatchTest is DarkpoolTestBase {
     // --- Settle Atomic Match --- //
 
-    /// @notice Test settling an atomic match
+    /// @notice Test settling an atomic match with an invalid ETH value
     function test_settleAtomicMatch_invalidValue() public {
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();

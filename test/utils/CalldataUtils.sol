@@ -46,10 +46,16 @@ bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
 /// @title Calldata Utils
 /// @notice Utilities for generating darkpool calldata
 contract CalldataUtils is TestUtils {
+    /// @notice The floating point precision used in the fixed point representation
+    uint256 public constant FIXED_POINT_PRECISION = 2 ** 63;
     /// @notice The protocol fee rate used for testing
     /// @dev This is the fixed point representation of 0.0001 (1bp)
     /// @dev computed as `floor(0.0001 * 2 ** 63)`
     uint256 public constant TEST_PROTOCOL_FEE = 922_337_203_685_477;
+    /// @notice The relayer fee rate used for testing
+    /// @dev This is the fixed point representation of 0.0002 (2bp)
+    /// @dev computed as `floor(0.0002 * 2 ** 63)`
+    uint256 public constant TEST_RELAYER_FEE = 1_844_674_407_370_955;
 
     /// @dev The typehash for the TokenPermissions parameters
     bytes32 public constant _TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
@@ -208,11 +214,7 @@ contract CalldataUtils is TestUtils {
         internalPartyPayload = generatePartyMatchPayload(merkleRoot);
         statement = ValidMatchSettleAtomicStatement({
             matchResult: matchResult,
-            // TODO: Use static test fee rather than random
-            externalPartyFees: FeeTake({
-                relayerFee: BN254.ScalarField.unwrap(randomScalar()),
-                protocolFee: BN254.ScalarField.unwrap(randomScalar())
-            }),
+            externalPartyFees: computeExternalPartyFees(matchResult),
             internalPartyModifiedShares: randomWalletShares(),
             internalPartySettlementIndices: internalPartyPayload.validCommitmentsStatement.indices,
             protocolFeeRate: TEST_PROTOCOL_FEE,
@@ -272,9 +274,33 @@ contract CalldataUtils is TestUtils {
         matchResult = ExternalMatchResult({
             quoteMint: vm.randomAddress(),
             baseMint: vm.randomAddress(),
-            quoteAmount: BN254.ScalarField.unwrap(randomScalar()),
-            baseAmount: BN254.ScalarField.unwrap(randomScalar()),
+            quoteAmount: randomAmount(),
+            baseAmount: randomAmount(),
             direction: direction
+        });
+    }
+
+    /// --- Fees --- ///
+
+    /// @notice Compute the fee due by an external party for the given external match result
+    function computeExternalPartyFees(ExternalMatchResult memory matchResult)
+        internal
+        pure
+        returns (FeeTake memory fees)
+    {
+        if (matchResult.direction == ExternalMatchDirection.InternalPartyBuy) {
+            fees = computeFees(matchResult.quoteAmount);
+        } else {
+            fees = computeFees(matchResult.baseAmount);
+        }
+    }
+
+    /// @notice Compute the fee for a given receive amount using the `TEST_RELAYER_FEE`
+    /// @notice and the `TEST_PROTOCOL_FEE` for the relayer and protocol fees respectively
+    function computeFees(uint256 receiveAmount) internal pure returns (FeeTake memory fees) {
+        fees = FeeTake({
+            relayerFee: (receiveAmount * TEST_RELAYER_FEE) / FIXED_POINT_PRECISION,
+            protocolFee: (receiveAmount * TEST_PROTOCOL_FEE) / FIXED_POINT_PRECISION
         });
     }
 

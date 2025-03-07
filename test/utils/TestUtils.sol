@@ -51,6 +51,12 @@ contract TestUtils is Test {
         return vm.randomUint(low, high - 1);
     }
 
+    /// @dev Generate a random `Amount` in the renegade system
+    /// @dev Amounts are constrained to be in the range [0, 2 ** 100)
+    function randomAmount() internal returns (uint256) {
+        return randomUint(2 ** 100);
+    }
+
     /// @dev Generate a random set of wallet shares
     function randomWalletShares() internal returns (BN254.ScalarField[] memory) {
         BN254.ScalarField[] memory shares = new BN254.ScalarField[](DarkpoolConstants.N_WALLET_SHARES);
