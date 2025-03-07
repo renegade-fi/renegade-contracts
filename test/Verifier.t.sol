@@ -11,7 +11,7 @@ import {
     VerificationKey,
     OpeningElements,
     emptyOpeningElements,
-    ProofLinkingArgument
+    ProofLinkingInstance
 } from "../src/libraries/verifier/Types.sol";
 import { ProofLinkingCore } from "../src/libraries/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -426,7 +426,7 @@ contract VerifierTest is VerifierTestUtils {
             PlonkProof[] memory proofs,
             BN254.ScalarField[][] memory publicInputs,
             VerificationKey[] memory vks,
-            ProofLinkingArgument memory linkArg
+            ProofLinkingInstance memory linkArg
         ) = getSumProductProofsAndLinkingArgument(sharedInputs, sumPrivateInput, productPrivateInput);
 
         uint256 modType = randomUint(4);
@@ -446,7 +446,7 @@ contract VerifierTest is VerifierTestUtils {
         }
 
         // Assert that verification fails
-        ProofLinkingArgument[] memory linkArgs = new ProofLinkingArgument[](1);
+        ProofLinkingInstance[] memory linkArgs = new ProofLinkingInstance[](1);
         linkArgs[0] = linkArg;
         OpeningElements memory linkOpeningElements = ProofLinkingCore.createOpeningElements(linkArgs);
         bool res = VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpeningElements);
@@ -563,11 +563,11 @@ contract VerifierTest is VerifierTestUtils {
             PlonkProof[] memory proofs,
             BN254.ScalarField[][] memory publicInputs,
             VerificationKey[] memory vks,
-            ProofLinkingArgument memory linkArg
+            ProofLinkingInstance memory linkArg
         ) = getSumProductProofsAndLinkingArgument(sharedInputs, sumPrivateInput, productPrivateInput);
 
         // Create extra opening elements for the proof linking relation
-        ProofLinkingArgument[] memory linkArgs = new ProofLinkingArgument[](1);
+        ProofLinkingInstance[] memory linkArgs = new ProofLinkingInstance[](1);
         linkArgs[0] = linkArg;
         OpeningElements memory linkingOpeningElements = ProofLinkingCore.createOpeningElements(linkArgs);
 

@@ -9,7 +9,7 @@ import {
     NUM_WIRE_TYPES,
     PlonkProof,
     ProofLinkingVK,
-    ProofLinkingArgument,
+    ProofLinkingInstance,
     LinkingProof
 } from "../../src/libraries/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -284,7 +284,7 @@ contract VerifierTestUtils is TestUtils {
             PlonkProof[] memory proofs,
             BN254.ScalarField[][] memory publicInputs,
             VerificationKey[] memory vks,
-            ProofLinkingArgument memory linkingArgument
+            ProofLinkingInstance memory linkingArgument
         )
     {
         // Compute the expected sum and product, these are used as public inputs
@@ -329,7 +329,7 @@ contract VerifierTestUtils is TestUtils {
             abi.decode(vm.parseBytes(response), (PlonkProof, PlonkProof, LinkingProof));
 
         // Create a linking argument from the linking proof
-        ProofLinkingArgument memory linkArg = ProofLinkingArgument({
+        ProofLinkingInstance memory linkArg = ProofLinkingInstance({
             wire_comm0: sumProof.wire_comms[0],
             wire_comm1: productProof.wire_comms[0],
             proof: linkProof,

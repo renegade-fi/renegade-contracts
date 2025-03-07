@@ -7,7 +7,7 @@ import {
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement
 } from "../darkpool/PublicInputs.sol";
-import { PartyMatchPayload, MatchProofs } from "../darkpool/Types.sol";
+import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "../darkpool/Types.sol";
 
 interface IVerifier {
     /// @notice Verify a proof of `VALID WALLET CREATE`
@@ -44,7 +44,8 @@ interface IVerifier {
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
-        MatchProofs calldata proofs
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
     )
         external
         view

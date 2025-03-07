@@ -5,7 +5,12 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
-import { PartyMatchPayload, MatchProofs, TransferAuthorization } from "renegade/libraries/darkpool/Types.sol";
+import {
+    PartyMatchPayload,
+    MatchProofs,
+    MatchLinkingProofs,
+    TransferAuthorization
+} from "renegade/libraries/darkpool/Types.sol";
 import { ValidWalletUpdateStatement, ValidMatchSettleStatement } from "renegade/libraries/darkpool/PublicInputs.sol";
 
 contract SettleMatchTest is DarkpoolTestBase {
@@ -19,11 +24,12 @@ contract SettleMatchTest is DarkpoolTestBase {
             PartyMatchPayload memory party0Payload,
             PartyMatchPayload memory party1Payload,
             ValidMatchSettleStatement memory statement,
-            MatchProofs memory proofs
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
         ) = settleMatchCalldata(merkleRoot);
 
         // Process the match
-        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs);
+        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
 
         // Check that the nullifiers are used
         BN254.ScalarField nullifier0 = party0Payload.validReblindStatement.originalSharesNullifier;
@@ -50,7 +56,8 @@ contract SettleMatchTest is DarkpoolTestBase {
             PartyMatchPayload memory party0Payload,
             PartyMatchPayload memory party1Payload,
             ValidMatchSettleStatement memory matchStatement,
-            MatchProofs memory matchProofs
+            MatchProofs memory matchProofs,
+            MatchLinkingProofs memory linkingProofs
         ) = settleMatchCalldata(merkleRoot);
 
         if (vm.randomBool()) {
@@ -63,7 +70,7 @@ contract SettleMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
-        darkpool.processMatchSettle(party0Payload, party1Payload, matchStatement, matchProofs);
+        darkpool.processMatchSettle(party0Payload, party1Payload, matchStatement, matchProofs, linkingProofs);
     }
 
     /// @notice Test settling a match in which one party is using an invalid Merkle root
@@ -74,7 +81,8 @@ contract SettleMatchTest is DarkpoolTestBase {
             PartyMatchPayload memory party0Payload,
             PartyMatchPayload memory party1Payload,
             ValidMatchSettleStatement memory statement,
-            MatchProofs memory proofs
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
         ) = settleMatchCalldata(merkleRoot);
 
         if (vm.randomBool()) {
@@ -87,7 +95,7 @@ contract SettleMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_ROOT_REVERT_STRING);
-        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs);
+        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling a match in which one party's settlement indices are inconsistent
@@ -98,7 +106,8 @@ contract SettleMatchTest is DarkpoolTestBase {
             PartyMatchPayload memory party0Payload,
             PartyMatchPayload memory party1Payload,
             ValidMatchSettleStatement memory statement,
-            MatchProofs memory proofs
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
         ) = settleMatchCalldata(merkleRoot);
 
         bytes memory revertString;
@@ -114,7 +123,7 @@ contract SettleMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(revertString);
-        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs);
+        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling a match in which the protocol fee rate is invalid
@@ -125,12 +134,13 @@ contract SettleMatchTest is DarkpoolTestBase {
             PartyMatchPayload memory party0Payload,
             PartyMatchPayload memory party1Payload,
             ValidMatchSettleStatement memory statement,
-            MatchProofs memory proofs
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
         ) = settleMatchCalldata(merkleRoot);
         statement.protocolFeeRate = BN254.ScalarField.unwrap(randomScalar());
 
         // Should fail
         vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
-        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs);
+        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
     }
 }
