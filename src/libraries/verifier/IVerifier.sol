@@ -5,9 +5,16 @@ import { PlonkProof } from "./Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
-    ValidMatchSettleStatement
+    ValidMatchSettleStatement,
+    ValidMatchSettleAtomicStatement
 } from "../darkpool/PublicInputs.sol";
-import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "../darkpool/Types.sol";
+import {
+    PartyMatchPayload,
+    MatchProofs,
+    MatchLinkingProofs,
+    MatchAtomicProofs,
+    MatchAtomicLinkingProofs
+} from "../darkpool/Types.sol";
 
 interface IVerifier {
     /// @notice Verify a proof of `VALID WALLET CREATE`
@@ -46,6 +53,22 @@ interface IVerifier {
         ValidMatchSettleStatement calldata matchSettleStatement,
         MatchProofs calldata proofs,
         MatchLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify an atomic match bundle
+    /// @param internalPartyPayload The payload for the internal party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE ATOMIC`
+    /// @param proofs The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return True if the atomic match bundle is valid, false otherwise
+    function verifyAtomicMatchBundle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
     )
         external
         view
