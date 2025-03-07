@@ -19,7 +19,12 @@ import {
     publicKeyToUints,
     MatchProofs,
     MatchLinkingProofs,
+    MatchAtomicProofs,
+    MatchAtomicLinkingProofs,
     PartyMatchPayload,
+    ExternalMatchResult,
+    ExternalMatchDirection,
+    FeeTake,
     OrderSettlementIndices
 } from "renegade/libraries/darkpool/Types.sol";
 import { DarkpoolConstants } from "renegade/libraries/darkpool/Constants.sol";
@@ -29,7 +34,8 @@ import {
     ValidWalletUpdateStatement,
     ValidCommitmentsStatement,
     ValidReblindStatement,
-    ValidMatchSettleStatement
+    ValidMatchSettleStatement,
+    ValidMatchSettleAtomicStatement
 } from "renegade/libraries/darkpool/PublicInputs.sol";
 
 /// @dev The typehash for the PermitWitnessTransferFrom parameters
@@ -170,6 +176,60 @@ contract CalldataUtils is TestUtils {
         });
     }
 
+    /// --- Settle Atomic Match --- ///
+
+    /// @notice Generate calldata for settling an atomic match
+    function settleAtomicMatchCalldata(BN254.ScalarField merkleRoot)
+        internal
+        returns (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        )
+    {
+        ExternalMatchResult memory matchResult = randomExternalMatchResult();
+        return settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+    }
+
+    /// @notice Generate calldata for settling an atomic match with a given match result
+    function settleAtomicMatchCalldataWithMatchResult(
+        BN254.ScalarField merkleRoot,
+        ExternalMatchResult memory matchResult
+    )
+        internal
+        returns (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        )
+    {
+        internalPartyPayload = generatePartyMatchPayload(merkleRoot);
+        statement = ValidMatchSettleAtomicStatement({
+            matchResult: matchResult,
+            // TODO: Use static test fee rather than random
+            externalPartyFees: FeeTake({
+                relayerFee: BN254.ScalarField.unwrap(randomScalar()),
+                protocolFee: BN254.ScalarField.unwrap(randomScalar())
+            }),
+            internalPartyModifiedShares: randomWalletShares(),
+            internalPartySettlementIndices: internalPartyPayload.validCommitmentsStatement.indices,
+            protocolFeeRate: TEST_PROTOCOL_FEE,
+            relayerFeeAddress: vm.randomAddress()
+        });
+
+        proofs = MatchAtomicProofs({
+            validCommitments: dummyPlonkProof(),
+            validReblind: dummyPlonkProof(),
+            validMatchSettleAtomic: dummyPlonkProof()
+        });
+        linkingProofs = MatchAtomicLinkingProofs({
+            validReblindCommitments: dummyLinkingProof(),
+            validCommitmentsMatchSettleAtomic: dummyLinkingProof()
+        });
+    }
+
     // --------------------
     // | Calldata Helpers |
     // --------------------
@@ -197,6 +257,24 @@ contract CalldataUtils is TestUtils {
             balanceSend: randomUint(DarkpoolConstants.MAX_BALANCES),
             balanceReceive: randomUint(DarkpoolConstants.MAX_BALANCES),
             order: randomUint(DarkpoolConstants.MAX_ORDERS)
+        });
+    }
+
+    /// @notice Generate a random external match result
+    function randomExternalMatchResult() internal returns (ExternalMatchResult memory matchResult) {
+        ExternalMatchDirection direction;
+        if (vm.randomBool()) {
+            direction = ExternalMatchDirection.InternalPartyBuy;
+        } else {
+            direction = ExternalMatchDirection.InternalPartySell;
+        }
+
+        matchResult = ExternalMatchResult({
+            quoteMint: vm.randomAddress(),
+            baseMint: vm.randomAddress(),
+            quoteAmount: BN254.ScalarField.unwrap(randomScalar()),
+            baseAmount: BN254.ScalarField.unwrap(randomScalar()),
+            direction: direction
         });
     }
 
