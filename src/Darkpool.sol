@@ -27,8 +27,11 @@ import {
     MatchLinkingProofs,
     indicesEqual,
     MatchAtomicProofs,
-    MatchAtomicLinkingProofs
+    MatchAtomicLinkingProofs,
+    ExternalMatchResult,
+    ExternalMatchDirection
 } from "./libraries/darkpool/Types.sol";
+import { DarkpoolConstants } from "./libraries/darkpool/Constants.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 
@@ -99,7 +102,8 @@ contract Darkpool {
     /// @param proof The proof of `VALID WALLET CREATE`
     function createWallet(ValidWalletCreateStatement calldata statement, PlonkProof calldata proof) public {
         // 1. Verify the proof
-        verifier.verifyValidWalletCreate(statement, proof);
+        bool res = verifier.verifyValidWalletCreate(statement, proof);
+        require(res, "Verification failed for wallet create");
 
         // 2. Insert the wallet shares into the Merkle tree
         WalletOperations.insertWalletCommitment(
@@ -121,7 +125,8 @@ contract Darkpool {
         public
     {
         // 1. Verify the proof
-        verifier.verifyValidWalletUpdate(statement, proof);
+        bool res = verifier.verifyValidWalletUpdate(statement, proof);
+        require(res, "Verification failed for wallet update");
 
         // 2. Rotate the wallet's shares into the Merkle tree
         BN254.ScalarField newCommitment = WalletOperations.rotateWallet(
@@ -167,7 +172,10 @@ contract Darkpool {
         ValidReblindStatement calldata reblindStatement1 = party1MatchPayload.validReblindStatement;
 
         // 1. Verify the proofs
-        verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs);
+        bool res = verifier.verifyMatchBundle(
+            party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
+        );
+        require(res, "Verification failed for match bundle");
 
         // 2. Check statement consistency between the proofs for the two parties
         // I.e. public inputs used in multiple proofs should take the same values
@@ -213,7 +221,49 @@ contract Darkpool {
         MatchAtomicLinkingProofs calldata linkingProofs
     )
         public
+        payable
     {
+        ValidCommitmentsStatement calldata commitmentsStatement = internalPartyPayload.validCommitmentsStatement;
+        ValidReblindStatement calldata reblindStatement = internalPartyPayload.validReblindStatement;
+
+        // 1. Validate the transaction value
+        // If the external party is selling native ETH, validate that they have provided the correct
+        // amount in the transaction's value
+        ExternalMatchResult memory matchResult = matchSettleStatement.matchResult;
+        bool tradesNativeToken = DarkpoolConstants.isNativeEth(matchResult.baseMint);
+        bool externalPartySells = matchResult.direction == ExternalMatchDirection.InternalPartyBuy;
+        bool nativeEthSell = tradesNativeToken && externalPartySells;
+
+        // The tx value should be zero unless the external party is selling native ETH
+        if (!nativeEthSell && msg.value != 0) {
+            revert("Invalid ETH value, should be zero unless selling native ETH");
+        }
+
+        // 2. Verify the proofs
+        bool res = verifier.verifyAtomicMatchBundle(internalPartyPayload, matchSettleStatement, proofs, linkingProofs);
+        require(res, "Verification failed for atomic match bundle");
+
+        // 3. Check statement consistency for the internal party
+        // I.e. public inputs used in multiple proofs should take the same values
+        bool internalPartyValidIndices =
+            indicesEqual(commitmentsStatement.indices, matchSettleStatement.internalPartySettlementIndices);
+        require(internalPartyValidIndices, "Invalid internal party order settlement indices");
+
+        // 4. Validate the protocol fee rate used in the settlement
+        require(matchSettleStatement.protocolFeeRate == protocolFeeRate, "Invalid protocol fee rate");
+
+        // 5. Insert the new shares into the Merkle tree
+        WalletOperations.rotateWallet(
+            reblindStatement.originalSharesNullifier,
+            reblindStatement.merkleRoot,
+            reblindStatement.newPrivateShareCommitment,
+            matchSettleStatement.internalPartyModifiedShares,
+            nullifierSet,
+            merkleTree,
+            hasher
+        );
+
+        // TODO: Execute external transfers to/from the external party
         require(false, "Not implemented");
     }
 }

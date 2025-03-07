@@ -107,6 +107,8 @@ library StatementSerializer {
     using StatementSerializer for ExternalTransfer;
     using StatementSerializer for PublicRootKey;
     using StatementSerializer for OrderSettlementIndices;
+    using StatementSerializer for ExternalMatchResult;
+    using StatementSerializer for FeeTake;
 
     /// @notice The number of scalar field elements in a ValidWalletCreateStatement
     uint256 constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
@@ -256,6 +258,51 @@ library StatementSerializer {
         return serialized;
     }
 
+    // --- Valid Match Settle Atomic --- //
+
+    /// @notice Serializes a ValidMatchSettleAtomicStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidMatchSettleAtomicStatement memory self)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE);
+
+        // Copy the match result
+        BN254.ScalarField[] memory matchResultSerialized = self.matchResult.scalarSerialize();
+        for (uint256 i = 0; i < matchResultSerialized.length; i++) {
+            serialized[i] = matchResultSerialized[i];
+        }
+
+        // Copy the external party fees
+        uint256 offset = matchResultSerialized.length;
+        BN254.ScalarField[] memory externalPartyFeesSerialized = self.externalPartyFees.scalarSerialize();
+        for (uint256 i = 0; i < externalPartyFeesSerialized.length; i++) {
+            serialized[offset + i] = externalPartyFeesSerialized[i];
+        }
+
+        // Copy the internal party modified shares
+        offset += externalPartyFeesSerialized.length;
+        for (uint256 i = 0; i < self.internalPartyModifiedShares.length; i++) {
+            serialized[offset + i] = self.internalPartyModifiedShares[i];
+        }
+
+        // Copy the internal party settlement indices
+        offset += self.internalPartyModifiedShares.length;
+        BN254.ScalarField[] memory internalPartySettlementIndicesSerialized =
+            self.internalPartySettlementIndices.scalarSerialize();
+        for (uint256 i = 0; i < internalPartySettlementIndicesSerialized.length; i++) {
+            serialized[offset + i] = internalPartySettlementIndicesSerialized[i];
+        }
+
+        // Copy the protocol fee rate and relayer fee address
+        serialized[serialized.length - 2] = BN254.ScalarField.wrap(self.protocolFeeRate);
+        serialized[serialized.length - 1] = BN254.ScalarField.wrap(uint256(uint160(self.relayerFeeAddress)));
+        return serialized;
+    }
+
     // --- Types --- //
 
     /// @notice Serializes an ExternalTransfer into an array of scalar field elements
@@ -295,6 +342,31 @@ library StatementSerializer {
         serialized[0] = BN254.ScalarField.wrap(self.balanceSend);
         serialized[1] = BN254.ScalarField.wrap(self.balanceReceive);
         serialized[2] = BN254.ScalarField.wrap(self.order);
+
+        return serialized;
+    }
+
+    /// @notice Serializes an ExternalMatchResult into an array of scalar field elements
+    /// @param self The result to serialize
+    /// @return serialized The serialized result as an array of scalar field elements
+    function scalarSerialize(ExternalMatchResult memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](5);
+        serialized[0] = BN254.ScalarField.wrap(uint256(uint160(self.quoteMint)));
+        serialized[1] = BN254.ScalarField.wrap(uint256(uint160(self.baseMint)));
+        serialized[2] = BN254.ScalarField.wrap(self.quoteAmount);
+        serialized[3] = BN254.ScalarField.wrap(self.baseAmount);
+        serialized[4] = BN254.ScalarField.wrap(uint256(self.direction));
+
+        return serialized;
+    }
+
+    /// @notice Serializes a FeeTake into an array of scalar field elements
+    /// @param self The fee take to serialize
+    /// @return serialized The serialized fee take as an array of scalar field elements
+    function scalarSerialize(FeeTake memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](2);
+        serialized[0] = BN254.ScalarField.wrap(self.relayerFee);
+        serialized[1] = BN254.ScalarField.wrap(self.protocolFee);
 
         return serialized;
     }
