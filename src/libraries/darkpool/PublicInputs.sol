@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { ExternalTransfer, PublicRootKey, OrderSettlementIndices } from "./Types.sol";
+import { ExternalTransfer, PublicRootKey, OrderSettlementIndices, ExternalMatchResult, FeeTake } from "./Types.sol";
 
 // This file represents the public inputs (statements) for various proofs used by the darkpool
 
@@ -72,6 +72,26 @@ struct ValidMatchSettleStatement {
     uint256 protocolFeeRate;
 }
 
+/// @title ValidMatchSettleAtomicStatement
+/// @notice The statement type for the `VALID MATCH SETTLE ATOMIC` proof
+struct ValidMatchSettleAtomicStatement {
+    /// @dev The result of the match
+    ExternalMatchResult matchResult;
+    /// @dev The fees due by the external party
+    FeeTake externalPartyFees;
+    /// @dev The modified public shares of the internal party
+    BN254.ScalarField[] internalPartyModifiedShares;
+    /// @dev The order settlement indices of the internal party
+    OrderSettlementIndices internalPartySettlementIndices;
+    /// @dev The protocol fee rate used for the match
+    /// @dev This is a fixed point value encoded as a uint256,
+    /// @dev see `protocolFeeRate` in `ValidMatchSettleStatement`
+    uint256 protocolFeeRate;
+    /// @dev The address at which the relayer wishes to receive their fee due
+    /// @dev from the external party
+    address relayerFeeAddress;
+}
+
 // ------------------------
 // | Scalar Serialization |
 // ------------------------
@@ -83,6 +103,7 @@ library StatementSerializer {
     using StatementSerializer for ValidReblindStatement;
     using StatementSerializer for ValidCommitmentsStatement;
     using StatementSerializer for ValidMatchSettleStatement;
+    using StatementSerializer for ValidMatchSettleAtomicStatement;
     using StatementSerializer for ExternalTransfer;
     using StatementSerializer for PublicRootKey;
     using StatementSerializer for OrderSettlementIndices;
@@ -97,6 +118,8 @@ library StatementSerializer {
     uint256 constant VALID_COMMITMENTS_SCALAR_SIZE = 3;
     /// @notice The number of scalar field elements in a ValidMatchSettleStatement
     uint256 constant VALID_MATCH_SETTLE_SCALAR_SIZE = 147;
+    /// @notice The number of scalar field elements in a ValidMatchSettleAtomicStatement
+    uint256 constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
 
     // --- Valid Wallet Create --- //
 

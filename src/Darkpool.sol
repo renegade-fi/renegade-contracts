@@ -14,6 +14,7 @@ import {
     ValidCommitmentsStatement,
     ValidReblindStatement,
     ValidMatchSettleStatement,
+    ValidMatchSettleAtomicStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
@@ -24,7 +25,9 @@ import {
     PartyMatchPayload,
     MatchProofs,
     MatchLinkingProofs,
-    indicesEqual
+    indicesEqual,
+    MatchAtomicProofs,
+    MatchAtomicLinkingProofs
 } from "./libraries/darkpool/Types.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
@@ -197,5 +200,20 @@ contract Darkpool {
             merkleTree,
             hasher
         );
+    }
+
+    /// @notice Process and atomic match settlement between two parties; one internal and one external
+    /// @dev An internal party is one with state committed into the darkpool, while
+    /// @dev an external party provides liquidity to the pool during the
+    /// @dev transaction in which this method is called
+    function processAtomicMatchSettle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        public
+    {
+        require(false, "Not implemented");
     }
 }

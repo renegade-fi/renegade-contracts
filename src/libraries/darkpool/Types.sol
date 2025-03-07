@@ -80,9 +80,46 @@ function hashDepositWitness(DepositWitness memory witness) pure returns (bytes32
     return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, pkRootHash));
 }
 
+// -------------
+// | Fee Types |
+// -------------
+
+/// @title FeeTake
+/// @notice The fees due by a party in a match
+struct FeeTake {
+    /// @dev The fee due to the relayer
+    uint256 relayerFee;
+    /// @dev The fee due to the protocol
+    uint256 protocolFee;
+}
+
 // --------------------
 // | Settlement Types |
 // --------------------
+
+/// @title ExternalMatchResult
+/// @notice The result of a match between an internal and external party
+struct ExternalMatchResult {
+    /// @dev The quote mint of the match
+    address quoteMint;
+    /// @dev The base mint of the match
+    address baseMint;
+    /// @dev The amount of the match
+    uint256 quoteAmount;
+    /// @dev The amount of the match
+    uint256 baseAmount;
+    /// @dev The direction of the match
+    ExternalMatchDirection direction;
+}
+
+/// @title ExternalMatchDirection
+/// @notice The direction of a match between an internal and external party
+enum ExternalMatchDirection {
+    /// @dev The internal party buys the base and sells the quote
+    InternalPartyBuy,
+    /// @dev The internal party sells the base and buys the quote
+    InternalPartySell
+}
 
 /// @title PartyMatchPayload
 /// @notice Contains the statement types for a single party's validity proofs in a match
@@ -95,6 +132,8 @@ struct PartyMatchPayload {
 
 /// @title MatchProofs
 /// @notice Contains the proofs for a match between two parties in the darkpool
+/// @dev This contains the validity proofs for the two parties and a proof of
+/// @dev `VALID MATCH SETTLE` for settlement
 struct MatchProofs {
     /// @dev The first party's proof of `VALID COMMITMENTS`
     PlonkProof validCommitments0;
@@ -110,6 +149,9 @@ struct MatchProofs {
 
 /// @title MatchLinkingProofs
 /// @notice Contains the proof linking arguments for a match
+/// @dev This contains four proofs: two linking the internal party's `VALID REBLIND`
+/// @dev to their `VALID COMMITMENTS`, and two linking the internal party's
+/// @dev `VALID COMMITMENTS` to the proof of `VALID MATCH SETTLE`
 struct MatchLinkingProofs {
     /// @dev The proof of linked inputs between PARTY 0 VALID REBLIND <-> PARTY 0 VALID COMMITMENTS
     LinkingProof validReblindCommitments0;
@@ -119,6 +161,31 @@ struct MatchLinkingProofs {
     LinkingProof validReblindCommitments1;
     /// @dev The proof of linked inputs between PARTY 1 VALID COMMITMENTS <-> VALID MATCH SETTLE
     LinkingProof validCommitmentsMatchSettle1;
+}
+
+/// @title MatchAtomicProofs
+/// @notice Contains the proofs for a match between two parties in the darkpool
+/// @dev This contains the validity proofs for the internal party and a proof of
+/// @dev `VALID MATCH SETTLE ATOMIC` for settlement
+struct MatchAtomicProofs {
+    /// @dev The proof of `VALID COMMITMENTS` for the internal party
+    PlonkProof validCommitments;
+    /// @dev The proof of `VALID REBLIND` for the internal party
+    PlonkProof validReblind;
+    /// @dev The proof of `VALID MATCH SETTLE ATOMIC`
+    PlonkProof validMatchSettleAtomic;
+}
+
+/// @title MatchAtomicLinkingProofs
+/// @notice Contains the proof linking arguments for a match
+/// @dev This contains one proof that links the internal party's `VALID REBLIND`
+/// @dev to their `VALID COMMITMENTS`, and another that links the internal party's
+/// @dev `VALID COMMITMENTS` to the proof of `VALID MATCH SETTLE ATOMIC`
+struct MatchAtomicLinkingProofs {
+    /// @dev The proof of linked inputs between PARTY 0 VALID REBLIND <-> PARTY 0 VALID COMMITMENTS
+    LinkingProof validReblindCommitments;
+    /// @dev The proof of linked inputs between PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE ATOMIC
+    LinkingProof validCommitmentsMatchSettleAtomic;
 }
 
 /// @notice A set of indices into a settlement party's wallet for the receive balance
