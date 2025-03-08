@@ -62,7 +62,7 @@ use crate::{
 };
 
 /// The amount of wei to fund a wrapper contract with
-const WRAPPER_FUNDING_AMOUNT: u64 = 100_000;
+const WRAPPER_FUNDING_AMOUNT: u64 = 1_000_000;
 
 /// Builds & deploys all of the contracts necessary for running the integration
 /// testing suite.
