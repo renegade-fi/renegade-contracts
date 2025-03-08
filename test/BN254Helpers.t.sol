@@ -13,7 +13,7 @@ contract BN254HelpersTest is TestUtils {
     }
 
     /// @notice Test the root of unity function
-    function testRootOfUnity() public {
+    function testRootOfUnity() public pure {
         RootOfUnityTest[] memory testCases = new RootOfUnityTest[](6);
 
         // Test case for n = 2^1

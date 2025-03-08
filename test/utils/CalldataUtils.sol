@@ -10,12 +10,12 @@ import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof, LinkingProof } from "renegade/libraries/verifier/Types.sol";
 import { IHasher } from "renegade/libraries/poseidon2/IHasher.sol";
 import {
+    TypesLib,
     ExternalTransfer,
     PublicRootKey,
     TransferType,
     TransferAuthorization,
     DepositWitness,
-    hashDepositWitness,
     publicKeyToUints,
     MatchProofs,
     MatchLinkingProofs,
@@ -46,6 +46,8 @@ bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
 /// @title Calldata Utils
 /// @notice Utilities for generating darkpool calldata
 contract CalldataUtils is TestUtils {
+    using TypesLib for DepositWitness;
+
     /// @notice The floating point precision used in the fixed point representation
     uint256 public constant FIXED_POINT_PRECISION = 2 ** 63;
     /// @notice The protocol fee rate used for testing
@@ -350,7 +352,7 @@ contract CalldataUtils is TestUtils {
         ISignatureTransfer.PermitTransferFrom memory permit =
             ISignatureTransfer.PermitTransferFrom({ permitted: tokenPermissions, nonce: nonce, deadline: deadline });
         DepositWitness memory depositWitness = DepositWitness({ pkRoot: publicKeyToUints(oldPkRoot) });
-        bytes32 depositWitnessHash = hashDepositWitness(depositWitness);
+        bytes32 depositWitnessHash = depositWitness.hashWitness();
 
         bytes memory sig = getPermitWitnessTransferSignature(
             permit,
