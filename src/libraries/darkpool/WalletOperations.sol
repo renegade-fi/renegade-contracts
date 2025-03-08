@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PublicRootKey } from "./Types.sol";
-import { IHasher } from "../poseidon2/IHasher.sol";
+import { IHasher } from "../interfaces/IHasher.sol";
 import { MerkleTreeLib } from "../merkle/MerkleTree.sol";
 import { NullifierLib } from "./NullifierSet.sol";
 

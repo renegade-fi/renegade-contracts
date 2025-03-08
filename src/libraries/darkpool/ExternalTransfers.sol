@@ -11,8 +11,10 @@ import {
     DepositWitness,
     DEPOSIT_WITNESS_TYPE_STRING
 } from "../darkpool/Types.sol";
+import { DarkpoolConstants } from "../darkpool/Constants.sol";
 import { WalletOperations } from "../darkpool/WalletOperations.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
+import { IWETH9 } from "renegade/libraries/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
@@ -68,7 +70,7 @@ library TransferExecutor {
     }
 
     /// @notice Execute a batch of simple ERC20 transfers
-    function executeTransferBatch(SimpleTransfer[] memory transfers) internal {
+    function executeTransferBatch(SimpleTransfer[] memory transfers, IWETH9 wrapper) internal {
         for (uint256 i = 0; i < transfers.length; i++) {
             // Do nothing if the transfer amount i zero
             if (transfers[i].amount == 0) {
@@ -78,9 +80,9 @@ library TransferExecutor {
             // Otherwise, execute the transfer
             SimpleTransferType transferType = transfers[i].transferType;
             if (transferType == SimpleTransferType.Withdrawal) {
-                executeSimpleWithdrawal(transfers[i]);
+                executeSimpleWithdrawal(transfers[i], wrapper);
             } else {
-                executeSimpleDeposit(transfers[i]);
+                executeSimpleDeposit(transfers[i], wrapper);
             }
         }
     }
@@ -128,8 +130,14 @@ library TransferExecutor {
 
     /// @notice Execute a simple ERC20 deposit
     /// @dev It is assumed that the address from which we deposit has approved the darkpool to spend the tokens
-    function executeSimpleDeposit(SimpleTransfer memory transfer) internal {
-        // TODO: Handle native token deposits
+    function executeSimpleDeposit(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
+        // Handle native token deposits by wrapping the transaction value
+        if (DarkpoolConstants.isNativeToken(transfer.mint)) {
+            require(msg.value == transfer.amount, "Invalid ETH deposit amount");
+            wrapper.deposit{ value: transfer.amount }();
+            return;
+        }
+
         IERC20 token = IERC20(transfer.mint);
         address self = address(this);
         token.transferFrom(transfer.account, self, transfer.amount);
@@ -159,8 +167,13 @@ library TransferExecutor {
     }
 
     /// @notice Execute a simple ERC20 withdrawal
-    function executeSimpleWithdrawal(SimpleTransfer memory transfer) internal {
-        // TODO: Handle native token withdrawals
+    function executeSimpleWithdrawal(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
+        // Handle native token withdrawals by unwrapping the transfer amount into ETH
+        if (DarkpoolConstants.isNativeToken(transfer.mint)) {
+            wrapper.withdrawTo(transfer.account, transfer.amount);
+            return;
+        }
+
         IERC20 token = IERC20(transfer.mint);
         token.transfer(transfer.account, transfer.amount);
     }

@@ -8,7 +8,7 @@ import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof, LinkingProof } from "renegade/libraries/verifier/Types.sol";
-import { IHasher } from "renegade/libraries/poseidon2/IHasher.sol";
+import { IHasher } from "renegade/libraries/interfaces/IHasher.sol";
 import {
     TypesLib,
     ExternalTransfer,

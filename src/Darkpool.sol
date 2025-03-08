@@ -6,8 +6,9 @@ import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "./li
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
-import { IHasher } from "./libraries/poseidon2/IHasher.sol";
-import { IVerifier } from "./libraries/verifier/IVerifier.sol";
+import { IHasher } from "./libraries/interfaces/IHasher.sol";
+import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
+import { IWETH9 } from "renegade/libraries/interfaces/IWETH9.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -62,6 +63,8 @@ contract Darkpool {
     IVerifier public verifier;
     /// @notice The Permit2 contract instance for handling deposits
     IPermit2 public permit2;
+    /// @notice The WETH9 contract instance used for depositing/withdrawing native tokens
+    IWETH9 public weth;
 
     /// @notice The Merkle tree for wallet commitments
     MerkleTreeLib.MerkleTree private merkleTree;
@@ -273,16 +276,16 @@ contract Darkpool {
         ValidReblindStatement calldata reblindStatement = internalPartyPayload.validReblindStatement;
 
         // 1. Validate the transaction value
-        // If the external party is selling native ETH, validate that they have provided the correct
+        // If the external party is selling a native token, validate that they have provided the correct
         // amount in the transaction's value
         ExternalMatchResult memory matchResult = matchSettleStatement.matchResult;
-        bool tradesNativeToken = DarkpoolConstants.isNativeEth(matchResult.baseMint);
+        bool tradesNativeToken = DarkpoolConstants.isNativeToken(matchResult.baseMint);
         bool externalPartySells = matchResult.direction == ExternalMatchDirection.InternalPartyBuy;
-        bool nativeEthSell = tradesNativeToken && externalPartySells;
+        bool nativeTokenSell = tradesNativeToken && externalPartySells;
 
-        // The tx value should be zero unless the external party is selling native ETH
-        if (!nativeEthSell && msg.value != 0) {
-            revert("Invalid ETH value, should be zero unless selling native ETH");
+        // The tx value should be zero unless the external party is selling native token
+        if (!nativeTokenSell && msg.value != 0) {
+            revert("Invalid ETH value, should be zero unless selling native token");
         }
 
         // 2. Verify the proofs
@@ -315,7 +318,7 @@ contract Darkpool {
         TransferExecutor.SimpleTransfer[] memory transfers = buildAtomicMatchTransfers(
             receiver, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees
         );
-        TransferExecutor.executeTransferBatch(transfers);
+        TransferExecutor.executeTransferBatch(transfers, weth);
     }
 
     // --- Helpers --- //
