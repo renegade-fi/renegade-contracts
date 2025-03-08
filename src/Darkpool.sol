@@ -231,7 +231,36 @@ contract Darkpool {
     /// @dev An internal party is one with state committed into the darkpool, while
     /// @dev an external party provides liquidity to the pool during the
     /// @dev transaction in which this method is called
+    /// @dev The receiver of the match settlement is the sender of the transaction
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
     function processAtomicMatchSettle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        public
+        payable
+    {
+        address receiver = msg.sender;
+        processAtomicMatchSettleWithReceiver(
+            receiver, internalPartyPayload, matchSettleStatement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Process an atomic match with a non-sender receiver specified
+    /// @dev The receiver will receive the buy side token amount implied by the match
+    /// @dev net of fees by the relayer and protocol
+    /// @param receiver The address that will receive the buy side token amount implied by the match
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processAtomicMatchSettleWithReceiver(
+        address receiver,
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicStatement calldata matchSettleStatement,
         MatchAtomicProofs calldata proofs,
@@ -284,7 +313,7 @@ contract Darkpool {
         // TODO: Add receive address on the external party
         ValidMatchSettleAtomicStatement calldata statement = matchSettleStatement;
         TransferExecutor.SimpleTransfer[] memory transfers = buildAtomicMatchTransfers(
-            msg.sender, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees
+            receiver, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees
         );
         TransferExecutor.executeTransferBatch(transfers);
     }
@@ -310,7 +339,7 @@ contract Darkpool {
 
         // 1. Deposit the sell amount
         transfers[0] = TransferExecutor.SimpleTransfer({
-            account: externalParty,
+            account: msg.sender,
             mint: sellMint,
             amount: sellAmount,
             transferType: TransferExecutor.SimpleTransferType.Deposit
