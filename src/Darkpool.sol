@@ -50,8 +50,11 @@ contract Darkpool {
     /// @dev To convert to its floating point representation, divide by the fixed point
     /// @dev precision, i.e. `fee = protocolFeeRate / FIXED_POINT_PRECISION`.
     /// @dev The current precision is `2 ** 63`.
-
     uint256 public protocolFeeRate;
+    /// @notice The address at which external parties pay protocol fees
+    /// @dev This is only used for external parties in atomic matches, fees for internal matches
+    /// @dev and internal parties in atomic matches are paid via the `Note` mechanism.
+    address public protocolFeeRecipient;
 
     /// @notice The hasher for the darkpool
     IHasher public hasher;
@@ -72,8 +75,15 @@ contract Darkpool {
     /// @param hasher_ The hasher for the darkpool
     /// @param verifier_ The verifier for the darkpool
     /// @param permit2_ The Permit2 contract instance for handling deposits
-    constructor(uint256 protocolFeeRate_, IHasher hasher_, IVerifier verifier_, IPermit2 permit2_) {
+    constructor(
+        uint256 protocolFeeRate_,
+        address protocolFeeRecipient_,
+        IHasher hasher_,
+        IVerifier verifier_,
+        IPermit2 permit2_
+    ) {
         protocolFeeRate = protocolFeeRate_;
+        protocolFeeRecipient = protocolFeeRecipient_;
         hasher = hasher_;
         verifier = verifier_;
         permit2 = permit2_;
@@ -289,7 +299,7 @@ contract Darkpool {
         FeeTake memory feeTake
     )
         internal
-        pure
+        view
         returns (TransferExecutor.SimpleTransfer[] memory transfers)
     {
         (address sellMint, uint256 sellAmount) = matchResult.externalPartySellMintAmount();
@@ -327,7 +337,7 @@ contract Darkpool {
 
         // 4. Withdraw the protocol's fee on the external party to the protocol
         transfers[3] = TransferExecutor.SimpleTransfer({
-            account: address(0),
+            account: protocolFeeRecipient,
             mint: buyMint,
             amount: feeTake.protocolFee,
             transferType: TransferExecutor.SimpleTransferType.Withdrawal

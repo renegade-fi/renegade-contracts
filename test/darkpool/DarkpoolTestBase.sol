@@ -28,8 +28,10 @@ contract DarkpoolTestBase is CalldataUtils {
     IHasher public hasher;
     NullifierLib.NullifierSet private testNullifierSet;
     IPermit2 public permit2;
-    ERC20Mock public token1;
-    ERC20Mock public token2;
+    ERC20Mock public quoteToken;
+    ERC20Mock public baseToken;
+
+    address public protocolFeeAddr;
 
     bytes constant INVALID_NULLIFIER_REVERT_STRING = "Nullifier already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
@@ -43,13 +45,14 @@ contract DarkpoolTestBase is CalldataUtils {
         permit2 = IPermit2(permit2Deployer.deployPermit2());
 
         // Deploy mock tokens for testing
-        token1 = new ERC20Mock();
-        token2 = new ERC20Mock();
+        quoteToken = new ERC20Mock();
+        baseToken = new ERC20Mock();
 
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
-        darkpool = new Darkpool(TEST_PROTOCOL_FEE, hasher, verifier, permit2);
+        protocolFeeAddr = vm.randomAddress();
+        darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, hasher, verifier, permit2);
     }
 
     // ---------------------------

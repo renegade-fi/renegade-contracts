@@ -93,15 +93,15 @@ contract UpdateWalletTest is DarkpoolTestBase {
         // Generate keys for the on-chain wallet and the user wallet
         Vm.Wallet memory userWallet = randomEthereumWallet();
         Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
-        token1.mint(userWallet.addr, depositAmount);
+        quoteToken.mint(userWallet.addr, depositAmount);
 
-        uint256 darkpoolBalanceBefore = token1.balanceOf(address(darkpool));
-        uint256 userBalanceBefore = token1.balanceOf(userWallet.addr);
+        uint256 darkpoolBalanceBefore = quoteToken.balanceOf(address(darkpool));
+        uint256 userBalanceBefore = quoteToken.balanceOf(userWallet.addr);
 
         // Setup calldata
         ExternalTransfer memory transfer = ExternalTransfer({
             account: userWallet.addr,
-            mint: address(token1),
+            mint: address(quoteToken),
             amount: depositAmount,
             transferType: TransferType.Deposit
         });
@@ -118,8 +118,8 @@ contract UpdateWalletTest is DarkpoolTestBase {
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
         // Check that the user token balance has decreased
-        uint256 darkpoolBalanceAfter = token1.balanceOf(address(darkpool));
-        uint256 userBalanceAfter = token1.balanceOf(userWallet.addr);
+        uint256 darkpoolBalanceAfter = quoteToken.balanceOf(address(darkpool));
+        uint256 userBalanceAfter = quoteToken.balanceOf(userWallet.addr);
         assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore + depositAmount);
         assertEq(userBalanceAfter, userBalanceBefore - depositAmount);
     }
@@ -131,14 +131,14 @@ contract UpdateWalletTest is DarkpoolTestBase {
         // Generate keys for the on-chain wallet and the Renegade wallet
         Vm.Wallet memory userWallet = randomEthereumWallet();
         Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
-        token1.mint(address(darkpool), withdrawalAmount);
-        uint256 darkpoolBalanceBefore = token1.balanceOf(address(darkpool));
-        uint256 userBalanceBefore = token1.balanceOf(userWallet.addr);
+        quoteToken.mint(address(darkpool), withdrawalAmount);
+        uint256 darkpoolBalanceBefore = quoteToken.balanceOf(address(darkpool));
+        uint256 userBalanceBefore = quoteToken.balanceOf(userWallet.addr);
 
         // Setup calldata
         ExternalTransfer memory transfer = ExternalTransfer({
             account: userWallet.addr,
-            mint: address(token1),
+            mint: address(quoteToken),
             amount: withdrawalAmount,
             transferType: TransferType.Withdrawal
         });
@@ -153,8 +153,8 @@ contract UpdateWalletTest is DarkpoolTestBase {
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
         // Check that the user token balance has increased
-        uint256 darkpoolBalanceAfter = token1.balanceOf(address(darkpool));
-        uint256 userBalanceAfter = token1.balanceOf(userWallet.addr);
+        uint256 darkpoolBalanceAfter = quoteToken.balanceOf(address(darkpool));
+        uint256 userBalanceAfter = quoteToken.balanceOf(userWallet.addr);
         assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore - withdrawalAmount);
         assertEq(userBalanceAfter, userBalanceBefore + withdrawalAmount);
     }
