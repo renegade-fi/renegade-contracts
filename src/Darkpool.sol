@@ -20,30 +20,37 @@ import {
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
 import { TransferExecutor } from "./libraries/darkpool/ExternalTransfers.sol";
 import {
+    TypesLib,
+    ExternalTransfer,
     TransferAuthorization,
-    isZero,
     PartyMatchPayload,
     MatchProofs,
     MatchLinkingProofs,
-    indicesEqual,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     ExternalMatchResult,
-    ExternalMatchDirection
+    ExternalMatchDirection,
+    OrderSettlementIndices,
+    FeeTake
 } from "./libraries/darkpool/Types.sol";
 import { DarkpoolConstants } from "./libraries/darkpool/Constants.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 
-using MerkleTreeLib for MerkleTreeLib.MerkleTree;
-using NullifierLib for NullifierLib.NullifierSet;
-
 contract Darkpool {
+    using MerkleTreeLib for MerkleTreeLib.MerkleTree;
+    using NullifierLib for NullifierLib.NullifierSet;
+    using TypesLib for ExternalTransfer;
+    using TypesLib for ExternalMatchResult;
+    using TypesLib for OrderSettlementIndices;
+    using TypesLib for FeeTake;
+
     /// @notice The protocol fee rate for the darkpool
     /// @dev This is the fixed point representation of a real number between 0 and 1.
     /// @dev To convert to its floating point representation, divide by the fixed point
     /// @dev precision, i.e. `fee = protocolFeeRate / FIXED_POINT_PRECISION`.
     /// @dev The current precision is `2 ** 63`.
+
     uint256 public protocolFeeRate;
 
     /// @notice The hasher for the darkpool
@@ -145,7 +152,7 @@ contract Darkpool {
         require(validSig, "Invalid signature");
 
         // 4. Execute the external transfer if it is non-zero
-        if (!isZero(statement.externalTransfer)) {
+        if (!statement.externalTransfer.isZero()) {
             TransferExecutor.executeTransfer(
                 statement.externalTransfer, statement.oldPkRoot, transferAuthorization, permit2
             );
@@ -180,9 +187,9 @@ contract Darkpool {
         // 2. Check statement consistency between the proofs for the two parties
         // I.e. public inputs used in multiple proofs should take the same values
         bool party0ValidIndices =
-            indicesEqual(commitmentsStatement0.indices, matchSettleStatement.firstPartySettlementIndices);
+            commitmentsStatement0.indices.indicesEqual(matchSettleStatement.firstPartySettlementIndices);
         bool party1ValidIndices =
-            indicesEqual(commitmentsStatement1.indices, matchSettleStatement.secondPartySettlementIndices);
+            commitmentsStatement1.indices.indicesEqual(matchSettleStatement.secondPartySettlementIndices);
         require(party0ValidIndices, "Invalid party 0 order settlement indices");
         require(party1ValidIndices, "Invalid party 1 order settlement indices");
 
@@ -246,7 +253,7 @@ contract Darkpool {
         // 3. Check statement consistency for the internal party
         // I.e. public inputs used in multiple proofs should take the same values
         bool internalPartyValidIndices =
-            indicesEqual(commitmentsStatement.indices, matchSettleStatement.internalPartySettlementIndices);
+            commitmentsStatement.indices.indicesEqual(matchSettleStatement.internalPartySettlementIndices);
         require(internalPartyValidIndices, "Invalid internal party order settlement indices");
 
         // 4. Validate the protocol fee rate used in the settlement
@@ -263,7 +270,67 @@ contract Darkpool {
             hasher
         );
 
-        // TODO: Execute external transfers to/from the external party
-        require(false, "Not implemented");
+        // 6. Execute external transfers to/from the external party
+        // TODO: Add receive address on the external party
+        ValidMatchSettleAtomicStatement calldata statement = matchSettleStatement;
+        TransferExecutor.SimpleTransfer[] memory transfers = buildAtomicMatchTransfers(
+            msg.sender, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees
+        );
+        TransferExecutor.executeTransferBatch(transfers);
+    }
+
+    // --- Helpers --- //
+
+    /// @notice Build a list of simple transfers to settle an atomic match
+    function buildAtomicMatchTransfers(
+        address externalParty,
+        address relayerFeeAddr,
+        ExternalMatchResult memory matchResult,
+        FeeTake memory feeTake
+    )
+        internal
+        pure
+        returns (TransferExecutor.SimpleTransfer[] memory transfers)
+    {
+        (address sellMint, uint256 sellAmount) = matchResult.externalPartySellMintAmount();
+        (address buyMint, uint256 buyAmount) = matchResult.externalPartyBuyMintAmount();
+
+        // Build the transfers
+        transfers = new TransferExecutor.SimpleTransfer[](4);
+
+        // 1. Deposit the sell amount
+        transfers[0] = TransferExecutor.SimpleTransfer({
+            account: externalParty,
+            mint: sellMint,
+            amount: sellAmount,
+            transferType: TransferExecutor.SimpleTransferType.Deposit
+        });
+
+        // 2. Withdraw the buy amount net of fees
+        // Tx will revert if the buy amount is less than the total fees
+        uint256 totalFees = feeTake.total();
+        uint256 traderTake = buyAmount - totalFees;
+        transfers[1] = TransferExecutor.SimpleTransfer({
+            account: externalParty,
+            mint: buyMint,
+            amount: traderTake,
+            transferType: TransferExecutor.SimpleTransferType.Withdrawal
+        });
+
+        // 3. Withdraw the relayer's fee on the external party to the relayer
+        transfers[2] = TransferExecutor.SimpleTransfer({
+            account: relayerFeeAddr,
+            mint: buyMint,
+            amount: feeTake.relayerFee,
+            transferType: TransferExecutor.SimpleTransferType.Withdrawal
+        });
+
+        // 4. Withdraw the protocol's fee on the external party to the protocol
+        transfers[3] = TransferExecutor.SimpleTransfer({
+            account: address(0),
+            mint: buyMint,
+            amount: feeTake.protocolFee,
+            transferType: TransferExecutor.SimpleTransferType.Withdrawal
+        });
     }
 }

@@ -35,13 +35,6 @@ struct ExternalTransfer {
     TransferType transferType;
 }
 
-/// @notice Checks if an ExternalTransfer has zero values
-/// @param transfer The ExternalTransfer to check
-/// @return True if the amount is zero
-function isZero(ExternalTransfer memory transfer) pure returns (bool) {
-    return transfer.amount == 0;
-}
-
 /// @notice The type of transfer
 enum TransferType {
     Deposit,
@@ -69,15 +62,6 @@ struct TransferAuthorization {
 struct DepositWitness {
     /// @dev The limb-serialization of the public key of the old wallet
     uint256[4] pkRoot;
-}
-
-/// @notice Computes the EIP-712 hash of a DepositWitness
-/// @param witness The DepositWitness to hash
-/// @return The EIP-712 hash of the DepositWitness
-function hashDepositWitness(DepositWitness memory witness) pure returns (bytes32) {
-    // Hash the struct data according to EIP-712
-    bytes32 pkRootHash = keccak256(abi.encode(witness.pkRoot));
-    return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, pkRootHash));
 }
 
 // -------------
@@ -200,14 +184,6 @@ struct OrderSettlementIndices {
     uint256 order;
 }
 
-/// @notice Return whether two sets of indices are equal
-/// @param a The first set of indices
-/// @param b The second set of indices
-/// @return True if the indices are equal, false otherwise
-function indicesEqual(OrderSettlementIndices memory a, OrderSettlementIndices memory b) pure returns (bool) {
-    return a.balanceSend == b.balanceSend && a.balanceReceive == b.balanceReceive && a.order == b.order;
-}
-
 // ------------
 // | Keychain |
 // ------------
@@ -228,4 +204,80 @@ function publicKeyToUints(PublicRootKey memory pk) pure returns (uint256[4] memo
     scalars[1] = BN254.ScalarField.unwrap(pk.x[1]);
     scalars[2] = BN254.ScalarField.unwrap(pk.y[0]);
     scalars[3] = BN254.ScalarField.unwrap(pk.y[1]);
+}
+
+/// @title TypesLib
+/// @notice A library that allows us to define function on types in the darkpool
+library TypesLib {
+    // --- External Transfers --- //
+
+    /// @notice Checks if an ExternalTransfer has zero values
+    /// @param transfer The ExternalTransfer to check
+    /// @return True if the amount is zero
+    function isZero(ExternalTransfer memory transfer) public pure returns (bool) {
+        return transfer.amount == 0;
+    }
+
+    /// @notice Computes the EIP-712 hash of a DepositWitness
+    /// @param witness The DepositWitness to hash
+    /// @return The EIP-712 hash of the DepositWitness
+    function hashWitness(DepositWitness memory witness) public pure returns (bytes32) {
+        // Hash the struct data according to EIP-712
+        bytes32 pkRootHash = keccak256(abi.encode(witness.pkRoot));
+        return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, pkRootHash));
+    }
+
+    // --- Order Settlement Indices --- //
+
+    /// @notice Return whether two sets of indices are equal
+    /// @param a The first set of indices
+    /// @param b The second set of indices
+    /// @return True if the indices are equal, false otherwise
+    function indicesEqual(
+        OrderSettlementIndices memory a,
+        OrderSettlementIndices memory b
+    )
+        public
+        pure
+        returns (bool)
+    {
+        return a.balanceSend == b.balanceSend && a.balanceReceive == b.balanceReceive && a.order == b.order;
+    }
+
+    // --- Match Settlement --- //
+
+    /// @notice Return the sell mint and amount for the external party
+    function externalPartySellMintAmount(ExternalMatchResult memory matchResult)
+        public
+        pure
+        returns (address, uint256)
+    {
+        if (matchResult.direction == ExternalMatchDirection.InternalPartyBuy) {
+            return (matchResult.baseMint, matchResult.baseAmount);
+        } else {
+            return (matchResult.quoteMint, matchResult.quoteAmount);
+        }
+    }
+
+    /// @notice Return the buy mint and amount for the external party
+    function externalPartyBuyMintAmount(ExternalMatchResult memory matchResult)
+        public
+        pure
+        returns (address, uint256)
+    {
+        if (matchResult.direction == ExternalMatchDirection.InternalPartyBuy) {
+            return (matchResult.quoteMint, matchResult.quoteAmount);
+        } else {
+            return (matchResult.baseMint, matchResult.baseAmount);
+        }
+    }
+
+    // --- Fees --- //
+
+    /// @notice Return the total fees due on a fee take
+    /// @param feeTake The fee take to compute the total fees for
+    /// @return The total fees due
+    function total(FeeTake memory feeTake) public pure returns (uint256) {
+        return feeTake.relayerFee + feeTake.protocolFee;
+    }
 }
