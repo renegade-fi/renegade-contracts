@@ -18,9 +18,9 @@ import { IWETH9 } from "renegade/libraries/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
-// @title TransferExecutor
-// @notice This library implements the logic for executing external transfers
-// @notice External transfers are either deposits or withdrawals into/from the darkpool
+/// @title TransferExecutor
+/// @notice This library implements the logic for executing external transfers
+/// @notice External transfers are either deposits or withdrawals into/from the darkpool
 library TransferExecutor {
     using TypesLib for DepositWitness;
 
@@ -133,7 +133,7 @@ library TransferExecutor {
     function executeSimpleDeposit(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
         // Handle native token deposits by wrapping the transaction value
         if (DarkpoolConstants.isNativeToken(transfer.mint)) {
-            require(msg.value == transfer.amount, "Invalid ETH deposit amount");
+            require(msg.value == transfer.amount, "msg.value does not match deposit amount");
             wrapper.deposit{ value: transfer.amount }();
             return;
         }

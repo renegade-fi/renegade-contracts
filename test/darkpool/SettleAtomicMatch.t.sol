@@ -16,11 +16,11 @@ import {
     ExternalMatchResult,
     FeeTake
 } from "renegade/libraries/darkpool/Types.sol";
+import { DarkpoolConstants } from "renegade/libraries/darkpool/Constants.sol";
 import {
     ValidMatchSettleAtomicStatement, ValidWalletUpdateStatement
 } from "renegade/libraries/darkpool/PublicInputs.sol";
 import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
-import { console2 } from "forge-std/console2.sol";
 
 contract SettleAtomicMatchTest is DarkpoolTestBase {
     using TypesLib for FeeTake;
@@ -285,6 +285,111 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance + BASE_AMT);
     }
 
+    /// @notice Test settling an atomic match with a native token, buy side
+    function test_settleAtomicMatch_nativeToken_buySide() public {
+        Vm.Wallet memory externalParty = randomEthereumWallet();
+
+        // Setup tokens
+        quoteToken.mint(externalParty.addr, QUOTE_AMT);
+        weth.mint(address(darkpool), BASE_AMT);
+
+        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
+        uint256 userInitialNativeBalance = externalParty.addr.balance;
+        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
+        uint256 darkpoolInitialWethBalance = weth.balanceOf(address(darkpool));
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: DarkpoolConstants.NATIVE_TOKEN_ADDRESS,
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartySell
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+
+        // Process the match
+        vm.startBroadcast(externalParty.addr);
+        quoteToken.approve(address(darkpool), QUOTE_AMT);
+        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        vm.stopBroadcast();
+
+        // Check the token flows
+        FeeTake memory fees = statement.externalPartyFees;
+        uint256 totalFee = fees.total();
+        uint256 expectedBaseAmt = BASE_AMT - totalFee;
+
+        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
+        uint256 userFinalNativeBalance = externalParty.addr.balance;
+        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
+        uint256 darkpoolFinalWethBalance = weth.balanceOf(address(darkpool));
+
+        assertEq(userFinalQuoteBalance, userInitialQuoteBalance - QUOTE_AMT);
+        assertEq(userFinalNativeBalance, userInitialNativeBalance + expectedBaseAmt);
+        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance + QUOTE_AMT);
+        assertEq(darkpoolFinalWethBalance, darkpoolInitialWethBalance - BASE_AMT);
+    }
+
+    /// @notice Test settling an atomic match with a native token, sell side
+    function test_settleAtomicMatch_nativeToken_sellSide() public {
+        Vm.Wallet memory externalParty = randomEthereumWallet();
+
+        // Setup tokens
+        vm.deal(externalParty.addr, BASE_AMT);
+        quoteToken.mint(address(darkpool), QUOTE_AMT);
+
+        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
+        uint256 userInitialNativeBalance = externalParty.addr.balance;
+        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
+        uint256 darkpoolInitialWethBalance = weth.balanceOf(address(darkpool));
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: DarkpoolConstants.NATIVE_TOKEN_ADDRESS,
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+
+        // Process the match
+        vm.startBroadcast(externalParty.addr);
+        darkpool.processAtomicMatchSettle{ value: BASE_AMT }(internalPartyPayload, statement, proofs, linkingProofs);
+        vm.stopBroadcast();
+
+        // Check the token flows
+        FeeTake memory fees = statement.externalPartyFees;
+        uint256 totalFee = fees.total();
+        uint256 expectedQuoteAmt = QUOTE_AMT - totalFee;
+
+        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
+        uint256 userFinalNativeBalance = externalParty.addr.balance;
+        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
+        uint256 darkpoolFinalWethBalance = weth.balanceOf(address(darkpool));
+
+        assertEq(userFinalQuoteBalance, userInitialQuoteBalance + expectedQuoteAmt);
+        assertEq(userFinalNativeBalance, userInitialNativeBalance - BASE_AMT);
+        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance - QUOTE_AMT);
+        assertEq(darkpoolFinalWethBalance, darkpoolInitialWethBalance + BASE_AMT);
+    }
+
     // --- Invalid Match Tests --- //
 
     /// @notice Test settling an atomic match wherein the fees exceed the receive amount
@@ -408,5 +513,34 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Should fail
         vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
         darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+    }
+
+    /// @notice Test settling an atomic match with insufficient tx value
+    function test_settleAtomicMatch_insufficientTxValue() public {
+        Vm.Wallet memory externalParty = randomEthereumWallet();
+        vm.deal(externalParty.addr, 100);
+
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: DarkpoolConstants.NATIVE_TOKEN_ADDRESS,
+            quoteAmount: 100,
+            baseAmount: 100,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+
+        // Should fail
+        vm.startBroadcast(externalParty.addr);
+        vm.expectRevert(INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING);
+        darkpool.processAtomicMatchSettle{ value: 1 wei }(internalPartyPayload, statement, proofs, linkingProofs);
+        vm.stopBroadcast();
     }
 }

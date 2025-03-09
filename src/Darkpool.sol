@@ -81,6 +81,7 @@ contract Darkpool {
     constructor(
         uint256 protocolFeeRate_,
         address protocolFeeRecipient_,
+        IWETH9 weth_,
         IHasher hasher_,
         IVerifier verifier_,
         IPermit2 permit2_
@@ -90,6 +91,7 @@ contract Darkpool {
         hasher = hasher_;
         verifier = verifier_;
         permit2 = permit2_;
+        weth = weth_;
         merkleTree.initialize();
     }
 

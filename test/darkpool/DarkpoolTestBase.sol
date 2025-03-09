@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
+import { WethMock } from "../test-contracts/WethMock.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
 import { Test } from "forge-std/Test.sol";
@@ -30,6 +31,7 @@ contract DarkpoolTestBase is CalldataUtils {
     IPermit2 public permit2;
     ERC20Mock public quoteToken;
     ERC20Mock public baseToken;
+    WethMock public weth;
 
     address public protocolFeeAddr;
 
@@ -38,6 +40,7 @@ contract DarkpoolTestBase is CalldataUtils {
     bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
     bytes constant INVALID_PROTOCOL_FEE_REVERT_STRING = "Invalid protocol fee rate";
     bytes constant INVALID_ETH_VALUE_REVERT_STRING = "Invalid ETH value, should be zero unless selling native token";
+    bytes constant INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING = "msg.value does not match deposit amount";
 
     function setUp() public {
         // Deploy a Permit2 instance for testing
@@ -47,12 +50,16 @@ contract DarkpoolTestBase is CalldataUtils {
         // Deploy mock tokens for testing
         quoteToken = new ERC20Mock();
         baseToken = new ERC20Mock();
+        weth = new WethMock();
+
+        // Capitalize the weth contract
+        vm.deal(address(weth), 100 ether);
 
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
         protocolFeeAddr = vm.randomAddress();
-        darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, hasher, verifier, permit2);
+        darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, weth, hasher, verifier, permit2);
     }
 
     // ---------------------------
