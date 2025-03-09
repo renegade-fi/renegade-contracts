@@ -56,6 +56,10 @@ contract Darkpool {
     /// @dev This is only used for external parties in atomic matches, fees for internal matches
     /// @dev and internal parties in atomic matches are paid via the `Note` mechanism.
     address public protocolFeeRecipient;
+    /// @notice A per-asset fee override for the darkpool
+    /// @dev This is used to set the protocol fee rate for atomic matches on a per-token basis
+    /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
+    mapping(address => uint256) public perTokenFeeOverrides;
 
     /// @notice The hasher for the darkpool
     IHasher public hasher;
@@ -115,6 +119,30 @@ contract Darkpool {
     /// @return Whether the nullifier has been spent
     function nullifierSpent(BN254.ScalarField nullifier) public view returns (bool) {
         return nullifierSet.isSpent(nullifier);
+    }
+
+    /// @notice Get the protocol fee rate for a given asset
+    /// @dev This fee only applies to external matches
+    /// @param asset The asset to get the protocol fee rate for
+    /// @return The protocol fee rate for the asset
+    function getTokenExternalMatchFeeRate(address asset) public view returns (uint256) {
+        uint256 perTokenFee = perTokenFeeOverrides[asset];
+        if (perTokenFee == 0) {
+            return protocolFeeRate;
+        }
+        return perTokenFee;
+    }
+
+    // --- State Setters --- //
+
+    /// @notice Set the protocol fee rate for a given asset
+    /// @param asset The asset to set the protocol fee rate for
+    /// @param fee The protocol fee rate to set. This is a fixed point representation
+    /// @dev of a real number between 0 and 1. To convert to its floating point representation,
+    /// @dev divide by the fixed point precision, i.e. `fee = assetFeeRate / FIXED_POINT_PRECISION`.
+    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public {
+        // TODO: Add access control
+        perTokenFeeOverrides[asset] = fee;
     }
 
     // --- Core Wallet Methods --- //
@@ -301,7 +329,8 @@ contract Darkpool {
         require(internalPartyValidIndices, "Invalid internal party order settlement indices");
 
         // 4. Validate the protocol fee rate used in the settlement
-        require(matchSettleStatement.protocolFeeRate == protocolFeeRate, "Invalid protocol fee rate");
+        uint256 protocolFee = getTokenExternalMatchFeeRate(matchResult.baseMint);
+        require(matchSettleStatement.protocolFeeRate == protocolFee, "Invalid protocol fee rate");
 
         // 5. Insert the new shares into the Merkle tree
         WalletOperations.rotateWallet(
@@ -315,7 +344,6 @@ contract Darkpool {
         );
 
         // 6. Execute external transfers to/from the external party
-        // TODO: Add receive address on the external party
         ValidMatchSettleAtomicStatement calldata statement = matchSettleStatement;
         TransferExecutor.SimpleTransfer[] memory transfers = buildAtomicMatchTransfers(
             receiver, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees

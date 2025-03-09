@@ -300,9 +300,22 @@ contract CalldataUtils is TestUtils {
     /// @notice Compute the fee for a given receive amount using the `TEST_RELAYER_FEE`
     /// @notice and the `TEST_PROTOCOL_FEE` for the relayer and protocol fees respectively
     function computeFees(uint256 receiveAmount) internal pure returns (FeeTake memory fees) {
+        fees = computeFeesWithRates(receiveAmount, TEST_RELAYER_FEE, TEST_PROTOCOL_FEE);
+    }
+
+    /// @notice Compute the fee for a given receive amount using the given relayer and protocol fees
+    function computeFeesWithRates(
+        uint256 receiveAmount,
+        uint256 relayerFee,
+        uint256 protocolFee
+    )
+        internal
+        pure
+        returns (FeeTake memory fees)
+    {
         fees = FeeTake({
-            relayerFee: (receiveAmount * TEST_RELAYER_FEE) / FIXED_POINT_PRECISION,
-            protocolFee: (receiveAmount * TEST_PROTOCOL_FEE) / FIXED_POINT_PRECISION
+            relayerFee: (receiveAmount * relayerFee) / FIXED_POINT_PRECISION,
+            protocolFee: (receiveAmount * protocolFee) / FIXED_POINT_PRECISION
         });
     }
 
