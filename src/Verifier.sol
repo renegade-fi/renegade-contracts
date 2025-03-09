@@ -25,7 +25,7 @@ import {
     MatchAtomicLinkingProofs
 } from "./libraries/darkpool/Types.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
-import { IVerifier } from "./libraries/verifier/IVerifier.sol";
+import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
 import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
 import { ProofLinkingCore } from "./libraries/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";

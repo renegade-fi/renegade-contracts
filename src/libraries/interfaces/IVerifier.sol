@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { PlonkProof } from "./Types.sol";
+import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement
-} from "../darkpool/PublicInputs.sol";
+} from "renegade/libraries/darkpool/PublicInputs.sol";
 import {
     PartyMatchPayload,
     MatchProofs,
     MatchLinkingProofs,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs
-} from "../darkpool/Types.sol";
+} from "renegade/libraries/darkpool/Types.sol";
 
 interface IVerifier {
     /// @notice Verify a proof of `VALID WALLET CREATE`

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { IHasher } from "../poseidon2/IHasher.sol";
+import { IHasher } from "../interfaces/IHasher.sol";
 import { DarkpoolConstants } from "../darkpool/Constants.sol";
 import { MerkleZeros } from "./MerkleZeros.sol";
 

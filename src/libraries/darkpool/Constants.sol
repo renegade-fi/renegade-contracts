@@ -13,13 +13,14 @@ library DarkpoolConstants {
     /// @notice The depth of the Merkle tree
     uint256 constant MERKLE_DEPTH = 32;
 
-    /// @notice The address used for native ETH in trade settlement
-    address constant NATIVE_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    /// @notice The address used for native tokens in trade settlement
+    /// @dev This is currently just ETH, but intentionally written abstractly
+    address constant NATIVE_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    /// @notice Check whether an address is the native ETH address
+    /// @notice Check whether an address is the native token address
     /// @param addr The address to check
-    /// @return True if the address is the native ETH address, false otherwise
-    function isNativeEth(address addr) public pure returns (bool) {
-        return addr == NATIVE_ETH_ADDRESS;
+    /// @return True if the address is the native token address, false otherwise
+    function isNativeToken(address addr) public pure returns (bool) {
+        return addr == NATIVE_TOKEN_ADDRESS;
     }
 }
