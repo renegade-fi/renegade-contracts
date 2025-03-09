@@ -390,6 +390,68 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         assertEq(darkpoolFinalWethBalance, darkpoolInitialWethBalance + BASE_AMT);
     }
 
+    /// @notice Test settling an atomic match with a non-default protocol fee rate
+    function test_settleAtomicMatch_nonDefaultProtocolFeeRate() public {
+        // Get the original protocol fee rate
+        uint256 originalProtocolFeeRate = darkpool.getTokenExternalMatchFeeRate(address(baseToken));
+        assertEq(originalProtocolFeeRate, TEST_PROTOCOL_FEE);
+
+        // Setup the protocol fee rate
+        uint256 protocolFeeRate = 4_611_686_018_427_388; // 0.0005 * 2 ** `FIXED_POINT_PRECISION`
+        darkpool.setTokenExternalMatchFeeRate(address(baseToken), protocolFeeRate);
+        assertEq(darkpool.getTokenExternalMatchFeeRate(address(baseToken)), protocolFeeRate);
+
+        // Setup the tokens
+        Vm.Wallet memory externalParty = randomEthereumWallet();
+        baseToken.mint(externalParty.addr, BASE_AMT);
+        quoteToken.mint(address(darkpool), QUOTE_AMT);
+        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
+        uint256 userInitialBaseBalance = baseToken.balanceOf(externalParty.addr);
+        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
+        uint256 darkpoolInitialBaseBalance = baseToken.balanceOf(address(darkpool));
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        FeeTake memory newFees = computeFeesWithRates(QUOTE_AMT, TEST_RELAYER_FEE, protocolFeeRate);
+        statement.externalPartyFees = newFees;
+        statement.protocolFeeRate = protocolFeeRate;
+
+        // Process the match
+        vm.startBroadcast(externalParty.addr);
+        baseToken.approve(address(darkpool), BASE_AMT);
+        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        vm.stopBroadcast();
+
+        // Check the token flows
+        uint256 totalFee = newFees.total();
+        uint256 expectedQuoteAmt = QUOTE_AMT - totalFee;
+
+        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
+        uint256 userFinalBaseBalance = baseToken.balanceOf(externalParty.addr);
+        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
+        uint256 darkpoolFinalBaseBalance = baseToken.balanceOf(address(darkpool));
+
+        assertEq(userFinalQuoteBalance, userInitialQuoteBalance + expectedQuoteAmt);
+        assertEq(userFinalBaseBalance, userInitialBaseBalance - BASE_AMT);
+        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance - QUOTE_AMT);
+        assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance + BASE_AMT);
+    }
+
     // --- Invalid Match Tests --- //
 
     /// @notice Test settling an atomic match wherein the fees exceed the receive amount
