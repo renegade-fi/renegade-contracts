@@ -257,6 +257,10 @@ impl GasSponsorContract {
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         let initial_gas = evm::gas_left();
+
+        // Resolve the receiver to use
+        let receiver = if receiver == Address::ZERO { msg::sender() } else { receiver };
+
         self.sponsored_match_inner(
             receiver,
             internal_party_match_payload.clone(),
@@ -319,6 +323,9 @@ impl GasSponsorContract {
         refund_amount: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
+        // Resolve the receiver to use
+        let receiver = if receiver == Address::ZERO { msg::sender() } else { receiver };
+
         let match_result = self.sponsored_match_inner(
             receiver,
             internal_party_match_payload,
@@ -478,9 +485,6 @@ impl GasSponsorContract {
         refund_amount: U256,
         signature: Bytes,
     ) -> Result<ExternalMatchResult, Vec<u8>> {
-        // Resolve the receiver to use
-        let receiver = if receiver == Address::ZERO { msg::sender() } else { receiver };
-
         // Invoke the underlying atomic match settlement
         let match_result = self.atomic_match_inner(
             receiver,
