@@ -25,7 +25,10 @@ import {
     ExternalMatchResult,
     ExternalMatchDirection,
     FeeTake,
-    OrderSettlementIndices
+    OrderSettlementIndices,
+    EncryptionKey,
+    ElGamalCiphertext,
+    BabyJubJubPoint
 } from "renegade/libraries/darkpool/Types.sol";
 import { DarkpoolConstants } from "renegade/libraries/darkpool/Constants.sol";
 import { uintToScalarWords, WalletOperations } from "renegade/libraries/darkpool/WalletOperations.sol";
@@ -441,6 +444,15 @@ contract CalldataUtils is TestUtils {
         (BN254.ScalarField xLow, BN254.ScalarField xHigh) = uintToScalarWords(wallet.publicKeyX);
         (BN254.ScalarField yLow, BN254.ScalarField yHigh) = uintToScalarWords(wallet.publicKeyY);
         rootKey = PublicRootKey({ x: [xLow, xHigh], y: [yLow, yHigh] });
+    }
+
+    /// --- Encryption --- ///
+
+    /// @notice Generate a random encryption key
+    /// @dev For our purposes, this key does not need to be on the curve,
+    /// @dev no curve arithmetic is performed on it
+    function randomEncryptionKey() internal returns (EncryptionKey memory key) {
+        key = EncryptionKey({ point: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }) });
     }
 
     /// --- Plonk Proofs --- ///

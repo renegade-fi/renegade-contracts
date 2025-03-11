@@ -65,6 +65,8 @@ library MerkleTreeLib {
     function insertLeaf(MerkleTree storage tree, BN254.ScalarField leaf, IHasher hasher) internal {
         // Compute the hash of the leaf into the tree
         uint256 idx = tree.nextIndex;
+        require(idx < DarkpoolConstants.MAX_MERKLE_LEAVES, "Merkle tree is full");
+
         uint256 leafUint = BN254.ScalarField.unwrap(leaf);
         uint256[] memory sisterLeaves = new uint256[](tree.siblingPath.length);
         for (uint256 i = 0; i < tree.siblingPath.length; i++) {

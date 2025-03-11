@@ -15,6 +15,7 @@ import {
     ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidOfflineFeeSettlementStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import {
@@ -36,6 +37,7 @@ using StatementSerializer for ValidCommitmentsStatement;
 using StatementSerializer for ValidReblindStatement;
 using StatementSerializer for ValidMatchSettleStatement;
 using StatementSerializer for ValidMatchSettleAtomicStatement;
+using StatementSerializer for ValidOfflineFeeSettlementStatement;
 
 /// @title PlonK Verifier with the Jellyfish-style arithmetization
 /// @notice The methods on this contract are darkpool-specific
@@ -176,6 +178,23 @@ contract Verifier is IVerifier {
 
         // Verify the batch
         return VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpenings);
+    }
+
+    /// @notice Verify a proof of `VALID OFFLINE FEE SETTLEMENT`
+    /// @param statement The public inputs to the proof
+    /// @param proof The proof to verify
+    /// @return True if the proof is valid, false otherwise
+    function verifyValidOfflineFeeSettlement(
+        ValidOfflineFeeSettlementStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_OFFLINE_FEE_SETTLEMENT_VKEY, (VerificationKey));
+        BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
+        return VerifierCore.verify(proof, publicInputs, vk);
     }
 
     // --- Helpers --- //

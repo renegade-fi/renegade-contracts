@@ -2,7 +2,16 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { ExternalTransfer, PublicRootKey, OrderSettlementIndices, ExternalMatchResult, FeeTake } from "./Types.sol";
+import { BN254Helpers } from "renegade/libraries/verifier/BN254Helpers.sol";
+import {
+    ExternalTransfer,
+    PublicRootKey,
+    OrderSettlementIndices,
+    ExternalMatchResult,
+    FeeTake,
+    ElGamalCiphertext,
+    EncryptionKey
+} from "./Types.sol";
 
 // This file represents the public inputs (statements) for various proofs used by the darkpool
 
@@ -92,6 +101,27 @@ struct ValidMatchSettleAtomicStatement {
     address relayerFeeAddress;
 }
 
+/// @title ValidOfflineFeeSettlementStatement
+/// @notice The statement type for the `VALID OFFLINE FEE SETTLEMENT` proof
+struct ValidOfflineFeeSettlementStatement {
+    /// @dev The Merkle root to which inclusion is proven
+    BN254.ScalarField merkleRoot;
+    /// @dev The nullifier of the wallet paying the fee
+    BN254.ScalarField walletNullifier;
+    /// @dev The commitment to the payer's updated private shares
+    BN254.ScalarField updatedWalletCommitment;
+    /// @dev The public shares of the payer's updated wallet
+    BN254.ScalarField[] updatedWalletPublicShares;
+    /// @dev The ciphertext of the note
+    ElGamalCiphertext noteCiphertext;
+    /// @dev A commitment to the note
+    BN254.ScalarField noteCommitment;
+    /// @dev The encryption key of the protocol
+    EncryptionKey protocolKey;
+    /// @dev Whether or not the fee is paid to the protocol
+    bool isProtocolFee;
+}
+
 // ------------------------
 // | Scalar Serialization |
 // ------------------------
@@ -104,13 +134,16 @@ library StatementSerializer {
     using StatementSerializer for ValidCommitmentsStatement;
     using StatementSerializer for ValidMatchSettleStatement;
     using StatementSerializer for ValidMatchSettleAtomicStatement;
+    using StatementSerializer for ValidOfflineFeeSettlementStatement;
     using StatementSerializer for ExternalTransfer;
     using StatementSerializer for PublicRootKey;
     using StatementSerializer for OrderSettlementIndices;
     using StatementSerializer for ExternalMatchResult;
     using StatementSerializer for FeeTake;
-
+    using StatementSerializer for ElGamalCiphertext;
+    using StatementSerializer for EncryptionKey;
     /// @notice The number of scalar field elements in a ValidWalletCreateStatement
+
     uint256 constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
     /// @notice The number of scalar field elements in a ValidWalletUpdateStatement
     uint256 constant VALID_WALLET_UPDATE_SCALAR_SIZE = 81;
@@ -122,6 +155,8 @@ library StatementSerializer {
     uint256 constant VALID_MATCH_SETTLE_SCALAR_SIZE = 147;
     /// @notice The number of scalar field elements in a ValidMatchSettleAtomicStatement
     uint256 constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
+    /// @notice The number of scalar field elements in a ValidOfflineFeeSettlementStatement
+    uint256 constant VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE = 82;
 
     // --- Valid Wallet Create --- //
 
@@ -303,6 +338,51 @@ library StatementSerializer {
         return serialized;
     }
 
+    // --- Valid Offline Fee Settlement --- //
+
+    /// @notice Serializes a ValidOfflineFeeSettlementStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidOfflineFeeSettlementStatement memory self)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE);
+        serialized[0] = self.merkleRoot;
+        serialized[1] = self.walletNullifier;
+        serialized[2] = self.updatedWalletCommitment;
+
+        // Serialize the updated wallet public shares
+        uint256 offset = 3;
+        for (uint256 i = 0; i < self.updatedWalletPublicShares.length; i++) {
+            serialized[offset + i] = self.updatedWalletPublicShares[i];
+        }
+        offset += self.updatedWalletPublicShares.length;
+
+        // Serialize the note ciphertext
+        BN254.ScalarField[] memory noteCiphertextSerialized = self.noteCiphertext.scalarSerialize();
+        for (uint256 i = 0; i < noteCiphertextSerialized.length; i++) {
+            serialized[offset + i] = noteCiphertextSerialized[i];
+        }
+        offset += noteCiphertextSerialized.length;
+
+        // Serialize the note commitment
+        serialized[offset] = self.noteCommitment;
+        offset += 1;
+
+        // Serialize the protocol key
+        BN254.ScalarField[] memory protocolKeySerialized = self.protocolKey.scalarSerialize();
+        for (uint256 i = 0; i < protocolKeySerialized.length; i++) {
+            serialized[offset + i] = protocolKeySerialized[i];
+        }
+        offset += protocolKeySerialized.length;
+
+        // Serialize the is protocol fee flag
+        serialized[offset] = self.isProtocolFee ? BN254Helpers.ONE : BN254Helpers.ZERO;
+        return serialized;
+    }
+
     // --- Types --- //
 
     /// @notice Serializes an ExternalTransfer into an array of scalar field elements
@@ -370,7 +450,29 @@ library StatementSerializer {
 
         return serialized;
     }
-}
 
-// Enable the library for the statement type
-using StatementSerializer for ValidWalletCreateStatement;
+    /// @notice Serializes an ElGamalCiphertext into an array of scalar field elements
+    /// @param self The ciphertext to serialize
+    /// @return serialized The serialized ciphertext as an array of scalar field elements
+    function scalarSerialize(ElGamalCiphertext memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](2 + self.ciphertext.length);
+        serialized[0] = self.ephemeralKey.x;
+        serialized[1] = self.ephemeralKey.y;
+
+        for (uint256 i = 0; i < self.ciphertext.length; i++) {
+            serialized[2 + i] = self.ciphertext[i];
+        }
+        return serialized;
+    }
+
+    /// @notice Serializes an EncryptionKey into an array of scalar field elements
+    /// @param self The key to serialize
+    /// @return serialized The serialized key as an array of scalar field elements
+    function scalarSerialize(EncryptionKey memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](2);
+        serialized[0] = self.point.x;
+        serialized[1] = self.point.y;
+
+        return serialized;
+    }
+}
