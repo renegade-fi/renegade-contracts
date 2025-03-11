@@ -667,8 +667,8 @@ pub struct SponsoredAtomicMatchSettleData {
     pub nonce: U256,
     /// Whether to refund through native ETH
     pub refund_native_eth: bool,
-    /// The conversion rate
-    pub conversion_rate: U256,
+    /// The refund amount
+    pub refund_amount: U256,
     /// The signature over the nonce
     pub signature: Bytes,
 }

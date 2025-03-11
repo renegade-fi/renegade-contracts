@@ -281,6 +281,12 @@ impl GasSponsorContract {
             signature,
         )?;
 
+        // If gas sponsorship is paused, return early, no refunding will be done
+        if self.is_paused()? {
+            evm::log(GasSponsorPausedFallback { nonce });
+            return Ok(());
+        }
+
         refund_gas_cost(
             true, // refund_native_eth
             refund_address,
