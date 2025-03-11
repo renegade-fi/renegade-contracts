@@ -12,7 +12,11 @@ import { CalldataUtils } from "../utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
 import {
-    ExternalTransfer, TransferType, TransferAuthorization, PublicRootKey
+    ExternalTransfer,
+    TransferType,
+    TransferAuthorization,
+    PublicRootKey,
+    EncryptionKey
 } from "renegade/libraries/darkpool/Types.sol";
 import { TestVerifier } from "../test-contracts/TestVerifier.sol";
 import { Darkpool } from "renegade/Darkpool.sol";
@@ -59,7 +63,8 @@ contract DarkpoolTestBase is CalldataUtils {
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
         protocolFeeAddr = vm.randomAddress();
-        darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, weth, hasher, verifier, permit2);
+        EncryptionKey memory protocolFeeKey = randomEncryptionKey();
+        darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, verifier, permit2);
     }
 
     // ---------------------------

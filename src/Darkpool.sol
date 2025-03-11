@@ -16,6 +16,7 @@ import {
     ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidOfflineFeeSettlementStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
@@ -32,7 +33,8 @@ import {
     ExternalMatchResult,
     ExternalMatchDirection,
     OrderSettlementIndices,
-    FeeTake
+    FeeTake,
+    EncryptionKey
 } from "./libraries/darkpool/Types.sol";
 import { DarkpoolConstants } from "./libraries/darkpool/Constants.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
@@ -45,6 +47,7 @@ contract Darkpool {
     using TypesLib for ExternalMatchResult;
     using TypesLib for OrderSettlementIndices;
     using TypesLib for FeeTake;
+    using TypesLib for EncryptionKey;
 
     /// @notice The protocol fee rate for the darkpool
     /// @dev This is the fixed point representation of a real number between 0 and 1.
@@ -56,6 +59,8 @@ contract Darkpool {
     /// @dev This is only used for external parties in atomic matches, fees for internal matches
     /// @dev and internal parties in atomic matches are paid via the `Note` mechanism.
     address public protocolFeeRecipient;
+    /// @notice The public encryption key for the protocol's fees
+    EncryptionKey public protocolFeeKey;
     /// @notice A per-asset fee override for the darkpool
     /// @dev This is used to set the protocol fee rate for atomic matches on a per-token basis
     /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
@@ -85,6 +90,7 @@ contract Darkpool {
     constructor(
         uint256 protocolFeeRate_,
         address protocolFeeRecipient_,
+        EncryptionKey memory protocolFeeKey_,
         IWETH9 weth_,
         IHasher hasher_,
         IVerifier verifier_,
@@ -92,6 +98,7 @@ contract Darkpool {
     ) {
         protocolFeeRate = protocolFeeRate_;
         protocolFeeRecipient = protocolFeeRecipient_;
+        protocolFeeKey = protocolFeeKey_;
         hasher = hasher_;
         verifier = verifier_;
         permit2 = permit2_;
@@ -349,6 +356,40 @@ contract Darkpool {
             receiver, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees
         );
         TransferExecutor.executeTransferBatch(transfers, weth);
+    }
+
+    /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
+    /// @dev Instead of updating the recipient's wallet, a `Note` is created that the recipient may later redeem
+    /// @param statement The statement of `VALID OFFLINE FEE SETTLEMENT`
+    /// @param proof The proof of `VALID OFFLINE FEE SETTLEMENT`
+    function settleOfflineFee(
+        ValidOfflineFeeSettlementStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        public
+        payable
+    {
+        // 1. Check that the statement uses the correct protocol fee encryption key
+        bool correctKey = statement.protocolKey.encryptionKeyEqual(protocolFeeKey);
+        require(correctKey, "Invalid protocol fee encryption key");
+
+        // 2. Verify the proof of `VALID OFFLINE FEE SETTLEMENT`
+        bool res = verifier.verifyValidOfflineFeeSettlement(statement, proof);
+        require(res, "Verification failed for offline fee settlement");
+
+        // 3. Rotate the fee payer's wallet
+        WalletOperations.rotateWallet(
+            statement.walletNullifier,
+            statement.merkleRoot,
+            statement.updatedWalletCommitment,
+            statement.updatedWalletPublicShares,
+            nullifierSet,
+            merkleTree,
+            hasher
+        );
+
+        // 4. Commit the note into the merkle tree
+        merkleTree.insertLeaf(statement.noteCommitment, hasher);
     }
 
     // --- Helpers --- //

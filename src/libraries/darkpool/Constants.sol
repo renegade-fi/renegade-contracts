@@ -12,6 +12,8 @@ library DarkpoolConstants {
     uint256 constant N_WALLET_SHARES = 70;
     /// @notice The depth of the Merkle tree
     uint256 constant MERKLE_DEPTH = 32;
+    /// @notice The maximum number of leaves in the merkle tree
+    uint256 constant MAX_MERKLE_LEAVES = 2 ** MERKLE_DEPTH;
 
     /// @notice The address used for native tokens in trade settlement
     /// @dev This is currently just ETH, but intentionally written abstractly
