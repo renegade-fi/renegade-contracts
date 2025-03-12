@@ -128,6 +128,12 @@ contract Darkpool {
         return nullifierSet.isSpent(nullifier);
     }
 
+    /// @notice Get the public encryption key for the protocol's fees
+    /// @return The public encryption key for the protocol's fees
+    function getProtocolFeeKey() public view returns (EncryptionKey memory) {
+        return protocolFeeKey;
+    }
+
     /// @notice Get the protocol fee rate for a given asset
     /// @dev This fee only applies to external matches
     /// @param asset The asset to get the protocol fee rate for
