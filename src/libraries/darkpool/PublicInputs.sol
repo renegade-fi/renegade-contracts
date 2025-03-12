@@ -122,6 +122,25 @@ struct ValidOfflineFeeSettlementStatement {
     bool isProtocolFee;
 }
 
+/// @title ValidFeeRedemptionStatement
+/// @notice The statement type for the `VALID FEE REDEMPTION` proof
+struct ValidFeeRedemptionStatement {
+    /// @dev The Merkle root to which the wallet inclusion is proven
+    BN254.ScalarField walletRoot;
+    /// @dev The Merkle root to which the note inclusion is proven
+    BN254.ScalarField noteRoot;
+    /// @dev The nullifier of the wallet
+    BN254.ScalarField walletNullifier;
+    /// @dev The nullifier of the note
+    BN254.ScalarField noteNullifier;
+    /// @dev A commitment to the new wallet's private shares
+    BN254.ScalarField newWalletCommitment;
+    /// @dev The new public shares of the wallet
+    BN254.ScalarField[] newWalletPublicShares;
+    /// @dev The root key for the keychain of the wallet that redeems the note
+    PublicRootKey walletRootKey;
+}
+
 // ------------------------
 // | Scalar Serialization |
 // ------------------------
@@ -157,6 +176,8 @@ library StatementSerializer {
     uint256 constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
     /// @notice The number of scalar field elements in a ValidOfflineFeeSettlementStatement
     uint256 constant VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE = 82;
+    /// @notice The number of scalar field elements in a ValidFeeRedemptionStatement
+    uint256 constant VALID_FEE_REDEMPTION_SCALAR_SIZE = 79;
 
     // --- Valid Wallet Create --- //
 
@@ -380,6 +401,38 @@ library StatementSerializer {
 
         // Serialize the is protocol fee flag
         serialized[offset] = self.isProtocolFee ? BN254Helpers.ONE : BN254Helpers.ZERO;
+        return serialized;
+    }
+
+    // --- Valid Fee Redemption --- //
+
+    /// @notice Serializes a ValidFeeRedemptionStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidFeeRedemptionStatement memory self)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_FEE_REDEMPTION_SCALAR_SIZE);
+        serialized[0] = self.walletRoot;
+        serialized[1] = self.noteRoot;
+        serialized[2] = self.walletNullifier;
+        serialized[3] = self.noteNullifier;
+        serialized[4] = self.newWalletCommitment;
+
+        // Serialize the new wallet public shares
+        uint256 offset = 5;
+        for (uint256 i = 0; i < self.newWalletPublicShares.length; i++) {
+            serialized[offset + i] = self.newWalletPublicShares[i];
+        }
+        offset += self.newWalletPublicShares.length;
+
+        // Serialize the wallet root key
+        BN254.ScalarField[] memory walletRootKeySerialized = self.walletRootKey.scalarSerialize();
+        for (uint256 i = 0; i < walletRootKeySerialized.length; i++) {
+            serialized[offset + i] = walletRootKeySerialized[i];
+        }
         return serialized;
     }
 

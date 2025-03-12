@@ -8,6 +8,7 @@ import {
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
+    ValidFeeRedemptionStatement,
     StatementSerializer
 } from "renegade/libraries/darkpool/PublicInputs.sol";
 import {
@@ -119,6 +120,22 @@ contract TestVerifier is IVerifier {
         returns (bool)
     {
         verifier.verifyValidOfflineFeeSettlement(statement, proof);
+        return true;
+    }
+
+    /// @notice Verify a proof of `VALID FEE REDEMPTION`
+    /// @param statement The public inputs to the proof
+    /// @param proof The proof to verify
+    /// @return True always, regardless of the proof
+    function verifyValidFeeRedemption(
+        ValidFeeRedemptionStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        verifier.verifyValidFeeRedemption(statement, proof);
         return true;
     }
 }

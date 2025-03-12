@@ -7,7 +7,8 @@ import {
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
-    ValidOfflineFeeSettlementStatement
+    ValidOfflineFeeSettlementStatement,
+    ValidFeeRedemptionStatement
 } from "renegade/libraries/darkpool/PublicInputs.sol";
 import {
     PartyMatchPayload,
@@ -81,6 +82,18 @@ interface IVerifier {
     /// @return True if the proof is valid, false otherwise
     function verifyValidOfflineFeeSettlement(
         ValidOfflineFeeSettlementStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID FEE REDEMPTION`
+    /// @param statement The public inputs to the proof
+    /// @param proof The proof to verify
+    /// @return True if the proof is valid, false otherwise
+    function verifyValidFeeRedemption(
+        ValidFeeRedemptionStatement calldata statement,
         PlonkProof calldata proof
     )
         external
