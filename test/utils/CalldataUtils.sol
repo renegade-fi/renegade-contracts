@@ -39,7 +39,8 @@ import {
     ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
-    ValidOfflineFeeSettlementStatement
+    ValidOfflineFeeSettlementStatement,
+    ValidFeeRedemptionStatement
 } from "renegade/libraries/darkpool/PublicInputs.sol";
 
 /// @dev The typehash for the PermitWitnessTransferFrom parameters
@@ -262,6 +263,42 @@ contract CalldataUtils is TestUtils {
             isProtocolFee: vm.randomBool()
         });
         proof = dummyPlonkProof();
+    }
+
+    /// --- Redeem Fee --- ///
+
+    /// @notice Generate calldata for redeeming a fee
+    function redeemFeeCalldata(
+        BN254.ScalarField merkleRoot,
+        Vm.Wallet memory receiverWallet,
+        IHasher hasher
+    )
+        internal
+        returns (
+            bytes memory newSharesCommitmentSig,
+            ValidFeeRedemptionStatement memory statement,
+            PlonkProof memory proof
+        )
+    {
+        statement = ValidFeeRedemptionStatement({
+            walletRoot: merkleRoot,
+            noteRoot: merkleRoot,
+            walletNullifier: randomScalar(),
+            noteNullifier: randomScalar(),
+            newWalletCommitment: randomScalar(),
+            newWalletPublicShares: randomWalletShares(),
+            walletRootKey: forgeWalletToRootKey(receiverWallet)
+        });
+        proof = dummyPlonkProof();
+
+        // Sign the new shares commitment
+        BN254.ScalarField newSharesCommitment = WalletOperations.computeWalletCommitment(
+            statement.newWalletCommitment, statement.newWalletPublicShares, hasher
+        );
+
+        bytes32 digest = WalletOperations.walletCommitmentDigest(newSharesCommitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(receiverWallet.privateKey, digest);
+        newSharesCommitmentSig = abi.encodePacked(r, s, v);
     }
 
     // --------------------

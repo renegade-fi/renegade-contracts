@@ -41,6 +41,7 @@ contract DarkpoolTestBase is CalldataUtils {
 
     bytes constant INVALID_NULLIFIER_REVERT_STRING = "Nullifier already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
+    bytes constant INVALID_NOTE_ROOT_REVERT_STRING = "Note not in Merkle history";
     bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
     bytes constant INVALID_PROTOCOL_FEE_REVERT_STRING = "Invalid protocol fee rate";
     bytes constant INVALID_PROTOCOL_FEE_KEY_REVERT_STRING = "Invalid protocol fee encryption key";
