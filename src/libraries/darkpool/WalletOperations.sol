@@ -34,7 +34,6 @@ library WalletOperations {
     /// @param nullifierSet The set of nullifiers for the darkpool
     /// @param merkleTree The merkle tree for the darkpool
     /// @param hasher The hasher for the darkpool
-
     function rotateWallet(
         BN254.ScalarField nullifier,
         BN254.ScalarField historicalMerkleRoot,
