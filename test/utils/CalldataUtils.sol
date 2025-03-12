@@ -38,7 +38,8 @@ import {
     ValidCommitmentsStatement,
     ValidReblindStatement,
     ValidMatchSettleStatement,
-    ValidMatchSettleAtomicStatement
+    ValidMatchSettleAtomicStatement,
+    ValidOfflineFeeSettlementStatement
 } from "renegade/libraries/darkpool/PublicInputs.sol";
 
 /// @dev The typehash for the PermitWitnessTransferFrom parameters
@@ -64,6 +65,9 @@ contract CalldataUtils is TestUtils {
 
     /// @dev The typehash for the TokenPermissions parameters
     bytes32 public constant _TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
+
+    /// @dev The number of scalars in a note ciphertext
+    uint256 public constant NOTE_CIPHERTEXT_SCALARS = 3;
 
     // ---------------------
     // | Darkpool Calldata |
@@ -235,6 +239,29 @@ contract CalldataUtils is TestUtils {
             validReblindCommitments: dummyLinkingProof(),
             validCommitmentsMatchSettleAtomic: dummyLinkingProof()
         });
+    }
+
+    /// --- Settle Offline Fee --- ///
+
+    /// @notice Generate calldata for settling an offline fee
+    function settleOfflineFeeCalldata(
+        BN254.ScalarField merkleRoot,
+        EncryptionKey memory protocolKey
+    )
+        internal
+        returns (ValidOfflineFeeSettlementStatement memory statement, PlonkProof memory proof)
+    {
+        statement = ValidOfflineFeeSettlementStatement({
+            merkleRoot: merkleRoot,
+            walletNullifier: randomScalar(),
+            updatedWalletCommitment: randomScalar(),
+            updatedWalletPublicShares: randomWalletShares(),
+            noteCiphertext: randomElGamalCiphertext(NOTE_CIPHERTEXT_SCALARS),
+            noteCommitment: randomScalar(),
+            protocolKey: protocolKey,
+            isProtocolFee: vm.randomBool()
+        });
+        proof = dummyPlonkProof();
     }
 
     // --------------------
@@ -453,6 +480,19 @@ contract CalldataUtils is TestUtils {
     /// @dev no curve arithmetic is performed on it
     function randomEncryptionKey() internal returns (EncryptionKey memory key) {
         key = EncryptionKey({ point: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }) });
+    }
+
+    /// @notice Generate a random ElGamal ciphertext
+    function randomElGamalCiphertext(uint256 numScalars) internal returns (ElGamalCiphertext memory ciphertext) {
+        // Generate the stream ciphered scalars
+        BN254.ScalarField[] memory scalars = new BN254.ScalarField[](numScalars);
+        for (uint256 i = 0; i < numScalars; i++) {
+            scalars[i] = randomScalar();
+        }
+
+        // Generate the ephemeral key
+        EncryptionKey memory ephemeralKey = randomEncryptionKey();
+        ciphertext = ElGamalCiphertext({ ephemeralKey: ephemeralKey.point, ciphertext: scalars });
     }
 
     /// --- Plonk Proofs --- ///
