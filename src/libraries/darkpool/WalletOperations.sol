@@ -98,6 +98,27 @@ library WalletOperations {
         return BN254.ScalarField.wrap(walletCommitment);
     }
 
+    /// @notice Spend a note
+    /// @dev This involves both checking the note's inclusion root and spending its nullifier
+    /// @param noteNullifier The nullifier of the note
+    /// @param noteRoot The root of the note
+    /// @param nullifierSet The set of nullifiers for the darkpool
+    /// @param merkleTree The merkle tree for the darkpool
+    function spendNote(
+        BN254.ScalarField noteNullifier,
+        BN254.ScalarField noteRoot,
+        NullifierLib.NullifierSet storage nullifierSet,
+        MerkleTreeLib.MerkleTree storage merkleTree
+    )
+        internal
+    {
+        // 1. Check that the note is in the Merkle tree
+        require(merkleTree.rootInHistory(noteRoot), "Note not in Merkle history");
+
+        // 2. Spend the note
+        nullifierSet.spend(noteNullifier);
+    }
+
     /// @notice Verify a wallet update signature
     /// @dev The signature is expected in the following format:
     /// @dev r || s || v, for a total of 65 bytes where:

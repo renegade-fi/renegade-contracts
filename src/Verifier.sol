@@ -16,6 +16,7 @@ import {
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
+    ValidFeeRedemptionStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import {
@@ -38,10 +39,10 @@ using StatementSerializer for ValidReblindStatement;
 using StatementSerializer for ValidMatchSettleStatement;
 using StatementSerializer for ValidMatchSettleAtomicStatement;
 using StatementSerializer for ValidOfflineFeeSettlementStatement;
+using StatementSerializer for ValidFeeRedemptionStatement;
 
 /// @title PlonK Verifier with the Jellyfish-style arithmetization
 /// @notice The methods on this contract are darkpool-specific
-
 contract Verifier is IVerifier {
     uint256 public constant NUM_MATCH_PROOFS = 5;
     uint256 public constant NUM_MATCH_LINKING_PROOFS = 4;
@@ -193,6 +194,23 @@ contract Verifier is IVerifier {
         returns (bool)
     {
         VerificationKey memory vk = abi.decode(VerificationKeys.VALID_OFFLINE_FEE_SETTLEMENT_VKEY, (VerificationKey));
+        BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
+        return VerifierCore.verify(proof, publicInputs, vk);
+    }
+
+    /// @notice Verify a proof of `VALID FEE REDEMPTION`
+    /// @param statement The public inputs to the proof
+    /// @param proof The proof to verify
+    /// @return True if the proof is valid, false otherwise
+    function verifyValidFeeRedemption(
+        ValidFeeRedemptionStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_FEE_REDEMPTION_VKEY, (VerificationKey));
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }

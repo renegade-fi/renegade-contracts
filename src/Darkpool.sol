@@ -17,6 +17,7 @@ import {
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
+    ValidFeeRedemptionStatement,
     StatementSerializer
 } from "./libraries/darkpool/PublicInputs.sol";
 import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
@@ -396,6 +397,40 @@ contract Darkpool {
 
         // 4. Commit the note into the merkle tree
         merkleTree.insertLeaf(statement.noteCommitment, hasher);
+    }
+
+    /// @notice Redeem a fee that has been paid offline into a wallet
+    /// @param statement The statement of `VALID FEE REDEMPTION`
+    /// @param proof The proof of `VALID FEE REDEMPTION`
+    function redeemFee(
+        bytes calldata recipientCommitmentSig,
+        ValidFeeRedemptionStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        public
+    {
+        // 1. Verify the proof
+        bool res = verifier.verifyValidFeeRedemption(statement, proof);
+        require(res, "Verification failed for fee redemption");
+
+        // 2. Rotate the wallet
+        BN254.ScalarField newCommitment = WalletOperations.rotateWallet(
+            statement.walletNullifier,
+            statement.walletRoot,
+            statement.newWalletCommitment,
+            statement.newWalletPublicShares,
+            nullifierSet,
+            merkleTree,
+            hasher
+        );
+
+        // 3. Verify the signature of the new shares commitment by the root key
+        bool validSig =
+            WalletOperations.verifyWalletUpdateSignature(newCommitment, recipientCommitmentSig, statement.walletRootKey);
+        require(validSig, "Invalid signature");
+
+        // 4. Spend the note
+        WalletOperations.spendNote(statement.noteNullifier, statement.noteRoot, nullifierSet, merkleTree);
     }
 
     // --- Helpers --- //
