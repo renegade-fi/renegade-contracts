@@ -8,7 +8,9 @@ import {
     PublicRootKey,
     OrderSettlementIndices,
     ExternalMatchResult,
+    BoundedMatchResult,
     FeeTake,
+    FeeTakeRate,
     ElGamalCiphertext,
     EncryptionKey
 } from "./Types.sol";
@@ -101,6 +103,21 @@ struct ValidMatchSettleAtomicStatement {
     address relayerFeeAddress;
 }
 
+/// @title ValidMalleableMatchSettleAtomicStatement
+/// @notice The statement type for the `VALID MALLEABLE MATCH SETTLE ATOMIC` proof
+struct ValidMalleableMatchSettleAtomicStatement {
+    /// @dev The result of the match
+    BoundedMatchResult matchResult;
+    /// @dev The fee rates charged to the external party
+    FeeTakeRate externalFeeRates;
+    /// @dev The fee rates charged to the internal party
+    FeeTakeRate internalFeeRates;
+    /// @dev The public wallet shares of the internal party
+    BN254.ScalarField[] internalPartyPublicShares;
+    /// @dev The address at which the relayer wishes to receive their fee due
+    address relayerFeeAddress;
+}
+
 /// @title ValidOfflineFeeSettlementStatement
 /// @notice The statement type for the `VALID OFFLINE FEE SETTLEMENT` proof
 struct ValidOfflineFeeSettlementStatement {
@@ -153,16 +170,20 @@ library StatementSerializer {
     using StatementSerializer for ValidCommitmentsStatement;
     using StatementSerializer for ValidMatchSettleStatement;
     using StatementSerializer for ValidMatchSettleAtomicStatement;
+    using StatementSerializer for ValidMalleableMatchSettleAtomicStatement;
     using StatementSerializer for ValidOfflineFeeSettlementStatement;
+    using StatementSerializer for ValidFeeRedemptionStatement;
     using StatementSerializer for ExternalTransfer;
     using StatementSerializer for PublicRootKey;
     using StatementSerializer for OrderSettlementIndices;
     using StatementSerializer for ExternalMatchResult;
+    using StatementSerializer for BoundedMatchResult;
     using StatementSerializer for FeeTake;
+    using StatementSerializer for FeeTakeRate;
     using StatementSerializer for ElGamalCiphertext;
     using StatementSerializer for EncryptionKey;
-    /// @notice The number of scalar field elements in a ValidWalletCreateStatement
 
+    /// @notice The number of scalar field elements in a ValidWalletCreateStatement
     uint256 constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
     /// @notice The number of scalar field elements in a ValidWalletUpdateStatement
     uint256 constant VALID_WALLET_UPDATE_SCALAR_SIZE = 81;
@@ -174,6 +195,8 @@ library StatementSerializer {
     uint256 constant VALID_MATCH_SETTLE_SCALAR_SIZE = 147;
     /// @notice The number of scalar field elements in a ValidMatchSettleAtomicStatement
     uint256 constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
+    /// @notice The number of scalar field elements in a ValidMalleableMatchSettleAtomicStatement
+    uint256 constant VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 81;
     /// @notice The number of scalar field elements in a ValidOfflineFeeSettlementStatement
     uint256 constant VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE = 82;
     /// @notice The number of scalar field elements in a ValidFeeRedemptionStatement
@@ -359,6 +382,49 @@ library StatementSerializer {
         return serialized;
     }
 
+    // --- Valid Malleable Match Settle Atomic --- //
+
+    /// @notice Serializes a ValidMalleableMatchSettleAtomicStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidMalleableMatchSettleAtomicStatement memory self)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_SCALAR_SIZE);
+
+        // Copy the match result
+        BN254.ScalarField[] memory matchResultSerialized = self.matchResult.scalarSerialize();
+        for (uint256 i = 0; i < matchResultSerialized.length; i++) {
+            serialized[i] = matchResultSerialized[i];
+        }
+
+        // Copy the external fee rates
+        uint256 offset = matchResultSerialized.length;
+        BN254.ScalarField[] memory externalFeeRatesSerialized = self.externalFeeRates.scalarSerialize();
+        for (uint256 i = 0; i < externalFeeRatesSerialized.length; i++) {
+            serialized[offset + i] = externalFeeRatesSerialized[i];
+        }
+
+        // Copy the internal fee rates
+        offset += externalFeeRatesSerialized.length;
+        BN254.ScalarField[] memory internalFeeRatesSerialized = self.internalFeeRates.scalarSerialize();
+        for (uint256 i = 0; i < internalFeeRatesSerialized.length; i++) {
+            serialized[offset + i] = internalFeeRatesSerialized[i];
+        }
+
+        // Copy the internal party public shares
+        offset += internalFeeRatesSerialized.length;
+        for (uint256 i = 0; i < self.internalPartyPublicShares.length; i++) {
+            serialized[offset + i] = self.internalPartyPublicShares[i];
+        }
+
+        // Copy the relayer fee address
+        serialized[serialized.length - 1] = BN254.ScalarField.wrap(uint256(uint160(self.relayerFeeAddress)));
+        return serialized;
+    }
+
     // --- Valid Offline Fee Settlement --- //
 
     /// @notice Serializes a ValidOfflineFeeSettlementStatement into an array of scalar field elements
@@ -493,6 +559,21 @@ library StatementSerializer {
         return serialized;
     }
 
+    /// @notice Serializes a BoundedMatchResult into an array of scalar field elements
+    /// @param self The result to serialize
+    /// @return serialized The serialized result as an array of scalar field elements
+    function scalarSerialize(BoundedMatchResult memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](5);
+
+        serialized[0] = BN254.ScalarField.wrap(uint256(uint160(self.quoteMint)));
+        serialized[1] = BN254.ScalarField.wrap(uint256(uint160(self.baseMint)));
+        serialized[2] = BN254.ScalarField.wrap(self.price.repr);
+        serialized[3] = BN254.ScalarField.wrap(self.minBaseAmount);
+        serialized[4] = BN254.ScalarField.wrap(self.maxBaseAmount);
+        serialized[5] = BN254.ScalarField.wrap(uint256(self.direction));
+        return serialized;
+    }
+
     /// @notice Serializes a FeeTake into an array of scalar field elements
     /// @param self The fee take to serialize
     /// @return serialized The serialized fee take as an array of scalar field elements
@@ -500,6 +581,17 @@ library StatementSerializer {
         BN254.ScalarField[] memory serialized = new BN254.ScalarField[](2);
         serialized[0] = BN254.ScalarField.wrap(self.relayerFee);
         serialized[1] = BN254.ScalarField.wrap(self.protocolFee);
+
+        return serialized;
+    }
+
+    /// @notice Serializes a FeeTakeRate into an array of scalar field elements
+    /// @param self The fee take rate to serialize
+    /// @return serialized The serialized fee take rate as an array of scalar field elements
+    function scalarSerialize(FeeTakeRate memory self) internal pure returns (BN254.ScalarField[] memory) {
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](2);
+        serialized[0] = BN254.ScalarField.wrap(self.relayerFeeRate.repr);
+        serialized[1] = BN254.ScalarField.wrap(self.protocolFeeRate.repr);
 
         return serialized;
     }

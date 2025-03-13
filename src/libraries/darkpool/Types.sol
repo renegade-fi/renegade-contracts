@@ -19,6 +19,14 @@ bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4]
 string constant DEPOSIT_WITNESS_TYPE_STRING =
     "DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)";
 
+/// @notice A fixed point representation of a real number
+/// @dev The precision used is specified in `DarkpoolConstants.FIXED_POINT_PRECISION_BITS`
+/// @dev The real number represented is `repr / 2^{FIXED_POINT_PRECISION_BITS}`
+struct FixedPoint {
+    /// @dev The representation of the number
+    uint256 repr;
+}
+
 // ---------------------
 // | External Transfer |
 // ---------------------
@@ -77,7 +85,14 @@ struct FeeTake {
     uint256 protocolFee;
 }
 
-/// @title
+/// @title FeeTakeRate
+/// @notice A pair of fee rates that generate a fee take when multiplied by a match amount
+struct FeeTakeRate {
+    /// @dev The relayer fee rate
+    FixedPoint relayerFeeRate;
+    /// @dev The protocol fee rate
+    FixedPoint protocolFeeRate;
+}
 
 // --------------------
 // | Settlement Types |
@@ -94,6 +109,24 @@ struct ExternalMatchResult {
     uint256 quoteAmount;
     /// @dev The amount of the match
     uint256 baseAmount;
+    /// @dev The direction of the match
+    ExternalMatchDirection direction;
+}
+
+/// @title BoundedMatchResult
+/// @notice An external match result that specifies a range of match sizes rather than
+/// @notice an exact base amount.
+struct BoundedMatchResult {
+    /// @dev The quote mint of the match
+    address quoteMint;
+    /// @dev The base mint of the match
+    address baseMint;
+    /// @dev The price at which the match will be settled
+    FixedPoint price;
+    /// @dev The minimum base amount of the match
+    uint256 minBaseAmount;
+    /// @dev The maximum base amount of the match
+    uint256 maxBaseAmount;
     /// @dev The direction of the match
     ExternalMatchDirection direction;
 }
@@ -172,6 +205,19 @@ struct MatchAtomicLinkingProofs {
     LinkingProof validReblindCommitments;
     /// @dev The proof of linked inputs between PARTY 0 VALID COMMITMENTS <-> VALID MATCH SETTLE ATOMIC
     LinkingProof validCommitmentsMatchSettleAtomic;
+}
+
+/// @title MalleableMatchAtomicProofs
+/// @notice Contains the proofs for a match between two parties in the darkpool
+/// @dev This contains the validity proofs for the internal party and a proof of
+/// @dev `VALID MALLEABLE MATCH SETTLE ATOMIC` for settlement
+struct MalleableMatchAtomicProofs {
+    /// @dev The proof of `VALID COMMITMENTS` for the internal party
+    PlonkProof validCommitments;
+    /// @dev The proof of `VALID REBLIND` for the internal party
+    PlonkProof validReblind;
+    /// @dev The proof of `VALID MALLEABLE MATCH SETTLE ATOMIC`
+    PlonkProof validMalleableMatchSettleAtomic;
 }
 
 /// @notice A set of indices into a settlement party's wallet for the receive balance

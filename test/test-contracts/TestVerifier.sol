@@ -7,6 +7,7 @@ import {
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
@@ -16,7 +17,8 @@ import {
     MatchProofs,
     MatchLinkingProofs,
     MatchAtomicProofs,
-    MatchAtomicLinkingProofs
+    MatchAtomicLinkingProofs,
+    MalleableMatchAtomicProofs
 } from "renegade/libraries/darkpool/Types.sol";
 import { VerificationKeys } from "renegade/libraries/darkpool/VerificationKeys.sol";
 import { IVerifier } from "renegade/libraries/interfaces/IVerifier.sol";
@@ -104,6 +106,26 @@ contract TestVerifier is IVerifier {
         returns (bool)
     {
         verifier.verifyAtomicMatchBundle(internalPartyPayload, matchSettleStatement, proofs, linkingProofs);
+        return true;
+    }
+
+    /// @notice Verify a malleable match bundle
+    /// @param internalPartyPayload The payload for the internal party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE ATOMIC`
+    /// @param proofBundle The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return True always, regardless of the proof
+    function verifyMalleableMatchBundle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMalleableMatchSettleAtomicStatement calldata matchSettleStatement,
+        MalleableMatchAtomicProofs calldata proofBundle,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        verifier.verifyMalleableMatchBundle(internalPartyPayload, matchSettleStatement, proofBundle, linkingProofs);
         return true;
     }
 

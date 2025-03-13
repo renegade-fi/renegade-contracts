@@ -19,6 +19,10 @@ library DarkpoolConstants {
     /// @dev This is currently just ETH, but intentionally written abstractly
     address constant NATIVE_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    /// @notice The fixed point precision used in the darkpool
+    /// @dev This implies that the representation of a real number is floor(x * 2^{FIXED_POINT_PRECISION})
+    uint256 constant FIXED_POINT_PRECISION_BITS = 63;
+
     /// @notice Check whether an address is the native token address
     /// @param addr The address to check
     /// @return True if the address is the native token address, false otherwise

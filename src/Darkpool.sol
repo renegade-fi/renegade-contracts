@@ -365,6 +365,27 @@ contract Darkpool {
         TransferExecutor.executeTransferBatch(transfers, weth);
     }
 
+    /// @notice Process a malleable match settlement between two parties
+    /// @dev This is a variant of `processAtomicMatchSettle` that allows the match amount to be determined
+    /// @dev after the proof is generated. This is done by the prover constraining a valid range for the match
+    /// @dev amount, allowing the tx sender to choose any value in this range.
+    /// @dev The darkpool then uses the price specified in the statement to determine the quote amount and fees
+    /// @dev for the match, then settles the obligations to both the internal and external parties
+    function processMalleableAtomicMatchSettle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        public
+        payable
+    {
+        // 1. Validate the transaction value
+        // If the external party is selling a native token, validate that they have provided the correct
+        // amount in the transaction's value
+        ExternalMatchResult memory matchResult = matchSettleStatement.matchResult;
+    }
+
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
     /// @dev Instead of updating the recipient's wallet, a `Note` is created that the recipient may later redeem
     /// @param statement The statement of `VALID OFFLINE FEE SETTLEMENT`
