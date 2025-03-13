@@ -7,6 +7,7 @@ import {
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
 } from "renegade/libraries/darkpool/PublicInputs.sol";
@@ -15,7 +16,8 @@ import {
     MatchProofs,
     MatchLinkingProofs,
     MatchAtomicProofs,
-    MatchAtomicLinkingProofs
+    MatchAtomicLinkingProofs,
+    MalleableMatchAtomicProofs
 } from "renegade/libraries/darkpool/Types.sol";
 
 interface IVerifier {
@@ -70,6 +72,24 @@ interface IVerifier {
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicStatement calldata matchSettleStatement,
         MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID MALLEABLE MATCH SETTLE ATOMIC`
+    /// @param internalPartyPayload The payload for the internal party
+    /// @param statement The public inputs to the proof
+    /// @param proofBundle The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match. Note that we use the same type
+    /// here as the linking proofs for the standard atomic match bundle, but the circuits they link are
+    /// different.
+    /// @return True if the proof is valid, false otherwise
+    function verifyMalleableMatchBundle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMalleableMatchSettleAtomicStatement calldata statement,
+        MalleableMatchAtomicProofs calldata proofBundle,
         MatchAtomicLinkingProofs calldata linkingProofs
     )
         external

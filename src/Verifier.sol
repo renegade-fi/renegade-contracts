@@ -15,6 +15,7 @@ import {
     ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
@@ -24,7 +25,8 @@ import {
     MatchProofs,
     MatchLinkingProofs,
     MatchAtomicProofs,
-    MatchAtomicLinkingProofs
+    MatchAtomicLinkingProofs,
+    MalleableMatchAtomicProofs
 } from "./libraries/darkpool/Types.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
@@ -40,6 +42,7 @@ using StatementSerializer for ValidMatchSettleStatement;
 using StatementSerializer for ValidMatchSettleAtomicStatement;
 using StatementSerializer for ValidOfflineFeeSettlementStatement;
 using StatementSerializer for ValidFeeRedemptionStatement;
+using StatementSerializer for ValidMalleableMatchSettleAtomicStatement;
 
 /// @title PlonK Verifier with the Jellyfish-style arithmetization
 /// @notice The methods on this contract are darkpool-specific
@@ -48,6 +51,8 @@ contract Verifier is IVerifier {
     uint256 public constant NUM_MATCH_LINKING_PROOFS = 4;
     uint256 public constant NUM_ATOMIC_MATCH_PROOFS = 3;
     uint256 public constant NUM_ATOMIC_MATCH_LINKING_PROOFS = 2;
+    uint256 public constant NUM_MALLEABLE_MATCH_PROOFS = 3;
+    uint256 public constant NUM_MALLEABLE_MATCH_LINKING_PROOFS = 2;
 
     /// @notice Verify a proof of `VALID WALLET CREATE`
     /// @param statement The public inputs to the proof
@@ -181,6 +186,52 @@ contract Verifier is IVerifier {
         return VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpenings);
     }
 
+    /// @notice Verify a malleable match bundle
+    /// @param internalPartyPayload The payload for the internal party
+    /// @param matchSettleStatement The statement of `VALID MALLEABLE MATCH SETTLE ATOMIC`
+    /// @param proofBundle The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return True if the malleable match bundle is valid, false otherwise
+    function verifyMalleableMatchBundle(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMalleableMatchSettleAtomicStatement calldata matchSettleStatement,
+        MalleableMatchAtomicProofs calldata proofBundle,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        // Load the verification keys
+        VerificationKey memory commitmentsVk = abi.decode(VerificationKeys.VALID_COMMITMENTS_VKEY, (VerificationKey));
+        VerificationKey memory reblindVk = abi.decode(VerificationKeys.VALID_REBLIND_VKEY, (VerificationKey));
+        VerificationKey memory settleVk =
+            abi.decode(VerificationKeys.VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEY, (VerificationKey));
+
+        // Build the batch
+        PlonkProof[] memory proofs = new PlonkProof[](NUM_MALLEABLE_MATCH_PROOFS);
+        BN254.ScalarField[][] memory publicInputs = new BN254.ScalarField[][](NUM_MALLEABLE_MATCH_PROOFS);
+        VerificationKey[] memory vks = new VerificationKey[](NUM_MALLEABLE_MATCH_PROOFS);
+        proofs[0] = proofBundle.validCommitments;
+        proofs[1] = proofBundle.validReblind;
+        proofs[2] = proofBundle.validMalleableMatchSettleAtomic;
+
+        publicInputs[0] = internalPartyPayload.validCommitmentsStatement.scalarSerialize();
+        publicInputs[1] = internalPartyPayload.validReblindStatement.scalarSerialize();
+        publicInputs[2] = matchSettleStatement.scalarSerialize();
+
+        vks[0] = commitmentsVk;
+        vks[1] = reblindVk;
+        vks[2] = settleVk;
+
+        // Add proof linking instances to the opening
+        ProofLinkingInstance[] memory instances = createMalleableMatchLinkingInstances(proofBundle, linkingProofs);
+        OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
+
+        // Verify the batch
+        return VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpenings);
+    }
+
     /// @notice Verify a proof of `VALID OFFLINE FEE SETTLEMENT`
     /// @param statement The public inputs to the proof
     /// @param proof The proof to verify
@@ -304,6 +355,41 @@ contract Verifier is IVerifier {
             wire_comm0: matchProofs.validCommitments.wire_comms[0],
             wire_comm1: matchProofs.validMatchSettleAtomic.wire_comms[0],
             proof: matchLinkingProofs.validCommitmentsMatchSettleAtomic,
+            vk: commitmentsMatchSettleVk
+        });
+    }
+
+    /// @notice Create a set of match linking instances for a malleable match bundle
+    /// @param proofs The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return instances A set of match linking instances
+    function createMalleableMatchLinkingInstances(
+        MalleableMatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        internal
+        pure
+        returns (ProofLinkingInstance[] memory instances)
+    {
+        instances = new ProofLinkingInstance[](NUM_MALLEABLE_MATCH_LINKING_PROOFS);
+        ProofLinkingVK memory reblindCommitmentsVk =
+            abi.decode(VerificationKeys.VALID_REBLIND_COMMITMENTS_LINK_VKEY, (ProofLinkingVK));
+        ProofLinkingVK memory commitmentsMatchSettleVk =
+            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK0_VKEY, (ProofLinkingVK));
+
+        // VALID REBLIND -> VALID COMMITMENTS
+        instances[0] = ProofLinkingInstance({
+            wire_comm0: proofs.validReblind.wire_comms[0],
+            wire_comm1: proofs.validCommitments.wire_comms[0],
+            proof: linkingProofs.validReblindCommitments,
+            vk: reblindCommitmentsVk
+        });
+
+        // VALID COMMITMENTS -> VALID MALLEABLE MATCH SETTLE ATOMIC
+        instances[1] = ProofLinkingInstance({
+            wire_comm0: proofs.validCommitments.wire_comms[0],
+            wire_comm1: proofs.validMalleableMatchSettleAtomic.wire_comms[0],
+            proof: linkingProofs.validCommitmentsMatchSettleAtomic,
             vk: commitmentsMatchSettleVk
         });
     }
