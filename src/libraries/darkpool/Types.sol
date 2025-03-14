@@ -6,6 +6,7 @@ pragma solidity ^0.8.0;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ValidCommitmentsStatement, ValidReblindStatement } from "./PublicInputs.sol";
 import { PlonkProof, LinkingProof } from "../verifier/Types.sol";
+import { DarkpoolConstants } from "./Constants.sol";
 
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
@@ -301,6 +302,21 @@ struct EncryptionKey {
 /// @title TypesLib
 /// @notice A library that allows us to define function on types in the darkpool
 library TypesLib {
+    // --- Fixed Point --- //
+
+    /// @notice Multiply a fixed point by a scalar and return the truncated result
+    /// @dev Computes `(self.repr * scalar) / DarkpoolConstants.FIXED_POINT_PRECISION_BITS`
+    /// @dev The repr already has the fixed point scaling value, so we only need to undo the
+    /// @dev scaling once to get the desired result. Because division naturally truncates in
+    /// @dev Solidity, we can use this will implement the floor of the above division.
+    /// @dev This function is unsafe because it does not check for overflows
+    /// @param self The fixed point to multiply
+    /// @param scalar The scalar to multiply by
+    /// @return The truncated result of the multiplication
+    function unsafeFixedPointMul(FixedPoint memory self, uint256 scalar) public pure returns (uint256) {
+        return (self.repr * scalar) / DarkpoolConstants.FIXED_POINT_PRECISION_BITS;
+    }
+
     // --- External Transfers --- //
 
     /// @notice Checks if an ExternalTransfer has zero values
@@ -364,6 +380,40 @@ library TypesLib {
         }
     }
 
+    /// @notice Build an `ExternalMatchResult` from a `BoundedMatchResult`
+    /// @param baseAmount The base amount of the match, resolving in between the bounds
+    /// @param boundedMatchResult The `BoundedMatchResult` to build the `ExternalMatchResult` from
+    /// @return The `ExternalMatchResult`
+    function buildExternalMatchResult(
+        uint256 baseAmount,
+        BoundedMatchResult memory boundedMatchResult
+    )
+        public
+        pure
+        returns (ExternalMatchResult memory)
+    {
+        // Verify that the base amount is within the bounds
+        if (baseAmount < boundedMatchResult.minBaseAmount || baseAmount > boundedMatchResult.maxBaseAmount) {
+            revert("base amount is out of `BoundedMatchResult` bounds");
+        }
+
+        // Use the price to compute the quote amount
+        // SAFETY: Prices are constrained in-circuit to be less than 2^127 and all amounts
+        // are constrained to be less than 2^100, so the product is less than 2^227, which fits
+        // in a uint256
+        FixedPoint memory price = boundedMatchResult.price;
+        uint256 quoteAmount = unsafeFixedPointMul(price, baseAmount);
+
+        // Build the external match result
+        return ExternalMatchResult({
+            quoteMint: boundedMatchResult.quoteMint,
+            baseMint: boundedMatchResult.baseMint,
+            quoteAmount: quoteAmount,
+            baseAmount: baseAmount,
+            direction: boundedMatchResult.direction
+        });
+    }
+
     // --- Fees --- //
 
     /// @notice Return the total fees due on a fee take
@@ -371,6 +421,19 @@ library TypesLib {
     /// @return The total fees due
     function total(FeeTake memory feeTake) public pure returns (uint256) {
         return feeTake.relayerFee + feeTake.protocolFee;
+    }
+
+    /// @notice Compute a fee take from a set of fee rates and receive amount
+    /// @param feeRates The fee rates to compute the fee take from
+    /// @param receiveAmount The amount to compute the fee take for
+    /// @return The fee take
+    function computeFeeTake(FeeTakeRate memory feeRates, uint256 receiveAmount) public pure returns (FeeTake memory) {
+        // SAFETY: The fee rates are constrained in-circuit to be less than 2^63, and the receive amount
+        // is constrained to be less than 2^100, so the product is less than 2^163, which fits in a uint256
+        return FeeTake({
+            relayerFee: unsafeFixedPointMul(feeRates.relayerFeeRate, receiveAmount),
+            protocolFee: unsafeFixedPointMul(feeRates.protocolFeeRate, receiveAmount)
+        });
     }
 
     // --- Encryption --- //

@@ -16,6 +16,7 @@ import {
     ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
@@ -31,10 +32,13 @@ import {
     MatchLinkingProofs,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
+    MalleableMatchAtomicProofs,
     ExternalMatchResult,
+    BoundedMatchResult,
     ExternalMatchDirection,
     OrderSettlementIndices,
     FeeTake,
+    FeeTakeRate,
     EncryptionKey
 } from "./libraries/darkpool/Types.sol";
 import { DarkpoolConstants } from "./libraries/darkpool/Constants.sol";
@@ -371,10 +375,16 @@ contract Darkpool {
     /// @dev amount, allowing the tx sender to choose any value in this range.
     /// @dev The darkpool then uses the price specified in the statement to determine the quote amount and fees
     /// @dev for the match, then settles the obligations to both the internal and external parties
+    /// @param baseAmount The base amount of the match, resolving in between the bounds
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
     function processMalleableAtomicMatchSettle(
+        uint256 baseAmount,
         PartyMatchPayload calldata internalPartyPayload,
-        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
-        MatchAtomicProofs calldata proofs,
+        ValidMalleableMatchSettleAtomicStatement calldata matchSettleStatement,
+        MalleableMatchAtomicProofs calldata proofs,
         MatchAtomicLinkingProofs calldata linkingProofs
     )
         public
@@ -383,7 +393,40 @@ contract Darkpool {
         // 1. Validate the transaction value
         // If the external party is selling a native token, validate that they have provided the correct
         // amount in the transaction's value
-        ExternalMatchResult memory matchResult = matchSettleStatement.matchResult;
+        BoundedMatchResult memory boundedMatchResult = matchSettleStatement.matchResult;
+        bool tradesNativeToken = DarkpoolConstants.isNativeToken(boundedMatchResult.baseMint);
+        bool externalPartySells = boundedMatchResult.direction == ExternalMatchDirection.InternalPartyBuy;
+        bool nativeTokenSell = tradesNativeToken && externalPartySells;
+
+        // The tx value should be zero unless the external party is selling native token
+        if (!nativeTokenSell && msg.value != 0) {
+            revert("Invalid ETH value, should be zero unless selling native token");
+        }
+
+        // 2. Verify the proofs
+        bool res =
+            verifier.verifyMalleableMatchBundle(internalPartyPayload, matchSettleStatement, proofs, linkingProofs);
+        require(res, "Verification failed for malleable match bundle");
+
+        // 3. Verify the protocol fee rates used in settlement
+        uint256 protocolFee = getTokenExternalMatchFeeRate(boundedMatchResult.baseMint);
+        FeeTakeRate memory internalPartyFees = matchSettleStatement.internalFeeRates;
+        FeeTakeRate memory externalPartyFees = matchSettleStatement.externalFeeRates;
+        require(internalPartyFees.protocolFeeRate.repr == protocolFee, "Invalid internal party protocol fee rate");
+        require(externalPartyFees.protocolFeeRate.repr == protocolFee, "Invalid external party protocol fee rate");
+
+        // 4. Build an external match result from the bounded match result
+        ExternalMatchResult memory matchResult = TypesLib.buildExternalMatchResult(baseAmount, boundedMatchResult);
+
+        // 5. Compute the fees due on the match
+        (address internalPartyReceiveMint, uint256 internalPartyReceiveAmount) =
+            matchResult.externalPartySellMintAmount();
+        (address externalPartyReceiveMint, uint256 externalPartyReceiveAmount) =
+            matchResult.externalPartyBuyMintAmount();
+        FeeTake memory internalPartyFeeTake = TypesLib.computeFeeTake(internalPartyFees, internalPartyReceiveAmount);
+        FeeTake memory externalPartyFeeTake = TypesLib.computeFeeTake(externalPartyFees, externalPartyReceiveAmount);
+
+        require(false, "Not implemented");
     }
 
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
