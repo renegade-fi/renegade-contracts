@@ -24,7 +24,7 @@ use crate::{
         backends::{PrecompileEcRecoverBackend, StylusHasher},
         helpers::{check_address_not_zero, deserialize_from_calldata, is_native_eth_address},
         solidity::{
-            sponsorAtomicMatchSettleWithRefundOptionsCall, GasSponsorPausedFallback, IArbGasInfo,
+            sponsorAtomicMatchSettleWithReceiverCall, GasSponsorPausedFallback, IArbGasInfo,
             IArbWasm, IDarkpool, IErc20, InsufficientSponsorBalance, NonceUsed,
             OwnershipTransferred, Paused, SponsoredExternalMatch, Unpaused,
         },
@@ -58,11 +58,6 @@ const INVOCATION_BASE_GAS_COST: u64 = 21_000 + 3500;
 /// The cost in gas of a (non-zero) byte of calldata
 const GAS_PER_CALLDATA_BYTE: u64 = 16;
 
-/// The cost in gas of the buy-side token refund operations which take place
-/// after the final gas metering check, obtained empirically and rounded to a
-/// reasonable value
-const TOKEN_REFUND_OPS_GAS_COST: u64 = 55_000;
-
 /// The cost in gas of the native ETH refund operations which take place after
 /// the final gas metering check, obtained empirically and rounded to a
 /// reasonable value
@@ -86,9 +81,6 @@ const ARB_WASM_ADDRESS: Address = Address::new(hex!("000000000000000000000000000
 /// https://eips.ethereum.org/EIPS/eip-1967#logic-contract-address
 const IMPL_ADDRESS_STORAGE_SLOT: U256 =
     U256::from_be_bytes(hex!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"));
-
-/// The number of wei per ETH, i.e. 10^18
-const WEI_PER_ETH: U256 = U256::from_limbs([1_000_000_000_000_000_000u64, 0, 0, 0]);
 
 // -----------------------
 // | CONTRACT DEFINITION |
@@ -237,7 +229,7 @@ impl GasSponsorContract {
         nonce: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
-        self.sponsor_atomic_match_settle_with_refund_options(
+        self.sponsor_atomic_match_settle_with_receiver(
             Address::ZERO,
             internal_party_match_payload,
             valid_match_settle_atomic_statement,
@@ -245,8 +237,6 @@ impl GasSponsorContract {
             match_linking_proofs,
             refund_address,
             nonce,
-            true,       // refund_native_eth
-            U256::ZERO, // conversion_rate
             signature,
         )
     }
@@ -266,7 +256,25 @@ impl GasSponsorContract {
         nonce: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
-        self.sponsor_atomic_match_settle_with_refund_options(
+        let initial_gas = evm::gas_left();
+
+        // Resolve the receiver to use
+        let receiver = if receiver == Address::ZERO { msg::sender() } else { receiver };
+
+        self.sponsored_match_inner(
+            receiver,
+            internal_party_match_payload.clone(),
+            valid_match_settle_atomic_statement.clone(),
+            match_proofs.clone(),
+            match_linking_proofs.clone(),
+            refund_address,
+            nonce,
+            U256::ZERO, // refund_amount
+            signature.clone(),
+        )?;
+
+        let gas_cost = estimate_final_gas_cost(
+            initial_gas,
             receiver,
             internal_party_match_payload,
             valid_match_settle_atomic_statement,
@@ -274,18 +282,30 @@ impl GasSponsorContract {
             match_linking_proofs,
             refund_address,
             nonce,
-            true,       // refund_native_eth
-            U256::ZERO, // conversion_rate
             signature,
-        )
+        )?;
+
+        // If gas sponsorship is paused, return early, no refunding will be done
+        if self.is_paused()? {
+            evm::log(GasSponsorPausedFallback { nonce });
+            return Ok(());
+        }
+
+        refund_gas_cost(
+            true, // refund_native_eth
+            refund_address,
+            Address::ZERO, // buy_token_addr
+            gas_cost,
+            receiver,
+            nonce,
+        )?;
+
+        Ok(())
     }
 
     /// Sponsor the gas costs of an atomic match settlement, with the given
     /// options (receiver, refund address, native ETH vs buy-side token
-    /// refund).
-    /// The `gas_cost` is the estimated gas cost of the transaction
-    /// in units of wei, and the `conversion_rate` is the signed price of
-    /// the buy-side token in units of token/wei.
+    /// refund, refund amount).
     /// If the `receiver` is the zero address, we use `msg::sender()` as the
     /// receiver.
     #[payable]
@@ -300,22 +320,22 @@ impl GasSponsorContract {
         refund_address: Address,
         nonce: U256,
         refund_native_eth: bool,
-        conversion_rate: U256,
+        refund_amount: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
-        // Take note of the initial tx gas budget
-        let initial_gas = evm::gas_left();
-
         // Resolve the receiver to use
         let receiver = if receiver == Address::ZERO { msg::sender() } else { receiver };
 
-        // Invoke the underlying atomic match settlement
-        let match_result = self.atomic_match_inner(
+        let match_result = self.sponsored_match_inner(
             receiver,
-            internal_party_match_payload.clone(),
-            valid_match_settle_atomic_statement.clone(),
-            match_proofs.clone(),
-            match_linking_proofs.clone(),
+            internal_party_match_payload,
+            valid_match_settle_atomic_statement,
+            match_proofs,
+            match_linking_proofs,
+            refund_address,
+            nonce,
+            refund_amount,
+            signature,
         )?;
 
         // If gas sponsorship is paused, return early, no refunding will be done
@@ -324,37 +344,13 @@ impl GasSponsorContract {
             return Ok(());
         }
 
-        // Verify the sponsorship signature
-        self.assert_sponsorship_signature(&nonce, &refund_address, &conversion_rate, &signature)?;
-
-        // Mark the nonce as used
-        self.mark_nonce_used(nonce)?;
-
-        let (buy_token_addr, _) = match_result.external_party_buy_mint_amount();
-
-        // Estimate the gas cost of the transaction
-        let gas_cost = estimate_final_gas_cost(
-            initial_gas,
-            buy_token_addr,
-            receiver,
-            internal_party_match_payload,
-            valid_match_settle_atomic_statement,
-            match_proofs,
-            match_linking_proofs,
-            refund_address,
-            nonce,
-            refund_native_eth,
-            conversion_rate,
-            signature,
-        )?;
-
         // Refund the gas costs
+        let (buy_token_addr, _) = match_result.external_party_buy_mint_amount();
         refund_gas_cost(
             refund_native_eth,
             refund_address,
             buy_token_addr,
-            gas_cost,
-            conversion_rate,
+            refund_amount,
             receiver,
             nonce,
         )?;
@@ -433,18 +429,18 @@ impl GasSponsorContract {
     }
 
     /// Verify the signature over the nonce, refund address, and potentially
-    /// conversion rate
+    /// refund amount
     fn assert_sponsorship_signature(
         &self,
         nonce: &U256,
         refund_address: &Address,
-        conversion_rate: &U256,
+        refund_amount: &U256,
         signature: &[u8],
     ) -> Result<(), Vec<u8>> {
         let mut message = nonce.to_be_bytes::<NUM_BYTES_U256>().to_vec();
         message.extend_from_slice(refund_address.as_slice());
-        if !conversion_rate.is_zero() {
-            message.extend_from_slice(conversion_rate.to_be_bytes::<NUM_BYTES_U256>().as_slice());
+        if !refund_amount.is_zero() {
+            message.extend_from_slice(refund_amount.to_be_bytes::<NUM_BYTES_U256>().as_slice());
         }
         self.assert_valid_signature(&message, signature)
     }
@@ -471,6 +467,40 @@ impl GasSponsorContract {
         evm::log(NonceUsed { nonce });
 
         Ok(())
+    }
+
+    /// Invokes a sponsored atomic match settlement, returning the match result.
+    /// This includes invoking the underlying atomic match settlement on the
+    /// darkpool, and checking the sponsorship signature & nonce.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sponsored_match_inner(
+        &mut self,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+        refund_address: Address,
+        nonce: U256,
+        refund_amount: U256,
+        signature: Bytes,
+    ) -> Result<ExternalMatchResult, Vec<u8>> {
+        // Invoke the underlying atomic match settlement
+        let match_result = self.atomic_match_inner(
+            receiver,
+            internal_party_match_payload.clone(),
+            valid_match_settle_atomic_statement.clone(),
+            match_proofs.clone(),
+            match_linking_proofs.clone(),
+        )?;
+
+        // Verify the sponsorship signature
+        self.assert_sponsorship_signature(&nonce, &refund_address, &refund_amount, &signature)?;
+
+        // Mark the nonce as used
+        self.mark_nonce_used(nonce)?;
+
+        Ok(match_result)
     }
 
     /// Invokes the actual atomic match path on the darkpool contract,
@@ -535,12 +565,10 @@ fn estimate_invocation_gas(
     match_linking_proofs: Bytes,
     refund_address: Address,
     nonce: U256,
-    refund_native_eth: bool,
-    conversion_rate: U256,
     signature: Bytes,
 ) -> Result<u64, Vec<u8>> {
     // Compute the cost of calldata, assuming no zero bytes
-    let calldata = sponsorAtomicMatchSettleWithRefundOptionsCall {
+    let calldata = sponsorAtomicMatchSettleWithReceiverCall {
         receiver,
         internal_party_match_payload: internal_party_match_payload.0.into(),
         valid_match_settle_atomic_statement: valid_match_settle_atomic_statement.0.into(),
@@ -548,8 +576,6 @@ fn estimate_invocation_gas(
         match_linking_proofs: match_linking_proofs.0.into(),
         refund_address,
         nonce,
-        refund_native_eth,
-        conversion_rate,
         signature: signature.0.into(),
     };
     let calldata_len = calldata.abi_encoded_size();
@@ -581,25 +607,12 @@ fn estimate_invocation_gas(
     Ok(INVOCATION_BASE_GAS_COST + init_gas + calldata_gas + native_eth_sell_gas)
 }
 
-/// Estimates the gas cost of the refund operations, which differ based on
-/// whether native ETH or the buy-side token is used to refund the user.
-fn estimate_refund_ops_gas(buy_token_addr: Address, refund_native_eth: bool) -> u64 {
-    let is_native_eth_buy = is_native_eth_address(buy_token_addr);
-
-    if is_native_eth_buy || refund_native_eth {
-        NATIVE_REFUND_OPS_GAS_COST
-    } else {
-        TOKEN_REFUND_OPS_GAS_COST
-    }
-}
-
 /// Estimate the total gas spent, including cost of remaining operations.
 /// We frontload as many operations as possible so the final evm::gas_left()
 /// call is as accurate as possible.
 #[allow(clippy::too_many_arguments)]
 fn estimate_final_gas_cost(
     initial_gas: u64,
-    buy_token_addr: Address,
     receiver: Address,
     internal_party_match_payload: Bytes,
     valid_match_settle_atomic_statement: Bytes,
@@ -607,11 +620,8 @@ fn estimate_final_gas_cost(
     match_linking_proofs: Bytes,
     refund_address: Address,
     nonce: U256,
-    refund_native_eth: bool,
-    conversion_rate: U256,
     signature: Bytes,
 ) -> Result<U256, Vec<u8>> {
-    let refund_ops_gas = estimate_refund_ops_gas(buy_token_addr, refund_native_eth);
     let invocation_gas = estimate_invocation_gas(
         receiver,
         internal_party_match_payload,
@@ -620,8 +630,6 @@ fn estimate_final_gas_cost(
         match_linking_proofs,
         refund_address,
         nonce,
-        refund_native_eth,
-        conversion_rate,
         signature,
     )?;
 
@@ -634,7 +642,7 @@ fn estimate_final_gas_cost(
         IArbGasInfo::new(ARB_GAS_INFO_ADDRESS).get_current_tx_l_1_gas_fees(Call::new())?;
 
     // Precompute as much of the gas tallying arithmetic as possible
-    let gas_tally = initial_gas + invocation_gas + refund_ops_gas;
+    let gas_tally = initial_gas + invocation_gas + NATIVE_REFUND_OPS_GAS_COST;
 
     // Finally, check the remaining gas
     let remaining_gas = evm::gas_left();
@@ -671,73 +679,60 @@ fn resolve_refund_address(
 }
 
 /// Refunds the user's gas costs through native ETH.
-/// The `gas_cost` is the estimated gas cost of the transaction in units of wei.
 fn refund_through_native_eth(
     refund_address: Address,
-    gas_cost: U256,
+    refund_amount: U256,
     nonce: U256,
 ) -> Result<(), Vec<u8>> {
     // If the gas sponsor doesn't have enough Ether to refund the user,
     // emit an event but don't revert.
-    if contract::balance() < gas_cost {
+    if contract::balance() < refund_amount {
         evm::log(InsufficientSponsorBalance { nonce });
         return Ok(());
     }
 
     call(
-        Call::new().value(gas_cost),
+        Call::new().value(refund_amount),
         refund_address,
         &[], // calldata
     )?;
 
-    evm::log(SponsoredExternalMatch { amount: gas_cost, token: Address::ZERO, nonce });
+    evm::log(SponsoredExternalMatch { amount: refund_amount, token: Address::ZERO, nonce });
 
     Ok(())
 }
 
 /// Refunds the user's gas costs through the buy-side token.
-/// The `gas_cost` is the estimated gas cost of the transaction in units of wei,
-/// and the `conversion_rate` is the price of the buy-side token in units of
-/// token/eth
 fn refund_through_buy_token(
     refund_address: Address,
     buy_token_addr: Address,
-    gas_cost: U256,
-    conversion_rate: U256,
+    refund_amount: U256,
     nonce: U256,
 ) -> Result<(), Vec<u8>> {
     let buy_token = IErc20::new(buy_token_addr);
 
-    // Convert the gas cost to the buy-side token. The conversion rate is in terms
-    // of token/eth, so we divide by wei/eth to get token/wei.
-    let buy_token_surplus = gas_cost * conversion_rate / WEI_PER_ETH;
-
     // If the gas sponsor doesn't have enough of the buy-side token to refund the
     // user, emit an event but don't revert.
-    if buy_token.balance_of(Call::new(), contract::address())? < buy_token_surplus {
+    if buy_token.balance_of(Call::new(), contract::address())? < refund_amount {
         evm::log(InsufficientSponsorBalance { nonce });
         return Ok(());
     }
 
     // Refund the user's gas costs
-    buy_token.transfer(Call::new(), refund_address, buy_token_surplus)?;
+    buy_token.transfer(Call::new(), refund_address, refund_amount)?;
 
-    evm::log(SponsoredExternalMatch { amount: buy_token_surplus, token: buy_token_addr, nonce });
+    evm::log(SponsoredExternalMatch { amount: refund_amount, token: buy_token_addr, nonce });
 
     Ok(())
 }
 
 /// Refunds the user's gas costs, either through native ETH or the buy-side
 /// token.
-/// The `gas_cost` is the estimated gas cost of the transaction in units of wei,
-/// and the `conversion_rate` is the price of the buy-side token in units of
-/// token/wei
 fn refund_gas_cost(
     refund_native_eth: bool,
     refund_address: Address,
     buy_token_addr: Address,
-    gas_cost: U256,
-    conversion_rate: U256,
+    refund_amount: U256,
     receiver: Address,
     nonce: U256,
 ) -> Result<(), Vec<u8>> {
@@ -748,8 +743,8 @@ fn refund_gas_cost(
     // If we are deliberately refunding through native ETH, or if the buy-side
     // token is native ETH, we can just transfer the ETH directly.
     if refund_native_eth || is_native_eth_buy {
-        refund_through_native_eth(refund_address, gas_cost, nonce)
+        refund_through_native_eth(refund_address, refund_amount, nonce)
     } else {
-        refund_through_buy_token(refund_address, buy_token_addr, gas_cost, conversion_rate, nonce)
+        refund_through_buy_token(refund_address, buy_token_addr, refund_amount, nonce)
     }
 }

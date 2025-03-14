@@ -7,10 +7,11 @@ use test_helpers::integration_test_async;
 
 use crate::{
     abis::IAtomicMatchSettleContract,
+    constants::REFUND_AMOUNT,
     utils::{
         alloy_address_to_ethers_address, alloy_u256_to_ethers_u256, assert_native_eth_gas_refund,
-        assert_token_gas_refund, serialize_to_calldata, setup_sponsored_match_test,
-        u256_to_alloy_u256, SponsoredMatchTestOptions,
+        serialize_to_calldata, setup_sponsored_match_test, u256_to_alloy_u256,
+        SponsoredMatchTestOptions,
     },
     TestContext,
 };
@@ -406,7 +407,11 @@ integration_test_async!(test_sponsored_match__underfunded);
 #[allow(non_snake_case)]
 pub async fn test_sponsored_match__in_kind__simple(ctx: TestContext) -> Result<()> {
     let data = setup_sponsored_match_test(
-        SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() },
+        SponsoredMatchTestOptions {
+            in_kind_refund: true,
+            sign_refund_amount: true,
+            ..Default::default()
+        },
         &ctx,
     )
     .await?;
@@ -423,7 +428,7 @@ pub async fn test_sponsored_match__in_kind__simple(ctx: TestContext) -> Result<(
     let initial_balance =
         ctx.get_erc20_balance_of(buy_token_addr, gas_sponsor_contract.address()).await?;
 
-    let receipt: TransactionReceipt = gas_sponsor_contract
+    gas_sponsor_contract
         .sponsor_atomic_match_settle_with_refund_options(
             Address::zero(), // receiver
             serialize_to_calldata(
@@ -439,7 +444,7 @@ pub async fn test_sponsored_match__in_kind__simple(ctx: TestContext) -> Result<(
             data.refund_address,
             data.nonce,
             data.refund_native_eth,
-            data.conversion_rate,
+            data.refund_amount,
             data.signature,
         )
         .send()
@@ -450,7 +455,11 @@ pub async fn test_sponsored_match__in_kind__simple(ctx: TestContext) -> Result<(
     let final_balance =
         ctx.get_erc20_balance_of(buy_token_addr, gas_sponsor_contract.address()).await?;
 
-    assert_token_gas_refund(initial_balance, final_balance, data.conversion_rate, receipt);
+    assert_eq!(
+        initial_balance - final_balance,
+        u256_to_alloy_u256(REFUND_AMOUNT),
+        "Expected REFUND_AMOUNT to be refunded"
+    );
 
     Ok(())
 }
@@ -465,6 +474,7 @@ pub async fn test_sponsored_match__in_kind__native_buy(ctx: TestContext) -> Resu
     let data = setup_sponsored_match_test(
         SponsoredMatchTestOptions {
             in_kind_refund: true,
+            sign_refund_amount: true,
             trade_native_eth: true,
             ..Default::default()
         },
@@ -472,10 +482,10 @@ pub async fn test_sponsored_match__in_kind__native_buy(ctx: TestContext) -> Resu
     )
     .await?;
 
-    let initial_eth_balance = ctx.get_eth_balance().await?;
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let initial_eth_balance = ctx.get_eth_balance_of(gas_sponsor_contract.address()).await?;
 
-    let receipt: TransactionReceipt = ctx
-        .gas_sponsor_contract()
+    gas_sponsor_contract
         .sponsor_atomic_match_settle_with_refund_options(
             Address::zero(), // receiver
             serialize_to_calldata(
@@ -491,7 +501,7 @@ pub async fn test_sponsored_match__in_kind__native_buy(ctx: TestContext) -> Resu
             data.refund_address,
             data.nonce,
             data.refund_native_eth,
-            data.conversion_rate,
+            data.refund_amount,
             data.signature,
         )
         .send()
@@ -499,19 +509,13 @@ pub async fn test_sponsored_match__in_kind__native_buy(ctx: TestContext) -> Resu
         .await?
         .expect("no tx receipt");
 
-    let match_result =
-        &data.process_atomic_match_settle_data.valid_match_settle_atomic_statement.match_result;
+    let final_eth_balance = ctx.get_eth_balance_of(gas_sponsor_contract.address()).await?;
 
-    let fees = &data
-        .process_atomic_match_settle_data
-        .valid_match_settle_atomic_statement
-        .external_party_fees;
-
-    let eth_received_in_match = match_result.base_amount - fees.total();
-    let final_eth_balance = ctx.get_eth_balance().await?;
-    let post_refund_eth_balance = final_eth_balance - eth_received_in_match;
-
-    assert_native_eth_gas_refund(initial_eth_balance, post_refund_eth_balance, receipt);
+    assert_eq!(
+        initial_eth_balance - final_eth_balance,
+        u256_to_alloy_u256(REFUND_AMOUNT),
+        "Expected REFUND_AMOUNT to be refunded"
+    );
 
     Ok(())
 }
@@ -569,11 +573,7 @@ pub async fn test_sponsored_match__refund_address__tx_origin(ctx: TestContext) -
     // we can properly test that the refund goes to tx::origin and not the receiver
     let receiver = Address::random();
     let data = setup_sponsored_match_test(
-        SponsoredMatchTestOptions {
-            refund_address: Address::zero(),
-            receiver,
-            ..Default::default()
-        },
+        SponsoredMatchTestOptions { receiver, sign_refund_amount: true, ..Default::default() },
         &ctx,
     )
     .await?;
@@ -598,7 +598,7 @@ pub async fn test_sponsored_match__refund_address__tx_origin(ctx: TestContext) -
             data.refund_address,
             data.nonce,
             data.refund_native_eth,
-            data.conversion_rate,
+            data.refund_amount,
             data.signature,
         )
         .send()
@@ -608,7 +608,15 @@ pub async fn test_sponsored_match__refund_address__tx_origin(ctx: TestContext) -
 
     let final_eth_balance = ctx.get_eth_balance().await?;
 
-    assert_native_eth_gas_refund(initial_eth_balance, final_eth_balance, receipt);
+    let diff = initial_eth_balance - final_eth_balance;
+    let gas_cost =
+        u256_to_alloy_u256(receipt.gas_used.unwrap() * receipt.effective_gas_price.unwrap());
+
+    assert_eq!(
+        gas_cost - diff,
+        u256_to_alloy_u256(REFUND_AMOUNT),
+        "Expected REFUND_AMOUNT to be refunded"
+    );
 
     // Verify that the refund went to tx::origin and not the receiver
     let receiver_eth_balance = ctx.get_eth_balance_of(receiver).await?;
@@ -631,9 +639,9 @@ pub async fn test_sponsored_match__refund_address__receiver(ctx: TestContext) ->
     let receiver = Address::random();
     let data = setup_sponsored_match_test(
         SponsoredMatchTestOptions {
-            refund_address: Address::zero(),
             receiver,
             in_kind_refund: true,
+            sign_refund_amount: true,
             ..Default::default()
         },
         &ctx,
@@ -656,7 +664,7 @@ pub async fn test_sponsored_match__refund_address__receiver(ctx: TestContext) ->
     let tx_origin_initial_balance =
         ctx.get_erc20_balance_of(buy_token_addr, ctx.client.address()).await?;
 
-    let receipt: TransactionReceipt = gas_sponsor_contract
+    gas_sponsor_contract
         .sponsor_atomic_match_settle_with_refund_options(
             receiver,
             serialize_to_calldata(
@@ -672,7 +680,7 @@ pub async fn test_sponsored_match__refund_address__receiver(ctx: TestContext) ->
             Address::zero(), // refund_address
             data.nonce,
             data.refund_native_eth,
-            data.conversion_rate,
+            data.refund_amount,
             data.signature,
         )
         .send()
@@ -683,7 +691,11 @@ pub async fn test_sponsored_match__refund_address__receiver(ctx: TestContext) ->
     let final_balance =
         ctx.get_erc20_balance_of(buy_token_addr, gas_sponsor_contract.address()).await?;
 
-    assert_token_gas_refund(initial_balance, final_balance, data.conversion_rate, receipt);
+    assert_eq!(
+        initial_balance - final_balance,
+        u256_to_alloy_u256(REFUND_AMOUNT),
+        "Expected REFUND_AMOUNT to be refunded"
+    );
 
     // Verify that the refund was sent to the receiver
     let receiver_balance = ctx.get_erc20_balance_of(buy_token_addr, receiver).await?;
@@ -701,3 +713,82 @@ pub async fn test_sponsored_match__refund_address__receiver(ctx: TestContext) ->
     Ok(())
 }
 integration_test_async!(test_sponsored_match__refund_address__receiver);
+
+/// Test that the gas refund is sent to msg::sender() when refund_address is
+/// zero, refund_native_eth is false, and the receiver is zero.
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match__refund_address__msg_sender(ctx: TestContext) -> Result<()> {
+    // Generate a random receiver address different from tx::origin to ensure
+    // we can properly test that the refund goes to the receiver and not tx::origin
+    let data = setup_sponsored_match_test(
+        SponsoredMatchTestOptions {
+            in_kind_refund: true,
+            sign_refund_amount: true,
+            ..Default::default()
+        },
+        &ctx,
+    )
+    .await?;
+
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let (buy_token_addr, _) = data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .external_party_buy_mint_amount();
+
+    let buy_token_addr = alloy_address_to_ethers_address(&buy_token_addr);
+
+    // msg::sender() will be ctx.client.address() in this case
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    gas_sponsor_contract
+        .sponsor_atomic_match_settle_with_refund_options(
+            Address::zero(), // receiver
+            serialize_to_calldata(
+                &data.process_atomic_match_settle_data.internal_party_match_payload,
+            )?,
+            serialize_to_calldata(
+                &data.process_atomic_match_settle_data.valid_match_settle_atomic_statement,
+            )?,
+            serialize_to_calldata(&data.process_atomic_match_settle_data.match_atomic_proofs)?,
+            serialize_to_calldata(
+                &data.process_atomic_match_settle_data.match_atomic_linking_proofs,
+            )?,
+            Address::zero(), // refund_address
+            data.nonce,
+            data.refund_native_eth,
+            data.refund_amount,
+            data.signature,
+        )
+        .send()
+        .await?
+        .await?
+        .expect("no tx receipt");
+
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    let base_amount = &data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .base_amount;
+
+    let fees = &data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .external_party_fees;
+
+    let received_in_match = base_amount - fees.total();
+
+    let post_refund_balance = final_balance - received_in_match;
+
+    assert_eq!(
+        post_refund_balance - initial_balance,
+        u256_to_alloy_u256(REFUND_AMOUNT),
+        "Expected REFUND_AMOUNT to be refunded"
+    );
+
+    Ok(())
+}
+integration_test_async!(test_sponsored_match__refund_address__msg_sender);
