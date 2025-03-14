@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.20;
+pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
-import {
-    PartyMatchPayload,
-    MatchProofs,
-    MatchLinkingProofs,
-    TransferAuthorization
-} from "renegade/libraries/darkpool/Types.sol";
-import { ValidWalletUpdateStatement, ValidMatchSettleStatement } from "renegade/libraries/darkpool/PublicInputs.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "renegade-lib/darkpool/types/Settlement.sol";
+import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import { ValidWalletUpdateStatement, ValidMatchSettleStatement } from "renegade-lib/darkpool/PublicInputs.sol";
 
 contract SettleMatchTest is DarkpoolTestBase {
     // --- Settle Match --- //

@@ -8,7 +8,7 @@ import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
 import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IHasher } from "./libraries/interfaces/IHasher.sol";
 import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
-import { IWETH9 } from "renegade/libraries/interfaces/IWETH9.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -20,28 +20,27 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
-} from "./libraries/darkpool/PublicInputs.sol";
-import { WalletOperations } from "./libraries/darkpool/WalletOperations.sol";
-import { TransferExecutor } from "./libraries/darkpool/ExternalTransfers.sol";
+} from "renegade-lib/darkpool/PublicInputs.sol";
+import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
+import { TransferExecutor } from "renegade-lib/darkpool/ExternalTransfers.sol";
+import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { ExternalTransfer } from "renegade-lib/darkpool/types/Transfers.sol";
 import {
-    TypesLib,
-    ExternalTransfer,
-    TransferAuthorization,
+    BoundedMatchResult,
+    ExternalMatchResult,
+    ExternalMatchDirection,
+    OrderSettlementIndices,
     PartyMatchPayload,
     MatchProofs,
     MatchLinkingProofs,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
-    MalleableMatchAtomicProofs,
-    ExternalMatchResult,
-    BoundedMatchResult,
-    ExternalMatchDirection,
-    OrderSettlementIndices,
-    FeeTake,
-    FeeTakeRate,
-    EncryptionKey
-} from "./libraries/darkpool/Types.sol";
-import { DarkpoolConstants } from "./libraries/darkpool/Constants.sol";
+    MalleableMatchAtomicProofs
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
+import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
+import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 

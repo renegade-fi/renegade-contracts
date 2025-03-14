@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { PlonkProof, VerificationKey } from "renegade/libraries/verifier/Types.sol";
+import { PlonkProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -11,19 +11,18 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
-} from "renegade/libraries/darkpool/PublicInputs.sol";
+} from "renegade-lib/darkpool/PublicInputs.sol";
+import { PartyMatchPayload } from "renegade-lib/darkpool/types/Settlement.sol";
+import { MatchProofs, MatchLinkingProofs } from "renegade-lib/darkpool/types/Settlement.sol";
 import {
-    PartyMatchPayload,
-    MatchProofs,
-    MatchLinkingProofs,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade/libraries/darkpool/Types.sol";
-import { VerificationKeys } from "renegade/libraries/darkpool/VerificationKeys.sol";
-import { IVerifier } from "renegade/libraries/interfaces/IVerifier.sol";
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "renegade/Verifier.sol";
-import { VerifierCore } from "renegade/libraries/verifier/VerifierCore.sol";
+import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 /// @title Test Verifier Implementation
