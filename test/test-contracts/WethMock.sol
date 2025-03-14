@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { IWETH9 } from "renegade/libraries/interfaces/IWETH9.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 
 /// @title WethMock

@@ -11,20 +11,15 @@ import { TestUtils } from "../utils/TestUtils.sol";
 import { CalldataUtils } from "../utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
-import {
-    ExternalTransfer,
-    TransferType,
-    TransferAuthorization,
-    PublicRootKey,
-    EncryptionKey
-} from "renegade/libraries/darkpool/Types.sol";
+import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
+import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { TestVerifier } from "../test-contracts/TestVerifier.sol";
 import { Darkpool } from "renegade/Darkpool.sol";
-import { NullifierLib } from "renegade/libraries/darkpool/NullifierSet.sol";
-import { WalletOperations } from "renegade/libraries/darkpool/WalletOperations.sol";
-import { IHasher } from "renegade/libraries/interfaces/IHasher.sol";
-import { IVerifier } from "renegade/libraries/interfaces/IVerifier.sol";
-import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
+import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
+import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.20;
+pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { EncryptionKey, TransferAuthorization } from "src/libraries/darkpool/Types.sol";
+import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
+import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
 import { ValidWalletUpdateStatement, ValidOfflineFeeSettlementStatement } from "src/libraries/darkpool/PublicInputs.sol";
 

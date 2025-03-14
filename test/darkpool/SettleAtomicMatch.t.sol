@@ -6,21 +6,19 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
+import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import {
-    TypesLib,
     PartyMatchPayload,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
-    TransferAuthorization,
     ExternalMatchDirection,
-    ExternalMatchResult,
-    FeeTake
-} from "renegade/libraries/darkpool/Types.sol";
-import { DarkpoolConstants } from "renegade/libraries/darkpool/Constants.sol";
-import {
-    ValidMatchSettleAtomicStatement, ValidWalletUpdateStatement
-} from "renegade/libraries/darkpool/PublicInputs.sol";
-import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
+    ExternalMatchResult
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
+import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+import { ValidMatchSettleAtomicStatement, ValidWalletUpdateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 contract SettleAtomicMatchTest is DarkpoolTestBase {
     using TypesLib for FeeTake;

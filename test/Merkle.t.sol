@@ -6,10 +6,10 @@ import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
-import { IHasher } from "renegade/libraries/interfaces/IHasher.sol";
-import { MerkleTreeLib } from "renegade/libraries/merkle/MerkleTree.sol";
-import { MerkleZeros } from "renegade/libraries/merkle/MerkleZeros.sol";
-import { DarkpoolConstants } from "renegade/libraries/darkpool/Constants.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
+import { MerkleZeros } from "renegade-lib/merkle/MerkleZeros.sol";
+import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 
 contract MerkleTest is TestUtils {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;

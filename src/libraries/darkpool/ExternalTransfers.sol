@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
+import { TypesLib, DEPOSIT_WITNESS_TYPE_STRING } from "renegade-lib/darkpool/types/TypesLib.sol";
 import {
-    TypesLib,
+    DepositWitness,
     ExternalTransfer,
     TransferType,
-    TransferAuthorization,
-    PublicRootKey,
-    publicKeyToUints,
-    DepositWitness,
-    DEPOSIT_WITNESS_TYPE_STRING
-} from "../darkpool/Types.sol";
-import { DarkpoolConstants } from "../darkpool/Constants.sol";
-import { WalletOperations } from "../darkpool/WalletOperations.sol";
+    TransferAuthorization
+} from "renegade-lib/darkpool/types/Transfers.sol";
+import { PublicRootKey, publicKeyToUints, publicKeyToUints } from "renegade-lib/darkpool/types/Keychain.sol";
+
+import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
-import { IWETH9 } from "renegade/libraries/interfaces/IWETH9.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 

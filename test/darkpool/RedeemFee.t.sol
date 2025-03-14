@@ -5,7 +5,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { TransferAuthorization } from "src/libraries/darkpool/Types.sol";
+import { TransferAuthorization } from "src/libraries/darkpool/types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
 import { ValidWalletUpdateStatement, ValidFeeRedemptionStatement } from "src/libraries/darkpool/PublicInputs.sol";
 

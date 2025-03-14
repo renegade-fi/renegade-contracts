@@ -19,7 +19,7 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
-} from "./libraries/darkpool/PublicInputs.sol";
+} from "renegade-lib/darkpool/PublicInputs.sol";
 import {
     PartyMatchPayload,
     MatchProofs,
@@ -27,11 +27,11 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "./libraries/darkpool/Types.sol";
-import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
-import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
-import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
-import { ProofLinkingCore } from "./libraries/verifier/ProofLinking.sol";
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
+import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 using StatementSerializer for ValidWalletCreateStatement;

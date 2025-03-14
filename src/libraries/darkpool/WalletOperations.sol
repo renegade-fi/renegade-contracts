@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { PublicRootKey } from "./Types.sol";
-import { IHasher } from "../interfaces/IHasher.sol";
-import { MerkleTreeLib } from "../merkle/MerkleTree.sol";
-import { NullifierLib } from "./NullifierSet.sol";
+import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
+import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
 
 // --- Helpers --- //
 

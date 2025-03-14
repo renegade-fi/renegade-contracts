@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { PlonkProof } from "renegade/libraries/verifier/Types.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -10,7 +10,7 @@ import {
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
-} from "renegade/libraries/darkpool/PublicInputs.sol";
+} from "renegade-lib/darkpool/PublicInputs.sol";
 import {
     PartyMatchPayload,
     MatchProofs,
@@ -18,7 +18,7 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade/libraries/darkpool/Types.sol";
+} from "renegade-lib/darkpool/types/Settlement.sol";
 
 interface IVerifier {
     /// @notice Verify a proof of `VALID WALLET CREATE`
