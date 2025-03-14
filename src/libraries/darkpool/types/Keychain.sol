@@ -26,3 +26,23 @@ function publicKeyToUints(PublicRootKey memory pk) pure returns (uint256[4] memo
     scalars[2] = BN254.ScalarField.unwrap(pk.y[0]);
     scalars[3] = BN254.ScalarField.unwrap(pk.y[1]);
 }
+
+/// @title PublicIdentificationKey
+/// @notice A public identification key
+struct PublicIdentificationKey {
+    /// @dev The public key
+    /// @dev This key is the image under hash of its corresponding secret key
+    /// @dev Knowledge of preimage is proven by the secret key's holder
+    BN254.ScalarField key;
+}
+
+/// @notice A public keychain for a wallet, which contains a list of public keys for various purposes
+struct PublicKeychain {
+    /// @dev The public root key
+    PublicRootKey pkRoot;
+    /// @dev The public match key
+    /// @dev The relayer proves knowledge of preimage to authorize matches it generates
+    PublicIdentificationKey pkMatch;
+    /// @dev The nonce of the keychain, allowing the keychain to be rotated, then separate recovered
+    uint256 nonce;
+}

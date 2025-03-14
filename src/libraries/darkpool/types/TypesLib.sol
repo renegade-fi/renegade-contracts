@@ -36,6 +36,13 @@ struct FixedPoint {
 library TypesLib {
     // --- Fixed Point --- //
 
+    /// @notice Wrap a uint256 into a FixedPoint
+    /// @param x The uint256 to wrap
+    /// @return A FixedPoint with the given representation
+    function wrap(uint256 x) public pure returns (FixedPoint memory) {
+        return FixedPoint({ repr: x });
+    }
+
     /// @notice Multiply a fixed point by a scalar and return the truncated result
     /// @dev Computes `(self.repr * scalar) / DarkpoolConstants.FIXED_POINT_PRECISION_BITS`
     /// @dev The repr already has the fixed point scaling value, so we only need to undo the
