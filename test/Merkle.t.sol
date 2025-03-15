@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";

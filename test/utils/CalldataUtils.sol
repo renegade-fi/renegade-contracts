@@ -9,7 +9,7 @@ import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { FixedPoint, TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { ExternalTransfer, TransferType, TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
 import { PublicRootKey, publicKeyToUints } from "renegade-lib/darkpool/types/Keychain.sol";
 import { DepositWitness } from "renegade-lib/darkpool/types/Transfers.sol";
@@ -18,12 +18,14 @@ import {
     MatchLinkingProofs,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
+    MalleableMatchAtomicProofs,
     PartyMatchPayload,
     ExternalMatchResult,
     ExternalMatchDirection,
+    BoundedMatchResult,
     OrderSettlementIndices
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
+import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
 import { EncryptionKey, ElGamalCiphertext } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { BabyJubJubPoint } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
@@ -35,6 +37,7 @@ import {
     ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
 } from "renegade-lib/darkpool/PublicInputs.sol";
@@ -238,6 +241,67 @@ contract CalldataUtils is TestUtils {
         });
     }
 
+    /// --- Settle Malleable Atomic Match --- ///
+
+    /// @notice Generate calldata for settling a malleable atomic match
+    /// @dev This is a helper function that generates calldata for a malleable atomic match, with a match direction
+    function settleMalleableAtomicMatchCalldata(BN254.ScalarField merkleRoot)
+        internal
+        returns (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        )
+    {
+        ExternalMatchDirection direction;
+        if (vm.randomBool()) {
+            direction = ExternalMatchDirection.InternalPartyBuy;
+        } else {
+            direction = ExternalMatchDirection.InternalPartySell;
+        }
+
+        return settleMalleableAtomicMatchCalldata(direction, merkleRoot);
+    }
+
+    /// @notice Generate calldata for settling a malleable atomic match, with a match direction
+    /// @param merkleRoot The merkle root of the wallet
+    /// @param direction The direction of the match
+    /// @return internalPartyPayload The payload for the internal party
+    /// @return statement The statement for the malleable atomic match
+    /// @return proofs The proofs for the malleable atomic match
+    /// @return linkingProofs The linking proofs for the malleable atomic match
+    function settleMalleableAtomicMatchCalldata(
+        ExternalMatchDirection direction,
+        BN254.ScalarField merkleRoot
+    )
+        internal
+        returns (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        )
+    {
+        internalPartyPayload = generatePartyMatchPayload(merkleRoot);
+        statement = ValidMalleableMatchSettleAtomicStatement({
+            matchResult: randomBoundedMatchResult(direction),
+            externalFeeRates: randomFeeTakeRate(),
+            internalFeeRates: randomFeeTakeRate(),
+            internalPartyPublicShares: randomWalletShares(),
+            relayerFeeAddress: vm.randomAddress()
+        });
+        proofs = MalleableMatchAtomicProofs({
+            validCommitments: dummyPlonkProof(),
+            validReblind: dummyPlonkProof(),
+            validMalleableMatchSettleAtomic: dummyPlonkProof()
+        });
+        linkingProofs = MatchAtomicLinkingProofs({
+            validReblindCommitments: dummyLinkingProof(),
+            validCommitmentsMatchSettleAtomic: dummyLinkingProof()
+        });
+    }
+
     /// --- Settle Offline Fee --- ///
 
     /// @notice Generate calldata for settling an offline fee
@@ -318,15 +382,6 @@ contract CalldataUtils is TestUtils {
         });
     }
 
-    /// @notice Generate a random set of order settlement indices
-    function randomOrderSettlementIndices() internal returns (OrderSettlementIndices memory indices) {
-        indices = OrderSettlementIndices({
-            balanceSend: randomUint(DarkpoolConstants.MAX_BALANCES),
-            balanceReceive: randomUint(DarkpoolConstants.MAX_BALANCES),
-            order: randomUint(DarkpoolConstants.MAX_ORDERS)
-        });
-    }
-
     /// @notice Generate a random external match result
     function randomExternalMatchResult() internal returns (ExternalMatchResult memory matchResult) {
         ExternalMatchDirection direction;
@@ -336,13 +391,77 @@ contract CalldataUtils is TestUtils {
             direction = ExternalMatchDirection.InternalPartySell;
         }
 
+        matchResult = randomExternalMatchResult(direction);
+    }
+
+    /// @dev Generate a random external match result
+    function randomExternalMatchResult(ExternalMatchDirection direction)
+        internal
+        returns (ExternalMatchResult memory matchResult)
+    {
         matchResult = ExternalMatchResult({
-            quoteMint: vm.randomAddress(),
             baseMint: vm.randomAddress(),
-            quoteAmount: randomAmount(),
+            quoteMint: vm.randomAddress(),
             baseAmount: randomAmount(),
+            quoteAmount: randomAmount(),
             direction: direction
         });
+    }
+
+    /// @dev Generate a random bounded match result
+    function randomBoundedMatchResult(ExternalMatchDirection direction)
+        internal
+        returns (BoundedMatchResult memory matchResult)
+    {
+        uint256 minAmt = randomAmount();
+        uint256 maxAmt = randomUint(minAmt, minAmt * 2);
+        matchResult = BoundedMatchResult({
+            quoteMint: vm.randomAddress(),
+            baseMint: vm.randomAddress(),
+            price: randomPrice(),
+            minBaseAmount: minAmt,
+            maxBaseAmount: maxAmt,
+            direction: direction
+        });
+    }
+
+    /// @dev Generate a random price
+    /// @dev We generate a random price between 0.01 and 1000 by generating a
+    /// @dev random fixed-point representation between 92233720368547760 (0.01) and
+    /// @dev 9223372036854775808000 (1000)
+    function randomPrice() internal returns (FixedPoint memory price) {
+        uint256 minPriceRepr = 92_233_720_368_547_760;
+        uint256 maxPriceRepr = 9_223_372_036_854_775_808_000;
+        price = FixedPoint({ repr: randomUint(minPriceRepr, maxPriceRepr) });
+    }
+
+    /// @dev Generate a random set of order settlement indices
+    function randomOrderSettlementIndices() internal returns (OrderSettlementIndices memory indices) {
+        uint256 bal1 = randomUint(DarkpoolConstants.MAX_BALANCES);
+        uint256 bal2 = randomUint(DarkpoolConstants.MAX_BALANCES);
+        while (bal2 == bal1) {
+            bal2 = randomUint(DarkpoolConstants.MAX_BALANCES);
+        }
+        uint256 order = randomUint(DarkpoolConstants.MAX_ORDERS);
+
+        indices = OrderSettlementIndices({ balanceSend: bal1, balanceReceive: bal2, order: order });
+    }
+
+    /// @dev Generate a random fee take rate
+    function randomFeeTakeRate() internal returns (FeeTakeRate memory feeRates) {
+        FixedPoint memory protocolFee = FixedPoint({ repr: TEST_PROTOCOL_FEE });
+        feeRates = FeeTakeRate({ relayerFeeRate: randomTakeRate(), protocolFeeRate: protocolFee });
+    }
+
+    /// @dev Generate a random take rate
+    function randomTakeRate() internal returns (FixedPoint memory feeRate) {
+        // Generate a random fee between 1bp and 10bps
+        // We use a fixed point representation of `x * 2^63` as is used throughout the system
+        // and generate a random integer representation between our bounds
+        uint256 oneBpFp = 922_337_203_685_477;
+        uint256 tenBpsFp = oneBpFp * 10;
+        uint256 randRepr = randomUint(oneBpFp, tenBpsFp);
+        feeRate = FixedPoint({ repr: randRepr });
     }
 
     /// --- Fees --- ///
