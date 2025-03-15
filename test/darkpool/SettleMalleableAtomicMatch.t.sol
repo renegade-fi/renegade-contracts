@@ -50,7 +50,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         ExternalMatchResult memory externalMatchResult = sampleExternalMatch(statement.matchResult);
         fundExternalPartyAndDarkpool(externalMatchResult);
         verifyMalleableAtomicMatch(
-            externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+            txSender, externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
         );
     }
 
@@ -70,7 +70,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         fundExternalPartyAndDarkpool(externalMatchResult);
 
         verifyMalleableAtomicMatch(
-            externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+            txSender, externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
         );
     }
 
@@ -90,7 +90,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         ExternalMatchResult memory externalMatchResult = sampleExternalMatch(statement.matchResult);
         fundExternalPartyAndDarkpool(externalMatchResult);
         verifyMalleableAtomicMatch(
-            externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+            txSender, externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
         );
     }
 
@@ -110,8 +110,53 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         ExternalMatchResult memory externalMatchResult = sampleExternalMatch(statement.matchResult);
         fundExternalPartyAndDarkpool(externalMatchResult);
         verifyMalleableAtomicMatch(
-            externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+            txSender, externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
         );
+    }
+
+    /// @notice Test settling a malleable atomic match with a receiver that is not the tx sender
+    function test_settleMalleableAtomicMatch_nonSenderReceiver() public {
+        address receiver = vm.randomAddress();
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Fund the external party and darkpool
+        ExternalMatchResult memory externalMatchResult = sampleExternalMatch(statement.matchResult);
+        fundExternalPartyAndDarkpool(externalMatchResult);
+
+        // Get the receiver and sender's balances before the match
+        (uint256 receiverBaseBalance1, uint256 receiverQuoteBalance1) = baseQuoteBalances(receiver);
+        (uint256 senderBaseBalance1, uint256 senderQuoteBalance1) = baseQuoteBalances(txSender);
+
+        // Submit the match
+        vm.startBroadcast(txSender);
+        darkpool.processMalleableAtomicMatchSettle(
+            externalMatchResult.baseAmount, receiver, internalPartyPayload, statement, proofs, linkingProofs
+        );
+        vm.stopBroadcast();
+
+        // Get the balances after the match
+        (uint256 receiverBaseBalance2, uint256 receiverQuoteBalance2) = baseQuoteBalances(receiver);
+        (uint256 senderBaseBalance2, uint256 senderQuoteBalance2) = baseQuoteBalances(txSender);
+
+        // Check the token flows
+        uint256 baseAmt = externalMatchResult.baseAmount;
+        uint256 quoteAmt = externalMatchResult.quoteAmount;
+        FeeTakeRate memory externalPartyFees = statement.externalFeeRates;
+        FeeTake memory externalPartyFeeTake = TypesLib.computeFeeTake(externalPartyFees, baseAmt);
+
+        // Check that the receiver got the tokens and sender didn't
+        assertEq(receiverBaseBalance2, receiverBaseBalance1 + baseAmt - externalPartyFeeTake.total());
+        assertEq(receiverQuoteBalance2, receiverQuoteBalance1);
+        assertEq(senderBaseBalance2, senderBaseBalance1);
+        assertEq(senderQuoteBalance2, senderQuoteBalance1 - quoteAmt);
     }
 
     // --- Helper Functions --- //
@@ -203,6 +248,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
     /// @notice Submit a malleable atomic match and check the token flows
     function verifyMalleableAtomicMatch(
+        address receiver,
         uint256 baseAmount,
         PartyMatchPayload memory internalPartyPayload,
         ValidMalleableMatchSettleAtomicStatement memory statement,
@@ -232,7 +278,6 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         }
 
         vm.startBroadcast(txSender);
-        address receiver = txSender;
         darkpool.processMalleableAtomicMatchSettle{ value: ethValue }(
             baseAmount, receiver, internalPartyPayload, statement, proofs, linkingProofs
         );
