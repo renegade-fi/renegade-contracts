@@ -5,7 +5,6 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { console2 } from "forge-std/console2.sol";
 
 import {
     PartyMatchPayload,
@@ -18,6 +17,7 @@ import {
     ExternalMatchDirection, BoundedMatchResult, ExternalMatchResult
 } from "renegade-lib/darkpool/types/Settlement.sol";
 import { ValidMalleableMatchSettleAtomicStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 
 contract SettleMalleableAtomicMatch is DarkpoolTestBase {
     using TypesLib for FeeTake;
@@ -74,6 +74,46 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         );
     }
 
+    /// @notice Test settling a malleable atomic match on the native asset, buy side
+    function test_settleMalleableAtomicMatch_nativeAssetBuySide() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+        statement.matchResult.baseMint = DarkpoolConstants.NATIVE_TOKEN_ADDRESS;
+
+        // Fund the external party and darkpool
+        ExternalMatchResult memory externalMatchResult = sampleExternalMatch(statement.matchResult);
+        fundExternalPartyAndDarkpool(externalMatchResult);
+        verifyMalleableAtomicMatch(
+            externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Test settling a malleable atomic match on the native asset, sell side
+    function test_settleMalleableAtomicMatch_nativeAssetSellSide() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartyBuy, merkleRoot);
+        statement.matchResult.baseMint = DarkpoolConstants.NATIVE_TOKEN_ADDRESS;
+
+        // Fund the external party and darkpool
+        ExternalMatchResult memory externalMatchResult = sampleExternalMatch(statement.matchResult);
+        fundExternalPartyAndDarkpool(externalMatchResult);
+        verifyMalleableAtomicMatch(
+            externalMatchResult.baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
     // --- Helper Functions --- //
 
     /// @notice Sample a random base amount between the bounds on a `BoundedMatchResult`
@@ -95,15 +135,36 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         (address buyMint, uint256 buyAmt) = TypesLib.externalPartyBuyMintAmount(externalMatchResult);
 
         // Fund the external party and darkpool
-        ERC20Mock sellToken = ERC20Mock(sellMint);
-        ERC20Mock buyToken = ERC20Mock(buyMint);
-        sellToken.mint(txSender, sellAmt);
-        buyToken.mint(address(darkpool), buyAmt);
+        fundExternalParty(sellMint, sellAmt);
+        fundDarkpool(buyMint, buyAmt);
 
         // Approve the darkpool to spend the tokens
-        vm.startBroadcast(txSender);
-        sellToken.approve(address(darkpool), sellAmt);
-        vm.stopBroadcast();
+        if (!DarkpoolConstants.isNativeToken(sellMint)) {
+            ERC20Mock sellToken = ERC20Mock(sellMint);
+            vm.startBroadcast(txSender);
+            sellToken.approve(address(darkpool), sellAmt);
+            vm.stopBroadcast();
+        }
+    }
+
+    /// @notice Fund the external party with the given amount of the given token
+    function fundExternalParty(address token, uint256 amt) internal {
+        if (DarkpoolConstants.isNativeToken(token)) {
+            vm.deal(txSender, amt);
+        } else {
+            ERC20Mock erc20 = ERC20Mock(token);
+            erc20.mint(txSender, amt);
+        }
+    }
+
+    /// @notice Fund the darkpool with the given amount of the given token
+    function fundDarkpool(address token, uint256 amt) internal {
+        if (DarkpoolConstants.isNativeToken(token)) {
+            weth.mint(address(darkpool), amt);
+        } else {
+            ERC20Mock erc20 = ERC20Mock(token);
+            erc20.mint(address(darkpool), amt);
+        }
     }
 
     /// @notice Generate the calldata for settling a malleable atomic match, using the testing contracts
@@ -151,24 +212,43 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         internal
     {
         // Get the balances before the match
-        (uint256 userBaseBalance1, uint256 userQuoteBalance1) = baseQuoteBalances(txSender);
-        (uint256 darkpoolBaseBalance1, uint256 darkpoolQuoteBalance1) = baseQuoteBalances(address(darkpool));
-        (uint256 relayerBaseBalance1, uint256 relayerQuoteBalance1) = baseQuoteBalances(relayerFeeAddr);
-        (uint256 protocolBaseBalance1, uint256 protocolQuoteBalance1) = baseQuoteBalances(protocolFeeAddr);
+        (
+            uint256 userBaseBalance1,
+            uint256 userQuoteBalance1,
+            uint256 darkpoolBaseBalance1,
+            uint256 darkpoolQuoteBalance1,
+            uint256 relayerBaseBalance1,
+            uint256 relayerQuoteBalance1,
+            uint256 protocolBaseBalance1,
+            uint256 protocolQuoteBalance1
+        ) = getPartyBalances(statement.matchResult.baseMint);
 
         // Submit the match
+        uint256 ethValue = 0;
+        bool isNative = DarkpoolConstants.isNativeToken(statement.matchResult.baseMint);
+        bool externalPartySells = statement.matchResult.direction == ExternalMatchDirection.InternalPartyBuy;
+        if (isNative && externalPartySells) {
+            ethValue = baseAmount;
+        }
+
         vm.startBroadcast(txSender);
         address receiver = txSender;
-        darkpool.processMalleableAtomicMatchSettle(
+        darkpool.processMalleableAtomicMatchSettle{ value: ethValue }(
             baseAmount, receiver, internalPartyPayload, statement, proofs, linkingProofs
         );
         vm.stopBroadcast();
 
         // Get the balances after the match
-        (uint256 userBaseBalance2, uint256 userQuoteBalance2) = baseQuoteBalances(txSender);
-        (uint256 darkpoolBaseBalance2, uint256 darkpoolQuoteBalance2) = baseQuoteBalances(address(darkpool));
-        (uint256 relayerBaseBalance2, uint256 relayerQuoteBalance2) = baseQuoteBalances(relayerFeeAddr);
-        (uint256 protocolBaseBalance2, uint256 protocolQuoteBalance2) = baseQuoteBalances(protocolFeeAddr);
+        (
+            uint256 userBaseBalance2,
+            uint256 userQuoteBalance2,
+            uint256 darkpoolBaseBalance2,
+            uint256 darkpoolQuoteBalance2,
+            uint256 relayerBaseBalance2,
+            uint256 relayerQuoteBalance2,
+            uint256 protocolBaseBalance2,
+            uint256 protocolQuoteBalance2
+        ) = getPartyBalances(statement.matchResult.baseMint);
 
         ExternalMatchResult memory externalMatchResult =
             TypesLib.buildExternalMatchResult(baseAmount, statement.matchResult);
@@ -201,6 +281,34 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
             assertEq(relayerQuoteBalance2, relayerQuoteBalance1 + externalPartyFees.relayerFee);
             assertEq(protocolBaseBalance2, protocolBaseBalance1);
             assertEq(protocolQuoteBalance2, protocolQuoteBalance1 + externalPartyFees.protocolFee);
+        }
+    }
+
+    /// @notice Get the balances of the user, darkpool, relayer, and protocol
+    function getPartyBalances(address baseMint)
+        internal
+        view
+        returns (
+            uint256 userBaseBalance,
+            uint256 userQuoteBalance,
+            uint256 darkpoolBaseBalance,
+            uint256 darkpoolQuoteBalance,
+            uint256 relayerBaseBalance,
+            uint256 relayerQuoteBalance,
+            uint256 protocolBaseBalance,
+            uint256 protocolQuoteBalance
+        )
+    {
+        if (DarkpoolConstants.isNativeToken(baseMint)) {
+            (userBaseBalance, userQuoteBalance) = etherQuoteBalances(txSender);
+            (darkpoolBaseBalance, darkpoolQuoteBalance) = wethQuoteBalances(address(darkpool));
+            (relayerBaseBalance, relayerQuoteBalance) = etherQuoteBalances(relayerFeeAddr);
+            (protocolBaseBalance, protocolQuoteBalance) = etherQuoteBalances(protocolFeeAddr);
+        } else {
+            (userBaseBalance, userQuoteBalance) = baseQuoteBalances(txSender);
+            (darkpoolBaseBalance, darkpoolQuoteBalance) = baseQuoteBalances(address(darkpool));
+            (relayerBaseBalance, relayerQuoteBalance) = baseQuoteBalances(relayerFeeAddr);
+            (protocolBaseBalance, protocolQuoteBalance) = baseQuoteBalances(protocolFeeAddr);
         }
     }
 }
