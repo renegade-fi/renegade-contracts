@@ -13,14 +13,16 @@ import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 uint256 constant MAX_ORDERS = 4;
 /// @dev The maximum number of balances in a wallet
 uint256 constant MAX_BALANCES = 10;
+/// @dev The number of scalars in a serialized wallet share
+uint256 constant NUM_WALLET_SCALARS = 70;
 
 /// @title WalletShare
 /// @notice A public secret share of a wallet
 struct WalletShare {
     /// @dev The list of balances in the wallet
-    Balance[MAX_BALANCES] balances;
+    BalanceShare[MAX_BALANCES] balances;
     /// @dev The list of orders in the wallet
-    Order[MAX_ORDERS] orders;
+    OrderShare[MAX_ORDERS] orders;
     /// @dev The keychain of the wallet
     PublicKeychain keychain;
     /// @dev The maximum match fee that the user is willing to pay for a match
@@ -31,30 +33,34 @@ struct WalletShare {
     BN254.ScalarField blinder;
 }
 
-/// @title Balance
+/// @title BalanceShare
 /// @notice A balance in the wallet
-struct Balance {
+/// @dev Note that the share type uses scalars for all entries, as this type represents a
+/// @dev additive secret share of a balance over the BN254 scalar field
+struct BalanceShare {
     /// @dev The address of the token
-    address token;
+    BN254.ScalarField token;
     /// @dev The amount of the balance
-    uint256 amount;
+    BN254.ScalarField amount;
     /// @dev The amount of the balance owed to the managing relayer cluster
-    uint256 relayerFeeBalance;
+    BN254.ScalarField relayerFeeBalance;
     /// @dev The amount of the balance owed to the protocol
-    uint256 protocolFeeBalance;
+    BN254.ScalarField protocolFeeBalance;
 }
 
-/// @title Order
+/// @title OrderShare
 /// @notice An order in the wallet
-struct Order {
+/// @dev Note that the share type uses scalars for all entries, as this type represents a
+/// @dev additive secret share of an order over the BN254 scalar field
+struct OrderShare {
     /// @dev The address of the quote mint
-    address quoteMint;
+    BN254.ScalarField quoteMint;
     /// @dev The address of the base mint
-    address baseMint;
+    BN254.ScalarField baseMint;
     /// @dev The direction of the order
-    OrderSide side;
+    BN254.ScalarField side;
     /// @dev The amount of the order
-    uint256 amount;
+    BN254.ScalarField amount;
     /// @dev The worst case price that the user is willing to accept on this order
     /// @dev If the order is a buy, this is the maximum price the user is willing to
     /// @dev pay. If the order is a sell, this is the minimum price the user is
@@ -62,21 +68,9 @@ struct Order {
     FixedPoint worstCasePrice;
 }
 
-/// @title OrderSide
-/// @notice The side of the order
-enum OrderSide {
-    /// @dev The buy side
-    Buy,
-    /// @dev The sell side
-    Sell
-}
-
 /// @title WalletLib
 /// @notice A library for operating on wallets
 library WalletLib {
-    /// @notice The number of scalars in a serialized wallet share
-    uint256 constant NUM_WALLET_SCALARS = 70;
-
     /// @notice Serialize a wallet share into a list of scalars
     /// @param wallet The wallet to serialize
     /// @return scalars The serialized wallet as a list of scalar field elements
@@ -86,18 +80,18 @@ library WalletLib {
         // Serialize the balances
         uint256 offset = 0;
         for (uint256 i = 0; i < MAX_BALANCES; i++) {
-            scalars[offset++] = BN254.ScalarField.wrap(uint256(uint160(wallet.balances[i].token)));
-            scalars[offset++] = BN254.ScalarField.wrap(wallet.balances[i].amount);
-            scalars[offset++] = BN254.ScalarField.wrap(wallet.balances[i].relayerFeeBalance);
-            scalars[offset++] = BN254.ScalarField.wrap(wallet.balances[i].protocolFeeBalance);
+            scalars[offset++] = wallet.balances[i].token;
+            scalars[offset++] = wallet.balances[i].amount;
+            scalars[offset++] = wallet.balances[i].relayerFeeBalance;
+            scalars[offset++] = wallet.balances[i].protocolFeeBalance;
         }
 
         // Serialize the orders
         for (uint256 i = 0; i < MAX_ORDERS; i++) {
-            scalars[offset++] = BN254.ScalarField.wrap(uint256(uint160(wallet.orders[i].quoteMint)));
-            scalars[offset++] = BN254.ScalarField.wrap(uint256(uint160(wallet.orders[i].baseMint)));
-            scalars[offset++] = BN254.ScalarField.wrap(uint256(wallet.orders[i].side));
-            scalars[offset++] = BN254.ScalarField.wrap(wallet.orders[i].amount);
+            scalars[offset++] = wallet.orders[i].quoteMint;
+            scalars[offset++] = wallet.orders[i].baseMint;
+            scalars[offset++] = wallet.orders[i].side;
+            scalars[offset++] = wallet.orders[i].amount;
             scalars[offset++] = BN254.ScalarField.wrap(wallet.orders[i].worstCasePrice.repr);
         }
 
@@ -107,7 +101,7 @@ library WalletLib {
         scalars[offset++] = wallet.keychain.pkRoot.y[0];
         scalars[offset++] = wallet.keychain.pkRoot.y[1];
         scalars[offset++] = wallet.keychain.pkMatch.key;
-        scalars[offset++] = BN254.ScalarField.wrap(wallet.keychain.nonce);
+        scalars[offset++] = wallet.keychain.nonce;
 
         // Serialize the max match fee
         scalars[offset++] = BN254.ScalarField.wrap(wallet.maxMatchFee.repr);
@@ -128,18 +122,18 @@ library WalletLib {
 
         // Deserialize the balances
         for (uint256 i = 0; i < MAX_BALANCES; i++) {
-            wallet.balances[i].token = address(uint160(BN254.ScalarField.unwrap(scalars[offset++])));
-            wallet.balances[i].amount = BN254.ScalarField.unwrap(scalars[offset++]);
-            wallet.balances[i].relayerFeeBalance = BN254.ScalarField.unwrap(scalars[offset++]);
-            wallet.balances[i].protocolFeeBalance = BN254.ScalarField.unwrap(scalars[offset++]);
+            wallet.balances[i].token = scalars[offset++];
+            wallet.balances[i].amount = scalars[offset++];
+            wallet.balances[i].relayerFeeBalance = scalars[offset++];
+            wallet.balances[i].protocolFeeBalance = scalars[offset++];
         }
 
         // Deserialize the orders
         for (uint256 i = 0; i < MAX_ORDERS; i++) {
-            wallet.orders[i].quoteMint = address(uint160(BN254.ScalarField.unwrap(scalars[offset++])));
-            wallet.orders[i].baseMint = address(uint160(BN254.ScalarField.unwrap(scalars[offset++])));
-            wallet.orders[i].side = OrderSide(BN254.ScalarField.unwrap(scalars[offset++]));
-            wallet.orders[i].amount = BN254.ScalarField.unwrap(scalars[offset++]);
+            wallet.orders[i].quoteMint = scalars[offset++];
+            wallet.orders[i].baseMint = scalars[offset++];
+            wallet.orders[i].side = scalars[offset++];
+            wallet.orders[i].amount = scalars[offset++];
             wallet.orders[i].worstCasePrice = FixedPoint({ repr: BN254.ScalarField.unwrap(scalars[offset++]) });
         }
 
@@ -149,7 +143,7 @@ library WalletLib {
         wallet.keychain.pkRoot.y[0] = scalars[offset++];
         wallet.keychain.pkRoot.y[1] = scalars[offset++];
         wallet.keychain.pkMatch.key = scalars[offset++];
-        wallet.keychain.nonce = BN254.ScalarField.unwrap(scalars[offset++]);
+        wallet.keychain.nonce = scalars[offset++];
 
         // Deserialize the max match fee
         wallet.maxMatchFee = FixedPoint({ repr: BN254.ScalarField.unwrap(scalars[offset++]) });

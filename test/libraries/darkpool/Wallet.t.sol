@@ -6,94 +6,164 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { PublicKeychain, PublicRootKey, PublicIdentificationKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/darkpool/types/Ciphertext.sol";
-import { WalletShare, WalletLib, OrderSide, Balance, Order } from "src/libraries/darkpool/types/Wallet.sol";
+import {
+    ExternalMatchResult,
+    ExternalMatchDirection,
+    OrderSettlementIndices
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import { WalletShare, WalletLib, BalanceShare, OrderShare } from "src/libraries/darkpool/types/Wallet.sol";
+import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
+import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
 import { TestUtils } from "test/utils/TestUtils.sol";
 
 contract WalletTest is TestUtils {
+    using BN254 for BN254.ScalarField;
+    using WalletLib for WalletShare;
+    using TypesLib for FeeTakeRate;
+    using TypesLib for FeeTake;
+
     /// @notice Test wallet serialization and deserialization
     function test_walletSerialization() public {
-        // Create a random wallet
-        WalletShare memory wallet = createRandomWallet();
+        // Generate random scalars
+        BN254.ScalarField[] memory scalars = randomWalletShares();
 
-        // Serialize then deserialize the wallet
-        BN254.ScalarField[] memory serialized = WalletLib.scalarSerialize(wallet);
-        WalletShare memory deserialized = WalletLib.scalarDeserialize(serialized);
+        // Deserialize into a wallet then re-serialize
+        WalletShare memory wallet = WalletLib.scalarDeserialize(scalars);
+        BN254.ScalarField[] memory reserialized = wallet.scalarSerialize();
 
-        // Verify all fields match
-        verifyWalletsEqual(wallet, deserialized);
+        // Verify all scalars match
+        for (uint256 i = 0; i < DarkpoolConstants.N_WALLET_SHARES; i++) {
+            assertEq(scalars[i], reserialized[i]);
+        }
     }
 
-    /// @notice Create a random wallet for testing
-    function createRandomWallet() internal returns (WalletShare memory wallet) {
-        // Fill balances
-        for (uint256 i = 0; i < 10; i++) {
-            wallet.balances[i] = Balance({
-                token: address(uint160(randomUint())),
-                amount: randomUint(),
-                relayerFeeBalance: randomUint(),
-                protocolFeeBalance: randomUint()
-            });
-        }
+    /// @notice Test the application of an external match to the wallet's shares
+    function test_applyExternalMatchToShares_sellSide() public {
+        // Generate a random wallet share and an external match result
+        WalletShare memory walletShare = randomWalletShare();
+        ExternalMatchResult memory matchResult = randomExternalMatchResult(ExternalMatchDirection.InternalPartySell);
+        OrderSettlementIndices memory indices = randomOrderSettlementIndices();
+        FeeTakeRate memory feeRates = randomFeeTakeRate();
 
-        // Fill orders
-        for (uint256 i = 0; i < 4; i++) {
-            wallet.orders[i] = Order({
-                quoteMint: address(uint160(randomUint())),
-                baseMint: address(uint160(randomUint())),
-                side: OrderSide(randomUint() % 2),
-                amount: randomUint(),
-                worstCasePrice: FixedPoint({ repr: randomUint() })
-            });
-        }
+        // Apply the match to the wallet's shares
+        BN254.ScalarField[] memory oldShares = walletShare.scalarSerialize();
+        BN254.ScalarField[] memory newShares =
+            WalletOperations.applyExternalMatchToShares(oldShares, feeRates, matchResult, indices);
 
-        // Fill keychain
-        wallet.keychain = PublicKeychain({
-            pkRoot: PublicRootKey({ x: [randomScalar(), randomScalar()], y: [randomScalar(), randomScalar()] }),
-            pkMatch: PublicIdentificationKey({ key: randomScalar() }),
-            nonce: randomUint()
+        // Verify the shares have been updated correctly
+        WalletShare memory newWalletShare = WalletLib.scalarDeserialize(newShares);
+        BN254.ScalarField quoteAmtScalar = BN254.ScalarField.wrap(matchResult.quoteAmount);
+        BN254.ScalarField baseAmtScalar = BN254.ScalarField.wrap(matchResult.baseAmount);
+        BN254.ScalarField expectedOrderSize = walletShare.orders[indices.order].amount.sub(baseAmtScalar);
+        BN254.ScalarField expectedBalanceSend = walletShare.balances[indices.balanceSend].amount.sub(baseAmtScalar);
+
+        FeeTake memory expectedFees = feeRates.computeFeeTake(matchResult.quoteAmount);
+        uint256 expectedReceiveAmount = matchResult.quoteAmount - expectedFees.total();
+        BN254.ScalarField expectedRecvScalar = BN254.ScalarField.wrap(expectedReceiveAmount);
+        BN254.ScalarField expectedBalanceReceive =
+            walletShare.balances[indices.balanceReceive].amount.add(expectedRecvScalar);
+        BN254.ScalarField expectedRelayerFee = walletShare.balances[indices.balanceReceive].relayerFeeBalance.add(
+            BN254.ScalarField.wrap(expectedFees.relayerFee)
+        );
+        BN254.ScalarField expectedProtocolFee = walletShare.balances[indices.balanceReceive].protocolFeeBalance.add(
+            BN254.ScalarField.wrap(expectedFees.protocolFee)
+        );
+
+        assertEq(newWalletShare.balances[indices.balanceSend].amount, expectedBalanceSend);
+        assertEq(newWalletShare.balances[indices.balanceReceive].amount, expectedBalanceReceive);
+        assertEq(newWalletShare.balances[indices.balanceReceive].relayerFeeBalance, expectedRelayerFee);
+        assertEq(newWalletShare.balances[indices.balanceReceive].protocolFeeBalance, expectedProtocolFee);
+        assertEq(newWalletShare.orders[indices.order].amount, expectedOrderSize);
+    }
+
+    /// @notice Test the application of an external match to the wallet's shares
+    function test_applyExternalMatchToShares_buySide() public {
+        // Generate a random wallet share and an external match result
+        WalletShare memory walletShare = randomWalletShare();
+        ExternalMatchResult memory matchResult = randomExternalMatchResult(ExternalMatchDirection.InternalPartyBuy);
+        OrderSettlementIndices memory indices = randomOrderSettlementIndices();
+        FeeTakeRate memory feeRates = randomFeeTakeRate();
+
+        // Apply the match to the wallet's shares
+        BN254.ScalarField[] memory oldShares = walletShare.scalarSerialize();
+        BN254.ScalarField[] memory newShares =
+            WalletOperations.applyExternalMatchToShares(oldShares, feeRates, matchResult, indices);
+
+        // Verify the shares have been updated correctly
+        WalletShare memory newWalletShare = WalletLib.scalarDeserialize(newShares);
+        BN254.ScalarField quoteAmtScalar = BN254.ScalarField.wrap(matchResult.quoteAmount);
+        BN254.ScalarField baseAmtScalar = BN254.ScalarField.wrap(matchResult.baseAmount);
+        BN254.ScalarField expectedOrderSize = walletShare.orders[indices.order].amount.sub(baseAmtScalar);
+        BN254.ScalarField expectedBalanceSend = walletShare.balances[indices.balanceSend].amount.sub(quoteAmtScalar);
+
+        FeeTake memory expectedFees = feeRates.computeFeeTake(matchResult.baseAmount);
+        uint256 expectedReceiveAmount = matchResult.baseAmount - expectedFees.total();
+        BN254.ScalarField expectedRecvScalar = BN254.ScalarField.wrap(expectedReceiveAmount);
+        BN254.ScalarField expectedBalanceReceive =
+            walletShare.balances[indices.balanceReceive].amount.add(expectedRecvScalar);
+        BN254.ScalarField expectedRelayerFee = walletShare.balances[indices.balanceReceive].relayerFeeBalance.add(
+            BN254.ScalarField.wrap(expectedFees.relayerFee)
+        );
+        BN254.ScalarField expectedProtocolFee = walletShare.balances[indices.balanceReceive].protocolFeeBalance.add(
+            BN254.ScalarField.wrap(expectedFees.protocolFee)
+        );
+
+        assertEq(newWalletShare.balances[indices.balanceSend].amount, expectedBalanceSend);
+        assertEq(newWalletShare.balances[indices.balanceReceive].amount, expectedBalanceReceive);
+        assertEq(newWalletShare.balances[indices.balanceReceive].relayerFeeBalance, expectedRelayerFee);
+        assertEq(newWalletShare.balances[indices.balanceReceive].protocolFeeBalance, expectedProtocolFee);
+        assertEq(newWalletShare.orders[indices.order].amount, expectedOrderSize);
+    }
+
+    // --- Helpers --- //
+
+    /// @dev Generate a random wallet share
+    function randomWalletShare() internal returns (WalletShare memory) {
+        BN254.ScalarField[] memory scalars = randomWalletShares();
+        return WalletLib.scalarDeserialize(scalars);
+    }
+
+    /// @dev Generate a random external match result
+    function randomExternalMatchResult(ExternalMatchDirection direction)
+        internal
+        returns (ExternalMatchResult memory matchResult)
+    {
+        matchResult = ExternalMatchResult({
+            baseMint: vm.randomAddress(),
+            quoteMint: vm.randomAddress(),
+            baseAmount: randomAmount(),
+            quoteAmount: randomAmount(),
+            direction: direction
         });
-
-        // Fill remaining fields
-        wallet.maxMatchFee = FixedPoint({ repr: randomUint() });
-        wallet.managingCluster = EncryptionKey({ point: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }) });
-        wallet.blinder = randomScalar();
     }
 
-    /// @notice Verify that two wallets have matching fields
-    function verifyWalletsEqual(WalletShare memory a, WalletShare memory b) internal {
-        // Verify balances
-        for (uint256 i = 0; i < 10; i++) {
-            assertEq(a.balances[i].token, b.balances[i].token);
-            assertEq(a.balances[i].amount, b.balances[i].amount);
-            assertEq(a.balances[i].relayerFeeBalance, b.balances[i].relayerFeeBalance);
-            assertEq(a.balances[i].protocolFeeBalance, b.balances[i].protocolFeeBalance);
+    /// @dev Generate a random set of order settlement indices
+    function randomOrderSettlementIndices() internal returns (OrderSettlementIndices memory indices) {
+        uint256 bal1 = randomUint(DarkpoolConstants.MAX_BALANCES);
+        uint256 bal2 = randomUint(DarkpoolConstants.MAX_BALANCES);
+        while (bal2 == bal1) {
+            bal2 = randomUint(DarkpoolConstants.MAX_BALANCES);
         }
+        uint256 order = randomUint(DarkpoolConstants.MAX_ORDERS);
 
-        // Verify orders
-        for (uint256 i = 0; i < 4; i++) {
-            assertEq(a.orders[i].quoteMint, b.orders[i].quoteMint);
-            assertEq(a.orders[i].baseMint, b.orders[i].baseMint);
-            assertEq(uint256(a.orders[i].side), uint256(b.orders[i].side));
-            assertEq(a.orders[i].amount, b.orders[i].amount);
-            assertEq(a.orders[i].worstCasePrice.repr, b.orders[i].worstCasePrice.repr);
-        }
+        indices = OrderSettlementIndices({ balanceSend: bal1, balanceReceive: bal2, order: order });
+    }
 
-        // Verify keychain
-        assertEq(BN254.ScalarField.unwrap(a.keychain.pkRoot.x[0]), BN254.ScalarField.unwrap(b.keychain.pkRoot.x[0]));
-        assertEq(BN254.ScalarField.unwrap(a.keychain.pkRoot.x[1]), BN254.ScalarField.unwrap(b.keychain.pkRoot.x[1]));
-        assertEq(BN254.ScalarField.unwrap(a.keychain.pkRoot.y[0]), BN254.ScalarField.unwrap(b.keychain.pkRoot.y[0]));
-        assertEq(BN254.ScalarField.unwrap(a.keychain.pkRoot.y[1]), BN254.ScalarField.unwrap(b.keychain.pkRoot.y[1]));
-        assertEq(BN254.ScalarField.unwrap(a.keychain.pkMatch.key), BN254.ScalarField.unwrap(b.keychain.pkMatch.key));
-        assertEq(a.keychain.nonce, b.keychain.nonce);
+    /// @dev Generate a random fee take rate
+    function randomFeeTakeRate() internal returns (FeeTakeRate memory feeRates) {
+        feeRates = FeeTakeRate({ relayerFeeRate: randomTakeRate(), protocolFeeRate: randomTakeRate() });
+    }
 
-        // Verify remaining fields
-        assertEq(a.maxMatchFee.repr, b.maxMatchFee.repr);
-        assertEq(
-            BN254.ScalarField.unwrap(a.managingCluster.point.x), BN254.ScalarField.unwrap(b.managingCluster.point.x)
-        );
-        assertEq(
-            BN254.ScalarField.unwrap(a.managingCluster.point.y), BN254.ScalarField.unwrap(b.managingCluster.point.y)
-        );
-        assertEq(BN254.ScalarField.unwrap(a.blinder), BN254.ScalarField.unwrap(b.blinder));
+    /// @dev Generate a random take rate
+    function randomTakeRate() internal returns (FixedPoint memory feeRate) {
+        // Generate a random fee between 1bp and 10bps
+        // We use a fixed point representation of `x * 2^63` as is used throughout the system
+        // and generate a random integer representation between our bounds
+        uint256 oneBpFp = 922_337_203_685_477;
+        uint256 tenBpsFp = oneBpFp * 10;
+        uint256 randRepr = randomUint(oneBpFp, tenBpsFp);
+        feeRate = FixedPoint({ repr: randRepr });
     }
 }

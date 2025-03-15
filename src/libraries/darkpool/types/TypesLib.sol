@@ -53,7 +53,7 @@ library TypesLib {
     /// @param scalar The scalar to multiply by
     /// @return The truncated result of the multiplication
     function unsafeFixedPointMul(FixedPoint memory self, uint256 scalar) public pure returns (uint256) {
-        return (self.repr * scalar) / DarkpoolConstants.FIXED_POINT_PRECISION_BITS;
+        return (self.repr * scalar) / (1 << DarkpoolConstants.FIXED_POINT_PRECISION_BITS);
     }
 
     // --- External Transfers --- //
