@@ -49,7 +49,7 @@ library WalletOperations {
         BN254.ScalarField nullifier,
         BN254.ScalarField historicalMerkleRoot,
         BN254.ScalarField newPrivateShareCommitment,
-        BN254.ScalarField[] calldata newPublicShares,
+        BN254.ScalarField[] memory newPublicShares,
         NullifierLib.NullifierSet storage nullifierSet,
         MerkleTreeLib.MerkleTree storage merkleTree,
         IHasher hasher
@@ -220,8 +220,8 @@ library WalletOperations {
         walletShare.orders[indices.order].amount = walletShare.orders[indices.order].amount.sub(matchResult.baseAmount);
 
         // Compute the fees owed by the internal party
-        (address _recvMint, uint256 recvAmount) = matchResult.externalPartySellMintAmount();
-        (address _sendMint, uint256 sendAmount) = matchResult.externalPartyBuyMintAmount();
+        (, uint256 recvAmount) = matchResult.externalPartySellMintAmount();
+        (, uint256 sendAmount) = matchResult.externalPartyBuyMintAmount();
         FeeTake memory internalPartyFees = internalPartyFeeRate.computeFeeTake(recvAmount);
 
         // Add the receive amount to the wallet's balances

@@ -112,7 +112,6 @@ contract RedeemFeeTest is DarkpoolTestBase {
     function test_redeemFee_invalidSignature() public {
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
-        Vm.Wallet memory signerWallet = randomEthereumWallet();
         Vm.Wallet memory receiverWallet = randomEthereumWallet();
 
         // Generate the calldata and redeem the fee

@@ -15,7 +15,7 @@ contract TestUtils is Test {
     // --- Assertions --- //
 
     /// @dev Assert that two BN254 scalar fields are equal
-    function assertEq(BN254.ScalarField a, BN254.ScalarField b) internal {
+    function assertEq(BN254.ScalarField a, BN254.ScalarField b) internal pure {
         assertEq(BN254.ScalarField.unwrap(a), BN254.ScalarField.unwrap(b));
     }
 
