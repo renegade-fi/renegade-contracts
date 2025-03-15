@@ -54,22 +54,16 @@ contract WalletTest is TestUtils {
 
         // Verify the shares have been updated correctly
         WalletShare memory newWalletShare = WalletLib.scalarDeserialize(newShares);
-        BN254.ScalarField quoteAmtScalar = BN254.ScalarField.wrap(matchResult.quoteAmount);
-        BN254.ScalarField baseAmtScalar = BN254.ScalarField.wrap(matchResult.baseAmount);
-        BN254.ScalarField expectedOrderSize = walletShare.orders[indices.order].amount.sub(baseAmtScalar);
-        BN254.ScalarField expectedBalanceSend = walletShare.balances[indices.balanceSend].amount.sub(baseAmtScalar);
-
         FeeTake memory expectedFees = feeRates.computeFeeTake(matchResult.quoteAmount);
         uint256 expectedReceiveAmount = matchResult.quoteAmount - expectedFees.total();
-        BN254.ScalarField expectedRecvScalar = BN254.ScalarField.wrap(expectedReceiveAmount);
-        BN254.ScalarField expectedBalanceReceive =
-            walletShare.balances[indices.balanceReceive].amount.add(expectedRecvScalar);
-        BN254.ScalarField expectedRelayerFee = walletShare.balances[indices.balanceReceive].relayerFeeBalance.add(
-            BN254.ScalarField.wrap(expectedFees.relayerFee)
-        );
-        BN254.ScalarField expectedProtocolFee = walletShare.balances[indices.balanceReceive].protocolFeeBalance.add(
-            BN254.ScalarField.wrap(expectedFees.protocolFee)
-        );
+        BalanceShare memory recvBal = walletShare.balances[indices.balanceReceive];
+        BalanceShare memory sendBal = walletShare.balances[indices.balanceSend];
+
+        BN254.ScalarField expectedOrderSize = walletShare.orders[indices.order].amount.sub(matchResult.baseAmount);
+        BN254.ScalarField expectedBalanceSend = sendBal.amount.sub(matchResult.baseAmount);
+        BN254.ScalarField expectedBalanceReceive = recvBal.amount.add(expectedReceiveAmount);
+        BN254.ScalarField expectedRelayerFee = recvBal.relayerFeeBalance.add(expectedFees.relayerFee);
+        BN254.ScalarField expectedProtocolFee = recvBal.protocolFeeBalance.add(expectedFees.protocolFee);
 
         assertEq(newWalletShare.balances[indices.balanceSend].amount, expectedBalanceSend);
         assertEq(newWalletShare.balances[indices.balanceReceive].amount, expectedBalanceReceive);
@@ -93,22 +87,16 @@ contract WalletTest is TestUtils {
 
         // Verify the shares have been updated correctly
         WalletShare memory newWalletShare = WalletLib.scalarDeserialize(newShares);
-        BN254.ScalarField quoteAmtScalar = BN254.ScalarField.wrap(matchResult.quoteAmount);
-        BN254.ScalarField baseAmtScalar = BN254.ScalarField.wrap(matchResult.baseAmount);
-        BN254.ScalarField expectedOrderSize = walletShare.orders[indices.order].amount.sub(baseAmtScalar);
-        BN254.ScalarField expectedBalanceSend = walletShare.balances[indices.balanceSend].amount.sub(quoteAmtScalar);
-
         FeeTake memory expectedFees = feeRates.computeFeeTake(matchResult.baseAmount);
         uint256 expectedReceiveAmount = matchResult.baseAmount - expectedFees.total();
-        BN254.ScalarField expectedRecvScalar = BN254.ScalarField.wrap(expectedReceiveAmount);
-        BN254.ScalarField expectedBalanceReceive =
-            walletShare.balances[indices.balanceReceive].amount.add(expectedRecvScalar);
-        BN254.ScalarField expectedRelayerFee = walletShare.balances[indices.balanceReceive].relayerFeeBalance.add(
-            BN254.ScalarField.wrap(expectedFees.relayerFee)
-        );
-        BN254.ScalarField expectedProtocolFee = walletShare.balances[indices.balanceReceive].protocolFeeBalance.add(
-            BN254.ScalarField.wrap(expectedFees.protocolFee)
-        );
+        BalanceShare memory recvBal = walletShare.balances[indices.balanceReceive];
+        BalanceShare memory sendBal = walletShare.balances[indices.balanceSend];
+
+        BN254.ScalarField expectedOrderSize = walletShare.orders[indices.order].amount.sub(matchResult.baseAmount);
+        BN254.ScalarField expectedBalanceSend = sendBal.amount.sub(matchResult.quoteAmount);
+        BN254.ScalarField expectedBalanceReceive = recvBal.amount.add(expectedReceiveAmount);
+        BN254.ScalarField expectedRelayerFee = recvBal.relayerFeeBalance.add(expectedFees.relayerFee);
+        BN254.ScalarField expectedProtocolFee = recvBal.protocolFeeBalance.add(expectedFees.protocolFee);
 
         assertEq(newWalletShare.balances[indices.balanceSend].amount, expectedBalanceSend);
         assertEq(newWalletShare.balances[indices.balanceReceive].amount, expectedBalanceReceive);
