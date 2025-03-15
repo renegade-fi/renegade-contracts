@@ -43,7 +43,7 @@ contract DarkpoolTestBase is CalldataUtils {
     bytes constant INVALID_ETH_VALUE_REVERT_STRING = "Invalid ETH value, should be zero unless selling native token";
     bytes constant INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING = "msg.value does not match deposit amount";
 
-    function setUp() public {
+    function setUp() public virtual {
         // Deploy a Permit2 instance for testing
         DeployPermit2 permit2Deployer = new DeployPermit2();
         permit2 = IPermit2(permit2Deployer.deployPermit2());
@@ -62,6 +62,24 @@ contract DarkpoolTestBase is CalldataUtils {
         protocolFeeAddr = vm.randomAddress();
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
         darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, verifier, permit2);
+    }
+
+    /// @dev Get the base and quote token amounts for an address
+    function baseQuoteBalances(address addr) public view returns (uint256 baseAmt, uint256 quoteAmt) {
+        baseAmt = baseToken.balanceOf(addr);
+        quoteAmt = quoteToken.balanceOf(addr);
+    }
+
+    /// @dev Get the weth and quote token balances for an address
+    function wethQuoteBalances(address addr) public view returns (uint256 wethAmt, uint256 quoteAmt) {
+        wethAmt = weth.balanceOf(addr);
+        quoteAmt = quoteToken.balanceOf(addr);
+    }
+
+    /// @dev Get the ether and quote token balances for an address
+    function etherQuoteBalances(address addr) public view returns (uint256 etherAmt, uint256 quoteAmt) {
+        etherAmt = addr.balance;
+        quoteAmt = quoteToken.balanceOf(addr);
     }
 
     // ---------------------------

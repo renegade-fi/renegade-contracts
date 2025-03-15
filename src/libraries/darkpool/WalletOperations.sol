@@ -11,7 +11,6 @@ import { ExternalMatchResult, OrderSettlementIndices } from "renegade-lib/darkpo
 import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 import { BalanceShare } from "renegade-lib/darkpool/types/Wallet.sol";
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { console2 } from "forge-std/console2.sol";
 
 // --- Helpers --- //
 

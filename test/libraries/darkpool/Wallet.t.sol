@@ -16,9 +16,9 @@ import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
-import { TestUtils } from "test/utils/TestUtils.sol";
+import { CalldataUtils } from "test/utils/CalldataUtils.sol";
 
-contract WalletTest is TestUtils {
+contract WalletTest is CalldataUtils {
     using BN254 for BN254.ScalarField;
     using WalletLib for WalletShare;
     using TypesLib for FeeTakeRate;
@@ -111,47 +111,5 @@ contract WalletTest is TestUtils {
     function randomWalletShare() internal returns (WalletShare memory) {
         BN254.ScalarField[] memory scalars = randomWalletShares();
         return WalletLib.scalarDeserialize(scalars);
-    }
-
-    /// @dev Generate a random external match result
-    function randomExternalMatchResult(ExternalMatchDirection direction)
-        internal
-        returns (ExternalMatchResult memory matchResult)
-    {
-        matchResult = ExternalMatchResult({
-            baseMint: vm.randomAddress(),
-            quoteMint: vm.randomAddress(),
-            baseAmount: randomAmount(),
-            quoteAmount: randomAmount(),
-            direction: direction
-        });
-    }
-
-    /// @dev Generate a random set of order settlement indices
-    function randomOrderSettlementIndices() internal returns (OrderSettlementIndices memory indices) {
-        uint256 bal1 = randomUint(DarkpoolConstants.MAX_BALANCES);
-        uint256 bal2 = randomUint(DarkpoolConstants.MAX_BALANCES);
-        while (bal2 == bal1) {
-            bal2 = randomUint(DarkpoolConstants.MAX_BALANCES);
-        }
-        uint256 order = randomUint(DarkpoolConstants.MAX_ORDERS);
-
-        indices = OrderSettlementIndices({ balanceSend: bal1, balanceReceive: bal2, order: order });
-    }
-
-    /// @dev Generate a random fee take rate
-    function randomFeeTakeRate() internal returns (FeeTakeRate memory feeRates) {
-        feeRates = FeeTakeRate({ relayerFeeRate: randomTakeRate(), protocolFeeRate: randomTakeRate() });
-    }
-
-    /// @dev Generate a random take rate
-    function randomTakeRate() internal returns (FixedPoint memory feeRate) {
-        // Generate a random fee between 1bp and 10bps
-        // We use a fixed point representation of `x * 2^63` as is used throughout the system
-        // and generate a random integer representation between our bounds
-        uint256 oneBpFp = 922_337_203_685_477;
-        uint256 tenBpsFp = oneBpFp * 10;
-        uint256 randRepr = randomUint(oneBpFp, tenBpsFp);
-        feeRate = FixedPoint({ repr: randRepr });
     }
 }

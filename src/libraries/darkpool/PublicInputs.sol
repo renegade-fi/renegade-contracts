@@ -557,7 +557,7 @@ library StatementSerializer {
     /// @param self The result to serialize
     /// @return serialized The serialized result as an array of scalar field elements
     function scalarSerialize(BoundedMatchResult memory self) internal pure returns (BN254.ScalarField[] memory) {
-        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](5);
+        BN254.ScalarField[] memory serialized = new BN254.ScalarField[](6);
 
         serialized[0] = BN254.ScalarField.wrap(uint256(uint160(self.quoteMint)));
         serialized[1] = BN254.ScalarField.wrap(uint256(uint160(self.baseMint)));

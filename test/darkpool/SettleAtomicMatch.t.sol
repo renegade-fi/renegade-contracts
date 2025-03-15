@@ -37,15 +37,10 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Setup tokens
         quoteToken.mint(externalParty.addr, QUOTE_AMT);
         baseToken.mint(address(darkpool), BASE_AMT);
-
-        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userInitialBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialBaseBalance = baseToken.balanceOf(address(darkpool));
-        uint256 relayerInitialQuoteBalance = quoteToken.balanceOf(relayerFeeAddr);
-        uint256 relayerInitialBaseBalance = baseToken.balanceOf(relayerFeeAddr);
-        uint256 protocolInitialQuoteBalance = quoteToken.balanceOf(protocolFeeAddr);
-        uint256 protocolInitialBaseBalance = baseToken.balanceOf(protocolFeeAddr);
+        (uint256 userBaseBalance1, uint256 userQuoteBalance1) = baseQuoteBalances(externalParty.addr);
+        (uint256 darkpoolBaseBalance1, uint256 darkpoolQuoteBalance1) = baseQuoteBalances(address(darkpool));
+        (uint256 relayerBaseBalance1, uint256 relayerQuoteBalance1) = baseQuoteBalances(relayerFeeAddr);
+        (uint256 protocolBaseBalance1, uint256 protocolQuoteBalance1) = baseQuoteBalances(protocolFeeAddr);
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -78,23 +73,19 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         assert(totalFee > 0); // Make sure we're testing fees
         uint256 expectedBaseAmt = BASE_AMT - totalFee;
 
-        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userFinalBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalBaseBalance = baseToken.balanceOf(address(darkpool));
-        uint256 relayerFinalQuoteBalance = quoteToken.balanceOf(relayerFeeAddr);
-        uint256 relayerFinalBaseBalance = baseToken.balanceOf(relayerFeeAddr);
-        uint256 protocolFinalQuoteBalance = quoteToken.balanceOf(protocolFeeAddr);
-        uint256 protocolFinalBaseBalance = baseToken.balanceOf(protocolFeeAddr);
+        (uint256 userBaseBalance2, uint256 userQuoteBalance2) = baseQuoteBalances(externalParty.addr);
+        (uint256 darkpoolBaseBalance2, uint256 darkpoolQuoteBalance2) = baseQuoteBalances(address(darkpool));
+        (uint256 relayerBaseBalance2, uint256 relayerQuoteBalance2) = baseQuoteBalances(relayerFeeAddr);
+        (uint256 protocolBaseBalance2, uint256 protocolQuoteBalance2) = baseQuoteBalances(protocolFeeAddr);
 
-        assertEq(userFinalQuoteBalance, userInitialQuoteBalance - QUOTE_AMT);
-        assertEq(userFinalBaseBalance, userInitialBaseBalance + expectedBaseAmt);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance + QUOTE_AMT);
-        assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance - BASE_AMT);
-        assertEq(relayerFinalQuoteBalance, relayerInitialQuoteBalance);
-        assertEq(relayerFinalBaseBalance, relayerInitialBaseBalance + fees.relayerFee);
-        assertEq(protocolFinalQuoteBalance, protocolInitialQuoteBalance);
-        assertEq(protocolFinalBaseBalance, protocolInitialBaseBalance + fees.protocolFee);
+        assertEq(userQuoteBalance2, userQuoteBalance1 - QUOTE_AMT);
+        assertEq(userBaseBalance2, userBaseBalance1 + expectedBaseAmt);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 + QUOTE_AMT);
+        assertEq(darkpoolBaseBalance2, darkpoolBaseBalance1 - BASE_AMT);
+        assertEq(relayerQuoteBalance2, relayerQuoteBalance1);
+        assertEq(relayerBaseBalance2, relayerBaseBalance1 + fees.relayerFee);
+        assertEq(protocolQuoteBalance2, protocolQuoteBalance1);
+        assertEq(protocolBaseBalance2, protocolBaseBalance1 + fees.protocolFee);
     }
 
     /// @notice Test settling an atomic match with the external party sell side
@@ -106,15 +97,10 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Setup tokens
         quoteToken.mint(address(darkpool), QUOTE_AMT);
         baseToken.mint(externalParty.addr, BASE_AMT);
-
-        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userInitialBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialBaseBalance = baseToken.balanceOf(address(darkpool));
-        uint256 relayerInitialQuoteBalance = quoteToken.balanceOf(relayerFeeAddr);
-        uint256 relayerInitialBaseBalance = baseToken.balanceOf(relayerFeeAddr);
-        uint256 protocolInitialQuoteBalance = quoteToken.balanceOf(protocolFeeAddr);
-        uint256 protocolInitialBaseBalance = baseToken.balanceOf(protocolFeeAddr);
+        (uint256 userBaseBalance1, uint256 userQuoteBalance1) = baseQuoteBalances(externalParty.addr);
+        (uint256 darkpoolBaseBalance1, uint256 darkpoolQuoteBalance1) = baseQuoteBalances(address(darkpool));
+        (uint256 relayerBaseBalance1, uint256 relayerQuoteBalance1) = baseQuoteBalances(relayerFeeAddr);
+        (uint256 protocolBaseBalance1, uint256 protocolQuoteBalance1) = baseQuoteBalances(protocolFeeAddr);
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -146,23 +132,19 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         uint256 totalFee = fees.total();
         uint256 expectedQuoteAmt = QUOTE_AMT - totalFee;
 
-        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userFinalBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalBaseBalance = baseToken.balanceOf(address(darkpool));
-        uint256 relayerFinalQuoteBalance = quoteToken.balanceOf(relayerFeeAddr);
-        uint256 relayerFinalBaseBalance = baseToken.balanceOf(relayerFeeAddr);
-        uint256 protocolFinalQuoteBalance = quoteToken.balanceOf(protocolFeeAddr);
-        uint256 protocolFinalBaseBalance = baseToken.balanceOf(protocolFeeAddr);
+        (uint256 userBaseBalance2, uint256 userQuoteBalance2) = baseQuoteBalances(externalParty.addr);
+        (uint256 darkpoolBaseBalance2, uint256 darkpoolQuoteBalance2) = baseQuoteBalances(address(darkpool));
+        (uint256 relayerBaseBalance2, uint256 relayerQuoteBalance2) = baseQuoteBalances(relayerFeeAddr);
+        (uint256 protocolBaseBalance2, uint256 protocolQuoteBalance2) = baseQuoteBalances(protocolFeeAddr);
 
-        assertEq(userFinalQuoteBalance, userInitialQuoteBalance + expectedQuoteAmt);
-        assertEq(userFinalBaseBalance, userInitialBaseBalance - BASE_AMT);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance - QUOTE_AMT);
-        assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance + BASE_AMT);
-        assertEq(relayerFinalQuoteBalance, relayerInitialQuoteBalance + fees.relayerFee);
-        assertEq(relayerFinalBaseBalance, relayerInitialBaseBalance);
-        assertEq(protocolFinalQuoteBalance, protocolInitialQuoteBalance + fees.protocolFee);
-        assertEq(protocolFinalBaseBalance, protocolInitialBaseBalance);
+        assertEq(userQuoteBalance2, userQuoteBalance1 + expectedQuoteAmt);
+        assertEq(userBaseBalance2, userBaseBalance1 - BASE_AMT);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 - QUOTE_AMT);
+        assertEq(darkpoolBaseBalance2, darkpoolBaseBalance1 + BASE_AMT);
+        assertEq(relayerQuoteBalance2, relayerQuoteBalance1 + fees.relayerFee);
+        assertEq(relayerBaseBalance2, relayerBaseBalance1);
+        assertEq(protocolQuoteBalance2, protocolQuoteBalance1 + fees.protocolFee);
+        assertEq(protocolBaseBalance2, protocolBaseBalance1);
     }
 
     /// @notice Test settling an atomic match with a non-sender receiver specified
@@ -173,12 +155,9 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Setup tokens
         quoteToken.mint(externalParty.addr, QUOTE_AMT);
         baseToken.mint(address(darkpool), BASE_AMT);
-        uint256 senderInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 senderInitialBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 receiverInitialQuoteBalance = quoteToken.balanceOf(receiver);
-        uint256 receiverInitialBaseBalance = baseToken.balanceOf(receiver);
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialBaseBalance = baseToken.balanceOf(address(darkpool));
+        (uint256 senderBaseBalance1, uint256 senderQuoteBalance1) = baseQuoteBalances(externalParty.addr);
+        (uint256 receiverBaseBalance1, uint256 receiverQuoteBalance1) = baseQuoteBalances(receiver);
+        (uint256 darkpoolBaseBalance1, uint256 darkpoolQuoteBalance1) = baseQuoteBalances(address(darkpool));
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -209,19 +188,16 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         uint256 totalFee = fees.total();
         uint256 expectedBaseAmt = BASE_AMT - totalFee;
 
-        uint256 senderFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 senderFinalBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 receiverFinalQuoteBalance = quoteToken.balanceOf(receiver);
-        uint256 receiverFinalBaseBalance = baseToken.balanceOf(receiver);
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalBaseBalance = baseToken.balanceOf(address(darkpool));
+        (uint256 senderBaseBalance2, uint256 senderQuoteBalance2) = baseQuoteBalances(externalParty.addr);
+        (uint256 receiverBaseBalance2, uint256 receiverQuoteBalance2) = baseQuoteBalances(receiver);
+        (uint256 darkpoolBaseBalance2, uint256 darkpoolQuoteBalance2) = baseQuoteBalances(address(darkpool));
 
-        assertEq(senderFinalQuoteBalance, senderInitialQuoteBalance - QUOTE_AMT);
-        assertEq(senderFinalBaseBalance, senderInitialBaseBalance);
-        assertEq(receiverFinalQuoteBalance, receiverInitialQuoteBalance);
-        assertEq(receiverFinalBaseBalance, receiverInitialBaseBalance + expectedBaseAmt);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance + QUOTE_AMT);
-        assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance - BASE_AMT);
+        assertEq(senderQuoteBalance2, senderQuoteBalance1 - QUOTE_AMT);
+        assertEq(senderBaseBalance2, senderBaseBalance1);
+        assertEq(receiverQuoteBalance2, receiverQuoteBalance1);
+        assertEq(receiverBaseBalance2, receiverBaseBalance1 + expectedBaseAmt);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 + QUOTE_AMT);
+        assertEq(darkpoolBaseBalance2, darkpoolBaseBalance1 - BASE_AMT);
     }
 
     /// @notice Test settling an atomic match with a non-sender receiver specified
@@ -232,12 +208,9 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Setup tokens
         quoteToken.mint(address(darkpool), QUOTE_AMT);
         baseToken.mint(externalParty.addr, BASE_AMT);
-        uint256 senderInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 senderInitialBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 receiverInitialQuoteBalance = quoteToken.balanceOf(receiver);
-        uint256 receiverInitialBaseBalance = baseToken.balanceOf(receiver);
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialBaseBalance = baseToken.balanceOf(address(darkpool));
+        (uint256 senderBaseBalance1, uint256 senderQuoteBalance1) = baseQuoteBalances(externalParty.addr);
+        (uint256 receiverBaseBalance1, uint256 receiverQuoteBalance1) = baseQuoteBalances(receiver);
+        (uint256 darkpoolBaseBalance1, uint256 darkpoolQuoteBalance1) = baseQuoteBalances(address(darkpool));
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -268,19 +241,16 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         uint256 totalFee = fees.total();
         uint256 expectedQuoteAmt = QUOTE_AMT - totalFee;
 
-        uint256 senderFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 senderFinalBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 receiverFinalQuoteBalance = quoteToken.balanceOf(receiver);
-        uint256 receiverFinalBaseBalance = baseToken.balanceOf(receiver);
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalBaseBalance = baseToken.balanceOf(address(darkpool));
+        (uint256 senderBaseBalance2, uint256 senderQuoteBalance2) = baseQuoteBalances(externalParty.addr);
+        (uint256 receiverBaseBalance2, uint256 receiverQuoteBalance2) = baseQuoteBalances(receiver);
+        (uint256 darkpoolBaseBalance2, uint256 darkpoolQuoteBalance2) = baseQuoteBalances(address(darkpool));
 
-        assertEq(senderFinalQuoteBalance, senderInitialQuoteBalance);
-        assertEq(senderFinalBaseBalance, senderInitialBaseBalance - BASE_AMT);
-        assertEq(receiverFinalQuoteBalance, receiverInitialQuoteBalance + expectedQuoteAmt);
-        assertEq(receiverFinalBaseBalance, receiverInitialBaseBalance);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance - QUOTE_AMT);
-        assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance + BASE_AMT);
+        assertEq(senderQuoteBalance2, senderQuoteBalance1);
+        assertEq(senderBaseBalance2, senderBaseBalance1 - BASE_AMT);
+        assertEq(receiverQuoteBalance2, receiverQuoteBalance1 + expectedQuoteAmt);
+        assertEq(receiverBaseBalance2, receiverBaseBalance1);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 - QUOTE_AMT);
+        assertEq(darkpoolBaseBalance2, darkpoolBaseBalance1 + BASE_AMT);
     }
 
     /// @notice Test settling an atomic match with a native token, buy side
@@ -291,10 +261,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         quoteToken.mint(externalParty.addr, QUOTE_AMT);
         weth.mint(address(darkpool), BASE_AMT);
 
-        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userInitialNativeBalance = externalParty.addr.balance;
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialWethBalance = weth.balanceOf(address(darkpool));
+        (uint256 userNativeBalance1, uint256 userQuoteBalance1) = etherQuoteBalances(externalParty.addr);
+        (uint256 darkpoolWethBalance1, uint256 darkpoolQuoteBalance1) = wethQuoteBalances(address(darkpool));
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -325,15 +293,13 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         uint256 totalFee = fees.total();
         uint256 expectedBaseAmt = BASE_AMT - totalFee;
 
-        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userFinalNativeBalance = externalParty.addr.balance;
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalWethBalance = weth.balanceOf(address(darkpool));
+        (uint256 userNativeBalance2, uint256 userQuoteBalance2) = etherQuoteBalances(externalParty.addr);
+        (uint256 darkpoolWethBalance2, uint256 darkpoolQuoteBalance2) = wethQuoteBalances(address(darkpool));
 
-        assertEq(userFinalQuoteBalance, userInitialQuoteBalance - QUOTE_AMT);
-        assertEq(userFinalNativeBalance, userInitialNativeBalance + expectedBaseAmt);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance + QUOTE_AMT);
-        assertEq(darkpoolFinalWethBalance, darkpoolInitialWethBalance - BASE_AMT);
+        assertEq(userQuoteBalance2, userQuoteBalance1 - QUOTE_AMT);
+        assertEq(userNativeBalance2, userNativeBalance1 + expectedBaseAmt);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 + QUOTE_AMT);
+        assertEq(darkpoolWethBalance2, darkpoolWethBalance1 - BASE_AMT);
     }
 
     /// @notice Test settling an atomic match with a native token, sell side
@@ -343,11 +309,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Setup tokens
         vm.deal(externalParty.addr, BASE_AMT);
         quoteToken.mint(address(darkpool), QUOTE_AMT);
-
-        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userInitialNativeBalance = externalParty.addr.balance;
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialWethBalance = weth.balanceOf(address(darkpool));
+        (uint256 userNativeBalance1, uint256 userQuoteBalance1) = etherQuoteBalances(externalParty.addr);
+        (uint256 darkpoolWethBalance1, uint256 darkpoolQuoteBalance1) = wethQuoteBalances(address(darkpool));
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -377,15 +340,13 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         uint256 totalFee = fees.total();
         uint256 expectedQuoteAmt = QUOTE_AMT - totalFee;
 
-        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userFinalNativeBalance = externalParty.addr.balance;
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalWethBalance = weth.balanceOf(address(darkpool));
+        (uint256 userNativeBalance2, uint256 userQuoteBalance2) = etherQuoteBalances(externalParty.addr);
+        (uint256 darkpoolWethBalance2, uint256 darkpoolQuoteBalance2) = wethQuoteBalances(address(darkpool));
 
-        assertEq(userFinalQuoteBalance, userInitialQuoteBalance + expectedQuoteAmt);
-        assertEq(userFinalNativeBalance, userInitialNativeBalance - BASE_AMT);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance - QUOTE_AMT);
-        assertEq(darkpoolFinalWethBalance, darkpoolInitialWethBalance + BASE_AMT);
+        assertEq(userQuoteBalance2, userQuoteBalance1 + expectedQuoteAmt);
+        assertEq(userNativeBalance2, userNativeBalance1 - BASE_AMT);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 - QUOTE_AMT);
+        assertEq(darkpoolWethBalance2, darkpoolWethBalance1 + BASE_AMT);
     }
 
     /// @notice Test settling an atomic match with a non-default protocol fee rate
@@ -403,10 +364,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         Vm.Wallet memory externalParty = randomEthereumWallet();
         baseToken.mint(externalParty.addr, BASE_AMT);
         quoteToken.mint(address(darkpool), QUOTE_AMT);
-        uint256 userInitialQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userInitialBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 darkpoolInitialQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolInitialBaseBalance = baseToken.balanceOf(address(darkpool));
+        (uint256 userBaseBalance1, uint256 userQuoteBalance1) = baseQuoteBalances(externalParty.addr);
+        (uint256 darkpoolBaseBalance1, uint256 darkpoolQuoteBalance1) = baseQuoteBalances(address(darkpool));
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -439,15 +398,13 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         uint256 totalFee = newFees.total();
         uint256 expectedQuoteAmt = QUOTE_AMT - totalFee;
 
-        uint256 userFinalQuoteBalance = quoteToken.balanceOf(externalParty.addr);
-        uint256 userFinalBaseBalance = baseToken.balanceOf(externalParty.addr);
-        uint256 darkpoolFinalQuoteBalance = quoteToken.balanceOf(address(darkpool));
-        uint256 darkpoolFinalBaseBalance = baseToken.balanceOf(address(darkpool));
+        (uint256 userBaseBalance2, uint256 userQuoteBalance2) = baseQuoteBalances(externalParty.addr);
+        (uint256 darkpoolBaseBalance2, uint256 darkpoolQuoteBalance2) = baseQuoteBalances(address(darkpool));
 
-        assertEq(userFinalQuoteBalance, userInitialQuoteBalance + expectedQuoteAmt);
-        assertEq(userFinalBaseBalance, userInitialBaseBalance - BASE_AMT);
-        assertEq(darkpoolFinalQuoteBalance, darkpoolInitialQuoteBalance - QUOTE_AMT);
-        assertEq(darkpoolFinalBaseBalance, darkpoolInitialBaseBalance + BASE_AMT);
+        assertEq(userQuoteBalance2, userQuoteBalance1 + expectedQuoteAmt);
+        assertEq(userBaseBalance2, userBaseBalance1 - BASE_AMT);
+        assertEq(darkpoolQuoteBalance2, darkpoolQuoteBalance1 - QUOTE_AMT);
+        assertEq(darkpoolBaseBalance2, darkpoolBaseBalance1 + BASE_AMT);
     }
 
     // --- Invalid Match Tests --- //
