@@ -54,7 +54,7 @@ contract DarkpoolTestBase is CalldataUtils {
         weth = new WethMock();
 
         // Capitalize the weth contract
-        vm.deal(address(weth), 100 ether);
+        vm.deal(address(weth), 100_000_000_000_000 ether);
 
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
