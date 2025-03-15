@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { MAX_ORDERS as WALLET_MAX_ORDERS, MAX_BALANCES as WALLET_MAX_BALANCES } from "./types/Wallet.sol";
+import {
+    MAX_ORDERS as WALLET_MAX_ORDERS,
+    MAX_BALANCES as WALLET_MAX_BALANCES,
+    NUM_WALLET_SCALARS
+} from "./types/Wallet.sol";
 
 /// @title Darkpool Constants
 /// @notice Constants used in the darkpool
@@ -11,7 +15,7 @@ library DarkpoolConstants {
     /// @notice The maximum number of balances in a wallet
     uint256 constant MAX_BALANCES = WALLET_MAX_BALANCES;
     /// @notice The number of shares in a wallet
-    uint256 constant N_WALLET_SHARES = 70;
+    uint256 constant N_WALLET_SHARES = NUM_WALLET_SCALARS;
     /// @notice The depth of the Merkle tree
     uint256 constant MERKLE_DEPTH = 32;
     /// @notice The maximum number of leaves in the merkle tree

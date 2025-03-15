@@ -12,6 +12,13 @@ contract TestUtils is Test {
     /// @dev The scalar field modulus for K256
     uint256 constant K256_SCALAR_MOD = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141;
 
+    // --- Assertions --- //
+
+    /// @dev Assert that two BN254 scalar fields are equal
+    function assertEq(BN254.ScalarField a, BN254.ScalarField b) internal {
+        assertEq(BN254.ScalarField.unwrap(a), BN254.ScalarField.unwrap(b));
+    }
+
     // --- Fuzzing Helpers --- //
 
     /// @dev Generates a random byte

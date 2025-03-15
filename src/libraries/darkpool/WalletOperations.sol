@@ -6,6 +6,12 @@ import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
+import { WalletShare, WalletLib } from "renegade-lib/darkpool/types/Wallet.sol";
+import { ExternalMatchResult, OrderSettlementIndices } from "renegade-lib/darkpool/types/Settlement.sol";
+import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
+import { BalanceShare } from "renegade-lib/darkpool/types/Wallet.sol";
+import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { console2 } from "forge-std/console2.sol";
 
 // --- Helpers --- //
 
@@ -25,6 +31,11 @@ function uintToScalarWords(uint256 value) pure returns (BN254.ScalarField low, B
 library WalletOperations {
     using NullifierLib for NullifierLib.NullifierSet;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
+    using WalletLib for WalletShare;
+    using TypesLib for FeeTakeRate;
+    using TypesLib for FeeTake;
+    using TypesLib for ExternalMatchResult;
+    using BN254 for BN254.ScalarField;
 
     /// @notice Rotate a wallet's shares, nullifying the previous shares and inserting the new shares
     /// @param nullifier The nullifier of the previous wallet's shares
@@ -185,5 +196,48 @@ library WalletOperations {
         // Hash and convert last 20 bytes to address
         bytes32 hash = keccak256(packed);
         return address(uint160(uint256(hash)));
+    }
+
+    /// @notice Apply an external match to a wallet's public shares
+    /// @param shares The wallet's shares
+    /// @param internalPartyFeeRate The fees due on the match
+    /// @param matchResult The result of the match
+    /// @param indices The order settlement indices to apply the match into
+    function applyExternalMatchToShares(
+        BN254.ScalarField[] memory shares,
+        FeeTakeRate memory internalPartyFeeRate,
+        ExternalMatchResult memory matchResult,
+        OrderSettlementIndices memory indices
+    )
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        // Deserialize the shares into a wallet share type
+        WalletShare memory walletShare = WalletLib.scalarDeserialize(shares);
+
+        // Deduct the matched amount from the order's volume
+        BN254.ScalarField baseAmt = BN254.ScalarField.wrap(matchResult.baseAmount);
+        walletShare.orders[indices.order].amount = walletShare.orders[indices.order].amount.sub(baseAmt);
+
+        // Compute the fees owed by the internal party
+        (address _recvMint, uint256 recvAmount) = matchResult.externalPartySellMintAmount();
+        (address _sendMint, uint256 sendAmount) = matchResult.externalPartyBuyMintAmount();
+        FeeTake memory internalPartyFees = internalPartyFeeRate.computeFeeTake(recvAmount);
+
+        // Add the receive amount to the wallet's balances
+        uint256 netReceiveAmount = recvAmount - internalPartyFees.total();
+        BalanceShare memory recvBal = walletShare.balances[indices.balanceReceive];
+        recvBal.amount = recvBal.amount.add(BN254.ScalarField.wrap(netReceiveAmount));
+        recvBal.relayerFeeBalance = recvBal.relayerFeeBalance.add(BN254.ScalarField.wrap(internalPartyFees.relayerFee));
+        recvBal.protocolFeeBalance =
+            recvBal.protocolFeeBalance.add(BN254.ScalarField.wrap(internalPartyFees.protocolFee));
+
+        // Deduct the send amount from the wallet's balances
+        BalanceShare memory sendBal = walletShare.balances[indices.balanceSend];
+        sendBal.amount = sendBal.amount.sub(BN254.ScalarField.wrap(sendAmount));
+
+        // Serialize the updated shares
+        return walletShare.scalarSerialize();
     }
 }

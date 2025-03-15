@@ -44,5 +44,5 @@ struct PublicKeychain {
     /// @dev The relayer proves knowledge of preimage to authorize matches it generates
     PublicIdentificationKey pkMatch;
     /// @dev The nonce of the keychain, allowing the keychain to be rotated, then separate recovered
-    uint256 nonce;
+    BN254.ScalarField nonce;
 }
