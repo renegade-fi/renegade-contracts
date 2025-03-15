@@ -49,7 +49,7 @@ library WalletOperations {
         BN254.ScalarField nullifier,
         BN254.ScalarField historicalMerkleRoot,
         BN254.ScalarField newPrivateShareCommitment,
-        BN254.ScalarField[] calldata newPublicShares,
+        BN254.ScalarField[] memory newPublicShares,
         NullifierLib.NullifierSet storage nullifierSet,
         MerkleTreeLib.MerkleTree storage merkleTree,
         IHasher hasher
@@ -217,25 +217,24 @@ library WalletOperations {
         WalletShare memory walletShare = WalletLib.scalarDeserialize(shares);
 
         // Deduct the matched amount from the order's volume
-        BN254.ScalarField baseAmt = BN254.ScalarField.wrap(matchResult.baseAmount);
-        walletShare.orders[indices.order].amount = walletShare.orders[indices.order].amount.sub(baseAmt);
+        walletShare.orders[indices.order].amount = walletShare.orders[indices.order].amount.sub(matchResult.baseAmount);
 
         // Compute the fees owed by the internal party
-        (address _recvMint, uint256 recvAmount) = matchResult.externalPartySellMintAmount();
-        (address _sendMint, uint256 sendAmount) = matchResult.externalPartyBuyMintAmount();
+        (, uint256 recvAmount) = matchResult.externalPartySellMintAmount();
+        (, uint256 sendAmount) = matchResult.externalPartyBuyMintAmount();
         FeeTake memory internalPartyFees = internalPartyFeeRate.computeFeeTake(recvAmount);
 
         // Add the receive amount to the wallet's balances
         uint256 netReceiveAmount = recvAmount - internalPartyFees.total();
         BalanceShare memory recvBal = walletShare.balances[indices.balanceReceive];
-        recvBal.amount = recvBal.amount.add(BN254.ScalarField.wrap(netReceiveAmount));
-        recvBal.relayerFeeBalance = recvBal.relayerFeeBalance.add(BN254.ScalarField.wrap(internalPartyFees.relayerFee));
-        recvBal.protocolFeeBalance =
-            recvBal.protocolFeeBalance.add(BN254.ScalarField.wrap(internalPartyFees.protocolFee));
+        BalanceShare memory sendBal = walletShare.balances[indices.balanceSend];
+
+        recvBal.amount = recvBal.amount.add(netReceiveAmount);
+        recvBal.relayerFeeBalance = recvBal.relayerFeeBalance.add(internalPartyFees.relayerFee);
+        recvBal.protocolFeeBalance = recvBal.protocolFeeBalance.add(internalPartyFees.protocolFee);
 
         // Deduct the send amount from the wallet's balances
-        BalanceShare memory sendBal = walletShare.balances[indices.balanceSend];
-        sendBal.amount = sendBal.amount.sub(BN254.ScalarField.wrap(sendAmount));
+        sendBal.amount = sendBal.amount.sub(sendAmount);
 
         // Serialize the updated shares
         return walletShare.scalarSerialize();

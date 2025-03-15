@@ -375,12 +375,14 @@ contract Darkpool {
     /// @dev The darkpool then uses the price specified in the statement to determine the quote amount and fees
     /// @dev for the match, then settles the obligations to both the internal and external parties
     /// @param baseAmount The base amount of the match, resolving in between the bounds
+    /// @param receiver The address that will receive the buy side token amount for the external party
     /// @param internalPartyPayload The validity proofs for the internal party
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
     function processMalleableAtomicMatchSettle(
         uint256 baseAmount,
+        address receiver,
         PartyMatchPayload calldata internalPartyPayload,
         ValidMalleableMatchSettleAtomicStatement calldata matchSettleStatement,
         MalleableMatchAtomicProofs calldata proofs,
@@ -418,14 +420,32 @@ contract Darkpool {
         ExternalMatchResult memory matchResult = TypesLib.buildExternalMatchResult(baseAmount, boundedMatchResult);
 
         // 5. Compute the fees due on the match
-        (address internalPartyReceiveMint, uint256 internalPartyReceiveAmount) =
-            matchResult.externalPartySellMintAmount();
-        (address externalPartyReceiveMint, uint256 externalPartyReceiveAmount) =
-            matchResult.externalPartyBuyMintAmount();
-        FeeTake memory internalPartyFeeTake = TypesLib.computeFeeTake(internalPartyFees, internalPartyReceiveAmount);
+        (, uint256 externalPartyReceiveAmount) = matchResult.externalPartyBuyMintAmount();
         FeeTake memory externalPartyFeeTake = TypesLib.computeFeeTake(externalPartyFees, externalPartyReceiveAmount);
 
-        require(false, "Not implemented");
+        // 6. Apply the match to the internal party's public shares
+        ValidReblindStatement calldata reblindStatement = internalPartyPayload.validReblindStatement;
+        ValidCommitmentsStatement calldata commitmentsStatement = internalPartyPayload.validCommitmentsStatement;
+        BN254.ScalarField[] memory newShares = WalletOperations.applyExternalMatchToShares(
+            matchSettleStatement.internalPartyPublicShares, internalPartyFees, matchResult, commitmentsStatement.indices
+        );
+
+        // 7. Insert the new shares into the Merkle tree
+        WalletOperations.rotateWallet(
+            reblindStatement.originalSharesNullifier,
+            reblindStatement.merkleRoot,
+            reblindStatement.newPrivateShareCommitment,
+            newShares,
+            nullifierSet,
+            merkleTree,
+            hasher
+        );
+
+        // 8. Execute external transfers to/from the external party
+        ValidMalleableMatchSettleAtomicStatement calldata statement = matchSettleStatement;
+        TransferExecutor.SimpleTransfer[] memory transfers =
+            buildAtomicMatchTransfers(receiver, statement.relayerFeeAddress, matchResult, externalPartyFeeTake);
+        TransferExecutor.executeTransferBatch(transfers, weth);
     }
 
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
