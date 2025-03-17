@@ -13,10 +13,15 @@ import {
 } from "renegade-lib/darkpool/types/Settlement.sol";
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import {
     ExternalMatchDirection, BoundedMatchResult, ExternalMatchResult
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import { ValidMalleableMatchSettleAtomicStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import {
+    ValidMalleableMatchSettleAtomicStatement,
+    ValidWalletUpdateStatement
+} from "renegade-lib/darkpool/PublicInputs.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 
 contract SettleMalleableAtomicMatch is DarkpoolTestBase {
@@ -157,6 +162,134 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         assertEq(receiverQuoteBalance2, receiverQuoteBalance1);
         assertEq(senderBaseBalance2, senderBaseBalance1);
         assertEq(senderQuoteBalance2, senderQuoteBalance1 - quoteAmt);
+    }
+
+    // --- Invalid Match Test Cases --- //
+
+    /// @notice Test settling a malleable match with a spent nullifier
+    function test_settleMalleableAtomicMatch_spentNullifier() public {
+        // Spend the nullifier with an update wallet
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        BN254.ScalarField nullifier = randomScalar();
+
+        // Update a wallet using the nullifier
+        (
+            bytes memory newSharesCommitmentSig,
+            ValidWalletUpdateStatement memory updateStatement,
+            PlonkProof memory updateProof
+        ) = updateWalletCalldata(hasher);
+        updateStatement.previousNullifier = nullifier;
+        updateStatement.merkleRoot = merkleRoot;
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, updateStatement, updateProof);
+
+        // Call the malleable match method with the nullifier
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Use the nullifier
+        internalPartyPayload.validReblindStatement.originalSharesNullifier = nullifier;
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        uint256 amount = statement.matchResult.minBaseAmount;
+        darkpool.processMalleableAtomicMatchSettle(
+            amount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Test settling a malleable match with an invalid Merkle root
+    function test_settleMalleableAtomicMatch_invalidMerkleRoot() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = randomScalar();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Should fail
+        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
+        darkpool.processMalleableAtomicMatchSettle(
+            statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Test settling a malleable match with a non-zero tx value, when the trade is not on the native asset
+    function test_settleMalleableAtomicMatch_nonNativeAssetWithEthValue() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Should fail
+        vm.expectRevert(INVALID_ETH_VALUE_REVERT_STRING);
+        darkpool.processMalleableAtomicMatchSettle{ value: 1 ether }(
+            statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Test settling a malleable match with too small of an ETH value for a native asset sell
+    function test_settleMalleableAtomicMatch_nativeAssetSell_valueTooSmall() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartyBuy, merkleRoot);
+        statement.matchResult.baseMint = DarkpoolConstants.NATIVE_TOKEN_ADDRESS;
+
+        // Should fail
+        uint256 value = statement.matchResult.minBaseAmount - 1;
+        vm.deal(txSender, value);
+
+        vm.startBroadcast(txSender);
+        vm.expectRevert(INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING);
+        darkpool.processMalleableAtomicMatchSettle{ value: value }(
+            statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+        vm.stopBroadcast();
+    }
+
+    /// @notice Test settling a malleable match that uses an incorrect protocol fee rate
+    function test_settleMalleableAtomicMatch_incorrectProtocolFeeRate() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Modify the fee on one of the parties
+        bytes memory revertMessage;
+        if (vm.randomBool()) {
+            // Modify the fee on the internal party's side
+            statement.internalFeeRates.protocolFeeRate = randomTakeRate();
+            revertMessage = INVALID_INTERNAL_PARTY_FEE_REVERT_STRING;
+        } else {
+            // Modify the fee on the external party's side
+            statement.externalFeeRates.protocolFeeRate = randomTakeRate();
+            revertMessage = INVALID_EXTERNAL_PARTY_FEE_REVERT_STRING;
+        }
+
+        // Should fail
+        vm.expectRevert(revertMessage);
+        darkpool.processMalleableAtomicMatchSettle(
+            statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
     }
 
     // --- Helper Functions --- //
