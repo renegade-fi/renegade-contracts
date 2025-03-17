@@ -13,4 +13,11 @@ contract CreateWalletTest is DarkpoolTestBase {
         (ValidWalletCreateStatement memory statement, PlonkProof memory proof) = createWalletCalldata();
         darkpool.createWallet(statement, proof);
     }
+
+    /// @notice Test creating a wallet with an invalid proof
+    function test_createWallet_invalidProof() public {
+        (ValidWalletCreateStatement memory statement, PlonkProof memory proof) = createWalletCalldata();
+        vm.expectRevert("Verification failed for wallet create");
+        darkpoolRealVerifier.createWallet(statement, proof);
+    }
 }

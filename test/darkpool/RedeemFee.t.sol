@@ -30,6 +30,21 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
     // --- Invalid Cases --- //
 
+    /// @notice Test redeeming a fee with an invalid proof
+    function test_redeemFee_invalidProof() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        Vm.Wallet memory receiverWallet = randomEthereumWallet();
+
+        // Generate the calldata and redeem the fee
+        (bytes memory newSharesCommitmentSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
+            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+
+        // Should fail
+        vm.expectRevert("Verification failed for fee redemption");
+        darkpoolRealVerifier.redeemFee(newSharesCommitmentSig, statement, proof);
+    }
+
     /// @notice Test redeeming a fee with an invalid wallet merkle root
     function test_redeemFee_invalidWalletMerkleRoot() public {
         // Setup calldata

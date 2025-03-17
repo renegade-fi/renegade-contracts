@@ -166,6 +166,24 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
     // --- Invalid Match Test Cases --- //
 
+    /// @notice Test settling a malleable match with an invalid proof
+    function test_settleMalleableAtomicMatch_invalidProof() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Should fail
+        vm.expectRevert("Verification failed for malleable match bundle");
+        darkpoolRealVerifier.processMalleableAtomicMatchSettle(
+            statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
     /// @notice Test settling a malleable match with a spent nullifier
     function test_settleMalleableAtomicMatch_spentNullifier() public {
         // Spend the nullifier with an update wallet

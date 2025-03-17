@@ -34,6 +34,23 @@ contract SettleMatchTest is DarkpoolTestBase {
         assertEq(darkpool.nullifierSpent(nullifier1), true);
     }
 
+    /// @notice Test settling a match with an invalid proof
+    function test_settleMatch_invalidProof() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        ) = settleMatchCalldata(merkleRoot);
+
+        // Should fail
+        vm.expectRevert("Verification failed for match bundle");
+        darkpoolRealVerifier.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
+    }
+
     /// @notice Test settling a match in which the nullifier of one party is spent
     function test_settleMatch_spentNullifier() public {
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();

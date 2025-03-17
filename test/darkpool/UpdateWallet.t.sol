@@ -31,60 +31,6 @@ contract UpdateWalletTest is DarkpoolTestBase {
         assertEq(darkpool.nullifierSpent(nullifier), true);
     }
 
-    /// @notice Test updating a wallet with an invalid Merkle root
-    function test_updateWallet_invalidMerkleRoot() public {
-        // Setup calldata
-        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
-        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
-
-        // Modify the merkle root to be invalid
-        statement.merkleRoot = randomScalar();
-
-        // Should fail
-        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
-        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
-    }
-
-    /// @notice Test updating a wallet with a spent nullifier
-    function test_updateWallet_spentNullifier() public {
-        // Setup calldata
-        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
-        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
-
-        // Modify the merkle root to be valid
-        BN254.ScalarField currRoot = darkpool.getMerkleRoot();
-        statement.merkleRoot = currRoot;
-
-        // First update should succeed
-        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
-
-        // Second update with same nullifier should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
-        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
-    }
-
-    /// @notice Test updating a wallet with an invalid signature
-    function test_updateWallet_invalidSignature() public {
-        // Setup calldata
-        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
-        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
-
-        // Use the current Merkle root to isolate the signature check directly
-        BN254.ScalarField currRoot = darkpool.getMerkleRoot();
-        statement.merkleRoot = currRoot;
-
-        // Modify a random byte of the signature
-        uint256 randIdx = randomUint(newSharesCommitmentSig.length);
-        newSharesCommitmentSig[randIdx] = randomByte();
-
-        // Should fail
-        vm.expectRevert(INVALID_SIGNATURE_REVERT_STRING);
-        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
-    }
-
     /// @notice Test updating a wallet with a deposit
     function test_updateWallet_deposit() public {
         uint256 depositAmount = 100;
@@ -156,5 +102,71 @@ contract UpdateWalletTest is DarkpoolTestBase {
         uint256 userBalanceAfter = quoteToken.balanceOf(userWallet.addr);
         assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore - withdrawalAmount);
         assertEq(userBalanceAfter, userBalanceBefore + withdrawalAmount);
+    }
+
+    // --- Invalid Test Cases --- //
+
+    /// @notice Test updating a wallet with an invalid proof
+    function test_updateWallet_invalidProof() public {
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
+
+        vm.expectRevert("Verification failed for wallet update");
+        darkpoolRealVerifier.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+    }
+
+    /// @notice Test updating a wallet with an invalid Merkle root
+    function test_updateWallet_invalidMerkleRoot() public {
+        // Setup calldata
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
+
+        // Modify the merkle root to be invalid
+        statement.merkleRoot = randomScalar();
+
+        // Should fail
+        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+    }
+
+    /// @notice Test updating a wallet with a spent nullifier
+    function test_updateWallet_spentNullifier() public {
+        // Setup calldata
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
+
+        // Modify the merkle root to be valid
+        BN254.ScalarField currRoot = darkpool.getMerkleRoot();
+        statement.merkleRoot = currRoot;
+
+        // First update should succeed
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+
+        // Second update with same nullifier should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+    }
+
+    /// @notice Test updating a wallet with an invalid signature
+    function test_updateWallet_invalidSignature() public {
+        // Setup calldata
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
+
+        // Use the current Merkle root to isolate the signature check directly
+        BN254.ScalarField currRoot = darkpool.getMerkleRoot();
+        statement.merkleRoot = currRoot;
+
+        // Modify a random byte of the signature
+        uint256 randIdx = randomUint(newSharesCommitmentSig.length);
+        newSharesCommitmentSig[randIdx] = randomByte();
+
+        // Should fail
+        vm.expectRevert(INVALID_SIGNATURE_REVERT_STRING);
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 }

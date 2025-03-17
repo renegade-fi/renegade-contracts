@@ -29,6 +29,19 @@ contract SettleOfflineFee is DarkpoolTestBase {
 
     // --- Invalid Test Cases --- //
 
+    /// @notice Test settling an offline fee with an invalid proof
+    function test_settleOfflineFee_invalidProof() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        EncryptionKey memory protocolFeeKey = darkpool.getProtocolFeeKey();
+        (ValidOfflineFeeSettlementStatement memory statement, PlonkProof memory proof) =
+            settleOfflineFeeCalldata(merkleRoot, protocolFeeKey);
+
+        // Should fail
+        vm.expectRevert("Verification failed for offline fee settlement");
+        darkpoolRealVerifier.settleOfflineFee(statement, proof);
+    }
+
     /// @notice Test settling an offline fee with an invalid Merkle root
     function test_settleOfflineFee_invalidMerkleRoot() public {
         // Get the protocol fee key and merkle root
