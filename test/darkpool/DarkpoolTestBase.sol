@@ -19,12 +19,15 @@ import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { Verifier } from "renegade/Verifier.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
 
     Darkpool public darkpool;
+    /// @dev A separate instance of the darkpool contract without a verifier mock
+    Darkpool public darkpoolRealVerifier;
     IHasher public hasher;
     NullifierLib.NullifierSet private testNullifierSet;
     IPermit2 public permit2;
@@ -61,9 +64,13 @@ contract DarkpoolTestBase is CalldataUtils {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifier();
+        IVerifier realVerifier = new Verifier();
         protocolFeeAddr = vm.randomAddress();
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
+
         darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, verifier, permit2);
+        darkpoolRealVerifier =
+            new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, realVerifier, permit2);
     }
 
     /// @dev Get the base and quote token amounts for an address

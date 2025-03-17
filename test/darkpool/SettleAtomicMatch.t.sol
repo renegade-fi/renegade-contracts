@@ -409,6 +409,30 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
     // --- Invalid Match Tests --- //
 
+    /// @notice Test settling an atomic match with an invalid proof
+    function test_settleAtomicMatch_invalidProof() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+
+        // Should fail
+        vm.expectRevert("Verification failed for atomic match bundle");
+        darkpoolRealVerifier.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+    }
+
     /// @notice Test settling an atomic match wherein the fees exceed the receive amount
     function test_settleAtomicMatch_feesExceedReceiveAmount() public {
         // Setup match
