@@ -21,6 +21,8 @@ import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "renegade/Verifier.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+import { VKeys } from "renegade/VKeys.sol";
+import { IVKeys } from "renegade/libraries/interfaces/IVKeys.sol";
 
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
@@ -34,6 +36,7 @@ contract DarkpoolTestBase is CalldataUtils {
     ERC20Mock public quoteToken;
     ERC20Mock public baseToken;
     WethMock public weth;
+    IVKeys public vkeys;
 
     address public protocolFeeAddr;
 
@@ -63,8 +66,9 @@ contract DarkpoolTestBase is CalldataUtils {
 
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
-        IVerifier verifier = new TestVerifier();
-        IVerifier realVerifier = new Verifier();
+        vkeys = new VKeys();
+        IVerifier verifier = new TestVerifier(vkeys);
+        IVerifier realVerifier = new Verifier(vkeys);
         protocolFeeAddr = vm.randomAddress();
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
