@@ -19,7 +19,7 @@ import {
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { IVKeys } from "renegade/libraries/interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "renegade/Verifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
@@ -31,8 +31,8 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 contract TestVerifier is IVerifier {
     Verifier private verifier;
 
-    constructor() {
-        verifier = new Verifier();
+    constructor(IVKeys _vkeys) {
+        verifier = new Verifier(_vkeys);
     }
 
     /// @notice Verify a proof of `VALID WALLET CREATE`

@@ -7,7 +7,7 @@ import {
     OpeningElements,
     ProofLinkingVK,
     ProofLinkingInstance
-} from "./libraries/verifier/Types.sol";
+} from "renegade-lib/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -28,7 +28,7 @@ import {
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { IVKeys } from "./libraries/interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
@@ -54,11 +54,16 @@ contract Verifier is IVerifier {
     uint256 public constant NUM_MALLEABLE_MATCH_PROOFS = 3;
     uint256 public constant NUM_MALLEABLE_MATCH_LINKING_PROOFS = 2;
 
+    IVKeys public immutable vkeys;
+
+    constructor(IVKeys _vkeys) {
+        vkeys = _vkeys;
+    }
+
     /// @notice Verify a proof of `VALID WALLET CREATE`
     /// @param statement The public inputs to the proof
     /// @param proof The proof to verify
     /// @return True if the proof is valid, false otherwise
-
     function verifyValidWalletCreate(
         ValidWalletCreateStatement memory statement,
         PlonkProof memory proof
@@ -67,7 +72,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_WALLET_CREATE_VKEY, (VerificationKey));
+        VerificationKey memory vk = vkeys.walletCreateKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -84,7 +89,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_WALLET_UPDATE_VKEY, (VerificationKey));
+        VerificationKey memory vk = vkeys.walletUpdateKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -107,9 +112,14 @@ contract Verifier is IVerifier {
         returns (bool)
     {
         // Load the verification keys
-        VerificationKey memory commitmentsVk = abi.decode(VerificationKeys.VALID_COMMITMENTS_VKEY, (VerificationKey));
-        VerificationKey memory reblindVk = abi.decode(VerificationKeys.VALID_REBLIND_VKEY, (VerificationKey));
-        VerificationKey memory settleVk = abi.decode(VerificationKeys.VALID_MATCH_SETTLE_VKEY, (VerificationKey));
+        (
+            VerificationKey memory commitmentsVk,
+            VerificationKey memory reblindVk,
+            VerificationKey memory settleVk,
+            ProofLinkingVK memory reblindCommitmentsVk,
+            ProofLinkingVK memory commitmentsMatchSettleVk0,
+            ProofLinkingVK memory commitmentsMatchSettleVk1
+        ) = vkeys.matchBundleKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_MATCH_PROOFS);
@@ -134,7 +144,9 @@ contract Verifier is IVerifier {
         vks[4] = settleVk;
 
         // Add proof linking instances to the opening
-        ProofLinkingInstance[] memory instances = createMatchLinkingInstances(matchProofs, matchLinkingProofs);
+        ProofLinkingInstance[] memory instances = createMatchLinkingInstances(
+            matchProofs, matchLinkingProofs, reblindCommitmentsVk, commitmentsMatchSettleVk0, commitmentsMatchSettleVk1
+        );
         OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
 
         // Verify the batch
@@ -158,9 +170,13 @@ contract Verifier is IVerifier {
         returns (bool)
     {
         // Load the verification keys
-        VerificationKey memory commitmentsVk = abi.decode(VerificationKeys.VALID_COMMITMENTS_VKEY, (VerificationKey));
-        VerificationKey memory reblindVk = abi.decode(VerificationKeys.VALID_REBLIND_VKEY, (VerificationKey));
-        VerificationKey memory settleVk = abi.decode(VerificationKeys.VALID_MATCH_SETTLE_ATOMIC_VKEY, (VerificationKey));
+        (
+            VerificationKey memory commitmentsVk,
+            VerificationKey memory reblindVk,
+            VerificationKey memory settleVk,
+            ProofLinkingVK memory reblindCommitmentsVk,
+            ProofLinkingVK memory commitmentsMatchSettleVk
+        ) = vkeys.atomicMatchBundleKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_ATOMIC_MATCH_PROOFS);
@@ -179,7 +195,9 @@ contract Verifier is IVerifier {
         vks[2] = settleVk;
 
         // Add proof linking instances to the opening
-        ProofLinkingInstance[] memory instances = createAtomicMatchLinkingInstances(matchProofs, matchLinkingProofs);
+        ProofLinkingInstance[] memory instances = createAtomicMatchLinkingInstances(
+            matchProofs, matchLinkingProofs, reblindCommitmentsVk, commitmentsMatchSettleVk
+        );
         OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
 
         // Verify the batch
@@ -203,10 +221,13 @@ contract Verifier is IVerifier {
         returns (bool)
     {
         // Load the verification keys
-        VerificationKey memory commitmentsVk = abi.decode(VerificationKeys.VALID_COMMITMENTS_VKEY, (VerificationKey));
-        VerificationKey memory reblindVk = abi.decode(VerificationKeys.VALID_REBLIND_VKEY, (VerificationKey));
-        VerificationKey memory settleVk =
-            abi.decode(VerificationKeys.VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEY, (VerificationKey));
+        (
+            VerificationKey memory commitmentsVk,
+            VerificationKey memory reblindVk,
+            VerificationKey memory settleVk,
+            ProofLinkingVK memory reblindCommitmentsVk,
+            ProofLinkingVK memory commitmentsMatchSettleVk
+        ) = vkeys.malleableMatchBundleKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_MALLEABLE_MATCH_PROOFS);
@@ -225,7 +246,9 @@ contract Verifier is IVerifier {
         vks[2] = settleVk;
 
         // Add proof linking instances to the opening
-        ProofLinkingInstance[] memory instances = createMalleableMatchLinkingInstances(proofBundle, linkingProofs);
+        ProofLinkingInstance[] memory instances = createMalleableMatchLinkingInstances(
+            proofBundle, linkingProofs, reblindCommitmentsVk, commitmentsMatchSettleVk
+        );
         OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
 
         // Verify the batch
@@ -244,7 +267,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_OFFLINE_FEE_SETTLEMENT_VKEY, (VerificationKey));
+        VerificationKey memory vk = vkeys.offlineFeeSettlementKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -261,7 +284,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = abi.decode(VerificationKeys.VALID_FEE_REDEMPTION_VKEY, (VerificationKey));
+        VerificationKey memory vk = vkeys.feeRedemptionKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -271,22 +294,22 @@ contract Verifier is IVerifier {
     /// @notice Create a set of match linking instances
     /// @param matchProofs The proofs for the match, including two sets of validity proofs and a settlement proof
     /// @param matchLinkingProofs The proof linking arguments for the match
+    /// @param reblindCommitmentsVk The linking key for `VALID REBLIND` -> `VALID COMMITMENTS`
+    /// @param commitmentsMatchSettleVk0 The linking key for `VALID COMMITMENTS` -> `VALID MATCH SETTLE`
+    /// @param commitmentsMatchSettleVk1 The linking key for `VALID COMMITMENTS` -> `VALID MATCH SETTLE`
     /// @return instances A set of match linking instances
     function createMatchLinkingInstances(
         MatchProofs calldata matchProofs,
-        MatchLinkingProofs calldata matchLinkingProofs
+        MatchLinkingProofs calldata matchLinkingProofs,
+        ProofLinkingVK memory reblindCommitmentsVk,
+        ProofLinkingVK memory commitmentsMatchSettleVk0,
+        ProofLinkingVK memory commitmentsMatchSettleVk1
     )
         internal
         pure
         returns (ProofLinkingInstance[] memory instances)
     {
         instances = new ProofLinkingInstance[](NUM_MATCH_LINKING_PROOFS);
-        ProofLinkingVK memory reblindCommitmentsVk =
-            abi.decode(VerificationKeys.VALID_REBLIND_COMMITMENTS_LINK_VKEY, (ProofLinkingVK));
-        ProofLinkingVK memory commitmentsMatchSettleVk0 =
-            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK0_VKEY, (ProofLinkingVK));
-        ProofLinkingVK memory commitmentsMatchSettleVk1 =
-            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK1_VKEY, (ProofLinkingVK));
 
         // Party 0: VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
@@ -324,23 +347,20 @@ contract Verifier is IVerifier {
     /// @notice Create a set of match linking instances for an atomic match bundle
     /// @param matchProofs The proofs for the match, including a validity proof and a settlement proof
     /// @param matchLinkingProofs The proof linking arguments for the match
+    /// @param reblindCommitmentsVk The linking key for `VALID REBLIND` -> `VALID COMMITMENTS`
+    /// @param commitmentsMatchSettleVk The linking key for `VALID COMMITMENTS` -> `VALID MATCH SETTLE ATOMIC`
     /// @return instances A set of match linking instances
     function createAtomicMatchLinkingInstances(
         MatchAtomicProofs calldata matchProofs,
-        MatchAtomicLinkingProofs calldata matchLinkingProofs
+        MatchAtomicLinkingProofs calldata matchLinkingProofs,
+        ProofLinkingVK memory reblindCommitmentsVk,
+        ProofLinkingVK memory commitmentsMatchSettleVk
     )
         internal
         pure
         returns (ProofLinkingInstance[] memory instances)
     {
-        instances = new ProofLinkingInstance[](NUM_MATCH_LINKING_PROOFS);
-        ProofLinkingVK memory reblindCommitmentsVk =
-            abi.decode(VerificationKeys.VALID_REBLIND_COMMITMENTS_LINK_VKEY, (ProofLinkingVK));
-
-        // We link the internal party in an atomic match into the layout of the first party in an
-        // internal match, so we use that vkey directly here
-        ProofLinkingVK memory commitmentsMatchSettleVk =
-            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK0_VKEY, (ProofLinkingVK));
+        instances = new ProofLinkingInstance[](NUM_ATOMIC_MATCH_LINKING_PROOFS);
 
         // VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
@@ -362,20 +382,20 @@ contract Verifier is IVerifier {
     /// @notice Create a set of match linking instances for a malleable match bundle
     /// @param proofs The proofs for the match, including a validity proof and a settlement proof
     /// @param linkingProofs The proof linking arguments for the match
+    /// @param reblindCommitmentsVk The linking key for `VALID REBLIND` -> `VALID COMMITMENTS`
+    /// @param commitmentsMatchSettleVk The linking key for `VALID COMMITMENTS` -> `VALID MALLEABLE MATCH SETTLE ATOMIC`
     /// @return instances A set of match linking instances
     function createMalleableMatchLinkingInstances(
         MalleableMatchAtomicProofs calldata proofs,
-        MatchAtomicLinkingProofs calldata linkingProofs
+        MatchAtomicLinkingProofs calldata linkingProofs,
+        ProofLinkingVK memory reblindCommitmentsVk,
+        ProofLinkingVK memory commitmentsMatchSettleVk
     )
         internal
         pure
         returns (ProofLinkingInstance[] memory instances)
     {
         instances = new ProofLinkingInstance[](NUM_MALLEABLE_MATCH_LINKING_PROOFS);
-        ProofLinkingVK memory reblindCommitmentsVk =
-            abi.decode(VerificationKeys.VALID_REBLIND_COMMITMENTS_LINK_VKEY, (ProofLinkingVK));
-        ProofLinkingVK memory commitmentsMatchSettleVk =
-            abi.decode(VerificationKeys.VALID_COMMITMENTS_MATCH_SETTLE_LINK0_VKEY, (ProofLinkingVK));
 
         // VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
