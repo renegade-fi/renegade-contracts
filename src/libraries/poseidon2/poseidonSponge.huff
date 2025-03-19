@@ -31,7 +31,7 @@
 }
 
 /// @dev Absorb two inputs into the state, adding them to the existing state without permutation
-#define macro ABSORB_NEXT_TWO() = takes(5) returns(5) {
+#define fn ABSORB_NEXT_TWO() = takes(5) returns(5) {
     // Takes    [state[0], state[1], state[2], len(inputs), *nextElem]
     // Returns  [state'[0], state'[1], state'[2], len(inputs) - 2, *nextElem + 64]
 
