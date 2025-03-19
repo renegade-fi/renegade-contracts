@@ -24,11 +24,7 @@ contract DeployDevScript is Script {
         console.log("WETH Mock deployed at:", address(weth));
 
         // Call the shared deployment logic
-
-        // Deploy Hasher
-        IHasher hasher = IHasher(HuffDeployer.broadcast("src/libraries/poseidon2/poseidonHasher"));
-        console.log("Hasher deployed at:", address(hasher));
-        // DeployUtils.deployCore(permit2, address(weth), address(0x42));
+        DeployUtils.deployCore(permit2, address(weth), address(0x42), vm);
         vm.stopBroadcast();
     }
 }
