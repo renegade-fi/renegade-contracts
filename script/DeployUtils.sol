@@ -16,17 +16,43 @@ import "renegade-lib/interfaces/IWETH9.sol";
 import "renegade-lib/darkpool/types/Ciphertext.sol";
 
 library DeployUtils {
+    /// @dev Deploy the Poseidon2 hasher contract
+    /// @param vm The VM to run the commands with
+    function deployHasher(Vm vm) internal returns (address) {
+        // Get the bytecode using huffc
+        string[] memory inputs = new string[](3);
+        inputs[0] = "huffc";
+        inputs[1] = "-b";
+        inputs[2] = "src/libraries/poseidon2/poseidonHasher.huff";
+        bytes memory bytecode = vm.ffi(inputs);
+
+        // Deploy the contract
+        address deployedAddress;
+        assembly {
+            deployedAddress :=
+                create(
+                    0, // value
+                    add(bytecode, 0x20), // bytecode start
+                    mload(bytecode) // bytecode length
+                )
+        }
+
+        require(deployedAddress != address(0), "Hasher deployment failed");
+        return deployedAddress;
+    }
+
     /// @notice Deploy core contracts
     function deployCore(
         address permit2Address,
         address wethAddress,
-        address protocolFeeAddr
+        address protocolFeeAddr,
+        Vm vm
     )
         internal
         returns (address darkpoolAddr)
     {
         // Deploy Hasher
-        IHasher hasher = IHasher(HuffDeployer.broadcast("src/libraries/poseidon2/poseidonHasher"));
+        IHasher hasher = IHasher(deployHasher(vm));
         console.log("Hasher deployed at:", address(hasher));
 
         // Deploy VKeys and Verifier

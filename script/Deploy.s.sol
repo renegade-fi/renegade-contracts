@@ -20,6 +20,6 @@ contract DeployScript is Script {
 
     function run(address permit2Address, address wethAddress, address protocolFeeAddr) public {
         // Call the shared deployment logic
-        DeployUtils.deployCore(permit2Address, wethAddress, protocolFeeAddr);
+        DeployUtils.deployCore(permit2Address, wethAddress, protocolFeeAddr, vm);
     }
 }
