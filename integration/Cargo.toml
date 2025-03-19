@@ -1,0 +1,19 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# === Renegade Dependencies === #
+test-helpers = { git = "https://github.com/renegade-fi/renegade" }
+
+# === Alloy Dependencies === #
+alloy = { version = "0.12", features = ["essentials"] }
+alloy-sol-macro = "0.8.23"
+
+# === Test Harness Dependencies === #
+clap = { version = "4.0", features = ["derive"] }
+colored = "3"
+eyre = "0.6"
+inventory = "0.3"
+tokio = { version = "1.36", features = ["full"] }
