@@ -27,6 +27,8 @@ const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 
 /// The provider type for the tests
 pub type Wallet = DynProvider<Ethereum>;
+/// A darkpool instance using the default generics
+pub type Darkpool = IDarkpoolInstance<(), Wallet, Ethereum>;
 
 /// The CLI arguments for the integration tests
 #[derive(Debug, Clone, Parser)]
@@ -56,7 +58,7 @@ struct TestArgs {
     /// The wallet for the tests
     wallet: Wallet,
     /// The darkpool contract instance
-    darkpool: IDarkpoolInstance<(), Wallet, Ethereum>,
+    darkpool: Darkpool,
 }
 
 impl From<CliArgs> for TestArgs {

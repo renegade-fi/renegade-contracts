@@ -4,8 +4,10 @@ use eyre::Result;
 use itertools::Itertools;
 use rand::thread_rng;
 use renegade_circuit_types::{
-    elgamal::DecryptionKey, fixed_point::FixedPoint,
-    native_helpers::compute_wallet_private_share_commitment, SizedWallet,
+    elgamal::DecryptionKey,
+    fixed_point::FixedPoint,
+    native_helpers::{compute_wallet_private_share_commitment, compute_wallet_share_commitment},
+    SizedWallet,
 };
 use renegade_circuits::{
     singleprover_prove,
@@ -17,9 +19,12 @@ use renegade_circuits::{
     },
 };
 use renegade_constants::Scalar;
-use test_helpers::integration_test_async;
+use test_helpers::{assert_true_result, integration_test_async};
 
-use crate::{util::wait_for_tx_success, TestArgs};
+use crate::{
+    util::{fetch_merkle_opening, wait_for_tx_success},
+    TestArgs,
+};
 
 // ---------
 // | Tests |
@@ -38,9 +43,39 @@ async fn test_create_wallet(args: TestArgs) -> Result<()> {
     let tx = darkpool.createWallet(contract_statement, contract_proof);
 
     // Wait for the transaction receipt and ensure it was successful
-    wait_for_tx_success(tx).await
+    wait_for_tx_success(tx).await.map(|_| ())
 }
 integration_test_async!(test_create_wallet);
+
+/// Tests recovering a wallet from a `createWallet` transaction
+#[allow(non_snake_case)]
+async fn test_create_wallet__recover_wallet(args: TestArgs) -> Result<()> {
+    let darkpool = args.darkpool.clone();
+
+    // Create a proof of `VALID WALLET CREATE`
+    let (witness, statement) = create_sized_witness_statement();
+    let proof = singleprover_prove::<SizedValidWalletCreate>(witness.clone(), statement.clone())?;
+
+    let contract_statement = statement.clone().into();
+    let contract_proof = proof.into();
+    let tx = darkpool.createWallet(contract_statement, contract_proof);
+
+    // Wait for the transaction receipt and ensure it was successful
+    wait_for_tx_success(tx).await?;
+
+    // Find the merkle opening for the wallet
+    let comm = compute_wallet_share_commitment(
+        &statement.public_wallet_shares,
+        &witness.private_wallet_share,
+    );
+    let opening = fetch_merkle_opening(comm, &darkpool).await?;
+
+    // Validate the opening
+    let root = opening.compute_root();
+    let valid_root = darkpool.check_root(root).await?;
+    assert_true_result!(valid_root)
+}
+integration_test_async!(test_create_wallet__recover_wallet);
 
 // -----------
 // | Helpers |
