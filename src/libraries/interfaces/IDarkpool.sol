@@ -43,7 +43,7 @@ interface IDarkpool {
     /// @param depth The depth at which the node is updated
     /// @param index The index of the node in the Merkle tree
     /// @param new_value The new value of the node
-    event MerkleOpeningNode(uint8 indexed depth, uint128 indexed index, uint256 indexed new_value);
+    event MerkleOpeningNode(uint8 indexed depth, uint128 indexed index, uint256 new_value);
     /// @notice Emitted when a Merkle leaf is inserted into the tree
     /// @param index The leaf index
     /// @param value The value of the leaf

@@ -71,7 +71,7 @@ impl From<PlonkProof> for ContractPlonkProof {
 // -----------
 
 /// Size a vector of values to be a known fixed size
-fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
+pub fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
     vec.try_into()
         .unwrap_or_else(|_| panic!("vector is not the correct size"))
 }
@@ -79,9 +79,15 @@ fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
 // --- Scalars --- //
 
 /// Convert a Scalar to a Uint256
-fn scalar_to_u256(scalar: Scalar) -> U256 {
+pub fn scalar_to_u256(scalar: Scalar) -> U256 {
     let bytes = scalar.to_bytes_be();
     bytes_to_u256(&bytes)
+}
+
+/// Convert a Uint256 to a Scalar
+pub fn u256_to_scalar(u256: U256) -> Scalar {
+    let bytes: [u8; 32] = u256.to_be_bytes();
+    Scalar::from_be_bytes_mod_order(&bytes)
 }
 
 /// Convert a `Fr` to a `U256`
