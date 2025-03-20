@@ -72,8 +72,11 @@ impl From<PlonkProof> for ContractPlonkProof {
 
 /// Size a vector of values to be a known fixed size
 pub fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
-    vec.try_into()
-        .unwrap_or_else(|_| panic!("vector is not the correct size"))
+    let size = vec.len();
+    if size != N {
+        panic!("vector is not the correct size: expected {N}, got {size}");
+    }
+    vec.try_into().map_err(|_| ()).unwrap()
 }
 
 // --- Scalars --- //

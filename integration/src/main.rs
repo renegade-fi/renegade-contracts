@@ -18,8 +18,17 @@ use alloy::providers::{DynProvider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::transports::http::reqwest::Url;
 use clap::Parser;
-
 use contracts::darkpool::IDarkpool::IDarkpoolInstance;
+use ethers_signers::LocalWallet;
+use eyre::{eyre, Result};
+use rand::thread_rng;
+use renegade_common::types::wallet::{
+    derivation::{
+        derive_blinder_seed, derive_share_seed, derive_wallet_id, derive_wallet_keychain,
+    },
+    Wallet as RenegadeWallet,
+};
+use renegade_constants::Scalar;
 use test_helpers::{integration_test_main, types::TestVerbosity};
 
 /// The default private key for the tests, the first default account in an Anvil node
@@ -60,6 +69,27 @@ struct TestArgs {
     /// The darkpool contract instance
     darkpool: Darkpool,
 }
+
+impl TestArgs {
+    /// Derive a keychain for the wallet
+    ///
+    /// Returns the blinder seed and the wallet
+    fn build_empty_renegade_wallet(&self) -> Result<(Scalar, RenegadeWallet)> {
+        let mut rng = thread_rng();
+        let ethers_wallet = LocalWallet::new(&mut rng);
+
+        let wallet_id = derive_wallet_id(&ethers_wallet).map_err(|e| eyre!(e))?;
+        let blinder_seed = derive_blinder_seed(&ethers_wallet).map_err(|e| eyre!(e))?;
+        let share_seed = derive_share_seed(&ethers_wallet).map_err(|e| eyre!(e))?;
+        let keychain = derive_wallet_keychain(&ethers_wallet, 1).map_err(|e| eyre!(e))?;
+        let wallet =
+            RenegadeWallet::new_empty_wallet(wallet_id, blinder_seed, share_seed, keychain);
+
+        Ok((blinder_seed, wallet))
+    }
+}
+
+// --- Setup --- //
 
 impl From<CliArgs> for TestArgs {
     fn from(args: CliArgs) -> Self {

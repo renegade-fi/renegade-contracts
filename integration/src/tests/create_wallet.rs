@@ -1,23 +1,13 @@
 //! Tests for creating a wallet
 
 use eyre::Result;
-use itertools::Itertools;
-use rand::thread_rng;
-use renegade_circuit_types::{
-    elgamal::DecryptionKey,
-    fixed_point::FixedPoint,
-    native_helpers::{compute_wallet_private_share_commitment, compute_wallet_share_commitment},
-    SizedWallet,
-};
 use renegade_circuits::{
     singleprover_prove,
-    zk_circuits::{
-        test_helpers::{create_wallet_shares_with_blinder_seed, PUBLIC_KEYS},
-        valid_wallet_create::{
-            SizedValidWalletCreate, SizedValidWalletCreateStatement, SizedValidWalletCreateWitness,
-        },
+    zk_circuits::valid_wallet_create::{
+        SizedValidWalletCreate, SizedValidWalletCreateStatement, SizedValidWalletCreateWitness,
     },
 };
+use renegade_common::types::wallet::Wallet;
 use renegade_constants::Scalar;
 use test_helpers::{assert_true_result, integration_test_async};
 
@@ -30,45 +20,16 @@ use crate::{
 // | Tests |
 // ---------
 
-/// Test creating a wallet
-async fn test_create_wallet(args: TestArgs) -> Result<()> {
-    let darkpool = args.darkpool.clone();
-
-    // Create a proof of `VALID WALLET CREATE`
-    let (witness, statement) = create_sized_witness_statement();
-    let proof = singleprover_prove::<SizedValidWalletCreate>(witness, statement.clone())?;
-
-    let contract_statement = statement.into();
-    let contract_proof = proof.into();
-    let tx = darkpool.createWallet(contract_statement, contract_proof);
-
-    // Wait for the transaction receipt and ensure it was successful
-    wait_for_tx_success(tx).await.map(|_| ())
-}
-integration_test_async!(test_create_wallet);
-
 /// Tests recovering a wallet from a `createWallet` transaction
 #[allow(non_snake_case)]
 async fn test_create_wallet__recover_wallet(args: TestArgs) -> Result<()> {
-    let darkpool = args.darkpool.clone();
-
-    // Create a proof of `VALID WALLET CREATE`
-    let (witness, statement) = create_sized_witness_statement();
-    let proof = singleprover_prove::<SizedValidWalletCreate>(witness.clone(), statement.clone())?;
-
-    let contract_statement = statement.clone().into();
-    let contract_proof = proof.into();
-    let tx = darkpool.createWallet(contract_statement, contract_proof);
-
-    // Wait for the transaction receipt and ensure it was successful
-    wait_for_tx_success(tx).await?;
+    // Create a wallet in the darkpool
+    let darkpool = &args.darkpool;
+    let wallet = create_darkpool_wallet(&args).await?;
 
     // Find the merkle opening for the wallet
-    let comm = compute_wallet_share_commitment(
-        &statement.public_wallet_shares,
-        &witness.private_wallet_share,
-    );
-    let opening = fetch_merkle_opening(comm, &darkpool).await?;
+    let comm = wallet.get_wallet_share_commitment();
+    let opening = fetch_merkle_opening(comm, darkpool).await?;
 
     // Validate the opening
     let root = opening.compute_root();
@@ -81,49 +42,41 @@ integration_test_async!(test_create_wallet__recover_wallet);
 // | Helpers |
 // -----------
 
-/// Create a `VALID WALLET CREATE` statement and witness
-pub fn create_sized_witness_statement() -> (
+/// Create a wallet in the darkpool and return the circuit representation
+pub async fn create_darkpool_wallet(args: &TestArgs) -> Result<Wallet> {
+    let darkpool = args.darkpool.clone();
+    let (blinder_seed, wallet) = args.build_empty_renegade_wallet()?;
+
+    let (witness, statement) = create_sized_witness_statement_with_wallet(blinder_seed, &wallet);
+    let proof = singleprover_prove::<SizedValidWalletCreate>(witness.clone(), statement.clone())?;
+
+    let contract_statement = statement.clone().into();
+    let contract_proof = proof.into();
+    let tx = darkpool.createWallet(contract_statement, contract_proof);
+
+    // Wait for the transaction receipt and ensure it was successful
+    wait_for_tx_success(tx).await?;
+    Ok(wallet)
+}
+
+/// Create a `VALID WALLET CREATE` statement and witness, using the given keychain
+pub fn create_sized_witness_statement_with_wallet(
+    blinder_seed: Scalar,
+    wallet: &Wallet,
+) -> (
     SizedValidWalletCreateWitness,
     SizedValidWalletCreateStatement,
 ) {
-    // Create an empty wallet
-    let mut rng = thread_rng();
-    let (_, enc) = DecryptionKey::random_pair(&mut rng);
-    let mut wallet = SizedWallet {
-        balances: create_default_arr(),
-        orders: create_default_arr(),
-        keys: PUBLIC_KEYS.clone(),
-        max_match_fee: FixedPoint::from_f64_round_down(0.0001),
-        managing_cluster: enc,
-        blinder: Scalar::zero(),
-    };
-
-    let blinder_seed = Scalar::random(&mut rng);
-    let (private_shares, public_shares) =
-        create_wallet_shares_with_blinder_seed(&mut wallet, blinder_seed);
-    let private_shares_commitment = compute_wallet_private_share_commitment(&private_shares);
+    let private_shares_commitment = wallet.get_private_share_commitment();
 
     (
         SizedValidWalletCreateWitness {
-            private_wallet_share: private_shares,
+            private_wallet_share: wallet.private_shares.clone(),
             blinder_seed,
         },
         SizedValidWalletCreateStatement {
             private_shares_commitment,
-            public_wallet_shares: public_shares,
+            public_wallet_shares: wallet.blinded_public_shares.clone(),
         },
     )
-}
-
-/// Create an array of default values
-pub fn create_default_arr<const N: usize, D: Default>() -> [D; N]
-where
-    [D; N]: Sized,
-{
-    (0..N)
-        .map(|_| D::default())
-        .collect_vec()
-        .try_into()
-        .map_err(|_| "Failed to create default array")
-        .unwrap()
 }
