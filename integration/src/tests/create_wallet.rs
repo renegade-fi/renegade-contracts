@@ -35,10 +35,10 @@ async fn test_create_wallet(args: TestArgs) -> Result<()> {
 
     let contract_statement = statement.into();
     let contract_proof = proof.into();
-    let pending_tx = darkpool.createWallet(contract_statement, contract_proof);
+    let tx = darkpool.createWallet(contract_statement, contract_proof);
 
     // Wait for the transaction receipt and ensure it was successful
-    wait_for_tx_success(pending_tx).await
+    wait_for_tx_success(tx).await
 }
 integration_test_async!(test_create_wallet);
 

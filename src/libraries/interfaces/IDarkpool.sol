@@ -34,6 +34,21 @@ import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 
 interface IDarkpool {
+    // --- Events --- //
+
+    /// @notice Emitted when a wallet update is performed
+    /// @param wallet_blinder_share The public blinder share of the wallet, used for indexing
+    event WalletUpdated(uint256 indexed wallet_blinder_share);
+    /// @notice Emitted when an internal Merkle node is updated
+    /// @param depth The depth at which the node is updated
+    /// @param index The index of the node in the Merkle tree
+    /// @param new_value The new value of the node
+    event MerkleOpeningNode(uint8 indexed depth, uint128 indexed index, uint256 indexed new_value);
+    /// @notice Emitted when a Merkle leaf is inserted into the tree
+    /// @param index The leaf index
+    /// @param value The value of the leaf
+    event MerkleInsertion(uint128 indexed index, uint256 indexed value);
+
     // --- State Getters --- //
 
     /// @notice Get the current Merkle root
