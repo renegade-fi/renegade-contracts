@@ -7,7 +7,7 @@ import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { ExternalTransfer, TransferType, TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
 import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { ValidWalletUpdateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { ValidWalletCreateStatement, ValidWalletUpdateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
 
 contract UpdateWalletTest is DarkpoolTestBase {
     // --- Update Wallet --- //
@@ -114,6 +114,25 @@ contract UpdateWalletTest is DarkpoolTestBase {
 
         vm.expectRevert("Verification failed for wallet update");
         darkpoolRealVerifier.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
+    }
+
+    /// @notice Test updating a wallet with a duplicate public blinder share
+    function test_updateWallet_duplicateBlinder() public {
+        // Create a wallet using the public blinder
+        (ValidWalletCreateStatement memory createStatement, PlonkProof memory createProof) = createWalletCalldata();
+        darkpool.createWallet(createStatement, createProof);
+        BN254.ScalarField publicBlinder = createStatement.publicShares[createStatement.publicShares.length - 1];
+
+        // Update the wallet with the same public blinder share
+        (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
+            updateWalletCalldata(hasher);
+        TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
+        statement.merkleRoot = darkpool.getMerkleRoot();
+        statement.newPublicShares[statement.newPublicShares.length - 1] = publicBlinder;
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
     /// @notice Test updating a wallet with an invalid Merkle root

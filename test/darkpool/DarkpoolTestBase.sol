@@ -40,7 +40,7 @@ contract DarkpoolTestBase is CalldataUtils {
 
     address public protocolFeeAddr;
 
-    bytes constant INVALID_NULLIFIER_REVERT_STRING = "Nullifier already spent";
+    bytes constant INVALID_NULLIFIER_REVERT_STRING = "nullifier/blinder already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
     bytes constant INVALID_NOTE_ROOT_REVERT_STRING = "Note not in Merkle history";
     bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
@@ -108,7 +108,7 @@ contract DarkpoolTestBase is CalldataUtils {
         assertEq(testNullifierSet.isSpent(nullifier), true);
 
         // Should fail
-        vm.expectRevert("Nullifier already spent");
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
         testNullifierSet.spend(nullifier);
     }
 }

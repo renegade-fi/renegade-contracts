@@ -17,7 +17,11 @@ import {
 import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
 import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
-import { ValidMatchSettleAtomicStatement, ValidWalletUpdateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import {
+    ValidWalletCreateStatement,
+    ValidMatchSettleAtomicStatement,
+    ValidWalletUpdateStatement
+} from "renegade-lib/darkpool/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 contract SettleAtomicMatchTest is DarkpoolTestBase {
@@ -431,6 +435,37 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Should fail
         vm.expectRevert("Verification failed for atomic match bundle");
         darkpoolRealVerifier.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+    }
+
+    /// @notice Test settling an atomic match with a duplicate public blinder share
+    function test_settleAtomicMatch_duplicateBlinder() public {
+        // Create a wallet using the public blinder
+        (ValidWalletCreateStatement memory createStatement, PlonkProof memory createProof) = createWalletCalldata();
+        darkpool.createWallet(createStatement, createProof);
+        BN254.ScalarField publicBlinder = createStatement.publicShares[createStatement.publicShares.length - 1];
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        statement.internalPartyModifiedShares[statement.internalPartyModifiedShares.length - 1] = publicBlinder;
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match wherein the fees exceed the receive amount

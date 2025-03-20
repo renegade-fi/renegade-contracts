@@ -25,7 +25,7 @@ library NullifierLib {
     /// @notice Mark a nullifier as spent
     /// @param nullifier The nullifier to spend
     function spend(NullifierSet storage self, BN254.ScalarField nullifier) public {
-        require(!isSpent(self, nullifier), "Nullifier already spent");
+        require(!isSpent(self, nullifier), "nullifier/blinder already spent");
         uint256 nullifierUint = BN254.ScalarField.unwrap(nullifier);
         self.nullifiers[nullifierUint] = true;
     }
