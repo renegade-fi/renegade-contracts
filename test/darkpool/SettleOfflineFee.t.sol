@@ -7,7 +7,11 @@ import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
-import { ValidWalletUpdateStatement, ValidOfflineFeeSettlementStatement } from "src/libraries/darkpool/PublicInputs.sol";
+import {
+    ValidWalletCreateStatement,
+    ValidWalletUpdateStatement,
+    ValidOfflineFeeSettlementStatement
+} from "src/libraries/darkpool/PublicInputs.sol";
 
 contract SettleOfflineFee is DarkpoolTestBase {
     // --- Settle Offline Fee --- //
@@ -40,6 +44,25 @@ contract SettleOfflineFee is DarkpoolTestBase {
         // Should fail
         vm.expectRevert("Verification failed for offline fee settlement");
         darkpoolRealVerifier.settleOfflineFee(statement, proof);
+    }
+
+    /// @notice Test settling an offline fee with a duplicate public blinder share
+    function test_settleOfflineFee_duplicateBlinder() public {
+        // Create a wallet using the public blinder
+        (ValidWalletCreateStatement memory createStatement, PlonkProof memory createProof) = createWalletCalldata();
+        darkpool.createWallet(createStatement, createProof);
+        BN254.ScalarField publicBlinder = createStatement.publicShares[createStatement.publicShares.length - 1];
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        EncryptionKey memory protocolFeeKey = darkpool.getProtocolFeeKey();
+        (ValidOfflineFeeSettlementStatement memory statement, PlonkProof memory proof) =
+            settleOfflineFeeCalldata(merkleRoot, protocolFeeKey);
+        statement.updatedWalletPublicShares[statement.updatedWalletPublicShares.length - 1] = publicBlinder;
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.settleOfflineFee(statement, proof);
     }
 
     /// @notice Test settling an offline fee with an invalid Merkle root

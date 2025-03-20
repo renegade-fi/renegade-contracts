@@ -7,7 +7,11 @@ import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "renegade-lib/darkpool/types/Settlement.sol";
 import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
-import { ValidWalletUpdateStatement, ValidMatchSettleStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import {
+    ValidWalletCreateStatement,
+    ValidWalletUpdateStatement,
+    ValidMatchSettleStatement
+} from "renegade-lib/darkpool/PublicInputs.sol";
 
 contract SettleMatchTest is DarkpoolTestBase {
     // --- Settle Match --- //
@@ -34,6 +38,8 @@ contract SettleMatchTest is DarkpoolTestBase {
         assertEq(darkpool.nullifierSpent(nullifier1), true);
     }
 
+    // --- Invalid Test Cases --- //
+
     /// @notice Test settling a match with an invalid proof
     function test_settleMatch_invalidProof() public {
         // Setup calldata
@@ -49,6 +55,36 @@ contract SettleMatchTest is DarkpoolTestBase {
         // Should fail
         vm.expectRevert("Verification failed for match bundle");
         darkpoolRealVerifier.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
+    }
+
+    /// @notice Test settling a match with a duplicate public blinder share
+    function test_settleMatch_duplicateBlinder() public {
+        // Create a wallet using the public blinder
+        (ValidWalletCreateStatement memory createStatement, PlonkProof memory createProof) = createWalletCalldata();
+        darkpool.createWallet(createStatement, createProof);
+        BN254.ScalarField publicBlinder = createStatement.publicShares[createStatement.publicShares.length - 1];
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        ) = settleMatchCalldata(merkleRoot);
+
+        if (vm.randomBool()) {
+            // Party 0 uses the duplicate public blinder
+            statement.firstPartyPublicShares[statement.firstPartyPublicShares.length - 1] = publicBlinder;
+        } else {
+            // Party 1 uses the duplicate public blinder
+            statement.secondPartyPublicShares[statement.secondPartyPublicShares.length - 1] = publicBlinder;
+        }
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling a match in which the nullifier of one party is spent

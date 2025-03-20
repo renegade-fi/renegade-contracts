@@ -19,6 +19,7 @@ import {
 } from "renegade-lib/darkpool/types/Settlement.sol";
 import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
 import {
+    ValidWalletCreateStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidWalletUpdateStatement
 } from "renegade-lib/darkpool/PublicInputs.sol";
@@ -180,6 +181,30 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         vm.expectRevert("Verification failed for malleable match bundle");
         darkpoolRealVerifier.processMalleableAtomicMatchSettle(
+            statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Test settling a malleable match with a duplicate public blinder share
+    function test_settleMalleableAtomicMatch_duplicateBlinder() public {
+        // Create a wallet using the public blinder
+        (ValidWalletCreateStatement memory createStatement, PlonkProof memory createProof) = createWalletCalldata();
+        darkpool.createWallet(createStatement, createProof);
+        BN254.ScalarField publicBlinder = createStatement.publicShares[createStatement.publicShares.length - 1];
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+        statement.internalPartyPublicShares[statement.internalPartyPublicShares.length - 1] = publicBlinder;
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.processMalleableAtomicMatchSettle(
             statement.matchResult.minBaseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
     }

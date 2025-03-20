@@ -5,6 +5,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "../interfaces/IHasher.sol";
 import { DarkpoolConstants } from "../darkpool/Constants.sol";
 import { MerkleZeros } from "./MerkleZeros.sol";
+import { IDarkpool } from "../interfaces/IDarkpool.sol";
 
 /// @title MerkleTreeLib
 /// @notice Library for Merkle tree operations
@@ -84,23 +85,34 @@ library MerkleTreeLib {
         // `subtreeFilled` maintains whether the subtree rooted at the current node is full
         // This is initially true, as the current node is the leaf being inserted
         bool subtreeFilled = true;
-        for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; i++) {
-            // If the subtree is full, we need to switch the sibling path entry at this height
-            uint256 idxBit = (idx >> i) & 1;
+        for (uint256 height = 0; height < DarkpoolConstants.MERKLE_DEPTH; height++) {
+            // Compute the insertion coordinates at the current height
+            uint256 idxAtHeight = idx >> height;
+            uint256 idxBit = idxAtHeight & 1;
             bool isRightChild = idxBit == 1;
+
+            // If the subtree is full, we need to switch the sibling path entry at this height
             if (subtreeFilled) {
                 if (isRightChild) {
                     // Right node, the new sibling is in a new sub-tree, and is the zero value
                     // for this depth in the tree
-                    tree.siblingPath[i] = zeroValue(i);
+                    tree.siblingPath[height] = zeroValue(height);
                 } else {
                     // Left node, the new sibling is the intermediate hash computed in the merkle insertion
-                    tree.siblingPath[i] = BN254.ScalarField.wrap(hashes[i]);
+                    tree.siblingPath[height] = BN254.ScalarField.wrap(hashes[height]);
                 }
             }
 
             // The parent's subtree is full if the current node is the right child, and its subtree is full
             subtreeFilled = isRightChild && subtreeFilled;
+
+            // Emit an event for indexers to track the opening of the current insertion
+            uint256 siblingIdx = isRightChild ? idxAtHeight - 1 : idxAtHeight + 1;
+            uint8 depth = uint8(DarkpoolConstants.MERKLE_DEPTH - height);
+            emit IDarkpool.MerkleOpeningNode(depth, uint128(siblingIdx), sisterLeaves[height]);
         }
+
+        // Log the updates to the Merkle tree after an insertion
+        emit IDarkpool.MerkleInsertion(uint128(idx), leafUint);
     }
 }

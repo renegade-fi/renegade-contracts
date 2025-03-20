@@ -7,7 +7,11 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { TransferAuthorization } from "src/libraries/darkpool/types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
-import { ValidWalletUpdateStatement, ValidFeeRedemptionStatement } from "src/libraries/darkpool/PublicInputs.sol";
+import {
+    ValidWalletCreateStatement,
+    ValidWalletUpdateStatement,
+    ValidFeeRedemptionStatement
+} from "src/libraries/darkpool/PublicInputs.sol";
 
 contract RedeemFeeTest is DarkpoolTestBase {
     // --- Redeem Fee --- //
@@ -43,6 +47,25 @@ contract RedeemFeeTest is DarkpoolTestBase {
         // Should fail
         vm.expectRevert("Verification failed for fee redemption");
         darkpoolRealVerifier.redeemFee(newSharesCommitmentSig, statement, proof);
+    }
+
+    /// @notice Test redeeming a fee with a duplicate public blinder share
+    function test_redeemFee_duplicateBlinder() public {
+        // Create a wallet using the public blinder
+        (ValidWalletCreateStatement memory createStatement, PlonkProof memory createProof) = createWalletCalldata();
+        darkpool.createWallet(createStatement, createProof);
+        BN254.ScalarField publicBlinder = createStatement.publicShares[createStatement.publicShares.length - 1];
+
+        // Redeem the fee with the same public blinder share
+        Vm.Wallet memory receiverWallet = randomEthereumWallet();
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (bytes memory redeemSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
+            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+        statement.newWalletPublicShares[statement.newWalletPublicShares.length - 1] = publicBlinder;
+
+        // Should fail
+        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        darkpool.redeemFee(redeemSig, statement, proof);
     }
 
     /// @notice Test redeeming a fee with an invalid wallet merkle root

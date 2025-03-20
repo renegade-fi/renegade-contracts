@@ -11,6 +11,7 @@ import { ExternalMatchResult, OrderSettlementIndices } from "renegade-lib/darkpo
 import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 import { BalanceShare } from "renegade-lib/darkpool/types/Wallet.sol";
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { IDarkpool } from "../interfaces/IDarkpool.sol";
 
 // --- Helpers --- //
 
@@ -50,6 +51,7 @@ library WalletOperations {
         BN254.ScalarField newPrivateShareCommitment,
         BN254.ScalarField[] memory newPublicShares,
         NullifierLib.NullifierSet storage nullifierSet,
+        NullifierLib.NullifierSet storage publicBlinderSet,
         MerkleTreeLib.MerkleTree storage merkleTree,
         IHasher hasher
     )
@@ -63,7 +65,8 @@ library WalletOperations {
         require(merkleTree.rootInHistory(historicalMerkleRoot), "Merkle root not in history");
 
         // 3. Insert the new shares into the Merkle tree
-        newCommitment = insertWalletCommitment(newPrivateShareCommitment, newPublicShares, merkleTree, hasher);
+        newCommitment =
+            insertWalletCommitment(newPrivateShareCommitment, newPublicShares, merkleTree, publicBlinderSet, hasher);
     }
 
     /// @notice Insert a wallet's shares into the Merkle tree
@@ -74,11 +77,18 @@ library WalletOperations {
         BN254.ScalarField privateShareCommitment,
         BN254.ScalarField[] memory publicShares,
         MerkleTreeLib.MerkleTree storage merkleTree,
+        NullifierLib.NullifierSet storage publicBlinderSet,
         IHasher hasher
     )
         internal
         returns (BN254.ScalarField walletCommitment)
     {
+        // 1. Mark the public blinder share as spent, and emit an event
+        // Note: We assume the blinder is serialized as the final share
+        BN254.ScalarField publicBlinder = publicShares[publicShares.length - 1];
+        publicBlinderSet.spend(publicBlinder);
+        emit IDarkpool.WalletUpdated(BN254.ScalarField.unwrap(publicBlinder));
+
         walletCommitment = computeWalletCommitment(privateShareCommitment, publicShares, hasher);
         merkleTree.insertLeaf(walletCommitment, hasher);
     }
