@@ -1,5 +1,6 @@
 //! Basic integration tests for the Renegade contracts
 
+use alloy::providers::Provider;
 use eyre::Result;
 use test_helpers::integration_test_async;
 
@@ -12,3 +13,11 @@ async fn test_get_block_number(args: TestArgs) -> Result<()> {
     Ok(())
 }
 integration_test_async!(test_get_block_number);
+
+/// Test fetching the Merkle root for the darkpool
+async fn test_get_merkle_root(args: TestArgs) -> Result<()> {
+    let merkle_root = args.darkpool.getMerkleRoot().call().await?._0;
+    println!("Merkle root: {}", merkle_root);
+    Ok(())
+}
+integration_test_async!(test_get_merkle_root);
