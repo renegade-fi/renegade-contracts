@@ -86,6 +86,10 @@ contract Darkpool {
     /// @dev This ensures that a pre-update wallet cannot create two separate post-update wallets in the Merkle state
     /// @dev The nullifier is computed deterministically from the shares of the pre-update wallet
     NullifierLib.NullifierSet private nullifierSet;
+    /// @notice The set of public blinder shares that have been inserted into the darkpool
+    /// @dev We track this to prevent duplicate blinders that may affect the ability of indexers to uniquely
+    /// @dev recover a wallet
+    NullifierLib.NullifierSet private publicBlinderSet;
 
     /// @notice The constructor for the darkpool
     /// @param hasher_ The hasher for the darkpool
@@ -174,7 +178,7 @@ contract Darkpool {
 
         // 2. Insert the wallet shares into the Merkle tree
         WalletOperations.insertWalletCommitment(
-            statement.privateShareCommitment, statement.publicShares, merkleTree, hasher
+            statement.privateShareCommitment, statement.publicShares, merkleTree, publicBlinderSet, hasher
         );
     }
 
@@ -202,6 +206,7 @@ contract Darkpool {
             statement.newPrivateShareCommitment,
             statement.newPublicShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
@@ -263,6 +268,7 @@ contract Darkpool {
             reblindStatement0.newPrivateShareCommitment,
             matchSettleStatement.firstPartyPublicShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
@@ -272,6 +278,7 @@ contract Darkpool {
             reblindStatement1.newPrivateShareCommitment,
             matchSettleStatement.secondPartyPublicShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
@@ -356,6 +363,7 @@ contract Darkpool {
             reblindStatement.newPrivateShareCommitment,
             matchSettleStatement.internalPartyModifiedShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
@@ -437,6 +445,7 @@ contract Darkpool {
             reblindStatement.newPrivateShareCommitment,
             newShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
@@ -474,6 +483,7 @@ contract Darkpool {
             statement.updatedWalletCommitment,
             statement.updatedWalletPublicShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
@@ -503,6 +513,7 @@ contract Darkpool {
             statement.newWalletCommitment,
             statement.newWalletPublicShares,
             nullifierSet,
+            publicBlinderSet,
             merkleTree,
             hasher
         );
