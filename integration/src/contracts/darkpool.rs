@@ -9,3 +9,4 @@ sol! {
     IDarkpool,
     "src/contracts/abis/IDarkpool.json"
 }
+pub use IDarkpool::*;

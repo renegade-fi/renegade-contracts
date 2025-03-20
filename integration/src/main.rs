@@ -8,6 +8,7 @@
 
 mod contracts;
 mod tests;
+mod util;
 
 use std::str::FromStr;
 
