@@ -9,6 +9,8 @@ test-helpers = { git = "https://github.com/renegade-fi/renegade" }
 
 # === Alloy Dependencies === #
 alloy = { version = "0.12", features = ["essentials"] }
+alloy-contract = "0.12.3"
+alloy-sol-types = "0.8.23"
 alloy-sol-macro = "0.8.23"
 
 # === Test Harness Dependencies === #
