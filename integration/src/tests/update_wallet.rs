@@ -29,7 +29,9 @@ use crate::{
 
 use super::create_wallet::create_darkpool_wallet;
 
-/// Update a wallet by placing an order
+/// Update a wallet by placing an order and then canceling it
+///
+/// By testing two updates, we also test Merkle recovery in between updates
 #[allow(non_snake_case)]
 async fn test_update_wallet__place_and_cancel_order(args: TestArgs) -> Result<(), eyre::Error> {
     let mut wallet = create_darkpool_wallet(&args).await?;
@@ -60,6 +62,17 @@ async fn test_update_wallet__place_and_cancel_order(args: TestArgs) -> Result<()
     Ok(())
 }
 integration_test_async!(test_update_wallet__place_and_cancel_order);
+
+/// Test depositing into a wallet
+#[allow(non_snake_case)]
+async fn test_update_wallet__deposit(args: TestArgs) -> Result<(), eyre::Error> {
+    let mut wallet = create_darkpool_wallet(&args).await?;
+    let darkpool = args.darkpool.clone();
+
+    println!("TODO: implement");
+    Ok(())
+}
+integration_test_async!(test_update_wallet__deposit);
 
 // -----------
 // | Helpers |
@@ -114,9 +127,7 @@ async fn submit_wallet_update_with_transfer(
     let tx = args
         .darkpool
         .updateWallet(update_sig_bytes, transfer_auth, statement, proof);
-    let receipt = send_tx(tx).await?;
-
-    Ok(())
+    send_tx(tx).await.map(|_| ())
 }
 
 /// Prove a `VALID WALLET UPDATE` statement

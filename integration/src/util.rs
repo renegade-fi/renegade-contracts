@@ -2,7 +2,7 @@
 
 use alloy::{
     network::Ethereum,
-    primitives::{TxHash, U256},
+    primitives::{Address, TxHash, U256},
     providers::{DynProvider, Provider},
     rpc::types::TransactionReceipt,
 };
@@ -12,6 +12,9 @@ use itertools::Itertools;
 use num_bigint::BigUint;
 use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{Scalar, MERKLE_HEIGHT};
+use serde_json::Value;
+use std::fs;
+use std::str::FromStr;
 use test_helpers::assert_eq_result;
 
 use crate::{
@@ -98,6 +101,29 @@ async fn fetch_merkle_openings(tx_hash: TxHash, darkpool: &Darkpool) -> Result<V
     opening_nodes.sort_by_key(|s| -(s.0 as i8));
     let siblings = opening_nodes.into_iter().map(|(_, i, v)| (i, v)).collect();
     Ok(siblings)
+}
+
+// ----------------
+// | Deployments  |
+// ----------------
+
+/// Read an address from the deployments.json file
+///
+/// Returns the address for the given key, or an error if not found
+pub fn read_deployment(key: &str, deployments_path: &str) -> Result<Address> {
+    // Read the deployments file
+    let content = fs::read_to_string(deployments_path)?;
+    let json: Value = serde_json::from_str(&content)?;
+
+    // Get the address string
+    let addr_str = json
+        .get(key)
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| eyre::eyre!("Key {} not found in deployments file", key))?;
+
+    // Parse into Address
+    Address::from_str(addr_str)
+        .map_err(|e| eyre::eyre!("Failed to parse address {}: {}", addr_str, e))
 }
 
 // ----------------

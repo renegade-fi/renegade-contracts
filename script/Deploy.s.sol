@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
-import "./DeployUtils.sol";
+import "./utils/DeployUtils.sol";
 
 contract DeployScript is Script {
     // Default values for local Anvil node
