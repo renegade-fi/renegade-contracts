@@ -16,7 +16,7 @@ renegade-circuits = { package = "circuits", git = "https://github.com/renegade-f
 ] }
 renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade" }
 renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", default-features = false, features = [
-    "wallet",
+    "all-types",
 ] }
 renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade" }
 test-helpers = { git = "https://github.com/renegade-fi/renegade" }
@@ -26,6 +26,7 @@ alloy = { version = "0.12", features = ["essentials"] }
 alloy-contract = "0.12.3"
 alloy-sol-types = "0.8.23"
 alloy-sol-macro = "0.8.23"
+ethers-signers = "2.0"
 
 # === Test Harness Dependencies === #
 clap = { version = "4.0", features = ["derive"] }

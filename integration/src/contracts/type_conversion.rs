@@ -1,16 +1,25 @@
 //! Utilities for converting between relayer types and contract types
 
-use alloy::primitives::U256;
+use alloy::primitives::{Address, U256};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
 use jf_primitives::pcs::prelude::Commitment as JfCommitment;
-use renegade_circuit_types::{traits::BaseType, PlonkProof};
+use num_bigint::BigUint;
+use renegade_circuit_types::{
+    keychain::PublicSigningKey,
+    traits::BaseType,
+    transfers::{ExternalTransfer, ExternalTransferDirection},
+    PlonkProof,
+};
 use renegade_circuits::zk_circuits::valid_wallet_create::SizedValidWalletCreateStatement;
+use renegade_circuits::zk_circuits::valid_wallet_update::SizedValidWalletUpdateStatement;
 use renegade_constants::Scalar;
 
 use super::darkpool::{
-    PlonkProof as ContractPlonkProof,
+    ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,
+    PublicRootKey as ContractRootKey,
     ValidWalletCreateStatement as ContractValidWalletCreateStatement,
+    ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
     BN254::G1Point as ContractG1Point,
 };
 
@@ -30,6 +39,58 @@ impl From<SizedValidWalletCreateStatement> for ContractValidWalletCreateStatemen
                 .map(scalar_to_u256)
                 .collect(),
         }
+    }
+}
+
+/// Convert a relayer [`SizedValidWalletUpdateStatement`] to a contract [`ValidWalletUpdateStatement`]
+impl From<SizedValidWalletUpdateStatement> for ContractValidWalletUpdateStatement {
+    fn from(statement: SizedValidWalletUpdateStatement) -> Self {
+        Self {
+            previousNullifier: scalar_to_u256(statement.old_shares_nullifier),
+            newPrivateShareCommitment: scalar_to_u256(statement.new_private_shares_commitment),
+            newPublicShares: statement
+                .new_public_shares
+                .to_scalars()
+                .into_iter()
+                .map(scalar_to_u256)
+                .collect(),
+            merkleRoot: scalar_to_u256(statement.merkle_root),
+            externalTransfer: statement.external_transfer.into(),
+            oldPkRoot: statement.old_pk_root.into(),
+        }
+    }
+}
+
+// ---------------------
+// | Application Types |
+// ---------------------
+
+/// Convert a relayer [`ExternalTransfer`] to a contract [`ExternalTransfer`]
+impl From<ExternalTransfer> for ContractTransfer {
+    fn from(transfer: ExternalTransfer) -> Self {
+        let transfer_type = match transfer.direction {
+            ExternalTransferDirection::Deposit => 0,
+            ExternalTransferDirection::Withdrawal => 1,
+        };
+
+        ContractTransfer {
+            account: biguint_to_address(transfer.account_addr),
+            mint: biguint_to_address(transfer.mint),
+            amount: U256::from(transfer.amount),
+            transferType: transfer_type,
+        }
+    }
+}
+
+/// Convert a relayer [`PublicSigningKey`] to a contract [`PublicRootKey`]
+impl From<PublicSigningKey> for ContractRootKey {
+    fn from(key: PublicSigningKey) -> Self {
+        let x_words = &key.x.scalar_words;
+        let y_words = &key.y.scalar_words;
+        let x = [scalar_to_u256(x_words[0]), scalar_to_u256(x_words[1])];
+        let y = [scalar_to_u256(y_words[0]), scalar_to_u256(y_words[1])];
+
+        ContractRootKey { x, y }
     }
 }
 
@@ -72,8 +133,21 @@ impl From<PlonkProof> for ContractPlonkProof {
 
 /// Size a vector of values to be a known fixed size
 pub fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
-    vec.try_into()
-        .unwrap_or_else(|_| panic!("vector is not the correct size"))
+    let size = vec.len();
+    if size != N {
+        panic!("vector is not the correct size: expected {N}, got {size}");
+    }
+    vec.try_into().map_err(|_| ()).unwrap()
+}
+
+// --- Alloy Types --- //
+
+/// Convert a `BigUint` to a `Address`
+#[allow(clippy::needless_pass_by_value)]
+fn biguint_to_address(biguint: BigUint) -> Address {
+    let bytes = biguint.to_bytes_be();
+    let padded = pad_bytes::<20>(&bytes);
+    Address::from_slice(&padded)
 }
 
 // --- Scalars --- //
@@ -110,6 +184,15 @@ fn bytes_to_u256(bytes: &[u8]) -> U256 {
     let mut buf = [0u8; 32];
     buf[..bytes.len()].copy_from_slice(bytes);
     U256::from_be_bytes(buf)
+}
+
+/// Pad big endian bytes to a fixed size
+fn pad_bytes<const N: usize>(bytes: &[u8]) -> [u8; N] {
+    assert!(bytes.len() <= N, "bytes are too long for padding");
+
+    let mut padded = [0u8; N];
+    padded[N - bytes.len()..].copy_from_slice(bytes);
+    padded
 }
 
 // --- Curve Points --- //
