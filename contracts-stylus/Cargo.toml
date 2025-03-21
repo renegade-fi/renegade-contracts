@@ -13,6 +13,7 @@ contracts-common = { path = "../contracts-common" }
 contracts-core = { path = "../contracts-core" }
 postcard = { workspace = true }
 alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
 

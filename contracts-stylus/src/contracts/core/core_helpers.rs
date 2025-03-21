@@ -10,8 +10,8 @@ use crate::{
             ROOT_NOT_IN_HISTORY_ERROR_MESSAGE,
         },
         helpers::{
-            delegate_call_helper, get_public_blinder_from_shares, map_call_error,
-            postcard_serialize, static_call_helper, u256_to_scalar,
+            delegate_call_helper, get_public_blinder_from_shares, postcard_serialize,
+            static_call_helper, u256_to_scalar,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
@@ -19,6 +19,7 @@ use crate::{
             WalletUpdated,
         },
     },
+    VKEYS_FETCH_ERROR_MESSAGE,
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::{SolCall, SolType};
@@ -26,7 +27,7 @@ use contracts_common::{
     custom_serde::{pk_to_u256s, scalar_to_u256},
     types::{ExternalTransfer, PublicEncryptionKey, PublicSigningKey, ScalarField},
 };
-use stylus_sdk::{abi::Bytes, alloy_primitives::U256, call::static_call, evm, prelude::*};
+use stylus_sdk::{abi::Bytes, alloy_primitives::U256, prelude::*};
 
 use super::CoreContractStorage;
 
@@ -66,13 +67,16 @@ pub fn check_root_in_history<C: CoreContractStorage, S: TopLevelStorage + Borrow
 /// Fetches the verification keys by their associated method selector on the
 /// vkeys contract. This assumes that the vkeys contract method takes no
 /// arguments and returns a single `bytes` value.
-pub fn fetch_vkeys<C: CoreContractStorage, S: TopLevelStorage + Borrow<C>>(
+pub fn fetch_vkeys<C: CoreContractStorage, S: TopLevelStorage + HostAccess + Borrow<C>>(
     s: &S,
     selector: &[u8],
 ) -> Result<Vec<u8>, Vec<u8>> {
     let storage = s.borrow();
     let vkeys_address = storage.vkeys_address();
-    let res = static_call(s, vkeys_address, selector).map_err(map_call_error)?;
+    let res = s
+        .vm()
+        .static_call(&s, vkeys_address, selector)
+        .map_err(|_| VKEYS_FETCH_ERROR_MESSAGE.to_vec())?;
     let vkey_bytes = Bytes::abi_decode(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())?
         .0;
@@ -116,7 +120,10 @@ where
 // -----------------------
 
 /// Marks the given nullifier as spent
-pub fn mark_nullifier_spent<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn mark_nullifier_spent<
+    C: CoreContractStorage,
+    S: TopLevelStorage + HostAccess + BorrowMut<C>,
+>(
     s: &mut S,
     nullifier: ScalarField,
 ) -> Result<(), Vec<u8>> {
@@ -130,8 +137,7 @@ pub fn mark_nullifier_spent<C: CoreContractStorage, S: TopLevelStorage + BorrowM
     )?);
 
     this.nullifier_set_mut().insert(nullifier, true);
-
-    evm::log(NullifierSpent { nullifier });
+    log(s.vm(), NullifierSpent { nullifier });
     Ok(())
 }
 
@@ -251,7 +257,7 @@ pub fn execute_external_transfer<C: CoreContractStorage, S: TopLevelStorage + Bo
 }
 
 /// Nullifies the old wallet and commits to the new wallet
-pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + HostAccess + BorrowMut<C>>(
     s: &mut S,
     old_wallet_nullifier: ScalarField,
     merkle_root: ScalarField,
@@ -268,7 +274,10 @@ pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
 
 /// Nullifies the old wallet and commits to the new wallet,
 /// verifying a signature over the commitment to the new wallet
-pub fn rotate_wallet_with_signature<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn rotate_wallet_with_signature<
+    C: CoreContractStorage,
+    S: TopLevelStorage + HostAccess + BorrowMut<C>,
+>(
     s: &mut S,
     old_wallet_nullifier: ScalarField,
     merkle_root: ScalarField,
@@ -290,7 +299,10 @@ pub fn rotate_wallet_with_signature<C: CoreContractStorage, S: TopLevelStorage +
 /// Attempts to nullify the old wallet, ensures that the given Merkle
 /// root is a valid historical root, and marks the public blinder as used.
 /// Logs the wallet update if successful.
-pub fn check_wallet_rotation<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn check_wallet_rotation<
+    C: CoreContractStorage,
+    S: TopLevelStorage + HostAccess + BorrowMut<C>,
+>(
     s: &mut S,
     old_wallet_nullifier: ScalarField,
     merkle_root: ScalarField,
@@ -304,7 +316,10 @@ pub fn check_wallet_rotation<C: CoreContractStorage, S: TopLevelStorage + Borrow
 
 /// Checks that the given Merkle root is a valid historical root,
 /// and marks the nullifier as spent.
-pub fn check_root_and_nullify<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn check_root_and_nullify<
+    C: CoreContractStorage,
+    S: TopLevelStorage + HostAccess + BorrowMut<C>,
+>(
     s: &mut S,
     nullifier: ScalarField,
     merkle_root: ScalarField,
@@ -317,7 +332,7 @@ pub fn check_root_and_nullify<C: CoreContractStorage, S: TopLevelStorage + Borro
 }
 
 /// Commits the given note commitment in the Merkle tree
-pub fn commit_note<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn commit_note<C: CoreContractStorage, S: TopLevelStorage + HostAccess + BorrowMut<C>>(
     s: &mut S,
     note_commitment: ScalarField,
 ) -> Result<(), Vec<u8>> {
@@ -325,8 +340,7 @@ pub fn commit_note<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     let merkle_address = s.borrow_mut().merkle_address();
     delegate_call_helper::<insertNoteCommitmentCall>(s, merkle_address, (note_commitment_u256,))?;
 
-    evm::log(NotePosted { note_commitment: note_commitment_u256 });
-
+    log(s.vm(), NotePosted { note_commitment: note_commitment_u256 });
     Ok(())
 }
 
@@ -335,7 +349,7 @@ pub fn commit_note<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
 // -----------
 
 /// Emits a `WalletUpdated` event with the wallet's public blinder share
-pub fn log_blinder_used<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn log_blinder_used<C: CoreContractStorage, S: TopLevelStorage + HostAccess + BorrowMut<C>>(
     s: &mut S,
     public_wallet_shares: &[ScalarField],
 ) -> Result<(), Vec<u8>> {
@@ -345,7 +359,6 @@ pub fn log_blinder_used<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C
 
     // Log the wallet update
     let blinder_u256 = scalar_to_u256(wallet_blinder_share);
-    evm::log(WalletUpdated { wallet_blinder_share: blinder_u256 });
-
+    log(s.vm(), WalletUpdated { wallet_blinder_share: blinder_u256 });
     Ok(())
 }

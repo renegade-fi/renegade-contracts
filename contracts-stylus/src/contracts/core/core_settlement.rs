@@ -3,8 +3,6 @@
 //! contract and that certain storage elements are set by the outer contract. As
 //! such, its storage layout must exactly align with that of the outer contract.
 
-use core::borrow::BorrowMut;
-
 use crate::{
     assert_result,
     contracts::core::core_helpers::{call_settlement_verifier, fetch_vkeys, rotate_wallet},
@@ -38,7 +36,6 @@ use contracts_common::types::{
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
-    msg,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
 };
@@ -202,8 +199,8 @@ impl CoreSettlementContract {
     /// [`contracts_common::types::MatchProofs`] struct, and the
     /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::MatchLinkingProofs`] struct
-    pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn process_match_settle(
+        &mut self,
         party_0_match_payload: Bytes,
         party_1_match_payload: Bytes,
         valid_match_settle_statement: Bytes,
@@ -233,14 +230,13 @@ impl CoreSettlementContract {
             // We convert the protocol fee directly to a scalar as it is already kept
             // in storage as fixed-point number, no manipulation is needed to coerce it
             // to the form expected in the statement / circuit.
-            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee())?;
+            let protocol_fee = u256_to_scalar(self.protocol_fee())?;
             assert_result!(
                 valid_match_settle_statement.protocol_fee == protocol_fee,
                 INVALID_PROTOCOL_FEE_ERROR_MESSAGE
             )?;
 
-            Self::batch_verify_process_match_settle(
-                storage,
+            self.batch_verify_process_match_settle(
                 &party_0_match_payload,
                 &party_1_match_payload,
                 &valid_match_settle_statement,
@@ -250,7 +246,7 @@ impl CoreSettlementContract {
         });
 
         rotate_wallet(
-            storage,
+            self,
             party_0_match_payload.valid_reblind_statement.original_shares_nullifier,
             party_0_match_payload.valid_reblind_statement.merkle_root,
             party_0_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
@@ -258,7 +254,7 @@ impl CoreSettlementContract {
         )?;
 
         rotate_wallet(
-            storage,
+            self,
             party_1_match_payload.valid_reblind_statement.original_shares_nullifier,
             party_1_match_payload.valid_reblind_statement.merkle_root,
             party_1_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
@@ -280,8 +276,8 @@ impl CoreSettlementContract {
     /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
     #[payable]
-    pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn process_atomic_match_settle(
+        &mut self,
         receiver: Address,
         internal_party_match_payload: Bytes,
         valid_match_settle_statement: Bytes,
@@ -300,7 +296,7 @@ impl CoreSettlementContract {
         let is_native_eth = is_native_eth_address(match_result.base_mint);
         let is_external_party_sell = match_result.is_external_party_sell();
         let native_eth_sell = is_native_eth && is_external_party_sell;
-        if !native_eth_sell && msg::value() > U256::ZERO {
+        if !native_eth_sell && self.vm().msg_value() > U256::ZERO {
             return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
         }
 
@@ -315,16 +311,14 @@ impl CoreSettlementContract {
             // We convert the protocol fee directly to a scalar as it is already kept
             // in storage as fixed-point number, no manipulation is needed to coerce it
             // to the form expected in the statement / circuit.
-            let protocol_fee =
-                storage.borrow_mut().external_match_protocol_fee(match_result.base_mint);
+            let protocol_fee = self.external_match_protocol_fee(match_result.base_mint);
             let protocol_fee = u256_to_scalar(protocol_fee)?;
             assert_result!(
                 valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
                 INVALID_PROTOCOL_FEE_ERROR_MESSAGE
             )?;
 
-            Self::batch_verify_process_atomic_match_settle(
-                storage,
+            self.batch_verify_process_atomic_match_settle(
                 is_native_eth,
                 &internal_party_match_payload,
                 valid_match_settle_atomic_statement.clone(),
@@ -334,7 +328,7 @@ impl CoreSettlementContract {
         });
 
         rotate_wallet(
-            storage,
+            self,
             internal_party_match_payload.valid_reblind_statement.original_shares_nullifier,
             internal_party_match_payload.valid_reblind_statement.merkle_root,
             internal_party_match_payload
@@ -348,7 +342,7 @@ impl CoreSettlementContract {
         let match_result = valid_match_settle_atomic_statement.match_result;
         let relayer_fee_address = valid_match_settle_atomic_statement.relayer_fee_address;
         Self::execute_atomic_match_transfers(
-            storage,
+            self,
             receiver,
             fees,
             match_result,
@@ -368,8 +362,8 @@ impl CoreSettlementContract {
     ///
     /// TODO: Optimize the (re)serialization of the match statements if need be
     #[allow(clippy::too_many_arguments)]
-    pub fn batch_verify_process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn batch_verify_process_match_settle(
+        &self,
         party_0_match_payload: &MatchPayload,
         party_1_match_payload: &MatchPayload,
         valid_match_settle_statement: &ValidMatchSettleStatement,
@@ -378,8 +372,7 @@ impl CoreSettlementContract {
     ) -> Result<(), Vec<u8>> {
         // Fetch the Plonk & linking verification keys used in verifying the matching of
         // a trade
-        let process_match_settle_vkeys =
-            fetch_vkeys(storage, &processMatchSettleVkeysCall::SELECTOR)?;
+        let process_match_settle_vkeys = fetch_vkeys(self, &processMatchSettleVkeysCall::SELECTOR)?;
 
         let match_public_inputs = serialize_match_statements_for_verification(
             &party_0_match_payload.valid_commitments_statement,
@@ -389,7 +382,7 @@ impl CoreSettlementContract {
             valid_match_settle_statement,
         )?;
 
-        let verifier_address = storage.borrow_mut().verifier_core_address();
+        let verifier_address = self.verifier_core_address();
         let calldata = VerifyMatchCalldata {
             verifier_address,
             match_vkeys: process_match_settle_vkeys,
@@ -400,15 +393,15 @@ impl CoreSettlementContract {
 
         let calldata_bytes = postcard_serialize(&calldata)?;
         let result =
-            call_settlement_verifier::<_, _, verifyMatchCall>(storage, (calldata_bytes.into(),))?;
+            call_settlement_verifier::<_, _, verifyMatchCall>(self, (calldata_bytes.into(),))?;
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
     /// Batch-verifies all of the `process_atomic_match_settle` proofs
     ///
     /// TODO: Optimize the (re)serialization of the match statements if need be
-    pub fn batch_verify_process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn batch_verify_process_atomic_match_settle(
+        &self,
         is_native_eth: bool,
         internal_party_match_payload: &MatchPayload,
         mut valid_match_settle_atomic_statement: ValidMatchSettleAtomicStatement,
@@ -418,7 +411,7 @@ impl CoreSettlementContract {
         // Fetch the Plonk & linking verification keys used in verifying the matching of
         // a trade
         let process_atomic_match_settle_vkeys =
-            fetch_vkeys(storage, &processAtomicMatchSettleVkeysCall::SELECTOR)?;
+            fetch_vkeys(self, &processAtomicMatchSettleVkeysCall::SELECTOR)?;
 
         // We allow native ETH transfers on external matches, but the verifier will
         // expect WETH to be compatible with internal orders, so we change it
@@ -434,7 +427,7 @@ impl CoreSettlementContract {
             &valid_match_settle_atomic_statement,
         )?;
 
-        let verifier_address = storage.borrow_mut().verifier_core_address();
+        let verifier_address = self.verifier_core_address();
         let calldata = VerifyAtomicMatchCalldata {
             verifier_address,
             match_atomic_vkeys: process_atomic_match_settle_vkeys,
@@ -445,7 +438,7 @@ impl CoreSettlementContract {
 
         let calldata_bytes = postcard_serialize(&calldata)?;
         let result = call_settlement_verifier::<_, _, verifyAtomicMatchCall>(
-            storage,
+            self,
             (calldata_bytes.into(),),
         )?;
 
@@ -454,8 +447,8 @@ impl CoreSettlementContract {
 
     /// Execute the transfers to/from the external party in an atomic match
     /// settlement
-    pub fn execute_atomic_match_transfers<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn execute_atomic_match_transfers(
+        &mut self,
         receiver: Address,
         fees: FeeTake,
         match_result: ExternalMatchResult,
@@ -463,7 +456,7 @@ impl CoreSettlementContract {
     ) -> Result<(), Vec<u8>> {
         /// The number of transfers to execute in an atomic match settlement
         const N_TRANSFERS: usize = 4;
-        let tx_sender = msg::sender();
+        let tx_sender = self.vm().msg_sender();
 
         let mut transfers_batch = Vec::with_capacity(N_TRANSFERS);
         let (send_mint, send_amount) = match_result.external_party_sell_mint_amount();
@@ -477,7 +470,7 @@ impl CoreSettlementContract {
         ));
 
         // The fee charged by the protocol to the external party
-        let protocol_fee_address = storage.borrow_mut().protocol_external_fee_collection_address();
+        let protocol_fee_address = self.protocol_external_fee_collection_address();
         transfers_batch.push(SimpleErc20Transfer::new_withdraw(
             protocol_fee_address,
             receive_mint,
@@ -496,19 +489,15 @@ impl CoreSettlementContract {
 
         // The amount sent by the external party to the darkpool
         transfers_batch.push(SimpleErc20Transfer::new_deposit(tx_sender, send_mint, send_amount));
-
-        Self::execute_transfers(storage, transfers_batch)
+        self.execute_transfers(transfers_batch)
     }
 
     /// Call the transfer executor to execute the transfers
-    fn execute_transfers<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        transfers: Vec<SimpleErc20Transfer>,
-    ) -> Result<(), Vec<u8>> {
-        let transfer_executor_address = storage.borrow_mut().transfer_executor_address();
+    fn execute_transfers(&mut self, transfers: Vec<SimpleErc20Transfer>) -> Result<(), Vec<u8>> {
+        let transfer_executor_address = self.transfer_executor_address();
         let calldata = postcard_serialize(&transfers)?;
         delegate_call_helper::<executeTransferBatchCall>(
-            storage,
+            self,
             transfer_executor_address,
             (calldata.into(),),
         )

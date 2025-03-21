@@ -10,9 +10,7 @@ use alloc::vec::Vec;
 use alloy_sol_types::sol;
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
-    call::transfer_eth,
-    evm, msg,
-    prelude::{entrypoint, public, sol_storage},
+    prelude::*,
 };
 
 use super::dummy_erc20::Erc20;
@@ -40,7 +38,7 @@ sol! {
 impl DummyWeth {
     /// Withdraw weth from the contract to a specified address
     fn withdraw_impl(&mut self, to: Address, amount: U256) -> Result<(), Vec<u8>> {
-        let sender = msg::sender();
+        let sender = self.vm().msg_sender();
         let mut bal = self.erc20.balances.setter(sender);
         let old_bal = bal.get();
         if old_bal < amount {
@@ -49,8 +47,8 @@ impl DummyWeth {
         bal.set(old_bal - amount);
 
         // Transfer the ETH and log the withdrawal
-        transfer_eth(to, amount)?;
-        evm::log(Withdrawal { to, value: amount });
+        self.vm().transfer_eth(to, amount)?;
+        log(self.vm(), Withdrawal { to, value: amount });
         Ok(())
     }
 }
@@ -62,20 +60,20 @@ impl DummyWeth {
     #[payable]
     pub fn deposit(&mut self) -> Result<(), Vec<u8>> {
         // Update the sender's balance
-        let sender = msg::sender();
-        let amount = msg::value();
+        let sender = self.vm().msg_sender();
+        let amount = self.vm().msg_value();
         let mut bal = self.erc20.balances.setter(sender);
         let new_bal = bal.get() + amount;
         bal.set(new_bal);
 
         // Emit a deposit event
-        evm::log(Deposit { from: sender, value: amount });
+        log(self.vm(), Deposit { from: sender, value: amount });
         Ok(())
     }
 
     /// Withdraw ETH from the contract
     pub fn withdraw(&mut self, amount: U256) -> Result<(), Vec<u8>> {
-        self.withdraw_impl(msg::sender(), amount)
+        self.withdraw_impl(self.vm().msg_sender(), amount)
     }
 
     /// Withdraw ETH from the contract to a specified address

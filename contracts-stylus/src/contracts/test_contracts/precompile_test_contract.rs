@@ -7,7 +7,7 @@ use contracts_common::{
     backends::{EcRecoverBackend, G1ArithmeticBackend},
     serde_def_types::{SerdeG1Affine, SerdeG2Affine, SerdeScalarField},
 };
-use stylus_sdk::{abi::Bytes, console, prelude::*};
+use stylus_sdk::{abi::Bytes, prelude::*};
 
 use crate::utils::backends::{PrecompileEcRecoverBackend, PrecompileG1ArithmeticBackend};
 

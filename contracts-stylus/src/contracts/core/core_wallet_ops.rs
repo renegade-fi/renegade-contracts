@@ -4,8 +4,6 @@
 //! outer contract. As such, its storage layout must exactly align with that of
 //! the outer contract.
 
-use core::borrow::BorrowMut;
-
 use crate::{
     assert_result,
     contracts::core::core_helpers::{
@@ -196,8 +194,8 @@ impl CoreContractStorage for CoreWalletOpsContract {
 #[public]
 impl CoreWalletOpsContract {
     /// Adds a new wallet to the commitment tree
-    pub fn new_wallet<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn new_wallet(
+        &mut self,
         proof: Bytes,
         valid_wallet_create_statement_bytes: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -206,11 +204,11 @@ impl CoreWalletOpsContract {
 
         if_verifying!({
             let valid_wallet_create_vkey_bytes =
-                fetch_vkeys(storage, &validWalletCreateVkeyCall::SELECTOR)?;
+                fetch_vkeys(self, &validWalletCreateVkeyCall::SELECTOR)?;
 
             assert_result!(
                 verify(
-                    storage,
+                    self,
                     valid_wallet_create_vkey_bytes,
                     proof.0,
                     serialize_statement_for_verification(&valid_wallet_create_statement)?,
@@ -220,18 +218,18 @@ impl CoreWalletOpsContract {
         });
 
         insert_wallet_commitment_to_merkle_tree(
-            storage,
+            self,
             valid_wallet_create_statement.private_shares_commitment,
             &valid_wallet_create_statement.public_wallet_shares,
         )?;
 
-        log_blinder_used(storage, &valid_wallet_create_statement.public_wallet_shares)?;
+        log_blinder_used(self, &valid_wallet_create_statement.public_wallet_shares)?;
         Ok(())
     }
 
     /// Update a wallet in the commitment tree
-    pub fn update_wallet<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn update_wallet(
+        &mut self,
         proof: Bytes,
         valid_wallet_update_statement_bytes: Bytes,
         wallet_commitment_signature: Bytes,
@@ -242,11 +240,11 @@ impl CoreWalletOpsContract {
 
         if_verifying!({
             let valid_wallet_update_vkey_bytes =
-                fetch_vkeys(storage, &validWalletUpdateVkeyCall::SELECTOR)?;
+                fetch_vkeys(self, &validWalletUpdateVkeyCall::SELECTOR)?;
 
             assert_result!(
                 verify(
-                    storage,
+                    self,
                     valid_wallet_update_vkey_bytes,
                     proof.0,
                     serialize_statement_for_verification(&valid_wallet_update_statement)?,
@@ -256,7 +254,7 @@ impl CoreWalletOpsContract {
         });
 
         rotate_wallet_with_signature(
-            storage,
+            self,
             valid_wallet_update_statement.old_shares_nullifier,
             valid_wallet_update_statement.merkle_root,
             valid_wallet_update_statement.new_private_shares_commitment,
@@ -267,7 +265,7 @@ impl CoreWalletOpsContract {
 
         if let Some(external_transfer) = valid_wallet_update_statement.external_transfer {
             execute_external_transfer(
-                storage,
+                self,
                 valid_wallet_update_statement.old_pk_root,
                 external_transfer,
                 transfer_aux_data_bytes,
@@ -279,8 +277,8 @@ impl CoreWalletOpsContract {
 
     /// Settles the fee accumulated by a relayer for a given balance in a
     /// managed wallet into the relayer's wallet
-    pub fn settle_online_relayer_fee<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn settle_online_relayer_fee(
+        &mut self,
         proof: Bytes,
         valid_relayer_fee_settlement_statement: Bytes,
         relayer_wallet_commitment_signature: Bytes,
@@ -290,11 +288,11 @@ impl CoreWalletOpsContract {
 
         if_verifying!({
             let valid_relayer_fee_settlement_vkey_bytes =
-                fetch_vkeys(storage, &validRelayerFeeSettlementVkeyCall::SELECTOR)?;
+                fetch_vkeys(self, &validRelayerFeeSettlementVkeyCall::SELECTOR)?;
 
             assert_result!(
                 verify(
-                    storage,
+                    self,
                     valid_relayer_fee_settlement_vkey_bytes,
                     proof.0,
                     serialize_statement_for_verification(&valid_relayer_fee_settlement_statement)?,
@@ -304,7 +302,7 @@ impl CoreWalletOpsContract {
         });
 
         rotate_wallet(
-            storage,
+            self,
             valid_relayer_fee_settlement_statement.sender_nullifier,
             valid_relayer_fee_settlement_statement.sender_root,
             valid_relayer_fee_settlement_statement.sender_wallet_commitment,
@@ -312,7 +310,7 @@ impl CoreWalletOpsContract {
         )?;
 
         rotate_wallet_with_signature(
-            storage,
+            self,
             valid_relayer_fee_settlement_statement.recipient_nullifier,
             valid_relayer_fee_settlement_statement.recipient_root,
             valid_relayer_fee_settlement_statement.recipient_wallet_commitment,
@@ -324,8 +322,8 @@ impl CoreWalletOpsContract {
 
     /// Settles the fee accumulated either by a relayer or the protocol
     /// into an encrypted note which is committed to the Merkle tree
-    pub fn settle_offline_fee<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn settle_offline_fee(
+        &mut self,
         proof: Bytes,
         valid_offline_fee_settlement_statement: Bytes,
     ) -> Result<(), Vec<u8>> {
@@ -333,18 +331,18 @@ impl CoreWalletOpsContract {
             deserialize_from_calldata(&valid_offline_fee_settlement_statement)?;
 
         if_verifying!({
-            let protocol_pubkey = get_protocol_public_encryption_key(storage)?;
+            let protocol_pubkey = get_protocol_public_encryption_key(self)?;
             assert_result!(
                 valid_offline_fee_settlement_statement.protocol_key == protocol_pubkey,
                 INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE
             )?;
 
             let valid_offline_fee_settlement_vkey_bytes =
-                fetch_vkeys(storage, &validOfflineFeeSettlementVkeyCall::SELECTOR)?;
+                fetch_vkeys(self, &validOfflineFeeSettlementVkeyCall::SELECTOR)?;
 
             assert_result!(
                 verify(
-                    storage,
+                    self,
                     valid_offline_fee_settlement_vkey_bytes,
                     proof.0,
                     serialize_statement_for_verification(&valid_offline_fee_settlement_statement)?,
@@ -354,19 +352,19 @@ impl CoreWalletOpsContract {
         });
 
         rotate_wallet(
-            storage,
+            self,
             valid_offline_fee_settlement_statement.nullifier,
             valid_offline_fee_settlement_statement.merkle_root,
             valid_offline_fee_settlement_statement.updated_wallet_commitment,
             &valid_offline_fee_settlement_statement.updated_wallet_public_shares,
         )?;
 
-        commit_note(storage, valid_offline_fee_settlement_statement.note_commitment)
+        commit_note(self, valid_offline_fee_settlement_statement.note_commitment)
     }
 
     /// Redeems a fee note into the recipient's wallet, nullifying the note
-    pub fn redeem_fee<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn redeem_fee(
+        &mut self,
         proof: Bytes,
         valid_fee_redemption_statement: Bytes,
         recipient_wallet_commitment_signature: Bytes,
@@ -376,11 +374,11 @@ impl CoreWalletOpsContract {
 
         if_verifying!({
             let valid_fee_redemption_vkey_bytes =
-                fetch_vkeys(storage, &validFeeRedemptionVkeyCall::SELECTOR)?;
+                fetch_vkeys(self, &validFeeRedemptionVkeyCall::SELECTOR)?;
 
             assert_result!(
                 verify(
-                    storage,
+                    self,
                     valid_fee_redemption_vkey_bytes,
                     proof.0,
                     serialize_statement_for_verification(&valid_fee_redemption_statement)?,
@@ -390,7 +388,7 @@ impl CoreWalletOpsContract {
         });
 
         rotate_wallet_with_signature(
-            storage,
+            self,
             valid_fee_redemption_statement.nullifier,
             valid_fee_redemption_statement.wallet_root,
             valid_fee_redemption_statement.new_wallet_commitment,
@@ -400,7 +398,7 @@ impl CoreWalletOpsContract {
         )?;
 
         check_root_and_nullify(
-            storage,
+            self,
             valid_fee_redemption_statement.note_nullifier,
             valid_fee_redemption_statement.note_root,
         )

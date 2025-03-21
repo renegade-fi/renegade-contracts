@@ -6,15 +6,13 @@ use contracts_common::{
     types::ValidMatchSettleAtomicStatement,
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify;
+#[allow(deprecated)]
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{hex, Address, U256, U64},
-    block,
-    call::{call, Call},
-    console, contract, evm, msg,
-    prelude::*,
+    call::Call as CallWithValue,
+    prelude::{calls::context::Call, *},
     storage::{StorageAddress, StorageBool, StorageMap, StorageU64},
-    tx,
 };
 
 use crate::{
@@ -112,8 +110,7 @@ impl GasSponsorContract {
         self.darkpool_address.set(darkpool_address);
         self.auth_address.set(auth_address);
 
-        self._transfer_ownership(msg::sender());
-
+        self._transfer_ownership(self.vm().msg_sender());
         self._initialize(1)?;
         Ok(())
     }
@@ -137,7 +134,7 @@ impl GasSponsorContract {
     pub fn pause(&mut self) -> Result<(), Vec<u8>> {
         self._check_owner()?;
         self.paused.set(true);
-        evm::log(Paused {});
+        log(self.vm(), Paused {});
         Ok(())
     }
 
@@ -145,7 +142,7 @@ impl GasSponsorContract {
     pub fn unpause(&mut self) -> Result<(), Vec<u8>> {
         self._check_owner()?;
         self.paused.set(false);
-        evm::log(Unpaused {});
+        log(self.vm(), Unpaused {});
         Ok(())
     }
 
@@ -176,9 +173,12 @@ impl GasSponsorContract {
     /// Withdraws ETH from the gas sponsor contract to the given receiver
     pub fn withdraw_eth(&mut self, receiver: Address, amount: U256) -> Result<(), Vec<u8>> {
         self._check_owner()?;
-        let balance = contract::balance();
+        let this_addr = self.vm().contract_address();
+        let balance = self.vm().balance(this_addr);
         assert_result!(balance >= amount, ERR_INSUFFICIENT_BALANCE)?;
-        call(Call::new().value(amount), receiver, &[])?;
+
+        let ctx = Call::new().value(amount);
+        self.vm().call(&ctx, receiver, &[])?;
         Ok(())
     }
 
@@ -200,7 +200,7 @@ impl GasSponsorContract {
         nonce: U256,
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let receiver = msg::sender();
+        let receiver = self.vm().msg_sender();
         self.sponsor_atomic_match_settle_with_receiver(
             receiver,
             internal_party_match_payload,
@@ -229,11 +229,11 @@ impl GasSponsorContract {
         signature: Bytes,
     ) -> Result<(), Vec<u8>> {
         // Take note of the initial tx gas budget
-        let initial_gas = evm::gas_left();
+        let initial_gas = self.vm().evm_gas_left();
 
         // If gas sponsorship is paused, follow through with naive settlement
         if self.is_paused()? {
-            evm::log(GasSponsorPausedFallback { nonce });
+            log(self.vm(), GasSponsorPausedFallback { nonce });
             return self.process_atomic_match_settle_with_receiver(
                 receiver,
                 internal_party_match_payload,
@@ -277,25 +277,25 @@ impl GasSponsorContract {
         // We frontload as many operations as possible so the final evm::gas_left()
         // call is as accurate as possible.
 
-        let refund_address =
-            if refund_address == Address::ZERO { tx::origin() } else { refund_address };
+        let origin = self.vm().tx_origin();
+        let refund_address = if refund_address == Address::ZERO { origin } else { refund_address };
 
         let transfer_config = Call::new().gas(REFUND_OPS_GAS_COST);
 
         // Check if this is a native ETH sell, for which it is sufficient to check that
         // the message value is non-zero. If this is not a native ETH sell and the value
         // is non-zero, there will be a revert in the darkpool.
-        let is_native_eth_sell = msg::value() > U256::ZERO;
+        let is_native_eth_sell = self.vm().msg_value() > U256::ZERO;
 
         // Get the L2 gas price. On Arbitrum, this is always the basefee:
         // https://docs.arbitrum.io/how-arbitrum-works/gas-fees#l2-tips
-        let gas_price = block::basefee();
+        let gas_price = self.vm().block_basefee();
 
         // Get the L1 gas cost - this is the cost in wei
         let l1_gas_cost =
-            IArbGasInfo::new(ARB_GAS_INFO_ADDRESS).get_current_tx_l_1_gas_fees(Call::new())?;
+            IArbGasInfo::new(ARB_GAS_INFO_ADDRESS).get_current_tx_l_1_gas_fees(&*self)?;
 
-        let final_gas = evm::gas_left();
+        let final_gas = self.vm().evm_gas_left();
 
         let gas_spent = U256::from(
             INVOCATION_BASE_GAS_COST
@@ -309,20 +309,20 @@ impl GasSponsorContract {
 
         // If the gas sponsor doesn't have enough Ether to refund the user,
         // emit an event but don't revert.
-        if contract::balance() < gas_cost {
-            evm::log(InsufficientSponsorBalance { nonce });
+        let this_addr = self.vm().contract_address();
+        if self.vm().balance(this_addr) < gas_cost {
+            log(self.vm(), InsufficientSponsorBalance { nonce });
             return Ok(());
         }
 
         // Refund the user's gas costs
-        call(
-            transfer_config.value(gas_cost),
+        self.vm().call(
+            &transfer_config.value(gas_cost),
             refund_address,
             &[], // calldata
         )?;
 
-        evm::log(SponsoredExternalMatch { amount: gas_cost, nonce });
-
+        log(self.vm(), SponsoredExternalMatch { amount: gas_cost, nonce });
         Ok(())
     }
 
@@ -339,7 +339,7 @@ impl GasSponsorContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let receiver = msg::sender();
+        let receiver = self.vm().msg_sender();
         self.process_atomic_match_settle_with_receiver(
             receiver,
             internal_party_match_payload,
@@ -361,8 +361,8 @@ impl GasSponsorContract {
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        let sender = msg::sender();
-        let sponsor = contract::address();
+        let sender = self.vm().msg_sender();
+        let sponsor = self.vm().contract_address();
         let darkpool_address = self.darkpool_address.get();
 
         // Transfer the input tokens from the caller to the gas sponsor
@@ -375,16 +375,18 @@ impl GasSponsorContract {
         // Only execute an ERC20 transfer if the input token is not the native asset
         if !is_native_eth_address(send_mint) {
             let send_token = IErc20::new(send_mint);
-            send_token.approve(Call::new(), darkpool_address, send_amount)?;
-            send_token.transfer_from(Call::new(), sender, sponsor, send_amount)?;
+            send_token.approve(&mut *self, darkpool_address, send_amount)?;
+            send_token.transfer_from(&mut *self, sender, sponsor, send_amount)?;
         }
 
         // Call the darkpool contract's `process_atomic_match_settle_with_receiver`
         // method. We pass along the message value in case the input token is
         // the native asset
         let darkpool = IDarkpool::new(darkpool_address);
+        #[allow(deprecated)]
+        let ctx = CallWithValue::new().value(self.vm().msg_value());
         darkpool.process_atomic_match_settle_with_receiver(
-            Call::new().value(msg::value()),
+            ctx,
             receiver,
             internal_party_match_payload.0.into(),
             valid_match_settle_atomic_statement.0.into(),
@@ -411,13 +413,14 @@ impl GasSponsorContract {
 
     /// Checks that the sender is the owner
     pub fn _check_owner(&self) -> Result<(), Vec<u8>> {
-        assert_result!(self.owner.get() == msg::sender(), NOT_OWNER_ERROR_MESSAGE)
+        let sender = self.vm().msg_sender();
+        assert_result!(self.owner.get() == sender, NOT_OWNER_ERROR_MESSAGE)
     }
 
     /// Updates the stored owner address to `new_owner`
     pub fn _transfer_ownership(&mut self, new_owner: Address) {
         self.owner.set(new_owner);
-        evm::log(OwnershipTransferred { new_owner })
+        log(self.vm(), OwnershipTransferred { new_owner })
     }
 
     /// Asserts the validity of the given signature using the auth address
@@ -439,7 +442,7 @@ impl GasSponsorContract {
     fn mark_nonce_used(&mut self, nonce: U256) -> Result<(), Vec<u8>> {
         assert_result!(!self.used_nonces.get(nonce), ERR_NONCE_ALREADY_USED)?;
         self.used_nonces.insert(nonce, true);
-        evm::log(NonceUsed { nonce });
+        log(self.vm(), NonceUsed { nonce });
 
         Ok(())
     }

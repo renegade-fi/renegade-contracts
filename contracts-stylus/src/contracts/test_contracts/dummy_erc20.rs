@@ -11,7 +11,6 @@ use alloc::string::String;
 use stylus_sdk::{
     alloy_primitives::{Address, Uint, U256},
     alloy_sol_types::sol,
-    evm, msg,
     prelude::*,
 };
 
@@ -71,7 +70,7 @@ impl Erc20 {
         let mut to_balance = self.balances.setter(to);
         let new_to_balance = to_balance.get() + value;
         to_balance.set(new_to_balance);
-        evm::log(Transfer { from, to, value });
+        log(self.vm(), Transfer { from, to, value });
         Ok(())
     }
 }
@@ -112,7 +111,7 @@ impl Erc20 {
         let new_balance = balance.get() + value;
         balance.set(new_balance);
         self.total_supply.set(self.total_supply.get() + value);
-        evm::log(Transfer { from: Address::ZERO, to: address, value });
+        log(self.vm(), Transfer { from: Address::ZERO, to: address, value });
     }
 
     pub fn burn(&mut self, address: Address, value: U256) -> Result<(), Erc20Error> {
@@ -127,7 +126,7 @@ impl Erc20 {
         }
         balance.set(old_balance - value);
         self.total_supply.set(self.total_supply.get() - value);
-        evm::log(Transfer { from: address, to: Address::ZERO, value });
+        log(self.vm(), Transfer { from: address, to: Address::ZERO, value });
         Ok(())
     }
 
@@ -136,12 +135,12 @@ impl Erc20 {
     }
 
     pub fn transfer(&mut self, to: Address, value: U256) -> Result<bool, Erc20Error> {
-        self.transfer_impl(msg::sender(), to, value)?;
+        self.transfer_impl(self.vm().msg_sender(), to, value)?;
         Ok(true)
     }
 
     pub fn approve(&mut self, spender: Address, value: U256) -> Result<bool, Erc20Error> {
-        self.allowances.setter(msg::sender()).insert(spender, value);
+        self.allowances.setter(self.vm().msg_sender()).insert(spender, value);
         Ok(true)
     }
 
@@ -152,14 +151,15 @@ impl Erc20 {
         value: U256,
     ) -> Result<bool, Erc20Error> {
         // Update allowance if not self-transfer
-        if from != msg::sender() {
+        let sender = self.vm().msg_sender();
+        if from != sender {
             let mut sender_allowances = self.allowances.setter(from);
-            let mut allowance = sender_allowances.setter(msg::sender());
+            let mut allowance = sender_allowances.setter(sender);
             let old_allowance = allowance.get();
             if old_allowance < value {
                 return Err(Erc20Error::InsufficientAllowance(InsufficientAllowance {
                     owner: from,
-                    spender: msg::sender(),
+                    spender: self.vm().msg_sender(),
                     have: old_allowance,
                     want: value,
                 }));

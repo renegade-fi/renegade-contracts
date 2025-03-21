@@ -12,9 +12,10 @@ use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
     elgamal::EncryptionKey,
+    fees::FeeTake,
     fixed_point::FixedPoint,
     keychain::PublicSigningKey,
-    r#match::{ExternalMatchResult, FeeTake},
+    r#match::ExternalMatchResult,
     srs::SYSTEM_SRS,
     traits::{CircuitBaseType, SingleProverCircuit},
     transfers::ExternalTransfer,
