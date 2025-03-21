@@ -10,10 +10,11 @@ mod contracts;
 mod tests;
 mod util;
 
+use std::path::PathBuf;
 use std::str::FromStr;
 
+use crate::util::read_deployment;
 use alloy::network::Ethereum;
-use alloy::primitives::Address;
 use alloy::providers::{DynProvider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::transports::http::reqwest::Url;
@@ -42,9 +43,9 @@ pub type Darkpool = IDarkpoolInstance<(), Wallet, Ethereum>;
 /// The CLI arguments for the integration tests
 #[derive(Debug, Clone, Parser)]
 struct CliArgs {
-    /// The address of the darkpool contract
-    #[clap(long)]
-    darkpool_address: String,
+    /// The path to the deployments.json file
+    #[clap(long, default_value = "../deployments.json")]
+    deployments: PathBuf,
     /// The private key to use for testing
     #[clap(short = 'p', long, default_value = DEFAULT_PKEY)]
     pkey: String,
@@ -94,9 +95,11 @@ impl TestArgs {
 impl From<CliArgs> for TestArgs {
     fn from(args: CliArgs) -> Self {
         let wallet = setup_wallet(&args.rpc_url, &args.pkey).expect("Failed to setup wallet");
-        let addr =
-            Address::from_str(&args.darkpool_address).expect("Failed to parse darkpool address");
-        let darkpool = IDarkpoolInstance::new(addr, wallet.clone());
+
+        // Read darkpool address from deployments file
+        let darkpool_addr = read_deployment("Darkpool", args.deployments.to_str().unwrap())
+            .expect("Failed to read darkpool address from deployments file");
+        let darkpool = IDarkpoolInstance::new(darkpool_addr, wallet.clone());
 
         Self { wallet, darkpool }
     }
