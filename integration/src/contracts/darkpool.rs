@@ -1,11 +1,13 @@
 //! Contains ABI definitions for the Darkpool and associated contracts
+use alloy::primitives::{Bytes, U256};
 pub use IDarkpool::*;
 
 use alloy::sol_types::sol;
 use eyre::Result;
 use renegade_constants::Scalar;
 
-use crate::{util::call_helper, Darkpool};
+use crate::util::transactions::call_helper;
+use crate::Darkpool;
 
 use super::type_conversion::scalar_to_u256;
 
@@ -24,5 +26,16 @@ impl Darkpool {
         let call = self.rootInHistory(root_u256);
         let res = call_helper(call).await?;
         Ok(res._0)
+    }
+}
+
+impl Default for TransferAuthorization {
+    fn default() -> Self {
+        Self {
+            permit2Nonce: U256::ZERO,
+            permit2Deadline: U256::ZERO,
+            permit2Signature: Bytes::new(),
+            externalTransferSignature: Bytes::new(),
+        }
     }
 }

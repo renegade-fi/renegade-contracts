@@ -1,6 +1,6 @@
 //! Utilities for converting between relayer types and contract types
 
-use alloy::primitives::{Address, U256};
+use alloy::primitives::{Address, Bytes, U256};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
 use jf_primitives::pcs::prelude::Commitment as JfCommitment;
@@ -13,11 +13,12 @@ use renegade_circuit_types::{
 };
 use renegade_circuits::zk_circuits::valid_wallet_create::SizedValidWalletCreateStatement;
 use renegade_circuits::zk_circuits::valid_wallet_update::SizedValidWalletUpdateStatement;
+use renegade_common::types::transfer_auth::TransferAuth;
 use renegade_constants::Scalar;
 
 use super::darkpool::{
     ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,
-    PublicRootKey as ContractRootKey,
+    PublicRootKey as ContractRootKey, TransferAuthorization as ContractTransferAuth,
     ValidWalletCreateStatement as ContractValidWalletCreateStatement,
     ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
     BN254::G1Point as ContractG1Point,
@@ -78,6 +79,31 @@ impl From<ExternalTransfer> for ContractTransfer {
             mint: biguint_to_address(transfer.mint),
             amount: U256::from(transfer.amount),
             transferType: transfer_type,
+        }
+    }
+}
+
+impl From<TransferAuth> for ContractTransferAuth {
+    fn from(auth: TransferAuth) -> Self {
+        match auth {
+            TransferAuth::Deposit(deposit_auth) => {
+                let permit_sig = Bytes::from(deposit_auth.permit_signature);
+                let permit_deadline = U256::from(deposit_auth.permit_deadline);
+                let permit_nonce = U256::from(deposit_auth.permit_nonce);
+
+                ContractTransferAuth {
+                    permit2Nonce: permit_nonce,
+                    permit2Deadline: permit_deadline,
+                    permit2Signature: permit_sig,
+                    externalTransferSignature: Bytes::default(),
+                }
+            }
+            TransferAuth::Withdrawal(withdrawal_auth) => ContractTransferAuth {
+                permit2Nonce: U256::ZERO,
+                permit2Deadline: U256::ZERO,
+                permit2Signature: Bytes::default(),
+                externalTransferSignature: Bytes::from(withdrawal_auth.external_transfer_signature),
+            },
         }
     }
 }
@@ -144,10 +170,16 @@ pub fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
 
 /// Convert a `BigUint` to a `Address`
 #[allow(clippy::needless_pass_by_value)]
-fn biguint_to_address(biguint: BigUint) -> Address {
+pub fn biguint_to_address(biguint: BigUint) -> Address {
     let bytes = biguint.to_bytes_be();
     let padded = pad_bytes::<20>(&bytes);
     Address::from_slice(&padded)
+}
+
+/// Convert an `Address` to a `BigUint`
+pub fn address_to_biguint(address: Address) -> BigUint {
+    let bytes = address.0.to_vec();
+    BigUint::from_bytes_be(&bytes)
 }
 
 // --- Scalars --- //
