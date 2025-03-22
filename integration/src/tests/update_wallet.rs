@@ -4,6 +4,7 @@ use alloy::primitives::{Bytes, U256};
 use eyre::Result;
 use num_bigint::BigUint;
 use renegade_circuit_types::{
+    balance::Balance,
     fixed_point::FixedPoint,
     order::OrderSide,
     transfers::{ExternalTransfer, ExternalTransferDirection},
@@ -16,14 +17,19 @@ use renegade_circuits::{
     },
 };
 use renegade_common::types::wallet::{Order, OrderIdentifier, Wallet};
-use test_helpers::integration_test_async;
+use test_helpers::{
+    contract_interaction::transfer_auth::gen_transfer_with_auth, integration_test_async,
+};
 
 use crate::{
-    contracts::darkpool::{
-        PlonkProof as ContractPlonkProof, TransferAuthorization as ContractTransferAuth,
-        ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
+    contracts::{
+        darkpool::{
+            PlonkProof as ContractPlonkProof, TransferAuthorization as ContractTransferAuth,
+            ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
+        },
+        type_conversion::{address_to_biguint, biguint_to_address},
     },
-    util::{fetch_merkle_opening, send_tx, WrapEyre},
+    util::{merkle::update_wallet_opening, transactions::send_tx, WrapEyre},
     TestArgs,
 };
 
@@ -39,9 +45,7 @@ async fn test_update_wallet__place_and_cancel_order(args: TestArgs) -> Result<()
 
     // Add an order to the wallet
     let mut old_wallet = wallet.clone();
-    let old_wallet_comm = old_wallet.get_wallet_share_commitment();
-    let opening = fetch_merkle_opening(old_wallet_comm, &darkpool).await?;
-    old_wallet.merkle_proof = Some(opening);
+    update_wallet_opening(&mut old_wallet, &darkpool).await?;
 
     let id = OrderIdentifier::new_v4();
     let order = dummy_order();
@@ -51,9 +55,7 @@ async fn test_update_wallet__place_and_cancel_order(args: TestArgs) -> Result<()
 
     // Cancel the order
     let mut old_wallet = wallet.clone();
-    let old_wallet_comm = old_wallet.get_wallet_share_commitment();
-    let opening = fetch_merkle_opening(old_wallet_comm, &darkpool).await?;
-    old_wallet.merkle_proof = Some(opening);
+    update_wallet_opening(&mut old_wallet, &darkpool).await?;
 
     wallet.remove_order(&id).unwrap();
     wallet.reblind_wallet();
@@ -65,11 +67,35 @@ integration_test_async!(test_update_wallet__place_and_cancel_order);
 
 /// Test depositing into a wallet
 #[allow(non_snake_case)]
+#[allow(missing_docs, clippy::missing_docs_in_private_items)]
 async fn test_update_wallet__deposit(args: TestArgs) -> Result<(), eyre::Error> {
-    let mut wallet = create_darkpool_wallet(&args).await?;
+    const DEPOSIT_AMOUNT: u128 = 1_000;
     let darkpool = args.darkpool.clone();
+    let mut wallet = create_darkpool_wallet(&args).await?;
+    let mut old_wallet = wallet.clone();
+    update_wallet_opening(&mut old_wallet, &darkpool).await?;
 
-    println!("TODO: implement");
+    // Mint the quote token to the sender
+    let quote_token = args.quote_token()?;
+    let wallet_addr = args.wallet_addr();
+    let mint_tx = quote_token.mint(wallet_addr, U256::from(DEPOSIT_AMOUNT));
+    send_tx(mint_tx).await?;
+
+    // Add a balance to the wallet
+    let quote_addr = *quote_token.address();
+    let quote_mint = address_to_biguint(quote_addr);
+    let bal = Balance::new_from_mint_and_amount(quote_mint, DEPOSIT_AMOUNT);
+    wallet.add_balance(bal).to_eyre()?;
+    wallet.reblind_wallet();
+
+    let transfer = ExternalTransfer {
+        account_addr: address_to_biguint(wallet_addr),
+        mint: address_to_biguint(quote_addr),
+        amount: DEPOSIT_AMOUNT,
+        direction: ExternalTransferDirection::Deposit,
+    };
+    submit_wallet_update_with_transfer(old_wallet, wallet, transfer, &args).await?;
+
     Ok(())
 }
 integration_test_async!(test_update_wallet__deposit);
@@ -107,16 +133,10 @@ async fn submit_wallet_update_with_transfer(
     };
 
     // Add update and transfer auth
-    // TODO: transfer auth
     let new_wallet_comm = new_wallet.get_wallet_share_commitment();
     let update_sig = old_wallet.sign_commitment(new_wallet_comm).to_eyre()?;
     let update_sig_bytes = Bytes::from(update_sig.to_vec());
-    let transfer_auth = ContractTransferAuth {
-        permit2Deadline: U256::from(0),
-        permit2Nonce: U256::from(0),
-        permit2Signature: Bytes::from(vec![]),
-        externalTransferSignature: Bytes::from(vec![]),
-    };
+    let transfer_auth = generate_transfer_auth(&transfer, &old_wallet, args).await?;
 
     // Prove the update
     let (statement, proof) = prove_wallet_update(old_wallet, new_wallet, transfer, transfer_idx)?;
@@ -127,6 +147,52 @@ async fn submit_wallet_update_with_transfer(
     let tx = args
         .darkpool
         .updateWallet(update_sig_bytes, transfer_auth, statement, proof);
+    send_tx(tx).await.map(|_| ())
+}
+
+/// Generate transfer authorization for a wallet update
+async fn generate_transfer_auth(
+    transfer: &ExternalTransfer,
+    wallet: &Wallet,
+    test_args: &TestArgs,
+) -> Result<ContractTransferAuth> {
+    if transfer.is_default() {
+        return Ok(ContractTransferAuth::default());
+    }
+
+    // If the transfer is a deposit, approve the permit2 contract to spend the token
+    if transfer.direction == ExternalTransferDirection::Deposit {
+        approve_permit2(transfer, test_args).await?;
+    }
+
+    let pk_root = &wallet.key_chain.public_keys.pk_root;
+    let permit2_address = test_args.permit2_addr()?;
+    let darkpool_address = test_args.darkpool_addr();
+    let chain_id = test_args.chain_id().await?;
+
+    let signer = test_args.get_ethers_wallet();
+    let auth = gen_transfer_with_auth(
+        &signer,
+        pk_root,
+        permit2_address,
+        darkpool_address,
+        chain_id,
+        transfer.clone(),
+    )?
+    .transfer_auth;
+
+    // Implement conversion logic
+    Ok(auth.into())
+}
+
+/// Approve the permit2 contract for a deposit
+async fn approve_permit2(transfer: &ExternalTransfer, args: &TestArgs) -> Result<(), eyre::Error> {
+    let addr = biguint_to_address(transfer.mint.clone());
+    let erc20 = args.erc20_from_addr(addr)?;
+    let permit2_addr = args.permit2_addr()?;
+
+    let amount = U256::from(transfer.amount);
+    let tx = erc20.approve(permit2_addr, amount);
     send_tx(tx).await.map(|_| ())
 }
 
@@ -155,7 +221,7 @@ fn build_witness_statement(
     SizedValidWalletUpdateStatement,
 )> {
     let old_wallet_nullifier = old_wallet.get_wallet_nullifier();
-    let old_wallet_merkle = old_wallet.merkle_proof.unwrap().clone();
+    let old_wallet_merkle = old_wallet.merkle_proof.expect("no merkle proof").clone();
     let old_wallet_merkle_root = old_wallet_merkle.compute_root();
     let new_wallet_commitment = new_wallet.get_private_share_commitment();
     let merkle_proof = old_wallet_merkle.into();

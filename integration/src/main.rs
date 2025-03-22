@@ -13,13 +13,16 @@ mod util;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::util::read_deployment;
+use crate::util::deployments::read_deployment;
 use alloy::network::Ethereum;
-use alloy::providers::{DynProvider, ProviderBuilder};
+use alloy::primitives::Address;
+use alloy::providers::{DynProvider, Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::transports::http::reqwest::Url;
 use clap::Parser;
 use contracts::darkpool::IDarkpool::IDarkpoolInstance;
+use contracts::erc20::ERC20Mock;
+use contracts::erc20::ERC20MockInstance;
 use ethers_signers::LocalWallet;
 use eyre::{eyre, Result};
 use rand::thread_rng;
@@ -30,6 +33,7 @@ use renegade_common::types::wallet::{
     Wallet as RenegadeWallet,
 };
 use renegade_constants::Scalar;
+use renegade_util::on_chain::wallet::alloy_signer_to_ethers_wallet;
 use test_helpers::{integration_test_main, types::TestVerbosity};
 
 /// The default private key for the tests, the first default account in an Anvil node
@@ -39,6 +43,8 @@ const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 pub type Wallet = DynProvider<Ethereum>;
 /// A darkpool instance using the default generics
 pub type Darkpool = IDarkpoolInstance<(), Wallet, Ethereum>;
+/// An ERC20 instance with default generics
+pub type ERC20 = ERC20MockInstance<(), Wallet, Ethereum>;
 
 /// The CLI arguments for the integration tests
 #[derive(Debug, Clone, Parser)]
@@ -65,13 +71,68 @@ struct CliArgs {
 /// The arguments for the integration tests
 #[derive(Clone)]
 struct TestArgs {
-    /// The wallet for the tests
-    wallet: Wallet,
+    /// The deployments path
+    deployments: String,
+    /// The private key used for testing
+    pkey: PrivateKeySigner,
     /// The darkpool contract instance
     darkpool: Darkpool,
 }
 
 impl TestArgs {
+    /// Get the chain ID of the test
+    async fn chain_id(&self) -> Result<u64> {
+        let provider = self.darkpool.provider().clone();
+        let chain_id = provider.get_chain_id().await?;
+        Ok(chain_id)
+    }
+
+    /// Get the address of the wallet
+    fn wallet_addr(&self) -> Address {
+        self.pkey.address()
+    }
+
+    /// Read the address for the quote token
+    fn quote_token(&self) -> Result<ERC20> {
+        let addr = read_deployment("QuoteToken", &self.deployments)?;
+        self.erc20_from_addr(addr)
+    }
+
+    /// Read the address for the base token
+    fn base_token(&self) -> Result<ERC20> {
+        let addr = read_deployment("BaseToken", &self.deployments)?;
+        self.erc20_from_addr(addr)
+    }
+
+    /// Read the address for the weth token
+    fn weth(&self) -> Result<ERC20> {
+        let addr = read_deployment("Weth", &self.deployments)?;
+        self.erc20_from_addr(addr)
+    }
+
+    /// Get the address of the permit2 contract
+    fn permit2_addr(&self) -> Result<Address> {
+        read_deployment("Permit2", &self.deployments)
+    }
+
+    /// Get the address of the darkpool contract
+    fn darkpool_addr(&self) -> Address {
+        *self.darkpool.address()
+    }
+
+    /// Read an ERC20 from an address
+    fn erc20_from_addr(&self, addr: Address) -> Result<ERC20> {
+        let provider = self.darkpool.provider().clone();
+        let erc20 = ERC20Mock::new(addr, provider);
+        Ok(erc20)
+    }
+
+    /// Get the ethers wallet associated with the private key passed via the CLI
+    fn get_ethers_wallet(&self) -> LocalWallet {
+        let pkey = self.pkey.clone();
+        alloy_signer_to_ethers_wallet(&pkey)
+    }
+
     /// Derive a keychain for the wallet
     ///
     /// Returns the blinder seed and the wallet
@@ -94,22 +155,27 @@ impl TestArgs {
 
 impl From<CliArgs> for TestArgs {
     fn from(args: CliArgs) -> Self {
-        let wallet = setup_wallet(&args.rpc_url, &args.pkey).expect("Failed to setup wallet");
+        let signer = PrivateKeySigner::from_str(&args.pkey).expect("Failed to parse private key");
+        let wallet = setup_wallet(&args.rpc_url, signer.clone()).expect("Failed to setup wallet");
 
         // Read darkpool address from deployments file
-        let darkpool_addr = read_deployment("Darkpool", args.deployments.to_str().unwrap())
+        let deployments_path = args.deployments.to_str().unwrap().to_string();
+        let darkpool_addr = read_deployment("Darkpool", &deployments_path)
             .expect("Failed to read darkpool address from deployments file");
         let darkpool = IDarkpoolInstance::new(darkpool_addr, wallet.clone());
 
-        Self { wallet, darkpool }
+        Self {
+            deployments: deployments_path,
+            pkey: signer,
+            darkpool,
+        }
     }
 }
 
 /// Setup a provider for tests
-fn setup_wallet(rpc_url: &str, pkey: &str) -> Result<Wallet, eyre::Error> {
+fn setup_wallet(rpc_url: &str, pkey: PrivateKeySigner) -> Result<Wallet, eyre::Error> {
     let url = Url::parse(rpc_url)?;
-    let wallet = PrivateKeySigner::from_str(pkey)?;
-    let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+    let provider = ProviderBuilder::new().wallet(pkey).on_http(url);
     Ok(DynProvider::new(provider))
 }
 
