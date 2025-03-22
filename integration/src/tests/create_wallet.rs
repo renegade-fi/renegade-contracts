@@ -12,8 +12,7 @@ use renegade_constants::Scalar;
 use test_helpers::{assert_true_result, integration_test_async};
 
 use crate::{
-    util::{fetch_merkle_opening, wait_for_tx_success},
-    TestArgs,
+    util::merkle::fetch_merkle_opening, util::transactions::wait_for_tx_success, TestArgs,
 };
 
 // ---------
