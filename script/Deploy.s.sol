@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
+import "permit2/interfaces/IPermit2.sol";
+import "renegade-lib/interfaces/IWETH9.sol";
 import "./utils/DeployUtils.sol";
 
 contract DeployScript is Script {
@@ -20,6 +22,6 @@ contract DeployScript is Script {
 
     function run(address permit2Address, address wethAddress, address protocolFeeAddr) public {
         // Call the shared deployment logic
-        DeployUtils.deployCore(permit2Address, wethAddress, protocolFeeAddr, vm);
+        DeployUtils.deployCore(IPermit2(permit2Address), IWETH9(wethAddress), protocolFeeAddr, vm);
     }
 }

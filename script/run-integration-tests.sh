@@ -113,14 +113,12 @@ if [ "$SKIP_TESTS" = false ]; then
             exit 1
         fi
     fi
+    echo "Tests completed successfully. Exiting..."
+    exit 0
 fi
 
-# Keep the script running until interrupted
-if [ "$SKIP_TESTS" = true ]; then
-    echo "Anvil node is running. Press Ctrl+C to exit..."
-else
-    echo "Deployment and all tests complete. Press Ctrl+C to exit..."
-fi
+# If we're not running tests, keep the script running until interrupted
+echo "Anvil node is running. Press Ctrl+C to exit..."
 while true; do
     sleep 1
 done 

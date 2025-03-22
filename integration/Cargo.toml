@@ -19,7 +19,12 @@ renegade-common = { package = "common", git = "https://github.com/renegade-fi/re
     "all-types",
 ] }
 renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade" }
-test-helpers = { git = "https://github.com/renegade-fi/renegade" }
+renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", features = [
+    "blockchain",
+] }
+test-helpers = { git = "https://github.com/renegade-fi/renegade", features = [
+    "contracts",
+] }
 
 # === Alloy Dependencies === #
 alloy = { version = "0.12", features = ["essentials"] }

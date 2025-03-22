@@ -1,6 +1,7 @@
 //! Wallet update tests
 
 use alloy::primitives::{Bytes, U256};
+use alloy_sol_types::SolValue;
 use eyre::Result;
 use num_bigint::BigUint;
 use renegade_circuit_types::{
@@ -18,13 +19,14 @@ use renegade_circuits::{
 };
 use renegade_common::types::wallet::{Order, OrderIdentifier, Wallet};
 use test_helpers::{
-    contract_interaction::transfer_auth::gen_transfer_with_auth, integration_test_async,
+    contract_interaction::transfer_auth::gen_deposit_with_auth, integration_test_async,
 };
 
 use crate::{
     contracts::{
         darkpool::{
-            PlonkProof as ContractPlonkProof, TransferAuthorization as ContractTransferAuth,
+            ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,
+            TransferAuthorization as ContractTransferAuth,
             ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
         },
         type_conversion::{address_to_biguint, biguint_to_address},
@@ -100,9 +102,65 @@ async fn test_update_wallet__deposit(args: TestArgs) -> Result<(), eyre::Error> 
 }
 integration_test_async!(test_update_wallet__deposit);
 
+/// Test withdrawing from a wallet
+#[allow(non_snake_case)]
+#[allow(missing_docs, clippy::missing_docs_in_private_items)]
+async fn test_update_wallet__withdraw(args: TestArgs) -> Result<(), eyre::Error> {
+    const DEPOSIT_AMOUNT: u128 = 1_000;
+    let mut wallet = create_darkpool_wallet(&args).await?;
+    let mut old_wallet = wallet.clone();
+    update_wallet_opening(&mut old_wallet, &args.darkpool).await?;
+
+    // 1. Deposit
+
+    // Mint the quote token to the sender
+    let quote_token = args.quote_token()?;
+    let wallet_addr = args.wallet_addr();
+    let mint_tx = quote_token.mint(wallet_addr, U256::from(DEPOSIT_AMOUNT));
+    send_tx(mint_tx).await?;
+
+    // Add a balance to the wallet
+    let quote_addr = *quote_token.address();
+    let quote_mint = address_to_biguint(quote_addr);
+    let bal = Balance::new_from_mint_and_amount(quote_mint.clone(), DEPOSIT_AMOUNT);
+    wallet.add_balance(bal).to_eyre()?;
+    wallet.reblind_wallet();
+
+    let transfer = ExternalTransfer {
+        account_addr: address_to_biguint(wallet_addr),
+        mint: address_to_biguint(quote_addr),
+        amount: DEPOSIT_AMOUNT,
+        direction: ExternalTransferDirection::Deposit,
+    };
+    submit_wallet_update_with_transfer(old_wallet, wallet.clone(), transfer, &args).await?;
+
+    // 2. Withdraw
+
+    // Update the opening for the new wallet
+    let withdraw_amount = DEPOSIT_AMOUNT / 2;
+    let mut old_wallet = wallet.clone();
+    update_wallet_opening(&mut old_wallet, &args.darkpool).await?;
+
+    wallet.withdraw(&quote_mint, withdraw_amount).to_eyre()?;
+    wallet.reblind_wallet();
+
+    let transfer = ExternalTransfer {
+        account_addr: address_to_biguint(wallet_addr),
+        mint: address_to_biguint(quote_addr),
+        amount: withdraw_amount,
+        direction: ExternalTransferDirection::Withdrawal,
+    };
+    submit_wallet_update_with_transfer(old_wallet, wallet, transfer, &args).await?;
+
+    Ok(())
+}
+integration_test_async!(test_update_wallet__withdraw);
+
 // -----------
 // | Helpers |
 // -----------
+
+// --- Wallet Update Helpers --- //
 
 /// Submit an update wallet transaction
 async fn submit_wallet_update(
@@ -150,6 +208,8 @@ async fn submit_wallet_update_with_transfer(
     send_tx(tx).await.map(|_| ())
 }
 
+// --- Transfer Auth Helpers --- //
+
 /// Generate transfer authorization for a wallet update
 async fn generate_transfer_auth(
     transfer: &ExternalTransfer,
@@ -160,29 +220,10 @@ async fn generate_transfer_auth(
         return Ok(ContractTransferAuth::default());
     }
 
-    // If the transfer is a deposit, approve the permit2 contract to spend the token
-    if transfer.direction == ExternalTransferDirection::Deposit {
-        approve_permit2(transfer, test_args).await?;
+    match transfer.direction {
+        ExternalTransferDirection::Deposit => authorize_deposit(transfer, wallet, test_args).await,
+        ExternalTransferDirection::Withdrawal => authorize_withdrawal(transfer, wallet),
     }
-
-    let pk_root = &wallet.key_chain.public_keys.pk_root;
-    let permit2_address = test_args.permit2_addr()?;
-    let darkpool_address = test_args.darkpool_addr();
-    let chain_id = test_args.chain_id().await?;
-
-    let signer = test_args.get_ethers_wallet();
-    let auth = gen_transfer_with_auth(
-        &signer,
-        pk_root,
-        permit2_address,
-        darkpool_address,
-        chain_id,
-        transfer.clone(),
-    )?
-    .transfer_auth;
-
-    // Implement conversion logic
-    Ok(auth.into())
 }
 
 /// Approve the permit2 contract for a deposit
@@ -195,6 +236,50 @@ async fn approve_permit2(transfer: &ExternalTransfer, args: &TestArgs) -> Result
     let tx = erc20.approve(permit2_addr, amount);
     send_tx(tx).await.map(|_| ())
 }
+
+/// Authorize a deposit
+async fn authorize_deposit(
+    transfer: &ExternalTransfer,
+    wallet: &Wallet,
+    args: &TestArgs,
+) -> Result<ContractTransferAuth> {
+    // Approve the permit2 contract to spend the token
+    approve_permit2(transfer, args).await?;
+
+    let pk_root = &wallet.key_chain.public_keys.pk_root;
+    let permit2_address = args.permit2_addr()?;
+    let darkpool_address = args.darkpool_addr();
+    let chain_id = args.chain_id().await?;
+
+    let signer = args.get_ethers_wallet();
+    let auth = gen_deposit_with_auth(
+        &signer,
+        pk_root,
+        transfer.clone(),
+        permit2_address,
+        darkpool_address,
+        chain_id,
+    )?
+    .transfer_auth;
+
+    // Implement conversion logic
+    Ok(auth.into())
+}
+
+/// Generate the transfer signature for a withdrawal
+///
+/// This is a signature of the transfer struct by the old public root key
+fn authorize_withdrawal(
+    transfer: &ExternalTransfer,
+    wallet: &Wallet,
+) -> Result<ContractTransferAuth> {
+    let contract_transfer: ContractTransfer = transfer.clone().into();
+    let transfer_bytes = contract_transfer.abi_encode();
+    let sig = wallet.sign_bytes(&transfer_bytes).to_eyre()?.to_vec();
+    Ok(ContractTransferAuth::withdrawal(sig.to_vec()))
+}
+
+// --- Prover Helpers --- //
 
 /// Prove a `VALID WALLET UPDATE` statement
 fn prove_wallet_update(
