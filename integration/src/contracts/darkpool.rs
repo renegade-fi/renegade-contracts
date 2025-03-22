@@ -39,3 +39,15 @@ impl Default for TransferAuthorization {
         }
     }
 }
+
+impl TransferAuthorization {
+    /// Create a withdrawal authorization
+    pub fn withdrawal(sig_bytes: Vec<u8>) -> Self {
+        Self {
+            permit2Nonce: U256::ZERO,
+            permit2Deadline: U256::ZERO,
+            permit2Signature: Bytes::new(),
+            externalTransferSignature: Bytes::from(sig_bytes),
+        }
+    }
+}
