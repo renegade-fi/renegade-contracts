@@ -12,7 +12,11 @@ use renegade_constants::Scalar;
 use test_helpers::{assert_true_result, integration_test_async};
 
 use crate::{
-    util::merkle::fetch_merkle_opening, util::transactions::wait_for_tx_success, TestArgs,
+    util::{
+        merkle::{fetch_merkle_opening, update_wallet_opening},
+        transactions::wait_for_tx_success,
+    },
+    TestArgs,
 };
 
 // ---------
@@ -44,7 +48,7 @@ integration_test_async!(test_create_wallet__recover_wallet);
 /// Create a wallet in the darkpool and return the circuit representation
 pub async fn create_darkpool_wallet(args: &TestArgs) -> Result<Wallet> {
     let darkpool = args.darkpool.clone();
-    let (blinder_seed, wallet) = args.build_empty_renegade_wallet()?;
+    let (blinder_seed, mut wallet) = args.build_empty_renegade_wallet()?;
 
     let (witness, statement) = create_sized_witness_statement_with_wallet(blinder_seed, &wallet);
     let proof = singleprover_prove::<SizedValidWalletCreate>(witness.clone(), statement.clone())?;
@@ -55,6 +59,8 @@ pub async fn create_darkpool_wallet(args: &TestArgs) -> Result<Wallet> {
 
     // Wait for the transaction receipt and ensure it was successful
     wait_for_tx_success(tx).await?;
+    update_wallet_opening(&mut wallet, &darkpool).await?;
+
     Ok(wallet)
 }
 

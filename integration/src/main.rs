@@ -5,6 +5,8 @@
 #![deny(unsafe_code)]
 #![deny(clippy::needless_pass_by_value)]
 #![deny(clippy::needless_pass_by_ref_mut)]
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
 
 mod contracts;
 mod tests;
@@ -101,12 +103,6 @@ impl TestArgs {
     /// Read the address for the base token
     fn base_token(&self) -> Result<ERC20> {
         let addr = read_deployment("BaseToken", &self.deployments)?;
-        self.erc20_from_addr(addr)
-    }
-
-    /// Read the address for the weth token
-    fn weth(&self) -> Result<ERC20> {
-        let addr = read_deployment("Weth", &self.deployments)?;
         self.erc20_from_addr(addr)
     }
 
