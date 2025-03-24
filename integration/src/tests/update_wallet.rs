@@ -1,6 +1,6 @@
 //! Wallet update tests
 
-use alloy::primitives::{Bytes, U256};
+use alloy::primitives::{Address, Bytes, U256};
 use alloy_sol_types::SolValue;
 use eyre::Result;
 use num_bigint::BigUint;
@@ -9,7 +9,7 @@ use renegade_circuit_types::{
     fixed_point::FixedPoint,
     order::OrderSide,
     transfers::{ExternalTransfer, ExternalTransferDirection},
-    PlonkProof,
+    Amount, PlonkProof,
 };
 use renegade_circuits::{
     singleprover_prove,
@@ -72,33 +72,10 @@ integration_test_async!(test_update_wallet__place_and_cancel_order);
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]
 async fn test_update_wallet__deposit(args: TestArgs) -> Result<(), eyre::Error> {
     const DEPOSIT_AMOUNT: u128 = 1_000;
-    let darkpool = args.darkpool.clone();
     let mut wallet = create_darkpool_wallet(&args).await?;
-    let mut old_wallet = wallet.clone();
-    update_wallet_opening(&mut old_wallet, &darkpool).await?;
-
-    // Mint the quote token to the sender
-    let quote_token = args.quote_token()?;
-    let wallet_addr = args.wallet_addr();
-    let mint_tx = quote_token.mint(wallet_addr, U256::from(DEPOSIT_AMOUNT));
-    send_tx(mint_tx).await?;
-
-    // Add a balance to the wallet
-    let quote_addr = *quote_token.address();
-    let quote_mint = address_to_biguint(quote_addr);
-    let bal = Balance::new_from_mint_and_amount(quote_mint, DEPOSIT_AMOUNT);
-    wallet.add_balance(bal).to_eyre()?;
-    wallet.reblind_wallet();
-
-    let transfer = ExternalTransfer {
-        account_addr: address_to_biguint(wallet_addr),
-        mint: address_to_biguint(quote_addr),
-        amount: DEPOSIT_AMOUNT,
-        direction: ExternalTransferDirection::Deposit,
-    };
-    submit_wallet_update_with_transfer(old_wallet, wallet, transfer, &args).await?;
-
-    Ok(())
+    // let quote_addr = *args.quote_token()?.address();
+    let quote_addr = *args.base_token()?.address();
+    fund_and_deposit(quote_addr, DEPOSIT_AMOUNT, &mut wallet, &args).await
 }
 integration_test_async!(test_update_wallet__deposit);
 
@@ -107,36 +84,15 @@ integration_test_async!(test_update_wallet__deposit);
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]
 async fn test_update_wallet__withdraw(args: TestArgs) -> Result<(), eyre::Error> {
     const DEPOSIT_AMOUNT: u128 = 1_000;
-    let mut wallet = create_darkpool_wallet(&args).await?;
-    let mut old_wallet = wallet.clone();
-    update_wallet_opening(&mut old_wallet, &args.darkpool).await?;
-
-    // 1. Deposit
-
-    // Mint the quote token to the sender
-    let quote_token = args.quote_token()?;
-    let wallet_addr = args.wallet_addr();
-    let mint_tx = quote_token.mint(wallet_addr, U256::from(DEPOSIT_AMOUNT));
-    send_tx(mint_tx).await?;
-
-    // Add a balance to the wallet
-    let quote_addr = *quote_token.address();
+    let quote_addr = *args.quote_token()?.address();
     let quote_mint = address_to_biguint(quote_addr);
-    let bal = Balance::new_from_mint_and_amount(quote_mint.clone(), DEPOSIT_AMOUNT);
-    wallet.add_balance(bal).to_eyre()?;
-    wallet.reblind_wallet();
+    let wallet_addr = args.wallet_addr();
 
-    let transfer = ExternalTransfer {
-        account_addr: address_to_biguint(wallet_addr),
-        mint: address_to_biguint(quote_addr),
-        amount: DEPOSIT_AMOUNT,
-        direction: ExternalTransferDirection::Deposit,
-    };
-    submit_wallet_update_with_transfer(old_wallet, wallet.clone(), transfer, &args).await?;
+    // Setup a wallet and deposit
+    let mut wallet = create_darkpool_wallet(&args).await?;
+    fund_and_deposit(quote_addr, DEPOSIT_AMOUNT, &mut wallet, &args).await?;
 
-    // 2. Withdraw
-
-    // Update the opening for the new wallet
+    // Withdraw from the wallet
     let withdraw_amount = DEPOSIT_AMOUNT / 2;
     let mut old_wallet = wallet.clone();
     update_wallet_opening(&mut old_wallet, &args.darkpool).await?;
@@ -162,8 +118,44 @@ integration_test_async!(test_update_wallet__withdraw);
 
 // --- Wallet Update Helpers --- //
 
+/// Fund the test signer with a token, then deposit into the given Renegade wallet
+pub async fn fund_and_deposit(
+    addr: Address,
+    amt: Amount,
+    wallet: &mut Wallet,
+    args: &TestArgs,
+) -> Result<(), eyre::Error> {
+    // Fund the address
+    let erc20 = args.erc20_from_addr(addr)?;
+    let wallet_addr = args.wallet_addr();
+    let mint_tx = erc20.mint(wallet_addr, U256::from(amt));
+    send_tx(mint_tx).await?;
+
+    // Deposit into the wallet
+    let old_wallet = wallet.clone();
+    let quote_mint = address_to_biguint(addr);
+    let bal = Balance::new_from_mint_and_amount(quote_mint, amt);
+    wallet.add_balance(bal).to_eyre()?;
+    wallet.reblind_wallet();
+
+    // Submit a transfer to the darkpool
+    let transfer = ExternalTransfer {
+        account_addr: address_to_biguint(wallet_addr),
+        mint: address_to_biguint(addr),
+        amount: amt,
+        direction: ExternalTransferDirection::Deposit,
+    };
+    submit_wallet_update_with_transfer(old_wallet, wallet.clone(), transfer, args).await?;
+
+    // Update the wallet opening
+    let darkpool = args.darkpool.clone();
+    update_wallet_opening(wallet, &darkpool).await?;
+
+    Ok(())
+}
+
 /// Submit an update wallet transaction
-async fn submit_wallet_update(
+pub async fn submit_wallet_update(
     old_wallet: Wallet,
     new_wallet: Wallet,
     args: &TestArgs,

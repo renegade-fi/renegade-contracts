@@ -1,5 +1,7 @@
 //! Utilities for converting between relayer types and contract types
 
+use std::borrow::Borrow;
+
 use alloy::primitives::{Address, Bytes, U256};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
@@ -7,18 +9,29 @@ use jf_primitives::pcs::prelude::Commitment as JfCommitment;
 use num_bigint::BigUint;
 use renegade_circuit_types::{
     keychain::PublicSigningKey,
+    r#match::OrderSettlementIndices,
     traits::BaseType,
     transfers::{ExternalTransfer, ExternalTransferDirection},
-    PlonkProof,
+    PlonkLinkProof, PlonkProof,
 };
-use renegade_circuits::zk_circuits::valid_wallet_create::SizedValidWalletCreateStatement;
-use renegade_circuits::zk_circuits::valid_wallet_update::SizedValidWalletUpdateStatement;
+use renegade_circuits::zk_circuits::{
+    valid_commitments::ValidCommitmentsStatement, valid_reblind::ValidReblindStatement,
+    valid_wallet_create::SizedValidWalletCreateStatement,
+};
+use renegade_circuits::zk_circuits::{
+    valid_match_settle::SizedValidMatchSettleStatement,
+    valid_wallet_update::SizedValidWalletUpdateStatement,
+};
 use renegade_common::types::transfer_auth::TransferAuth;
 use renegade_constants::Scalar;
 
 use super::darkpool::{
-    ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,
+    ExternalTransfer as ContractTransfer, LinkingProof as ContractLinkingProof,
+    OrderSettlementIndices as ContractOrderSettlementIndices, PlonkProof as ContractPlonkProof,
     PublicRootKey as ContractRootKey, TransferAuthorization as ContractTransferAuth,
+    ValidCommitmentsStatement as ContractValidCommitmentsStatement,
+    ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+    ValidReblindStatement as ContractValidReblindStatement,
     ValidWalletCreateStatement as ContractValidWalletCreateStatement,
     ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
     BN254::G1Point as ContractG1Point,
@@ -58,6 +71,46 @@ impl From<SizedValidWalletUpdateStatement> for ContractValidWalletUpdateStatemen
             merkleRoot: scalar_to_u256(statement.merkle_root),
             externalTransfer: statement.external_transfer.into(),
             oldPkRoot: statement.old_pk_root.into(),
+        }
+    }
+}
+
+impl From<ValidReblindStatement> for ContractValidReblindStatement {
+    fn from(statement: ValidReblindStatement) -> Self {
+        Self {
+            originalSharesNullifier: scalar_to_u256(statement.original_shares_nullifier),
+            newPrivateShareCommitment: scalar_to_u256(statement.reblinded_private_share_commitment),
+            merkleRoot: scalar_to_u256(statement.merkle_root),
+        }
+    }
+}
+
+impl From<ValidCommitmentsStatement> for ContractValidCommitmentsStatement {
+    fn from(statement: ValidCommitmentsStatement) -> Self {
+        Self {
+            indices: statement.indices.into(),
+        }
+    }
+}
+
+impl From<SizedValidMatchSettleStatement> for ContractValidMatchSettleStatement {
+    fn from(statement: SizedValidMatchSettleStatement) -> Self {
+        Self {
+            firstPartyPublicShares: statement
+                .party0_modified_shares
+                .to_scalars()
+                .into_iter()
+                .map(scalar_to_u256)
+                .collect(),
+            secondPartyPublicShares: statement
+                .party1_modified_shares
+                .to_scalars()
+                .into_iter()
+                .map(scalar_to_u256)
+                .collect(),
+            firstPartySettlementIndices: statement.party0_indices.into(),
+            secondPartySettlementIndices: statement.party1_indices.into(),
+            protocolFeeRate: scalar_to_u256(statement.protocol_fee.repr),
         }
     }
 }
@@ -120,6 +173,16 @@ impl From<PublicSigningKey> for ContractRootKey {
     }
 }
 
+/// Convert a relayer [`OrderSettlementIndices`] to a contract [`OrderSettlementIndices`]
+impl From<OrderSettlementIndices> for ContractOrderSettlementIndices {
+    fn from(indices: OrderSettlementIndices) -> Self {
+        Self {
+            balanceSend: U256::from(indices.balance_send),
+            balanceReceive: U256::from(indices.balance_receive),
+            order: U256::from(indices.order),
+        }
+    }
+}
 // ----------------------
 // | Proof System Types |
 // ----------------------
@@ -153,6 +216,15 @@ impl From<PlonkProof> for ContractPlonkProof {
     }
 }
 
+impl From<PlonkLinkProof> for ContractLinkingProof {
+    fn from(proof: PlonkLinkProof) -> Self {
+        Self {
+            linking_quotient_poly_comm: convert_jf_commitment(proof.quotient_commitment),
+            linking_poly_opening: convert_g1_point(proof.opening_proof.proof),
+        }
+    }
+}
+
 // -----------
 // | Helpers |
 // -----------
@@ -169,9 +241,8 @@ pub fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
 // --- Alloy Types --- //
 
 /// Convert a `BigUint` to a `Address`
-#[allow(clippy::needless_pass_by_value)]
-pub fn biguint_to_address(biguint: BigUint) -> Address {
-    let bytes = biguint.to_bytes_be();
+pub fn biguint_to_address<B: Borrow<BigUint>>(biguint: B) -> Address {
+    let bytes = biguint.borrow().to_bytes_be();
     let padded = pad_bytes::<20>(&bytes);
     Address::from_slice(&padded)
 }

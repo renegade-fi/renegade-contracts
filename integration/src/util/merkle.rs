@@ -65,9 +65,13 @@ pub async fn fetch_merkle_opening(
 /// Returns the index of the commitment in the Merkle tree, and the tx hash
 async fn find_commitment(commitment: Scalar, darkpool: &Darkpool) -> Result<(u128, TxHash)> {
     let commitment_u256 = scalar_to_u256(commitment);
+    let block = darkpool.provider().get_block_number().await?;
+    let from_block = block.saturating_sub(1000);
     let logs = darkpool
         .MerkleInsertion_filter()
         .topic2(commitment_u256)
+        .from_block(from_block)
+        .to_block(block)
         .query()
         .await?;
 
