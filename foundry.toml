@@ -6,13 +6,14 @@ libs = ["lib"]
 remappings = ["forge-std/=lib/forge-std/src/"]
 via_ir = true
 optimizer = true
-optimizer_runs = 20_000
+optimizer_runs = 100_000
 fs_permissions = [{ access = "read-write", path = "./deployments.json" }]
 
 # The darkpool is a large contract so we limit the optimizer runs
-additional_compiler_profiles = [{ name = "darkpool", optimizer_runs = 100 }]
+# Todo: if more space is needed, decrease the number of runs
+additional_compiler_profiles = [{ name = "darkpool", optimizer_runs = 18_000 }]
 compilation_restrictions = [
-    { paths = "src/Darkpool.sol", optimizer_runs = 100 },
+    { paths = "src/Darkpool.sol", optimizer_runs = 18_000 },
 ]
 
 [fmt]
