@@ -15,6 +15,7 @@ import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { TestVerifier } from "../test-contracts/TestVerifier.sol";
 import { Darkpool } from "renegade/Darkpool.sol";
+import { TransferExecutor } from "renegade/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -37,6 +38,7 @@ contract DarkpoolTestBase is CalldataUtils {
     ERC20Mock public baseToken;
     WethMock public weth;
     IVKeys public vkeys;
+    TransferExecutor public transferExecutor;
 
     address public protocolFeeAddr;
     address public darkpoolOwner;
@@ -72,16 +74,36 @@ contract DarkpoolTestBase is CalldataUtils {
         IVerifier realVerifier = new Verifier(vkeys);
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
+        // Deploy TransferExecutor
+        transferExecutor = new TransferExecutor();
+
         // Deploy the darkpool
         darkpoolOwner = vm.randomAddress();
         protocolFeeAddr = vm.randomAddress();
 
         vm.prank(darkpoolOwner);
-        darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, verifier, permit2);
+        darkpool = new Darkpool(
+            TEST_PROTOCOL_FEE,
+            protocolFeeAddr,
+            protocolFeeKey,
+            weth,
+            hasher,
+            verifier,
+            permit2,
+            address(transferExecutor)
+        );
 
         vm.prank(darkpoolOwner);
-        darkpoolRealVerifier =
-            new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, realVerifier, permit2);
+        darkpoolRealVerifier = new Darkpool(
+            TEST_PROTOCOL_FEE,
+            protocolFeeAddr,
+            protocolFeeKey,
+            weth,
+            hasher,
+            realVerifier,
+            permit2,
+            address(transferExecutor)
+        );
     }
 
     /// @dev Get the base and quote token amounts for an address

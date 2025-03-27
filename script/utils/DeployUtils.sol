@@ -14,6 +14,7 @@ import "renegade-lib/interfaces/IHasher.sol";
 import "renegade-lib/interfaces/IVerifier.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "renegade-lib/darkpool/types/Ciphertext.sol";
+import "renegade/TransferExecutor.sol";
 import "./JsonUtils.sol";
 
 library DeployUtils {
@@ -42,7 +43,24 @@ library DeployUtils {
         }
 
         require(deployedAddress != address(0), "Hasher deployment failed");
+        writeDeployment(vm, "Hasher", deployedAddress);
         return deployedAddress;
+    }
+
+    /// @notice Deploy the TransferExecutor contract
+    function deployTransferExecutor(Vm vm) internal returns (address) {
+        TransferExecutor transferExecutor = new TransferExecutor();
+        writeDeployment(vm, "TransferExecutor", address(transferExecutor));
+        return address(transferExecutor);
+    }
+
+    /// @notice Deploy the VKeys and Verifier contracts
+    function deployVKeysAndVerifier(Vm vm) internal returns (IVKeys, IVerifier) {
+        VKeys vkeys = new VKeys();
+        IVerifier verifier = new Verifier(vkeys);
+        writeDeployment(vm, "VKeys", address(vkeys));
+        writeDeployment(vm, "Verifier", address(verifier));
+        return (vkeys, verifier);
     }
 
     /// @notice Deploy core contracts
@@ -55,15 +73,10 @@ library DeployUtils {
         internal
         returns (address darkpoolAddr)
     {
-        // Deploy Hasher
+        // Deploy library contracts for the darkpool
         IHasher hasher = IHasher(deployHasher(vm));
-        console.log("Hasher deployed at:", address(hasher));
-
-        // Deploy VKeys and Verifier
-        VKeys vkeys = new VKeys();
-        IVerifier verifier = new Verifier(vkeys);
-        console.log("VKeys deployed at:", address(vkeys));
-        console.log("Verifier deployed at:", address(verifier));
+        (IVKeys vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
+        address transferExecutor = deployTransferExecutor(vm);
 
         // Set up protocol fee parameters
         EncryptionKey memory protocolFeeKey = EncryptionKey({
@@ -79,7 +92,8 @@ library DeployUtils {
             weth,
             hasher,
             verifier,
-            permit2
+            permit2,
+            transferExecutor
         );
         console.log("Darkpool deployed at:", address(darkpool));
         return address(darkpool);

@@ -11,6 +11,7 @@ import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { Ownable } from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import { Pausable } from "openzeppelin-contracts/contracts/utils/Pausable.sol";
+import { TransferExecutor } from "./TransferExecutor.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -24,7 +25,7 @@ import {
     StatementSerializer
 } from "renegade-lib/darkpool/PublicInputs.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
-import { TransferExecutor } from "renegade-lib/darkpool/ExternalTransfers.sol";
+import { ExternalTransferLib } from "renegade-lib/darkpool/ExternalTransfers.sol";
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { ExternalTransfer } from "renegade-lib/darkpool/types/Transfers.sol";
 import {
@@ -87,6 +88,8 @@ contract Darkpool is Ownable, Pausable {
     IPermit2 public permit2;
     /// @notice The WETH9 contract instance used for depositing/withdrawing native tokens
     IWETH9 public weth;
+    /// @notice The TransferExecutor contract for handling external transfers
+    address public transferExecutor;
 
     /// @notice The Merkle tree for wallet commitments
     MerkleTreeLib.MerkleTree private merkleTree;
@@ -111,7 +114,8 @@ contract Darkpool is Ownable, Pausable {
         IWETH9 weth_,
         IHasher hasher_,
         IVerifier verifier_,
-        IPermit2 permit2_
+        IPermit2 permit2_,
+        address transferExecutor_
     )
         Ownable(msg.sender)
     {
@@ -122,6 +126,7 @@ contract Darkpool is Ownable, Pausable {
         verifier = verifier_;
         permit2 = permit2_;
         weth = weth_;
+        transferExecutor = transferExecutor_;
         merkleTree.initialize();
     }
 
@@ -218,6 +223,13 @@ contract Darkpool is Ownable, Pausable {
         emit ExternalFeeCollectionAddressChanged(newAddress);
     }
 
+    /// @notice Set the address of the TransferExecutor contract
+    /// @param newTransferExecutor The new address of the TransferExecutor contract
+    function setTransferExecutor(address newTransferExecutor) public onlyOwner whenNotPaused {
+        require(newTransferExecutor != address(0), "Address cannot be zero");
+        transferExecutor = newTransferExecutor;
+    }
+
     /// @notice Pause the darkpool
     function pause() public onlyOwner {
         _pause();
@@ -287,9 +299,17 @@ contract Darkpool is Ownable, Pausable {
 
         // 4. Execute the external transfer if it is non-zero
         if (!statement.externalTransfer.isZero()) {
-            TransferExecutor.executeTransfer(
-                statement.externalTransfer, statement.oldPkRoot, transferAuthorization, permit2
+            // delegatecall to TransferExecutor
+            (bool success, bytes memory returnData) = transferExecutor.delegatecall(
+                abi.encodeWithSelector(
+                    TransferExecutor.executeTransfer.selector,
+                    statement.externalTransfer,
+                    statement.oldPkRoot,
+                    transferAuthorization,
+                    permit2
+                )
             );
+            _handleDelegateCallResult(success, returnData);
         }
     }
 
@@ -440,12 +460,19 @@ contract Darkpool is Ownable, Pausable {
             hasher
         );
 
-        // 6. Execute external transfers to/from the external party
-        ValidMatchSettleAtomicStatement calldata statement = matchSettleStatement;
-        TransferExecutor.SimpleTransfer[] memory transfers = buildAtomicMatchTransfers(
-            receiver, statement.relayerFeeAddress, statement.matchResult, statement.externalPartyFees
+        // 6. Execute external transfers to/from the external party using TransferExecutor
+        (bool success, bytes memory returnData) = transferExecutor.delegatecall(
+            abi.encodeWithSelector(
+                TransferExecutor.executeAtomicMatchTransfers.selector,
+                receiver,
+                matchSettleStatement.relayerFeeAddress,
+                protocolFeeRecipient,
+                matchSettleStatement.matchResult,
+                matchSettleStatement.externalPartyFees,
+                weth
+            )
         );
-        TransferExecutor.executeTransferBatch(transfers, weth);
+        _handleDelegateCallResult(success, returnData);
     }
 
     /// @notice Process a malleable match settlement between two parties
@@ -523,11 +550,19 @@ contract Darkpool is Ownable, Pausable {
             hasher
         );
 
-        // 8. Execute external transfers to/from the external party
-        ValidMalleableMatchSettleAtomicStatement calldata statement = matchSettleStatement;
-        TransferExecutor.SimpleTransfer[] memory transfers =
-            buildAtomicMatchTransfers(receiver, statement.relayerFeeAddress, matchResult, externalPartyFeeTake);
-        TransferExecutor.executeTransferBatch(transfers, weth);
+        // 8. Execute external transfers to/from the external party using TransferExecutor
+        (bool success, bytes memory returnData) = transferExecutor.delegatecall(
+            abi.encodeWithSelector(
+                TransferExecutor.executeAtomicMatchTransfers.selector,
+                receiver,
+                matchSettleStatement.relayerFeeAddress,
+                protocolFeeRecipient,
+                matchResult,
+                externalPartyFeeTake,
+                weth
+            )
+        );
+        _handleDelegateCallResult(success, returnData);
     }
 
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
@@ -602,58 +637,18 @@ contract Darkpool is Ownable, Pausable {
         WalletOperations.spendNote(statement.noteNullifier, statement.noteRoot, nullifierSet, merkleTree);
     }
 
-    // --- Helpers --- //
+    // --- Helper Functions --- //
 
-    /// @notice Build a list of simple transfers to settle an atomic match
-    function buildAtomicMatchTransfers(
-        address externalParty,
-        address relayerFeeAddr,
-        ExternalMatchResult memory matchResult,
-        FeeTake memory feeTake
-    )
-        internal
-        view
-        returns (TransferExecutor.SimpleTransfer[] memory transfers)
-    {
-        (address sellMint, uint256 sellAmount) = matchResult.externalPartySellMintAmount();
-        (address buyMint, uint256 buyAmount) = matchResult.externalPartyBuyMintAmount();
-
-        // Build the transfers
-        transfers = new TransferExecutor.SimpleTransfer[](4);
-
-        // 1. Deposit the sell amount
-        transfers[0] = TransferExecutor.SimpleTransfer({
-            account: msg.sender,
-            mint: sellMint,
-            amount: sellAmount,
-            transferType: TransferExecutor.SimpleTransferType.Deposit
-        });
-
-        // 2. Withdraw the buy amount net of fees
-        // Tx will revert if the buy amount is less than the total fees
-        uint256 totalFees = feeTake.total();
-        uint256 traderTake = buyAmount - totalFees;
-        transfers[1] = TransferExecutor.SimpleTransfer({
-            account: externalParty,
-            mint: buyMint,
-            amount: traderTake,
-            transferType: TransferExecutor.SimpleTransferType.Withdrawal
-        });
-
-        // 3. Withdraw the relayer's fee on the external party to the relayer
-        transfers[2] = TransferExecutor.SimpleTransfer({
-            account: relayerFeeAddr,
-            mint: buyMint,
-            amount: feeTake.relayerFee,
-            transferType: TransferExecutor.SimpleTransferType.Withdrawal
-        });
-
-        // 4. Withdraw the protocol's fee on the external party to the protocol
-        transfers[3] = TransferExecutor.SimpleTransfer({
-            account: protocolFeeRecipient,
-            mint: buyMint,
-            amount: feeTake.protocolFee,
-            transferType: TransferExecutor.SimpleTransferType.Withdrawal
-        });
+    /// @notice Helper function to forward revert reasons from delegatecalls
+    /// @param success Whether the delegatecall was successful
+    /// @param returnData The data returned from the delegatecall
+    function _handleDelegateCallResult(bool success, bytes memory returnData) private pure {
+        if (!success) {
+            // Forward the revert reason
+            assembly {
+                let returnDataSize := mload(returnData)
+                revert(add(32, returnData), returnDataSize)
+            }
+        }
     }
 }

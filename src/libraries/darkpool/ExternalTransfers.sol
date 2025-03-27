@@ -17,10 +17,10 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
-/// @title TransferExecutor
+/// @title ExternalTransferLib
 /// @notice This library implements the logic for executing external transfers
 /// @notice External transfers are either deposits or withdrawals into/from the darkpool
-library TransferExecutor {
+library ExternalTransferLib {
     using TypesLib for DepositWitness;
 
     // --- Types --- //
