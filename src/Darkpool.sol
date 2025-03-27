@@ -10,6 +10,7 @@ import { IHasher } from "./libraries/interfaces/IHasher.sol";
 import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { Ownable } from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import { Pausable } from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -46,7 +47,7 @@ import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 import { BabyJubJubPoint } from "./libraries/darkpool/types/Ciphertext.sol";
 
-contract Darkpool is Ownable {
+contract Darkpool is Ownable, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
     using TypesLib for ExternalTransfer;
@@ -175,7 +176,7 @@ contract Darkpool is Ownable {
 
     /// @notice Set the protocol fee rate
     /// @param newFee The new protocol fee rate to set
-    function setProtocolFeeRate(uint256 newFee) public onlyOwner {
+    function setProtocolFeeRate(uint256 newFee) public onlyOwner whenNotPaused {
         require(newFee != 0, "Fee cannot be zero");
         protocolFeeRate = newFee;
         emit FeeChanged(newFee);
@@ -186,7 +187,7 @@ contract Darkpool is Ownable {
     /// @param fee The protocol fee rate to set. This is a fixed point representation
     /// @dev of a real number between 0 and 1. To convert to its floating point representation,
     /// @dev divide by the fixed point precision, i.e. `fee = assetFeeRate / FIXED_POINT_PRECISION`.
-    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public onlyOwner {
+    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public onlyOwner whenNotPaused {
         require(fee != 0, "Fee cannot be zero");
         perTokenFeeOverrides[asset] = fee;
         emit ExternalMatchFeeChanged(asset, fee);
@@ -194,7 +195,7 @@ contract Darkpool is Ownable {
 
     /// @notice Remove the fee override for an asset
     /// @param asset The asset to remove the fee override for
-    function removeTokenExternalMatchFeeRate(address asset) public onlyOwner {
+    function removeTokenExternalMatchFeeRate(address asset) public onlyOwner whenNotPaused {
         delete perTokenFeeOverrides[asset];
         emit ExternalMatchFeeChanged(asset, protocolFeeRate);
     }
@@ -202,7 +203,7 @@ contract Darkpool is Ownable {
     /// @notice Set the protocol public encryption key
     /// @param newPubkeyX The new X coordinate of the public key
     /// @param newPubkeyY The new Y coordinate of the public key
-    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) public onlyOwner {
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) public onlyOwner whenNotPaused {
         protocolFeeKey = EncryptionKey({
             point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(newPubkeyX), y: BN254.ScalarField.wrap(newPubkeyY) })
         });
@@ -211,10 +212,20 @@ contract Darkpool is Ownable {
 
     /// @notice Set the protocol external fee collection address
     /// @param newAddress The new address to collect external fees
-    function setProtocolFeeRecipient(address newAddress) public onlyOwner {
+    function setProtocolFeeRecipient(address newAddress) public onlyOwner whenNotPaused {
         require(newAddress != address(0), "Address cannot be zero");
         protocolFeeRecipient = newAddress;
         emit ExternalFeeCollectionAddressChanged(newAddress);
+    }
+
+    /// @notice Pause the darkpool
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the darkpool
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
     // --- Core Wallet Methods --- //
@@ -222,7 +233,13 @@ contract Darkpool is Ownable {
     /// @notice Create a wallet in the darkpool
     /// @param statement The statement to verify
     /// @param proof The proof of `VALID WALLET CREATE`
-    function createWallet(ValidWalletCreateStatement calldata statement, PlonkProof calldata proof) public {
+    function createWallet(
+        ValidWalletCreateStatement calldata statement,
+        PlonkProof calldata proof
+    )
+        public
+        whenNotPaused
+    {
         // 1. Verify the proof
         bool res = verifier.verifyValidWalletCreate(statement, proof);
         require(res, "Verification failed for wallet create");
@@ -245,6 +262,7 @@ contract Darkpool is Ownable {
         PlonkProof calldata proof
     )
         public
+        whenNotPaused
     {
         // 1. Verify the proof
         bool res = verifier.verifyValidWalletUpdate(statement, proof);
@@ -288,6 +306,7 @@ contract Darkpool is Ownable {
         MatchLinkingProofs calldata linkingProofs
     )
         public
+        whenNotPaused
     {
         ValidCommitmentsStatement calldata commitmentsStatement0 = party0MatchPayload.validCommitmentsStatement;
         ValidCommitmentsStatement calldata commitmentsStatement1 = party1MatchPayload.validCommitmentsStatement;
@@ -352,6 +371,7 @@ contract Darkpool is Ownable {
     )
         public
         payable
+        whenNotPaused
     {
         address receiver = msg.sender;
         processAtomicMatchSettleWithReceiver(
@@ -376,6 +396,7 @@ contract Darkpool is Ownable {
     )
         public
         payable
+        whenNotPaused
     {
         ValidCommitmentsStatement calldata commitmentsStatement = internalPartyPayload.validCommitmentsStatement;
         ValidReblindStatement calldata reblindStatement = internalPartyPayload.validReblindStatement;
@@ -449,6 +470,7 @@ contract Darkpool is Ownable {
     )
         public
         payable
+        whenNotPaused
     {
         // 1. Validate the transaction value
         // If the external party is selling a native token, validate that they have provided the correct
@@ -518,6 +540,7 @@ contract Darkpool is Ownable {
     )
         public
         payable
+        whenNotPaused
     {
         // 1. Check that the statement uses the correct protocol fee encryption key
         bool correctKey = statement.protocolKey.encryptionKeyEqual(protocolFeeKey);
@@ -552,6 +575,7 @@ contract Darkpool is Ownable {
         PlonkProof calldata proof
     )
         public
+        whenNotPaused
     {
         // 1. Verify the proof
         bool res = verifier.verifyValidFeeRedemption(statement, proof);

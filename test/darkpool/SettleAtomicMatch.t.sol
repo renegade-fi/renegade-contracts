@@ -361,6 +361,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Setup the protocol fee rate
         uint256 protocolFeeRate = 4_611_686_018_427_388; // 0.0005 * 2 ** `FIXED_POINT_PRECISION`
+        vm.prank(darkpoolOwner);
         darkpool.setTokenExternalMatchFeeRate(address(baseToken), protocolFeeRate);
         assertEq(darkpool.getTokenExternalMatchFeeRate(address(baseToken)), protocolFeeRate);
 
