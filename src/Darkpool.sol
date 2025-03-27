@@ -9,6 +9,7 @@ import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IHasher } from "./libraries/interfaces/IHasher.sol";
 import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { Ownable } from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -43,8 +44,9 @@ import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
+import { BabyJubJubPoint } from "./libraries/darkpool/types/Ciphertext.sol";
 
-contract Darkpool {
+contract Darkpool is Ownable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
     using TypesLib for ExternalTransfer;
@@ -52,6 +54,12 @@ contract Darkpool {
     using TypesLib for OrderSettlementIndices;
     using TypesLib for FeeTake;
     using TypesLib for EncryptionKey;
+
+    // Events
+    event FeeChanged(uint256 newFee);
+    event ExternalMatchFeeChanged(address indexed asset, uint256 newFee);
+    event PubkeyRotated(uint256 newPubkeyX, uint256 newPubkeyY);
+    event ExternalFeeCollectionAddressChanged(address indexed newAddress);
 
     /// @notice The protocol fee rate for the darkpool
     /// @dev This is the fixed point representation of a real number between 0 and 1.
@@ -103,7 +111,9 @@ contract Darkpool {
         IHasher hasher_,
         IVerifier verifier_,
         IPermit2 permit2_
-    ) {
+    )
+        Ownable(msg.sender)
+    {
         protocolFeeRate = protocolFeeRate_;
         protocolFeeRecipient = protocolFeeRecipient_;
         protocolFeeKey = protocolFeeKey_;
@@ -154,16 +164,57 @@ contract Darkpool {
         return perTokenFee;
     }
 
+    /// @notice Get the protocol fee recipient address
+    /// @notice This is the address to which external match fees are sent for the protocol
+    /// @return The protocol fee recipient address
+    function getProtocolFeeRecipient() public view returns (address) {
+        return protocolFeeRecipient;
+    }
+
     // --- State Setters --- //
+
+    /// @notice Set the protocol fee rate
+    /// @param newFee The new protocol fee rate to set
+    function setProtocolFeeRate(uint256 newFee) public onlyOwner {
+        require(newFee != 0, "Fee cannot be zero");
+        protocolFeeRate = newFee;
+        emit FeeChanged(newFee);
+    }
 
     /// @notice Set the protocol fee rate for a given asset
     /// @param asset The asset to set the protocol fee rate for
     /// @param fee The protocol fee rate to set. This is a fixed point representation
     /// @dev of a real number between 0 and 1. To convert to its floating point representation,
     /// @dev divide by the fixed point precision, i.e. `fee = assetFeeRate / FIXED_POINT_PRECISION`.
-    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public {
-        // TODO: Add access control
+    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public onlyOwner {
+        require(fee != 0, "Fee cannot be zero");
         perTokenFeeOverrides[asset] = fee;
+        emit ExternalMatchFeeChanged(asset, fee);
+    }
+
+    /// @notice Remove the fee override for an asset
+    /// @param asset The asset to remove the fee override for
+    function removeTokenExternalMatchFeeRate(address asset) public onlyOwner {
+        delete perTokenFeeOverrides[asset];
+        emit ExternalMatchFeeChanged(asset, protocolFeeRate);
+    }
+
+    /// @notice Set the protocol public encryption key
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) public onlyOwner {
+        protocolFeeKey = EncryptionKey({
+            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(newPubkeyX), y: BN254.ScalarField.wrap(newPubkeyY) })
+        });
+        emit PubkeyRotated(newPubkeyX, newPubkeyY);
+    }
+
+    /// @notice Set the protocol external fee collection address
+    /// @param newAddress The new address to collect external fees
+    function setProtocolFeeRecipient(address newAddress) public onlyOwner {
+        require(newAddress != address(0), "Address cannot be zero");
+        protocolFeeRecipient = newAddress;
+        emit ExternalFeeCollectionAddressChanged(newAddress);
     }
 
     // --- Core Wallet Methods --- //

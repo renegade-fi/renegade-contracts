@@ -39,6 +39,7 @@ contract DarkpoolTestBase is CalldataUtils {
     IVKeys public vkeys;
 
     address public protocolFeeAddr;
+    address public darkpoolOwner;
 
     bytes constant INVALID_NULLIFIER_REVERT_STRING = "nullifier/blinder already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
@@ -69,10 +70,16 @@ contract DarkpoolTestBase is CalldataUtils {
         vkeys = new VKeys();
         IVerifier verifier = new TestVerifier(vkeys);
         IVerifier realVerifier = new Verifier(vkeys);
-        protocolFeeAddr = vm.randomAddress();
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
+        // Deploy the darkpool
+        darkpoolOwner = vm.randomAddress();
+        protocolFeeAddr = vm.randomAddress();
+
+        vm.prank(darkpoolOwner);
         darkpool = new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, verifier, permit2);
+
+        vm.prank(darkpoolOwner);
         darkpoolRealVerifier =
             new Darkpool(TEST_PROTOCOL_FEE, protocolFeeAddr, protocolFeeKey, weth, hasher, realVerifier, permit2);
     }
