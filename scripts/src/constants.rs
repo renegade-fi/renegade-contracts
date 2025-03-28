@@ -161,3 +161,9 @@ pub const PROCESS_MATCH_SETTLE_VKEYS_FILE: &str = "process_match_settle";
 /// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE ATOMIC
 /// verification keys
 pub const PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE: &str = "process_match_settle_atomic";
+
+/// The file name for the concatenated
+/// VALID COMMITMENTS, VALID REBLIND, & VALID MALLEABLE MATCH SETTLE ATOMIC
+/// verification keys
+pub const PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_FILE: &str =
+    "process_malleable_match_settle_atomic";

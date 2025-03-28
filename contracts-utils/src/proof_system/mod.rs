@@ -59,7 +59,29 @@ where
     Ok(MatchAtomicVkeys {
         valid_commitments_vkey,
         valid_reblind_vkey,
-        valid_match_settle_atomic_vkey,
+        settlement_vkey: valid_match_settle_atomic_vkey,
+    })
+}
+
+/// Generate the verification keys for the circuits involved in settling a
+/// matched trade
+///
+/// We use the same type here as the match atomic vkey, despite the underlying
+/// match verification key being different.
+pub fn gen_malleable_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys, ProofSystemError>
+where
+    C: SingleProverCircuit,
+    R: SingleProverCircuit,
+    M: SingleProverCircuit,
+{
+    let valid_commitments_vkey = to_contract_vkey((*C::verifying_key()).clone())?;
+    let valid_reblind_vkey = to_contract_vkey((*R::verifying_key()).clone())?;
+    let valid_malleable_match_settle_atomic_vkey = to_contract_vkey((*M::verifying_key()).clone())?;
+
+    Ok(MatchAtomicVkeys {
+        valid_commitments_vkey,
+        valid_reblind_vkey,
+        settlement_vkey: valid_malleable_match_settle_atomic_vkey,
     })
 }
 
@@ -123,6 +145,19 @@ pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
 /// Generate the linking verification keys for the circuits involved in settling
 /// an atomic match
 pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
+) -> Result<MatchAtomicLinkingVkeys, ProofSystemError> {
+    let MatchGroupLayouts { valid_reblind_commitments, valid_commitments_match_settle_0, .. } =
+        gen_match_layouts::<C>()?;
+
+    Ok(MatchAtomicLinkingVkeys {
+        valid_reblind_commitments: to_linking_vkey(&valid_reblind_commitments),
+        valid_commitments_match_settle_atomic: to_linking_vkey(&valid_commitments_match_settle_0),
+    })
+}
+
+/// Generate the linking verification keys for the circuits involved in settling
+/// an atomic match
+pub fn gen_malleable_match_atomic_linking_vkeys<C: SingleProverCircuit>(
 ) -> Result<MatchAtomicLinkingVkeys, ProofSystemError> {
     let MatchGroupLayouts { valid_reblind_commitments, valid_commitments_match_settle_0, .. } =
         gen_match_layouts::<C>()?;

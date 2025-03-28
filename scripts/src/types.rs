@@ -94,4 +94,9 @@ pub struct RenegadeVerificationKeys {
     /// The proof linking verification keys used in
     /// matching & settling a trade
     pub match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
+    /// The verification keys used in matching & settling a trade
+    pub malleable_match_atomic_vkeys: MatchAtomicVkeys,
+    /// The proof linking verification keys used in
+    /// matching & settling a trade
+    pub malleable_match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
 }

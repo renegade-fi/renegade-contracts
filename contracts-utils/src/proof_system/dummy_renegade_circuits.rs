@@ -12,6 +12,7 @@ use circuit_types::{
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_fee_redemption::SizedValidFeeRedemptionStatement,
+    valid_malleable_match_settle_atomic::SizedValidMalleableMatchSettleAtomicStatement,
     valid_match_settle::SizedValidMatchSettleStatement,
     valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
@@ -226,6 +227,41 @@ impl SingleProverCircuit for DummyValidMatchSettleAtomic {
     fn apply_constraints(
         _witness_var: <DummyValidMatchSettleAtomicWitness as CircuitBaseType>::VarType,
         _statement_var: <SizedValidMatchSettleAtomicStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
+    }
+
+    fn proof_linking_groups() -> Result<Vec<(String, Option<GroupLayout>)>, PlonkError> {
+        let layout = DummyValidMatchSettle::get_circuit_layout()?;
+        let group_layout = layout.get_group_layout(VALID_COMMITMENTS_MATCH_SETTLE_LINK0);
+        Ok(vec![(VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), Some(group_layout))])
+    }
+}
+
+/// The witness for the `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
+#[circuit_type(singleprover_circuit)]
+#[derive(Clone)]
+pub struct DummyValidMalleableMatchSettleAtomicWitness {
+    /// The element to be linked with `VALID COMMITMENTS`
+    #[link_groups = "valid_commitments_match_settle0"]
+    pub valid_commitments_match_settle0: Scalar,
+}
+
+/// The dummy version of the `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
+pub struct DummyValidMalleableMatchSettleAtomic;
+
+impl SingleProverCircuit for DummyValidMalleableMatchSettleAtomic {
+    type Statement = SizedValidMalleableMatchSettleAtomicStatement;
+    type Witness = DummyValidMatchSettleAtomicWitness;
+
+    fn name() -> String {
+        "Dummy Valid Malleable Match Settle Atomic".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: <Self::Witness as CircuitBaseType>::VarType,
+        _statement_var: <Self::Statement as CircuitBaseType>::VarType,
         _cs: &mut PlonkCircuit,
     ) -> Result<(), PlonkError> {
         Ok(())

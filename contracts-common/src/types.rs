@@ -111,15 +111,17 @@ pub struct MatchAtomicVkeys {
     pub valid_commitments_vkey: VerificationKey,
     /// The verification key for `VALID REBLIND`
     pub valid_reblind_vkey: VerificationKey,
-    /// The verification key for `VALID MATCH SETTLE ATOMIC`
-    pub valid_match_settle_atomic_vkey: VerificationKey,
+    /// The verification key for the settlement circuit
+    ///
+    /// We use this type for a number of atomic match circuits, so this
+    /// settlement vkey may differ in the circuit it represents
+    pub settlement_vkey: VerificationKey,
 }
 
 impl MatchAtomicVkeys {
     /// Convert the verification keys to a vector
     pub fn to_vec(&self) -> Vec<VerificationKey> {
-        [self.valid_commitments_vkey, self.valid_reblind_vkey, self.valid_match_settle_atomic_vkey]
-            .to_vec()
+        [self.valid_commitments_vkey, self.valid_reblind_vkey, self.settlement_vkey].to_vec()
     }
 }
 
