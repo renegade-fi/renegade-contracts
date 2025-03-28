@@ -31,6 +31,18 @@ pub type G2BaseField = Fq2;
 /// Type alias for a 256-bit prime field element in Montgomery form
 pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 
+/// A fixed-point representation of a real number
+///
+/// In the Renegade darkpool, a fixed point representation of a real number `r`
+/// is:     floor(r * 2^FIXED_POINT_PRECISION)
+#[serde_as]
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct FixedPoint {
+    /// The representation of the fixed-point number
+    #[serde_as(as = "ScalarFieldDef")]
+    repr: ScalarField,
+}
+
 /// Preprocessed information derived from the circuit definition and universal
 /// SRS used by the verifier.
 // TODO: Give these variable human-readable names once end-to-end verifier is complete
@@ -402,6 +414,16 @@ impl FeeTake {
     }
 }
 
+/// A pair of fee rates that generate a fee when multiplied by a match amount
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct FeeRates {
+    /// The fee rate for the relayer
+    pub relayer_fee_rate: FixedPoint,
+    /// The fee rate for the protocol
+    pub protocol_fee_rate: FixedPoint,
+}
+
 /// The result of an atomic match
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
@@ -449,6 +471,33 @@ impl ExternalMatchResult {
             (self.quote_mint, self.quote_amount)
         }
     }
+}
+
+/// A match result that specifies a range of match sizes rather than an exact
+/// base amount
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct BoundedMatchResult {
+    /// The mint (erc20 address) of the quote token
+    #[serde_as(as = "AddressDef")]
+    pub quote_mint: Address,
+    /// The mint (erc20 address) of the base token
+    #[serde_as(as = "AddressDef")]
+    pub base_mint: Address,
+    /// The price at which the match will be settled
+    #[serde_as(as = "U256Def")]
+    pub price: U256,
+    /// The minimum base amount of the match
+    #[serde_as(as = "U256Def")]
+    pub min_base_amount: U256,
+    /// The maximum base amount of the match
+    #[serde_as(as = "U256Def")]
+    pub max_base_amount: U256,
+    /// The direction of the trade
+    ///
+    /// `false` (0) corresponds to the internal party buying the base
+    /// `true` (1) corresponds to the internal party selling the base
+    pub direction: bool,
 }
 
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.
@@ -600,6 +649,24 @@ pub struct ValidMatchSettleAtomicStatement {
     pub protocol_fee: ScalarField,
     /// The address at which the relayer wishes to receive their fee due from
     /// the external party
+    #[serde_as(as = "AddressDef")]
+    pub relayer_fee_address: Address,
+}
+
+/// Statement for the `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidMalleableMatchSettleAtomicStatement {
+    /// The result of the match
+    pub match_result: BoundedMatchResult,
+    /// The fee rates charged to the external party
+    pub external_fee_rates: FeeRates,
+    /// The fee rates charged to the internal party
+    pub internal_fee_rates: FeeRates,
+    /// The public wallet shares of the internal party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub internal_party_public_shares: Vec<ScalarField>,
+    /// The address at which the relayer wishes to receive their fee due
     #[serde_as(as = "AddressDef")]
     pub relayer_fee_address: Address,
 }

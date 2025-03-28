@@ -23,8 +23,9 @@ use crate::{
         helpers::{check_address_not_zero, delegate_call_helper},
         solidity::{
             init_0Call as initMerkleCall, init_1Call as initTransferExecutorCall, newWalletCall,
-            processAtomicMatchSettleCall, processMatchSettleCall, redeemFeeCall, rootCall,
-            rootInHistoryCall, settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
+            processAtomicMatchSettleCall, processMalleableAtomicMatchSettleCall,
+            processMatchSettleCall, redeemFeeCall, rootCall, rootInHistoryCall,
+            settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
             CoreSettlementAddressChanged, CoreWalletOpsAddressChanged,
             ExternalFeeCollectionAddressChanged, ExternalMatchFeeChanged, FeeChanged,
             MerkleAddressChanged, OwnershipTransferred, Paused, PubkeyRotated,
@@ -620,6 +621,44 @@ impl DarkpoolContract {
                 valid_match_settle_atomic_statement.to_vec().into(),
                 match_proofs.to_vec().into(),
                 match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|_| ())
+    }
+
+    /// Process a malleable match settlement between two parties
+    ///
+    /// This is a variant of `process_atomic_match_settle` that allows the match
+    /// amount to be determined after the proof is generated. This is done
+    /// by the prover constraining a valid range for the match
+    /// amount, allowing the tx sender to choose any value in this range.
+    ///
+    /// The darkpool then uses the price specified in the statement to determine
+    /// the quote amount and fees for the match, then settles the
+    /// obligations to both the internal and external parties.
+    #[payable]
+    pub fn process_malleable_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        base_amount: U256,
+        receiver: Address,
+        internal_party_payload: Bytes,
+        malleable_match_settle_atomic_statement: Bytes,
+        proofs: Bytes,
+        linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
+        delegate_call_helper::<processMalleableAtomicMatchSettleCall>(
+            storage,
+            core_settlement_address,
+            (
+                base_amount,
+                receiver,
+                internal_party_payload.to_vec().into(),
+                malleable_match_settle_atomic_statement.to_vec().into(),
+                proofs.to_vec().into(),
+                linking_proofs.to_vec().into(),
             ),
         )
         .map(|_| ())

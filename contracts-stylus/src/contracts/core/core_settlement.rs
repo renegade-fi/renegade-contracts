@@ -357,6 +357,25 @@ impl CoreSettlementContract {
 
         Ok(())
     }
+
+    /// Processes a malleable atomic match settlement between two parties; one
+    /// internal and one external
+    ///
+    /// An internal party is one with state committed into the darkpool, while
+    /// an external party provides liquidity to the pool during the
+    /// transaction in which this method is called
+    #[payable]
+    pub fn process_malleable_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        base_amount: U256,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        malleable_match_settle_atomic_statement: Bytes,
+        proofs: Bytes,
+        linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        todo!("implement handler")
+    }
 }
 
 // --------------------
