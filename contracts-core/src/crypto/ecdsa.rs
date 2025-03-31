@@ -64,9 +64,9 @@ pub fn pubkey_to_address<H: HashBackend>(pubkey: &PublicSigningKey) -> [u8; NUM_
 
 #[cfg(test)]
 mod tests {
+    use alloy::primitives::{FixedBytes, PrimitiveSignature};
     use contracts_common::constants::{HASH_OUTPUT_SIZE, NUM_BYTES_ADDRESS, NUM_BYTES_SIGNATURE};
     use contracts_utils::crypto::{hash_and_sign_message, random_keypair, NativeHasher};
-    use ethers::types::{RecoveryMessage, Signature};
     use rand::{thread_rng, RngCore};
 
     use super::{EcRecoverBackend, EcdsaError};
@@ -77,9 +77,13 @@ mod tests {
             message_hash: &[u8; HASH_OUTPUT_SIZE],
             signature: &[u8; NUM_BYTES_SIGNATURE],
         ) -> Result<[u8; NUM_BYTES_ADDRESS], EcdsaError> {
-            let signature: Signature = signature.as_slice().try_into().map_err(|_| EcdsaError)?;
-            let message_hash: RecoveryMessage = RecoveryMessage::Hash(message_hash.into());
-            Ok(signature.recover(message_hash).map_err(|_| EcdsaError)?.into())
+            let signature: PrimitiveSignature =
+                signature.as_slice().try_into().map_err(|_| EcdsaError)?;
+            let msg_bytes: FixedBytes<32> = message_hash.into();
+            let addr =
+                signature.recover_address_from_prehash(&msg_bytes).map_err(|_| EcdsaError)?;
+
+            Ok(addr.to_vec().try_into().expect("Invalid address length"))
         }
     }
 

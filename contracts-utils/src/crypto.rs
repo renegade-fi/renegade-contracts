@@ -1,13 +1,13 @@
 //! Helpful cryptographic utilities
 
+use alloy::{
+    primitives::{PrimitiveSignature, U256},
+    signers::k256::ecdsa::SigningKey,
+};
+use alloy_primitives::keccak256;
 use circuit_types::keychain::PublicSigningKey as CircuitPubkey;
 use contracts_common::{
     backends::HashBackend, constants::HASH_OUTPUT_SIZE, types::PublicSigningKey,
-};
-use ethers::{
-    core::k256::ecdsa::SigningKey,
-    types::{Signature, U256},
-    utils::keccak256,
 };
 use rand::{CryptoRng, RngCore};
 
@@ -19,7 +19,7 @@ pub struct NativeHasher;
 
 impl HashBackend for NativeHasher {
     fn hash(input: &[u8]) -> [u8; HASH_OUTPUT_SIZE] {
-        keccak256(input)
+        *keccak256(input)
     }
 }
 
@@ -37,10 +37,11 @@ pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, Publi
 
 /// Hashes the given message and generates a signature over it using the signing
 /// key, as expected in ECDSA
-pub fn hash_and_sign_message(signing_key: &SigningKey, msg: &[u8]) -> Signature {
+pub fn hash_and_sign_message(signing_key: &SigningKey, msg: &[u8]) -> PrimitiveSignature {
     let msg_hash = keccak256(msg);
-    let (sig, recovery_id) = signing_key.sign_prehash_recoverable(&msg_hash).unwrap();
-    let r: U256 = U256::from_big_endian(&sig.r().to_bytes());
-    let s: U256 = U256::from_big_endian(&sig.s().to_bytes());
-    Signature { r, s, v: recovery_id.to_byte() as u64 }
+    let (sig, recovery_id) = signing_key.sign_prehash_recoverable(&msg_hash.as_slice()).unwrap();
+    let r: U256 = U256::from_be_bytes(sig.r().to_bytes().into());
+    let s: U256 = U256::from_be_bytes(sig.s().to_bytes().into());
+
+    PrimitiveSignature::new(r, s, recovery_id.is_y_odd())
 }
