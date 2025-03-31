@@ -697,7 +697,6 @@ impl<G: G1ArithmeticBackend, H: HashBackend> Verifier<G, H> {
 #[cfg(test)]
 mod tests {
     use alloc::vec;
-    use arbitrum_client::conversion::to_contract_link_proof;
     use ark_bn254::Bn254;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
     use ark_ff::One;
@@ -716,7 +715,7 @@ mod tests {
     };
     use contracts_utils::{
         constants::DUMMY_CIRCUIT_SRS_DEGREE,
-        conversion::to_linking_vkey,
+        conversion::{to_contract_link_proof, to_linking_vkey},
         crypto::NativeHasher,
         proof_system::{
             dummy_renegade_circuits::{

@@ -41,7 +41,6 @@ circuits = { git = "https://github.com/renegade-fi/renegade.git" }
 circuit-types = { git = "https://github.com/renegade-fi/renegade.git", features = [
     "test-helpers",
 ] }
-arbitrum-client = { git = "https://github.com/renegade-fi/renegade.git" }
 itertools = "0.12"
 mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
