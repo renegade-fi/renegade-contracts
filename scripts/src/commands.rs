@@ -1,6 +1,9 @@
 //! Implementations of the various deploy scripts
 
-use alloy_primitives::U256;
+use alloy::{
+    primitives::{Address, Bytes, U256},
+    providers::Provider,
+};
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_fee_redemption::SizedValidFeeRedemption,
@@ -25,15 +28,9 @@ use contracts_utils::{
         gen_match_vkeys,
     },
 };
-use ethers::{
-    abi::{Address, Contract},
-    middleware::contract::ContractFactory,
-    providers::Middleware,
-    types::{Bytes, H256, U256 as EthersU256},
-    utils::hex::FromHex,
-};
+use hex::FromHex;
 use rand::{thread_rng, Rng};
-use std::{env, str::FromStr, sync::Arc};
+use std::{env, str::FromStr};
 use tracing::log::info;
 use util::err_str;
 
@@ -43,23 +40,23 @@ use crate::{
         DeployTestContractsArgs, GenVkeysArgs, UpgradeArgs,
     },
     constants::{
-        NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, NUM_DEPLOY_CONFIRMATIONS, PERMIT2_ABI,
-        PERMIT2_BYTECODE, PERMIT2_CONTRACT_KEY, PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
-        PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE, PROCESS_MATCH_SETTLE_VKEYS_FILE, PROXY_ABI,
-        PROXY_ADMIN_CONTRACT_KEY, PROXY_ADMIN_STORAGE_SLOT, PROXY_BYTECODE, PROXY_CONTRACT_KEY,
+        Permit2, TransparentUpgradeableProxy, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT,
+        PERMIT2_CONTRACT_KEY, PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
+        PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE, PROCESS_MATCH_SETTLE_VKEYS_FILE,
+        PROXY_ADMIN_CONTRACT_KEY, PROXY_ADMIN_STORAGE_SLOT, PROXY_CONTRACT_KEY,
         TEST_ERC20_DECIMALS, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
         VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
         VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
         VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
-    solidity::{DummyErc20Contract, DummyWethContract, ProxyAdminContract},
+    solidity::{DummyErc20, DummyWeth, ProxyAdmin},
     types::{RenegadeVerificationKeys, StylusContract},
     utils::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         gas_sponsor_initialize_calldata, get_protocol_external_fee_collection_address,
         get_public_encryption_key, read_deployment_address, read_stylus_deployment_address,
-        send_contract_call, setup_client, write_deployment_address, write_stylus_contract_address,
+        send_tx, setup_client, write_deployment_address, write_stylus_contract_address,
         write_vkey_file, LocalWalletHttpClient,
     },
 };
@@ -75,7 +72,7 @@ pub async fn deploy_test_contracts(
     args: &DeployTestContractsArgs,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     info!("Generating testing verification keys");
@@ -244,9 +241,8 @@ pub async fn deploy_test_contracts(
     .await?;
 
     info!("Deploying gas sponsor proxy contract");
-    let deploy_gas_sponsor_proxy_args = DeployGasSponsorProxyArgs {
-        auth_address: format!("{:#x}", client.default_sender().unwrap()),
-    };
+    let deploy_gas_sponsor_proxy_args =
+        DeployGasSponsorProxyArgs { auth_address: format!("{:#x}", client.address()) };
     deploy_gas_sponsor_proxy(&deploy_gas_sponsor_proxy_args, client, deployments_path).await?;
 
     Ok(())
@@ -255,7 +251,7 @@ pub async fn deploy_test_contracts(
 /// Deploys the proxy & proxy admin contracts for the gas sponsor
 pub async fn deploy_gas_sponsor_proxy(
     args: &DeployGasSponsorProxyArgs,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let gas_sponsor_address =
@@ -283,7 +279,7 @@ pub async fn deploy_gas_sponsor_proxy(
 /// Deploys the proxy & proxy admin contracts for the darkpool
 pub async fn deploy_darkpool_proxy(
     args: &DeployDarkpoolProxyArgs,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     // Construct darkpool initialization calldata
@@ -348,50 +344,39 @@ pub async fn deploy_darkpool_proxy(
 /// Deploys the `TransparentUpgradeableProxy` and `ProxyAdmin` contracts for the
 /// given implementation contract
 async fn deploy_proxy(
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     implementation_address: Address,
     initialization_calldata: Bytes,
     deployment_prefix: &str,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    // Get proxy contract ABI and bytecode
-    let abi: Contract =
-        serde_json::from_str(PROXY_ABI).map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
-
-    let bytecode =
-        Bytes::from_hex(PROXY_BYTECODE).map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
-
-    let proxy_factory = ContractFactory::new(abi, bytecode, client.clone());
-
     // Deploy proxy contract
-    let owner_address = client.default_sender().unwrap();
-    let proxy_contract = proxy_factory
-        .deploy((implementation_address, owner_address, initialization_calldata))
-        .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?
-        .confirmations(NUM_DEPLOY_CONFIRMATIONS)
-        .send()
-        .await
-        .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
+    let owner_address = client.address();
+    let proxy_contract = TransparentUpgradeableProxy::deploy(
+        client.provider(),
+        implementation_address,
+        owner_address,
+        initialization_calldata,
+    )
+    .await
+    .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
 
-    let proxy_address = proxy_contract.address();
+    let proxy_address = *proxy_contract.address();
 
     info!("Proxy contract deployed at address:\n\t{:#x}", proxy_address);
 
     // Get proxy admin contract address
     // This is the recommended way to get the proxy admin address:
     // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/proxy/ERC1967/ERC1967Utils.sol#L104-L106
-    let proxy_admin_address = Address::from_slice(
-        &client
-            .get_storage_at(
-                proxy_address,
-                // Can `unwrap` here since we know the storage slot constitutes a valid H256
-                H256::from_str(PROXY_ADMIN_STORAGE_SLOT).unwrap(),
-                None, // block
-            )
-            .await
-            .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-            [NUM_BYTES_STORAGE_SLOT - NUM_BYTES_ADDRESS..NUM_BYTES_STORAGE_SLOT],
-    );
+    let slot = U256::from_str(PROXY_ADMIN_STORAGE_SLOT).unwrap();
+    let slot_value = client
+        .provider()
+        .get_storage_at(proxy_address, slot)
+        .await
+        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?;
+    let addr_bytes = &slot_value.to_be_bytes_vec()
+        [NUM_BYTES_STORAGE_SLOT - NUM_BYTES_ADDRESS..NUM_BYTES_STORAGE_SLOT];
+    let proxy_admin_address = Address::from_slice(addr_bytes);
 
     info!("Proxy admin contract deployed at address:\n\t{:#x}", proxy_admin_address);
 
@@ -404,30 +389,16 @@ async fn deploy_proxy(
 
 /// Deploys the `Permit2` contract
 pub async fn deploy_permit2(
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     // Get Permit2 contract ABI and bytecode
-    let abi: Contract = serde_json::from_str(PERMIT2_ABI)
-        .map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
-
-    let bytecode = Bytes::from_hex(PERMIT2_BYTECODE)
-        .map_err(|e| ScriptError::ArtifactParsing(e.to_string()))?;
-
-    let permit2_factory = ContractFactory::new(abi, bytecode, client.clone());
-
-    let permit2_contract = permit2_factory
-        .deploy(())
-        .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?
-        .confirmations(NUM_DEPLOY_CONFIRMATIONS)
-        .send()
+    let permit2 = Permit2::deploy(client.provider())
         .await
         .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
-
-    let permit2_address = permit2_contract.address();
+    let permit2_address = *permit2.address();
 
     info!("Permit2 contract deployed at address:\n\t{:#x}", permit2_address);
-
     write_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
 }
 
@@ -438,7 +409,7 @@ pub async fn deploy_erc20(
     args: &DeployErc20Args,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<Address, ScriptError> {
     if !args.account_skeys.is_empty() && args.funding_amount.is_none() {
@@ -465,7 +436,8 @@ pub async fn deploy_erc20(
 
     set_erc20_params(erc20_address, client.clone(), args).await?;
     if args.as_wrapper {
-        fund_wrapper_contract(erc20_address, WRAPPER_FUNDING_AMOUNT.into(), client).await?;
+        let funding_amt = U256::from(WRAPPER_FUNDING_AMOUNT);
+        fund_wrapper_contract(erc20_address, funding_amt, client).await?;
     }
 
     if !args.account_skeys.is_empty() {
@@ -483,16 +455,16 @@ pub async fn deploy_erc20(
 /// Sets the symbol, name, and decimals parameters for the ERC20 contract
 async fn set_erc20_params(
     erc20_address: Address,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     args: &DeployErc20Args,
 ) -> Result<(), ScriptError> {
-    let erc20 = DummyErc20Contract::new(erc20_address, client);
+    let erc20 = DummyErc20::new(erc20_address, client.provider());
 
     info!("Setting {} contract parameters", args.symbol);
 
-    send_contract_call(erc20.set_symbol(args.symbol.clone())).await?;
-    send_contract_call(erc20.set_name(args.name.clone())).await?;
-    send_contract_call(erc20.set_decimals(args.decimals)).await?;
+    send_tx(erc20.setSymbol(args.symbol.clone())).await?;
+    send_tx(erc20.setName(args.name.clone())).await?;
+    send_tx(erc20.setDecimals(args.decimals)).await?;
 
     Ok(())
 }
@@ -507,16 +479,16 @@ async fn fund_and_approve_erc20(
     permit2_address: Address,
 ) -> Result<(), ScriptError> {
     let account_client = setup_client(recipient_skey, rpc_url).await?;
-    let account_address = account_client.default_sender().unwrap();
-    let erc20 = DummyErc20Contract::new(erc20_address, account_client);
+    let account_address = account_client.address();
+    let erc20 = DummyErc20::new(erc20_address, account_client.provider());
 
     let funding_amount = args.funding_amount.unwrap();
     let symbol = args.symbol.clone();
 
     info!("Funding {:#x} with {} {} & approving Permit2", account_address, funding_amount, symbol);
 
-    send_contract_call(erc20.mint(account_address, EthersU256::from(funding_amount))).await?;
-    send_contract_call(erc20.approve(permit2_address, EthersU256::MAX)).await?;
+    send_tx(erc20.mint(account_address, U256::from(funding_amount))).await?;
+    send_tx(erc20.approve(permit2_address, U256::MAX)).await?;
 
     Ok(())
 }
@@ -524,12 +496,12 @@ async fn fund_and_approve_erc20(
 /// Fund a wrapper contract with ETH after it is deployed
 async fn fund_wrapper_contract(
     wrapper_address: Address,
-    value: EthersU256,
-    client: Arc<LocalWalletHttpClient>,
+    value: U256,
+    client: LocalWalletHttpClient,
 ) -> Result<(), ScriptError> {
-    let weth_contract = DummyWethContract::new(wrapper_address, client);
+    let weth_contract = DummyWeth::new(wrapper_address, client.provider());
     let call = weth_contract.deposit().value(value);
-    send_contract_call(call).await.map(|_| ())
+    send_tx(call).await.map(|_| ())
 }
 
 /// Builds and deploys a Stylus contract,
@@ -538,7 +510,7 @@ pub async fn build_and_deploy_stylus_contract(
     args: &DeployStylusArgs,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<Address, ScriptError> {
     // Build the contract to WASM
@@ -557,11 +529,11 @@ pub async fn build_and_deploy_stylus_contract(
 /// Upgrades the darkpool implementation
 pub async fn upgrade(
     args: &UpgradeArgs,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
     let proxy_admin_address = read_deployment_address(deployments_path, PROXY_ADMIN_CONTRACT_KEY)?;
-    let proxy_admin = ProxyAdminContract::new(proxy_admin_address, client);
+    let proxy_admin = ProxyAdmin::new(proxy_admin_address, client.provider());
 
     let proxy_address = read_deployment_address(deployments_path, PROXY_CONTRACT_KEY)?;
 
@@ -574,10 +546,9 @@ pub async fn upgrade(
         Bytes::new()
     };
 
-    send_contract_call(proxy_admin.upgrade_and_call(proxy_address, implementation_address, data))
-        .await?;
-
-    Ok(())
+    send_tx(proxy_admin.upgradeAndCall(proxy_address, implementation_address, data))
+        .await
+        .map(|_| ())
 }
 
 /// Computes verification keys for the protocol circuits

@@ -1,7 +1,6 @@
 //! Definitions of Solidity functions called during deployment
 
 use alloy_sol_types::sol;
-use ethers::contract::abigen;
 
 sol! {
     // Darkpool initialization ABI
@@ -10,33 +9,33 @@ sol! {
     function initialize(address memory darkpool_address, address memory auth_address) external;
 }
 
-abigen!(
-    ProxyAdminContract,
-    r#"[
+sol! {
+    #[sol(rpc)]
+    contract ProxyAdmin {
         function upgradeAndCall(address proxy, address implementation, bytes memory data) external;
-    ]"#,
-);
+    }
+}
 
-abigen!(
-    DummyErc20Contract,
-    r#"[
-        function totalSupply() external view returns (uint256)
-        function setName(string name) external
-        function setSymbol(string symbol) external
-        function setDecimals(uint8 decimals) external
-        function balanceOf(address account) external view returns (uint256)
-        function mint(address memory _address, uint256 memory value) external
-        function transfer(address to, uint256 value) external returns (bool)
-        function allowance(address owner, address spender) external view returns (uint256)
-        function approve(address spender, uint256 value) external returns (bool)
-        function transferFrom(address from, address to, uint256 value) external returns (bool)
-    ]"#
-);
+sol! {
+    #[sol(rpc)]
+    contract DummyErc20 {
+        function totalSupply() external view returns (uint256);
+        function setName(string name) external;
+        function setSymbol(string symbol) external;
+        function setDecimals(uint8 decimals) external;
+        function balanceOf(address account) external view returns (uint256);
+        function mint(address memory _address, uint256 memory value) external;
+        function transfer(address to, uint256 value) external returns (bool);
+        function allowance(address owner, address spender) external view returns (uint256);
+        function approve(address spender, uint256 value) external returns (bool);
+        function transferFrom(address from, address to, uint256 value) external returns (bool);
+    }
+}
 
-abigen!(
-    DummyWethContract,
-    r#"[
-        function deposit() external payable
-        function withdrawTo(address to, uint256 value) external
-    ]"#,
-);
+sol! {
+    #[sol(rpc)]
+    contract DummyWeth {
+        function deposit() external payable;
+        function withdrawTo(address to, uint256 value) external;
+    }
+}

@@ -4,17 +4,24 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ethers = { workspace = true }
+alloy = { workspace = true, default-features = true, features = [
+    "rlp",
+    "rand",
+] }
+alloy-contract = { workspace = true }
+# In the scripts, we use higher versions of the alloy-sol crates in line with `alloy-contract`
+alloy-sol-types = { version = "0.8" }
+alloy-primitives = { workspace = true, features = ["rand"] }
 clap = { workspace = true, features = ["env"] }
 tokio = { workspace = true }
 serde_json = { workspace = true }
-alloy-sol-types = { workspace = true }
-alloy-primitives = { workspace = true }
 itertools = { workspace = true }
 circuits = { workspace = true, features = ["test_helpers"] }
 circuit-types = { workspace = true }
 constants = { workspace = true }
-util = { git = "https://github.com/renegade-fi/renegade.git" }
+util = { git = "https://github.com/renegade-fi/renegade.git", features = [
+    "errors",
+] }
 mpc-plonk = { workspace = true }
 jf-primitives = { workspace = true }
 contracts-common = { path = "../contracts-common" }

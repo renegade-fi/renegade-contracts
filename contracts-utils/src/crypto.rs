@@ -39,7 +39,7 @@ pub fn random_keypair<R: CryptoRng + RngCore>(rng: &mut R) -> (SigningKey, Publi
 /// key, as expected in ECDSA
 pub fn hash_and_sign_message(signing_key: &SigningKey, msg: &[u8]) -> PrimitiveSignature {
     let msg_hash = keccak256(msg);
-    let (sig, recovery_id) = signing_key.sign_prehash_recoverable(&msg_hash.as_slice()).unwrap();
+    let (sig, recovery_id) = signing_key.sign_prehash_recoverable(msg_hash.as_slice()).unwrap();
     let r: U256 = U256::from_be_bytes(sig.r().to_bytes().into());
     let s: U256 = U256::from_be_bytes(sig.s().to_bytes().into());
 

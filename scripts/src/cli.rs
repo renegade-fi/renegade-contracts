@@ -1,7 +1,5 @@
 //! Definitions of CLI arguments and commands for deploy scripts
 
-use std::sync::Arc;
-
 use clap::{Args, Parser, Subcommand};
 
 use crate::{
@@ -63,7 +61,7 @@ impl Command {
     /// Run the command
     pub async fn run(
         self,
-        client: Arc<LocalWalletHttpClient>,
+        client: LocalWalletHttpClient,
         rpc_url: &str,
         priv_key: &str,
         deployments_path: &str,
