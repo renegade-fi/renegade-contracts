@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+alloy = { workspace = true, features = ["signers"] }
 contracts-common = { path = "../contracts-common" }
 contracts-core = { path = "../contracts-core" }
 rand = { workspace = true }
@@ -15,7 +16,6 @@ alloy-primitives = { workspace = true }
 num-bigint = { workspace = true }
 eyre = { workspace = true }
 serde = { workspace = true }
-ethers = { workspace = true }
 mpc-plonk = { workspace = true, features = ["test_apis"] }
 mpc-relation = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
 jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }

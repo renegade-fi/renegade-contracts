@@ -1,5 +1,6 @@
 //! Utilities for generating data for the proof system tests
 
+use alloy::primitives::{Address, Bytes, U256};
 use alloy_primitives::Address as AlloyAddress;
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -42,7 +43,6 @@ use contracts_common::{
     },
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
-use ethers::types::{Address, Bytes, U256};
 use eyre::Result;
 use jf_primitives::pcs::{prelude::Commitment, StructuredReferenceString};
 
@@ -267,7 +267,7 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     );
 
     let wallet_commitment_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).as_bytes(),
     );
 
     Ok((proof, contract_statement, wallet_commitment_signature))
@@ -305,7 +305,7 @@ pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
     );
 
     let wallet_commitment_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).as_bytes(),
     );
 
     Ok((proof, contract_statement, wallet_commitment_signature))
@@ -368,7 +368,7 @@ pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
     );
 
     let wallet_commitment_signature = Bytes::from(
-        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).to_vec(),
+        hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).as_bytes(),
     );
 
     Ok((proof, contract_statement, wallet_commitment_signature))
