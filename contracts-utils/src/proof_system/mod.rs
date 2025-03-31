@@ -5,7 +5,6 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use arbitrum_client::errors::ConversionError;
 use circuit_types::{errors::ProverError, traits::SingleProverCircuit};
 use circuits::zk_circuits::{
     VALID_COMMITMENTS_MATCH_SETTLE_LINK0, VALID_COMMITMENTS_MATCH_SETTLE_LINK1,
@@ -14,6 +13,7 @@ use circuits::zk_circuits::{
 use contracts_common::types::{
     MatchAtomicLinkingVkeys, MatchAtomicVkeys, MatchLinkingVkeys, MatchVkeys,
 };
+use eyre::Result;
 use mpc_relation::proof_linking::GroupLayout;
 
 use crate::conversion::{to_contract_vkey, to_linking_vkey};
@@ -31,7 +31,7 @@ pub mod test_data;
 /// Defined generically over the `VALID COMMITMENTS`, `VALID REBLIND`, and
 /// `VALID MATCH SETTLE` circuits, so that this can be used in both testing and
 /// production setings.
-pub fn gen_match_vkeys<C, R, M>() -> Result<MatchVkeys, ProofSystemError>
+pub fn gen_match_vkeys<C, R, M>() -> Result<MatchVkeys>
 where
     C: SingleProverCircuit,
     R: SingleProverCircuit,
@@ -46,7 +46,7 @@ where
 
 /// Generate the verification keys for the circuits involved in settling a
 /// matched trade
-pub fn gen_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys, ProofSystemError>
+pub fn gen_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys>
 where
     C: SingleProverCircuit,
     R: SingleProverCircuit,
@@ -68,7 +68,7 @@ where
 ///
 /// We use the same type here as the match atomic vkey, despite the underlying
 /// match verification key being different.
-pub fn gen_malleable_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys, ProofSystemError>
+pub fn gen_malleable_match_atomic_vkeys<C, R, M>() -> Result<MatchAtomicVkeys>
 where
     C: SingleProverCircuit,
     R: SingleProverCircuit,
@@ -102,7 +102,7 @@ pub struct MatchGroupLayouts {
 ///
 /// Defined generically over the `VALID COMMITMENTS` circuit, so that this can
 /// be used in both the testing and production setting.
-pub fn gen_match_layouts<C: SingleProverCircuit>() -> Result<MatchGroupLayouts, ProofSystemError> {
+pub fn gen_match_layouts<C: SingleProverCircuit>() -> Result<MatchGroupLayouts> {
     let valid_commitments_layout = C::get_circuit_layout()
         .map_err(|e| ProofSystemError::ProverError(ProverError::Plonk(e)))?;
 
@@ -127,8 +127,7 @@ pub fn gen_match_layouts<C: SingleProverCircuit>() -> Result<MatchGroupLayouts, 
 ///
 /// Defined generically over the `VALID COMMITMENTS` circuit, so that this can
 /// be used in both the testing and production setting.
-pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
-) -> Result<MatchLinkingVkeys, ProofSystemError> {
+pub fn gen_match_linking_vkeys<C: SingleProverCircuit>() -> Result<MatchLinkingVkeys> {
     let MatchGroupLayouts {
         valid_reblind_commitments,
         valid_commitments_match_settle_0,
@@ -144,8 +143,7 @@ pub fn gen_match_linking_vkeys<C: SingleProverCircuit>(
 
 /// Generate the linking verification keys for the circuits involved in settling
 /// an atomic match
-pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
-) -> Result<MatchAtomicLinkingVkeys, ProofSystemError> {
+pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>() -> Result<MatchAtomicLinkingVkeys> {
     let MatchGroupLayouts { valid_reblind_commitments, valid_commitments_match_settle_0, .. } =
         gen_match_layouts::<C>()?;
 
@@ -158,7 +156,7 @@ pub fn gen_match_atomic_linking_vkeys<C: SingleProverCircuit>(
 /// Generate the linking verification keys for the circuits involved in settling
 /// an atomic match
 pub fn gen_malleable_match_atomic_linking_vkeys<C: SingleProverCircuit>(
-) -> Result<MatchAtomicLinkingVkeys, ProofSystemError> {
+) -> Result<MatchAtomicLinkingVkeys> {
     let MatchGroupLayouts { valid_reblind_commitments, valid_commitments_match_settle_0, .. } =
         gen_match_layouts::<C>()?;
 
@@ -175,8 +173,6 @@ pub fn gen_malleable_match_atomic_linking_vkeys<C: SingleProverCircuit>(
 /// An error that occured when interacting with the proof system
 #[derive(Debug)]
 pub enum ProofSystemError {
-    /// An error that occurred when converting between prover and contract types
-    ConversionError(ConversionError),
     /// An error that occurred when computing a proof
     ProverError(ProverError),
 }
@@ -184,19 +180,12 @@ pub enum ProofSystemError {
 impl Display for ProofSystemError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ProofSystemError::ConversionError(e) => write!(f, "ConversionError: {}", e),
             ProofSystemError::ProverError(e) => write!(f, "ProverError: {}", e),
         }
     }
 }
 
 impl Error for ProofSystemError {}
-
-impl From<ConversionError> for ProofSystemError {
-    fn from(e: ConversionError) -> Self {
-        ProofSystemError::ConversionError(e)
-    }
-}
 
 impl From<ProverError> for ProofSystemError {
     fn from(e: ProverError) -> Self {

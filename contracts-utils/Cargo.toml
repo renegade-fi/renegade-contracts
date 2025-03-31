@@ -25,4 +25,6 @@ circuit-types = { workspace = true }
 circuit-macros = { git = "https://github.com/renegade-fi/renegade.git" }
 circuits = { workspace = true }
 constants = { workspace = true }
-arbitrum-client = { workspace = true }
+
+[dev-dependencies]
+circuits = { workspace = true, features = ["test_helpers"] }

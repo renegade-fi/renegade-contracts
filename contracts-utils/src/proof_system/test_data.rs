@@ -1,20 +1,14 @@
 //! Utilities for generating data for the proof system tests
 
 use alloy_primitives::Address as AlloyAddress;
-use arbitrum_client::conversion::{
-    to_contract_link_proof, to_contract_proof, to_contract_valid_commitments_statement,
-    to_contract_valid_fee_redemption_statement, to_contract_valid_match_settle_atomic_statement,
-    to_contract_valid_match_settle_statement, to_contract_valid_offline_fee_settlement_statement,
-    to_contract_valid_reblind_statement, to_contract_valid_relayer_fee_settlement_statement,
-    to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
-};
 use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
     elgamal::EncryptionKey,
+    fees::FeeTake,
     fixed_point::FixedPoint,
     keychain::PublicSigningKey,
-    r#match::{ExternalMatchResult, FeeTake},
+    r#match::ExternalMatchResult,
     srs::SYSTEM_SRS,
     traits::{CircuitBaseType, SingleProverCircuit},
     transfers::ExternalTransfer,
@@ -59,7 +53,15 @@ use std::iter;
 
 use crate::{
     constants::DUMMY_CIRCUIT_SRS_DEGREE,
-    conversion::{to_circuit_pubkey, to_contract_vkey},
+    conversion::{
+        to_circuit_pubkey, to_contract_link_proof, to_contract_proof,
+        to_contract_valid_commitments_statement, to_contract_valid_fee_redemption_statement,
+        to_contract_valid_match_settle_atomic_statement, to_contract_valid_match_settle_statement,
+        to_contract_valid_offline_fee_settlement_statement, to_contract_valid_reblind_statement,
+        to_contract_valid_relayer_fee_settlement_statement,
+        to_contract_valid_wallet_create_statement, to_contract_valid_wallet_update_statement,
+        to_contract_vkey,
+    },
     crypto::{hash_and_sign_message, random_keypair},
     proof_system::dummy_renegade_circuits::DummyValidMatchSettleAtomic,
 };

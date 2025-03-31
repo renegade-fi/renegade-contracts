@@ -1,6 +1,5 @@
 //! Helpful cryptographic utilities
 
-use arbitrum_client::conversion::to_contract_public_signing_key;
 use circuit_types::keychain::PublicSigningKey as CircuitPubkey;
 use contracts_common::{
     backends::HashBackend, constants::HASH_OUTPUT_SIZE, types::PublicSigningKey,
@@ -11,6 +10,8 @@ use ethers::{
     utils::keccak256,
 };
 use rand::{CryptoRng, RngCore};
+
+use crate::conversion::to_contract_public_signing_key;
 
 /// A hashing backend that runs natively, i.e.
 /// without using a Stylus VM-accelerated Keccak implementation

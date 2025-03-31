@@ -180,7 +180,6 @@ pub fn serialize_g1s_for_transcript(points: &[G1Affine]) -> Vec<u8> {
 #[cfg(test)]
 pub mod tests {
     use alloc::vec::Vec;
-    use arbitrum_client::conversion::to_contract_proof;
     use ark_std::UniformRand;
     use circuit_types::PlonkProof;
     use constants::SystemCurve;
@@ -189,7 +188,7 @@ pub mod tests {
         types::{G1Affine, G2Affine, Proof, PublicInputs, ScalarField, VerificationKey},
     };
     use contracts_utils::{
-        conversion::to_contract_vkey,
+        conversion::{to_contract_proof, to_contract_vkey},
         crypto::NativeHasher,
         proof_system::test_data::{random_commitments, random_scalars},
     };
