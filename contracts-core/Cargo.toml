@@ -12,8 +12,8 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 ruint = { workspace = true }
 
-
 [dev-dependencies]
+alloy = { workspace = true }
 ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }
 ark-std = { workspace = true }
@@ -23,7 +23,6 @@ mpc-plonk = { workspace = true }
 constants = { workspace = true }
 contracts-utils = { path = "../contracts-utils" }
 rand = { workspace = true }
-ethers = { workspace = true }
 ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
 circuits = { workspace = true, features = ["test_helpers"] }
