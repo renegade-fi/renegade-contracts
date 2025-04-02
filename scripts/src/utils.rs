@@ -1,6 +1,7 @@
 //! Utilities for the deploy scripts.
 
 use std::{
+    borrow::Borrow,
     env,
     fs::{self, File},
     io::Read,
@@ -8,27 +9,26 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
     str::FromStr,
-    sync::Arc,
 };
 
-use alloy_primitives::{Address as AlloyAddress, U256};
+use alloy::{
+    network::Ethereum,
+    primitives::Address,
+    providers::{DynProvider, Provider, ProviderBuilder},
+    rpc::types::TransactionReceipt,
+    signers::local::PrivateKeySigner,
+    transports::http::reqwest::Url,
+};
+use alloy_contract::{CallBuilder, CallDecoder};
+use alloy_primitives::U256;
 use alloy_sol_types::SolCall;
 use ark_ed_on_bn254::EdwardsProjective as BabyJubJubProjective;
 use contracts_common::{custom_serde::scalar_to_u256, types::PublicEncryptionKey};
-use ethers::{
-    abi::{Address, Detokenize},
-    contract::ContractCall,
-    middleware::SignerMiddleware,
-    providers::{Http, Middleware, Provider},
-    signers::{LocalWallet, Signer},
-    types::TransactionReceipt,
-    utils::get_contract_address,
-};
 use itertools::Itertools;
 use json::JsonValue;
 use rand::{distributions::Standard, thread_rng, Rng};
 use tracing::log::warn;
-use util::hex::jubjub_from_hex_string;
+use util::{err_str, hex::jubjub_from_hex_string};
 
 use crate::{
     constants::{
@@ -45,9 +45,47 @@ use crate::{
     types::StylusContract,
 };
 
+/// The call builder type used in the scripts
+pub(crate) type EthereumCall<'a, C> = CallBuilder<(), &'a DynProvider, C, Ethereum>;
+
 /// An Ethers provider that uses a `LocalWallet` to generate signatures
 /// & interfaces with the RPC endpoint over HTTP
-pub type LocalWalletHttpClient = SignerMiddleware<Provider<Http>, LocalWallet>;
+#[derive(Clone)]
+pub struct LocalWalletHttpClient {
+    /// The underlying provider
+    provider: DynProvider<Ethereum>,
+    /// The signer
+    signer: PrivateKeySigner,
+}
+
+impl Borrow<DynProvider<Ethereum>> for LocalWalletHttpClient {
+    fn borrow(&self) -> &DynProvider<Ethereum> {
+        &self.provider
+    }
+}
+
+impl LocalWalletHttpClient {
+    /// Creates a new LocalWalletHttpClient
+    pub fn new(signer: PrivateKeySigner, url: Url) -> Self {
+        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url);
+        Self { provider: DynProvider::new(provider), signer }
+    }
+
+    /// Return a reference to the underlying provider
+    pub fn provider(&self) -> DynProvider<Ethereum> {
+        self.provider.clone()
+    }
+
+    /// Returns the signer
+    pub fn signer(&self) -> &PrivateKeySigner {
+        &self.signer
+    }
+
+    /// Returns the address of the signer
+    pub fn address(&self) -> Address {
+        self.signer.address()
+    }
+}
 
 /// Sets up the address and client with which to instantiate a contract for
 /// testing, reading in the private key, RPC url, and contract address from the
@@ -55,32 +93,24 @@ pub type LocalWalletHttpClient = SignerMiddleware<Provider<Http>, LocalWallet>;
 pub async fn setup_client(
     priv_key: &str,
     rpc_url: &str,
-) -> Result<Arc<LocalWalletHttpClient>, ScriptError> {
-    let provider = Provider::<Http>::try_from(rpc_url)
-        .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?;
+) -> Result<LocalWalletHttpClient, ScriptError> {
+    let url = Url::parse(rpc_url).map_err(err_str!(ScriptError::ClientInitialization))?;
+    let signer = PrivateKeySigner::from_str(priv_key)
+        .map_err(err_str!(ScriptError::ClientInitialization))?;
 
-    let wallet = LocalWallet::from_str(priv_key)
-        .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?;
-    let chain_id = provider
-        .get_chainid()
-        .await
-        .map_err(|e| ScriptError::ClientInitialization(e.to_string()))?
-        .as_u64();
-    let client = Arc::new(SignerMiddleware::new(provider, wallet.clone().with_chain_id(chain_id)));
-
-    Ok(client)
+    Ok(LocalWalletHttpClient::new(signer, url))
 }
 
 /// Sends a contract call, waiting for the transaction to go from pending to
 /// executed, and returns the transaction receipt
-pub async fn send_contract_call<M: Middleware, D: Detokenize>(
-    call: ContractCall<M, D>,
+pub async fn send_tx<C: CallDecoder + Unpin>(
+    call: EthereumCall<'_, C>,
 ) -> Result<Option<TransactionReceipt>, ScriptError> {
-    call.send()
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))?
-        .await
-        .map_err(|e| ScriptError::ContractInteraction(e.to_string()))
+    let pending_tx = call.send().await.map_err(err_str!(ScriptError::ContractInteraction))?;
+    let receipt =
+        pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
+
+    Ok(Some(receipt))
 }
 
 /// Parses the JSON file at the given path
@@ -220,8 +250,7 @@ pub fn get_protocol_external_fee_collection_address(
     if let Some(addr_str) = arg {
         Address::from_str(&addr_str).map_err(|e| ScriptError::PubkeyParsing(e.to_string()))
     } else {
-        let mut rng = thread_rng();
-        Ok(Address::random_using(&mut rng))
+        Ok(Address::random())
     }
 }
 
@@ -240,21 +269,10 @@ pub fn darkpool_initialize_calldata(
     protocol_public_encryption_key: PublicEncryptionKey,
     protocol_external_fee_collection_address: Address,
 ) -> Result<Vec<u8>, ScriptError> {
-    let core_wallet_ops_address = AlloyAddress::from_slice(core_wallet_ops_address.as_bytes());
-    let core_settlement_address = AlloyAddress::from_slice(core_settlement_address.as_bytes());
-    let verifier_core_address = AlloyAddress::from_slice(verifier_core_address.as_bytes());
-    let verifier_settlement_address =
-        AlloyAddress::from_slice(verifier_settlement_address.as_bytes());
-    let vkeys_address = AlloyAddress::from_slice(vkeys_address.as_bytes());
-    let merkle_address = AlloyAddress::from_slice(merkle_address.as_bytes());
-    let transfer_executor_address = AlloyAddress::from_slice(transfer_executor_address.as_bytes());
-    let permit2_address = AlloyAddress::from_slice(permit2_address.as_bytes());
     let protocol_public_encryption_key = [
         scalar_to_u256(protocol_public_encryption_key.x),
         scalar_to_u256(protocol_public_encryption_key.y),
     ];
-    let protocol_external_fee_collection_address =
-        AlloyAddress::from_slice(protocol_external_fee_collection_address.as_bytes());
 
     Ok(darkpool_initialize_call::new((
         core_wallet_ops_address,
@@ -277,9 +295,6 @@ pub fn gas_sponsor_initialize_calldata(
     darkpool_address: Address,
     auth_address: Address,
 ) -> Result<Vec<u8>, ScriptError> {
-    let darkpool_address = AlloyAddress::from_slice(darkpool_address.as_bytes());
-    let auth_address = AlloyAddress::from_slice(auth_address.as_bytes());
-
     Ok(gas_sponsor_initialize_call::new((darkpool_address, auth_address)).abi_encode())
 }
 
@@ -400,7 +415,7 @@ pub async fn deploy_stylus_contract(
     wasm_file_path: PathBuf,
     rpc_url: &str,
     priv_key: &str,
-    client: Arc<LocalWalletHttpClient>,
+    client: LocalWalletHttpClient,
     contract: &StylusContract,
 ) -> Result<Address, ScriptError> {
     match contract {
@@ -412,15 +427,14 @@ pub async fn deploy_stylus_contract(
         _ => {},
     }
 
-    // Get expected deployment address
-    let deployer_address = client.default_sender().ok_or(ScriptError::ClientInitialization(
-        "client does not have sender attached".to_string(),
-    ))?;
+    // Compute the expected deployment address
+    let deployer_address = client.address();
     let deployer_nonce = client
-        .get_transaction_count(deployer_address, None /* block */)
+        .provider()
+        .get_transaction_count(deployer_address)
         .await
         .map_err(|e| ScriptError::NonceFetching(e.to_string()))?;
-    let deployed_address = get_contract_address(deployer_address, deployer_nonce);
+    let deployed_address = deployer_address.create(deployer_nonce);
 
     // Run deploy command
     let mut deploy_cmd = Command::new(CARGO_COMMAND);
