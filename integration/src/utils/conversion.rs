@@ -2,19 +2,17 @@
 
 use std::str::FromStr;
 
-use alloy_primitives::{Address as AlloyAddress, U256 as AlloyU256};
+use alloy::primitives::{Address, Bytes, U256};
+use constants::Scalar;
 use contracts_common::{
-    constants::NUM_BYTES_FELT,
-    custom_serde::{BytesDeserializable, BytesSerializable},
+    constants::{NUM_BYTES_ADDRESS, NUM_BYTES_U256},
     types::{
         MatchLinkingProofs, MatchLinkingVkeys, MatchProofs, MatchPublicInputs, MatchVkeys, Proof,
         PublicInputs, ScalarField, VerificationKey, VerifyMatchCalldata,
     },
 };
 use contracts_stylus::NATIVE_ETH_ADDRESS;
-use contracts_utils::proof_system::test_data::address_to_biguint;
-use ethers::types::{Address, Bytes, U256};
-use eyre::{eyre, Result};
+use eyre::Result;
 use num_bigint::BigUint;
 use serde::Serialize;
 
@@ -22,67 +20,53 @@ use serde::Serialize;
 // | Type Conversions |
 // --------------------
 
-/// Convert an ethers `Address` to an alloy `Address`
-pub fn ethers_address_to_alloy_address(address: &Address) -> AlloyAddress {
-    let bytes = &address.0;
-    AlloyAddress::from_slice(bytes.as_slice())
-}
-
-/// Convert an alloy `Address` to an ethers `Address`
-pub fn alloy_address_to_ethers_address(address: &AlloyAddress) -> Address {
-    let bytes = address.to_vec();
-    Address::from_slice(&bytes)
-}
-
-/// Convert an ethers `Address` to a `BigUint`
-///
-/// Call out to the alloy helper to ensure that address formats are the same
-/// throughout test helpers
-pub fn ethers_address_to_biguint(address: &Address) -> BigUint {
-    let alloy_address = ethers_address_to_alloy_address(address);
-    address_to_biguint(alloy_address)
-}
-
-/// Converts a `BigUint` to an ethers `Address`
-pub fn biguint_to_ethers_address(biguint: &BigUint) -> Address {
-    let bytes = biguint.to_bytes_be();
-    Address::from_slice(&bytes)
-}
-
 /// Get the native ETH address
-pub fn native_eth_address() -> AlloyAddress {
-    AlloyAddress::from_str(NATIVE_ETH_ADDRESS).unwrap()
+pub fn native_eth_address() -> Address {
+    Address::from_str(NATIVE_ETH_ADDRESS).unwrap()
 }
 
-/// Converts an [`ethers::types::U256`] to an [`alloy_primitives::U256`]
-pub fn u256_to_alloy_u256(u256: U256) -> AlloyU256 {
-    let mut buf = [0_u8; 32];
-    u256.to_big_endian(&mut buf);
-    AlloyU256::from_be_slice(&buf)
+/// Convert a [`BigUint`] to an [`Address`]
+pub fn biguint_to_address(biguint: &BigUint) -> Address {
+    let biguint_bytes = biguint.to_bytes_be();
+    assert!(
+        biguint_bytes.len() <= NUM_BYTES_ADDRESS,
+        "BigUint is too large to convert to an Address"
+    );
+
+    let padded_bytes = zero_pad_be_bytes::<NUM_BYTES_ADDRESS>(&biguint_bytes);
+    Address::from_slice(&padded_bytes)
 }
 
-/// Converts an [`alloy_primitives::U256`] to an [`ethers::types::U256`]
-pub fn alloy_u256_to_ethers_u256(alloy_u256: AlloyU256) -> U256 {
-    U256::from_big_endian(&alloy_u256.to_be_bytes_vec())
+/// Convert an [`Address`] to a [`BigUint`]
+pub fn address_to_biguint(address: Address) -> BigUint {
+    let bytes = address.0.to_vec();
+    BigUint::from_bytes_be(&bytes)
 }
 
 /// Converts a [`ScalarField`] to a [`ethers::types::U256`]
 pub fn scalar_to_u256(scalar: ScalarField) -> U256 {
-    U256::from_big_endian(&scalar.serialize_to_bytes())
+    let scalar = Scalar::new(scalar);
+    let padded_bytes = zero_pad_be_bytes::<NUM_BYTES_U256>(&scalar.to_bytes_be());
+    U256::from_be_bytes(padded_bytes)
 }
 
 /// Converts a [`ethers::types::U256`] to a [`ScalarField`]
-pub fn u256_to_scalar(u256: U256) -> Result<ScalarField> {
-    let mut scalar_bytes = [0_u8; NUM_BYTES_FELT];
-    u256.to_big_endian(&mut scalar_bytes);
-    ScalarField::deserialize_from_bytes(&scalar_bytes)
-        .map_err(|_| eyre!("failed converting U256 to scalar"))
+pub fn u256_to_scalar(u256: U256) -> ScalarField {
+    let be_bytes = u256.to_be_bytes_vec();
+    Scalar::from_be_bytes_mod_order(&be_bytes).inner()
 }
 
 /// Serialize the given serializable type into a [`Bytes`] object
 /// that can be passed in as calldata
 pub fn serialize_to_calldata<T: Serialize>(t: &T) -> Result<Bytes> {
     Ok(postcard::to_allocvec(t)?.into())
+}
+
+/// Copy bytes into a fixed-size zero-initialized array
+fn zero_pad_be_bytes<const N: usize>(src: &[u8]) -> [u8; N] {
+    let mut dest = [0_u8; N];
+    dest[N - src.len()..].copy_from_slice(src);
+    dest
 }
 
 // ---------------------------
@@ -108,7 +92,7 @@ pub fn serialize_verification_bundle(
 /// Serializes the given bundle of verification key, proof, and public inputs
 /// used in a match into a [`Bytes`] object that can be passed in as calldata
 pub fn serialize_match_verification_bundle(
-    verifier_address: AlloyAddress,
+    verifier_address: Address,
     match_vkeys: &MatchVkeys,
     match_linking_vkeys: &MatchLinkingVkeys,
     match_proofs: &MatchProofs,

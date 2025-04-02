@@ -1,24 +1,18 @@
 //! Integration testing utilities for contract interaction
 
-use std::{future::Future, sync::Arc};
-
+use alloy::signers::local::PrivateKeySigner;
+use alloy_contract::CallDecoder;
+use alloy_sol_types::SolCall;
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use circuit_types::elgamal::EncryptionKey;
 use constants::Scalar;
 use contracts_common::types::ScalarField;
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use contracts_utils::merkle::MerkleConfig;
-use ethers::{
-    abi::{Detokenize, Tokenize},
-    contract::ContractError,
-    providers::{JsonRpcClient, Middleware, PendingTransaction},
-    signers::{LocalWallet, Signer},
-};
 use eyre::{eyre, Result};
-use rand::thread_rng;
-use scripts::utils::LocalWalletHttpClient;
+use scripts::utils::{EthereumCall, LocalWalletHttpClient};
 
-use crate::abis::DarkpoolTestContract;
+use crate::DarkpoolTestInstance;
 
 use super::u256_to_scalar;
 
@@ -28,21 +22,20 @@ use super::u256_to_scalar;
 
 /// Sets up a dummy client with a random private key
 /// targeting the same RPC endpoint
-pub async fn setup_dummy_client(
-    client: Arc<LocalWalletHttpClient>,
-) -> Result<Arc<LocalWalletHttpClient>> {
-    let mut rng = thread_rng();
-    Ok(Arc::new(client.with_signer(
-        LocalWallet::new(&mut rng).with_chain_id(client.get_chainid().await?.as_u64()),
-    )))
+pub fn setup_dummy_client(client: LocalWalletHttpClient) -> LocalWalletHttpClient {
+    let signer = PrivateKeySigner::random();
+    let endpoint = client.url();
+    LocalWalletHttpClient::new(signer, endpoint)
 }
 
 /// Fetches the protocol public encryption key from the darkpool contract
 pub async fn get_protocol_pubkey(
-    darkpool_contract: &DarkpoolTestContract<LocalWalletHttpClient>,
+    darkpool_contract: &DarkpoolTestInstance,
 ) -> Result<EncryptionKey> {
-    let [x, y] = darkpool_contract.get_pubkey().call().await?;
-    Ok(EncryptionKey { x: Scalar::new(u256_to_scalar(x)?), y: Scalar::new(u256_to_scalar(y)?) })
+    let [x, y] = darkpool_contract.getPubkey().call().await?._0;
+    let x_scalar = Scalar::new(u256_to_scalar(x));
+    let y_scalar = Scalar::new(u256_to_scalar(y));
+    Ok(EncryptionKey { x: x_scalar, y: y_scalar })
 }
 
 /// Computes a commitment to the given wallet shares, inserts them
@@ -69,59 +62,32 @@ pub(crate) fn insert_shares_and_get_root(
 
 /// Asserts that the given method can only be called by the owner of the
 /// darkpool contract
-pub async fn assert_only_owner<T: Tokenize + Clone, D: Detokenize>(
-    contract: &DarkpoolTestContract<LocalWalletHttpClient>,
-    contract_with_dummy_owner: &DarkpoolTestContract<LocalWalletHttpClient>,
-    method: &str,
-    args: T,
+pub async fn assert_only_owner<C: SolCall>(
+    call: C,
+    contract: &DarkpoolTestInstance,
+    contract_with_dummy_owner: &DarkpoolTestInstance,
 ) -> Result<()> {
-    assert!(
-        contract_with_dummy_owner.method::<T, D>(method, args.clone())?.send().await.is_err(),
-        "Called {} as non-owner",
-        method
-    );
+    let sig = C::SIGNATURE;
 
-    assert!(
-        contract.method::<T, D>(method, args)?.send().await.is_ok(),
-        "Failed to call {} as owner",
-        method
-    );
+    let non_owner_err = contract_with_dummy_owner.call_builder(&call).send().await.is_err();
+    assert!(non_owner_err, "Called {sig} as non-owner");
+
+    let owner_err = contract.call_builder(&call).send().await.is_err();
+    assert!(owner_err, "Failed to call {sig} as owner");
 
     Ok(())
 }
 
 /// Asserts that all the given transactions revert
-pub async fn assert_all_revert<'a>(
-    txs: Vec<
-        impl Future<
-            Output = Result<
-                PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<LocalWalletHttpClient>,
-            >,
-        >,
-    >,
-) -> Result<()> {
-    for tx in txs {
-        assert!(tx.await.is_err(), "Expected transaction to revert, but it succeeded");
-    }
-
+pub async fn assert_revert<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>) -> Result<()> {
+    let pending_res = call.send().await;
+    assert!(pending_res.is_err(), "Expected transaction to revert, but it succeeded");
     Ok(())
 }
 
 /// Asserts that all of the given transactions successfully execute
-pub async fn assert_all_succeed<'a>(
-    txs: Vec<
-        impl Future<
-            Output = Result<
-                PendingTransaction<'a, impl JsonRpcClient + 'a>,
-                ContractError<LocalWalletHttpClient>,
-            >,
-        >,
-    >,
-) -> Result<()> {
-    for tx in txs {
-        assert!(tx.await.is_ok(), "Expected transaction to succeed, but it reverted");
-    }
-
+pub async fn assert_succeed<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>) -> Result<()> {
+    let pending_res = call.send().await;
+    assert!(pending_res.is_ok(), "Expected transaction to succeed, but it reverted");
     Ok(())
 }

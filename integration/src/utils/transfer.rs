@@ -1,6 +1,7 @@
 //! Integration testing utilities for external transfers & ERC20s
 
-use alloy_primitives::{keccak256, Address as AlloyAddress, B256, U256 as AlloyU256};
+use alloy::{providers::Provider, signers::k256::ecdsa::SigningKey};
+use alloy_primitives::{keccak256, Address, PrimitiveSignature, B256, U256};
 use alloy_sol_types::{
     eip712_domain,
     sol_data::{Address as SolAddress, Uint as SolUint},
@@ -13,22 +14,16 @@ use contracts_common::{
     types::{ExternalTransfer, PublicSigningKey, TransferAuxData},
 };
 use contracts_utils::crypto::hash_and_sign_message;
-use ethers::{
-    core::k256::ecdsa::SigningKey,
-    providers::Middleware,
-    types::{Address, H256, U256},
-};
 use eyre::{eyre, Result};
 use rand::{thread_rng, RngCore};
-use scripts::{constants::TEST_FUNDING_AMOUNT, utils::LocalWalletHttpClient};
+use scripts::{constants::TEST_FUNDING_AMOUNT, utils::send_tx};
 
 use crate::{
-    abis::{DummyErc20Contract, TransferExecutorContract},
-    constants::PERMIT2_EIP712_DOMAIN_NAME,
-    TestContext,
+    abis::DummyErc20Contract, constants::PERMIT2_EIP712_DOMAIN_NAME, DummyErc20Instance,
+    TestContext, TransferExecutorInstance,
 };
 
-use super::{biguint_to_ethers_address, serialize_to_calldata};
+use super::{biguint_to_address, serialize_to_calldata};
 
 /// Creates an [`ExternalTransfer`] object for the given account address,
 /// mint address, and transfer direction
@@ -37,12 +32,7 @@ fn dummy_erc20_external_transfer(
     mint: Address,
     is_withdrawal: bool,
 ) -> ExternalTransfer {
-    ExternalTransfer {
-        account_addr: AlloyAddress::from_slice(account_addr.as_bytes()),
-        mint: AlloyAddress::from_slice(mint.as_bytes()),
-        amount: AlloyU256::from(TEST_FUNDING_AMOUNT),
-        is_withdrawal,
-    }
+    ExternalTransfer { account_addr, mint, amount: U256::from(TEST_FUNDING_AMOUNT), is_withdrawal }
 }
 
 /// Creates an [`ExternalTransfer`] object representing a deposit
@@ -58,8 +48,8 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
 /// Executes the given transfer and returns the resulting balances of the
 /// darkpool and user
 pub(crate) async fn execute_transfer_and_get_balances(
-    transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
-    dummy_erc20_contract: &DummyErc20Contract<LocalWalletHttpClient>,
+    transfer_executor_contract: &TransferExecutorInstance,
+    dummy_erc20_contract: &DummyErc20Instance,
     permit2_address: Address,
     signing_key: &SigningKey,
     pk_root: PublicSigningKey,
@@ -75,20 +65,16 @@ pub(crate) async fn execute_transfer_and_get_balances(
     )
     .await?;
 
-    transfer_executor_contract
-        .execute_external_transfer(
-            serialize_to_calldata(&pk_root)?,
-            serialize_to_calldata(transfer)?,
-            serialize_to_calldata(&transfer_aux_data)?,
-        )
-        .send()
-        .await?
-        .await?;
+    let transfer_call = transfer_executor_contract.executeExternalTransfer(
+        serialize_to_calldata(&pk_root)?,
+        serialize_to_calldata(transfer)?,
+        serialize_to_calldata(&transfer_aux_data)?,
+    );
+    send_tx(transfer_call).await?;
 
     let darkpool_balance =
-        dummy_erc20_contract.balance_of(transfer_executor_contract.address()).call().await?;
-
-    let user_balance = dummy_erc20_contract.balance_of(account_address).call().await?;
+        dummy_erc20_contract.balanceOf(*transfer_executor_contract.address()).call().await?._0;
+    let user_balance = dummy_erc20_contract.balanceOf(account_address).call().await?._0;
 
     Ok((darkpool_balance, user_balance))
 }
@@ -100,50 +86,50 @@ pub(crate) async fn gen_transfer_aux_data(
     pk_root: PublicSigningKey,
     transfer: &ExternalTransfer,
     permit2_address: Address,
-    transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
+    transfer_executor_contract: &TransferExecutorInstance,
 ) -> Result<TransferAuxData> {
     let (permit_nonce, permit_deadline, permit_signature) = gen_permit_payload(
         transfer.mint,
         transfer.amount,
         pk_root,
         permit2_address,
+        signing_key,
         transfer_executor_contract,
     )
     .await?;
 
     let transfer_bytes = serialize_to_calldata(transfer)?;
-    let transfer_signature = hash_and_sign_message(signing_key, &transfer_bytes).to_vec();
+    let transfer_signature = hash_and_sign_message(signing_key, &transfer_bytes).as_bytes();
 
     Ok(TransferAuxData {
         permit_nonce: Some(permit_nonce),
         permit_deadline: Some(permit_deadline),
         permit_signature: Some(permit_signature),
-        transfer_signature: Some(transfer_signature),
+        transfer_signature: Some(transfer_signature.to_vec()),
     })
 }
 
 /// Generates a permit payload for the given token and amount
 pub(crate) async fn gen_permit_payload(
-    token: AlloyAddress,
-    amount: AlloyU256,
+    token: Address,
+    amount: U256,
     pk_root: PublicSigningKey,
     permit2_address: Address,
-    transfer_executor_contract: &TransferExecutorContract<LocalWalletHttpClient>,
-) -> Result<(AlloyU256, AlloyU256, Vec<u8>)> {
-    let client = transfer_executor_contract.client();
+    signer: &SigningKey,
+    transfer_executor_contract: &TransferExecutorInstance,
+) -> Result<(U256, U256, Vec<u8>)> {
+    let client = transfer_executor_contract.provider();
 
     let permitted = TokenPermissions { token, amount };
 
     // Generate a random nonce
     let mut nonce_bytes = [0_u8; 32];
     thread_rng().fill_bytes(&mut nonce_bytes);
-    let nonce = AlloyU256::from_be_slice(&nonce_bytes);
+    let nonce = U256::from_be_bytes(nonce_bytes);
 
     // Set an effectively infinite deadline
-    let deadline = AlloyU256::from(u64::MAX);
-
-    let spender = AlloyAddress::from_slice(transfer_executor_contract.address().as_bytes());
-
+    let deadline = U256::from(u64::MAX);
+    let spender = *transfer_executor_contract.address();
     let witness = DepositWitness {
         pkRoot: pk_to_u256s(&pk_root).map_err(|_| eyre!("Failed to convert pk_root to u256s"))?,
     };
@@ -152,20 +138,18 @@ pub(crate) async fn gen_permit_payload(
         PermitWitnessTransferFrom { permitted, spender, nonce, deadline, witness };
 
     // Construct the EIP712 domain
-    let permit2_address = AlloyAddress::from_slice(permit2_address.as_bytes());
-    let chain_id = client.get_chainid().await?.try_into().unwrap();
+    let chain_id = client.get_chain_id().await?;
     let permit_domain = eip712_domain!(
         name: PERMIT2_EIP712_DOMAIN_NAME,
         chain_id: chain_id,
         verifying_contract: permit2_address,
     );
 
-    let msg_hash =
-        H256::from_slice(permit_signing_hash(&signable_permit, &permit_domain).as_slice());
+    let msg_hash = permit_signing_hash(&signable_permit, &permit_domain).to_vec();
+    let (sig, rid) = signer.sign_prehash_recoverable(&msg_hash)?;
+    let primitive_sig = PrimitiveSignature::from((sig, rid));
 
-    let signature = client.signer().sign_hash(msg_hash)?.to_vec();
-
-    Ok((nonce, deadline, signature))
+    Ok((nonce, deadline, primitive_sig.as_bytes().to_vec()))
 }
 
 /// Mint dummy ERC20 tokens for testing
@@ -175,9 +159,11 @@ pub(crate) async fn gen_permit_payload(
 pub async fn mint_dummy_erc20s(mint: Address, amount: U256, test_args: &TestContext) -> Result<()> {
     let address = test_args.client.address();
     let darkpool_address = test_args.darkpool_proxy_address;
-    let contract = DummyErc20Contract::new(mint, test_args.client.clone());
-    contract.mint(address, amount).send().await?.await?;
-    contract.mint(darkpool_address, amount).send().await?.await?;
+    let contract = DummyErc20Contract::new(mint, test_args.client.provider());
+    let mint_tx1 = contract.mint(address, amount);
+    let mint_tx2 = contract.mint(darkpool_address, amount);
+    send_tx(mint_tx1).await?;
+    send_tx(mint_tx2).await?;
 
     Ok(())
 }
@@ -191,9 +177,9 @@ pub async fn setup_external_match_token_approvals(
 ) -> Result<()> {
     let mint = if buy_side { &match_result.quote_mint } else { &match_result.base_mint };
 
-    let mint = biguint_to_ethers_address(mint);
-    let contract = DummyErc20Contract::new(mint, test_args.client.clone());
-    let amount = TEST_FUNDING_AMOUNT;
+    let mint = biguint_to_address(mint);
+    let contract = DummyErc20Contract::new(mint, test_args.client.provider());
+    let amount = U256::from(TEST_FUNDING_AMOUNT);
 
     let spender = if use_gas_sponsor {
         test_args.gas_sponsor_proxy_address
@@ -201,7 +187,8 @@ pub async fn setup_external_match_token_approvals(
         test_args.darkpool_proxy_address
     };
 
-    contract.approve(spender, amount.into()).send().await?.await?;
+    let approve_tx = contract.approve(spender, amount);
+    send_tx(approve_tx).await?;
 
     Ok(())
 }

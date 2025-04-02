@@ -4,13 +4,23 @@
 #![deny(missing_docs)]
 #![deny(clippy::missing_docs_in_private_items)]
 
-use std::sync::Arc;
-
-use abis::{DarkpoolTestContract, DummyErc20Contract, GasSponsorContract};
+use abis::{
+    DarkpoolTestContract::{self, DarkpoolTestContractInstance},
+    DummyErc20Contract::{self, DummyErc20ContractInstance},
+    GasSponsorContract::{self, GasSponsorContractInstance},
+    IAtomicMatchSettleContract::IAtomicMatchSettleContractInstance,
+    TransferExecutorContract::TransferExecutorContractInstance,
+};
+use alloy::{
+    network::Ethereum,
+    primitives::Address,
+    providers::{DynProvider, Provider},
+    signers::k256::ecdsa::SigningKey,
+};
 use alloy_primitives::U256;
 use clap::Parser;
 use cli::Cli;
-use ethers::{abi::Address, core::k256::ecdsa::SigningKey, providers::Middleware};
+use contracts_common::types::ScalarField;
 use eyre::Result;
 use scripts::{
     constants::{
@@ -24,13 +34,24 @@ use scripts::{
     },
 };
 use test_helpers::{integration_test_main, types::TestVerbosity};
-use utils::u256_to_alloy_u256;
+use utils::{scalar_to_u256, u256_to_scalar};
 
 mod abis;
 mod cli;
 mod constants;
 mod tests;
 mod utils;
+
+/// An instance of the darkpool test contract
+pub type DarkpoolTestInstance = DarkpoolTestContractInstance<(), DynProvider, Ethereum>;
+/// An instance of the gas sponsor contract
+pub type GasSponsorInstance = GasSponsorContractInstance<(), DynProvider, Ethereum>;
+/// An instance of the transfer executor contract
+pub type TransferExecutorInstance = TransferExecutorContractInstance<(), DynProvider, Ethereum>;
+/// An instance of the dummy ERC20 contract
+pub type DummyErc20Instance = DummyErc20ContractInstance<(), DynProvider, Ethereum>;
+/// An instance of the atomic match settle interface
+pub type IAtomicMatchSettleInstance = IAtomicMatchSettleContractInstance<(), DynProvider, Ethereum>;
 
 /// The context provided to each integration test
 ///
@@ -39,7 +60,7 @@ mod utils;
 #[derive(Clone)]
 pub struct TestContext {
     /// The RPC client
-    pub client: Arc<LocalWalletHttpClient>,
+    pub client: LocalWalletHttpClient,
     /// The address of the darkpool proxy contract
     pub darkpool_proxy_address: Address,
     /// The address of the proxy admin contract
@@ -82,11 +103,7 @@ impl TestContext {
 
     /// Get the eth balance of the given address
     pub async fn get_eth_balance_of(&self, address: Address) -> Result<U256> {
-        self.client
-            .get_balance(address, None /* block */)
-            .await
-            .map_err(Into::into)
-            .map(u256_to_alloy_u256)
+        self.client.provider().get_balance(address).await.map_err(Into::into)
     }
 
     /// Get the erc20 balance of the client address
@@ -101,23 +118,43 @@ impl TestContext {
         erc20_address: Address,
         address: Address,
     ) -> Result<U256> {
-        let contract = DummyErc20Contract::new(erc20_address, self.client.clone());
-        contract.balance_of(address).call().await.map_err(Into::into).map(u256_to_alloy_u256)
+        let contract = DummyErc20Contract::new(erc20_address, self.client.provider());
+        contract.balanceOf(address).call().await.map_err(Into::into).map(|r| r._0)
+    }
+
+    /// Get the current Merkle root in the darkpool, as a scalar
+    pub async fn get_root_scalar(&self) -> Result<ScalarField> {
+        let root_u256 = self.darkpool_contract().getRoot().call().await?._0;
+        Ok(u256_to_scalar(root_u256))
+    }
+
+    /// Check whether a nullifier has been spent on the darkpool
+    pub async fn nullifier_spent(&self, nullifier: ScalarField) -> Result<bool> {
+        let contract = self.darkpool_contract();
+        let nullifier_u256 = scalar_to_u256(nullifier);
+        let nullifier_spent = contract.isNullifierSpent(nullifier_u256).call().await?._0;
+
+        Ok(nullifier_spent)
     }
 
     /// Build an instance of the darkpool contract
-    pub fn darkpool_contract(&self) -> DarkpoolTestContract<LocalWalletHttpClient> {
-        DarkpoolTestContract::new(self.darkpool_proxy_address, self.client.clone())
+    pub fn darkpool_contract(&self) -> DarkpoolTestInstance {
+        DarkpoolTestContract::new(self.darkpool_proxy_address, self.client.provider())
     }
 
     /// Build an instance of the gas sponsor contract
-    pub fn gas_sponsor_contract(&self) -> GasSponsorContract<LocalWalletHttpClient> {
-        GasSponsorContract::new(self.gas_sponsor_proxy_address, self.client.clone())
+    pub fn gas_sponsor_contract(&self) -> GasSponsorInstance {
+        GasSponsorContract::new(self.gas_sponsor_proxy_address, self.client.provider())
+    }
+
+    /// Get the provider backing the client
+    pub fn provider(&self) -> DynProvider<Ethereum> {
+        self.client.provider()
     }
 
     /// Get the signing key for the client
     pub fn signing_key(&self) -> &SigningKey {
-        self.client.signer().signer()
+        self.client.signer().credential()
     }
 }
 
