@@ -265,7 +265,9 @@ pub fn get_protocol_external_fee_collection_address(
     if let Some(addr_str) = arg {
         Address::from_str(&addr_str).map_err(|e| ScriptError::PubkeyParsing(e.to_string()))
     } else {
-        Ok(Address::random())
+        let mut rng = thread_rng();
+        let bytes: [u8; 20] = rng.gen();
+        Ok(Address::from_slice(&bytes))
     }
 }
 
