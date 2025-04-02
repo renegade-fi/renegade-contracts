@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+alloy = { workspace = true, default-features = true }
+alloy-contract = { workspace = true }
+alloy-primitives = { workspace = true, features = ["tiny-keccak"] }
+alloy-sol-types = { version = "0.8" }
 contracts-common = { path = "../contracts-common", features = ["test-helpers"] }
 contracts-core = { path = "../contracts-core" }
 contracts-stylus = { path = "../contracts-stylus", features = ["test-helpers"] }
 contracts-utils = { path = "../contracts-utils" }
 scripts = { path = "../scripts" }
 tokio = { workspace = true }
-ethers = { workspace = true }
 eyre = { workspace = true }
 ark-ff = { workspace = true }
 ark-std = { workspace = true }
@@ -19,8 +22,6 @@ rand = { workspace = true }
 clap = { workspace = true }
 postcard = { workspace = true }
 serde = { workspace = true }
-alloy-primitives = { workspace = true, features = ["tiny-keccak"] }
-alloy-sol-types = { workspace = true }
 ark-crypto-primitives = { workspace = true }
 circuit-types = { workspace = true, features = ["test-helpers"] }
 circuits = { workspace = true, features = ["test_helpers"] }
@@ -34,4 +35,5 @@ num-bigint = "0.4"
 ruint = { workspace = true }
 
 test-helpers = { git = "https://github.com/renegade-fi/renegade.git" }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
 colored = "2"

@@ -1,12 +1,11 @@
 //! Integration tests for external transfer functionality
 
-use alloy_primitives::Address as AlloyAddress;
+use alloy_primitives::{Address, U256};
 use contracts_utils::crypto::random_keypair;
-use ethers::{abi::Address, providers::Middleware, types::U256};
 use eyre::Result;
 use rand::thread_rng;
-use scripts::constants::TEST_FUNDING_AMOUNT;
-use test_helpers::integration_test_async;
+use scripts::{constants::TEST_FUNDING_AMOUNT, utils::send_tx};
+use test_helpers::{assert_true_result, integration_test_async};
 
 use crate::{
     abis::{DummyErc20Contract, TransferExecutorContract},
@@ -20,20 +19,20 @@ use crate::{
 /// Test deposit / withdrawal functionality of the darkpool
 async fn test_external_transfer(ctx: TestContext) -> Result<()> {
     let transfer_executor_contract =
-        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.provider());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
+    let init_tx = transfer_executor_contract.init(ctx.permit2_address);
+    send_tx(init_tx).await?;
 
-    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
-
-    let account_address = ctx.client.default_sender().unwrap();
+    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.provider());
+    let account_address = ctx.client.address();
     let mint = ctx.test_erc20_address1;
 
     let contract_initial_balance =
-        test_erc20_contract.balance_of(ctx.transfer_executor_address).call().await?;
-    let user_initial_balance = test_erc20_contract.balance_of(account_address).call().await?;
+        test_erc20_contract.balanceOf(ctx.transfer_executor_address).call().await?._0;
+    let user_initial_balance = test_erc20_contract.balanceOf(account_address).call().await?._0;
 
     let (signing_key, pk_root) = random_keypair(&mut thread_rng());
 
@@ -51,12 +50,12 @@ async fn test_external_transfer(ctx: TestContext) -> Result<()> {
     .await?;
     assert_eq!(
         contract_balance,
-        contract_initial_balance + TEST_FUNDING_AMOUNT,
+        contract_initial_balance + U256::from(TEST_FUNDING_AMOUNT),
         "Post-deposit contract balance incorrect"
     );
     assert_eq!(
         user_balance,
-        user_initial_balance - TEST_FUNDING_AMOUNT,
+        user_initial_balance - U256::from(TEST_FUNDING_AMOUNT),
         "Post-deposit user balance incorrect"
     );
 
@@ -86,21 +85,22 @@ integration_test_async!(test_external_transfer);
 #[allow(non_snake_case)]
 async fn test_external_transfer__wrong_eth_addr(ctx: TestContext) -> Result<()> {
     let transfer_executor_contract =
-        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.provider());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
+    let init_tx = transfer_executor_contract.init(ctx.permit2_address);
+    send_tx(init_tx).await?;
 
-    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
-
-    let account_address = ctx.client.default_sender().unwrap();
+    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.provider());
+    let account_address = ctx.client.address();
     let mint = ctx.test_erc20_address1;
 
     // Generate dummy address & fund with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
     let dummy_address = Address::random();
-    test_erc20_contract.mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT)).send().await?.await?;
+    let mint_tx = test_erc20_contract.mint(dummy_address, U256::from(TEST_FUNDING_AMOUNT));
+    send_tx(mint_tx).await?;
 
     let (signing_key, pk_root) = random_keypair(&mut thread_rng());
 
@@ -132,15 +132,15 @@ async fn test_external_transfer__wrong_rng_wallet(ctx: TestContext) -> Result<()
     let mut rng = thread_rng();
 
     let transfer_executor_contract =
-        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.provider());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
+    let init_tx = transfer_executor_contract.init(ctx.permit2_address);
+    send_tx(init_tx).await?;
 
-    let account_address = ctx.client.default_sender().unwrap();
+    let account_address = ctx.client.address();
     let mint = ctx.test_erc20_address1;
-
     let (signing_key, pk_root) = random_keypair(&mut rng);
 
     // Create a valid deposit w/ accompanying aux data
@@ -159,7 +159,7 @@ async fn test_external_transfer__wrong_rng_wallet(ctx: TestContext) -> Result<()
     let (_, dummy_pk_root) = random_keypair(&mut rng);
     assert!(
         transfer_executor_contract
-            .execute_external_transfer(
+            .executeExternalTransfer(
                 serialize_to_calldata(&dummy_pk_root)?,
                 serialize_to_calldata(&deposit)?,
                 serialize_to_calldata(&transfer_aux_data)?,
@@ -178,26 +178,23 @@ integration_test_async!(test_external_transfer__wrong_rng_wallet);
 #[allow(non_snake_case)]
 async fn test_external_transfer__malicious_withdrawal(ctx: TestContext) -> Result<()> {
     let transfer_executor_contract =
-        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.client.clone());
+        TransferExecutorContract::new(ctx.transfer_executor_address, ctx.provider());
 
     // Initialize the transfer executor with the address of the Permit2 contract
     // being used
-    transfer_executor_contract.init(ctx.permit2_address).send().await?.await?;
+    let init_tx = transfer_executor_contract.init(ctx.permit2_address);
+    send_tx(init_tx).await?;
 
-    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
-
-    let account_address = ctx.client.default_sender().unwrap();
+    let test_erc20_contract = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.provider());
+    let account_address = ctx.client.address();
     let mint = ctx.test_erc20_address1;
+    let (signing_key, pk_root) = random_keypair(&mut thread_rng());
 
     // Fund contract with some ERC20 tokens
     // (lack of funding should not be the reason the test fails)
-    test_erc20_contract
-        .mint(ctx.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
-        .send()
-        .await?
-        .await?;
-
-    let (signing_key, pk_root) = random_keypair(&mut thread_rng());
+    let mint_tx =
+        test_erc20_contract.mint(ctx.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT));
+    send_tx(mint_tx).await?;
 
     // Create withdrawal external transfer & aux data
     let mut withdrawal = dummy_erc20_withdrawal(account_address, mint);
@@ -211,29 +208,21 @@ async fn test_external_transfer__malicious_withdrawal(ctx: TestContext) -> Resul
     .await?;
 
     // Tamper with withdrawal by attempting to specify a dummy recipient
-    let dummy_address = Address::random();
-    withdrawal.account_addr = AlloyAddress::from_slice(dummy_address.as_bytes());
+    withdrawal.account_addr = Address::random();
 
     // Attempt to execute withdrawal
-    assert!(
-        transfer_executor_contract
-            .execute_external_transfer(
-                serialize_to_calldata(&pk_root)?,
-                serialize_to_calldata(&withdrawal)?,
-                serialize_to_calldata(&transfer_aux_data)?,
-            )
-            .send()
-            .await
-            .is_err(),
-        "Malicious withdrawal succeeded"
+    let transfer_tx = transfer_executor_contract.executeExternalTransfer(
+        serialize_to_calldata(&pk_root)?,
+        serialize_to_calldata(&withdrawal)?,
+        serialize_to_calldata(&transfer_aux_data)?,
     );
+    let transfer_res = transfer_tx.send().await;
+    assert_true_result!(transfer_res.is_err())?;
 
     // Burn contract tokens so future tests are unaffected
-    test_erc20_contract
-        .burn(ctx.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT))
-        .send()
-        .await?
-        .await?;
+    let burn_tx =
+        test_erc20_contract.burn(ctx.transfer_executor_address, U256::from(TEST_FUNDING_AMOUNT));
+    send_tx(burn_tx).await?;
 
     Ok(())
 }

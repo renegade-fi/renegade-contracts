@@ -1,5 +1,6 @@
 //! Integration tests for basic darkpool interaction
 
+use alloy_primitives::Bytes;
 use ark_ff::One;
 use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
@@ -10,9 +11,9 @@ use contracts_utils::{
         gen_new_wallet_data, gen_process_match_settle_data, gen_update_wallet_data,
     },
 };
-use ethers::types::Bytes;
 use eyre::{eyre, Result};
 use rand::thread_rng;
+use scripts::utils::{call_helper, send_tx};
 use test_helpers::integration_test_async;
 
 use crate::{
@@ -25,17 +26,15 @@ async fn test_new_wallet(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
-    contract.clear_merkle().send().await?.await?;
+    send_tx(contract.clearMerkle()).await?;
 
     let mut rng = thread_rng();
     let (proof, statement) = gen_new_wallet_data(&mut rng)?;
 
     // Call `new_wallet`
-    contract
-        .new_wallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
-        .send()
-        .await?
-        .await?;
+    let call =
+        contract.newWallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?);
+    send_tx(call).await?;
 
     // Assert that Merkle root is correct
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
@@ -47,8 +46,8 @@ async fn test_new_wallet(ctx: TestContext) -> Result<()> {
         0, // index
     )?;
 
-    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
-
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = u256_to_scalar(root_u256);
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
@@ -60,33 +59,30 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
-    contract.clear_merkle().send().await?.await?;
+    send_tx(contract.clearMerkle()).await?;
 
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
     let mut rng = thread_rng();
 
-    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = u256_to_scalar(root_u256);
     let (proof, statement, wallet_commitment_signature) =
         gen_update_wallet_data(&mut rng, Scalar::new(contract_root))?;
 
     // Call `update_wallet`
-    contract
-        .update_wallet(
-            serialize_to_calldata(&proof)?,
-            serialize_to_calldata(&statement)?,
-            wallet_commitment_signature,
-            Bytes::new(), // transfer_aux_data
-        )
-        .send()
-        .await?
-        .await?;
+    let call = contract.updateWallet(
+        serialize_to_calldata(&proof)?,
+        serialize_to_calldata(&statement)?,
+        wallet_commitment_signature,
+        Bytes::new(), // transfer_aux_data
+    );
+    send_tx(call).await?;
 
     // Assert that correct nullifier is spent
     let nullifier = scalar_to_u256(statement.old_shares_nullifier);
-
-    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
+    let nullifier_spent = call_helper(contract.isNullifierSpent(nullifier)).await?._0;
     assert!(nullifier_spent, "Nullifier not spent");
 
     // Assert that Merkle root is correct
@@ -98,8 +94,8 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
     )
     .map_err(|e| eyre!("{}", e))?;
 
-    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
-
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = u256_to_scalar(root_u256);
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
@@ -111,29 +107,27 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
-    contract.clear_merkle().send().await?.await?;
+    send_tx(contract.clearMerkle()).await?;
 
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
-    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee =
-        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let fee_u256 = call_helper(contract.getFee()).await?._0;
+    let contract_root = Scalar::new(u256_to_scalar(root_u256));
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
     let mut rng = thread_rng();
     let data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
 
     // Call `process_match_settle` with valid data
-    contract
-        .process_match_settle(
-            serialize_to_calldata(&data.match_payload_0)?,
-            serialize_to_calldata(&data.match_payload_1)?,
-            serialize_to_calldata(&data.valid_match_settle_statement)?,
-            serialize_to_calldata(&data.match_proofs)?,
-            serialize_to_calldata(&data.match_linking_proofs)?,
-        )
-        .send()
-        .await?
-        .await?;
+    let call = contract.processMatchSettle(
+        serialize_to_calldata(&data.match_payload_0)?,
+        serialize_to_calldata(&data.match_payload_1)?,
+        serialize_to_calldata(&data.valid_match_settle_statement)?,
+        serialize_to_calldata(&data.match_proofs)?,
+        serialize_to_calldata(&data.match_linking_proofs)?,
+    );
+    send_tx(call).await?;
 
     // Assert that correct nullifiers are spent
     let party_0_nullifier =
@@ -141,10 +135,12 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     let party_1_nullifier =
         scalar_to_u256(data.match_payload_1.valid_reblind_statement.original_shares_nullifier);
 
-    let party_0_nullifier_spent = contract.is_nullifier_spent(party_0_nullifier).call().await?;
+    let party_0_nullifier_spent =
+        call_helper(contract.isNullifierSpent(party_0_nullifier)).await?._0;
     assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
 
-    let party_1_nullifier_spent = contract.is_nullifier_spent(party_1_nullifier).call().await?;
+    let party_1_nullifier_spent =
+        call_helper(contract.isNullifierSpent(party_1_nullifier)).await?._0;
     assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
 
     // Assert that Merkle root is correct
@@ -163,8 +159,8 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     )
     .map_err(|e| eyre!("{}", e))?;
 
-    let contract_root = u256_to_scalar(contract.get_root().call().await?)?;
-
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = u256_to_scalar(root_u256);
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
@@ -178,11 +174,12 @@ async fn test_process_match_settle__inconsistent_indices(ctx: TestContext) -> Re
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
-    contract.clear_merkle().send().await?.await?;
+    send_tx(contract.clearMerkle()).await?;
 
-    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee =
-        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let fee_u256 = call_helper(contract.getFee()).await?._0;
+    let contract_root = Scalar::new(u256_to_scalar(root_u256));
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
     let mut rng = thread_rng();
 
     let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
@@ -190,20 +187,15 @@ async fn test_process_match_settle__inconsistent_indices(ctx: TestContext) -> Re
     data.valid_match_settle_statement.party0_indices.balance_receive += 1;
 
     // Call `process_match_settle` with invalid data
-    assert!(
-        contract
-            .process_match_settle(
-                serialize_to_calldata(&data.match_payload_0)?,
-                serialize_to_calldata(&data.match_payload_1)?,
-                serialize_to_calldata(&data.valid_match_settle_statement)?,
-                serialize_to_calldata(&data.match_proofs)?,
-                serialize_to_calldata(&data.match_linking_proofs)?,
-            )
-            .send()
-            .await
-            .is_err(),
-        "Inconsistent order settlement indices did not fail"
+    let call = contract.processMatchSettle(
+        serialize_to_calldata(&data.match_payload_0)?,
+        serialize_to_calldata(&data.match_payload_1)?,
+        serialize_to_calldata(&data.valid_match_settle_statement)?,
+        serialize_to_calldata(&data.match_proofs)?,
+        serialize_to_calldata(&data.match_linking_proofs)?,
     );
+    let result = call.send().await;
+    assert!(result.is_err(), "Inconsistent order settlement indices did not fail");
 
     Ok(())
 }
@@ -216,11 +208,12 @@ async fn test_process_match_settle__inconsistent_fee(ctx: TestContext) -> Result
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
-    contract.clear_merkle().send().await?.await?;
+    send_tx(contract.clearMerkle()).await?;
 
-    let contract_root = Scalar::new(u256_to_scalar(contract.get_root().call().await?)?);
-    let protocol_fee =
-        FixedPoint::from(Scalar::new(u256_to_scalar(contract.get_fee().call().await?)?));
+    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let fee_u256 = call_helper(contract.getFee()).await?._0;
+    let contract_root = Scalar::new(u256_to_scalar(root_u256));
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
     let mut rng = thread_rng();
 
     let mut data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
@@ -228,20 +221,15 @@ async fn test_process_match_settle__inconsistent_fee(ctx: TestContext) -> Result
     data.valid_match_settle_statement.protocol_fee += ScalarField::one();
 
     // Call `process_match_settle` with invalid data
-    assert!(
-        contract
-            .process_match_settle(
-                serialize_to_calldata(&data.match_payload_0)?,
-                serialize_to_calldata(&data.match_payload_1)?,
-                serialize_to_calldata(&data.valid_match_settle_statement)?,
-                serialize_to_calldata(&data.match_proofs)?,
-                serialize_to_calldata(&data.match_linking_proofs)?,
-            )
-            .send()
-            .await
-            .is_err(),
-        "Inconsistent protocol fee did not fail"
+    let call = contract.processMatchSettle(
+        serialize_to_calldata(&data.match_payload_0)?,
+        serialize_to_calldata(&data.match_payload_1)?,
+        serialize_to_calldata(&data.valid_match_settle_statement)?,
+        serialize_to_calldata(&data.match_proofs)?,
+        serialize_to_calldata(&data.match_linking_proofs)?,
     );
+    let result = call.send().await;
+    assert!(result.is_err(), "Inconsistent protocol fee did not fail");
 
     Ok(())
 }

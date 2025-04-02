@@ -1,22 +1,20 @@
 //! Integration testing utilities for sponsored matches
 
-use alloy_primitives::U256 as AlloyU256;
+use alloy::rpc::types::TransactionReceipt;
+use alloy_primitives::{utils::parse_ether, Address, Bytes, U256};
 use ark_std::UniformRand;
-use contracts_common::{constants::NUM_BYTES_U256, types::ScalarField};
+use contracts_common::types::ScalarField;
 use contracts_utils::{
     crypto::hash_and_sign_message, proof_system::test_data::SponsoredAtomicMatchSettleData,
 };
-use ethers::{
-    types::{Address, Bytes, TransactionReceipt},
-    utils::parse_ether,
-};
 use eyre::Result;
 use rand::thread_rng;
+use scripts::utils::send_tx;
+use test_helpers::assert_true_result;
 
 use crate::{
     abis::DummyErc20Contract,
     constants::{GAS_COST_TOLERANCE, REFUND_AMOUNT},
-    utils::u256_to_alloy_u256,
     TestContext,
 };
 
@@ -55,7 +53,7 @@ pub async fn setup_sponsored_match_test(
     ctx: &TestContext,
 ) -> Result<SponsoredAtomicMatchSettleData> {
     // Ensure that the gas sponsor is unpaused
-    ctx.gas_sponsor_contract().unpause().send().await?.await?;
+    send_tx(ctx.gas_sponsor_contract().unpause()).await?;
 
     let mut process_atomic_match_settle_data =
         setup_atomic_match_settle_test(!options.sell_side, true /* use_gas_sponsor */, ctx).await?;
@@ -70,32 +68,35 @@ pub async fn setup_sponsored_match_test(
 
     let mut rng = thread_rng();
     let nonce = scalar_to_u256(ScalarField::rand(&mut rng));
-    let mut nonce_bytes = [0_u8; NUM_BYTES_U256];
-    nonce.to_big_endian(&mut nonce_bytes);
+    let nonce_bytes = nonce.to_be_bytes_vec();
 
     let mut message = Vec::new();
     message.extend_from_slice(&nonce_bytes);
-    message.extend_from_slice(options.refund_address.as_bytes());
+    message.extend_from_slice(options.refund_address.as_ref());
 
     if options.sign_refund_amount {
         // Add the refund amount to the message
-        let mut refund_amount_bytes = [0_u8; NUM_BYTES_U256];
-        REFUND_AMOUNT.to_big_endian(&mut refund_amount_bytes);
+        let refund_amount_bytes = REFUND_AMOUNT.to_be_bytes_vec();
         message.extend_from_slice(&refund_amount_bytes);
     }
 
     if options.in_kind_refund {
         // Fund the gas sponsor with some ERC20s
-        let erc20_addr1 = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.clone());
-        erc20_addr1.mint(ctx.gas_sponsor_proxy_address, REFUND_AMOUNT).send().await?.await?;
-        let erc20_addr2 = DummyErc20Contract::new(ctx.test_erc20_address2, ctx.client.clone());
-        erc20_addr2.mint(ctx.gas_sponsor_proxy_address, REFUND_AMOUNT).send().await?.await?;
+        let erc20_addr1 = DummyErc20Contract::new(ctx.test_erc20_address1, ctx.client.provider());
+        let mint_tx1 = erc20_addr1.mint(ctx.gas_sponsor_proxy_address, REFUND_AMOUNT);
+        send_tx(mint_tx1).await?;
+
+        let erc20_addr2 = DummyErc20Contract::new(ctx.test_erc20_address2, ctx.client.provider());
+        let mint_tx2 = erc20_addr2.mint(ctx.gas_sponsor_proxy_address, REFUND_AMOUNT);
+        send_tx(mint_tx2).await?;
     }
 
-    let signature = Bytes::from(hash_and_sign_message(ctx.signing_key(), &message).to_vec());
+    let signature = Bytes::from(hash_and_sign_message(ctx.signing_key(), &message).as_bytes());
 
     // Fund the gas sponsor with some ETH
-    ctx.gas_sponsor_contract().receive_eth().value(parse_ether("0.1")?).send().await?.await?;
+    let sponsor_contract = ctx.gas_sponsor_contract();
+    let receive_eth_tx = sponsor_contract.receiveEth().value(parse_ether("0.1")?);
+    send_tx(receive_eth_tx).await?;
 
     Ok(SponsoredAtomicMatchSettleData {
         process_atomic_match_settle_data,
@@ -111,12 +112,12 @@ pub async fn setup_sponsored_match_test(
 /// Asserts that the gas refund through native ETH is within the acceptable
 /// tolerance
 pub fn assert_native_eth_gas_refund(
-    initial_eth_balance: AlloyU256,
-    post_refund_eth_balance: AlloyU256,
+    initial_eth_balance: U256,
+    post_refund_eth_balance: U256,
     receipt: TransactionReceipt,
-) {
-    let gas_price = u256_to_alloy_u256(receipt.effective_gas_price.unwrap());
+) -> Result<()> {
+    let gas_price = receipt.effective_gas_price;
     let eth_diff = initial_eth_balance.checked_sub(post_refund_eth_balance).unwrap_or_default();
-    let gas_diff = eth_diff / gas_price;
-    assert!(gas_diff < GAS_COST_TOLERANCE, "Unrefunded gas amount of {gas_diff} is too high");
+    let gas_diff = eth_diff / U256::from(gas_price);
+    assert_true_result!(gas_diff < GAS_COST_TOLERANCE)
 }

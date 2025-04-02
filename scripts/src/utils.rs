@@ -46,12 +46,14 @@ use crate::{
 };
 
 /// The call builder type used in the scripts
-pub(crate) type EthereumCall<'a, C> = CallBuilder<(), &'a DynProvider, C, Ethereum>;
+pub type EthereumCall<'a, C> = CallBuilder<(), &'a DynProvider, C, Ethereum>;
 
 /// An Ethers provider that uses a `LocalWallet` to generate signatures
 /// & interfaces with the RPC endpoint over HTTP
 #[derive(Clone)]
 pub struct LocalWalletHttpClient {
+    /// The RPC url
+    url: Url,
     /// The underlying provider
     provider: DynProvider<Ethereum>,
     /// The signer
@@ -67,8 +69,13 @@ impl Borrow<DynProvider<Ethereum>> for LocalWalletHttpClient {
 impl LocalWalletHttpClient {
     /// Creates a new LocalWalletHttpClient
     pub fn new(signer: PrivateKeySigner, url: Url) -> Self {
-        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url);
-        Self { provider: DynProvider::new(provider), signer }
+        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url.clone());
+        Self { url, provider: DynProvider::new(provider), signer }
+    }
+
+    /// Return a copy of the RPC url
+    pub fn url(&self) -> Url {
+        self.url.clone()
     }
 
     /// Return a reference to the underlying provider
@@ -111,6 +118,14 @@ pub async fn send_tx<C: CallDecoder + Unpin>(
         pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
 
     Ok(Some(receipt))
+}
+
+/// Send a call and return the result
+pub async fn call_helper<C: CallDecoder + Unpin>(
+    call: EthereumCall<'_, C>,
+) -> Result<C::CallOutput, ScriptError> {
+    let res = call.call().await.map_err(err_str!(ScriptError::ContractInteraction))?;
+    Ok(res)
 }
 
 /// Parses the JSON file at the given path

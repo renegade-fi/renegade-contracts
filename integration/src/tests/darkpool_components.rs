@@ -1,6 +1,5 @@
 //! Integration tests for individual darkpool components
 
-use alloy_primitives::Address as AlloyAddress;
 use ark_ff::One;
 use ark_std::UniformRand;
 use contracts_common::{
@@ -16,7 +15,8 @@ use contracts_utils::{
 };
 use eyre::{eyre, Result};
 use rand::{thread_rng, Rng};
-use test_helpers::integration_test_async;
+use scripts::utils::send_tx;
+use test_helpers::{assert_true_result, integration_test_async};
 
 use crate::{
     abis::{MerkleContract, VerifierContract, VerifierSettlementContract},
@@ -29,12 +29,12 @@ use crate::{
 
 /// Test the Merkle tree functionality
 async fn test_merkle(ctx: TestContext) -> Result<()> {
-    let contract = MerkleContract::new(ctx.merkle_address, ctx.client);
+    let contract = MerkleContract::new(ctx.merkle_address, ctx.provider());
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
-    contract.init().send().await?.await?;
+    send_tx(contract.init()).await?;
 
-    let contract_root = u256_to_scalar(contract.root().call().await?)?;
-
+    let root_u256 = contract.root().call().await?._0;
+    let contract_root = u256_to_scalar(root_u256);
     assert_eq!(ark_merkle.root(), contract_root, "Initial merkle root incorrect");
 
     let num_leaves = 2_u128.pow((TEST_MERKLE_HEIGHT) as u32);
@@ -43,21 +43,18 @@ async fn test_merkle(ctx: TestContext) -> Result<()> {
 
     for (i, leaf) in leaves.into_iter().enumerate() {
         ark_merkle.update(i, &compute_poseidon_hash(&[leaf])).map_err(|e| eyre!("{}", e))?;
-        contract.insert_shares_commitment(vec![scalar_to_u256(leaf)]).send().await?.await?;
+        let insert_tx = contract.insertSharesCommitment(vec![scalar_to_u256(leaf)]);
+        send_tx(insert_tx).await?;
 
-        let contract_root = u256_to_scalar(contract.root().call().await?)?;
-
+        let root_u256 = contract.root().call().await?._0;
+        let contract_root = u256_to_scalar(root_u256);
         assert_eq!(ark_merkle.root(), contract_root, "Merkle root incorrect");
     }
 
-    assert!(
-        contract
-            .insert_shares_commitment(vec![scalar_to_u256(ScalarField::rand(&mut rng))])
-            .send()
-            .await
-            .is_err(),
-        "Inserted more leaves than allowed"
-    );
+    let insert_tx =
+        contract.insertSharesCommitment(vec![scalar_to_u256(ScalarField::rand(&mut rng))]);
+    let is_err = send_tx(insert_tx).await.is_err();
+    assert!(is_err, "Inserted more leaves than allowed");
 
     Ok(())
 }
@@ -65,7 +62,7 @@ integration_test_async!(test_merkle);
 
 /// Test the verifier functionality
 async fn test_verifier(ctx: TestContext) -> Result<()> {
-    let contract = VerifierContract::new(ctx.verifier_core_address, ctx.client.clone());
+    let contract = VerifierContract::new(ctx.verifier_core_address, ctx.provider());
     let mut rng = thread_rng();
 
     // Test valid single proof verification
@@ -75,7 +72,7 @@ async fn test_verifier(ctx: TestContext) -> Result<()> {
     let verification_bundle_calldata =
         serialize_verification_bundle(&vkey, &proof, &public_inputs)?;
 
-    let successful_res = contract.verify(verification_bundle_calldata).call().await?;
+    let successful_res = contract.verify(verification_bundle_calldata).call().await?._0;
     assert!(successful_res, "Valid proof did not verify");
 
     // Test invalid single proof verification
@@ -84,12 +81,12 @@ async fn test_verifier(ctx: TestContext) -> Result<()> {
     let verification_bundle_calldata =
         serialize_verification_bundle(&vkey, &proof, &public_inputs)?;
 
-    let unsuccessful_res = contract.verify(verification_bundle_calldata).call().await?;
+    let unsuccessful_res = contract.verify(verification_bundle_calldata).call().await?._0;
     assert!(!unsuccessful_res, "Invalid proof verified");
 
     // Test valid batch verification
     let settlement_verifier =
-        VerifierSettlementContract::new(ctx.verifier_settlement_address, ctx.client);
+        VerifierSettlementContract::new(ctx.verifier_settlement_address, ctx.provider());
 
     let (
         match_vkeys,
@@ -100,7 +97,7 @@ async fn test_verifier(ctx: TestContext) -> Result<()> {
         _,
     ) = generate_match_bundle(&mut rng)?;
 
-    let verifier_address = AlloyAddress::from_slice(ctx.verifier_core_address.as_bytes());
+    let verifier_address = ctx.verifier_core_address;
     let match_verification_bundle_calldata = serialize_match_verification_bundle(
         verifier_address,
         &match_vkeys,
@@ -111,10 +108,10 @@ async fn test_verifier(ctx: TestContext) -> Result<()> {
     )?;
 
     let successful_res =
-        settlement_verifier.verify_match(match_verification_bundle_calldata).call().await?;
-    assert!(successful_res, "Valid match bundle did not verify");
-    // Test invalid batch verification
+        settlement_verifier.verifyMatch(match_verification_bundle_calldata).call().await?._0;
+    assert_true_result!(successful_res)?;
 
+    // Test invalid batch verification
     let mutate_plonk_proof = rng.gen_bool(0.5);
     if mutate_plonk_proof {
         mutate_random_plonk_proof(&mut rng, &mut match_proofs);
@@ -132,10 +129,8 @@ async fn test_verifier(ctx: TestContext) -> Result<()> {
     )?;
 
     let unsuccessful_res =
-        settlement_verifier.verify_match(match_verification_bundle_calldata).call().await?;
-    assert!(!unsuccessful_res, "Invalid match bundle verified");
-
-    Ok(())
+        settlement_verifier.verifyMatch(match_verification_bundle_calldata).call().await?._0;
+    assert_true_result!(!unsuccessful_res)
 }
 integration_test_async!(test_verifier);
 
@@ -145,17 +140,14 @@ async fn test_nullifier_set(ctx: TestContext) -> Result<()> {
     let mut rng = thread_rng();
     let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
 
-    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
+    let nullifier_spent = contract.isNullifierSpent(nullifier).call().await?._0;
 
     assert!(!nullifier_spent, "Nullifier already spent");
 
-    contract.mark_nullifier_spent(nullifier).send().await?.await?;
-
-    let nullifier_spent = contract.is_nullifier_spent(nullifier).call().await?;
-
-    assert!(nullifier_spent, "Nullifier not spent");
-
-    Ok(())
+    let mark_spent_tx = contract.markNullifierSpent(nullifier);
+    send_tx(mark_spent_tx).await?;
+    let nullifier_spent = contract.isNullifierSpent(nullifier).call().await?._0;
+    assert_true_result!(nullifier_spent)
 }
 integration_test_async!(test_nullifier_set);
 
@@ -168,24 +160,16 @@ async fn test_public_blinder_uniqueness_check(ctx: TestContext) -> Result<()> {
     let (proof, statement) = gen_new_wallet_data(&mut rng)?;
     let blinder_idx = statement.public_wallet_shares.len() - 1;
     let original_blinder = statement.public_wallet_shares[blinder_idx];
-    contract
-        .new_wallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
-        .send()
-        .await?
-        .await?;
+    let new_wallet_tx =
+        contract.newWallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?);
+    send_tx(new_wallet_tx).await?;
 
     // Attempt to create a second wallet with the same public blinder
     let (proof, mut statement) = gen_new_wallet_data(&mut rng)?;
     statement.public_wallet_shares[blinder_idx] = original_blinder;
-    let is_err = contract
-        .new_wallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?)
-        .send()
-        .await
-        .is_err();
-    if !is_err {
-        return Err(eyre!("New wallet succeeded, should have failed"));
-    }
-
-    Ok(())
+    let new_wallet_tx =
+        contract.newWallet(serialize_to_calldata(&proof)?, serialize_to_calldata(&statement)?);
+    let is_err = send_tx(new_wallet_tx).await.is_err();
+    assert_true_result!(is_err)
 }
 integration_test_async!(test_public_blinder_uniqueness_check);

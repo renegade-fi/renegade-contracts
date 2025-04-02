@@ -1,21 +1,19 @@
 //! Integration testing utilities for atomic matches
 
-use circuit_types::{
-    fixed_point::FixedPoint,
-    r#match::{ExternalMatchResult, FeeTake},
-};
+use alloy_primitives::U256;
+use circuit_types::{fees::FeeTake, fixed_point::FixedPoint, r#match::ExternalMatchResult};
 use constants::Scalar;
 use contracts_utils::proof_system::test_data::{
     gen_atomic_match_with_match_and_fees, ProcessAtomicMatchSettleData,
 };
 use eyre::Result;
 use rand::thread_rng;
-use scripts::constants::TEST_FUNDING_AMOUNT;
+use scripts::{constants::TEST_FUNDING_AMOUNT, utils::send_tx};
 
 use crate::TestContext;
 
 use super::{
-    biguint_to_ethers_address, ethers_address_to_biguint, mint_dummy_erc20s, native_eth_address,
+    address_to_biguint, biguint_to_address, mint_dummy_erc20s, native_eth_address,
     setup_external_match_token_approvals, u256_to_scalar,
 };
 
@@ -31,14 +29,14 @@ pub async fn dummy_external_match_result_and_fees(
     let quote_amount = TEST_FUNDING_AMOUNT;
 
     // Ensure that the client has sufficient balances and approvals
-    mint_dummy_erc20s(base_mint, base_amount.into(), ctx).await?;
-    mint_dummy_erc20s(quote_mint, quote_amount.into(), ctx).await?;
+    mint_dummy_erc20s(base_mint, U256::from(base_amount), ctx).await?;
+    mint_dummy_erc20s(quote_mint, U256::from(quote_amount), ctx).await?;
 
     // The price here does not matter for testing, so we just trade the default
     // funding amount
     let match_result = ExternalMatchResult {
-        base_mint: ethers_address_to_biguint(&base_mint),
-        quote_mint: ethers_address_to_biguint(&quote_mint),
+        base_mint: address_to_biguint(base_mint),
+        quote_mint: address_to_biguint(quote_mint),
         base_amount,
         quote_amount,
         direction: buy_side,
@@ -64,15 +62,16 @@ pub async fn setup_atomic_match_settle_test(
     let darkpool_contract = ctx.darkpool_contract();
 
     // Clear merkle state
-    darkpool_contract.clear_merkle().send().await?.await?;
+    send_tx(darkpool_contract.clearMerkle()).await?;
 
     let mut rng = thread_rng();
-    let contract_root = Scalar::new(u256_to_scalar(darkpool_contract.get_root().call().await?)?);
+    let root_u256 = darkpool_contract.getRoot().call().await?._0;
+    let contract_root = Scalar::new(u256_to_scalar(root_u256));
     let (match_result, fees) =
         dummy_external_match_result_and_fees(buy_side, use_gas_sponsor, ctx).await?;
-    let base = biguint_to_ethers_address(&match_result.base_mint);
-    let fee = darkpool_contract.get_external_match_fee_for_asset(base).call().await?;
-    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee)?));
+    let base = biguint_to_address(&match_result.base_mint);
+    let fee = darkpool_contract.getExternalMatchFeeForAsset(base).call().await?._0;
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee)));
 
     let data = gen_atomic_match_with_match_and_fees(
         &mut rng,
