@@ -4,14 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy = { workspace = true, default-features = true, features = [
-    "rlp",
-    "rand",
-] }
+alloy = { workspace = true, default-features = true, features = ["rlp"] }
 alloy-contract = { workspace = true }
 # In the scripts, we use higher versions of the alloy-sol crates in line with `alloy-contract`
 alloy-sol-types = { version = "0.8" }
-alloy-primitives = { workspace = true, features = ["rand"] }
+alloy-primitives = { workspace = true }
 clap = { workspace = true, features = ["env"] }
 tokio = { workspace = true }
 serde_json = { workspace = true }
