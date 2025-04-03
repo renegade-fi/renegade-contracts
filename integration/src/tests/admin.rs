@@ -8,9 +8,10 @@ use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
 use contracts_common::{
     constants::{
-        CORE_SETTLEMENT_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR,
-        TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_CORE_ADDRESS_SELECTOR,
-        VERIFIER_SETTLEMENT_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
+        CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR,
+        MERKLE_ADDRESS_SELECTOR, TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
+        VERIFIER_CORE_ADDRESS_SELECTOR, VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
+        VKEYS_ADDRESS_SELECTOR,
     },
     types::ScalarField,
 };
@@ -27,15 +28,15 @@ use crate::{
     abis::{
         DarkpoolProxyAdminContract,
         DarkpoolTestContract::{
-            self, pauseCall, setCoreSettlementAddressCall, setFeeCall, setMerkleAddressCall,
-            setTransferExecutorAddressCall, setVerifierCoreAddressCall,
+            self, pauseCall, setCoreSettlementAddressCall, setCoreWalletOpsAddressCall, setFeeCall,
+            setMerkleAddressCall, setTransferExecutorAddressCall, setVerifierCoreAddressCall,
             setVerifierSettlementAddressCall, setVkeysAddressCall, transferOwnershipCall,
             unpauseCall,
         },
         DummyUpgradeTargetContract,
     },
     utils::{
-        assert_only_owner, assert_revert, assert_succeed, scalar_to_u256, serialize_to_calldata,
+        assert_only_owner, assert_revert, assert_success, scalar_to_u256, serialize_to_calldata,
         setup_dummy_client, u256_to_scalar,
     },
     DarkpoolTestInstance, TestContext,
@@ -133,10 +134,10 @@ async fn test_implementation_address_setters(ctx: TestContext) -> Result<()> {
     let upgrade_addr = ctx.test_upgrade_target_address;
 
     // Core wallet ops
-    test_upgrade::<setCoreSettlementAddressCall, _>(
+    test_upgrade::<setCoreWalletOpsAddressCall, _>(
         upgrade_addr,
         ctx.core_wallet_ops_address,
-        CORE_SETTLEMENT_ADDRESS_SELECTOR,
+        CORE_WALLET_OPS_ADDRESS_SELECTOR,
         &contract,
     )
     .await?;
@@ -273,7 +274,7 @@ async fn test_ownable(ctx: TestContext) -> Result<()> {
     let transfer_tx = TransactionRequest {
         from: Some(initial_owner),
         to: Some(TxKind::Call(dummy_owner_address)),
-        value: Some(parse_ether("0.01 ether")?),
+        value: Some(parse_ether("0.01")?),
         ..Default::default()
     };
     ctx.provider().send_transaction(transfer_tx).await?.watch().await?;
@@ -385,10 +386,10 @@ async fn test_pausable(ctx: TestContext) -> Result<()> {
     // Assert that setters work when the contract is unpaused
     send_tx(contract.unpause()).await?;
 
-    assert_succeed(new_wallet).await?;
-    assert_succeed(update_wallet).await?;
-    assert_succeed(process_match_settle).await?;
-    assert_succeed(settle_online_relayer_fee).await?;
+    assert_success(new_wallet).await?;
+    assert_success(update_wallet).await?;
+    assert_success(process_match_settle).await?;
+    assert_success(settle_online_relayer_fee).await?;
 
     Ok(())
 }

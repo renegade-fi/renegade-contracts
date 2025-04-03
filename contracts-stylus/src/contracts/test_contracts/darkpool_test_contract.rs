@@ -152,10 +152,14 @@ impl DarkpoolTestContract {
             _ => panic!(),
         };
 
-        let (is_dummy_upgrade_target,) =
-            delegate_call_helper::<isDummyUpgradeTargetCall>(self, implementation_address, ())?
-                .into();
+        // If the call fails, we assume that the contract is not the upgrade target
+        let call_res =
+            delegate_call_helper::<isDummyUpgradeTargetCall>(self, implementation_address, ());
+        if call_res.is_err() {
+            return Ok(false);
+        }
 
+        let (is_dummy_upgrade_target,) = call_res.unwrap().into();
         Ok(is_dummy_upgrade_target)
     }
 

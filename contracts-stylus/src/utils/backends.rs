@@ -141,7 +141,12 @@ impl EcRecoverBackend for PrecompileEcRecoverBackend {
         input[NUM_BYTES_U256..2 * NUM_BYTES_U256 - 1].copy_from_slice(&[0_u8; NUM_BYTES_U256 - 1]);
         // We expect `v` to be either 0 or 1, but the `ecRecover`
         // precompile expects either 27 or 28
-        input[2 * NUM_BYTES_U256 - 1] = signature[64] + 27;
+        let mut recovery_id = signature[64];
+        if recovery_id == 0 || recovery_id == 1 {
+            recovery_id += 27;
+        }
+        input[2 * NUM_BYTES_U256 - 1] = recovery_id;
+
         // Add `r` & `s` to input
         input[2 * NUM_BYTES_U256..].copy_from_slice(&signature[0..2 * NUM_BYTES_U256]);
 

@@ -56,6 +56,7 @@ integration_test_async!(test_new_wallet);
 
 /// Test the `update_wallet` method on the darkpool
 async fn test_update_wallet(ctx: TestContext) -> Result<()> {
+    let mut rng = thread_rng();
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
@@ -63,9 +64,6 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
 
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
-
-    let mut rng = thread_rng();
-
     let root_u256 = call_helper(contract.getRoot()).await?._0;
     let contract_root = u256_to_scalar(root_u256);
     let (proof, statement, wallet_commitment_signature) =

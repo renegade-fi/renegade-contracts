@@ -73,7 +73,7 @@ pub async fn assert_only_owner<C: SolCall>(
     assert!(non_owner_err, "Called {sig} as non-owner");
 
     let owner_err = contract.call_builder(&call).send().await.is_err();
-    assert!(owner_err, "Failed to call {sig} as owner");
+    assert!(!owner_err, "Failed to call {sig} as owner");
 
     Ok(())
 }
@@ -86,7 +86,7 @@ pub async fn assert_revert<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>
 }
 
 /// Asserts that all of the given transactions successfully execute
-pub async fn assert_succeed<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>) -> Result<()> {
+pub async fn assert_success<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>) -> Result<()> {
     let pending_res = call.send().await;
     assert!(pending_res.is_ok(), "Expected transaction to succeed, but it reverted");
     Ok(())
