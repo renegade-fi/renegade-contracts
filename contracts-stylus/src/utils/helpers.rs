@@ -8,8 +8,8 @@ use contracts_common::{
     custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
     types::{
         MatchAtomicPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
-        ValidCommitmentsStatement, ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
-        ValidReblindStatement,
+        ValidCommitmentsStatement, ValidMalleableMatchSettleAtomicStatement,
+        ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, ValidReblindStatement,
     },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify_with_pubkey;
@@ -112,6 +112,26 @@ pub fn serialize_atomic_match_statements_for_verification(
     valid_commitments: &ValidCommitmentsStatement,
     valid_reblind: &ValidReblindStatement,
     valid_match_settle_atomic: &ValidMatchSettleAtomicStatement,
+) -> Result<Vec<u8>, Vec<u8>> {
+    let match_atomic_public_inputs = MatchAtomicPublicInputs {
+        valid_commitments: statement_to_public_inputs(valid_commitments)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind: statement_to_public_inputs(valid_reblind).map_err(map_calldata_ser_error)?,
+        valid_match_settle_atomic: statement_to_public_inputs(valid_match_settle_atomic)
+            .map_err(map_calldata_ser_error)?,
+    };
+    postcard_serialize(&match_atomic_public_inputs)
+}
+
+/// Serializes the statements used in verifying the settlement of a
+/// matched trade into scalars, builds the [`MatchPublicInputs`] struct,
+/// and then serialized it into bytes, as expected by the verifier
+/// contract.
+#[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
+pub fn serialize_malleable_match_statements_for_verification(
+    valid_commitments: &ValidCommitmentsStatement,
+    valid_reblind: &ValidReblindStatement,
+    valid_match_settle_atomic: &ValidMalleableMatchSettleAtomicStatement,
 ) -> Result<Vec<u8>, Vec<u8>> {
     let match_atomic_public_inputs = MatchAtomicPublicInputs {
         valid_commitments: statement_to_public_inputs(valid_commitments)
