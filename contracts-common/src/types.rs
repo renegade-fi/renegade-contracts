@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 use crate::{
-    constants::{NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    constants::{FIXED_POINT_PRECISION_BITS, NUM_SELECTORS, NUM_U64S_FELT, NUM_WIRE_TYPES},
+    custom_serde::scalar_to_u256,
     serde_def_types::*,
 };
 
@@ -31,6 +32,9 @@ pub type G2BaseField = Fq2;
 /// Type alias for a 256-bit prime field element in Montgomery form
 pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 
+/// The revert message when an invalid base amount is provided
+pub const ERROR_INVALID_BASE_AMT: &[u8] = b"invalid base amount";
+
 /// A fixed-point representation of a real number
 ///
 /// In the Renegade darkpool, a fixed point representation of a real number `r`
@@ -40,7 +44,25 @@ pub type MontFp256<P> = Fp256<MontBackend<P, NUM_U64S_FELT>>;
 pub struct FixedPoint {
     /// The representation of the fixed-point number
     #[serde_as(as = "ScalarFieldDef")]
-    repr: ScalarField,
+    pub repr: ScalarField,
+}
+
+impl FixedPoint {
+    /// Multiply a fixed point by a scalar and return the truncated result
+    ///
+    /// Computes `(self.repr * scalar) / 2^FIXED_POINT_PRECISION_BITS`
+    ///
+    /// The repr already has the fixed point scaling value, so we only need to
+    /// undo the scaling once to get the desired result. Because division
+    /// naturally truncates, this will implement the floor of the above
+    /// division.
+    ///
+    /// # Warning
+    /// This function is unsafe because it does not check for overflows
+    pub fn unsafe_fixed_point_mul(&self, scalar: U256) -> U256 {
+        let repr_u256 = scalar_to_u256(self.repr);
+        scalar * repr_u256 / U256::from(1u64 << FIXED_POINT_PRECISION_BITS)
+    }
 }
 
 /// Preprocessed information derived from the circuit definition and universal
@@ -418,12 +440,24 @@ impl FeeTake {
 
 /// A pair of fee rates that generate a fee when multiplied by a match amount
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct FeeRates {
     /// The fee rate for the relayer
     pub relayer_fee_rate: FixedPoint,
     /// The fee rate for the protocol
     pub protocol_fee_rate: FixedPoint,
+}
+
+impl FeeRates {
+    /// Get a fee take from the fee rates given a receive amount
+    pub fn get_fee_take(&self, receive_amount: U256) -> FeeTake {
+        // SAFETY: The fee rates are constrained in-circuit to be less than 2^63, and
+        // the receive amount is constrained to be less than 2^100, so the
+        // product is less than 2^163, which fits in a uint256
+        let relayer_fee = self.relayer_fee_rate.unsafe_fixed_point_mul(receive_amount);
+        let protocol_fee = self.protocol_fee_rate.unsafe_fixed_point_mul(receive_amount);
+        FeeTake { relayer_fee, protocol_fee }
+    }
 }
 
 /// The result of an atomic match
@@ -487,8 +521,7 @@ pub struct BoundedMatchResult {
     #[serde_as(as = "AddressDef")]
     pub base_mint: Address,
     /// The price at which the match will be settled
-    #[serde_as(as = "U256Def")]
-    pub price: U256,
+    pub price: FixedPoint,
     /// The minimum base amount of the match
     #[serde_as(as = "U256Def")]
     pub min_base_amount: U256,
@@ -500,6 +533,39 @@ pub struct BoundedMatchResult {
     /// `false` (0) corresponds to the internal party buying the base
     /// `true` (1) corresponds to the internal party selling the base
     pub direction: bool,
+}
+
+impl BoundedMatchResult {
+    /// Whether or not the external party is the base-mint seller
+    pub fn is_external_party_sell(&self) -> bool {
+        !self.direction
+    }
+
+    /// Convert the bounded match result into an external match result
+    /// given a base amount
+    pub fn to_external_match_result(
+        &self,
+        base_amount: U256,
+    ) -> Result<ExternalMatchResult, Vec<u8>> {
+        // Validate the match amount
+        let amount_too_low = base_amount < self.min_base_amount;
+        let amount_too_high = base_amount > self.max_base_amount;
+        if amount_too_low || amount_too_high {
+            return Err(ERROR_INVALID_BASE_AMT.into());
+        }
+
+        // Compute the quote amount
+        let price = self.price;
+        let quote_amount = price.unsafe_fixed_point_mul(base_amount);
+
+        Ok(ExternalMatchResult {
+            quote_mint: self.quote_mint,
+            base_mint: self.base_mint,
+            quote_amount,
+            base_amount,
+            direction: self.direction,
+        })
+    }
 }
 
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.

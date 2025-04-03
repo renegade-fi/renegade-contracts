@@ -32,8 +32,8 @@ use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
     ExternalMatchResult, FeeTake, MatchPayload, SimpleErc20Transfer,
-    ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, VerifyAtomicMatchCalldata,
-    VerifyMatchCalldata,
+    ValidMalleableMatchSettleAtomicStatement, ValidMatchSettleAtomicStatement,
+    ValidMatchSettleStatement, VerifyAtomicMatchCalldata, VerifyMatchCalldata,
 };
 use stylus_sdk::{
     abi::Bytes,
@@ -374,7 +374,65 @@ impl CoreSettlementContract {
         proofs: Bytes,
         linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        todo!("implement handler")
+        let internal_party_match_payload: MatchPayload =
+            deserialize_from_calldata(&internal_party_match_payload)?;
+        let malleable_match_settle_atomic_statement: ValidMalleableMatchSettleAtomicStatement =
+            deserialize_from_calldata(&malleable_match_settle_atomic_statement)?;
+
+        // The transaction value should be zero unless the external party is selling
+        // native ETH in the trade
+        let bounded_match_result = &malleable_match_settle_atomic_statement.match_result;
+        let is_native_eth = is_native_eth_address(bounded_match_result.base_mint);
+        let is_external_party_sell = bounded_match_result.is_external_party_sell();
+        let native_eth_sell = is_native_eth && is_external_party_sell;
+        if !native_eth_sell && msg::value() > U256::ZERO {
+            return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
+        }
+
+        if_verifying!({
+            // The protocol fee used in the proofs must match the fee configured in the
+            // contract
+            let internal_fee_rates = malleable_match_settle_atomic_statement.internal_fee_rates;
+            let external_fee_rates = malleable_match_settle_atomic_statement.external_fee_rates;
+            let protocol_fee_u256 =
+                storage.borrow_mut().external_match_protocol_fee(bounded_match_result.base_mint);
+            let protocol_fee = u256_to_scalar(protocol_fee_u256)?;
+            assert_result!(
+                internal_fee_rates.protocol_fee_rate.repr == protocol_fee,
+                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+            )?;
+            assert_result!(
+                external_fee_rates.protocol_fee_rate.repr == protocol_fee,
+                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+            )?;
+
+            Self::batch_verify_process_malleable_atomic_match_settle(
+                storage,
+                &internal_party_match_payload,
+                &malleable_match_settle_atomic_statement,
+                proofs,
+                linking_proofs,
+            )?;
+        });
+
+        // Build an external match result given the base amount
+        let match_result = bounded_match_result.to_external_match_result(base_amount)?;
+
+        // TODO: Update the internal party's wallet
+
+        // Execute the transfers to/from the external party
+        let external_party_fee_rate = malleable_match_settle_atomic_statement.external_fee_rates;
+        let (_, external_party_recv) = match_result.external_party_buy_mint_amount();
+        let external_party_fees = external_party_fee_rate.get_fee_take(external_party_recv);
+
+        let relayer_fee_address = malleable_match_settle_atomic_statement.relayer_fee_address;
+        Self::execute_atomic_match_transfers(
+            storage,
+            receiver,
+            external_party_fees,
+            match_result,
+            relayer_fee_address,
+        )?;
     }
 }
 
@@ -469,6 +527,19 @@ impl CoreSettlementContract {
         )?;
 
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
+    }
+
+    /// Batch-verifies all of the `process_malleable_atomic_match_settle` proofs
+    pub fn batch_verify_process_malleable_atomic_match_settle<
+        S: TopLevelStorage + BorrowMut<Self>,
+    >(
+        storage: &mut S,
+        internal_party_match_payload: &MatchPayload,
+        malleable_match_settle_atomic_statement: &ValidMalleableMatchSettleAtomicStatement,
+        proofs: Bytes,
+        linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        todo!("implement handler")
     }
 
     /// Execute the transfers to/from the external party in an atomic match
