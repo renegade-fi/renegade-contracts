@@ -1,0 +1,352 @@
+//! Statement types
+
+use alloc::vec::Vec;
+use alloy_primitives::Address;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+
+use crate::serde_def_types::*;
+
+use super::{
+    BabyJubJubPoint, BoundedMatchResult, ExternalMatchResult, ExternalTransfer, FeeRates, FeeTake,
+    G1Affine, PublicEncryptionKey, PublicSigningKey, ScalarField,
+};
+
+/// Statement for `VALID_WALLET_CREATE` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidWalletCreateStatement {
+    /// The commitment to the private secret shares of the wallet
+    #[serde_as(as = "ScalarFieldDef")]
+    pub private_shares_commitment: ScalarField,
+    /// The blinded public secret shares of the wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub public_wallet_shares: Vec<ScalarField>,
+}
+
+/// Statement for `VALID_WALLET_UPDATE` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidWalletUpdateStatement {
+    /// The nullifier of the old wallet's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub old_shares_nullifier: ScalarField,
+    /// A commitment to the new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub new_private_shares_commitment: ScalarField,
+    /// The blinded public secret shares of the new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub new_public_shares: Vec<ScalarField>,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the old wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root: ScalarField,
+    /// The external transfer associated with this update
+    pub external_transfer: Option<ExternalTransfer>,
+    /// The public root key of the old wallet, rotated out after this update
+    pub old_pk_root: PublicSigningKey,
+}
+
+/// Statement for the `VALID_REBLIND` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidReblindStatement {
+    /// The nullifier of the original wallet's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub original_shares_nullifier: ScalarField,
+    /// A commitment to the private secret shares of the reblinded wallet
+    #[serde_as(as = "ScalarFieldDef")]
+    pub reblinded_private_shares_commitment: ScalarField,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the original wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root: ScalarField,
+}
+
+/// The indices that specify where settlement logic should modify the wallet
+/// shares
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OrderSettlementIndices {
+    /// The index of the balance that holds the mint that the wallet will
+    /// send if a successful match occurs
+    pub balance_send: u64,
+    /// The index of the balance that holds the mint that the wallet will
+    /// receive if a successful match occurs
+    pub balance_receive: u64,
+    /// The index of the order that is to be matched
+    pub order: u64,
+}
+
+/// Statement for the `VALID_COMMITMENTS` circuit
+#[derive(Serialize, Deserialize)]
+pub struct ValidCommitmentsStatement {
+    /// The indices used in settling this order once matched
+    pub indices: OrderSettlementIndices,
+}
+
+/// Statement for the `VALID_MATCH_SETTLE` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidMatchSettleStatement {
+    /// The modified blinded public secret shares of the first party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub party0_modified_shares: Vec<ScalarField>,
+    /// The modified blinded public secret shares of the second party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub party1_modified_shares: Vec<ScalarField>,
+    /// The indices that settlement should modify in the first party's wallet
+    pub party0_indices: OrderSettlementIndices,
+    /// The indices that settlement should modify in the second party's wallet
+    pub party1_indices: OrderSettlementIndices,
+    /// The fee rate owed to the protocol
+    #[serde_as(as = "ScalarFieldDef")]
+    pub protocol_fee: ScalarField,
+}
+
+/// Represents the outputs produced by one of the parties in a match
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct MatchPayload {
+    /// The statement for the party's `VALID_COMMITMENTS` proof
+    pub valid_commitments_statement: ValidCommitmentsStatement,
+    /// The statement for the party's `VALID_REBLIND` proof
+    pub valid_reblind_statement: ValidReblindStatement,
+}
+
+/// The statement type for `VALID MATCH SETTLE ATOMIC`
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ValidMatchSettleAtomicStatement {
+    /// The result of the match
+    pub match_result: ExternalMatchResult,
+    /// The external party's fee obligations as a result of the match
+    pub external_party_fees: FeeTake,
+    /// The modified public shares of the internal party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub internal_party_modified_shares: Vec<ScalarField>,
+    /// The indices that settlement should modify in the internal party's wallet
+    pub internal_party_indices: OrderSettlementIndices,
+    /// The protocol fee used in the match
+    #[serde_as(as = "ScalarFieldDef")]
+    pub protocol_fee: ScalarField,
+    /// The address at which the relayer wishes to receive their fee due from
+    /// the external party
+    #[serde_as(as = "AddressDef")]
+    pub relayer_fee_address: Address,
+}
+
+/// Statement for the `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ValidMalleableMatchSettleAtomicStatement {
+    /// The result of the match
+    pub match_result: BoundedMatchResult,
+    /// The fee rates charged to the external party
+    pub external_fee_rates: FeeRates,
+    /// The fee rates charged to the internal party
+    pub internal_fee_rates: FeeRates,
+    /// The public wallet shares of the internal party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub internal_party_public_shares: Vec<ScalarField>,
+    /// The address at which the relayer wishes to receive their fee due
+    #[serde_as(as = "AddressDef")]
+    pub relayer_fee_address: Address,
+}
+
+/// Statement for the `VALID RELAYER FEE SETTLEMENT` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidRelayerFeeSettlementStatement {
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the sender's wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub sender_root: ScalarField,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the recipient's wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub recipient_root: ScalarField,
+    /// The nullifier of the sender's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub sender_nullifier: ScalarField,
+    /// The nullifier of the recipient's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub recipient_nullifier: ScalarField,
+    /// A commitment to the sender's new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub sender_wallet_commitment: ScalarField,
+    /// A commitment to the recipient's new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub recipient_wallet_commitment: ScalarField,
+    /// The blinded public secret shares of the sender's new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub sender_updated_public_shares: Vec<ScalarField>,
+    /// The blinded public secret shares of the recipient's new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub recipient_updated_public_shares: Vec<ScalarField>,
+    /// The public root key of the recipient, rotated out after this update
+    pub recipient_pk_root: PublicSigningKey,
+}
+
+/// The EC-ElGamal encryption of a fee note
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct NoteCiphertext(
+    pub BabyJubJubPoint,
+    #[serde_as(as = "ScalarFieldDef")] pub ScalarField,
+    #[serde_as(as = "ScalarFieldDef")] pub ScalarField,
+    #[serde_as(as = "ScalarFieldDef")] pub ScalarField,
+);
+
+/// Statement for the `VALID OFFLINE FEE SETTLEMENT` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidOfflineFeeSettlementStatement {
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the old wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub merkle_root: ScalarField,
+    /// The nullifier of the old wallet's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub nullifier: ScalarField,
+    /// A commitment to the new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub updated_wallet_commitment: ScalarField,
+    /// The blinded public secret shares of the new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub updated_wallet_public_shares: Vec<ScalarField>,
+    /// The ciphertext of the fee note
+    pub note_ciphertext: NoteCiphertext,
+    /// The commitment to the note
+    #[serde_as(as = "ScalarFieldDef")]
+    pub note_commitment: ScalarField,
+    /// The protocol's public encryption key
+    pub protocol_key: PublicEncryptionKey,
+    /// Whether the fee is a protocol fee or a relayer fee
+    pub is_protocol_fee: bool,
+}
+
+/// Statement for the `VALID FEE REDEMPTION` circuit
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct ValidFeeRedemptionStatement {
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to the old wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub wallet_root: ScalarField,
+    /// A historic merkle root for which we prove inclusion of
+    /// the commitment to note
+    #[serde_as(as = "ScalarFieldDef")]
+    pub note_root: ScalarField,
+    /// The nullifier of the old wallet's secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub nullifier: ScalarField,
+    /// The nullifier of the note
+    #[serde_as(as = "ScalarFieldDef")]
+    pub note_nullifier: ScalarField,
+    /// A commitment to the new wallet's private secret shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub new_wallet_commitment: ScalarField,
+    /// The blinded public secret shares of the new wallet
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub new_wallet_public_shares: Vec<ScalarField>,
+    /// The public root key of the old wallet, rotated out after this update
+    pub old_pk_root: PublicSigningKey,
+}
+
+/// Represents the public inputs to a Plonk proof
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PublicInputs(#[serde_as(as = "Vec<ScalarFieldDef>")] pub Vec<ScalarField>);
+
+/// The set of public inputs for the `MatchProofs`
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "test-helpers", derive(Clone))]
+pub struct MatchPublicInputs {
+    /// The public inputs to `PARTY 0 VALID COMMITMENTS`
+    pub valid_commitments_0: PublicInputs,
+    /// The public inputs to `PARTY 0 VALID REBLIND`
+    pub valid_reblind_0: PublicInputs,
+    /// The public inputs to `PARTY 1 VALID COMMITMENTS`
+    pub valid_commitments_1: PublicInputs,
+    /// The public inputs to `PARTY 1 VALID REBLIND`
+    pub valid_reblind_1: PublicInputs,
+    /// The public inputs to `VALID MATCH SETTLE`
+    pub valid_match_settle: PublicInputs,
+}
+
+impl MatchPublicInputs {
+    /// Convert the public inputs to a vector
+    pub fn to_vec(self) -> Vec<PublicInputs> {
+        [
+            self.valid_commitments_0,
+            self.valid_reblind_0,
+            self.valid_commitments_1,
+            self.valid_reblind_1,
+            self.valid_match_settle,
+        ]
+        .to_vec()
+    }
+}
+
+/// Plonk proofs being linked during the matching of a trade
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct MatchLinkingWirePolyComms {
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 0 VALID REBLIND`
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_reblind_0: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 0 VALID COMMITMENTS`
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_commitments_0: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 1 VALID REBLIND`
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_reblind_1: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `PARTY 1 VALID COMMITMENTS`
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_commitments_1: G1Affine,
+    /// The commitment to the first wiring polynomial in
+    /// `VALID MATCH SETTLE`
+    #[serde_as(as = "G1AffineDef")]
+    pub valid_match_settle: G1Affine,
+}
+
+/// The calldata for the `verify_match` function
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+pub struct VerifyMatchCalldata {
+    /// The verifier address
+    ///
+    /// TODO: Replace this in favor of a state element
+    #[serde_as(as = "AddressDef")]
+    pub verifier_address: Address,
+    /// The match vkeys and linking vkeys concatenated then serialized together
+    pub match_vkeys: Vec<u8>,
+    /// The match proofs
+    pub match_proofs: Vec<u8>,
+    /// The match public inputs
+    pub match_public_inputs: Vec<u8>,
+    /// The match linking proofs
+    pub match_linking_proofs: Vec<u8>,
+}
+
+/// The public inputs for the `MatchAtomicProofs`
+#[derive(Serialize, Deserialize)]
+pub struct MatchAtomicPublicInputs {
+    /// The public inputs to the internal party's `VALID COMMITMENTS` proof
+    pub valid_commitments: PublicInputs,
+    /// The public inputs to the internal party's `VALID REBLIND` proof
+    pub valid_reblind: PublicInputs,
+    /// The public inputs to the `VALID MATCH SETTLE` proof
+    pub valid_match_settle_atomic: PublicInputs,
+}
+
+impl MatchAtomicPublicInputs {
+    /// Convert the public inputs to a vector
+    pub fn to_vec(self) -> Vec<PublicInputs> {
+        [self.valid_commitments, self.valid_reblind, self.valid_match_settle_atomic].to_vec()
+    }
+}
