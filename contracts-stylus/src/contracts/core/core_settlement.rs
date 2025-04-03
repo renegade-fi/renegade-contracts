@@ -19,11 +19,13 @@ use crate::{
             delegate_call_helper, deserialize_from_calldata, get_weth_address,
             is_native_eth_address, postcard_serialize,
             serialize_atomic_match_statements_for_verification,
+            serialize_malleable_match_statements_for_verification,
             serialize_match_statements_for_verification, u256_to_scalar,
         },
         solidity::{
             executeTransferBatchCall, processAtomicMatchSettleVkeysCall,
-            processMatchSettleVkeysCall, verifyAtomicMatchCall, verifyMatchCall,
+            processMalleableMatchSettleAtomicVkeysCall, processMatchSettleVkeysCall,
+            verifyAtomicMatchCall, verifyMatchCall,
         },
     },
     INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
@@ -408,8 +410,9 @@ impl CoreSettlementContract {
 
             Self::batch_verify_process_malleable_atomic_match_settle(
                 storage,
+                is_native_eth,
                 &internal_party_match_payload,
-                &malleable_match_settle_atomic_statement,
+                malleable_match_settle_atomic_statement.clone(),
                 proofs,
                 linking_proofs,
             )?;
@@ -433,6 +436,8 @@ impl CoreSettlementContract {
             match_result,
             relayer_fee_address,
         )?;
+
+        Ok(())
     }
 }
 
@@ -534,12 +539,46 @@ impl CoreSettlementContract {
         S: TopLevelStorage + BorrowMut<Self>,
     >(
         storage: &mut S,
+        is_native_eth: bool,
         internal_party_match_payload: &MatchPayload,
-        malleable_match_settle_atomic_statement: &ValidMalleableMatchSettleAtomicStatement,
+        mut malleable_match_settle_atomic_statement: ValidMalleableMatchSettleAtomicStatement,
         proofs: Bytes,
         linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
-        todo!("implement handler")
+        let process_malleable_match_settle_atomic_vkeys =
+            fetch_vkeys(storage, &processMalleableMatchSettleAtomicVkeysCall::SELECTOR)?;
+
+        if is_native_eth {
+            let weth = get_weth_address();
+            malleable_match_settle_atomic_statement.match_result.base_mint = weth;
+        }
+
+        // Serialize the statements into a set of public inputs
+        let malleable_match_public_inputs = serialize_malleable_match_statements_for_verification(
+            &internal_party_match_payload.valid_commitments_statement,
+            &internal_party_match_payload.valid_reblind_statement,
+            &malleable_match_settle_atomic_statement,
+        )?;
+
+        // The calldata to the verifier is the same as in the standard atomic match
+        // call, though the proofs and verification keys represent a different
+        // relation. We can reuse the same types here for this reason
+        let verifier_address = storage.borrow_mut().verifier_core_address();
+        let calldata = VerifyAtomicMatchCalldata {
+            verifier_address,
+            match_atomic_vkeys: process_malleable_match_settle_atomic_vkeys,
+            match_atomic_proofs: proofs.0,
+            match_atomic_public_inputs: malleable_match_public_inputs,
+            match_atomic_linking_proofs: linking_proofs.0,
+        };
+
+        let calldata_bytes = postcard_serialize(&calldata)?;
+        let result = call_settlement_verifier::<_, _, verifyAtomicMatchCall>(
+            storage,
+            (calldata_bytes.into(),),
+        )?;
+
+        assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 
     /// Execute the transfers to/from the external party in an atomic match

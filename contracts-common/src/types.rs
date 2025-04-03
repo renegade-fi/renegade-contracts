@@ -508,7 +508,6 @@ impl ExternalMatchResult {
         }
     }
 }
-
 /// A match result that specifies a range of match sizes rather than an exact
 /// base amount
 #[serde_as]
@@ -723,7 +722,7 @@ pub struct ValidMatchSettleAtomicStatement {
 
 /// Statement for the `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ValidMalleableMatchSettleAtomicStatement {
     /// The result of the match
     pub match_result: BoundedMatchResult,
