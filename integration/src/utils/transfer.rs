@@ -47,6 +47,7 @@ pub(crate) fn dummy_erc20_withdrawal(account_addr: Address, mint: Address) -> Ex
 
 /// Executes the given transfer and returns the resulting balances of the
 /// darkpool and user
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_transfer_and_get_balances(
     transfer_executor_contract: &TransferExecutorInstance,
     dummy_erc20_contract: &DummyErc20Instance,
@@ -55,6 +56,7 @@ pub(crate) async fn execute_transfer_and_get_balances(
     pk_root: PublicSigningKey,
     transfer: &ExternalTransfer,
     account_address: Address,
+    ctx: &TestContext,
 ) -> Result<(U256, U256)> {
     let transfer_aux_data = gen_transfer_aux_data(
         signing_key,
@@ -62,6 +64,7 @@ pub(crate) async fn execute_transfer_and_get_balances(
         transfer,
         permit2_address,
         transfer_executor_contract,
+        ctx,
     )
     .await?;
 
@@ -87,14 +90,15 @@ pub(crate) async fn gen_transfer_aux_data(
     transfer: &ExternalTransfer,
     permit2_address: Address,
     transfer_executor_contract: &TransferExecutorInstance,
+    ctx: &TestContext,
 ) -> Result<TransferAuxData> {
     let (permit_nonce, permit_deadline, permit_signature) = gen_permit_payload(
         transfer.mint,
         transfer.amount,
         pk_root,
         permit2_address,
-        signing_key,
         transfer_executor_contract,
+        ctx,
     )
     .await?;
 
@@ -115,11 +119,11 @@ pub(crate) async fn gen_permit_payload(
     amount: U256,
     pk_root: PublicSigningKey,
     permit2_address: Address,
-    signer: &SigningKey,
     transfer_executor_contract: &TransferExecutorInstance,
+    ctx: &TestContext,
 ) -> Result<(U256, U256, Vec<u8>)> {
     let client = transfer_executor_contract.provider();
-
+    let signer = ctx.signing_key();
     let permitted = TokenPermissions { token, amount };
 
     // Generate a random nonce

@@ -17,7 +17,7 @@ use scripts::utils::{call_helper, send_tx};
 use test_helpers::integration_test_async;
 
 use crate::{
-    utils::{insert_shares_and_get_root, scalar_to_u256, serialize_to_calldata, u256_to_scalar},
+    utils::{insert_shares_and_get_root, serialize_to_calldata, u256_to_scalar},
     TestContext,
 };
 
@@ -46,8 +46,7 @@ async fn test_new_wallet(ctx: TestContext) -> Result<()> {
         0, // index
     )?;
 
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
-    let contract_root = u256_to_scalar(root_u256);
+    let contract_root = ctx.get_root_scalar().await?;
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
@@ -56,6 +55,7 @@ integration_test_async!(test_new_wallet);
 
 /// Test the `update_wallet` method on the darkpool
 async fn test_update_wallet(ctx: TestContext) -> Result<()> {
+    let mut rng = thread_rng();
     let contract = ctx.darkpool_contract();
 
     // Ensure the merkle state is cleared for the test
@@ -63,13 +63,9 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
 
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
-
-    let mut rng = thread_rng();
-
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
-    let contract_root = u256_to_scalar(root_u256);
+    let contract_root = ctx.get_root_scalar().await?;
     let (proof, statement, wallet_commitment_signature) =
-        gen_update_wallet_data(&mut rng, Scalar::new(contract_root))?;
+        gen_update_wallet_data(&mut rng, contract_root)?;
 
     // Call `update_wallet`
     let call = contract.updateWallet(
@@ -81,8 +77,8 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
     send_tx(call).await?;
 
     // Assert that correct nullifier is spent
-    let nullifier = scalar_to_u256(statement.old_shares_nullifier);
-    let nullifier_spent = call_helper(contract.isNullifierSpent(nullifier)).await?._0;
+    let nullifier = statement.old_shares_nullifier;
+    let nullifier_spent = ctx.nullifier_spent(nullifier).await?;
     assert!(nullifier_spent, "Nullifier not spent");
 
     // Assert that Merkle root is correct
@@ -94,8 +90,7 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
     )
     .map_err(|e| eyre!("{}", e))?;
 
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
-    let contract_root = u256_to_scalar(root_u256);
+    let contract_root = ctx.get_root_scalar().await?;
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
@@ -112,9 +107,8 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     // Generate test data
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = ctx.get_root_scalar().await?;
     let fee_u256 = call_helper(contract.getFee()).await?._0;
-    let contract_root = Scalar::new(u256_to_scalar(root_u256));
     let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
     let mut rng = thread_rng();
     let data = gen_process_match_settle_data(&mut rng, contract_root, protocol_fee)?;
@@ -130,17 +124,13 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     send_tx(call).await?;
 
     // Assert that correct nullifiers are spent
-    let party_0_nullifier =
-        scalar_to_u256(data.match_payload_0.valid_reblind_statement.original_shares_nullifier);
-    let party_1_nullifier =
-        scalar_to_u256(data.match_payload_1.valid_reblind_statement.original_shares_nullifier);
+    let party_0_nullifier = data.match_payload_0.valid_reblind_statement.original_shares_nullifier;
+    let party_1_nullifier = data.match_payload_1.valid_reblind_statement.original_shares_nullifier;
 
-    let party_0_nullifier_spent =
-        call_helper(contract.isNullifierSpent(party_0_nullifier)).await?._0;
+    let party_0_nullifier_spent = ctx.nullifier_spent(party_0_nullifier).await?;
     assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
 
-    let party_1_nullifier_spent =
-        call_helper(contract.isNullifierSpent(party_1_nullifier)).await?._0;
+    let party_1_nullifier_spent = ctx.nullifier_spent(party_1_nullifier).await?;
     assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
 
     // Assert that Merkle root is correct
@@ -159,8 +149,7 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     )
     .map_err(|e| eyre!("{}", e))?;
 
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
-    let contract_root = u256_to_scalar(root_u256);
+    let contract_root = ctx.get_root_scalar().await?;
     assert_eq!(ark_root, contract_root, "Merkle root incorrect");
 
     Ok(())
@@ -176,9 +165,8 @@ async fn test_process_match_settle__inconsistent_indices(ctx: TestContext) -> Re
     // Ensure the merkle state is cleared for the test
     send_tx(contract.clearMerkle()).await?;
 
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = ctx.get_root_scalar().await?;
     let fee_u256 = call_helper(contract.getFee()).await?._0;
-    let contract_root = Scalar::new(u256_to_scalar(root_u256));
     let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
     let mut rng = thread_rng();
 
@@ -210,9 +198,8 @@ async fn test_process_match_settle__inconsistent_fee(ctx: TestContext) -> Result
     // Ensure the merkle state is cleared for the test
     send_tx(contract.clearMerkle()).await?;
 
-    let root_u256 = call_helper(contract.getRoot()).await?._0;
+    let contract_root = ctx.get_root_scalar().await?;
     let fee_u256 = call_helper(contract.getFee()).await?._0;
-    let contract_root = Scalar::new(u256_to_scalar(root_u256));
     let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
     let mut rng = thread_rng();
 

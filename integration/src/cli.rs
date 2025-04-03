@@ -15,15 +15,15 @@ pub(crate) struct Cli {
     pub(crate) test: Option<String>,
 
     /// Path to file containing contract deployment info
-    #[arg(short, long)]
+    #[arg(short, long, env = "DEPLOYMENTS")]
     pub(crate) deployments_file: String,
 
     /// Devnet private key, defaults to default Nitro devnet private key
-    #[arg(short, long, default_value = DEFAULT_DEVNET_PKEY)]
+    #[arg(short, long, env = "PKEY", default_value = DEFAULT_DEVNET_PKEY)]
     pub(crate) priv_key: String,
 
     /// Devnet RPC URL, defaults to default Nitro devnet private key
-    #[arg(short, long, default_value = DEFAULT_DEVNET_HOSTPORT)]
+    #[arg(short, long, env = "RPC_URL", default_value = DEFAULT_DEVNET_HOSTPORT)]
     pub(crate) rpc_url: String,
 
     /// The verbosity level of the test harness
