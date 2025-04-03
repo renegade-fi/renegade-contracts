@@ -65,8 +65,7 @@ pub async fn setup_atomic_match_settle_test(
     send_tx(darkpool_contract.clearMerkle()).await?;
 
     let mut rng = thread_rng();
-    let root_u256 = darkpool_contract.getRoot().call().await?._0;
-    let contract_root = Scalar::new(u256_to_scalar(root_u256));
+    let contract_root = ctx.get_root_scalar().await?;
     let (match_result, fees) =
         dummy_external_match_result_and_fees(buy_side, use_gas_sponsor, ctx).await?;
     let base = biguint_to_address(&match_result.base_mint);

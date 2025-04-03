@@ -11,8 +11,8 @@ use test_helpers::{assert_eq_result, integration_test_async};
 use crate::{
     abis::IAtomicMatchSettleContract,
     utils::{
-        insert_shares_and_get_root, scalar_to_u256, serialize_to_calldata,
-        setup_atomic_match_settle_test, setup_atomic_match_settle_test_native_eth, u256_to_scalar,
+        insert_shares_and_get_root, serialize_to_calldata, setup_atomic_match_settle_test,
+        setup_atomic_match_settle_test_native_eth, u256_to_scalar,
     },
     IAtomicMatchSettleInstance, TestContext,
 };
@@ -40,10 +40,9 @@ async fn test_process_atomic_match_settle__internal_party(ctx: TestContext) -> R
     send_tx(call).await?;
 
     // Assert nullifier is spent
-    let nullifier = scalar_to_u256(
-        data.internal_party_match_payload.valid_reblind_statement.original_shares_nullifier,
-    );
-    let nullifier_spent = contract.isNullifierSpent(nullifier).call().await?._0;
+    let nullifier =
+        data.internal_party_match_payload.valid_reblind_statement.original_shares_nullifier;
+    let nullifier_spent = ctx.nullifier_spent(nullifier).await?;
     assert!(nullifier_spent, "Nullifier not spent");
 
     // Verify merkle root
@@ -56,9 +55,8 @@ async fn test_process_atomic_match_settle__internal_party(ctx: TestContext) -> R
         &data.valid_match_settle_atomic_statement.internal_party_modified_shares,
         0,
     )?;
-    let root = call_helper(contract.getRoot()).await?._0;
-    let actual_root = u256_to_scalar(root);
-    assert_eq!(expected_root, actual_root, "Merkle root mismatch");
+    let root = ctx.get_root_scalar().await?;
+    assert_eq!(expected_root, root, "Merkle root mismatch");
 
     Ok(())
 }

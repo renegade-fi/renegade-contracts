@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Test deposit / withdrawal functionality of the darkpool
-async fn test_external_transfer(ctx: TestContext) -> Result<()> {
+async fn test_external_transfer_basic(ctx: TestContext) -> Result<()> {
     let transfer_executor_contract =
         TransferExecutorContract::new(ctx.transfer_executor_address, ctx.provider());
 
@@ -33,7 +33,6 @@ async fn test_external_transfer(ctx: TestContext) -> Result<()> {
     let contract_initial_balance =
         test_erc20_contract.balanceOf(ctx.transfer_executor_address).call().await?._0;
     let user_initial_balance = test_erc20_contract.balanceOf(account_address).call().await?._0;
-
     let (signing_key, pk_root) = random_keypair(&mut thread_rng());
 
     // Create & execute deposit external transfer, check balances
@@ -46,6 +45,7 @@ async fn test_external_transfer(ctx: TestContext) -> Result<()> {
         pk_root,
         &deposit,
         account_address,
+        &ctx,
     )
     .await?;
     assert_eq!(
@@ -69,6 +69,7 @@ async fn test_external_transfer(ctx: TestContext) -> Result<()> {
         pk_root,
         &withdrawal,
         account_address,
+        &ctx,
     )
     .await?;
     assert_eq!(
@@ -79,7 +80,7 @@ async fn test_external_transfer(ctx: TestContext) -> Result<()> {
 
     Ok(())
 }
-integration_test_async!(test_external_transfer);
+integration_test_async!(test_external_transfer_basic);
 
 /// Test that a deposit specified from a different ETH address is rejected
 #[allow(non_snake_case)]
@@ -116,6 +117,7 @@ async fn test_external_transfer__wrong_eth_addr(ctx: TestContext) -> Result<()> 
             pk_root,
             &deposit,
             account_address,
+            &ctx,
         )
         .await
         .is_err(),
@@ -128,7 +130,7 @@ integration_test_async!(test_external_transfer__wrong_eth_addr);
 
 /// Test that a deposit directed to a different Renegade wallet is rejected
 #[allow(non_snake_case)]
-async fn test_external_transfer__wrong_rng_wallet(ctx: TestContext) -> Result<()> {
+async fn test_external_transfer__wrong_renegade_wallet(ctx: TestContext) -> Result<()> {
     let mut rng = thread_rng();
 
     let transfer_executor_contract =
@@ -151,6 +153,7 @@ async fn test_external_transfer__wrong_rng_wallet(ctx: TestContext) -> Result<()
         &deposit,
         ctx.permit2_address,
         &transfer_executor_contract,
+        &ctx,
     )
     .await?;
 
@@ -172,7 +175,7 @@ async fn test_external_transfer__wrong_rng_wallet(ctx: TestContext) -> Result<()
 
     Ok(())
 }
-integration_test_async!(test_external_transfer__wrong_rng_wallet);
+integration_test_async!(test_external_transfer__wrong_renegade_wallet);
 
 /// Test that a malformed withdrawal is rejected
 #[allow(non_snake_case)]
@@ -204,6 +207,7 @@ async fn test_external_transfer__malicious_withdrawal(ctx: TestContext) -> Resul
         &withdrawal,
         ctx.permit2_address,
         &transfer_executor_contract,
+        &ctx,
     )
     .await?;
 

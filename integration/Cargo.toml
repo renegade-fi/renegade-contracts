@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy = { workspace = true, default-features = true }
+alloy = { workspace = true, default-features = true, features = ["rand"] }
 alloy-contract = { workspace = true }
 alloy-primitives = { workspace = true, features = ["tiny-keccak"] }
-alloy-sol-types = { version = "0.8" }
+alloy-sol-types = { workspace = true }
 contracts-common = { path = "../contracts-common", features = ["test-helpers"] }
 contracts-core = { path = "../contracts-core" }
 contracts-stylus = { path = "../contracts-stylus", features = ["test-helpers"] }
@@ -19,7 +19,7 @@ ark-ff = { workspace = true }
 ark-std = { workspace = true }
 ark-ec = { workspace = true }
 rand = { workspace = true }
-clap = { workspace = true }
+clap = { workspace = true, features = ["env"] }
 postcard = { workspace = true }
 serde = { workspace = true }
 ark-crypto-primitives = { workspace = true }

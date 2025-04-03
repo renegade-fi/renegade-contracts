@@ -138,15 +138,15 @@ integration_test_async!(test_verifier);
 async fn test_nullifier_set(ctx: TestContext) -> Result<()> {
     let contract = ctx.darkpool_contract();
     let mut rng = thread_rng();
-    let nullifier = scalar_to_u256(ScalarField::rand(&mut rng));
+    let nullifier = ScalarField::rand(&mut rng);
+    let nullifier_u256 = scalar_to_u256(nullifier);
 
-    let nullifier_spent = contract.isNullifierSpent(nullifier).call().await?._0;
-
+    let nullifier_spent = ctx.nullifier_spent(nullifier).await?;
     assert!(!nullifier_spent, "Nullifier already spent");
 
-    let mark_spent_tx = contract.markNullifierSpent(nullifier);
+    let mark_spent_tx = contract.markNullifierSpent(nullifier_u256);
     send_tx(mark_spent_tx).await?;
-    let nullifier_spent = contract.isNullifierSpent(nullifier).call().await?._0;
+    let nullifier_spent = ctx.nullifier_spent(nullifier).await?;
     assert_true_result!(nullifier_spent)
 }
 integration_test_async!(test_nullifier_set);

@@ -4,6 +4,7 @@
 #![deny(missing_docs)]
 #![deny(clippy::missing_docs_in_private_items)]
 
+use ::constants::Scalar;
 use abis::{
     DarkpoolTestContract::{self, DarkpoolTestContractInstance},
     DummyErc20Contract::{self, DummyErc20ContractInstance},
@@ -123,9 +124,9 @@ impl TestContext {
     }
 
     /// Get the current Merkle root in the darkpool, as a scalar
-    pub async fn get_root_scalar(&self) -> Result<ScalarField> {
+    pub async fn get_root_scalar(&self) -> Result<Scalar> {
         let root_u256 = self.darkpool_contract().getRoot().call().await?._0;
-        Ok(u256_to_scalar(root_u256))
+        Ok(Scalar::new(u256_to_scalar(root_u256)))
     }
 
     /// Check whether a nullifier has been spent on the darkpool

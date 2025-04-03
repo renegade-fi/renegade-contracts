@@ -32,7 +32,7 @@ async fn test_settle_online_relayer_fee(ctx: TestContext) -> Result<()> {
 
     let contract_root = ctx.get_root_scalar().await?;
     let (proof, statement, relayer_wallet_commitment_signature) =
-        gen_settle_online_relayer_fee_data(&mut rng, Scalar::new(contract_root))?;
+        gen_settle_online_relayer_fee_data(&mut rng, contract_root)?;
 
     // Call `settle_online_relayer_fee`
     let settle_tx = contract.settleOnlineRelayerFee(
@@ -83,7 +83,7 @@ async fn test_settle_offline_fee(ctx: TestContext) -> Result<()> {
     let protocol_pubkey = get_protocol_pubkey(&contract).await?;
     let (proof, statement) = gen_settle_offline_fee_data(
         &mut rng,
-        Scalar::new(contract_root),
+        contract_root,
         protocol_pubkey,
         true, // is_protocol_fee
     )?;
@@ -111,7 +111,7 @@ async fn test_settle_offline_fee(ctx: TestContext) -> Result<()> {
         .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;
 
     let contract_root = ctx.get_root_scalar().await?;
-    assert_eq_result!(ark_merkle.root(), contract_root)
+    assert_eq_result!(Scalar::new(ark_merkle.root()), contract_root)
 }
 integration_test_async!(test_settle_offline_fee);
 
@@ -128,7 +128,7 @@ async fn test_settle_offline_fee__incorrect_protocol_key(ctx: TestContext) -> Re
     let protocol_pubkey: BabyJubJubPoint = dummy_circuit_type(&mut rng);
     let (proof, statement) = gen_settle_offline_fee_data(
         &mut rng,
-        Scalar::new(contract_root),
+        contract_root,
         protocol_pubkey,
         true, // is_protocol_fee
     )?;
@@ -152,7 +152,7 @@ async fn test_redeem_fee(ctx: TestContext) -> Result<()> {
 
     let contract_root = ctx.get_root_scalar().await?;
     let (proof, statement, wallet_commitment_signature) =
-        gen_redeem_fee_data(&mut rng, Scalar::new(contract_root))?;
+        gen_redeem_fee_data(&mut rng, contract_root)?;
 
     // Call `redeem_fee`
     let redeem_tx = contract.redeemFee(

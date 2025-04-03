@@ -331,6 +331,7 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
     let rustflags = match contract {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
+        | StylusContract::CoreSettlement
         | StylusContract::DarkpoolTestContract => {
             format!("{}{} {}", OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG)
         },
