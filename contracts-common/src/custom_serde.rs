@@ -12,11 +12,12 @@ use ark_serialize::Flags;
 use crate::{
     constants::{NUM_BYTES_ADDRESS, NUM_BYTES_FELT, NUM_BYTES_U64, NUM_SCALARS_PK, NUM_U64S_FELT},
     types::{
-        BabyJubJubPoint, ExternalMatchResult, ExternalTransfer, FeeTake, G1Affine, G1BaseField,
-        G2Affine, G2BaseField, MontFp256, NoteCiphertext, OrderSettlementIndices, PublicInputs,
-        PublicSigningKey, ScalarField, ValidCommitmentsStatement, ValidFeeRedemptionStatement,
-        ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
-        ValidOfflineFeeSettlementStatement, ValidReblindStatement,
+        BabyJubJubPoint, BoundedMatchResult, ExternalMatchResult, ExternalTransfer, FeeRates,
+        FeeTake, G1Affine, G1BaseField, G2Affine, G2BaseField, MontFp256, NoteCiphertext,
+        OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField,
+        ValidCommitmentsStatement, ValidFeeRedemptionStatement,
+        ValidMalleableMatchSettleAtomicStatement, ValidMatchSettleAtomicStatement,
+        ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement, ValidReblindStatement,
         ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
@@ -273,6 +274,20 @@ impl ScalarSerializable for ValidMatchSettleAtomicStatement {
         Ok(scalars)
     }
 }
+
+impl ScalarSerializable for ValidMalleableMatchSettleAtomicStatement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars: Vec<ScalarField> = Vec::new();
+        scalars.extend(bounded_match_result_to_scalars(&self.match_result)?);
+        scalars.extend(fee_rates_to_scalars(&self.external_fee_rates));
+        scalars.extend(fee_rates_to_scalars(&self.internal_fee_rates));
+        scalars.extend(&self.internal_party_public_shares);
+        scalars.push(address_to_scalar(self.relayer_fee_address)?);
+
+        Ok(scalars)
+    }
+}
+
 impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> = vec![
@@ -401,6 +416,25 @@ fn external_match_result_to_scalars(
         amount_to_scalar(external_match_result.base_amount)?,
         external_match_result.direction.into(),
     ])
+}
+
+/// Converts a [`BoundedMatchResult`] into a vector of [`ScalarField`]s
+fn bounded_match_result_to_scalars(
+    bounded_match_result: &BoundedMatchResult,
+) -> Result<Vec<ScalarField>, SerdeError> {
+    Ok(vec![
+        address_to_scalar(bounded_match_result.quote_mint)?,
+        address_to_scalar(bounded_match_result.base_mint)?,
+        bounded_match_result.price.repr,
+        amount_to_scalar(bounded_match_result.min_base_amount)?,
+        amount_to_scalar(bounded_match_result.max_base_amount)?,
+        bounded_match_result.direction.into(),
+    ])
+}
+
+/// Converts a [`FeeRates`] into a vector of [`ScalarField`]s
+fn fee_rates_to_scalars(fee_rates: &FeeRates) -> Vec<ScalarField> {
+    vec![fee_rates.relayer_fee_rate.repr, fee_rates.protocol_fee_rate.repr]
 }
 
 /// Converts a [`FeeTake`] into a vector of [`ScalarField`]s
