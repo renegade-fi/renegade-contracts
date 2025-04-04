@@ -184,6 +184,20 @@ pub const MERKLE_STORAGE_GAP_SIZE: usize = 64;
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const TRANSFER_EXECUTOR_STORAGE_GAP_SIZE: usize = 64;
 
+/// The number of storage slots to allocate for the first deprecated
+/// implementation address storage gap
+///
+/// This value is specified in number of storage slots
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const IMPL_ADDRESS_STORAGE_GAP1_SIZE: usize = 5;
+
+/// The number of storage slots to allocate for the second deprecated
+/// implementation address storage gap
+///
+/// This value is specified in number of storage slots
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const IMPL_ADDRESS_STORAGE_GAP2_SIZE: usize = 2;
+
 /// The delegate call selector the core wallet ops contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const CORE_WALLET_OPS_DELEGATE_SELECTOR: u64 = 1;
