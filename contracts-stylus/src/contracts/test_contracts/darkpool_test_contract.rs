@@ -43,24 +43,8 @@ struct DarkpoolTestContract {
 }
 
 impl CoreContractStorage for DarkpoolTestContract {
-    fn verifier_core_address(&self) -> Address {
-        self.darkpool.verifier_core_address.get()
-    }
-
-    fn verifier_settlement_address(&self) -> Address {
-        self.darkpool.verifier_settlement_address.get()
-    }
-
-    fn vkeys_address(&self) -> Address {
-        self.darkpool.vkeys_address.get()
-    }
-
-    fn merkle_address(&self) -> Address {
-        self.darkpool.merkle_address.get()
-    }
-
-    fn transfer_executor_address(&self) -> Address {
-        self.darkpool.transfer_executor_address.get()
+    fn get_delegate_address(&self, selector: u64) -> Address {
+        self.darkpool.delegate_addresses.get(selector)
     }
 
     fn nullifier_set(&self) -> &StorageMap<U256, StorageBool> {
@@ -141,18 +125,17 @@ impl DarkpoolTestContract {
     /// either the verifier, vkeys, or Merkle contract, depending on the
     /// given address selector.
     ///
-    /// A succesful call implies that the verifier / vkeys / Merkle contract has
-    /// been upgraded to the dummy upgrade target.
+    /// A successful call implies that the verifier / vkeys / Merkle contract
+    /// has been upgraded to the dummy upgrade target.
     pub fn is_implementation_upgraded(&mut self, address_selector: u8) -> Result<bool, Vec<u8>> {
-        let this = BorrowMut::<DarkpoolContract>::borrow_mut(self);
         let implementation_address = match address_selector {
-            CORE_WALLET_OPS_ADDRESS_SELECTOR => this.get_core_wallet_ops_address(),
-            CORE_SETTLEMENT_ADDRESS_SELECTOR => this.get_core_settlement_address(),
-            VERIFIER_CORE_ADDRESS_SELECTOR => this.verifier_core_address.get(),
-            VERIFIER_SETTLEMENT_ADDRESS_SELECTOR => this.verifier_settlement_address.get(),
-            VKEYS_ADDRESS_SELECTOR => this.vkeys_address.get(),
-            MERKLE_ADDRESS_SELECTOR => this.merkle_address.get(),
-            TRANSFER_EXECUTOR_ADDRESS_SELECTOR => this.transfer_executor_address.get(),
+            CORE_WALLET_OPS_ADDRESS_SELECTOR => self.core_wallet_ops_address(),
+            CORE_SETTLEMENT_ADDRESS_SELECTOR => self.core_settlement_address(),
+            VERIFIER_CORE_ADDRESS_SELECTOR => self.verifier_core_address(),
+            VERIFIER_SETTLEMENT_ADDRESS_SELECTOR => self.verifier_settlement_address(),
+            VKEYS_ADDRESS_SELECTOR => self.vkeys_address(),
+            MERKLE_ADDRESS_SELECTOR => self.merkle_address(),
+            TRANSFER_EXECUTOR_ADDRESS_SELECTOR => self.transfer_executor_address(),
             _ => panic!(),
         };
 
@@ -169,8 +152,7 @@ impl DarkpoolTestContract {
 
     /// Re-initializes the Merkle tree, resetting it to an empty tree
     pub fn clear_merkle(&mut self) -> Result<(), Vec<u8>> {
-        let merkle_address = BorrowMut::<DarkpoolContract>::borrow_mut(self).merkle_address.get();
-
+        let merkle_address = self.merkle_address();
         delegate_call_helper::<initMerkleCall>(self, merkle_address, ()).map(|_| ())
     }
 }

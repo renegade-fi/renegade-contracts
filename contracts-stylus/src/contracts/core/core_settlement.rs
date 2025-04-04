@@ -135,27 +135,21 @@ pub struct CoreSettlementContract {
     /// Added at the bottom of the storage layout to
     /// prevent collisions with existing fields when this field was added
     pub(crate) external_match_fee_overrides: StorageMap<Address, StorageU256>,
+
+    // --- Updated Fields for Delegate Call Mappings --- //
+    /// A mapping from a "selector" to the delegate address used to call it
+    ///
+    /// The selector here is not the Solidity selector, but rather an index into
+    /// a list of delegate call addresses
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) delegate_addresses: StorageMap<u64, StorageAddress>,
 }
 
 impl CoreContractStorage for CoreSettlementContract {
-    fn verifier_core_address(&self) -> Address {
-        self.verifier_core_address.get()
-    }
-
-    fn verifier_settlement_address(&self) -> Address {
-        self.verifier_settlement_address.get()
-    }
-
-    fn vkeys_address(&self) -> Address {
-        self.vkeys_address.get()
-    }
-
-    fn merkle_address(&self) -> Address {
-        self.merkle_address.get()
-    }
-
-    fn transfer_executor_address(&self) -> Address {
-        self.transfer_executor_address.get()
+    fn get_delegate_address(&self, selector: u64) -> Address {
+        self.delegate_addresses.get(selector)
     }
 
     fn nullifier_set(&self) -> &StorageMap<U256, StorageBool> {
@@ -455,9 +449,7 @@ impl CoreSettlementContract {
             external_party_fees,
             match_result,
             relayer_fee_address,
-        )?;
-
-        Ok(())
+        )
     }
 }
 
