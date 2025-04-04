@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 use contracts_common::{
     constants::{MERKLE_HEIGHT, NUM_SCALARS_PK},
     custom_serde::{scalar_to_u256, BytesSerializable},
-    types::{PublicSigningKey, ScalarField},
+    types::{u256_to_scalar, PublicSigningKey, ScalarField},
 };
 use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use stylus_sdk::{
@@ -29,7 +29,7 @@ use crate::{
     assert_result, if_verifying,
     utils::{
         constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
-        helpers::{assert_valid_signature, u256_to_scalar},
+        helpers::assert_valid_signature,
         solidity::{MerkleInsertion, MerkleOpeningNode},
     },
 };

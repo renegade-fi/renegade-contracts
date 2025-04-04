@@ -4,10 +4,14 @@
 use core::borrow::{Borrow, BorrowMut};
 
 use alloc::vec::Vec;
-use contracts_common::constants::{
-    CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR,
-    TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_CORE_ADDRESS_SELECTOR,
-    VERIFIER_SETTLEMENT_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
+use contracts_common::{
+    constants::{
+        CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR,
+        MERKLE_ADDRESS_SELECTOR, TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
+        VERIFIER_CORE_ADDRESS_SELECTOR, VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
+        VKEYS_ADDRESS_SELECTOR,
+    },
+    types::u256_to_scalar,
 };
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
@@ -24,7 +28,7 @@ use crate::{
         darkpool::DarkpoolContract,
     },
     utils::{
-        helpers::{delegate_call_helper, u256_to_scalar},
+        helpers::delegate_call_helper,
         solidity::{init_0Call as initMerkleCall, isDummyUpgradeTargetCall},
     },
 };

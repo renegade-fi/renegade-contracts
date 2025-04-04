@@ -36,3 +36,39 @@ pub struct BabyJubJubPoint {
 
 /// A BabyJubJub EC-ElGamal public encryption key
 pub type PublicEncryptionKey = BabyJubJubPoint;
+
+/// A public identification key used for proving knowledge of preimages
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct PublicIdentificationKey {
+    /// The public key - this is the image under hash of its corresponding
+    /// secret key
+    #[serde_as(as = "ScalarFieldDef")]
+    pub key: ScalarField,
+}
+
+/// A public root key, which is a scalar field representation of a secp256k1
+/// public key
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct PublicRootKey {
+    /// The x coordinate of the public key
+    #[serde_as(as = "[ScalarFieldDef; 2]")]
+    pub x: [ScalarField; 2],
+    /// The y coordinate of the public key  
+    #[serde_as(as = "[ScalarFieldDef; 2]")]
+    pub y: [ScalarField; 2],
+}
+
+/// A public keychain containing public keys for various wallet operations
+#[serde_as]
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct PublicKeychain {
+    /// The public root key
+    pub pk_root: PublicRootKey,
+    /// The public match key used by relayers to authorize matches
+    pub pk_match: PublicIdentificationKey,
+    /// The nonce of the keychain, allowing rotation and recovery
+    #[serde_as(as = "ScalarFieldDef")]
+    pub nonce: ScalarField,
+}

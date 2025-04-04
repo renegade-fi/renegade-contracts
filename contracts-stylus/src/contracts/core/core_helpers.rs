@@ -11,7 +11,7 @@ use crate::{
         },
         helpers::{
             delegate_call_helper, get_public_blinder_from_shares, map_call_error,
-            postcard_serialize, static_call_helper, u256_to_scalar,
+            postcard_serialize, static_call_helper,
         },
         solidity::{
             executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
@@ -24,7 +24,7 @@ use alloc::{vec, vec::Vec};
 use alloy_sol_types::{SolCall, SolType};
 use contracts_common::{
     custom_serde::{pk_to_u256s, scalar_to_u256},
-    types::{ExternalTransfer, PublicEncryptionKey, PublicSigningKey, ScalarField},
+    types::{u256_to_scalar, ExternalTransfer, PublicEncryptionKey, PublicSigningKey, ScalarField},
 };
 use stylus_sdk::{abi::Bytes, alloy_primitives::U256, call::static_call, evm, prelude::*};
 
