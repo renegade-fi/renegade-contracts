@@ -2,10 +2,8 @@
 
 use alloc::vec::Vec;
 use alloy_sol_types::{SolCall, SolType};
-use ark_ff::PrimeField;
 use contracts_common::{
-    constants::{NUM_BYTES_U256, SCALAR_CONVERSION_ERROR_MESSAGE},
-    custom_serde::{bigint_from_le_bytes, statement_to_public_inputs, ScalarSerializable},
+    custom_serde::{statement_to_public_inputs, ScalarSerializable},
     types::{
         MatchAtomicPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidMalleableMatchSettleAtomicStatement,
@@ -17,7 +15,7 @@ use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 use stylus_sdk::{
     abi::Bytes,
-    alloy_primitives::{Address, U256},
+    alloy_primitives::Address,
     call::{call, delegate_call, static_call, MutatingCallContext},
     storage::TopLevelStorage,
 };
@@ -215,21 +213,6 @@ pub fn call_helper<C: SolCall>(
     let res = call(storage, address, &calldata).map_err(map_call_error)?;
     C::abi_decode_returns(&res, false /* validate */)
         .map_err(|_| CALL_RETDATA_DECODING_ERROR_MESSAGE.to_vec())
-}
-
-/// Converts a U256 to a scalar
-#[cfg_attr(
-    not(any(
-        feature = "darkpool-test-contract",
-        feature = "merkle",
-        feature = "merkle-test-contract"
-    )),
-    allow(dead_code)
-)]
-pub fn u256_to_scalar(u256: U256) -> Result<ScalarField, Vec<u8>> {
-    let bigint = bigint_from_le_bytes(&u256.to_le_bytes::<NUM_BYTES_U256>())
-        .map_err(|_| SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())?;
-    ScalarField::from_bigint(bigint).ok_or(SCALAR_CONVERSION_ERROR_MESSAGE.to_vec())
 }
 
 /// Asserts the validity of the given signature using the given public signing

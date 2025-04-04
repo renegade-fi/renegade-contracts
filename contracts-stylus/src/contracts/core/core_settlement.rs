@@ -20,7 +20,7 @@ use crate::{
             is_native_eth_address, postcard_serialize,
             serialize_atomic_match_statements_for_verification,
             serialize_malleable_match_statements_for_verification,
-            serialize_match_statements_for_verification, u256_to_scalar,
+            serialize_match_statements_for_verification,
         },
         solidity::{
             executeTransferBatchCall, processAtomicMatchSettleVkeysCall,
@@ -33,9 +33,9 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
-    ExternalMatchResult, FeeTake, MatchPayload, SimpleErc20Transfer,
+    u256_to_scalar, ExternalMatchResult, FeeTake, MatchPayload, SimpleErc20Transfer,
     ValidMalleableMatchSettleAtomicStatement, ValidMatchSettleAtomicStatement,
-    ValidMatchSettleStatement, VerifyAtomicMatchCalldata, VerifyMatchCalldata,
+    ValidMatchSettleStatement, VerifyAtomicMatchCalldata, VerifyMatchCalldata, WalletShare,
 };
 use stylus_sdk::{
     abi::Bytes,
@@ -378,12 +378,12 @@ impl CoreSettlementContract {
     ) -> Result<(), Vec<u8>> {
         let internal_party_match_payload: MatchPayload =
             deserialize_from_calldata(&internal_party_match_payload)?;
-        let malleable_match_settle_atomic_statement: ValidMalleableMatchSettleAtomicStatement =
+        let statement: ValidMalleableMatchSettleAtomicStatement =
             deserialize_from_calldata(&malleable_match_settle_atomic_statement)?;
 
         // The transaction value should be zero unless the external party is selling
         // native ETH in the trade
-        let bounded_match_result = &malleable_match_settle_atomic_statement.match_result;
+        let bounded_match_result = &statement.match_result;
         let is_native_eth = is_native_eth_address(bounded_match_result.base_mint);
         let is_external_party_sell = bounded_match_result.is_external_party_sell();
         let native_eth_sell = is_native_eth && is_external_party_sell;
@@ -394,8 +394,8 @@ impl CoreSettlementContract {
         if_verifying!({
             // The protocol fee used in the proofs must match the fee configured in the
             // contract
-            let internal_fee_rates = malleable_match_settle_atomic_statement.internal_fee_rates;
-            let external_fee_rates = malleable_match_settle_atomic_statement.external_fee_rates;
+            let internal_fee_rates = statement.internal_fee_rates;
+            let external_fee_rates = statement.external_fee_rates;
             let protocol_fee_u256 =
                 storage.borrow_mut().external_match_protocol_fee(bounded_match_result.base_mint);
             let protocol_fee = u256_to_scalar(protocol_fee_u256)?;
@@ -412,7 +412,7 @@ impl CoreSettlementContract {
                 storage,
                 is_native_eth,
                 &internal_party_match_payload,
-                malleable_match_settle_atomic_statement.clone(),
+                statement.clone(),
                 proofs,
                 linking_proofs,
             )?;
@@ -421,14 +421,34 @@ impl CoreSettlementContract {
         // Build an external match result given the base amount
         let match_result = bounded_match_result.to_external_match_result(base_amount)?;
 
-        // TODO: Update the internal party's wallet
+        // Apply the external match directly to the internal party's wallet
+        let public_shares = statement.internal_party_public_shares;
+        let internal_party_fees = statement.internal_fee_rates;
+        let commitments_statement = internal_party_match_payload.valid_commitments_statement;
+        let reblind_statement = internal_party_match_payload.valid_reblind_statement;
+
+        let mut wallet_share = WalletShare::scalar_deserialize(&public_shares);
+        wallet_share.apply_external_match_to_shares(
+            internal_party_fees,
+            &match_result,
+            commitments_statement.indices,
+        );
+        let updated_public_shares = wallet_share.scalar_serialize();
+
+        rotate_wallet(
+            storage,
+            reblind_statement.original_shares_nullifier,
+            reblind_statement.merkle_root,
+            reblind_statement.reblinded_private_shares_commitment,
+            &updated_public_shares,
+        )?;
 
         // Execute the transfers to/from the external party
-        let external_party_fee_rate = malleable_match_settle_atomic_statement.external_fee_rates;
+        let external_party_fee_rate = statement.external_fee_rates;
         let (_, external_party_recv) = match_result.external_party_buy_mint_amount();
         let external_party_fees = external_party_fee_rate.get_fee_take(external_party_recv);
 
-        let relayer_fee_address = malleable_match_settle_atomic_statement.relayer_fee_address;
+        let relayer_fee_address = statement.relayer_fee_address;
         Self::execute_atomic_match_transfers(
             storage,
             receiver,

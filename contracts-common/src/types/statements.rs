@@ -65,7 +65,7 @@ pub struct ValidReblindStatement {
 
 /// The indices that specify where settlement logic should modify the wallet
 /// shares
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OrderSettlementIndices {
     /// The index of the balance that holds the mint that the wallet will
     /// send if a successful match occurs
