@@ -26,6 +26,7 @@ use crate::{
             validWalletUpdateVkeyCall,
         },
     },
+    IMPL_ADDRESS_STORAGE_GAP1_SIZE, IMPL_ADDRESS_STORAGE_GAP2_SIZE,
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
@@ -74,21 +75,9 @@ pub struct CoreWalletOpsContract {
     /// (unused in the darkpool core contract)
     _paused: StorageBool,
 
-    /// The address of the darkpool core contract
-    /// (unused in the darkpool core contract)
-    _core_wallet_ops_address: StorageAddress,
-
-    /// The address of the verifier core contract
-    verifier_core_address: StorageAddress,
-
-    /// The address of the vkeys contract
-    vkeys_address: StorageAddress,
-
-    /// The address of the Merkle contract
-    merkle_address: StorageAddress,
-
-    /// The address of the transfer executor contract
-    transfer_executor_address: StorageAddress,
+    /// A storage gap covering a deprecated implementation of the delegate call
+    /// addresses in which addresses were inlined into contract storage
+    _impl_address_gap0: StorageArray<StorageAddress, IMPL_ADDRESS_STORAGE_GAP1_SIZE>,
 
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
@@ -115,17 +104,9 @@ pub struct CoreWalletOpsContract {
     /// The address of the protocol external fee collection wallet
     protocol_external_fee_collection_address: StorageAddress,
 
-    /// The address of the core settlement contract
-    ///
-    /// Added at the bottom of the storage layout to
-    /// prevent collisions with existing fields when this field was added
-    pub(crate) _core_settlement_address: StorageAddress,
-
-    /// The address of the verifier settlement contract
-    ///
-    /// Added at the bottom of the storage layout to
-    /// prevent collisions with existing fields when this field was added
-    pub(crate) verifier_settlement_address: StorageAddress,
+    /// A storage gap covering a deprecated implementation of the delegate call
+    /// addresses in which addresses were inlined into contract storage
+    _impl_address_gap1: StorageArray<StorageAddress, IMPL_ADDRESS_STORAGE_GAP2_SIZE>,
 
     // --- Updated Fields for per-asset fees --- //
     /// A mapping of per-asset fee overrides for the protocol
