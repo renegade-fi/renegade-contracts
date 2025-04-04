@@ -33,6 +33,9 @@ use crate::{
             VerifierSettlementAddressChanged, VkeysAddressChanged,
         },
     },
+    CORE_SETTLEMENT_DELEGATE_SELECTOR, CORE_WALLET_OPS_DELEGATE_SELECTOR, MERKLE_DELEGATE_SELECTOR,
+    TRANSFER_EXECUTOR_DELEGATE_SELECTOR, VERIFIER_CORE_DELEGATE_SELECTOR,
+    VERIFIER_SETTLEMENT_DELEGATE_SELECTOR, VKEYS_DELEGATE_SELECTOR,
 };
 
 /// The darkpool contract's storage layout
@@ -55,19 +58,19 @@ pub struct DarkpoolContract {
     paused: StorageBool,
 
     /// The address of the darkpool core contract
-    pub(crate) core_wallet_ops_address: StorageAddress,
+    pub(crate) _core_wallet_ops_address: StorageAddress,
 
     /// The address of the verifier core contract
-    pub(crate) verifier_core_address: StorageAddress,
+    pub(crate) _verifier_core_address: StorageAddress,
 
     /// The address of the vkeys contract
-    pub(crate) vkeys_address: StorageAddress,
+    pub(crate) _vkeys_address: StorageAddress,
 
     /// The address of the Merkle contract
-    pub(crate) merkle_address: StorageAddress,
+    pub(crate) _merkle_address: StorageAddress,
 
     /// The address of the transfer executor contract
-    pub(crate) transfer_executor_address: StorageAddress,
+    pub(crate) _transfer_executor_address: StorageAddress,
 
     /// The set of wallet nullifiers, representing a mapping from a nullifier
     /// (which is a Bn254 scalar field element serialized into 32 bytes) to a
@@ -119,6 +122,16 @@ pub struct DarkpoolContract {
     /// Added at the bottom of the storage layout to
     /// prevent collisions with existing fields when this field was added
     pub(crate) external_match_fee_overrides: StorageMap<Address, StorageU256>,
+
+    // --- Updated Fields for Delegate Call Mappings --- //
+    /// A mapping from a "selector" to the delegate address used to call it
+    ///
+    /// The selector here is not the Solidity selector, but rather an index into
+    /// a list of delegate call addresses
+    ///
+    /// Added at the bottom of the storage layout to
+    /// prevent collisions with existing fields when this field was added
+    pub(crate) delegate_addresses: StorageMap<u64, StorageAddress>,
 }
 
 #[public]
@@ -256,7 +269,7 @@ impl DarkpoolContract {
     pub fn get_root<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
     ) -> Result<U256, Vec<u8>> {
-        let merkle_address = storage.borrow_mut().merkle_address.get();
+        let merkle_address = Self::get_delegate_address(storage, MERKLE_DELEGATE_SELECTOR);
         let (res,) = delegate_call_helper::<rootCall>(storage, merkle_address, ())?.into();
         Ok(res)
     }
@@ -266,7 +279,7 @@ impl DarkpoolContract {
         storage: &mut S,
         root: U256,
     ) -> Result<bool, Vec<u8>> {
-        let merkle_address = storage.borrow_mut().merkle_address.get();
+        let merkle_address = Self::get_delegate_address(storage, MERKLE_DELEGATE_SELECTOR);
         let (res,) =
             delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,))?.into();
 
@@ -391,17 +404,31 @@ impl DarkpoolContract {
 
     // --- Implementation Addresses --- //
 
+    /// Sets a delegate call address
+    fn set_delegate_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        selector: u64,
+        address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_owner(storage)?;
+        check_address_not_zero(address)?;
+        storage.borrow_mut().delegate_addresses.insert(selector, address);
+
+        Ok(())
+    }
+
     /// Sets the darkpool core address
     pub fn set_core_wallet_ops_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         core_wallet_ops_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(core_wallet_ops_address)?;
-        storage.borrow_mut().core_wallet_ops_address.set(core_wallet_ops_address);
+        DarkpoolContract::set_delegate_address(
+            storage,
+            CORE_WALLET_OPS_DELEGATE_SELECTOR,
+            core_wallet_ops_address,
+        )?;
 
         evm::log(CoreWalletOpsAddressChanged { new_address: core_wallet_ops_address });
-
         Ok(())
     }
 
@@ -410,9 +437,11 @@ impl DarkpoolContract {
         storage: &mut S,
         core_settlement_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(core_settlement_address)?;
-        storage.borrow_mut().core_settlement_address.set(core_settlement_address);
+        DarkpoolContract::set_delegate_address(
+            storage,
+            CORE_SETTLEMENT_DELEGATE_SELECTOR,
+            core_settlement_address,
+        )?;
 
         evm::log(CoreSettlementAddressChanged { new_address: core_settlement_address });
         Ok(())
@@ -423,9 +452,12 @@ impl DarkpoolContract {
         storage: &mut S,
         verifier_core_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(verifier_core_address)?;
-        storage.borrow_mut().verifier_core_address.set(verifier_core_address);
+        DarkpoolContract::set_delegate_address(
+            storage,
+            VERIFIER_CORE_DELEGATE_SELECTOR,
+            verifier_core_address,
+        )?;
+
         evm::log(VerifierCoreAddressChanged { new_address: verifier_core_address });
         Ok(())
     }
@@ -435,9 +467,11 @@ impl DarkpoolContract {
         storage: &mut S,
         verifier_settlement_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(verifier_settlement_address)?;
-        storage.borrow_mut().verifier_settlement_address.set(verifier_settlement_address);
+        DarkpoolContract::set_delegate_address(
+            storage,
+            VERIFIER_SETTLEMENT_DELEGATE_SELECTOR,
+            verifier_settlement_address,
+        )?;
 
         evm::log(VerifierSettlementAddressChanged { new_address: verifier_settlement_address });
         Ok(())
@@ -448,9 +482,8 @@ impl DarkpoolContract {
         storage: &mut S,
         vkeys_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(vkeys_address)?;
-        storage.borrow_mut().vkeys_address.set(vkeys_address);
+        DarkpoolContract::set_delegate_address(storage, VKEYS_DELEGATE_SELECTOR, vkeys_address)?;
+
         evm::log(VkeysAddressChanged { new_address: vkeys_address });
         Ok(())
     }
@@ -460,9 +493,8 @@ impl DarkpoolContract {
         storage: &mut S,
         merkle_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(merkle_address)?;
-        storage.borrow_mut().merkle_address.set(merkle_address);
+        DarkpoolContract::set_delegate_address(storage, MERKLE_DELEGATE_SELECTOR, merkle_address)?;
+
         evm::log(MerkleAddressChanged { new_address: merkle_address });
         Ok(())
     }
@@ -472,10 +504,11 @@ impl DarkpoolContract {
         storage: &mut S,
         transfer_executor_address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
-        check_address_not_zero(transfer_executor_address)?;
-
-        storage.borrow_mut().transfer_executor_address.set(transfer_executor_address);
+        DarkpoolContract::set_delegate_address(
+            storage,
+            TRANSFER_EXECUTOR_DELEGATE_SELECTOR,
+            transfer_executor_address,
+        )?;
 
         evm::log(TransferExecutorAddressChanged { new_address: transfer_executor_address });
         Ok(())
@@ -493,10 +526,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_wallet_ops_address = storage.borrow_mut().get_core_wallet_ops_address();
+        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<newWalletCall>(
             storage,
-            core_wallet_ops_address,
+            delegate,
             (proof.to_vec().into(), valid_wallet_create_statement_bytes.to_vec().into()),
         )
         .map(|_| ())
@@ -512,10 +545,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_wallet_ops_address = storage.borrow_mut().get_core_wallet_ops_address();
+        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<updateWalletCall>(
             storage,
-            core_wallet_ops_address,
+            delegate,
             (
                 proof.to_vec().into(),
                 valid_wallet_update_statement_bytes.to_vec().into(),
@@ -543,10 +576,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
+        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMatchSettleCall>(
             storage,
-            core_settlement_address,
+            delegate,
             (
                 party_0_match_payload.to_vec().into(),
                 party_1_match_payload.to_vec().into(),
@@ -584,10 +617,10 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let receiver = msg::sender();
-        let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
+        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
-            core_settlement_address,
+            delegate,
             (
                 receiver,
                 internal_party_match_payload.to_vec().into(),
@@ -611,10 +644,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
+        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
-            core_settlement_address,
+            delegate,
             (
                 receiver,
                 internal_party_match_payload.to_vec().into(),
@@ -648,10 +681,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_settlement_address = storage.borrow_mut().get_core_settlement_address();
+        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMalleableAtomicMatchSettleCall>(
             storage,
-            core_settlement_address,
+            delegate,
             (
                 base_amount,
                 receiver,
@@ -674,10 +707,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_wallet_ops_address = storage.borrow_mut().get_core_wallet_ops_address();
+        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<settleOnlineRelayerFeeCall>(
             storage,
-            core_wallet_ops_address,
+            delegate,
             (
                 proof.to_vec().into(),
                 valid_relayer_fee_settlement_statement.to_vec().into(),
@@ -696,10 +729,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_wallet_ops_address = storage.borrow_mut().get_core_wallet_ops_address();
+        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<settleOfflineFeeCall>(
             storage,
-            core_wallet_ops_address,
+            delegate,
             (proof.to_vec().into(), valid_offline_fee_settlement_statement.to_vec().into()),
         )
         .map(|_| ())
@@ -714,10 +747,10 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let core_wallet_ops_address = storage.borrow_mut().get_core_wallet_ops_address();
+        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<redeemFeeCall>(
             storage,
-            core_wallet_ops_address,
+            delegate,
             (
                 proof.to_vec().into(),
                 valid_fee_redemption_statement.to_vec().into(),
@@ -784,14 +817,12 @@ impl DarkpoolContract {
     // | CORE HELPERS |
     // ----------------
 
-    /// Get the core wallet ops address
-    pub fn get_core_wallet_ops_address(&self) -> Address {
-        self.core_wallet_ops_address.get()
-    }
-
-    /// Get the core settlement address
-    pub fn get_core_settlement_address(&self) -> Address {
-        self.core_settlement_address.get()
+    /// Get the delegate call address for a given selector
+    pub fn get_delegate_address<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        selector: u64,
+    ) -> Address {
+        storage.borrow().delegate_addresses.get(selector)
     }
 
     /// Gets the affine coordinates of the protocol public encryption key

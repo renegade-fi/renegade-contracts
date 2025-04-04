@@ -6,6 +6,11 @@ use contracts_common::{
     types::ScalarField,
 };
 use core::marker::PhantomData;
+use stylus_sdk::alloy_primitives::U256;
+
+// ------------------
+// | Error Messages |
+// ------------------
 
 /// The revert message when verification is disabled but
 /// the chain is not a Renegade devnet
@@ -117,6 +122,10 @@ pub const CALL_RETDATA_DECODING_ERROR_MESSAGE: &[u8] = b"error decoding retdata"
 #[cfg(feature = "transfer-executor")]
 pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer aux data";
 
+// ----------------------
+// | Contract Addresses |
+// ----------------------
+
 /// A dummy address for the native asset, constant across all chains
 /// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 #[cfg(any(
@@ -154,6 +163,10 @@ pub const PAIRING_CHECK_RESULT_LAST_BYTE_INDEX: usize = 31;
 /// The byte length of the input to the `ecRecover` precompile
 pub const EC_RECOVER_INPUT_LEN: usize = 128;
 
+// --------------------------
+// | Storage Configurations |
+// --------------------------
+
 /// The number of storage slots to allocate for the Merkle contract,
 /// used in creating storage gaps in contracts in the same context
 /// to ensure that there are no storage collisions
@@ -170,6 +183,38 @@ pub const MERKLE_STORAGE_GAP_SIZE: usize = 64;
 /// context to ensure that there are no storage collisions
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const TRANSFER_EXECUTOR_STORAGE_GAP_SIZE: usize = 64;
+
+/// The delegate call selector the core wallet ops contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const CORE_WALLET_OPS_DELEGATE_SELECTOR: u64 = 1;
+
+/// The delegate call selector the core settlement contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const CORE_SETTLEMENT_DELEGATE_SELECTOR: u64 = 2;
+
+/// The delegate call selector the verifier core contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const VERIFIER_CORE_DELEGATE_SELECTOR: u64 = 3;
+
+/// The delegate call selector for the verifier settlement contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const VERIFIER_SETTLEMENT_DELEGATE_SELECTOR: u64 = 4;
+
+/// The delegate call selector for the vkeys contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const VKEYS_DELEGATE_SELECTOR: u64 = 5;
+
+/// The delegate call selector for the merkle contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const MERKLE_DELEGATE_SELECTOR: u64 = 6;
+
+/// The delegate call selector for the transfer executor contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const TRANSFER_EXECUTOR_DELEGATE_SELECTOR: u64 = 7;
+
+// ---------------------
+// | Verification Keys |
+// ---------------------
 
 /// The serialized VALID WALLET CREATE verification key
 #[cfg(feature = "vkeys")]
@@ -262,6 +307,10 @@ pub const PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_BYTES: &[u8] =
 #[cfg(feature = "test-vkeys")]
 pub const PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/process_malleable_match_settle_atomic");
+
+// -------------------------
+// | Merkle State Defaults |
+// -------------------------
 
 /// The path of values in an empty Merkle tree of height `TEST_MERKLE_HEIGHT`,
 /// going from root to leaf
