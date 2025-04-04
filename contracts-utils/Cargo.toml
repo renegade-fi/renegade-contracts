@@ -22,7 +22,7 @@ jf-utils = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { workspace = true }
 renegade-crypto = { workspace = true }
 circuit-types = { workspace = true }
-circuit-macros = { git = "https://github.com/renegade-fi/renegade.git" }
+circuit-macros = { path = "../../renegade/circuit-macros" }
 circuits = { workspace = true }
 constants = { workspace = true }
 

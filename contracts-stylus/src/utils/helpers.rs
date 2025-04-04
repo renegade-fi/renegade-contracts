@@ -17,7 +17,7 @@ use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::Address,
     call::{call, delegate_call, static_call, MutatingCallContext},
-    storage::TopLevelStorage,
+    prelude::TopLevelStorage,
 };
 
 use crate::{

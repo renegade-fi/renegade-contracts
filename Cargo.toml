@@ -19,10 +19,10 @@ ark-crypto-primitives = { version = "0.4", default-features = false, features = 
     "crh",
     "merkle_tree",
 ] }
-alloy = { version = "0.13", default-features = false }
-alloy-contract = { version = "0.13", default-features = false }
-alloy-primitives = { version = "=0.8.25", default-features = false }
-alloy-sol-types = { version = "=0.8.25", default-features = false }
+alloy = { version = "0.11", default-features = false }
+alloy-contract = { version = "0.11", default-features = false }
+alloy-primitives = { version = "=0.8.20", default-features = false }
+alloy-sol-types = { version = "=0.8.20", default-features = false }
 serde = { version = "1.0.197", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.4", default-features = false, features = [
@@ -36,16 +36,16 @@ ruint = "1.11"
 eyre = "0.6.8"
 clap = { version = "4.4.7", features = ["derive"] }
 tokio = { version = "1.12.0", features = ["full"] }
-constants = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
-circuits = { git = "https://github.com/renegade-fi/renegade.git" }
-circuit-types = { git = "https://github.com/renegade-fi/renegade.git", features = [
+constants = { path = "../renegade/constants", default-features = false }
+renegade-crypto = { path = "../renegade/renegade-crypto", default-features = false }
+circuits = { path = "../renegade/circuits" }
+circuit-types = { path = "../renegade/circuit-types", features = [
     "test-helpers",
 ] }
 itertools = "0.12"
 mpc-plonk = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git", default-features = false }
-stylus-sdk = { git = "https://github.com/joeykraut/stylus-sdk-rs" }
+stylus-sdk = { git = "https://github.com/OffchainLabs/stylus-sdk-rs-private.git" }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3"
 

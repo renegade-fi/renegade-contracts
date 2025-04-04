@@ -34,6 +34,6 @@ inventory = "0.3"
 num-bigint = "0.4"
 ruint = { workspace = true }
 
-test-helpers = { git = "https://github.com/renegade-fi/renegade.git" }
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", default-features = false }
+test-helpers = { path = "../../renegade/test-helpers" }
+renegade-crypto = { workspace = true, default-features = false }
 colored = "2"

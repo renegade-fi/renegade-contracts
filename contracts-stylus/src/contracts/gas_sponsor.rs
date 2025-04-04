@@ -12,7 +12,7 @@ use stylus_sdk::{
     alloy_primitives::{hex, Address, U256, U64},
     block,
     call::{call, Call},
-    console, contract, evm, msg,
+    contract, evm, msg,
     prelude::*,
     storage::{GlobalStorage, StorageAddress, StorageBool, StorageCache, StorageMap, StorageU64},
     tx,
