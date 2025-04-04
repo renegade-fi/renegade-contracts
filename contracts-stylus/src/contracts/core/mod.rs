@@ -7,7 +7,7 @@ use stylus_sdk::{
 };
 
 use crate::{
-    CORE_SETTLEMENT_DELEGATE_SELECTOR, CORE_WALLET_OPS_DELEGATE_SELECTOR, MERKLE_DELEGATE_SELECTOR,
+    CORE_WALLET_OPS_DELEGATE_SELECTOR, MERKLE_DELEGATE_SELECTOR,
     TRANSFER_EXECUTOR_DELEGATE_SELECTOR, VERIFIER_CORE_DELEGATE_SELECTOR,
     VERIFIER_SETTLEMENT_DELEGATE_SELECTOR, VKEYS_DELEGATE_SELECTOR,
 };
@@ -34,11 +34,6 @@ pub trait CoreContractStorage {
     /// Get the address of the core wallet ops contract
     fn core_wallet_ops_address(&self) -> Address {
         self.get_delegate_address(CORE_WALLET_OPS_DELEGATE_SELECTOR)
-    }
-
-    /// Get the address of the core settlement contract
-    fn core_settlement_address(&self) -> Address {
-        self.get_delegate_address(CORE_SETTLEMENT_DELEGATE_SELECTOR)
     }
 
     /// Get the address of the verifier core contract

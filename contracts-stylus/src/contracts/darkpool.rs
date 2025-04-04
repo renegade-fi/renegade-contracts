@@ -26,17 +26,20 @@ use crate::{
             processAtomicMatchSettleCall, processMalleableAtomicMatchSettleCall,
             processMatchSettleCall, redeemFeeCall, rootCall, rootInHistoryCall,
             settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
-            CoreSettlementAddressChanged, CoreWalletOpsAddressChanged,
+            CoreAtomicMatchSettlementAddressChanged, CoreMalleableMatchSettlementAddressChanged,
+            CoreMatchSettlementAddressChanged, CoreWalletOpsAddressChanged,
             ExternalFeeCollectionAddressChanged, ExternalMatchFeeChanged, FeeChanged,
             MerkleAddressChanged, OwnershipTransferred, Paused, PubkeyRotated,
             TransferExecutorAddressChanged, Unpaused, VerifierCoreAddressChanged,
             VerifierSettlementAddressChanged, VkeysAddressChanged,
         },
     },
-    CORE_SETTLEMENT_DELEGATE_SELECTOR, CORE_WALLET_OPS_DELEGATE_SELECTOR,
-    IMPL_ADDRESS_STORAGE_GAP1_SIZE, IMPL_ADDRESS_STORAGE_GAP2_SIZE, MERKLE_DELEGATE_SELECTOR,
-    TRANSFER_EXECUTOR_DELEGATE_SELECTOR, VERIFIER_CORE_DELEGATE_SELECTOR,
-    VERIFIER_SETTLEMENT_DELEGATE_SELECTOR, VKEYS_DELEGATE_SELECTOR,
+    CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
+    CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
+    CORE_WALLET_OPS_DELEGATE_SELECTOR, IMPL_ADDRESS_STORAGE_GAP1_SIZE,
+    IMPL_ADDRESS_STORAGE_GAP2_SIZE, MERKLE_DELEGATE_SELECTOR, TRANSFER_EXECUTOR_DELEGATE_SELECTOR,
+    VERIFIER_CORE_DELEGATE_SELECTOR, VERIFIER_SETTLEMENT_DELEGATE_SELECTOR,
+    VKEYS_DELEGATE_SELECTOR,
 };
 
 /// The darkpool contract's storage layout
@@ -127,7 +130,9 @@ impl DarkpoolContract {
     pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         core_wallet_ops_address: Address,
-        core_settlement_address: Address,
+        core_match_settlement_address: Address,
+        core_atomic_match_settlement_address: Address,
+        core_malleable_match_settlement_address: Address,
         verifier_core_address: Address,
         verifier_settlement_address: Address,
         vkeys_address: Address,
@@ -151,7 +156,18 @@ impl DarkpoolContract {
         // Set the stored addresses
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
         DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
-        DarkpoolContract::set_core_settlement_address(storage, core_settlement_address)?;
+        DarkpoolContract::set_core_match_settlement_address(
+            storage,
+            core_match_settlement_address,
+        )?;
+        DarkpoolContract::set_core_atomic_match_settlement_address(
+            storage,
+            core_atomic_match_settlement_address,
+        )?;
+        DarkpoolContract::set_core_malleable_atomic_match_settlement_address(
+            storage,
+            core_malleable_match_settlement_address,
+        )?;
         DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
         DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
         DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
@@ -414,18 +430,54 @@ impl DarkpoolContract {
         Ok(())
     }
 
-    /// Sets the core settlement address
-    pub fn set_core_settlement_address<S: TopLevelStorage + BorrowMut<Self>>(
+    /// Sets the core match settlement address
+    pub fn set_core_match_settlement_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        core_settlement_address: Address,
+        core_match_settlement_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::set_delegate_address(
             storage,
-            CORE_SETTLEMENT_DELEGATE_SELECTOR,
-            core_settlement_address,
+            CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
+            core_match_settlement_address,
         )?;
 
-        evm::log(CoreSettlementAddressChanged { new_address: core_settlement_address });
+        evm::log(CoreMatchSettlementAddressChanged { new_address: core_match_settlement_address });
+        Ok(())
+    }
+
+    /// Sets the core atomic match settlement address
+    pub fn set_core_atomic_match_settlement_address<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        core_atomic_match_settlement_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::set_delegate_address(
+            storage,
+            CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
+            core_atomic_match_settlement_address,
+        )?;
+
+        evm::log(CoreAtomicMatchSettlementAddressChanged {
+            new_address: core_atomic_match_settlement_address,
+        });
+        Ok(())
+    }
+
+    /// Sets the core malleable atomic match settlement address
+    pub fn set_core_malleable_atomic_match_settlement_address<
+        S: TopLevelStorage + BorrowMut<Self>,
+    >(
+        storage: &mut S,
+        core_malleable_atomic_match_settlement_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::set_delegate_address(
+            storage,
+            CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
+            core_malleable_atomic_match_settlement_address,
+        )?;
+
+        evm::log(CoreMalleableMatchSettlementAddressChanged {
+            new_address: core_malleable_atomic_match_settlement_address,
+        });
         Ok(())
     }
 
@@ -558,7 +610,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
+        let delegate = Self::get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMatchSettleCall>(
             storage,
             delegate,
@@ -599,7 +651,8 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let receiver = msg::sender();
-        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
+        let delegate =
+            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
             delegate,
@@ -626,7 +679,8 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
+        let delegate =
+            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
             delegate,
@@ -663,7 +717,8 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_SETTLEMENT_DELEGATE_SELECTOR);
+        let delegate =
+            Self::get_delegate_address(storage, CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMalleableAtomicMatchSettleCall>(
             storage,
             delegate,

@@ -90,7 +90,9 @@ sol! {
     event Paused();
     event Unpaused();
     event CoreWalletOpsAddressChanged(address indexed new_address);
-    event CoreSettlementAddressChanged(address indexed new_address);
+    event CoreMatchSettlementAddressChanged(address indexed new_address);
+    event CoreAtomicMatchSettlementAddressChanged(address indexed new_address);
+    event CoreMalleableMatchSettlementAddressChanged(address indexed new_address);
     event VerifierCoreAddressChanged(address indexed new_address);
     event VerifierSettlementAddressChanged(address indexed new_address);
     event VkeysAddressChanged(address indexed new_address);

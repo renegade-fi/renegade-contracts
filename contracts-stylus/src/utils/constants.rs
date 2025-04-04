@@ -210,29 +210,37 @@ pub const IMPL_ADDRESS_STORAGE_GAP2_SIZE: usize = 2;
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const CORE_WALLET_OPS_DELEGATE_SELECTOR: u64 = 1;
 
-/// The delegate call selector the core settlement contract
+/// The delegate call selector the core match settlement contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const CORE_SETTLEMENT_DELEGATE_SELECTOR: u64 = 2;
+pub const CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR: u64 = 2;
+
+/// The delegate call selector the core atomic match settlement contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR: u64 = 3;
+
+/// The delegate call selector the core malleable match settlement contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR: u64 = 4;
 
 /// The delegate call selector the verifier core contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const VERIFIER_CORE_DELEGATE_SELECTOR: u64 = 3;
+pub const VERIFIER_CORE_DELEGATE_SELECTOR: u64 = 5;
 
 /// The delegate call selector for the verifier settlement contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const VERIFIER_SETTLEMENT_DELEGATE_SELECTOR: u64 = 4;
+pub const VERIFIER_SETTLEMENT_DELEGATE_SELECTOR: u64 = 6;
 
 /// The delegate call selector for the vkeys contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const VKEYS_DELEGATE_SELECTOR: u64 = 5;
+pub const VKEYS_DELEGATE_SELECTOR: u64 = 7;
 
 /// The delegate call selector for the merkle contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const MERKLE_DELEGATE_SELECTOR: u64 = 6;
+pub const MERKLE_DELEGATE_SELECTOR: u64 = 8;
 
 /// The delegate call selector for the transfer executor contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const TRANSFER_EXECUTOR_DELEGATE_SELECTOR: u64 = 7;
+pub const TRANSFER_EXECUTOR_DELEGATE_SELECTOR: u64 = 9;
 
 // ---------------------
 // | Verification Keys |
