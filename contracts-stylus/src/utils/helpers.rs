@@ -34,14 +34,23 @@ use super::constants::{
 };
 
 /// A helper to get the address of the WETH contract
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+#[cfg(any(
+    feature = "transfer-executor",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle"
+))]
 pub fn get_weth_address() -> Address {
     use crate::utils::constants::WETH_ADDRESS;
     Address::from_str(WETH_ADDRESS).expect("WETH_ADDRESS must be a valid address")
 }
 
 /// A helper to check if a given address is the address representing native ETH
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement", feature = "gas-sponsor"))]
+#[cfg(any(
+    feature = "transfer-executor",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle",
+    feature = "gas-sponsor"
+))]
 pub fn is_native_eth_address(addr: Address) -> bool {
     use super::constants::NATIVE_ETH_ADDRESS;
     let native_addr = Address::from_str(NATIVE_ETH_ADDRESS).unwrap();
@@ -78,7 +87,7 @@ pub fn serialize_statement_for_verification<S: ScalarSerializable>(
 /// Serializes the statements used in verifying the settlement of a
 /// matched trade into scalars, builds the [`MatchPublicInputs`] struct,
 /// and then serialized it into bytes, as expected by the verifier contract.
-#[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
+#[cfg_attr(not(feature = "core-match-settle"), allow(dead_code))]
 pub fn serialize_match_statements_for_verification(
     valid_commitments_0: &ValidCommitmentsStatement,
     valid_commitments_1: &ValidCommitmentsStatement,
@@ -105,7 +114,7 @@ pub fn serialize_match_statements_for_verification(
 /// matched trade into scalars, builds the [`AtomicMatchSettlePublicInputs`]
 /// struct, and then serializes it into bytes, as expected by the verifier
 /// contract.
-#[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
+#[cfg_attr(not(feature = "core-atomic-match-settle"), allow(dead_code))]
 pub fn serialize_atomic_match_statements_for_verification(
     valid_commitments: &ValidCommitmentsStatement,
     valid_reblind: &ValidReblindStatement,
@@ -125,7 +134,7 @@ pub fn serialize_atomic_match_statements_for_verification(
 /// matched trade into scalars, builds the [`MatchPublicInputs`] struct,
 /// and then serialized it into bytes, as expected by the verifier
 /// contract.
-#[cfg_attr(not(feature = "core-settlement"), allow(dead_code))]
+#[cfg_attr(not(feature = "core-malleable-match-settle"), allow(dead_code))]
 pub fn serialize_malleable_match_statements_for_verification(
     valid_commitments: &ValidCommitmentsStatement,
     valid_reblind: &ValidReblindStatement,
