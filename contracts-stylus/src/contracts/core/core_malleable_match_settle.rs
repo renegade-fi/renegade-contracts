@@ -20,7 +20,7 @@ use crate::{
             deserialize_from_calldata, get_weth_address, is_native_eth_address, postcard_serialize,
             serialize_malleable_match_statements_for_verification,
         },
-        solidity::{processMalleableMatchSettleAtomicVkeysCall, verifyAtomicMatchCall},
+        solidity::{processMalleableAtomicMatchSettleVkeysCall, verifyAtomicMatchCall},
     },
     IMPL_ADDRESS_STORAGE_GAP1_SIZE, IMPL_ADDRESS_STORAGE_GAP2_SIZE,
     INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
@@ -281,7 +281,7 @@ impl CoreMalleableMatchSettleContract {
         linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
         let process_malleable_match_settle_atomic_vkeys =
-            fetch_vkeys(storage, &processMalleableMatchSettleAtomicVkeysCall::SELECTOR)?;
+            fetch_vkeys(storage, &processMalleableAtomicMatchSettleVkeysCall::SELECTOR)?;
 
         if is_native_eth {
             let weth = get_weth_address();

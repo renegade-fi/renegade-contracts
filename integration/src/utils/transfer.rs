@@ -179,11 +179,13 @@ pub async fn setup_external_match_token_approvals(
     match_result: &ExternalMatchResult,
     test_args: &TestContext,
 ) -> Result<()> {
-    let mint = if buy_side { &match_result.quote_mint } else { &match_result.base_mint };
-
-    let mint = biguint_to_address(mint);
+    let mint_bigint = if buy_side { &match_result.quote_mint } else { &match_result.base_mint };
+    let mint = biguint_to_address(mint_bigint);
     let contract = DummyErc20Contract::new(mint, test_args.client.provider());
-    let amount = U256::from(TEST_FUNDING_AMOUNT);
+
+    // Approve the full balance of the sender
+    let sender_address = test_args.client.address();
+    let amount = contract.balanceOf(sender_address).call().await?._0;
 
     let spender = if use_gas_sponsor {
         test_args.gas_sponsor_proxy_address

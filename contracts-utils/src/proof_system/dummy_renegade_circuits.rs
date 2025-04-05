@@ -253,7 +253,7 @@ pub struct DummyValidMalleableMatchSettleAtomic;
 
 impl SingleProverCircuit for DummyValidMalleableMatchSettleAtomic {
     type Statement = SizedValidMalleableMatchSettleAtomicStatement;
-    type Witness = DummyValidMatchSettleAtomicWitness;
+    type Witness = DummyValidMalleableMatchSettleAtomicWitness;
 
     fn name() -> String {
         "Dummy Valid Malleable Match Settle Atomic".to_string()

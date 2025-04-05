@@ -6,10 +6,10 @@ use ark_ff::One;
 use ark_std::UniformRand;
 use circuit_types::{
     elgamal::EncryptionKey,
-    fees::FeeTake,
+    fees::{FeeTake, FeeTakeRate},
     fixed_point::FixedPoint,
     keychain::PublicSigningKey,
-    r#match::ExternalMatchResult,
+    r#match::{BoundedMatchResult, ExternalMatchResult, OrderSettlementIndices},
     srs::SYSTEM_SRS,
     traits::{CircuitBaseType, SingleProverCircuit},
     transfers::ExternalTransfer,
@@ -18,6 +18,7 @@ use circuit_types::{
 use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_fee_redemption::SizedValidFeeRedemptionStatement,
+    valid_malleable_match_settle_atomic::SizedValidMalleableMatchSettleAtomicStatement,
     valid_match_settle::SizedValidMatchSettleStatement,
     valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
@@ -26,7 +27,7 @@ use circuits::zk_circuits::{
     valid_wallet_create::SizedValidWalletCreateStatement,
     valid_wallet_update::SizedValidWalletUpdateStatement,
 };
-use constants::{Scalar, ScalarField, SystemCurve};
+use constants::{Scalar, ScalarField, SystemCurve, MAX_BALANCES, MAX_ORDERS};
 use contracts_common::{
     custom_serde::{statement_to_public_inputs, BytesSerializable},
     types::{
@@ -34,6 +35,7 @@ use contracts_common::{
         MatchLinkingVkeys, MatchLinkingWirePolyComms, MatchPayload, MatchProofs, MatchPublicInputs,
         MatchVkeys, Proof as ContractProof,
         ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
+        ValidMalleableMatchSettleAtomicStatement as ContractValidMalleableMatchSettleAtomicStatement,
         ValidMatchSettleAtomicStatement as ContractValidMatchSettleAtomicStatement,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
         ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
@@ -48,7 +50,11 @@ use jf_primitives::pcs::{prelude::Commitment, StructuredReferenceString};
 
 use mpc_plonk::{proof_system::PlonkKzgSnark, transcript::SolidityTranscript};
 use num_bigint::BigUint;
-use rand::{seq::SliceRandom, CryptoRng, Rng, RngCore};
+use rand::{
+    seq::{IteratorRandom, SliceRandom},
+    CryptoRng, Rng, RngCore,
+};
+use renegade_crypto::fields::biguint_to_scalar;
 use std::iter;
 
 use crate::{
@@ -56,6 +62,7 @@ use crate::{
     conversion::{
         to_circuit_pubkey, to_contract_link_proof, to_contract_proof,
         to_contract_valid_commitments_statement, to_contract_valid_fee_redemption_statement,
+        to_contract_valid_malleable_match_settle_atomic_statement,
         to_contract_valid_match_settle_atomic_statement, to_contract_valid_match_settle_statement,
         to_contract_valid_offline_fee_settlement_statement, to_contract_valid_reblind_statement,
         to_contract_valid_relayer_fee_settlement_statement,
@@ -63,13 +70,16 @@ use crate::{
         to_contract_vkey,
     },
     crypto::{hash_and_sign_message, random_keypair},
-    proof_system::dummy_renegade_circuits::DummyValidMatchSettleAtomic,
+    proof_system::dummy_renegade_circuits::{
+        DummyValidMalleableMatchSettleAtomic, DummyValidMatchSettleAtomic,
+    },
 };
 
 use super::{
     dummy_renegade_circuits::{
         DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidFeeRedemption,
-        DummyValidMatchSettle, DummyValidMatchSettleAtomicWitness, DummyValidMatchSettleWitness,
+        DummyValidMalleableMatchSettleAtomicWitness, DummyValidMatchSettle,
+        DummyValidMatchSettleAtomicWitness, DummyValidMatchSettleWitness,
         DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidReblindWitness,
         DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
     },
@@ -102,6 +112,48 @@ pub fn address_to_biguint(address: AlloyAddress) -> BigUint {
 /// Generates a circuit type type with random scalars
 pub fn dummy_circuit_type<R: RngCore + CryptoRng, C: CircuitBaseType>(rng: &mut R) -> C {
     C::from_scalars(&mut iter::repeat_with(|| Scalar::random(rng)))
+}
+
+/// Generates dummy [`OrderSettlementIndices`] with random scalars
+pub fn dummy_settlement_indices<R: RngCore + CryptoRng>(rng: &mut R) -> OrderSettlementIndices {
+    let order = (0..MAX_ORDERS).choose(rng).unwrap();
+    let send = (0..MAX_BALANCES).choose(rng).unwrap();
+    let mut recv = (0..MAX_BALANCES).choose(rng).unwrap();
+    while recv == send {
+        recv = (0..MAX_BALANCES).choose(rng).unwrap();
+    }
+
+    OrderSettlementIndices { balance_send: send, balance_receive: recv, order }
+}
+
+/// Generates a dummy [`FeeTakeRate`] with random scalars
+pub fn dummy_fee_take_rate<R: RngCore + CryptoRng>(rng: &mut R) -> FeeTakeRate {
+    let protocol_fee = random_fee_rate(rng);
+    dummy_fee_take_rate_with_protocol_fee(rng, protocol_fee)
+}
+
+/// Generates a dummy fee take rate with protocol fee specified
+pub fn dummy_fee_take_rate_with_protocol_fee<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    protocol_fee: FixedPoint,
+) -> FeeTakeRate {
+    FeeTakeRate { relayer_fee_rate: random_fee_rate(rng), protocol_fee_rate: protocol_fee }
+}
+
+/// Generates a random fee rate
+pub fn random_fee_rate<R: RngCore + CryptoRng>(rng: &mut R) -> FixedPoint {
+    random_fixed_point(0.00001, 0.01, rng)
+}
+
+/// Generates a random [`FixedPoint`] in the configured range
+pub fn random_fixed_point<R: RngCore + CryptoRng>(min: f64, max: f64, rng: &mut R) -> FixedPoint {
+    let min = FixedPoint::from_f64_round_down(min).repr;
+    let max = FixedPoint::from_f64_round_down(max).repr;
+    let min_bigint = min.to_biguint();
+    let max_bigint = max.to_biguint();
+    let random_repr = rng.gen_range(min_bigint..max_bigint);
+
+    FixedPoint::from_repr(biguint_to_scalar(&random_repr))
 }
 
 /// Generates a dummy [`ValidReblindStatement`] with the given merkle root
@@ -874,4 +926,143 @@ pub fn mutate_random_linking_proof<R: CryptoRng + RngCore>(
     ];
     let proof = proofs.choose_mut(rng).unwrap();
     proof.linking_quotient_poly_comm = G1Affine::rand(rng);
+}
+
+/// The inputs for the `process_malleable_match_settle_atomic` darkpool method
+pub struct ProcessMalleableMatchSettleAtomicData {
+    /// The internal party's match payload
+    pub internal_party_match_payload: MatchPayload,
+    /// The `VALID MALLEABLE MATCH SETTLE ATOMIC` statement
+    pub valid_malleable_match_settle_atomic_statement:
+        ContractValidMalleableMatchSettleAtomicStatement,
+    /// The Plonk proofs submitted to `process_malleable_match_settle_atomic`
+    pub match_atomic_proofs: MatchAtomicProofs,
+    /// The linking proofs submitted to `process_malleable_match_settle_atomic`
+    pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
+}
+
+/// Generates the statements for a malleable match
+fn dummy_malleable_match_statements<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_fee: FixedPoint,
+    bounded_match_result: BoundedMatchResult,
+) -> (ValidCommitmentsStatement, ValidReblindStatement, SizedValidMalleableMatchSettleAtomicStatement)
+{
+    let indices = dummy_settlement_indices(rng);
+    let relayer_fee_address = address_to_biguint(random_address(rng));
+
+    let valid_commitments = ValidCommitmentsStatement { indices };
+    let valid_reblind = dummy_valid_reblind_statement(rng, merkle_root);
+    let malleable_match_statement = SizedValidMalleableMatchSettleAtomicStatement {
+        bounded_match_result,
+        external_fee_rates: dummy_fee_take_rate_with_protocol_fee(rng, protocol_fee),
+        internal_fee_rates: dummy_fee_take_rate_with_protocol_fee(rng, protocol_fee),
+        internal_party_public_shares: dummy_circuit_type(rng),
+        relayer_fee_address,
+    };
+
+    (valid_commitments, valid_reblind, malleable_match_statement)
+}
+
+/// Generate proofs and linking hints for a malleable match
+fn malleable_match_proofs_and_hints<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    valid_commitments_statement: ValidCommitmentsStatement,
+    valid_reblind_statement: ValidReblindStatement,
+    valid_malleable_match_settle_atomic_statement: SizedValidMalleableMatchSettleAtomicStatement,
+) -> Result<MatchAtomicProofsAndHints> {
+    // Generate dummy witness types
+    let (
+        valid_commitments_witness,
+        valid_reblind_witness,
+        valid_malleable_match_settle_atomic_witness,
+    ) = dummy_malleable_match_witnesses(rng);
+
+    // Prove `VALID COMMITMENTS`
+    let (valid_commitments, valid_commitments_hint) = DummyValidCommitments::prove_with_link_hint(
+        valid_commitments_witness.clone(),
+        valid_commitments_statement,
+    )?;
+    let valid_commitments = to_contract_proof(&valid_commitments)?;
+
+    // Prove `VALID REBLIND`
+    let (valid_reblind, valid_reblind_hint) =
+        DummyValidReblind::prove_with_link_hint(valid_reblind_witness, valid_reblind_statement)?;
+    let valid_reblind = to_contract_proof(&valid_reblind)?;
+
+    // Prove `VALID MALLEABLE MATCH SETTLE ATOMIC`
+    let (valid_malleable_match_settle_atomic, valid_malleable_match_settle_atomic_hint) =
+        DummyValidMalleableMatchSettleAtomic::prove_with_link_hint(
+            valid_malleable_match_settle_atomic_witness,
+            valid_malleable_match_settle_atomic_statement,
+        )?;
+    let valid_malleable_match_settle_atomic =
+        to_contract_proof(&valid_malleable_match_settle_atomic)?;
+
+    // Bundle the return type
+    Ok((
+        MatchAtomicProofs {
+            valid_commitments,
+            valid_reblind,
+            valid_match_settle_atomic: valid_malleable_match_settle_atomic,
+        },
+        // Link hints
+        [
+            (valid_reblind_hint, valid_commitments_hint.clone()),
+            (valid_commitments_hint, valid_malleable_match_settle_atomic_hint),
+        ],
+    ))
+}
+
+/// Get witness types for a malleable match
+pub fn dummy_malleable_match_witnesses<R: RngCore + CryptoRng>(
+    rng: &mut R,
+) -> (
+    DummyValidCommitmentsWitness,
+    DummyValidReblindWitness,
+    DummyValidMalleableMatchSettleAtomicWitness,
+) {
+    let valid_commitments: DummyValidCommitmentsWitness = dummy_circuit_type(rng);
+    let valid_reblind = DummyValidReblindWitness {
+        valid_reblind_commitments: valid_commitments.valid_reblind_commitments,
+    };
+    let valid_malleable_match_settle_atomic = DummyValidMalleableMatchSettleAtomicWitness {
+        valid_commitments_match_settle0: valid_commitments.valid_commitments_match_settle0,
+    };
+
+    (valid_commitments, valid_reblind, valid_malleable_match_settle_atomic)
+}
+
+/// Generates the calldata for a malleable match
+pub fn generate_malleable_match_calldata<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_fee: FixedPoint,
+    bounded_match_result: BoundedMatchResult,
+) -> Result<ProcessMalleableMatchSettleAtomicData> {
+    let (valid_commitments_statement, valid_reblind_statement, malleable_match_statement) =
+        dummy_malleable_match_statements(rng, merkle_root, protocol_fee, bounded_match_result);
+    let (match_atomic_proofs, link_hints) = malleable_match_proofs_and_hints(
+        rng,
+        valid_commitments_statement,
+        valid_reblind_statement.clone(),
+        malleable_match_statement.clone(),
+    )?;
+    let match_atomic_linking_proofs = match_atomic_link_proofs(link_hints)?;
+
+    let internal_party_match_payload = MatchPayload {
+        valid_commitments_statement: to_contract_valid_commitments_statement(
+            valid_commitments_statement,
+        ),
+        valid_reblind_statement: to_contract_valid_reblind_statement(&valid_reblind_statement),
+    };
+
+    Ok(ProcessMalleableMatchSettleAtomicData {
+        internal_party_match_payload,
+        valid_malleable_match_settle_atomic_statement:
+            to_contract_valid_malleable_match_settle_atomic_statement(&malleable_match_statement)?,
+        match_atomic_proofs,
+        match_atomic_linking_proofs,
+    })
 }

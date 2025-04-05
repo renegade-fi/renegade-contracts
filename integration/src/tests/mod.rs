@@ -7,6 +7,7 @@ mod darkpool_components;
 mod external_transfer;
 mod fees;
 mod gas_sponsorship;
+mod malleable_atomic_settlement;
 mod precompile;
 
 // TODO: Add test cases covering invalid historical Merkle roots,
