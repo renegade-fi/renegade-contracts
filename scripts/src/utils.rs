@@ -113,12 +113,12 @@ pub async fn setup_client(
 /// executed, and returns the transaction receipt
 pub async fn send_tx<C: CallDecoder + Unpin>(
     call: EthereumCall<'_, C>,
-) -> Result<Option<TransactionReceipt>, ScriptError> {
+) -> Result<TransactionReceipt, ScriptError> {
     let pending_tx = call.send().await.map_err(err_str!(ScriptError::ContractInteraction))?;
     let receipt =
         pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
 
-    Ok(Some(receipt))
+    Ok(receipt)
 }
 
 /// Sends a transaction request, waiting for the transaction to go from pending

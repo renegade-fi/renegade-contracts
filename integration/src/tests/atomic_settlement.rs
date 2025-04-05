@@ -4,7 +4,7 @@ use alloy_primitives::{Address, U256};
 use ark_ff::One;
 use contracts_common::{constants::TEST_MERKLE_HEIGHT, types::ScalarField};
 use contracts_utils::merkle::new_ark_merkle_tree;
-use eyre::{eyre, Result};
+use eyre::Result;
 use scripts::utils::{call_helper, send_tx};
 use test_helpers::{assert_eq_result, integration_test_async};
 
@@ -242,7 +242,7 @@ pub async fn test_process_atomic_match_settle__native_asset_sell_side(
             serialize_to_calldata(&data.match_atomic_linking_proofs)?,
         )
         .value(base_amount);
-    let receipt = send_tx(call).await?.ok_or_else(|| eyre!("No tx receipt"))?;
+    let receipt = send_tx(call).await?;
 
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
@@ -311,7 +311,7 @@ pub async fn test_process_atomic_match_settle__native_asset_buy_side(
         serialize_to_calldata(&data.match_atomic_proofs)?,
         serialize_to_calldata(&data.match_atomic_linking_proofs)?,
     );
-    let receipt = send_tx(call).await?.ok_or_else(|| eyre!("No tx receipt"))?;
+    let receipt = send_tx(call).await?;
 
     let gas_used = receipt.gas_used;
     let gas_price = receipt.effective_gas_price;
@@ -498,7 +498,7 @@ pub async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) ->
         serialize_to_calldata(&data.match_atomic_proofs)?,
         serialize_to_calldata(&data.match_atomic_linking_proofs)?,
     );
-    send_tx(call).await?.ok_or_else(|| eyre!("No tx receipt"))?;
+    send_tx(call).await?;
 
     // Get post-balances for receiver
     let sender_post_base_balance = ctx.get_erc20_balance(base_addr).await?;
