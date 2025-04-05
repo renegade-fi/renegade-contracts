@@ -14,19 +14,29 @@ use crate::{
             postcard_serialize, static_call_helper,
         },
         solidity::{
-            executeExternalTransferCall, insertNoteCommitmentCall, insertSharesCommitmentCall,
-            rootInHistoryCall, verifyCall, verifyStateSigAndInsertCall, NotePosted, NullifierSpent,
-            WalletUpdated,
+            executeExternalTransferCall, executeTransferBatchCall, insertNoteCommitmentCall,
+            insertSharesCommitmentCall, rootInHistoryCall, verifyCall, verifyStateSigAndInsertCall,
+            NotePosted, NullifierSpent, WalletUpdated,
         },
     },
+    TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE,
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::{SolCall, SolType};
 use contracts_common::{
     custom_serde::{pk_to_u256s, scalar_to_u256},
-    types::{u256_to_scalar, ExternalTransfer, PublicEncryptionKey, PublicSigningKey, ScalarField},
+    types::{
+        u256_to_scalar, ExternalMatchResult, ExternalTransfer, FeeTake, PublicEncryptionKey,
+        PublicSigningKey, ScalarField, SimpleErc20Transfer,
+    },
 };
-use stylus_sdk::{abi::Bytes, alloy_primitives::U256, call::static_call, evm, prelude::*};
+use stylus_sdk::{
+    abi::Bytes,
+    alloy_primitives::{Address, U256},
+    call::static_call,
+    evm, msg,
+    prelude::*,
+};
 
 use super::CoreContractStorage;
 
@@ -226,6 +236,71 @@ pub fn verify<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     Ok(result._0)
 }
 
+// --------------------
+// | Transfer Helpers |
+// --------------------
+
+/// Execute the transfers to/from the external party in an atomic match
+/// settlement
+#[cfg(any(feature = "core-atomic-match-settle", feature = "core-malleable-match-settle"))]
+pub fn execute_atomic_match_transfers<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+    storage: &mut S,
+    receiver: Address,
+    fees: FeeTake,
+    match_result: ExternalMatchResult,
+    relayer_fee_address: Address,
+) -> Result<(), Vec<u8>> {
+    /// The number of transfers to execute in an atomic match settlement
+    const N_TRANSFERS: usize = 4;
+    let tx_sender = msg::sender();
+
+    let mut transfers_batch = Vec::with_capacity(N_TRANSFERS);
+    let (send_mint, send_amount) = match_result.external_party_sell_mint_amount();
+    let (receive_mint, receive_amount) = match_result.external_party_buy_mint_amount();
+
+    // The fee charged by the relayer to the external party
+    transfers_batch.push(SimpleErc20Transfer::new_withdraw(
+        relayer_fee_address,
+        receive_mint,
+        fees.relayer_fee,
+    ));
+
+    // The fee charged by the protocol to the external party
+    let protocol_fee_address = storage.borrow_mut().protocol_external_fee_collection_address();
+    transfers_batch.push(SimpleErc20Transfer::new_withdraw(
+        protocol_fee_address,
+        receive_mint,
+        fees.protocol_fee,
+    ));
+
+    // The amount received by the external party after deducting the fees
+    let trader_take = receive_amount
+        .checked_sub(fees.total())
+        .ok_or(TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE)?;
+    transfers_batch.push(SimpleErc20Transfer::new_withdraw(receiver, receive_mint, trader_take));
+
+    // The amount sent by the external party to the darkpool
+    transfers_batch.push(SimpleErc20Transfer::new_deposit(tx_sender, send_mint, send_amount));
+
+    execute_simple_transfers(storage, transfers_batch)
+}
+
+/// Executes a list of simple ERC20 transfers
+#[cfg(any(feature = "core-atomic-match-settle", feature = "core-malleable-match-settle"))]
+pub fn execute_simple_transfers<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+    storage: &mut S,
+    transfers: Vec<SimpleErc20Transfer>,
+) -> Result<(), Vec<u8>> {
+    let transfer_executor_address = storage.borrow_mut().transfer_executor_address();
+    let calldata = postcard_serialize(&transfers)?;
+    delegate_call_helper::<executeTransferBatchCall>(
+        storage,
+        transfer_executor_address,
+        (calldata.into(),),
+    )
+    .map(|_| ())
+}
+
 /// Executes the given external transfer (withdrawal / deposit)
 pub fn execute_external_transfer<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     s: &mut S,
@@ -249,6 +324,10 @@ pub fn execute_external_transfer<C: CoreContractStorage, S: TopLevelStorage + Bo
 
     Ok(())
 }
+
+// -------------------
+// | Wallet Rotation |
+// -------------------
 
 /// Nullifies the old wallet and commits to the new wallet
 pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(

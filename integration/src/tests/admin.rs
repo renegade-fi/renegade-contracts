@@ -8,10 +8,11 @@ use circuit_types::fixed_point::FixedPoint;
 use constants::Scalar;
 use contracts_common::{
     constants::{
-        CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR,
-        MERKLE_ADDRESS_SELECTOR, TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
-        VERIFIER_CORE_ADDRESS_SELECTOR, VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
-        VKEYS_ADDRESS_SELECTOR,
+        CORE_ATOMIC_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
+        CORE_MALLEABLE_MATCH_SETTLEMENT_ADDRESS_SELECTOR, CORE_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
+        CORE_WALLET_OPS_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR,
+        TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_CORE_ADDRESS_SELECTOR,
+        VERIFIER_SETTLEMENT_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
     },
     types::ScalarField,
 };
@@ -28,8 +29,10 @@ use crate::{
     abis::{
         DarkpoolProxyAdminContract,
         DarkpoolTestContract::{
-            self, pauseCall, setCoreSettlementAddressCall, setCoreWalletOpsAddressCall, setFeeCall,
-            setMerkleAddressCall, setTransferExecutorAddressCall, setVerifierCoreAddressCall,
+            self, pauseCall, setCoreAtomicMatchSettleAddressCall,
+            setCoreMalleableMatchSettleAddressCall, setCoreMatchSettleAddressCall,
+            setCoreWalletOpsAddressCall, setFeeCall, setMerkleAddressCall,
+            setTransferExecutorAddressCall, setVerifierCoreAddressCall,
             setVerifierSettlementAddressCall, setVkeysAddressCall, transferOwnershipCall,
             unpauseCall,
         },
@@ -144,10 +147,28 @@ async fn test_implementation_address_setters(ctx: TestContext) -> Result<()> {
     .await?;
 
     // Core settlement
-    test_upgrade::<setCoreSettlementAddressCall, _>(
+    test_upgrade::<setCoreMatchSettleAddressCall, _>(
         upgrade_addr,
-        ctx.core_settlement_address,
-        CORE_SETTLEMENT_ADDRESS_SELECTOR,
+        ctx.core_match_settle_address,
+        CORE_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
+        &contract,
+    )
+    .await?;
+
+    // Core atomic match settle
+    test_upgrade::<setCoreAtomicMatchSettleAddressCall, _>(
+        upgrade_addr,
+        ctx.core_atomic_match_settle_address,
+        CORE_ATOMIC_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
+        &contract,
+    )
+    .await?;
+
+    // Core malleable match settle
+    test_upgrade::<setCoreMalleableMatchSettleAddressCall, _>(
+        upgrade_addr,
+        ctx.core_malleable_match_settle_address,
+        CORE_MALLEABLE_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
         &contract,
     )
     .await?;

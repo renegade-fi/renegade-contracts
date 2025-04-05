@@ -275,7 +275,9 @@ pub fn get_protocol_external_fee_collection_address(
 #[allow(clippy::too_many_arguments)]
 pub fn darkpool_initialize_calldata(
     core_wallet_ops_address: Address,
-    core_settlement_address: Address,
+    core_match_settle_address: Address,
+    core_atomic_match_settle_address: Address,
+    core_malleable_match_settle_address: Address,
     verifier_core_address: Address,
     verifier_settlement_address: Address,
     vkeys_address: Address,
@@ -293,7 +295,9 @@ pub fn darkpool_initialize_calldata(
 
     Ok(darkpool_initialize_call::new((
         core_wallet_ops_address,
-        core_settlement_address,
+        core_match_settle_address,
+        core_atomic_match_settle_address,
+        core_malleable_match_settle_address,
         verifier_core_address,
         verifier_settlement_address,
         vkeys_address,
@@ -331,7 +335,6 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
     let rustflags = match contract {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
-        | StylusContract::CoreSettlement
         | StylusContract::DarkpoolTestContract => {
             format!("{}{} {}", OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG)
         },

@@ -15,7 +15,11 @@ pub enum StylusContract {
     /// The core wallet operations contract
     CoreWalletOps,
     /// The core settlement contract
-    CoreSettlement,
+    CoreMatchSettle,
+    /// The core atomic settlement contract
+    CoreAtomicMatchSettle,
+    /// The core malleable settlement contract
+    CoreMalleableMatchSettle,
     /// The darkpool test contract
     DarkpoolTestContract,
     /// The Merkle contract
@@ -54,7 +58,9 @@ impl Display for StylusContract {
         match self {
             StylusContract::Darkpool => write!(f, "darkpool"),
             StylusContract::CoreWalletOps => write!(f, "core-wallet-ops"),
-            StylusContract::CoreSettlement => write!(f, "core-settlement"),
+            StylusContract::CoreMatchSettle => write!(f, "core-match-settle"),
+            StylusContract::CoreAtomicMatchSettle => write!(f, "core-atomic-match-settle"),
+            StylusContract::CoreMalleableMatchSettle => write!(f, "core-malleable-match-settle"),
             StylusContract::DarkpoolTestContract => write!(f, "darkpool-test-contract"),
             StylusContract::Merkle => write!(f, "merkle"),
             StylusContract::MerkleTestContract => write!(f, "merkle-test-contract"),

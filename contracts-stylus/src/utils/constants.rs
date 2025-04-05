@@ -6,7 +6,6 @@ use contracts_common::{
     types::ScalarField,
 };
 use core::marker::PhantomData;
-use stylus_sdk::alloy_primitives::U256;
 
 // ------------------
 // | Error Messages |
@@ -75,13 +74,21 @@ pub const INVALID_TRANSACTION_VALUE_ERROR_MESSAGE: &[u8] = b"transaction value s
 
 /// The revert message when order settlement indices are different
 /// between a VALID COMMITMENTS & VALID MATCH SETTLE statement
-#[cfg(feature = "core-settlement")]
+#[cfg(any(
+    feature = "core-match-settle",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle"
+))]
 pub const INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE: &[u8] =
     b"invalid order settlement indices";
 
 /// The revert message when the protocol fee is incorrect in a
 /// VALID MATCH SETTLE statement
-#[cfg(feature = "core-settlement")]
+#[cfg(any(
+    feature = "core-match-settle",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle"
+))]
 pub const INVALID_PROTOCOL_FEE_ERROR_MESSAGE: &[u8] = b"invalid protocol fee";
 
 /// The revert message when the protocol public encryption key is
@@ -130,7 +137,8 @@ pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer au
 /// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 #[cfg(any(
     feature = "transfer-executor",
-    feature = "core-settlement",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle",
     feature = "test-helpers",
     feature = "gas-sponsor"
 ))]
@@ -144,7 +152,11 @@ pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 /// For convenience, the addresses of WETH on Arbitrum chains are below:
 /// - Sepolia: 0xc3414a7ef14aaaa9c4522dfc00a4e66e74e9c25a
 /// - Arbitrum One: 0x82af49447d8a07e3bd95bd0d56f35241523fbab1
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+#[cfg(any(
+    feature = "transfer-executor",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle"
+))]
 pub const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
 
 /// The last byte of the `ecAdd` precompile address, 0x06
@@ -202,29 +214,37 @@ pub const IMPL_ADDRESS_STORAGE_GAP2_SIZE: usize = 2;
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const CORE_WALLET_OPS_DELEGATE_SELECTOR: u64 = 1;
 
-/// The delegate call selector the core settlement contract
+/// The delegate call selector the core match settlement contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const CORE_SETTLEMENT_DELEGATE_SELECTOR: u64 = 2;
+pub const CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR: u64 = 2;
+
+/// The delegate call selector the core atomic match settlement contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR: u64 = 3;
+
+/// The delegate call selector the core malleable match settlement contract
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR: u64 = 4;
 
 /// The delegate call selector the verifier core contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const VERIFIER_CORE_DELEGATE_SELECTOR: u64 = 3;
+pub const VERIFIER_CORE_DELEGATE_SELECTOR: u64 = 5;
 
 /// The delegate call selector for the verifier settlement contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const VERIFIER_SETTLEMENT_DELEGATE_SELECTOR: u64 = 4;
+pub const VERIFIER_SETTLEMENT_DELEGATE_SELECTOR: u64 = 6;
 
 /// The delegate call selector for the vkeys contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const VKEYS_DELEGATE_SELECTOR: u64 = 5;
+pub const VKEYS_DELEGATE_SELECTOR: u64 = 7;
 
 /// The delegate call selector for the merkle contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const MERKLE_DELEGATE_SELECTOR: u64 = 6;
+pub const MERKLE_DELEGATE_SELECTOR: u64 = 8;
 
 /// The delegate call selector for the transfer executor contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
-pub const TRANSFER_EXECUTOR_DELEGATE_SELECTOR: u64 = 7;
+pub const TRANSFER_EXECUTOR_DELEGATE_SELECTOR: u64 = 9;
 
 // ---------------------
 // | Verification Keys |

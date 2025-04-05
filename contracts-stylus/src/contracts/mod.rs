@@ -5,7 +5,9 @@ mod darkpool;
 
 #[cfg(any(
     feature = "core-wallet-ops",
-    feature = "core-settlement",
+    feature = "core-match-settle",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle",
     feature = "darkpool-test-contract"
 ))]
 mod core;

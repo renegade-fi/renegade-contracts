@@ -6,10 +6,11 @@ use core::borrow::{Borrow, BorrowMut};
 use alloc::vec::Vec;
 use contracts_common::{
     constants::{
-        CORE_SETTLEMENT_ADDRESS_SELECTOR, CORE_WALLET_OPS_ADDRESS_SELECTOR,
-        MERKLE_ADDRESS_SELECTOR, TRANSFER_EXECUTOR_ADDRESS_SELECTOR,
-        VERIFIER_CORE_ADDRESS_SELECTOR, VERIFIER_SETTLEMENT_ADDRESS_SELECTOR,
-        VKEYS_ADDRESS_SELECTOR,
+        CORE_ATOMIC_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
+        CORE_MALLEABLE_MATCH_SETTLEMENT_ADDRESS_SELECTOR, CORE_MATCH_SETTLEMENT_ADDRESS_SELECTOR,
+        CORE_WALLET_OPS_ADDRESS_SELECTOR, MERKLE_ADDRESS_SELECTOR,
+        TRANSFER_EXECUTOR_ADDRESS_SELECTOR, VERIFIER_CORE_ADDRESS_SELECTOR,
+        VERIFIER_SETTLEMENT_ADDRESS_SELECTOR, VKEYS_ADDRESS_SELECTOR,
     },
     types::u256_to_scalar,
 };
@@ -31,6 +32,8 @@ use crate::{
         helpers::delegate_call_helper,
         solidity::{init_0Call as initMerkleCall, isDummyUpgradeTargetCall},
     },
+    CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
+    CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
 };
 
 /// The Darkpool test contract
@@ -130,7 +133,13 @@ impl DarkpoolTestContract {
     pub fn is_implementation_upgraded(&mut self, address_selector: u8) -> Result<bool, Vec<u8>> {
         let implementation_address = match address_selector {
             CORE_WALLET_OPS_ADDRESS_SELECTOR => self.core_wallet_ops_address(),
-            CORE_SETTLEMENT_ADDRESS_SELECTOR => self.core_settlement_address(),
+            CORE_MATCH_SETTLEMENT_ADDRESS_SELECTOR => self.core_match_settlement_address(),
+            CORE_ATOMIC_MATCH_SETTLEMENT_ADDRESS_SELECTOR => {
+                self.core_atomic_match_settlement_address()
+            },
+            CORE_MALLEABLE_MATCH_SETTLEMENT_ADDRESS_SELECTOR => {
+                self.core_malleable_match_settlement_address()
+            },
             VERIFIER_CORE_ADDRESS_SELECTOR => self.verifier_core_address(),
             VERIFIER_SETTLEMENT_ADDRESS_SELECTOR => self.verifier_settlement_address(),
             VKEYS_ADDRESS_SELECTOR => self.vkeys_address(),
@@ -154,5 +163,24 @@ impl DarkpoolTestContract {
     pub fn clear_merkle(&mut self) -> Result<(), Vec<u8>> {
         let merkle_address = self.merkle_address();
         delegate_call_helper::<initMerkleCall>(self, merkle_address, ()).map(|_| ())
+    }
+}
+
+// --- Private Helpers --- //
+
+impl DarkpoolTestContract {
+    /// Get the address of the core match settlement contract
+    fn core_match_settlement_address(&self) -> Address {
+        self.darkpool.delegate_addresses.get(CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR)
+    }
+
+    /// Get the address of the core atomic match settlement contract
+    fn core_atomic_match_settlement_address(&self) -> Address {
+        self.darkpool.delegate_addresses.get(CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR)
+    }
+
+    /// Get the address of the core malleable match settlement contract
+    fn core_malleable_match_settlement_address(&self) -> Address {
+        self.darkpool.delegate_addresses.get(CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR)
     }
 }

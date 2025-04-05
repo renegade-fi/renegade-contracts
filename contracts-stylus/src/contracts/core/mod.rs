@@ -7,17 +7,22 @@ use stylus_sdk::{
 };
 
 use crate::{
-    CORE_SETTLEMENT_DELEGATE_SELECTOR, CORE_WALLET_OPS_DELEGATE_SELECTOR, MERKLE_DELEGATE_SELECTOR,
+    CORE_WALLET_OPS_DELEGATE_SELECTOR, MERKLE_DELEGATE_SELECTOR,
     TRANSFER_EXECUTOR_DELEGATE_SELECTOR, VERIFIER_CORE_DELEGATE_SELECTOR,
     VERIFIER_SETTLEMENT_DELEGATE_SELECTOR, VKEYS_DELEGATE_SELECTOR,
 };
 
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub mod core_helpers;
-#[cfg(feature = "core-settlement")]
-pub mod core_settlement;
 #[cfg(any(feature = "core-wallet-ops", feature = "darkpool-test-contract"))]
 pub mod core_wallet_ops;
+
+#[cfg(feature = "core-atomic-match-settle")]
+pub mod core_atomic_match_settle;
+#[cfg(feature = "core-malleable-match-settle")]
+pub mod core_malleable_match_settle;
+#[cfg(feature = "core-match-settle")]
+pub mod core_match_settle;
 
 /// A trait that allows for storage access to the standard storage layout for
 /// core contracts
@@ -29,11 +34,6 @@ pub trait CoreContractStorage {
     /// Get the address of the core wallet ops contract
     fn core_wallet_ops_address(&self) -> Address {
         self.get_delegate_address(CORE_WALLET_OPS_DELEGATE_SELECTOR)
-    }
-
-    /// Get the address of the core settlement contract
-    fn core_settlement_address(&self) -> Address {
-        self.get_delegate_address(CORE_SETTLEMENT_DELEGATE_SELECTOR)
     }
 
     /// Get the address of the verifier core contract

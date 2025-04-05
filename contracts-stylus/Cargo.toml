@@ -18,7 +18,12 @@ serde_with = { workspace = true }
 
 [features]
 core-wallet-ops = ["darkpool-core"]
-core-settlement = ["darkpool-core", "contracts-common/core-settlement"]
+core-match-settle = ["darkpool-core", "contracts-common/core-settlement"]
+core-atomic-match-settle = ["darkpool-core", "contracts-common/core-settlement"]
+core-malleable-match-settle = [
+    "darkpool-core",
+    "contracts-common/core-settlement",
+]
 darkpool = []
 darkpool-test-contract = []
 darkpool-core = []

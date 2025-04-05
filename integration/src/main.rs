@@ -70,8 +70,12 @@ pub struct TestContext {
     pub darkpool_impl_address: Address,
     /// The address of the core wallet ops contract
     pub core_wallet_ops_address: Address,
-    /// The address of the core settlement contract
-    pub core_settlement_address: Address,
+    /// The address of the core match settle contract
+    pub core_match_settle_address: Address,
+    /// The address of the core atomic match settle contract
+    pub core_atomic_match_settle_address: Address,
+    /// The address of the core malleable match settle contract
+    pub core_malleable_match_settle_address: Address,
     /// The address of the Merkle contract
     pub merkle_address: Address,
     /// The address of the verifier core contract
@@ -183,9 +187,21 @@ impl From<Cli> for TestContext {
             read_stylus_deployment_address(&value.deployments_file, &StylusContract::CoreWalletOps)
                 .unwrap();
 
-        let core_settlement_address = read_stylus_deployment_address(
+        let core_match_settle_address = read_stylus_deployment_address(
             &value.deployments_file,
-            &StylusContract::CoreSettlement,
+            &StylusContract::CoreMatchSettle,
+        )
+        .unwrap();
+
+        let core_atomic_match_settle_address = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::CoreAtomicMatchSettle,
+        )
+        .unwrap();
+
+        let core_malleable_match_settle_address = read_stylus_deployment_address(
+            &value.deployments_file,
+            &StylusContract::CoreMalleableMatchSettle,
         )
         .unwrap();
 
@@ -252,7 +268,9 @@ impl From<Cli> for TestContext {
             proxy_admin_address,
             darkpool_impl_address,
             core_wallet_ops_address,
-            core_settlement_address,
+            core_match_settle_address,
+            core_atomic_match_settle_address,
+            core_malleable_match_settle_address,
             merkle_address,
             verifier_core_address,
             verifier_settlement_address,

@@ -93,29 +93,37 @@ pub const EMPTY_LEAF_VALUE: ScalarField = Fp(
 /// `is_implementation_upgraded` method on the Darkpool test contract
 pub const CORE_WALLET_OPS_ADDRESS_SELECTOR: u8 = 0;
 
-/// The selector for the core settlement address in the
+/// The selector for the core match settlement address in the
 /// `is_implementation_upgraded` method on the Darkpool test contract
-pub const CORE_SETTLEMENT_ADDRESS_SELECTOR: u8 = 1;
+pub const CORE_MATCH_SETTLEMENT_ADDRESS_SELECTOR: u8 = 1;
+
+/// The selector for the core atomic match settlement address in the
+/// `is_implementation_upgraded` method on the Darkpool test contract
+pub const CORE_ATOMIC_MATCH_SETTLEMENT_ADDRESS_SELECTOR: u8 = 2;
+
+/// The selector for the core malleable match settlement address in the
+/// `is_implementation_upgraded` method on the Darkpool test contract
+pub const CORE_MALLEABLE_MATCH_SETTLEMENT_ADDRESS_SELECTOR: u8 = 3;
 
 /// The selector for the verifier address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
-pub const VERIFIER_CORE_ADDRESS_SELECTOR: u8 = 2;
+pub const VERIFIER_CORE_ADDRESS_SELECTOR: u8 = 4;
 
 /// The selector for the verifier settlement address in the
 /// `is_implementation_upgraded` method on the Darkpool test contract
-pub const VERIFIER_SETTLEMENT_ADDRESS_SELECTOR: u8 = 3;
+pub const VERIFIER_SETTLEMENT_ADDRESS_SELECTOR: u8 = 5;
 
 /// The selector for the vkeys address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
-pub const VKEYS_ADDRESS_SELECTOR: u8 = 4;
+pub const VKEYS_ADDRESS_SELECTOR: u8 = 6;
 
 /// The selector for the merkle address in the `is_implementation_upgraded`
 /// method on the Darkpool test contract
-pub const MERKLE_ADDRESS_SELECTOR: u8 = 5;
+pub const MERKLE_ADDRESS_SELECTOR: u8 = 7;
 
 /// The selector for the transfer executor address in the
 /// `is_implementation_upgraded` method on the Darkpool test contract
-pub const TRANSFER_EXECUTOR_ADDRESS_SELECTOR: u8 = 6;
+pub const TRANSFER_EXECUTOR_ADDRESS_SELECTOR: u8 = 8;
 
 /// The revert message when failing to convert a
 /// u256 to a scalar

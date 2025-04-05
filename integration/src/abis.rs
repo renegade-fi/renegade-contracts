@@ -19,7 +19,9 @@ sol!(
         function setExternalMatchFeeOverride(address memory asset, uint256 memory new_fee) external;
         function removeExternalMatchFeeOverride(address memory asset) external;
         function setCoreWalletOpsAddress(address memory core_wallet_ops_address) external;
-        function setCoreSettlementAddress(address memory core_settlement_address) external;
+        function setCoreMatchSettleAddress(address memory core_match_settle_address) external;
+        function setCoreAtomicMatchSettleAddress(address memory core_atomic_match_settle_address) external;
+        function setCoreMalleableMatchSettleAddress(address memory core_malleable_match_settle_address) external;
         function setVerifierCoreAddress(address memory verifier_core_address) external;
         function setVerifierSettlementAddress(address memory verifier_settlement_address) external;
         function setVkeysAddress(address memory vkeys_address) external;
