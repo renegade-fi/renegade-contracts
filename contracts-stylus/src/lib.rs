@@ -5,6 +5,7 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 #![no_main]
+#![allow(deprecated)]
 
 mod contracts;
 mod utils;
