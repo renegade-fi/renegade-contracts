@@ -9,12 +9,11 @@ use scripts::utils::{call_helper, send_tx};
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
-    abis::IAtomicMatchSettleContract,
     utils::{
         insert_shares_and_get_root, serialize_to_calldata, setup_atomic_match_settle_test,
         setup_atomic_match_settle_test_native_eth, u256_to_scalar,
     },
-    IAtomicMatchSettleInstance, TestContext,
+    TestContext,
 };
 
 /// Test a successful call to `process_atomic_match_settle`
@@ -65,11 +64,11 @@ integration_test_async!(test_process_atomic_match_settle__internal_party);
 /// Test `process_atomic_match_settle` and verify the external party's state
 /// after update. That is, the erc20 transfers that result from the atomic match
 #[allow(non_snake_case)]
-pub async fn _test_process_atomic_match_settle__external_party_buy_side(
+pub async fn test_process_atomic_match_settle__external_party_buy_side(
     ctx: TestContext,
-    contract: IAtomicMatchSettleInstance,
 ) -> Result<()> {
     // Setup test data
+    let contract = ctx.darkpool_contract();
     let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let base_addr = ctx.test_erc20_address1;
     let quote_addr = ctx.test_erc20_address2;
@@ -132,24 +131,16 @@ pub async fn _test_process_atomic_match_settle__external_party_buy_side(
 
     Ok(())
 }
-
-/// Run the `test_process_atomic_match_settle__external_party_buy_side` test
-/// through the darkpool contract
-#[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__external_party_buy_side(ctx: TestContext) -> Result<()> {
-    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.provider());
-    _test_process_atomic_match_settle__external_party_buy_side(ctx, contract).await
-}
 integration_test_async!(test_process_atomic_match_settle__external_party_buy_side);
 
 /// Test `process_atomic_match_settle` and verify the external party's state
 /// after update. That is, the erc20 transfers that result from the atomic match
 #[allow(non_snake_case)]
-pub async fn _test_process_atomic_match_settle__external_party_sell_side(
+pub async fn test_process_atomic_match_settle__external_party_sell_side(
     ctx: TestContext,
-    contract: IAtomicMatchSettleInstance,
 ) -> Result<()> {
     // Setup test data
+    let contract = ctx.darkpool_contract();
     let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let base_addr = ctx.test_erc20_address1;
     let quote_addr = ctx.test_erc20_address2;
@@ -212,25 +203,15 @@ pub async fn _test_process_atomic_match_settle__external_party_sell_side(
 
     Ok(())
 }
-
-/// Run the `test_process_atomic_match_settle__external_party_sell_side` test
-/// through the darkpool contract
-#[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__external_party_sell_side(
-    ctx: TestContext,
-) -> Result<()> {
-    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.provider());
-    _test_process_atomic_match_settle__external_party_sell_side(ctx, contract).await
-}
 integration_test_async!(test_process_atomic_match_settle__external_party_sell_side);
 
 /// Test `process_atomic_match_settle` with the native asset
 #[allow(non_snake_case)]
-pub async fn _test_process_atomic_match_settle__native_asset_sell_side(
+pub async fn test_process_atomic_match_settle__native_asset_sell_side(
     ctx: TestContext,
-    contract: IAtomicMatchSettleInstance,
 ) -> Result<()> {
     // Setup test data
+    let contract = ctx.darkpool_contract();
     let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let quote_addr = ctx.test_erc20_address2;
     let darkpool = ctx.darkpool_contract();
@@ -296,22 +277,14 @@ pub async fn _test_process_atomic_match_settle__native_asset_sell_side(
 
     Ok(())
 }
-
-/// Run the `test_process_atomic_match_settle__native_asset_sell_side` test
-/// through the darkpool contract
-#[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__native_asset_sell_side(ctx: TestContext) -> Result<()> {
-    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.provider());
-    _test_process_atomic_match_settle__native_asset_sell_side(ctx, contract).await
-}
 integration_test_async!(test_process_atomic_match_settle__native_asset_sell_side);
 
 /// Test `process_atomic_match_settle` with native asset on buy side
 #[allow(non_snake_case)]
-pub async fn _test_process_atomic_match_settle__native_asset_buy_side(
+pub async fn test_process_atomic_match_settle__native_asset_buy_side(
     ctx: TestContext,
-    contract: IAtomicMatchSettleInstance,
 ) -> Result<()> {
+    let contract = ctx.darkpool_contract();
     let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let quote_addr = ctx.test_erc20_address2;
     let darkpool = ctx.darkpool_contract();
@@ -373,14 +346,6 @@ pub async fn _test_process_atomic_match_settle__native_asset_buy_side(
     );
 
     Ok(())
-}
-
-/// Run the `test_process_atomic_match_settle__native_asset_buy_side` test
-/// through the darkpool contract
-#[allow(non_snake_case)]
-async fn test_process_atomic_match_settle__native_asset_buy_side(ctx: TestContext) -> Result<()> {
-    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.provider());
-    _test_process_atomic_match_settle__native_asset_buy_side(ctx, contract).await
 }
 integration_test_async!(test_process_atomic_match_settle__native_asset_buy_side);
 
@@ -502,11 +467,9 @@ integration_test_async!(test_process_atomic_match_settle_nonzero_transaction_val
 /// Test the `process_atomic_match_settle_with_receiver` method on the darkpool
 ///
 /// I.e. test an atomic settlement with a non-sender receiver specified
-pub async fn _test_process_atomic_match_settle_with_receiver(
-    ctx: TestContext,
-    contract: IAtomicMatchSettleInstance,
-) -> Result<()> {
+pub async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Result<()> {
     // Setup test with a random receiver address
+    let contract = ctx.darkpool_contract();
     let use_gas_sponsor = contract.address() == ctx.gas_sponsor_contract().address();
     let receiver = Address::random();
     let base_addr = ctx.test_erc20_address1;
@@ -582,14 +545,6 @@ pub async fn _test_process_atomic_match_settle_with_receiver(
     );
 
     Ok(())
-}
-
-/// Run the `test_process_atomic_match_settle_with_receiver` test
-/// through the darkpool contract
-#[allow(non_snake_case)]
-async fn test_process_atomic_match_settle_with_receiver(ctx: TestContext) -> Result<()> {
-    let contract = IAtomicMatchSettleContract::new(ctx.darkpool_proxy_address, ctx.provider());
-    _test_process_atomic_match_settle_with_receiver(ctx, contract).await
 }
 integration_test_async!(test_process_atomic_match_settle_with_receiver);
 

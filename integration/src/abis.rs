@@ -124,14 +124,6 @@ sol!(
 );
 
 sol!(
-    #[sol(rpc)]
-    contract IAtomicMatchSettleContract {
-        function processAtomicMatchSettle(bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
-        function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
-    }
-);
-
-sol!(
     #[allow(clippy::too_many_arguments)]
     #[sol(rpc)]
     contract GasSponsorContract {
