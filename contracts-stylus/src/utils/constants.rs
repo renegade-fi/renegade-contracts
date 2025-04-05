@@ -6,7 +6,6 @@ use contracts_common::{
     types::ScalarField,
 };
 use core::marker::PhantomData;
-use stylus_sdk::alloy_primitives::U256;
 
 // ------------------
 // | Error Messages |
@@ -138,7 +137,8 @@ pub const MISSING_TRANSFER_AUX_DATA_ERROR_MESSAGE: &[u8] = b"missing transfer au
 /// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 #[cfg(any(
     feature = "transfer-executor",
-    feature = "core-settlement",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle",
     feature = "test-helpers",
     feature = "gas-sponsor"
 ))]
@@ -152,7 +152,11 @@ pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
 /// For convenience, the addresses of WETH on Arbitrum chains are below:
 /// - Sepolia: 0xc3414a7ef14aaaa9c4522dfc00a4e66e74e9c25a
 /// - Arbitrum One: 0x82af49447d8a07e3bd95bd0d56f35241523fbab1
-#[cfg(any(feature = "transfer-executor", feature = "core-settlement"))]
+#[cfg(any(
+    feature = "transfer-executor",
+    feature = "core-atomic-match-settle",
+    feature = "core-malleable-match-settle"
+))]
 pub const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
 
 /// The last byte of the `ecAdd` precompile address, 0x06

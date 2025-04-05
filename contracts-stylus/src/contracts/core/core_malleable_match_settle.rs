@@ -17,14 +17,10 @@ use crate::{
             TRANSFER_EXECUTOR_STORAGE_GAP_SIZE, VERIFICATION_FAILED_ERROR_MESSAGE,
         },
         helpers::{
-            delegate_call_helper, deserialize_from_calldata, get_weth_address,
-            is_native_eth_address, postcard_serialize,
+            deserialize_from_calldata, get_weth_address, is_native_eth_address, postcard_serialize,
             serialize_malleable_match_statements_for_verification,
         },
-        solidity::{
-            executeTransferBatchCall, processMalleableMatchSettleAtomicVkeysCall,
-            verifyAtomicMatchCall,
-        },
+        solidity::{processMalleableMatchSettleAtomicVkeysCall, verifyAtomicMatchCall},
     },
     IMPL_ADDRESS_STORAGE_GAP1_SIZE, IMPL_ADDRESS_STORAGE_GAP2_SIZE,
     INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
@@ -32,7 +28,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
-    u256_to_scalar, MatchPayload, SimpleErc20Transfer, ValidMalleableMatchSettleAtomicStatement,
+    u256_to_scalar, MatchPayload, ValidMalleableMatchSettleAtomicStatement,
     VerifyAtomicMatchCalldata, WalletShare,
 };
 use stylus_sdk::{
@@ -318,20 +314,5 @@ impl CoreMalleableMatchSettleContract {
         )?;
 
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
-    }
-
-    /// Call the transfer executor to execute the transfers
-    fn execute_transfers<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        transfers: Vec<SimpleErc20Transfer>,
-    ) -> Result<(), Vec<u8>> {
-        let transfer_executor_address = storage.borrow_mut().transfer_executor_address();
-        let calldata = postcard_serialize(&transfers)?;
-        delegate_call_helper::<executeTransferBatchCall>(
-            storage,
-            transfer_executor_address,
-            (calldata.into(),),
-        )
-        .map(|_| ())
     }
 }

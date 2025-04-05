@@ -242,6 +242,7 @@ pub fn verify<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
 
 /// Execute the transfers to/from the external party in an atomic match
 /// settlement
+#[cfg(any(feature = "core-atomic-match-settle", feature = "core-malleable-match-settle"))]
 pub fn execute_atomic_match_transfers<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     storage: &mut S,
     receiver: Address,
@@ -285,6 +286,7 @@ pub fn execute_atomic_match_transfers<C: CoreContractStorage, S: TopLevelStorage
 }
 
 /// Executes a list of simple ERC20 transfers
+#[cfg(any(feature = "core-atomic-match-settle", feature = "core-malleable-match-settle"))]
 pub fn execute_simple_transfers<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     storage: &mut S,
     transfers: Vec<SimpleErc20Transfer>,

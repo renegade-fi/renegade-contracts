@@ -4,7 +4,21 @@ use alloy_sol_types::sol;
 
 sol! {
     // Darkpool initialization ABI
-    function initialize(address memory core_wallet_ops_address, address memory core_settlement_address, address memory verifier_core_address, address memory verifier_settlement_address, address memory vkeys_address, address memory merkle_address, address memory transfer_executor_address, address memory permit2_address, uint256 memory protocol_fee, uint256[2] memory protocol_public_encryption_key, address memory protocol_external_fee_collection_address) external;
+    function initialize(
+        address memory core_wallet_ops_address,
+        address memory core_match_settlement_address,
+        address memory core_atomic_match_settlement_address,
+        address memory core_malleable_match_settlement_address,
+        address memory verifier_core_address,
+        address memory verifier_settlement_address,
+        address memory vkeys_address,
+        address memory merkle_address,
+        address memory transfer_executor_address,
+        address memory permit2_address,
+        uint256 memory protocol_fee,
+        uint256[2] memory protocol_public_encryption_key,
+        address memory protocol_external_fee_collection_address,
+    ) external;
     // Gas sponsor initialization ABI
     function initialize(address memory darkpool_address, address memory auth_address) external;
 }

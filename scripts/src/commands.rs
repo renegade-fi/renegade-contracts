@@ -198,8 +198,30 @@ pub async fn deploy_test_contracts(
     )
     .await?;
 
-    info!("Deploying core settlement contract");
-    deploy_stylus_args.contract = StylusContract::CoreSettlement;
+    info!("Deploying core match settlement contract");
+    deploy_stylus_args.contract = StylusContract::CoreMatchSettle;
+    build_and_deploy_stylus_contract(
+        &deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying core atomic match settlement contract");
+    deploy_stylus_args.contract = StylusContract::CoreAtomicMatchSettle;
+    build_and_deploy_stylus_contract(
+        &deploy_stylus_args,
+        rpc_url,
+        priv_key,
+        client.clone(),
+        deployments_path,
+    )
+    .await?;
+
+    info!("Deploying core malleable match settlement contract");
+    deploy_stylus_args.contract = StylusContract::CoreMalleableMatchSettle;
     build_and_deploy_stylus_contract(
         &deploy_stylus_args,
         rpc_url,
@@ -293,8 +315,14 @@ pub async fn deploy_darkpool_proxy(
     let darkpool_address = read_stylus_deployment_address(deployments_path, &darkpool_contract)?;
     let core_wallet_ops_address =
         read_stylus_deployment_address(deployments_path, &StylusContract::CoreWalletOps)?;
-    let core_settlement_address =
-        read_stylus_deployment_address(deployments_path, &StylusContract::CoreSettlement)?;
+    let core_match_settle_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreMatchSettle)?;
+    let core_atomic_match_settle_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreAtomicMatchSettle)?;
+    let core_malleable_match_settle_address = read_stylus_deployment_address(
+        deployments_path,
+        &StylusContract::CoreMalleableMatchSettle,
+    )?;
     let merkle_address = read_stylus_deployment_address(deployments_path, &merkle_contract)?;
     let verifier_core_address =
         read_stylus_deployment_address(deployments_path, &StylusContract::VerifierCore)?;
@@ -319,7 +347,9 @@ pub async fn deploy_darkpool_proxy(
 
     let initialize_calldata = Bytes::from(darkpool_initialize_calldata(
         core_wallet_ops_address,
-        core_settlement_address,
+        core_match_settle_address,
+        core_atomic_match_settle_address,
+        core_malleable_match_settle_address,
         verifier_core_address,
         verifier_settlement_address,
         vkeys_address,

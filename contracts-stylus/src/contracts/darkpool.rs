@@ -130,9 +130,9 @@ impl DarkpoolContract {
     pub fn initialize<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         core_wallet_ops_address: Address,
-        core_match_settlement_address: Address,
-        core_atomic_match_settlement_address: Address,
-        core_malleable_match_settlement_address: Address,
+        core_match_settle_address: Address,
+        core_atomic_match_settle_address: Address,
+        core_malleable_match_settle_address: Address,
         verifier_core_address: Address,
         verifier_settlement_address: Address,
         vkeys_address: Address,
@@ -156,17 +156,14 @@ impl DarkpoolContract {
         // Set the stored addresses
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
         DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
-        DarkpoolContract::set_core_match_settlement_address(
+        DarkpoolContract::set_core_match_settle_address(storage, core_match_settle_address)?;
+        DarkpoolContract::set_core_atomic_match_settle_address(
             storage,
-            core_match_settlement_address,
+            core_atomic_match_settle_address,
         )?;
-        DarkpoolContract::set_core_atomic_match_settlement_address(
+        DarkpoolContract::set_core_malleable_match_settle_address(
             storage,
-            core_atomic_match_settlement_address,
-        )?;
-        DarkpoolContract::set_core_malleable_atomic_match_settlement_address(
-            storage,
-            core_malleable_match_settlement_address,
+            core_malleable_match_settle_address,
         )?;
         DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
         DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
@@ -187,7 +184,7 @@ impl DarkpoolContract {
         )?;
 
         // Mark the darkpool as initialized
-        DarkpoolContract::_initialize(storage, 1)?;
+        DarkpoolContract::_initialize(storage, 2 /* version */)?;
 
         Ok(())
     }
@@ -430,8 +427,8 @@ impl DarkpoolContract {
         Ok(())
     }
 
-    /// Sets the core match settlement address
-    pub fn set_core_match_settlement_address<S: TopLevelStorage + BorrowMut<Self>>(
+    /// Sets the core match settle address
+    pub fn set_core_match_settle_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         core_match_settlement_address: Address,
     ) -> Result<(), Vec<u8>> {
@@ -446,37 +443,35 @@ impl DarkpoolContract {
     }
 
     /// Sets the core atomic match settlement address
-    pub fn set_core_atomic_match_settlement_address<S: TopLevelStorage + BorrowMut<Self>>(
+    pub fn set_core_atomic_match_settle_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        core_atomic_match_settlement_address: Address,
+        core_atomic_match_settle_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::set_delegate_address(
             storage,
             CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
-            core_atomic_match_settlement_address,
+            core_atomic_match_settle_address,
         )?;
 
         evm::log(CoreAtomicMatchSettlementAddressChanged {
-            new_address: core_atomic_match_settlement_address,
+            new_address: core_atomic_match_settle_address,
         });
         Ok(())
     }
 
-    /// Sets the core malleable atomic match settlement address
-    pub fn set_core_malleable_atomic_match_settlement_address<
-        S: TopLevelStorage + BorrowMut<Self>,
-    >(
+    /// Sets the core malleable match settlement address
+    pub fn set_core_malleable_match_settle_address<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
-        core_malleable_atomic_match_settlement_address: Address,
+        core_malleable_match_settle_address: Address,
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::set_delegate_address(
             storage,
             CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
-            core_malleable_atomic_match_settlement_address,
+            core_malleable_match_settle_address,
         )?;
 
         evm::log(CoreMalleableMatchSettlementAddressChanged {
-            new_address: core_malleable_atomic_match_settlement_address,
+            new_address: core_malleable_match_settle_address,
         });
         Ok(())
     }
