@@ -1,9 +1,12 @@
 //! Implementations of the various deploy scripts
 
 use alloy::{
+    network::TransactionBuilder,
     primitives::{Address, Bytes, U256},
     providers::Provider,
+    rpc::types::TransactionRequest,
 };
+use alloy_sol_types::SolConstructor;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments, valid_fee_redemption::SizedValidFeeRedemption,
@@ -40,14 +43,14 @@ use crate::{
         DeployTestContractsArgs, GenVkeysArgs, UpgradeArgs,
     },
     constants::{
-        Permit2, TransparentUpgradeableProxy, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT,
+        TransparentUpgradeableProxy, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, PERMIT2_BYTECODE,
         PERMIT2_CONTRACT_KEY, PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
         PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE, PROCESS_MATCH_SETTLE_VKEYS_FILE,
         PROXY_ADMIN_CONTRACT_KEY, PROXY_ADMIN_STORAGE_SLOT, PROXY_CONTRACT_KEY,
         TEST_ERC20_DECIMALS, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
-        VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
-        VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
-        VALID_WALLET_UPDATE_VKEY_FILE,
+        TRANSPARENT_UPGRADEABLE_PROXY_BYTECODE, VALID_FEE_REDEMPTION_VKEY_FILE,
+        VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE, VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE,
+        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
     solidity::{DummyErc20, DummyWeth, ProxyAdmin},
@@ -56,8 +59,8 @@ use crate::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         gas_sponsor_initialize_calldata, get_protocol_external_fee_collection_address,
         get_public_encryption_key, read_deployment_address, read_stylus_deployment_address,
-        send_tx, setup_client, write_deployment_address, write_stylus_contract_address,
-        write_vkey_file, LocalWalletHttpClient,
+        send_raw_tx, send_tx, setup_client, write_deployment_address,
+        write_stylus_contract_address, write_vkey_file, LocalWalletHttpClient,
     },
 };
 
@@ -382,16 +385,10 @@ async fn deploy_proxy(
 ) -> Result<(), ScriptError> {
     // Deploy proxy contract
     let owner_address = client.address();
-    let proxy_contract = TransparentUpgradeableProxy::deploy(
-        client.provider(),
-        implementation_address,
-        owner_address,
-        initialization_calldata,
-    )
-    .await
-    .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
+    let deploy_code =
+        get_proxy_deploy_code(implementation_address, owner_address, initialization_calldata)?;
 
-    let proxy_address = *proxy_contract.address();
+    let proxy_address = deploy_from_bytecode(&client, deploy_code).await?;
 
     info!("Proxy contract deployed at address:\n\t{:#x}", proxy_address);
 
@@ -422,14 +419,51 @@ pub async fn deploy_permit2(
     client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    // Get Permit2 contract ABI and bytecode
-    let permit2 = Permit2::deploy(client.provider())
-        .await
-        .map_err(|e| ScriptError::ContractDeployment(e.to_string()))?;
-    let permit2_address = *permit2.address();
+    let bytecode = hex::decode(PERMIT2_BYTECODE).map_err(err_str!(ScriptError::ArtifactParsing))?;
+
+    let permit2_address = deploy_from_bytecode(&client, bytecode).await?;
 
     info!("Permit2 contract deployed at address:\n\t{:#x}", permit2_address);
     write_deployment_address(deployments_path, PERMIT2_CONTRACT_KEY, permit2_address)
+}
+
+/// Get the deploy code for a proxy contract.
+/// Concretely, this is the bytecode of the proxy contract
+/// concatenated with the calldata for the constructor.
+fn get_proxy_deploy_code(
+    implementation_address: Address,
+    owner_address: Address,
+    initialization_calldata: Bytes,
+) -> Result<Vec<u8>, ScriptError> {
+    let bytecode = hex::decode(TRANSPARENT_UPGRADEABLE_PROXY_BYTECODE)
+        .map_err(err_str!(ScriptError::ArtifactParsing))?;
+
+    let constructor_calldata = TransparentUpgradeableProxy::constructorCall {
+        _logic: implementation_address,
+        initialOwner: owner_address,
+        _data: initialization_calldata,
+    }
+    .abi_encode();
+
+    let deploy_code = [&bytecode[..], &constructor_calldata[..]].concat();
+    Ok(deploy_code)
+}
+
+/// Deploys a contract from its "deploy code" (bytecode + any constructor
+/// calldata). Returns the deployed contract's address.
+async fn deploy_from_bytecode(
+    client: &LocalWalletHttpClient,
+    deploy_code: Vec<u8>,
+) -> Result<Address, ScriptError> {
+    let provider = client.provider();
+    let tx = TransactionRequest::default().with_deploy_code(deploy_code);
+    let receipt = send_raw_tx(&provider, tx).await?;
+
+    let address = receipt.contract_address.ok_or_else(|| {
+        ScriptError::ContractDeployment("Deployed contract address not found".to_string())
+    })?;
+
+    Ok(address)
 }
 
 /// Deploys the ERC-20 contract & approves the Permit2 contract

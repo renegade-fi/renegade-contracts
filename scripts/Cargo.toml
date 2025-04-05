@@ -7,7 +7,7 @@ edition = "2021"
 alloy = { workspace = true, default-features = true, features = ["rlp"] }
 alloy-contract = { workspace = true }
 # In the scripts, we use higher versions of the alloy-sol crates in line with `alloy-contract`
-alloy-sol-types = { version = "0.8" }
+alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 clap = { workspace = true, features = ["env"] }
 tokio = { workspace = true }
@@ -16,7 +16,7 @@ itertools = { workspace = true }
 circuits = { workspace = true, features = ["test_helpers"] }
 circuit-types = { workspace = true }
 constants = { workspace = true }
-util = { path = "../../renegade/util", features = [
+util = { git = "https://github.com/renegade-fi/renegade.git", features = [
     "errors",
 ] }
 mpc-plonk = { workspace = true }
