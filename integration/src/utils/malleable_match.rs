@@ -16,13 +16,19 @@ use renegade_crypto::fields::scalar_to_u128;
 
 use crate::TestContext;
 
-use super::{address_to_biguint, mint_dummy_erc20s, setup_external_match_token_approvals};
+use super::{
+    address_to_biguint, biguint_to_address, mint_dummy_erc20s, native_eth_address,
+    setup_external_match_token_approvals,
+};
 
 /// The maximum amount in darkpool balances and match volumes
-const MAX_AMOUNT: Amount = 1u128 << 100;
+///
+/// We keep this low to avoid spending the entire native eth balance
+const MAX_TRADE_SIZE: Amount = 1u128 << 15;
 
 /// Generate the calldata for a malleable match
 pub async fn setup_malleable_match_test(
+    is_native: bool,
     ctx: &TestContext,
 ) -> Result<(U256, ProcessMalleableMatchSettleAtomicData)> {
     let mut rng = thread_rng();
@@ -33,7 +39,7 @@ pub async fn setup_malleable_match_test(
     let external_party_buy = rng.gen_bool(0.5);
     let mut match_result = random_bounded_match_result(external_party_buy, ctx);
     match_result.direction = external_party_buy;
-    let payload = generate_malleable_match_calldata(
+    let mut payload = generate_malleable_match_calldata(
         &mut rng,
         merkle_root,
         protocol_fee,
@@ -47,8 +53,10 @@ pub async fn setup_malleable_match_test(
 
     // Setup ERC20 token balances
     let exact_match_res = exact_match_result(&match_result, base_amount);
-    mint_dummy_erc20s(ctx.test_erc20_address1, U256::from(base_amount), ctx).await?;
-    mint_dummy_erc20s(ctx.test_erc20_address2, U256::from(quote_amount), ctx).await?;
+    let base_mint = biguint_to_address(&match_result.base_mint);
+    let quote_mint = biguint_to_address(&match_result.quote_mint);
+    mint_dummy_erc20s(base_mint, U256::from(base_amount), ctx).await?;
+    mint_dummy_erc20s(quote_mint, U256::from(quote_amount), ctx).await?;
     setup_external_match_token_approvals(
         external_party_buy,
         false, // use_gas_sponsor
@@ -57,6 +65,10 @@ pub async fn setup_malleable_match_test(
     )
     .await?;
 
+    if is_native {
+        payload.valid_malleable_match_settle_atomic_statement.match_result.base_mint =
+            native_eth_address();
+    }
     Ok((U256::from(base_amount), payload))
 }
 
@@ -66,7 +78,7 @@ fn random_bounded_match_result(external_party_buy: bool, ctx: &TestContext) -> B
     let base = ctx.test_erc20_address1;
     let quote = ctx.test_erc20_address2;
     let min_base_amount = random_amount();
-    let max_base_amount = rng.gen_range(min_base_amount..MAX_AMOUNT);
+    let max_base_amount = rng.gen_range(min_base_amount..MAX_TRADE_SIZE);
 
     BoundedMatchResult {
         direction: external_party_buy,
@@ -87,7 +99,7 @@ fn random_price() -> FixedPoint {
 /// Generate a random amount for a match
 fn random_amount() -> Amount {
     let mut rng = thread_rng();
-    rng.gen_range(0..MAX_AMOUNT)
+    rng.gen_range(0..MAX_TRADE_SIZE)
 }
 
 /// Choose a base amount
@@ -99,7 +111,7 @@ fn sample_base_amount(match_result: &BoundedMatchResult) -> Amount {
 }
 
 /// Get the exact match result from a bounded match result and a base amount
-fn exact_match_result(
+pub(crate) fn exact_match_result(
     match_result: &BoundedMatchResult,
     base_amount: Amount,
 ) -> ExternalMatchResult {
