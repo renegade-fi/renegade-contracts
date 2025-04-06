@@ -3,29 +3,27 @@
 use alloy::rpc::types::TransactionReceipt;
 use alloy_primitives::{utils::parse_ether, Address, Bytes, U256};
 use ark_std::UniformRand;
-use contracts_common::types::ScalarField;
+use contracts_common::types::{ScalarField, ValidMatchSettleAtomicStatement};
 use contracts_utils::{
     crypto::hash_and_sign_message, proof_system::test_data::SponsoredAtomicMatchSettleData,
 };
 use eyre::Result;
 use rand::thread_rng;
 use scripts::utils::send_tx;
-use test_helpers::assert_true_result;
+use test_helpers::assert_eq_result;
 
-use crate::{
-    abis::DummyErc20Contract,
-    constants::{GAS_COST_TOLERANCE, REFUND_AMOUNT},
-    TestContext,
+use crate::{abis::DummyErc20Contract, constants::REFUND_AMOUNT, GasSponsorInstance, TestContext};
+
+use super::{
+    native_eth_address, scalar_to_u256, serialize_to_calldata, setup_atomic_match_settle_test,
 };
-
-use super::{native_eth_address, scalar_to_u256, setup_atomic_match_settle_test};
 
 // ---------
 // | Types |
 // ---------
 
 /// The options for setting up a sponsored match test
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct SponsoredMatchTestOptions {
     /// Whether or not the external party sells the base
     pub sell_side: bool,
@@ -37,10 +35,6 @@ pub struct SponsoredMatchTestOptions {
     pub receiver: Address,
     /// Whether to refund through the buy-side token
     pub in_kind_refund: bool,
-    /// Whether to sign the refund amount. This should be `true`
-    /// if we are invoking the `sponsorAtomicMatchSettleWithRefundOptions`
-    /// method directly.
-    pub sign_refund_amount: bool,
 }
 
 // -----------
@@ -69,16 +63,12 @@ pub async fn setup_sponsored_match_test(
     let mut rng = thread_rng();
     let nonce = scalar_to_u256(ScalarField::rand(&mut rng));
     let nonce_bytes = nonce.to_be_bytes_vec();
+    let refund_amount_bytes = REFUND_AMOUNT.to_be_bytes_vec();
 
     let mut message = Vec::new();
     message.extend_from_slice(&nonce_bytes);
     message.extend_from_slice(options.refund_address.as_ref());
-
-    if options.sign_refund_amount {
-        // Add the refund amount to the message
-        let refund_amount_bytes = REFUND_AMOUNT.to_be_bytes_vec();
-        message.extend_from_slice(&refund_amount_bytes);
-    }
+    message.extend_from_slice(&refund_amount_bytes);
 
     if options.in_kind_refund {
         // Fund the gas sponsor with some ERC20s
@@ -109,15 +99,79 @@ pub async fn setup_sponsored_match_test(
     })
 }
 
-/// Asserts that the gas refund through native ETH is within the acceptable
-/// tolerance
+/// Asserts that the gas refund through native ETH matches the refund amount.
+/// The `post_refund_eth_balance` is expected to be the balance after accounting
+/// for gas costs & gas refund, but not factoring in any native ETH traded.
 pub fn assert_native_eth_gas_refund(
     initial_eth_balance: U256,
     post_refund_eth_balance: U256,
     receipt: TransactionReceipt,
 ) -> Result<()> {
-    let gas_price = receipt.effective_gas_price;
-    let eth_diff = initial_eth_balance.checked_sub(post_refund_eth_balance).unwrap_or_default();
-    let gas_diff = eth_diff / U256::from(gas_price);
-    assert_true_result!(gas_diff < GAS_COST_TOLERANCE)
+    let gas_cost = U256::from(receipt.gas_used as u128 * receipt.effective_gas_price);
+    let eth_diff = initial_eth_balance - post_refund_eth_balance;
+    assert_eq_result!(gas_cost - eth_diff, REFUND_AMOUNT)
+}
+
+/// Invoke the `sponsor_atomic_match_settle_with_refund_options` method on the
+/// gas sponsor with the given test data
+pub async fn sponsor_match_with_test_data(
+    gas_sponsor: &GasSponsorInstance,
+    data: SponsoredAtomicMatchSettleData,
+) -> Result<TransactionReceipt> {
+    let SponsoredAtomicMatchSettleData {
+        process_atomic_match_settle_data,
+        refund_address,
+        receiver,
+        nonce,
+        refund_native_eth,
+        refund_amount,
+        signature,
+    } = data;
+
+    let internal_party_match_payload =
+        serialize_to_calldata(&process_atomic_match_settle_data.internal_party_match_payload)?;
+
+    let valid_match_settle_atomic_statement = serialize_to_calldata(
+        &process_atomic_match_settle_data.valid_match_settle_atomic_statement,
+    )?;
+
+    let match_proofs =
+        serialize_to_calldata(&process_atomic_match_settle_data.match_atomic_proofs)?;
+
+    let match_linking_proofs =
+        serialize_to_calldata(&process_atomic_match_settle_data.match_atomic_linking_proofs)?;
+
+    let mut settle_tx = gas_sponsor.sponsorAtomicMatchSettleWithRefundOptions(
+        receiver,
+        internal_party_match_payload,
+        valid_match_settle_atomic_statement,
+        match_proofs,
+        match_linking_proofs,
+        refund_address,
+        nonce,
+        refund_native_eth,
+        refund_amount,
+        signature,
+    );
+
+    let match_result =
+        &process_atomic_match_settle_data.valid_match_settle_atomic_statement.match_result;
+
+    let native_eth_sell = match_result.base_mint == native_eth_address() && !match_result.direction;
+
+    if native_eth_sell {
+        settle_tx = settle_tx.value(match_result.base_amount);
+    }
+
+    let receipt = send_tx(settle_tx).await?;
+    Ok(receipt)
+}
+
+/// Calculate the amount received by the external party in an atomic match
+pub fn amount_received_in_match(statement: &ValidMatchSettleAtomicStatement) -> U256 {
+    let base_amount = statement.match_result.base_amount;
+
+    let fee_total = statement.external_party_fees.total();
+
+    base_amount - fee_total
 }

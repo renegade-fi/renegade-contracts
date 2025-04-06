@@ -12,7 +12,7 @@ use stylus_sdk::{
     alloy_primitives::{Address, U256},
     call::transfer_eth,
     evm, msg,
-    prelude::{entrypoint, public, sol_storage},
+    prelude::*,
 };
 
 use super::dummy_erc20::Erc20;

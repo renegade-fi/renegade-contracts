@@ -12,10 +12,10 @@ use std::{
 };
 
 use alloy::{
-    network::Ethereum,
+    network::{Ethereum, EthereumWallet},
     primitives::Address,
     providers::{DynProvider, Provider, ProviderBuilder},
-    rpc::types::TransactionReceipt,
+    rpc::types::{TransactionReceipt, TransactionRequest},
     signers::local::PrivateKeySigner,
     transports::http::reqwest::Url,
 };
@@ -69,7 +69,8 @@ impl Borrow<DynProvider<Ethereum>> for LocalWalletHttpClient {
 impl LocalWalletHttpClient {
     /// Creates a new LocalWalletHttpClient
     pub fn new(signer: PrivateKeySigner, url: Url) -> Self {
-        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url.clone());
+        let eth_wallet = EthereumWallet::from(signer.clone());
+        let provider = ProviderBuilder::new().wallet(eth_wallet).on_http(url.clone());
         Self { url, provider: DynProvider::new(provider), signer }
     }
 
@@ -112,12 +113,27 @@ pub async fn setup_client(
 /// executed, and returns the transaction receipt
 pub async fn send_tx<C: CallDecoder + Unpin>(
     call: EthereumCall<'_, C>,
-) -> Result<Option<TransactionReceipt>, ScriptError> {
+) -> Result<TransactionReceipt, ScriptError> {
     let pending_tx = call.send().await.map_err(err_str!(ScriptError::ContractInteraction))?;
     let receipt =
         pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
 
-    Ok(Some(receipt))
+    Ok(receipt)
+}
+
+/// Sends a transaction request, waiting for the transaction to go from pending
+/// to executed, and returns the transaction receipt
+pub async fn send_raw_tx(
+    provider: &DynProvider<Ethereum>,
+    tx: TransactionRequest,
+) -> Result<TransactionReceipt, ScriptError> {
+    let pending_tx =
+        provider.send_transaction(tx).await.map_err(err_str!(ScriptError::ContractInteraction))?;
+
+    let receipt =
+        pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
+
+    Ok(receipt)
 }
 
 /// Send a call and return the result
