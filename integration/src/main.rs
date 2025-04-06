@@ -9,7 +9,6 @@ use abis::{
     DarkpoolTestContract::{self, DarkpoolTestContractInstance},
     DummyErc20Contract::{self, DummyErc20ContractInstance},
     GasSponsorContract::{self, GasSponsorContractInstance},
-    IAtomicMatchSettleContract::IAtomicMatchSettleContractInstance,
     TransferExecutorContract::TransferExecutorContractInstance,
 };
 use alloy::{
@@ -51,8 +50,6 @@ pub type GasSponsorInstance = GasSponsorContractInstance<(), DynProvider, Ethere
 pub type TransferExecutorInstance = TransferExecutorContractInstance<(), DynProvider, Ethereum>;
 /// An instance of the dummy ERC20 contract
 pub type DummyErc20Instance = DummyErc20ContractInstance<(), DynProvider, Ethereum>;
-/// An instance of the atomic match settle interface
-pub type IAtomicMatchSettleInstance = IAtomicMatchSettleContractInstance<(), DynProvider, Ethereum>;
 
 /// The context provided to each integration test
 ///
