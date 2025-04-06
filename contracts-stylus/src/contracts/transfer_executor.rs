@@ -31,11 +31,12 @@ use contracts_common::{
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
-    call::Call,
-    contract, evm, msg,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageU256},
 };
+
+#[allow(deprecated)]
+use stylus_sdk::call::Call as InterfaceCall;
 
 /// The error message emitted when a simple ERC20 deposit fails
 const SIMPLE_ERC20_DEPOSIT_ERROR_MESSAGE: &[u8] = b"Simple ERC20 deposit failed";
@@ -96,7 +97,7 @@ impl TransferExecutorContract {
             )?);
 
             call_helper::<transferCall>(
-                self,
+                &mut (*self),
                 mint, // address
                 (account_addr /* to */, amount),
             )?;
@@ -104,7 +105,7 @@ impl TransferExecutorContract {
             // In the case of a deposit, we make a `permitTransferFrom` call through
             // the `Permit2` contract using the calldata-serialized `PermitPayload`
 
-            let contract_address = contract::address();
+            let contract_address = self.vm().contract_address();
             let permit2_address = self.permit2_address.get();
 
             let permit = CalldataPermitWitnessTransferFrom {
@@ -128,7 +129,7 @@ impl TransferExecutorContract {
             let deposit_witness_hash = deposit_witness.eip712_hash_struct().0;
 
             call_helper::<permitWitnessTransferFromCall>(
-                self,
+                &mut (*self),
                 permit2_address, // address
                 (
                     permit,
@@ -144,7 +145,10 @@ impl TransferExecutorContract {
             )?;
         };
 
-        evm::log(ExternalTransferEvent { account: account_addr, mint, is_withdrawal, amount });
+        log(
+            self.vm(),
+            ExternalTransferEvent { account: account_addr, mint, is_withdrawal, amount },
+        );
 
         Ok(())
     }
@@ -191,7 +195,7 @@ impl TransferExecutorContract {
         }
 
         // Otherwise, deposit the ERC20
-        let contract_address = contract::address();
+        let contract_address = self.vm().contract_address();
         let res = call_helper::<transferFromCall>(
             self,
             erc20_address,
@@ -230,14 +234,17 @@ impl TransferExecutorContract {
     /// Deposit native ETH into the contract by wrapping the transaction payable
     /// amount
     fn handle_native_eth_deposit(&mut self, transfer: SimpleErc20Transfer) -> Result<(), Vec<u8>> {
-        let payable = msg::value();
+        let payable = self.vm().msg_value();
         if transfer.amount != payable {
             return Err(INVALID_TRANSACTION_PAYABLE_AMOUNT_ERROR_MESSAGE.to_vec());
         }
 
         // Wrap the native asset
         let weth_address = get_weth_address();
-        let call_ctx = Call::new_in(self).value(payable);
+
+        #[allow(deprecated)]
+        let call_ctx = InterfaceCall::new_in(self).value(payable);
+
         call_helper::<depositCall>(call_ctx, weth_address, ())?;
         Ok(())
     }
@@ -249,9 +256,8 @@ impl TransferExecutorContract {
         transfer: SimpleErc20Transfer,
     ) -> Result<(), Vec<u8>> {
         let weth_address = get_weth_address();
-        let call_ctx = Call::new_in(self);
         call_helper::<withdrawToCall>(
-            call_ctx,
+            self,
             weth_address,
             (transfer.account_addr, transfer.amount),
         )?;

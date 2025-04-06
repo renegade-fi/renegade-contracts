@@ -32,7 +32,6 @@ use contracts_common::types::{
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{Address, U256},
-    msg,
     prelude::*,
     storage::{StorageAddress, StorageArray, StorageBool, StorageMap, StorageU256, StorageU64},
 };
@@ -195,7 +194,7 @@ impl CoreAtomicMatchSettleContract {
         let is_native_eth = is_native_eth_address(match_result.base_mint);
         let is_external_party_sell = match_result.is_external_party_sell();
         let native_eth_sell = is_native_eth && is_external_party_sell;
-        if !native_eth_sell && msg::value() > U256::ZERO {
+        if !native_eth_sell && self.vm().msg_value() > U256::ZERO {
             return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
         }
 
