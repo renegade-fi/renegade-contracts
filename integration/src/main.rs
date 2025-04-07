@@ -19,6 +19,7 @@ use alloy::{
     signers::k256::ecdsa::SigningKey,
 };
 use alloy_primitives::U256;
+use circuit_types::fixed_point::FixedPoint;
 use clap::Parser;
 use cli::Cli;
 use contracts_common::types::ScalarField;
@@ -140,6 +141,15 @@ impl TestContext {
         let nullifier_spent = contract.isNullifierSpent(nullifier_u256).call().await?._0;
 
         Ok(nullifier_spent)
+    }
+
+    /// Get the protocol fee of the darkpool as a scalar
+    pub async fn get_protocol_fee(&self) -> Result<FixedPoint> {
+        let contract = self.darkpool_contract();
+        let fee_u256 = contract.getFee().call().await?._0;
+
+        let fee_scalar = Scalar::new(u256_to_scalar(fee_u256));
+        Ok(FixedPoint::from_repr(fee_scalar))
     }
 
     /// Build an instance of the darkpool contract
