@@ -48,6 +48,8 @@ sol!(
         function markNullifierSpent(uint256 memory nullifier) external;
         function isImplementationUpgraded(uint8 memory address_selector) external view returns (bool);
         function clearMerkle() external;
+
+        event ExternalMatchOutput(uint256 indexed received_amount);
     }
 );
 

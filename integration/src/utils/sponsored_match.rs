@@ -2,7 +2,6 @@
 
 use alloy::rpc::types::TransactionReceipt;
 use alloy_primitives::{utils::parse_ether, Address, Bytes, U256};
-use alloy_sol_types::SolEvent;
 use ark_std::UniformRand;
 use contracts_common::types::{ScalarField, ValidMatchSettleAtomicStatement};
 use contracts_utils::{
@@ -13,11 +12,7 @@ use rand::thread_rng;
 use scripts::utils::send_tx;
 use test_helpers::assert_eq_result;
 
-use crate::{
-    abis::{DummyErc20Contract, GasSponsorContract::SponsoredExternalMatchOutput},
-    constants::REFUND_AMOUNT,
-    GasSponsorInstance, TestContext,
-};
+use crate::{abis::DummyErc20Contract, constants::REFUND_AMOUNT, GasSponsorInstance, TestContext};
 
 use super::{
     native_eth_address, scalar_to_u256, serialize_to_calldata, setup_atomic_match_settle_test,
@@ -179,22 +174,6 @@ pub fn amount_received_in_match(statement: &ValidMatchSettleAtomicStatement) -> 
     let fee_total = statement.external_party_fees.total();
 
     base_amount - fee_total
-}
-
-/// Extracts the received_amount from a SponsoredExternalMatchOutput event in a
-/// transaction receipt
-pub fn extract_sponsored_output_event(receipt: &TransactionReceipt) -> Result<U256> {
-    // Get the first SponsoredExternalMatchOutput log from the receipt
-    let log = receipt
-        .inner
-        .logs()
-        .iter()
-        .find_map(|log| {
-            SponsoredExternalMatchOutput::decode_log(&log.inner, false /* validate */).ok()
-        })
-        .ok_or(eyre::eyre!("SponsoredExternalMatchOutput event not found in receipt"))?;
-
-    Ok(log.received_amount)
 }
 
 /// Burn the entirety of the gas sponsor's balance of the given token

@@ -6,10 +6,11 @@ use scripts::utils::send_tx;
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
 
 use crate::{
+    abis::GasSponsorContract::SponsoredExternalMatchOutput,
     constants::REFUND_AMOUNT,
     utils::{
         amount_received_in_match, assert_native_eth_gas_refund, burn_gas_sponsor_token_balance,
-        extract_sponsored_output_event, setup_sponsored_match_test, sponsor_match_with_test_data,
+        extract_first_event, setup_sponsored_match_test, sponsor_match_with_test_data,
         SponsoredMatchTestOptions,
     },
     TestContext,
@@ -418,7 +419,8 @@ pub async fn test_sponsored_match_output_received_amount__in_kind(ctx: TestConte
     let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
 
     // Extract the expected received_amount from the event
-    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+    let expected_received_amount =
+        extract_first_event::<SponsoredExternalMatchOutput>(&receipt)?.received_amount;
 
     // Calculate the actual received amount from balance changes
     let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
@@ -455,7 +457,8 @@ pub async fn test_sponsored_match_output_received_amount__native_eth(
     let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
 
     // Extract the expected received_amount from the event
-    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+    let expected_received_amount =
+        extract_first_event::<SponsoredExternalMatchOutput>(&receipt)?.received_amount;
 
     // Calculate the actual received amount from balance changes
     let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
@@ -488,7 +491,8 @@ pub async fn test_sponsored_match_output_received_amount__native_eth_buy(
     let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
 
     // Extract the expected received_amount from the event
-    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+    let expected_received_amount =
+        extract_first_event::<SponsoredExternalMatchOutput>(&receipt)?.received_amount;
 
     // Calculate the actual received amount from balance changes, accounting for gas
     let final_eth_balance = ctx.get_eth_balance().await?;
@@ -528,7 +532,8 @@ pub async fn test_sponsored_match_output_received_amount__paused(ctx: TestContex
     let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
 
     // Extract the expected received_amount from the event
-    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+    let expected_received_amount =
+        extract_first_event::<SponsoredExternalMatchOutput>(&receipt)?.received_amount;
 
     // Calculate the actual received amount from balance changes
     let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
@@ -566,7 +571,8 @@ pub async fn test_sponsored_match_output_received_amount__underfunded_eth(
     let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
 
     // Extract the expected received_amount from the event
-    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+    let expected_received_amount =
+        extract_first_event::<SponsoredExternalMatchOutput>(&receipt)?.received_amount;
 
     // Calculate the actual received amount from balance changes, accounting for gas
     let final_eth_balance = ctx.get_eth_balance().await?;
@@ -608,7 +614,8 @@ pub async fn test_sponsored_match_output_received_amount__underfunded_token(
     let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
 
     // Extract the expected received_amount from the event
-    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+    let expected_received_amount =
+        extract_first_event::<SponsoredExternalMatchOutput>(&receipt)?.received_amount;
 
     // Calculate the actual received amount from balance changes
     let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
