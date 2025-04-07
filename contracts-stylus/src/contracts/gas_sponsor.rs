@@ -224,11 +224,17 @@ impl GasSponsorContract {
         // If gas sponsorship is paused, return early, no refunding will be done
         if self.is_paused()? {
             log(self.vm(), GasSponsorPausedFallback { nonce });
+
+            log(
+                self.vm(),
+                SponsoredExternalMatchOutput { received_amount: received_excl_refund, nonce },
+            );
+
             return Ok(received_excl_refund);
         }
 
         // Refund the gas costs
-        self.refund_gas_cost(
+        let actual_refund_amount = self.refund_gas_cost(
             refund_native_eth,
             refund_address,
             buy_token_addr,
@@ -243,7 +249,7 @@ impl GasSponsorContract {
         let received_amount = if is_native_eth_buy || !refund_native_eth {
             // If the buy-side token is native ETH, or we are refunding in-kind,
             // we account for the refund amount in the total output amount
-            received_excl_refund + refund_amount
+            received_excl_refund + actual_refund_amount
         } else {
             received_excl_refund
         };
@@ -427,19 +433,21 @@ impl GasSponsorContract {
     }
 
     /// Refunds the user's gas costs through native ETH.
+    ///
+    /// Returns the actual amount of Ether refunded.
     fn refund_through_native_eth(
         &mut self,
         refund_address: Address,
         refund_amount: U256,
         nonce: U256,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         // If the gas sponsor doesn't have enough Ether to refund the user,
         // emit an event but don't revert.
         let contract_address = self.vm().contract_address();
         let balance = self.vm().balance(contract_address);
         if balance < refund_amount {
             log(self.vm(), InsufficientSponsorBalance { nonce });
-            return Ok(());
+            return Ok(U256::ZERO);
         }
 
         let ctx = Call::new().value(refund_amount);
@@ -451,17 +459,19 @@ impl GasSponsorContract {
 
         log(self.vm(), SponsoredExternalMatch { refund_amount, token: Address::ZERO, nonce });
 
-        Ok(())
+        Ok(refund_amount)
     }
 
     /// Refunds the user's gas costs through the buy-side token.
+    ///
+    /// Returns the actual amount of the buy-side token refunded.
     fn refund_through_buy_token(
         &mut self,
         refund_address: Address,
         buy_token_addr: Address,
         refund_amount: U256,
         nonce: U256,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let buy_token = IErc20::new(buy_token_addr);
 
         // If the gas sponsor doesn't have enough of the buy-side token to refund the
@@ -469,7 +479,7 @@ impl GasSponsorContract {
         let contract_address = self.vm().contract_address();
         if buy_token.balance_of(&mut (*self), contract_address)? < refund_amount {
             log(self.vm(), InsufficientSponsorBalance { nonce });
-            return Ok(());
+            return Ok(U256::ZERO);
         }
 
         // Refund the user's gas costs
@@ -477,11 +487,14 @@ impl GasSponsorContract {
 
         log(self.vm(), SponsoredExternalMatch { refund_amount, token: buy_token_addr, nonce });
 
-        Ok(())
+        Ok(refund_amount)
     }
 
     /// Refunds the user's gas costs, either through native ETH or the buy-side
     /// token.
+    ///
+    /// Returns the actual amount refunded, which can differ from the passed-in
+    /// value if e.g. the gas sponsor doesn't have enough of the refund token.
     fn refund_gas_cost(
         &mut self,
         refund_native_eth: bool,
@@ -490,7 +503,7 @@ impl GasSponsorContract {
         refund_amount: U256,
         receiver: Address,
         nonce: U256,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let refund_address =
             self.resolve_refund_address(refund_native_eth, refund_address, receiver);
 

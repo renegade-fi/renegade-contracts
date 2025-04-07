@@ -19,7 +19,7 @@ pub struct FeeTake {
     pub protocol_fee: U256,
 }
 
-#[cfg(any(feature = "core-settlement", feature = "test-helpers"))]
+#[cfg(any(feature = "core-settlement", feature = "gas-sponsor", feature = "test-helpers"))]
 impl FeeTake {
     /// Get the total fee taken
     pub fn total(&self) -> U256 {
