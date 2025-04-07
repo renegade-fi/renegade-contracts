@@ -20,7 +20,7 @@ sol! {
 
     // Core settlement functions
     function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
-    function processAtomicMatchSettle(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
+    function processAtomicMatchSettle(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
     function processMalleableAtomicMatchSettle(uint256 baseAmount, address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
 
     // Merkle functions
@@ -77,6 +77,7 @@ sol! {
     event WalletUpdated(uint256 indexed wallet_blinder_share);
     event ExternalTransfer(address indexed account, address indexed mint, bool indexed is_withdrawal, uint256 amount);
     event NotePosted(uint256 indexed note_commitment);
+    event ExternalMatchOutput(uint256 indexed received_amount);
 
     // Darkpool controls events
     event FeeChanged(uint256 indexed new_fee);
@@ -100,12 +101,13 @@ sol! {
     event InsufficientSponsorBalance(uint256 indexed nonce);
     event NonceUsed(uint256 indexed nonce);
     event GasSponsorPausedFallback(uint256 indexed nonce);
-    event SponsoredExternalMatch(uint256 indexed amount, address indexed token, uint256 indexed nonce);
+    event SponsoredExternalMatch(uint256 indexed refund_amount, address indexed token, uint256 indexed nonce);
+    event SponsoredExternalMatchOutput(uint256 indexed received_amount, uint256 indexed nonce);
 }
 
 sol_interface! {
     interface IDarkpool {
-        function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
+        function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
     }
 
     interface IErc20 {

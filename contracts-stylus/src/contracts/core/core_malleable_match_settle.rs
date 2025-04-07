@@ -257,6 +257,7 @@ impl CoreMalleableMatchSettleContract {
             match_result,
             relayer_fee_address,
         )
+        .map(|_| ())
     }
 }
 
