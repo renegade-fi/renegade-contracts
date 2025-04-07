@@ -19,7 +19,7 @@ use crate::{
             NotePosted, NullifierSpent, WalletUpdated,
         },
     },
-    TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE, VKEYS_FETCH_ERROR_MESSAGE,
+    ARITHMETIC_OVERFLOW_ERROR_MESSAGE, VKEYS_FETCH_ERROR_MESSAGE,
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::{SolCall, SolType};
@@ -279,9 +279,8 @@ pub fn execute_atomic_match_transfers<
     ));
 
     // The amount received by the external party after deducting the fees
-    let trader_take = receive_amount
-        .checked_sub(fees.total())
-        .ok_or(TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE)?;
+    let trader_take =
+        receive_amount.checked_sub(fees.total()).ok_or(ARITHMETIC_OVERFLOW_ERROR_MESSAGE)?;
     transfers_batch.push(SimpleErc20Transfer::new_withdraw(receiver, receive_mint, trader_take));
 
     // The amount sent by the external party to the darkpool

@@ -68,9 +68,9 @@ pub const PUBLIC_BLINDER_USED_ERROR_MESSAGE: &[u8] = b"public blinder already us
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub const ROOT_NOT_IN_HISTORY_ERROR_MESSAGE: &[u8] = b"root not in history";
 
-/// The revert message when a transfer arithmetic operation overflows
-#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
-pub const TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE: &[u8] = b"transfer arithmetic overflow";
+/// The revert message when an arithmetic operation overflows
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract", feature = "gas-sponsor"))]
+pub const ARITHMETIC_OVERFLOW_ERROR_MESSAGE: &[u8] = b"arithmetic overflow";
 
 /// The revert message when a transaction value should be zero
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]

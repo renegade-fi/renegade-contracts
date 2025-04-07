@@ -100,7 +100,8 @@ sol! {
     event InsufficientSponsorBalance(uint256 indexed nonce);
     event NonceUsed(uint256 indexed nonce);
     event GasSponsorPausedFallback(uint256 indexed nonce);
-    event SponsoredExternalMatch(uint256 indexed amount, address indexed token, uint256 indexed nonce);
+    event SponsoredExternalMatch(uint256 indexed refund_amount, address indexed token, uint256 indexed nonce);
+    event SponsoredExternalMatchOutput(uint256 indexed received_amount, uint256 indexed nonce);
 }
 
 sol_interface! {
