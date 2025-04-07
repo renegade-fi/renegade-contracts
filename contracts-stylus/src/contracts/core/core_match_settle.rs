@@ -3,8 +3,6 @@
 //! contract and that certain storage elements are set by the outer contract. As
 //! such, its storage layout must exactly align with that of the outer contract.
 
-use core::borrow::BorrowMut;
-
 use crate::{
     assert_result,
     contracts::core::core_helpers::{call_settlement_verifier, fetch_vkeys, rotate_wallet},
@@ -168,8 +166,8 @@ impl CoreMatchSettleContract {
     /// [`contracts_common::types::MatchProofs`] struct, and the
     /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::MatchLinkingProofs`] struct
-    pub fn process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn process_match_settle(
+        &mut self,
         party_0_match_payload: Bytes,
         party_1_match_payload: Bytes,
         valid_match_settle_statement: Bytes,
@@ -199,14 +197,13 @@ impl CoreMatchSettleContract {
             // We convert the protocol fee directly to a scalar as it is already kept
             // in storage as fixed-point number, no manipulation is needed to coerce it
             // to the form expected in the statement / circuit.
-            let protocol_fee = u256_to_scalar(storage.borrow_mut().protocol_fee())?;
+            let protocol_fee = u256_to_scalar(self.protocol_fee())?;
             assert_result!(
                 valid_match_settle_statement.protocol_fee == protocol_fee,
                 INVALID_PROTOCOL_FEE_ERROR_MESSAGE
             )?;
 
-            Self::batch_verify_process_match_settle(
-                storage,
+            self.batch_verify_process_match_settle(
                 &party_0_match_payload,
                 &party_1_match_payload,
                 &valid_match_settle_statement,
@@ -216,7 +213,7 @@ impl CoreMatchSettleContract {
         });
 
         rotate_wallet(
-            storage,
+            self,
             party_0_match_payload.valid_reblind_statement.original_shares_nullifier,
             party_0_match_payload.valid_reblind_statement.merkle_root,
             party_0_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
@@ -224,7 +221,7 @@ impl CoreMatchSettleContract {
         )?;
 
         rotate_wallet(
-            storage,
+            self,
             party_1_match_payload.valid_reblind_statement.original_shares_nullifier,
             party_1_match_payload.valid_reblind_statement.merkle_root,
             party_1_match_payload.valid_reblind_statement.reblinded_private_shares_commitment,
@@ -243,9 +240,8 @@ impl CoreMatchSettleContract {
     /// Batch-verifies all of the `process_match_settle` proofs
     ///
     /// TODO: Optimize the (re)serialization of the match statements if need be
-    #[allow(clippy::too_many_arguments)]
-    pub fn batch_verify_process_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
+    pub fn batch_verify_process_match_settle(
+        &mut self,
         party_0_match_payload: &MatchPayload,
         party_1_match_payload: &MatchPayload,
         valid_match_settle_statement: &ValidMatchSettleStatement,
@@ -254,8 +250,7 @@ impl CoreMatchSettleContract {
     ) -> Result<(), Vec<u8>> {
         // Fetch the Plonk & linking verification keys used in verifying the matching of
         // a trade
-        let process_match_settle_vkeys =
-            fetch_vkeys(storage, &processMatchSettleVkeysCall::SELECTOR)?;
+        let process_match_settle_vkeys = fetch_vkeys(self, &processMatchSettleVkeysCall::SELECTOR)?;
 
         let match_public_inputs = serialize_match_statements_for_verification(
             &party_0_match_payload.valid_commitments_statement,
@@ -265,7 +260,7 @@ impl CoreMatchSettleContract {
             valid_match_settle_statement,
         )?;
 
-        let verifier_address = storage.borrow_mut().verifier_core_address();
+        let verifier_address = self.verifier_core_address();
         let calldata = VerifyMatchCalldata {
             verifier_address,
             match_vkeys: process_match_settle_vkeys,
@@ -276,7 +271,7 @@ impl CoreMatchSettleContract {
 
         let calldata_bytes = postcard_serialize(&calldata)?;
         let result =
-            call_settlement_verifier::<_, _, verifyMatchCall>(storage, (calldata_bytes.into(),))?;
+            call_settlement_verifier::<_, _, verifyMatchCall>(self, (calldata_bytes.into(),))?;
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 }
