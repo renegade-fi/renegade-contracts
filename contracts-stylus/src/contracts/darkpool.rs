@@ -166,21 +166,18 @@ impl DarkpoolContract {
 
         // Set the stored addresses
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
-        DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
-        DarkpoolContract::set_core_match_settle_address(storage, core_match_settle_address)?;
-        DarkpoolContract::set_core_atomic_match_settle_address(
+        DarkpoolContract::set_all_delegate_addresses(
             storage,
+            core_wallet_ops_address,
+            core_match_settle_address,
             core_atomic_match_settle_address,
-        )?;
-        DarkpoolContract::set_core_malleable_match_settle_address(
-            storage,
             core_malleable_match_settle_address,
+            verifier_core_address,
+            verifier_settlement_address,
+            vkeys_address,
+            merkle_address,
+            transfer_executor_address,
         )?;
-        DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
-        DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
-        DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
-        DarkpoolContract::set_merkle_address(storage, merkle_address)?;
-        DarkpoolContract::set_transfer_executor_address(storage, transfer_executor_address)?;
 
         // Set the protocol fee
         DarkpoolContract::set_fee(storage, protocol_fee)?;
@@ -198,6 +195,39 @@ impl DarkpoolContract {
         DarkpoolContract::_initialize(storage, 2 /* version */)?;
 
         Ok(())
+    }
+
+    /// Sets all the delegate addresses
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_all_delegate_addresses<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        core_wallet_ops_address: Address,
+        core_match_settle_address: Address,
+        core_atomic_match_settle_address: Address,
+        core_malleable_match_settle_address: Address,
+        verifier_core_address: Address,
+        verifier_settlement_address: Address,
+        vkeys_address: Address,
+        merkle_address: Address,
+        transfer_executor_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        // Set the delegate addresses.
+        // Note, these helpers individually ensure that the owner is the caller.
+        DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
+        DarkpoolContract::set_core_match_settle_address(storage, core_match_settle_address)?;
+        DarkpoolContract::set_core_atomic_match_settle_address(
+            storage,
+            core_atomic_match_settle_address,
+        )?;
+        DarkpoolContract::set_core_malleable_match_settle_address(
+            storage,
+            core_malleable_match_settle_address,
+        )?;
+        DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
+        DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
+        DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
+        DarkpoolContract::set_merkle_address(storage, merkle_address)?;
+        DarkpoolContract::set_transfer_executor_address(storage, transfer_executor_address)
     }
 
     // -----------
