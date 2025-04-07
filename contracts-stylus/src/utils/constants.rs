@@ -1,5 +1,6 @@
 //! Constants used throughout the contracts
 
+use alloy_primitives::{hex, U256};
 use ark_ff::{BigInt, Fp};
 use contracts_common::{
     constants::{MERKLE_HEIGHT, TEST_MERKLE_HEIGHT},
@@ -42,6 +43,11 @@ pub const INVALID_VERSION_ERROR_MESSAGE: &[u8] = b"invalid version";
 /// when the caller is not the owner
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "gas-sponsor"))]
 pub const NOT_OWNER_ERROR_MESSAGE: &[u8] = b"not owner";
+
+/// The revert message when calling a proxy admin-only method
+/// when the caller is not the proxy admin
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "gas-sponsor"))]
+pub const NOT_PROXY_ADMIN_ERROR_MESSAGE: &[u8] = b"not proxy admin";
 
 /// The revert message when calling an unpaused-only method
 /// when the contract is paused
@@ -249,6 +255,12 @@ pub const MERKLE_DELEGATE_SELECTOR: u64 = 8;
 /// The delegate call selector for the transfer executor contract
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
 pub const TRANSFER_EXECUTOR_DELEGATE_SELECTOR: u64 = 9;
+
+/// The storage slot at which the proxy admin address is stored.
+/// Ref: https://eips.ethereum.org/EIPS/eip-1967#admin-address
+#[cfg(any(feature = "darkpool", feature = "darkpool-test-contract", feature = "darkpool-core"))]
+pub const PROXY_ADMIN_SLOT: U256 =
+    U256::from_be_bytes(hex!("0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103"));
 
 // ---------------------
 // | Verification Keys |

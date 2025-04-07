@@ -40,7 +40,7 @@ use util::err_str;
 use crate::{
     cli::{
         DeployDarkpoolProxyArgs, DeployErc20Args, DeployGasSponsorProxyArgs, DeployStylusArgs,
-        DeployTestContractsArgs, GenVkeysArgs, UpgradeArgs,
+        DeployTestContractsArgs, GenVkeysArgs, SetAllDelegateAddressesCalldataArgs, UpgradeArgs,
     },
     constants::{
         TransparentUpgradeableProxy, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, PERMIT2_BYTECODE,
@@ -59,8 +59,9 @@ use crate::{
         build_stylus_contract, darkpool_initialize_calldata, deploy_stylus_contract,
         gas_sponsor_initialize_calldata, get_protocol_external_fee_collection_address,
         get_public_encryption_key, read_deployment_address, read_stylus_deployment_address,
-        send_raw_tx, send_tx, setup_client, write_deployment_address,
-        write_stylus_contract_address, write_vkey_file, LocalWalletHttpClient,
+        send_raw_tx, send_tx, set_all_delegate_addresses_calldata, setup_client,
+        write_deployment_address, write_stylus_contract_address, write_vkey_file,
+        LocalWalletHttpClient,
     },
 };
 
@@ -289,7 +290,7 @@ pub async fn deploy_gas_sponsor_proxy(
         Address::from_str(&args.auth_address).map_err(err_str!(ScriptError::InvalidArguments))?;
 
     let initialize_calldata =
-        Bytes::from(gas_sponsor_initialize_calldata(darkpool_proxy_address, auth_address)?);
+        Bytes::from(gas_sponsor_initialize_calldata(darkpool_proxy_address, auth_address));
 
     deploy_proxy(
         client,
@@ -362,7 +363,7 @@ pub async fn deploy_darkpool_proxy(
         protocol_fee,
         protocol_public_encryption_key,
         protocol_external_fee_collection_address,
-    )?);
+    ));
 
     deploy_proxy(
         client,
@@ -596,13 +597,19 @@ pub async fn upgrade(
     client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
-    let proxy_admin_address = read_deployment_address(deployments_path, PROXY_ADMIN_CONTRACT_KEY)?;
+    let proxy_admin_key = format!("{}_{}", StylusContract::Darkpool, PROXY_ADMIN_CONTRACT_KEY);
+    let proxy_key = format!("{}_{}", StylusContract::Darkpool, PROXY_CONTRACT_KEY);
+
+    let proxy_admin_address = read_deployment_address(deployments_path, &proxy_admin_key)?;
     let proxy_admin = ProxyAdmin::new(proxy_admin_address, client.provider());
 
-    let proxy_address = read_deployment_address(deployments_path, PROXY_CONTRACT_KEY)?;
+    let proxy_address = read_deployment_address(deployments_path, &proxy_key)?;
+
+    let implementation_contract =
+        if args.test { StylusContract::DarkpoolTestContract } else { StylusContract::Darkpool };
 
     let implementation_address =
-        read_stylus_deployment_address(deployments_path, &StylusContract::Darkpool)?;
+        read_stylus_deployment_address(deployments_path, &implementation_contract)?;
 
     let data = if let Some(calldata) = args.calldata.clone() {
         Bytes::from_hex(calldata).map_err(|e| ScriptError::CalldataConstruction(e.to_string()))?
@@ -613,6 +620,58 @@ pub async fn upgrade(
     send_tx(proxy_admin.upgradeAndCall(proxy_address, implementation_address, data))
         .await
         .map(|_| ())
+}
+
+/// Generates the hex-encoded calldata for the `setAllDelegateAddresses`
+/// function on the darkpool contract
+pub fn gen_set_all_delegate_addresses_calldata_hex(
+    args: &SetAllDelegateAddressesCalldataArgs,
+    deployments_path: &str,
+) -> Result<(), ScriptError> {
+    let core_wallet_ops_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreWalletOps)?;
+    let core_match_settle_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreMatchSettle)?;
+    let core_atomic_match_settle_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::CoreAtomicMatchSettle)?;
+    let verifier_core_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::VerifierCore)?;
+    let verifier_settlement_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::VerifierSettlement)?;
+    let transfer_executor_address =
+        read_stylus_deployment_address(deployments_path, &StylusContract::TransferExecutor)?;
+
+    // NOTE: We DELIBERATELY leave the core_malleable_match_settlement_address
+    // unset, as it is not yet audited.
+    let core_malleable_match_settle_address = Address::random();
+
+    // Select the correct contracts for the test or production deployment
+    let (vkeys_contract, merkle_contract) = if args.test {
+        (StylusContract::TestVkeys, StylusContract::MerkleTestContract)
+    } else {
+        (StylusContract::Vkeys, StylusContract::Merkle)
+    };
+
+    let vkeys_address = read_stylus_deployment_address(deployments_path, &vkeys_contract)?;
+    let merkle_address = read_stylus_deployment_address(deployments_path, &merkle_contract)?;
+
+    let calldata = set_all_delegate_addresses_calldata(
+        core_wallet_ops_address,
+        core_match_settle_address,
+        core_atomic_match_settle_address,
+        core_malleable_match_settle_address,
+        verifier_core_address,
+        verifier_settlement_address,
+        vkeys_address,
+        merkle_address,
+        transfer_executor_address,
+    );
+
+    let calldata_hex = hex::encode(calldata);
+
+    println!("{}", calldata_hex);
+
+    Ok(())
 }
 
 /// Computes verification keys for the protocol circuits

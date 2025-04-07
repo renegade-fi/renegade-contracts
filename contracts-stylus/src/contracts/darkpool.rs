@@ -48,9 +48,9 @@ use crate::{
     CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
     CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
     CORE_WALLET_OPS_DELEGATE_SELECTOR, IMPL_ADDRESS_STORAGE_GAP1_SIZE,
-    IMPL_ADDRESS_STORAGE_GAP2_SIZE, MERKLE_DELEGATE_SELECTOR, TRANSFER_EXECUTOR_DELEGATE_SELECTOR,
-    VERIFIER_CORE_DELEGATE_SELECTOR, VERIFIER_SETTLEMENT_DELEGATE_SELECTOR,
-    VKEYS_DELEGATE_SELECTOR,
+    IMPL_ADDRESS_STORAGE_GAP2_SIZE, MERKLE_DELEGATE_SELECTOR, NOT_PROXY_ADMIN_ERROR_MESSAGE,
+    PROXY_ADMIN_SLOT, TRANSFER_EXECUTOR_DELEGATE_SELECTOR, VERIFIER_CORE_DELEGATE_SELECTOR,
+    VERIFIER_SETTLEMENT_DELEGATE_SELECTOR, VKEYS_DELEGATE_SELECTOR,
 };
 
 /// The darkpool contract's storage layout
@@ -198,6 +198,7 @@ impl DarkpoolContract {
     }
 
     /// Sets all the delegate addresses
+    // TODO: REMOVE AFTER DEPLOY
     #[allow(clippy::too_many_arguments)]
     pub fn set_all_delegate_addresses<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -446,7 +447,10 @@ impl DarkpoolContract {
         selector: u64,
         address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
+        // Check that the caller is either the owner or the proxy admin
+        DarkpoolContract::_check_owner(storage)
+            .or(DarkpoolContract::_check_proxy_admin(storage))?;
+
         check_address_not_zero(address)?;
         storage.borrow_mut().delegate_addresses.insert(selector, address);
 
@@ -874,6 +878,16 @@ impl DarkpoolContract {
     /// Checks that the sender is the owner
     pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
         assert_result!(storage.borrow().owner.get() == msg::sender(), NOT_OWNER_ERROR_MESSAGE)
+    }
+
+    /// Checks that the sender is the proxy admin
+    pub fn _check_proxy_admin<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<(), Vec<u8>> {
+        let proxy_admin =
+            Address::from_word(storage.borrow().vm().storage_load_bytes32(PROXY_ADMIN_SLOT));
+
+        assert_result!(proxy_admin == msg::sender(), NOT_PROXY_ADMIN_ERROR_MESSAGE)
     }
 
     // ------------
