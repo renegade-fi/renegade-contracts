@@ -9,9 +9,10 @@ use scripts::utils::{call_helper, send_tx};
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
+    abis::DarkpoolTestContract::ExternalMatchOutput,
     utils::{
-        insert_shares_and_get_root, serialize_to_calldata, setup_atomic_match_settle_test,
-        setup_atomic_match_settle_test_native_eth, u256_to_scalar,
+        extract_first_event, insert_shares_and_get_root, serialize_to_calldata,
+        setup_atomic_match_settle_test, setup_atomic_match_settle_test_native_eth, u256_to_scalar,
     },
     TestContext,
 };
@@ -610,3 +611,132 @@ async fn test_atomic_match_settle__fee_override(ctx: TestContext) -> Result<()> 
     Ok(())
 }
 integration_test_async!(test_atomic_match_settle__fee_override);
+
+/// Test that the received_amount in the ExternalMatchOutput event is equal to
+/// the amount of the buy-side token received by the external party in a basic
+/// match
+#[allow(non_snake_case)]
+pub async fn test_atomic_settlement_output_received_amount__basic(ctx: TestContext) -> Result<()> {
+    let contract = ctx.darkpool_contract();
+    let data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
+
+    let (buy_token_addr, _) =
+        data.valid_match_settle_atomic_statement.match_result.external_party_buy_mint_amount();
+
+    // Record initial balance
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // Call process_atomic_match_settle
+    let call = contract.processAtomicMatchSettle(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    let receipt = send_tx(call).await?;
+
+    // Extract the received_amount from the event
+    let expected_received_amount =
+        extract_first_event::<ExternalMatchOutput>(&receipt)?.received_amount;
+
+    // Calculate the actual received amount from balance changes
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    let actual_received_amount = final_balance - initial_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_atomic_settlement_output_received_amount__basic);
+
+/// Test that the received_amount in the ExternalMatchOutput event is equal to
+/// the amount of the buy-side token received by the receiver in a match with a
+/// specified receiver
+#[allow(non_snake_case)]
+pub async fn test_atomic_settlement_output_received_amount__with_receiver(
+    ctx: TestContext,
+) -> Result<()> {
+    let contract = ctx.darkpool_contract();
+    let receiver = Address::random();
+    let data = setup_atomic_match_settle_test(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
+
+    let (buy_token_addr, _) =
+        data.valid_match_settle_atomic_statement.match_result.external_party_buy_mint_amount();
+
+    // Record initial balance of receiver
+    let initial_receiver_balance = ctx.get_erc20_balance_of(buy_token_addr, receiver).await?;
+
+    // Call process_atomic_match_settle_with_receiver
+    let call = contract.processAtomicMatchSettleWithReceiver(
+        receiver,
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    let receipt = send_tx(call).await?;
+
+    // Extract the received_amount from the event
+    let expected_received_amount =
+        extract_first_event::<ExternalMatchOutput>(&receipt)?.received_amount;
+
+    // Calculate the actual received amount from balance changes
+    let final_receiver_balance = ctx.get_erc20_balance_of(buy_token_addr, receiver).await?;
+    let actual_received_amount = final_receiver_balance - initial_receiver_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_atomic_settlement_output_received_amount__with_receiver);
+
+/// Test that the received_amount in the ExternalMatchOutput event is equal to
+/// the amount of native ETH received by the external party when buying ETH
+#[allow(non_snake_case)]
+pub async fn test_atomic_settlement_output_received_amount__native_eth_buy(
+    ctx: TestContext,
+) -> Result<()> {
+    let contract = ctx.darkpool_contract();
+    let data = setup_atomic_match_settle_test_native_eth(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
+
+    // Record initial ETH balance
+    let initial_eth_balance = ctx.get_eth_balance().await?;
+
+    // Call process_atomic_match_settle
+    let call = contract.processAtomicMatchSettle(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    let receipt = send_tx(call).await?;
+
+    // Extract the received_amount from the event
+    let expected_received_amount =
+        extract_first_event::<ExternalMatchOutput>(&receipt)?.received_amount;
+
+    // Calculate the actual received amount from balance changes, accounting for gas
+    let final_eth_balance = ctx.get_eth_balance().await?;
+    let gas_cost = U256::from(receipt.gas_used as u128 * receipt.effective_gas_price);
+    let actual_received_amount = final_eth_balance + gas_cost - initial_eth_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_atomic_settlement_output_received_amount__native_eth_buy);
