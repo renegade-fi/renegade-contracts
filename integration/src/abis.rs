@@ -48,6 +48,8 @@ sol!(
         function markNullifierSpent(uint256 memory nullifier) external;
         function isImplementationUpgraded(uint8 memory address_selector) external view returns (bool);
         function clearMerkle() external;
+
+        event ExternalMatchOutput(uint256 indexed received_amount);
     }
 );
 
@@ -142,6 +144,8 @@ sol!(
             bool memory refund_native_eth,
             uint256 memory refund_amount,
             bytes memory signature
-        ) external payable;
+        ) external payable returns (uint256);
+
+        event SponsoredExternalMatchOutput(uint256 indexed received_amount, uint256 indexed nonce);
     }
 );

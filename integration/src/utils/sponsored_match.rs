@@ -175,3 +175,14 @@ pub fn amount_received_in_match(statement: &ValidMatchSettleAtomicStatement) -> 
 
     base_amount - fee_total
 }
+
+/// Burn the entirety of the gas sponsor's balance of the given token
+pub async fn burn_gas_sponsor_token_balance(mint: Address, ctx: &TestContext) -> Result<()> {
+    let sponsor_token_balance =
+        ctx.get_erc20_balance_of(mint, ctx.gas_sponsor_proxy_address).await?;
+    let token_contract = DummyErc20Contract::new(mint, ctx.client.provider());
+    let burn_tx = token_contract.burn(ctx.gas_sponsor_proxy_address, sponsor_token_balance);
+    send_tx(burn_tx).await?;
+
+    Ok(())
+}
