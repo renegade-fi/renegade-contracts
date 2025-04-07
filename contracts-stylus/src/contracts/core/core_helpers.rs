@@ -243,7 +243,9 @@ pub fn verify<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
 // --------------------
 
 /// Execute the transfers to/from the external party in an atomic match
-/// settlement
+/// settlement.
+///
+/// Returns the amount received by the external party, less of fees
 #[cfg(any(feature = "core-atomic-match-settle", feature = "core-malleable-match-settle"))]
 pub fn execute_atomic_match_transfers<
     C: CoreContractStorage,
@@ -254,7 +256,7 @@ pub fn execute_atomic_match_transfers<
     fees: FeeTake,
     match_result: ExternalMatchResult,
     relayer_fee_address: Address,
-) -> Result<(), Vec<u8>> {
+) -> Result<U256, Vec<u8>> {
     /// The number of transfers to execute in an atomic match settlement
     const N_TRANSFERS: usize = 4;
     let tx_sender = storage.vm().msg_sender();
@@ -282,12 +284,15 @@ pub fn execute_atomic_match_transfers<
     let trader_take = receive_amount
         .checked_sub(fees.total())
         .ok_or(TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE)?;
+
     transfers_batch.push(SimpleErc20Transfer::new_withdraw(receiver, receive_mint, trader_take));
 
     // The amount sent by the external party to the darkpool
     transfers_batch.push(SimpleErc20Transfer::new_deposit(tx_sender, send_mint, send_amount));
 
-    execute_simple_transfers(storage, transfers_batch)
+    execute_simple_transfers(storage, transfers_batch)?;
+
+    Ok(trader_take)
 }
 
 /// Executes a list of simple ERC20 transfers

@@ -19,7 +19,7 @@ use crate::{
             deserialize_from_calldata, get_weth_address, is_native_eth_address, postcard_serialize,
             serialize_atomic_match_statements_for_verification,
         },
-        solidity::{processAtomicMatchSettleVkeysCall, verifyAtomicMatchCall},
+        solidity::{processAtomicMatchSettleVkeysCall, verifyAtomicMatchCall, ExternalMatchOutput},
     },
     IMPL_ADDRESS_STORAGE_GAP1_SIZE, IMPL_ADDRESS_STORAGE_GAP2_SIZE,
     INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
@@ -173,6 +173,8 @@ impl CoreAtomicMatchSettleContract {
     /// [`contracts_common::types::ExternalMatchProofs`] struct, and the
     /// `match_linking_proofs` argument is the serialization of the
     /// [`contracts_common::types::ExternalMatchLinkingProofs`] struct
+    ///
+    /// Returns the amount received by the external party in the match
     #[payable]
     pub fn process_atomic_match_settle(
         &mut self,
@@ -181,7 +183,7 @@ impl CoreAtomicMatchSettleContract {
         valid_match_settle_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let internal_party_match_payload: MatchPayload =
             deserialize_from_calldata(&internal_party_match_payload)?;
 
@@ -239,9 +241,17 @@ impl CoreAtomicMatchSettleContract {
         let fees = valid_match_settle_atomic_statement.external_party_fees;
         let match_result = valid_match_settle_atomic_statement.match_result;
         let relayer_fee_address = valid_match_settle_atomic_statement.relayer_fee_address;
-        execute_atomic_match_transfers(self, receiver, fees, match_result, relayer_fee_address)?;
+        let received_amount = execute_atomic_match_transfers(
+            self,
+            receiver,
+            fees,
+            match_result,
+            relayer_fee_address,
+        )?;
 
-        Ok(())
+        log(self.vm(), ExternalMatchOutput { received_amount });
+
+        Ok(received_amount)
     }
 }
 
