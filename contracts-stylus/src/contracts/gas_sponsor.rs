@@ -1,10 +1,7 @@
 //! The gas sponsor contract, used to sponsor the gas costs of external (atomic)
 //! matches
 
-use contracts_common::{
-    constants::NUM_BYTES_U256,
-    types::{ExternalMatchResult, ValidMatchSettleAtomicStatement},
-};
+use contracts_common::{constants::NUM_BYTES_U256, types::ValidMatchSettleAtomicStatement};
 use contracts_core::crypto::ecdsa::ecdsa_verify;
 use stylus_sdk::{
     abi::Bytes,
@@ -23,7 +20,8 @@ use crate::{
         helpers::{check_address_not_zero, deserialize_from_calldata, is_native_eth_address},
         solidity::{
             GasSponsorPausedFallback, IDarkpool, IErc20, InsufficientSponsorBalance, NonceUsed,
-            OwnershipTransferred, Paused, SponsoredExternalMatch, Unpaused,
+            OwnershipTransferred, Paused, SponsoredExternalMatch, SponsoredExternalMatchOutput,
+            Unpaused,
         },
     },
     ECDSA_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE, INVALID_SIGNATURE_ERROR_MESSAGE,
@@ -182,6 +180,10 @@ impl GasSponsorContract {
     /// refund, refund amount).
     /// If the `receiver` is the zero address, we use `msg::sender()` as the
     /// receiver.
+    /// If the `refund_address` is the zero address, we use the receiver as the
+    /// refund address.
+    ///
+    /// Returns the amount received by the external party.
     #[payable]
     #[allow(clippy::too_many_arguments)]
     pub fn sponsor_atomic_match_settle_with_refund_options(
@@ -196,11 +198,11 @@ impl GasSponsorContract {
         refund_native_eth: bool,
         refund_amount: U256,
         signature: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         // Resolve the receiver to use
         let receiver = if receiver == Address::ZERO { self.vm().msg_sender() } else { receiver };
 
-        let match_result = self.sponsored_match_inner(
+        let (statement, received_in_match) = self.sponsored_match_inner(
             receiver,
             internal_party_match_payload,
             valid_match_settle_atomic_statement,
@@ -215,12 +217,17 @@ impl GasSponsorContract {
         // If gas sponsorship is paused, return early, no refunding will be done
         if self.is_paused()? {
             log(self.vm(), GasSponsorPausedFallback { nonce });
-            return Ok(());
+            log(
+                self.vm(),
+                SponsoredExternalMatchOutput { received_amount: received_in_match, nonce },
+            );
+
+            return Ok(received_in_match);
         }
 
         // Refund the gas costs
-        let (buy_token_addr, _) = match_result.external_party_buy_mint_amount();
-        self.refund_gas_cost(
+        let (buy_token_addr, _) = statement.match_result.external_party_buy_mint_amount();
+        let actual_refund_amount = self.refund_gas_cost(
             refund_native_eth,
             refund_address,
             buy_token_addr,
@@ -229,7 +236,20 @@ impl GasSponsorContract {
             nonce,
         )?;
 
-        Ok(())
+        // Calculate the total amount received by the external party, inclusive of
+        // sponsorship
+        let is_native_eth_buy = is_native_eth_address(buy_token_addr);
+        let received_amount = if is_native_eth_buy || !refund_native_eth {
+            // If the buy-side token is native ETH, or we are refunding in-kind,
+            // we account for the refund amount in the total output amount
+            received_in_match + actual_refund_amount
+        } else {
+            received_in_match
+        };
+
+        log(self.vm(), SponsoredExternalMatchOutput { received_amount, nonce });
+
+        Ok(received_amount)
     }
 }
 
@@ -301,6 +321,9 @@ impl GasSponsorContract {
     /// Invokes a sponsored atomic match settlement, returning the match result.
     /// This includes invoking the underlying atomic match settlement on the
     /// darkpool, and checking the sponsorship signature & nonce.
+    ///
+    /// Returns the deserialized statement for convenience, and the amount
+    /// received by the external party after the atomic match executes
     #[allow(clippy::too_many_arguments)]
     pub fn sponsored_match_inner(
         &mut self,
@@ -313,9 +336,9 @@ impl GasSponsorContract {
         nonce: U256,
         refund_amount: U256,
         signature: Bytes,
-    ) -> Result<ExternalMatchResult, Vec<u8>> {
+    ) -> Result<(ValidMatchSettleAtomicStatement, U256), Vec<u8>> {
         // Invoke the underlying atomic match settlement
-        let match_result = self.atomic_match_inner(
+        let (statement, received_in_match) = self.atomic_match_inner(
             receiver,
             internal_party_match_payload.clone(),
             valid_match_settle_atomic_statement.clone(),
@@ -329,13 +352,16 @@ impl GasSponsorContract {
         // Mark the nonce as used
         self.mark_nonce_used(nonce)?;
 
-        Ok(match_result)
+        Ok((statement, received_in_match))
     }
 
     /// Invokes the actual atomic match path on the darkpool contract,
     /// returning the match result.
     /// If the `receiver` is the zero address, we use `msg::sender()` as the
     /// receiver.
+    ///
+    /// Returns the deserialized statement for convenience, and the amount
+    /// received by the external party after the atomic match executes
     pub fn atomic_match_inner(
         &mut self,
         receiver: Address,
@@ -343,7 +369,7 @@ impl GasSponsorContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-    ) -> Result<ExternalMatchResult, Vec<u8>> {
+    ) -> Result<(ValidMatchSettleAtomicStatement, U256), Vec<u8>> {
         let sender = self.vm().msg_sender();
         let sponsor = self.vm().contract_address();
         let darkpool_address = self.darkpool_address.get();
@@ -352,8 +378,7 @@ impl GasSponsorContract {
         let statement: ValidMatchSettleAtomicStatement =
             deserialize_from_calldata(&valid_match_settle_atomic_statement)?;
 
-        let match_result = statement.match_result;
-        let (send_mint, send_amount) = match_result.external_party_sell_mint_amount();
+        let (send_mint, send_amount) = statement.match_result.external_party_sell_mint_amount();
 
         // Only execute an ERC20 transfer if the input token is not the native asset
         if !is_native_eth_address(send_mint) {
@@ -369,7 +394,7 @@ impl GasSponsorContract {
         // method. We pass along the message value in case the input token is
         // the native asset
         let darkpool = IDarkpool::new(darkpool_address);
-        darkpool.process_atomic_match_settle_with_receiver(
+        let received_in_match = darkpool.process_atomic_match_settle_with_receiver(
             ctx,
             receiver,
             internal_party_match_payload.0.into(),
@@ -378,7 +403,7 @@ impl GasSponsorContract {
             match_linking_proofs.0.into(),
         )?;
 
-        Ok(match_result)
+        Ok((statement, received_in_match))
     }
 
     /// Resolves the refund address to use for the given arguments.
@@ -407,19 +432,21 @@ impl GasSponsorContract {
     }
 
     /// Refunds the user's gas costs through native ETH.
+    ///
+    /// Returns the actual amount of Ether refunded.
     fn refund_through_native_eth(
         &mut self,
         refund_address: Address,
         refund_amount: U256,
         nonce: U256,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         // If the gas sponsor doesn't have enough Ether to refund the user,
         // emit an event but don't revert.
         let contract_address = self.vm().contract_address();
         let balance = self.vm().balance(contract_address);
         if balance < refund_amount {
             log(self.vm(), InsufficientSponsorBalance { nonce });
-            return Ok(());
+            return Ok(U256::ZERO);
         }
 
         let ctx = Call::new().value(refund_amount);
@@ -429,22 +456,21 @@ impl GasSponsorContract {
             &[], // calldata
         )?;
 
-        log(
-            self.vm(),
-            SponsoredExternalMatch { amount: refund_amount, token: Address::ZERO, nonce },
-        );
+        log(self.vm(), SponsoredExternalMatch { refund_amount, token: Address::ZERO, nonce });
 
-        Ok(())
+        Ok(refund_amount)
     }
 
     /// Refunds the user's gas costs through the buy-side token.
+    ///
+    /// Returns the actual amount of the buy-side token refunded.
     fn refund_through_buy_token(
         &mut self,
         refund_address: Address,
         buy_token_addr: Address,
         refund_amount: U256,
         nonce: U256,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let buy_token = IErc20::new(buy_token_addr);
 
         // If the gas sponsor doesn't have enough of the buy-side token to refund the
@@ -452,22 +478,22 @@ impl GasSponsorContract {
         let contract_address = self.vm().contract_address();
         if buy_token.balance_of(&mut (*self), contract_address)? < refund_amount {
             log(self.vm(), InsufficientSponsorBalance { nonce });
-            return Ok(());
+            return Ok(U256::ZERO);
         }
 
         // Refund the user's gas costs
         buy_token.transfer(&mut (*self), refund_address, refund_amount)?;
 
-        log(
-            self.vm(),
-            SponsoredExternalMatch { amount: refund_amount, token: buy_token_addr, nonce },
-        );
+        log(self.vm(), SponsoredExternalMatch { refund_amount, token: buy_token_addr, nonce });
 
-        Ok(())
+        Ok(refund_amount)
     }
 
     /// Refunds the user's gas costs, either through native ETH or the buy-side
     /// token.
+    ///
+    /// Returns the actual amount refunded, which can differ from the passed-in
+    /// value if e.g. the gas sponsor doesn't have enough of the refund token.
     fn refund_gas_cost(
         &mut self,
         refund_native_eth: bool,
@@ -476,7 +502,7 @@ impl GasSponsorContract {
         refund_amount: U256,
         receiver: Address,
         nonce: U256,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let refund_address =
             self.resolve_refund_address(refund_native_eth, refund_address, receiver);
 

@@ -646,6 +646,8 @@ impl DarkpoolContract {
     /// Note that all sub-calls of `process_atomic_match_settle` must be marked
     /// as payable to allow for the darkpool to delegate call them. This can be
     /// seen in the merkle and transfer executor contracts.
+    ///
+    /// Returns the amount received by the external party in the match.
     #[payable]
     pub fn process_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -653,12 +655,13 @@ impl DarkpoolContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let receiver = msg::sender();
         let delegate =
             Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
             delegate,
@@ -670,10 +673,12 @@ impl DarkpoolContract {
                 match_linking_proofs.to_vec().into(),
             ),
         )
-        .map(|_| ())
+        .map(|ret| ret._0)
     }
 
-    /// Process an atomic match settle statement with a receiver specified
+    /// Process an atomic match settle statement with a receiver specified.
+    ///
+    /// Returns the amount received by the external party in the match.
     #[payable]
     pub fn process_atomic_match_settle_with_receiver<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
@@ -682,11 +687,12 @@ impl DarkpoolContract {
         valid_match_settle_atomic_statement: Bytes,
         match_proofs: Bytes,
         match_linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let delegate =
             Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
             delegate,
@@ -698,7 +704,7 @@ impl DarkpoolContract {
                 match_linking_proofs.to_vec().into(),
             ),
         )
-        .map(|_| ())
+        .map(|ret| ret._0)
     }
 
     /// Process a malleable match settlement between two parties
