@@ -20,7 +20,6 @@ use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use stylus_sdk::{
     abi::Bytes,
     alloy_primitives::{U128, U256},
-    evm,
     prelude::*,
     storage::{StorageBool, StorageMap, StorageU128, StorageU256},
 };
@@ -204,7 +203,7 @@ where
         subtree_filled: bool,
     ) -> Result<(), Vec<u8>> {
         self.insert_recursive(value, height, insert_index, subtree_filled)?;
-        evm::log(MerkleInsertion { index: insert_index, value: scalar_to_u256(value) });
+        log(self.vm(), MerkleInsertion { index: insert_index, value: scalar_to_u256(value) });
 
         Ok(())
     }
@@ -267,11 +266,14 @@ where
         // Emit the sibling coordinates and value
         let sibling_idx = if is_left { insert_index + 1 } else { insert_index - 1 };
 
-        evm::log(MerkleOpeningNode {
-            height,
-            index: sibling_idx,
-            new_value: scalar_to_u256(current_sibling_value),
-        });
+        log(
+            self.vm(),
+            MerkleOpeningNode {
+                height,
+                index: sibling_idx,
+                new_value: scalar_to_u256(current_sibling_value),
+            },
+        );
 
         Ok(())
     }

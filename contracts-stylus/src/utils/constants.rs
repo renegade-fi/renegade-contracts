@@ -25,6 +25,10 @@ pub const ZERO_ADDRESS_ERROR_MESSAGE: &[u8] = b"zero address";
 #[cfg(any(feature = "darkpool", feature = "darkpool-test-contract"))]
 pub const ZERO_FEE_ERROR_MESSAGE: &[u8] = b"zero fee";
 
+/// The revert message when the vkeys cannot be fetched
+#[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
+pub const VKEYS_FETCH_ERROR_MESSAGE: &[u8] = b"vkey fetch failed";
+
 /// The revert message when verification fails
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub const VERIFICATION_FAILED_ERROR_MESSAGE: &[u8] = b"verification failed";
