@@ -8,8 +8,9 @@ use test_helpers::{assert_eq_result, assert_true_result, integration_test_async}
 use crate::{
     constants::REFUND_AMOUNT,
     utils::{
-        amount_received_in_match, assert_native_eth_gas_refund, setup_sponsored_match_test,
-        sponsor_match_with_test_data, SponsoredMatchTestOptions,
+        amount_received_in_match, assert_native_eth_gas_refund, burn_gas_sponsor_token_balance,
+        extract_sponsored_output_event, setup_sponsored_match_test, sponsor_match_with_test_data,
+        SponsoredMatchTestOptions,
     },
     TestContext,
 };
@@ -150,11 +151,11 @@ pub async fn test_sponsored_match__paused(ctx: TestContext) -> Result<()> {
 }
 integration_test_async!(test_sponsored_match__paused);
 
-/// Test a sponsored match when the gas sponsor is underfunded.
+/// Test a sponsored match when the gas sponsor lacks ETH for refunds.
 ///
 /// Asserts that the match succeeds but is not sponsored.
 #[allow(non_snake_case)]
-pub async fn test_sponsored_match__underfunded(ctx: TestContext) -> Result<()> {
+pub async fn test_sponsored_match__underfunded_eth(ctx: TestContext) -> Result<()> {
     let gas_sponsor_contract = ctx.gas_sponsor_contract();
     let options: SponsoredMatchTestOptions = Default::default();
     let data = setup_sponsored_match_test(options, &ctx).await?;
@@ -173,7 +174,45 @@ pub async fn test_sponsored_match__underfunded(ctx: TestContext) -> Result<()> {
 
     assert_eq_result!(initial_eth_balance - final_eth_balance, U256::from(gas_cost))
 }
-integration_test_async!(test_sponsored_match__underfunded);
+integration_test_async!(test_sponsored_match__underfunded_eth);
+
+/// Test a sponsored match when the gas sponsor lacks the buy-side token for
+/// in-kind refunds.
+///
+/// Asserts that the match succeeds but is not sponsored.
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match__underfunded_token(ctx: TestContext) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() };
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    let (buy_token_addr, _) = data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .external_party_buy_mint_amount();
+
+    // Get the amount received in the match (excluding any refund)
+    let received_in_match = amount_received_in_match(
+        &data.process_atomic_match_settle_data.valid_match_settle_atomic_statement,
+    );
+
+    // Burn the buy-side token balance of the gas sponsor
+    burn_gas_sponsor_token_balance(buy_token_addr, &ctx).await?;
+
+    // Record initial balance
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // Execute the sponsored match
+    sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Calculate the final balance and verify no refund was added
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // The difference should be exactly the amount received in the match (no refund)
+    assert_eq_result!(final_balance - initial_balance, received_in_match)
+}
+integration_test_async!(test_sponsored_match__underfunded_token);
 
 /// Test a sponsored match through the gas sponsor with in-kind refunds.
 ///
@@ -356,3 +395,227 @@ pub async fn test_sponsored_match__refund_address__msg_sender(ctx: TestContext) 
     assert_eq_result!(post_refund_balance - initial_balance, REFUND_AMOUNT)
 }
 integration_test_async!(test_sponsored_match__refund_address__msg_sender);
+
+/// Test that the received_amount in the SponsoredExternalMatchOutput event
+/// is equal to the amount of the buy-side token received by the external party
+/// in a match with in-kind sponsorship
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_output_received_amount__in_kind(ctx: TestContext) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() };
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    let (buy_token_addr, _) = data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .external_party_buy_mint_amount();
+
+    // Record initial balance
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // Execute the sponsored match
+    let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Extract the expected received_amount from the event
+    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+
+    // Calculate the actual received amount from balance changes
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    let actual_received_amount = final_balance - initial_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_sponsored_match_output_received_amount__in_kind);
+
+/// Test that the received_amount in the SponsoredExternalMatchOutput event
+/// is equal to the amount of the buy-side token received by the external party
+/// in a match with native ETH sponsorship (not buying ETH)
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_output_received_amount__native_eth(
+    ctx: TestContext,
+) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    // Use default options (native ETH refund, not trading native ETH)
+    let options = SponsoredMatchTestOptions::default();
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    let (buy_token_addr, _) = data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .external_party_buy_mint_amount();
+
+    // Record initial balance
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // Execute the sponsored match
+    let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Extract the expected received_amount from the event
+    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+
+    // Calculate the actual received amount from balance changes
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    let actual_received_amount = final_balance - initial_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_sponsored_match_output_received_amount__native_eth);
+
+/// Test that the received_amount in the SponsoredExternalMatchOutput event
+/// is equal to the amount of native ETH received by the external party
+/// in a match where they are buying ETH
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_output_received_amount__native_eth_buy(
+    ctx: TestContext,
+) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions {
+        trade_native_eth: true, // External party is buying ETH
+        ..Default::default()
+    };
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    // Record initial ETH balance
+    let initial_eth_balance = ctx.get_eth_balance().await?;
+
+    // Execute the sponsored match
+    let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Extract the expected received_amount from the event
+    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+
+    // Calculate the actual received amount from balance changes, accounting for gas
+    let final_eth_balance = ctx.get_eth_balance().await?;
+    let gas_cost = U256::from(receipt.gas_used as u128 * receipt.effective_gas_price);
+
+    // The difference in balance plus gas cost equals the actual amount received
+    let actual_received_amount = final_eth_balance + gas_cost - initial_eth_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_sponsored_match_output_received_amount__native_eth_buy);
+
+/// Test that the received_amount in the SponsoredExternalMatchOutput event
+/// is correctly reported when the gas sponsor is paused
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_output_received_amount__paused(ctx: TestContext) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() };
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    // Get the buy token address
+    let (buy_token_addr, _) = data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .external_party_buy_mint_amount();
+
+    // Record initial balance
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // Pause the gas sponsor
+    send_tx(gas_sponsor_contract.pause()).await?;
+
+    // Execute the sponsored match
+    let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Extract the expected received_amount from the event
+    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+
+    // Calculate the actual received amount from balance changes
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    let actual_received_amount = final_balance - initial_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_sponsored_match_output_received_amount__paused);
+
+/// Test that the received_amount in the SponsoredExternalMatchOutput event
+/// is correctly reported when the gas sponsor lacks ETH for refunds
+/// in a match where the external party is buying native ETH
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_output_received_amount__underfunded_eth(
+    ctx: TestContext,
+) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions {
+        trade_native_eth: true, // External party is buying ETH
+        ..Default::default()
+    };
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    // Withdraw all ETH from the gas sponsor
+    let balance = ctx.get_eth_balance_of(*gas_sponsor_contract.address()).await?;
+    let withdraw_tx = gas_sponsor_contract.withdrawEth(ctx.client.address(), balance);
+    send_tx(withdraw_tx).await?;
+
+    // Record initial ETH balance
+    let initial_eth_balance = ctx.get_eth_balance().await?;
+
+    // Execute the sponsored match
+    let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Extract the expected received_amount from the event
+    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+
+    // Calculate the actual received amount from balance changes, accounting for gas
+    let final_eth_balance = ctx.get_eth_balance().await?;
+    let gas_cost = U256::from(receipt.gas_used as u128 * receipt.effective_gas_price);
+
+    // The difference in balance plus gas cost equals the actual amount received
+    let actual_received_amount = final_eth_balance + gas_cost - initial_eth_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_sponsored_match_output_received_amount__underfunded_eth);
+
+/// Test that the received_amount in the SponsoredExternalMatchOutput event
+/// is correctly reported when the gas sponsor lacks the buy-side token for
+/// in-kind refunds
+#[allow(non_snake_case)]
+pub async fn test_sponsored_match_output_received_amount__underfunded_token(
+    ctx: TestContext,
+) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() };
+    let data = setup_sponsored_match_test(options, &ctx).await?;
+
+    let (buy_token_addr, _) = data
+        .process_atomic_match_settle_data
+        .valid_match_settle_atomic_statement
+        .match_result
+        .external_party_buy_mint_amount();
+
+    // Burn the buy-side token balance of the gas sponsor
+    burn_gas_sponsor_token_balance(buy_token_addr, &ctx).await?;
+
+    // Record initial balance
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+
+    // Execute the sponsored match
+    let receipt = sponsor_match_with_test_data(&gas_sponsor_contract, data).await?;
+
+    // Extract the expected received_amount from the event
+    let expected_received_amount = extract_sponsored_output_event(&receipt)?;
+
+    // Calculate the actual received amount from balance changes
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    let actual_received_amount = final_balance - initial_balance;
+
+    // Verify that the received_amount in the event matches the actual amount
+    // received
+    assert_eq_result!(expected_received_amount, actual_received_amount)
+}
+integration_test_async!(test_sponsored_match_output_received_amount__underfunded_token);

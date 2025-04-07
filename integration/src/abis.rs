@@ -142,6 +142,8 @@ sol!(
             bool memory refund_native_eth,
             uint256 memory refund_amount,
             bytes memory signature
-        ) external payable;
+        ) external payable returns (uint256);
+
+        event SponsoredExternalMatchOutput(uint256 indexed received_amount, uint256 indexed nonce);
     }
 );
