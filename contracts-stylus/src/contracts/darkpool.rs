@@ -48,9 +48,9 @@ use crate::{
     CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
     CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR,
     CORE_WALLET_OPS_DELEGATE_SELECTOR, IMPL_ADDRESS_STORAGE_GAP1_SIZE,
-    IMPL_ADDRESS_STORAGE_GAP2_SIZE, MERKLE_DELEGATE_SELECTOR, TRANSFER_EXECUTOR_DELEGATE_SELECTOR,
-    VERIFIER_CORE_DELEGATE_SELECTOR, VERIFIER_SETTLEMENT_DELEGATE_SELECTOR,
-    VKEYS_DELEGATE_SELECTOR,
+    IMPL_ADDRESS_STORAGE_GAP2_SIZE, MERKLE_DELEGATE_SELECTOR, NOT_PROXY_ADMIN_ERROR_MESSAGE,
+    PROXY_ADMIN_SLOT, TRANSFER_EXECUTOR_DELEGATE_SELECTOR, VERIFIER_CORE_DELEGATE_SELECTOR,
+    VERIFIER_SETTLEMENT_DELEGATE_SELECTOR, VKEYS_DELEGATE_SELECTOR,
 };
 
 /// The darkpool contract's storage layout
@@ -166,21 +166,18 @@ impl DarkpoolContract {
 
         // Set the stored addresses
         DarkpoolContract::_transfer_ownership(storage, msg::sender());
-        DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
-        DarkpoolContract::set_core_match_settle_address(storage, core_match_settle_address)?;
-        DarkpoolContract::set_core_atomic_match_settle_address(
+        DarkpoolContract::set_all_delegate_addresses(
             storage,
+            core_wallet_ops_address,
+            core_match_settle_address,
             core_atomic_match_settle_address,
-        )?;
-        DarkpoolContract::set_core_malleable_match_settle_address(
-            storage,
             core_malleable_match_settle_address,
+            verifier_core_address,
+            verifier_settlement_address,
+            vkeys_address,
+            merkle_address,
+            transfer_executor_address,
         )?;
-        DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
-        DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
-        DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
-        DarkpoolContract::set_merkle_address(storage, merkle_address)?;
-        DarkpoolContract::set_transfer_executor_address(storage, transfer_executor_address)?;
 
         // Set the protocol fee
         DarkpoolContract::set_fee(storage, protocol_fee)?;
@@ -198,6 +195,40 @@ impl DarkpoolContract {
         DarkpoolContract::_initialize(storage, 2 /* version */)?;
 
         Ok(())
+    }
+
+    /// Sets all the delegate addresses
+    // TODO: REMOVE AFTER DEPLOY
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_all_delegate_addresses<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        core_wallet_ops_address: Address,
+        core_match_settle_address: Address,
+        core_atomic_match_settle_address: Address,
+        core_malleable_match_settle_address: Address,
+        verifier_core_address: Address,
+        verifier_settlement_address: Address,
+        vkeys_address: Address,
+        merkle_address: Address,
+        transfer_executor_address: Address,
+    ) -> Result<(), Vec<u8>> {
+        // Set the delegate addresses.
+        // Note, these helpers individually ensure that the owner is the caller.
+        DarkpoolContract::set_core_wallet_ops_address(storage, core_wallet_ops_address)?;
+        DarkpoolContract::set_core_match_settle_address(storage, core_match_settle_address)?;
+        DarkpoolContract::set_core_atomic_match_settle_address(
+            storage,
+            core_atomic_match_settle_address,
+        )?;
+        DarkpoolContract::set_core_malleable_match_settle_address(
+            storage,
+            core_malleable_match_settle_address,
+        )?;
+        DarkpoolContract::set_verifier_core_address(storage, verifier_core_address)?;
+        DarkpoolContract::set_verifier_settlement_address(storage, verifier_settlement_address)?;
+        DarkpoolContract::set_vkeys_address(storage, vkeys_address)?;
+        DarkpoolContract::set_merkle_address(storage, merkle_address)?;
+        DarkpoolContract::set_transfer_executor_address(storage, transfer_executor_address)
     }
 
     // -----------
@@ -416,7 +447,10 @@ impl DarkpoolContract {
         selector: u64,
         address: Address,
     ) -> Result<(), Vec<u8>> {
-        DarkpoolContract::_check_owner(storage)?;
+        // Check that the caller is either the owner or the proxy admin
+        DarkpoolContract::_check_owner(storage)
+            .or(DarkpoolContract::_check_proxy_admin(storage))?;
+
         check_address_not_zero(address)?;
         storage.borrow_mut().delegate_addresses.insert(selector, address);
 
@@ -844,6 +878,16 @@ impl DarkpoolContract {
     /// Checks that the sender is the owner
     pub fn _check_owner<S: TopLevelStorage + Borrow<Self>>(storage: &S) -> Result<(), Vec<u8>> {
         assert_result!(storage.borrow().owner.get() == msg::sender(), NOT_OWNER_ERROR_MESSAGE)
+    }
+
+    /// Checks that the sender is the proxy admin
+    pub fn _check_proxy_admin<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+    ) -> Result<(), Vec<u8>> {
+        let proxy_admin =
+            Address::from_word(storage.borrow().vm().storage_load_bytes32(PROXY_ADMIN_SLOT));
+
+        assert_result!(proxy_admin == msg::sender(), NOT_PROXY_ADMIN_ERROR_MESSAGE)
     }
 
     // ------------

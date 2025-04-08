@@ -5,7 +5,8 @@ use clap::{Args, Parser, Subcommand};
 use crate::{
     commands::{
         build_and_deploy_stylus_contract, deploy_darkpool_proxy, deploy_erc20,
-        deploy_gas_sponsor_proxy, deploy_permit2, deploy_test_contracts, gen_vkeys, upgrade,
+        deploy_gas_sponsor_proxy, deploy_permit2, deploy_test_contracts,
+        gen_set_all_delegate_addresses_calldata_hex, gen_vkeys, upgrade,
     },
     errors::ScriptError,
     types::StylusContract,
@@ -53,6 +54,9 @@ pub enum Command {
     DeployErc20(DeployErc20Args),
     /// Upgrade the darkpool implementation
     Upgrade(UpgradeArgs),
+    /// Generate the calldata for invoking `setAllDelegateAddresses`
+    // TODO: REMOVE AFTER DEPLOY
+    SetAllDelegateAddressesCalldata(SetAllDelegateAddressesCalldataArgs),
     /// Generate verification keys for the protocol circuits
     GenVkeys(GenVkeysArgs),
 }
@@ -86,6 +90,9 @@ impl Command {
                 deploy_erc20(&args, rpc_url, priv_key, client, deployments_path).await.map(|_| ())
             },
             Command::Upgrade(args) => upgrade(&args, client, deployments_path).await,
+            Command::SetAllDelegateAddressesCalldata(args) => {
+                gen_set_all_delegate_addresses_calldata_hex(&args, deployments_path)
+            },
             Command::GenVkeys(args) => gen_vkeys(&args),
         }
     }
@@ -203,6 +210,18 @@ pub struct UpgradeArgs {
     /// call the implementation contract when upgrading
     #[arg(short, long)]
     pub calldata: Option<String>,
+
+    /// Whether or not to upgrade the darkpool test contract
+    #[arg(short, long)]
+    pub test: bool,
+}
+
+/// Generate the calldata for invoking `setAllDelegateAddresses`
+#[derive(Args)]
+pub struct SetAllDelegateAddressesCalldataArgs {
+    /// Whether or not to use the test contracts
+    #[arg(short, long)]
+    pub test: bool,
 }
 
 /// Generate verification keys for the system circuits
