@@ -36,7 +36,7 @@ use scripts::{
     },
 };
 use test_helpers::{integration_test_main, types::TestVerbosity};
-use utils::{scalar_to_u256, u256_to_scalar};
+use utils::{native_eth_address, scalar_to_u256, u256_to_scalar};
 
 mod abis;
 mod cli;
@@ -124,6 +124,10 @@ impl TestContext {
         erc20_address: Address,
         address: Address,
     ) -> Result<U256> {
+        if erc20_address == native_eth_address() {
+            return self.get_eth_balance_of(address).await;
+        }
+
         let contract = DummyErc20Contract::new(erc20_address, self.client.provider());
         contract.balanceOf(address).call().await.map_err(Into::into).map(|r| r._0)
     }
