@@ -334,7 +334,7 @@ dependencies = [
  "foldhash",
  "getrandom 0.2.15",
  "hashbrown 0.15.2",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "itoa",
  "k256",
  "keccak-asm",
@@ -539,7 +539,7 @@ dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.5.0",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "proc-macro-error2",
  "proc-macro2",
  "quote",
@@ -705,9 +705,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.97"
+version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
+checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
 name = "ark-bls12-377"
@@ -1117,9 +1117,9 @@ dependencies = [
 
 [[package]]
 name = "auto_impl"
-version = "1.2.1"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e12882f59de5360c748c4cbf569a042d5fb0eb515f7bea9c1f470b47f6ffbd73"
+checksum = "ffdcb70bdbc4d478427380519163274ac86e52916e10f0a8889adf0f96d3fee7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1450,9 +1450,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.17"
+version = "1.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fcb57c740ae1daf453ae85f16e37396f672b039e00d9d866e07ddb24e328e3a"
+checksum = "8e3a13707ac958681c13b39b458c073d0d9bc8a22cb1b2f4c8e55eb72c13f362"
 dependencies = [
  "jobserver",
  "libc",
@@ -1524,7 +1524,18 @@ dependencies = [
 [[package]]
 name = "circuit-macros"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
+dependencies = [
+ "itertools 0.10.5",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "circuit-macros"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "itertools 0.10.5",
  "proc-macro2",
@@ -1535,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "circuit-types"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1545,8 +1556,8 @@ dependencies = [
  "async-trait",
  "bigdecimal",
  "byteorder",
- "circuit-macros",
- "constants",
+ "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "futures",
  "hex",
  "itertools 0.10.5",
@@ -1558,7 +1569,38 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "rand 0.8.5",
- "renegade-crypto",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "circuit-types"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-mpc",
+ "ark-serialize 0.4.2",
+ "async-trait",
+ "bigdecimal",
+ "byteorder",
+ "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "futures",
+ "hex",
+ "itertools 0.10.5",
+ "jf-primitives",
+ "k256",
+ "lazy_static",
+ "mpc-plonk",
+ "mpc-relation",
+ "num-bigint",
+ "num-integer",
+ "rand 0.8.5",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "serde",
  "serde_json",
 ]
@@ -1566,7 +1608,7 @@ dependencies = [
 [[package]]
 name = "circuits"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
@@ -1574,9 +1616,9 @@ dependencies = [
  "ark-mpc",
  "bigdecimal",
  "bitvec",
- "circuit-macros",
- "circuit-types",
- "constants",
+ "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "ctor",
  "futures",
  "itertools 0.10.5",
@@ -1587,17 +1629,17 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "rand 0.8.5",
- "renegade-crypto",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "serde",
  "serde_json",
- "util",
+ "util 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
 ]
 
 [[package]]
 name = "clap"
-version = "4.5.35"
+version = "4.5.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8aa86934b44c19c50f87cc2790e19f54f7a67aedb64101c2e1a2e5ecfb73944"
+checksum = "2df961d8c8a0d08aa9945718ccf584145eee3f3aa06cddbeac12933781102e04"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1605,9 +1647,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.35"
+version = "4.5.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2414dbb2dd0695280da6ea9261e327479e9d37b0630f6b53ba2a11c60c679fd9"
+checksum = "132dbda40fb6753878316a489d5a1242a8ef2f0d9e47ba01c951ea8aa7d013a5"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1755,7 +1797,18 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 [[package]]
 name = "constants"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ed-on-bn254",
+ "ark-mpc",
+]
+
+[[package]]
+name = "constants"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1791,16 +1844,16 @@ dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
- "circuit-types",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "circuits",
- "constants",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "contracts-common",
  "contracts-utils",
  "jf-primitives",
  "jf-utils",
  "mpc-plonk",
  "rand 0.8.5",
- "renegade-crypto",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "ruint",
  "serde",
  "serde_with",
@@ -1834,10 +1887,10 @@ dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
- "circuit-macros",
- "circuit-types",
+ "circuit-macros 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "circuits",
- "constants",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "contracts-common",
  "contracts-core",
  "eyre",
@@ -1847,7 +1900,7 @@ dependencies = [
  "mpc-relation",
  "num-bigint",
  "rand 0.8.5",
- "renegade-crypto",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "serde",
 ]
 
@@ -1939,9 +1992,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.14"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ba6d68e24814cb8de6bb986db8222d3a027d15872cabc0d18817bc3c0e4471"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -2118,15 +2171,15 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.8.0"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "575f75dfd25738df5b91b8e43e14d44bda14637a58fae779fd2b064f8bf3e010"
+checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
 name = "data-encoding-macro"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f9724adfcf41f45bf652b3995837669d73c4d49a1b5ac1ff82905ac7d9b5558"
+checksum = "47ce6c96ea0102f01122a185683611bd5ac8d99e62bc59dd12e6bda344ee673d"
 dependencies = [
  "data-encoding",
  "data-encoding-macro-internal",
@@ -2134,9 +2187,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding-macro-internal"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e4fdb82bd54a12e42fb58a800dcae6b9e13982238ce2296dc3570b92148e1f"
+checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
 dependencies = [
  "data-encoding",
  "syn 2.0.100",
@@ -2154,9 +2207,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.4.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28cfac68e08048ae1883171632c2aef3ebc555621ae56fbccce1cbf22dd7f058"
+checksum = "9c9e6a11ca8224451684bc0d7d5a7adbf8f2fd6887261a1cfc3c0432f9d4068e"
 dependencies = [
  "powerfmt",
 ]
@@ -2417,9 +2470,9 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "errno"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
+checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
@@ -3088,7 +3141,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -3583,9 +3636,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.8.0"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3954d50fe15b02142bf25d3b8bdadb634ec3948f103d04ffe3031bc8fe9d7058"
+checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
@@ -3622,11 +3675,11 @@ dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
- "circuit-types",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "circuits",
  "clap",
  "colored",
- "constants",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "contracts-common",
  "contracts-core",
  "contracts-stylus",
@@ -3638,7 +3691,7 @@ dependencies = [
  "num-bigint",
  "postcard",
  "rand 0.8.5",
- "renegade-crypto",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "ruint",
  "scripts",
  "serde",
@@ -3898,9 +3951,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.171"
+version = "0.2.172"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c19937216e9d3aa9956d9bb8dfc0b0c8beb6058fc4f7a4dc4d850edf86a237d6"
+checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
 name = "libm"
@@ -4029,9 +4082,9 @@ dependencies = [
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe7db12097d22ec582439daf8618b8fdd1a7bef6270e9af3b1ebcd30893cf413"
+checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
 name = "litemap"
@@ -4146,7 +4199,7 @@ version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb791d015f8947acf5a7f62bd28d00f289bb7ea98cfbe3ffec1d061eee12df12"
 dependencies = [
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "itoa",
  "lockfree-object-pool",
  "metrics",
@@ -4167,7 +4220,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.14.5",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "metrics",
  "num_cpus",
  "ordered-float",
@@ -4195,16 +4248,16 @@ dependencies = [
 [[package]]
 name = "mini-alloc"
 version = "0.8.3"
-source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#ac19f899a4c25db7db7a1a607b3ccb30d8817a78"
+source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#c3d7a93da0a39d7270c5c358ad9d570d3c5834a2"
 dependencies = [
  "cfg-if 1.0.0",
 ]
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.5"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e3e04debbb59698c15bacbb6d93584a8c0ca9cc3213cb423d31f760d8843ce5"
+checksum = "3be647b768db090acb35d5ec5db2b0e1f1de11133ca123b9eacf5137868f892a"
 dependencies = [
  "adler2",
 ]
@@ -4521,9 +4574,9 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.71"
+version = "0.10.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e14130c6a98cd258fdcb0fb6d744152343ff729cbfcb28c656a9d12b999fbcd"
+checksum = "fedfea7d58a1f73118430a55da6a286e7b044961736ce96a16a17068ea25e5da"
 dependencies = [
  "bitflags 2.9.0",
  "cfg-if 1.0.0",
@@ -4553,9 +4606,9 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.106"
+version = "0.9.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bb61ea9811cc39e3c2069f40b8b8e2e70d8569b361f879786cc7ed48b777cdd"
+checksum = "8288979acd84749c744a9014b4382d42b8f7b2592847b5afb2ed29e5d16ede07"
 dependencies = [
  "cc",
  "libc",
@@ -4571,7 +4624,7 @@ checksum = "1e32339a5dc40459130b3bd269e9892439f55b33e772d2a9d402a789baaf4e8a"
 dependencies = [
  "futures-core",
  "futures-sink",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "js-sys",
  "once_cell",
  "pin-project-lite",
@@ -4587,7 +4640,7 @@ checksum = "3e09667367cb509f10d7cf5960a83f9c4d96e93715f750b164b4b98d46c3cbf4"
 dependencies = [
  "futures-core",
  "http 0.2.12",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "itertools 0.11.0",
  "once_cell",
  "opentelemetry",
@@ -4823,7 +4876,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
 ]
 
 [[package]]
@@ -4978,9 +5031,9 @@ checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
 
 [[package]]
 name = "prettyplease"
-version = "0.2.31"
+version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5316f57387668042f561aae71480de936257848f9c43ce528e311d89a07cadeb"
+checksum = "664ec5419c51e34154eec046ebcba56312d5a2fc3b09a06da188e1ad21afadf6"
 dependencies = [
  "proc-macro2",
  "syn 2.0.100",
@@ -5067,9 +5120,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31971752e70b8b2686d7e46ec17fb38dad4051d94024c88df49b667caea9c84"
+checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
 dependencies = [
  "unicode-ident",
 ]
@@ -5242,13 +5295,12 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3779b94aeb87e8bd4e834cee3650289ee9e0d5677f976ecdb6d219e5f4f6cd94"
+checksum = "9fbfd9d094a40bf3ae768db9361049ace4c0e04a4fd6b359518bd7b73a73dd97"
 dependencies = [
  "rand_chacha 0.9.0",
  "rand_core 0.9.3",
- "zerocopy 0.8.24",
 ]
 
 [[package]]
@@ -5341,9 +5393,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.10"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b8c0c260b63a8219631167be35e6a988e9554dbd323f8bd08439c8ed1302bd1"
+checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
 dependencies = [
  "bitflags 2.9.0",
 ]
@@ -5406,13 +5458,32 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
  "ark-mpc",
  "bigdecimal",
- "constants",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "ethers-core",
+ "itertools 0.10.5",
+ "lazy_static",
+ "num-bigint",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "renegade-crypto"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-mpc",
+ "bigdecimal",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "ethers-core",
  "itertools 0.10.5",
  "lazy_static",
@@ -5603,7 +5674,7 @@ dependencies = [
  "primitive-types",
  "proptest",
  "rand 0.8.5",
- "rand 0.9.0",
+ "rand 0.9.1",
  "rlp",
  "ruint-macro",
  "serde",
@@ -5846,10 +5917,10 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "ark-ed-on-bn254",
- "circuit-types",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "circuits",
  "clap",
- "constants",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "contracts-common",
  "contracts-utils",
  "hex",
@@ -5863,7 +5934,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
- "util",
+ "util 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
 ]
 
 [[package]]
@@ -6166,9 +6237,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.14.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fcf8323ef1faaee30a44a340193b1ac6814fd9b7b4e88e9d4519a3e4abe1cfd"
+checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
 dependencies = [
  "serde",
 ]
@@ -6323,7 +6394,7 @@ dependencies = [
 [[package]]
 name = "stylus-core"
 version = "0.8.3"
-source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#ac19f899a4c25db7db7a1a607b3ccb30d8817a78"
+source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#c3d7a93da0a39d7270c5c358ad9d570d3c5834a2"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -6334,7 +6405,7 @@ dependencies = [
 [[package]]
 name = "stylus-proc"
 version = "0.8.3"
-source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#ac19f899a4c25db7db7a1a607b3ccb30d8817a78"
+source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#c3d7a93da0a39d7270c5c358ad9d570d3c5834a2"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -6354,7 +6425,7 @@ dependencies = [
 [[package]]
 name = "stylus-sdk"
 version = "0.8.3"
-source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#ac19f899a4c25db7db7a1a607b3ccb30d8817a78"
+source = "git+https://github.com/OffchainLabs/stylus-sdk-rs-private.git#c3d7a93da0a39d7270c5c358ad9d570d3c5834a2"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -6562,7 +6633,7 @@ dependencies = [
 [[package]]
 name = "test-helpers"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "eyre",
  "futures",
@@ -6700,9 +6771,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.1"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
+checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
 dependencies = [
  "backtrace",
  "bytes",
@@ -6833,7 +6904,7 @@ version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
- "indexmap 2.8.0",
+ "indexmap 2.9.0",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -7198,14 +7269,14 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git#ccbf8d02d36a29dd3364382f512aed53912f35e9"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
 dependencies = [
  "alloy",
  "ark-ec",
  "ark-serialize 0.4.2",
  "chrono",
- "circuit-types",
- "constants",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
  "crossbeam",
  "ethers",
  "eyre",
@@ -7225,7 +7296,47 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "rand 0.8.5",
- "renegade-crypto",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0)",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-serde 0.1.3",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "util"
+version = "0.1.0"
+source = "git+https://github.com/renegade-fi/renegade.git#49bb9fd7fecf410e647dcbe4a15c8af8193d2ff4"
+dependencies = [
+ "alloy",
+ "ark-ec",
+ "ark-serialize 0.4.2",
+ "chrono",
+ "circuit-types 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "constants 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
+ "crossbeam",
+ "ethers",
+ "eyre",
+ "futures",
+ "hex",
+ "json",
+ "libp2p",
+ "metrics",
+ "metrics-exporter-statsd",
+ "metrics-tracing-context",
+ "metrics-util",
+ "num-bigint",
+ "num-traits",
+ "opentelemetry",
+ "opentelemetry-datadog",
+ "opentelemetry-otlp",
+ "opentelemetry-semantic-conventions",
+ "opentelemetry_sdk",
+ "rand 0.8.5",
+ "renegade-crypto 0.1.0 (git+https://github.com/renegade-fi/renegade.git)",
  "serde",
  "serde_json",
  "tokio",
@@ -7828,9 +7939,9 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winnow"
-version = "0.7.4"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e97b544156e9bebe1a0ffbc03484fc1ffe3100cbce3ffb17eac35f7cdd7ab36"
+checksum = "63d3fcd9bba44b03821e7d699eeee959f3126dcc4aa8e4ae18ec617c2a5cea10"
 dependencies = [
  "memchr",
 ]
