@@ -218,7 +218,7 @@ async fn submit_and_validate_malleable_match(
             serialize_to_calldata(&linking_proofs)?,
         )
         .value(value);
-    let tx_receipt = send_tx(tx).await?.expect("No tx receipt");
+    let tx_receipt = send_tx(tx).await?;
 
     // Measure the balances of all parties after the match, and validate that they
     // match the expected balances

@@ -276,7 +276,7 @@ impl CoreMalleableMatchSettleContract {
         linking_proofs: Bytes,
     ) -> Result<(), Vec<u8>> {
         let process_malleable_match_settle_atomic_vkeys =
-            fetch_vkeys(self, &processMalleableMatchSettleAtomicVkeysCall::SELECTOR)?;
+            fetch_vkeys(self, &processMalleableAtomicMatchSettleVkeysCall::SELECTOR)?;
 
         if is_native_eth {
             let weth = get_weth_address();
