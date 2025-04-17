@@ -1,8 +1,9 @@
 //! Integration testing utilities for contract interaction
 
-use alloy::signers::local::PrivateKeySigner;
+use alloy::{rpc::types::TransactionReceipt, signers::local::PrivateKeySigner};
 use alloy_contract::CallDecoder;
-use alloy_sol_types::SolCall;
+use alloy_primitives::Log;
+use alloy_sol_types::{SolCall, SolEvent};
 use ark_crypto_primitives::merkle_tree::MerkleTree as ArkMerkleTree;
 use circuit_types::elgamal::EncryptionKey;
 use constants::Scalar;
@@ -90,4 +91,22 @@ pub async fn assert_success<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C
     let pending_res = call.send().await;
     assert!(pending_res.is_ok(), "Expected transaction to succeed, but it reverted");
     Ok(())
+}
+
+// -----------------
+// | Event Helpers |
+// -----------------
+
+/// Extracts the first matched event of the given type from a transaction
+/// receipt
+pub fn extract_first_event<E: SolEvent>(receipt: &TransactionReceipt) -> Result<Log<E>> {
+    // Get the first ExternalMatchOutput log from the receipt
+    receipt
+        .inner
+        .logs()
+        .iter()
+        .find_map(|log| {
+            E::decode_log(&log.inner, false /* validate */).ok()
+        })
+        .ok_or(eyre::eyre!("Event not found in receipt"))
 }

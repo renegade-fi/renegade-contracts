@@ -12,10 +12,10 @@ use std::{
 };
 
 use alloy::{
-    network::Ethereum,
+    network::{Ethereum, EthereumWallet},
     primitives::Address,
     providers::{DynProvider, Provider, ProviderBuilder},
-    rpc::types::TransactionReceipt,
+    rpc::types::{TransactionReceipt, TransactionRequest},
     signers::local::PrivateKeySigner,
     transports::http::reqwest::Url,
 };
@@ -40,8 +40,10 @@ use crate::{
         WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
-    solidity::initialize_0Call as darkpool_initialize_call,
-    solidity::initialize_1Call as gas_sponsor_initialize_call,
+    solidity::{
+        initialize_0Call as darkpool_initialize_call,
+        initialize_1Call as gas_sponsor_initialize_call, setAllDelegateAddressesCall,
+    },
     types::StylusContract,
 };
 
@@ -69,7 +71,8 @@ impl Borrow<DynProvider<Ethereum>> for LocalWalletHttpClient {
 impl LocalWalletHttpClient {
     /// Creates a new LocalWalletHttpClient
     pub fn new(signer: PrivateKeySigner, url: Url) -> Self {
-        let provider = ProviderBuilder::new().wallet(signer.clone()).on_http(url.clone());
+        let eth_wallet = EthereumWallet::from(signer.clone());
+        let provider = ProviderBuilder::new().wallet(eth_wallet).on_http(url.clone());
         Self { url, provider: DynProvider::new(provider), signer }
     }
 
@@ -112,12 +115,27 @@ pub async fn setup_client(
 /// executed, and returns the transaction receipt
 pub async fn send_tx<C: CallDecoder + Unpin>(
     call: EthereumCall<'_, C>,
-) -> Result<Option<TransactionReceipt>, ScriptError> {
+) -> Result<TransactionReceipt, ScriptError> {
     let pending_tx = call.send().await.map_err(err_str!(ScriptError::ContractInteraction))?;
     let receipt =
         pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
 
-    Ok(Some(receipt))
+    Ok(receipt)
+}
+
+/// Sends a transaction request, waiting for the transaction to go from pending
+/// to executed, and returns the transaction receipt
+pub async fn send_raw_tx(
+    provider: &DynProvider<Ethereum>,
+    tx: TransactionRequest,
+) -> Result<TransactionReceipt, ScriptError> {
+    let pending_tx =
+        provider.send_transaction(tx).await.map_err(err_str!(ScriptError::ContractInteraction))?;
+
+    let receipt =
+        pending_tx.get_receipt().await.map_err(err_str!(ScriptError::ContractInteraction))?;
+
+    Ok(receipt)
 }
 
 /// Send a call and return the result
@@ -287,13 +305,13 @@ pub fn darkpool_initialize_calldata(
     protocol_fee: U256,
     protocol_public_encryption_key: PublicEncryptionKey,
     protocol_external_fee_collection_address: Address,
-) -> Result<Vec<u8>, ScriptError> {
+) -> Vec<u8> {
     let protocol_public_encryption_key = [
         scalar_to_u256(protocol_public_encryption_key.x),
         scalar_to_u256(protocol_public_encryption_key.y),
     ];
 
-    Ok(darkpool_initialize_call::new((
+    darkpool_initialize_call::new((
         core_wallet_ops_address,
         core_match_settle_address,
         core_atomic_match_settle_address,
@@ -308,15 +326,43 @@ pub fn darkpool_initialize_calldata(
         protocol_public_encryption_key,
         protocol_external_fee_collection_address,
     ))
-    .abi_encode())
+    .abi_encode()
+}
+
+/// Prepare calldata for the Darkpool contract's `setAllDelegateAddresses`
+/// method
+#[allow(clippy::too_many_arguments)]
+pub fn set_all_delegate_addresses_calldata(
+    core_wallet_ops_address: Address,
+    core_match_settle_address: Address,
+    core_atomic_match_settle_address: Address,
+    core_malleable_match_settle_address: Address,
+    verifier_core_address: Address,
+    verifier_settlement_address: Address,
+    vkeys_address: Address,
+    merkle_address: Address,
+    transfer_executor_address: Address,
+) -> Vec<u8> {
+    setAllDelegateAddressesCall::new((
+        core_wallet_ops_address,
+        core_match_settle_address,
+        core_atomic_match_settle_address,
+        core_malleable_match_settle_address,
+        verifier_core_address,
+        verifier_settlement_address,
+        vkeys_address,
+        merkle_address,
+        transfer_executor_address,
+    ))
+    .abi_encode()
 }
 
 /// Prepare calldata for the GasSponsor contract's `initialize` method
 pub fn gas_sponsor_initialize_calldata(
     darkpool_address: Address,
     auth_address: Address,
-) -> Result<Vec<u8>, ScriptError> {
-    Ok(gas_sponsor_initialize_call::new((darkpool_address, auth_address)).abi_encode())
+) -> Vec<u8> {
+    gas_sponsor_initialize_call::new((darkpool_address, auth_address)).abi_encode()
 }
 
 /// Executes a command, returning an error if the command fails
@@ -335,6 +381,7 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
     let rustflags = match contract {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
+        | StylusContract::Darkpool
         | StylusContract::DarkpoolTestContract => {
             format!("{}{} {}", OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG)
         },

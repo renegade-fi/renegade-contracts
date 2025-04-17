@@ -7,22 +7,17 @@ use alloy::sol;
 // Compiled from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/proxy/transparent/TransparentUpgradeableProxy.sol
 sol! {
     #[allow(missing_docs)]
-    #[sol(bytecode = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/artifacts/TransparentUpgradeableProxy.bin")))]
     #[sol(rpc)]
     TransparentUpgradeableProxy,
     "artifacts/TransparentUpgradeableProxy.abi"
 }
+/// The bytecode of the `TransparentUpgradeableProxy` contract
+pub const TRANSPARENT_UPGRADEABLE_PROXY_BYTECODE: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/artifacts/TransparentUpgradeableProxy.bin"));
 
-// The ABI of the `Permit2` contract
-//
-// Compiled from https://github.com/Uniswap/permit2/blob/main/src/Permit2.sol
-sol! {
-    #[allow(missing_docs)]
-    #[sol(bytecode = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/artifacts/Permit2.bin")))]
-    #[sol(rpc)]
-    Permit2,
-    "artifacts/Permit2.abi"
-}
+/// The bytecode of the `Permit2` contract
+pub const PERMIT2_BYTECODE: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/artifacts/Permit2.bin"));
 
 /// The number of confirmations to wait for the contract deployment transaction
 pub const NUM_DEPLOY_CONFIRMATIONS: usize = 0;

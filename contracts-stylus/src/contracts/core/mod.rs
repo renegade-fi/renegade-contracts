@@ -14,7 +14,7 @@ use crate::{
 
 #[cfg(any(feature = "darkpool-core", feature = "darkpool-test-contract"))]
 pub mod core_helpers;
-#[cfg(any(feature = "core-wallet-ops", feature = "darkpool-test-contract"))]
+#[cfg(feature = "core-wallet-ops")]
 pub mod core_wallet_ops;
 
 #[cfg(feature = "core-atomic-match-settle")]

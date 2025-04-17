@@ -49,6 +49,8 @@ sol!(
         function markNullifierSpent(uint256 memory nullifier) external;
         function isImplementationUpgraded(uint8 memory address_selector) external view returns (bool);
         function clearMerkle() external;
+
+        event ExternalMatchOutput(uint256 indexed received_amount);
     }
 );
 
@@ -125,14 +127,6 @@ sol!(
 );
 
 sol!(
-    #[sol(rpc)]
-    contract IAtomicMatchSettleContract {
-        function processAtomicMatchSettle(bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
-        function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
-    }
-);
-
-sol!(
     #[allow(clippy::too_many_arguments)]
     #[sol(rpc)]
     contract GasSponsorContract {
@@ -140,10 +134,19 @@ sol!(
         function unpause() external;
         function receiveEth() external payable;
         function withdrawEth(address receiver, uint256 amount) external;
-        function processAtomicMatchSettle(bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
-        function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable;
-        function sponsorAtomicMatchSettle(bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs, address memory refund_address, uint256 memory nonce, bytes memory signature) external payable;
-        function sponsorAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs, address memory refund_address, uint256 memory nonce, bytes memory signature) external payable;
-        function sponsorAtomicMatchSettleWithRefundOptions(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs, address memory refund_address, uint256 memory nonce, bool memory refund_native_eth, uint256 memory conversion_rate, bytes memory signature) external payable;
+        function sponsorAtomicMatchSettleWithRefundOptions(
+            address receiver,
+            bytes memory internal_party_match_payload,
+            bytes memory valid_match_settle_atomic_statement,
+            bytes memory match_proofs,
+            bytes memory match_linking_proofs,
+            address memory refund_address,
+            uint256 memory nonce,
+            bool memory refund_native_eth,
+            uint256 memory refund_amount,
+            bytes memory signature
+        ) external payable returns (uint256);
+
+        event SponsoredExternalMatchOutput(uint256 indexed received_amount, uint256 indexed nonce);
     }
 );

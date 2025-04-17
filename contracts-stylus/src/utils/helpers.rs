@@ -14,11 +14,11 @@ use contracts_core::crypto::ecdsa::ecdsa_verify_with_pubkey;
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 use stylus_sdk::{
-    abi::Bytes,
-    alloy_primitives::Address,
-    call::{call, delegate_call, static_call, MutatingCallContext},
-    storage::TopLevelStorage,
+    abi::Bytes, alloy_primitives::Address, call::MutatingCallContext, prelude::TopLevelStorage,
 };
+
+#[allow(deprecated)]
+use stylus_sdk::call::{call, delegate_call, static_call};
 
 use crate::{
     utils::{
@@ -160,6 +160,7 @@ pub fn get_public_blinder_from_shares(shares: &[ScalarField]) -> ScalarField {
 
 /// Maps an error returned from an external contract call to a `Vec<u8>`,
 /// which is the expected return type of external contract methods.
+#[allow(deprecated)]
 pub fn map_call_error(e: stylus_sdk::call::Error) -> Vec<u8> {
     match e {
         stylus_sdk::call::Error::Revert(msg) => msg,
@@ -182,6 +183,7 @@ pub fn map_calldata_ser_error<E>(_e: E) -> Vec<u8> {
     not(any(feature = "darkpool-core", feature = "darkpool-test-contract")),
     allow(dead_code)
 )]
+#[allow(deprecated)]
 pub fn static_call_helper<C: SolCall>(
     storage: &impl TopLevelStorage,
     address: Address,
@@ -199,6 +201,7 @@ pub fn static_call_helper<C: SolCall>(
     not(any(feature = "darkpool-core", feature = "darkpool", feature = "darkpool-test-contract")),
     allow(dead_code)
 )]
+#[allow(deprecated)]
 pub fn delegate_call_helper<C: SolCall>(
     storage: &mut impl TopLevelStorage,
     address: Address,
@@ -213,6 +216,7 @@ pub fn delegate_call_helper<C: SolCall>(
 /// Performs a `call` to the given address, calling the function
 /// defined as a `SolCall` with the given arguments.
 #[cfg_attr(not(feature = "transfer-executor"), allow(dead_code))]
+#[allow(deprecated)]
 pub fn call_helper<C: SolCall>(
     storage: impl MutatingCallContext,
     address: Address,

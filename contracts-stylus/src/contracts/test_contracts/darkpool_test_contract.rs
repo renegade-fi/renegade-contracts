@@ -1,8 +1,6 @@
 //! A test contract inheriting from the Darkpool contract, and exposing some of
 //! its internal helper methods
 
-use core::borrow::{Borrow, BorrowMut};
-
 use alloc::vec::Vec;
 use contracts_common::{
     constants::{
@@ -22,10 +20,7 @@ use stylus_sdk::{
 
 use crate::{
     contracts::{
-        core::{
-            core_helpers::mark_nullifier_spent, core_wallet_ops::CoreWalletOpsContract,
-            CoreContractStorage,
-        },
+        core::{core_helpers::mark_nullifier_spent, CoreContractStorage},
         darkpool::DarkpoolContract,
     },
     utils::{
@@ -80,38 +75,6 @@ impl CoreContractStorage for DarkpoolTestContract {
 
     fn protocol_fee(&self) -> U256 {
         self.darkpool.protocol_fee.get()
-    }
-}
-
-// We manually implement `Borrow` and `BorrowMut` to enable the
-// `DarkpoolTestContract` to call the internal methods of the
-// `DarkpoolCoreContract` on the nested `DarkpoolContract`. We do this by
-// unsafely casting a pointer to the `DarkpoolContract` to a pointer to the
-// `DarkpoolCoreContract`. This allows us to avoid duplicating the internal
-// methods of the `DarkpoolCoreContract` on the `DarkpoolContract`, where
-// they're only used for testing. This is possible because we already maintain
-// that the `DarkpoolContract` and `DarkpoolCoreContract` have exactly the same
-// storage / memory layout.
-
-impl Borrow<CoreWalletOpsContract> for DarkpoolTestContract {
-    fn borrow(&self) -> &CoreWalletOpsContract {
-        unsafe {
-            let darkpool_ptr: *const DarkpoolContract = &self.darkpool;
-            let darkpool_core_ptr: *const CoreWalletOpsContract =
-                darkpool_ptr as *const CoreWalletOpsContract;
-            &*darkpool_core_ptr
-        }
-    }
-}
-
-impl BorrowMut<CoreWalletOpsContract> for DarkpoolTestContract {
-    fn borrow_mut(&mut self) -> &mut CoreWalletOpsContract {
-        unsafe {
-            let darkpool_ptr: *mut DarkpoolContract = &mut self.darkpool;
-            let darkpool_core_ptr: *mut CoreWalletOpsContract =
-                darkpool_ptr as *mut CoreWalletOpsContract;
-            &mut *darkpool_core_ptr
-        }
     }
 }
 

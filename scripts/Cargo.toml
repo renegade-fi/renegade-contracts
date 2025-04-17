@@ -7,8 +7,8 @@ edition = "2021"
 alloy = { workspace = true, default-features = true, features = ["rlp"] }
 alloy-contract = { workspace = true }
 # In the scripts, we use higher versions of the alloy-sol crates in line with `alloy-contract`
-alloy-sol-types = { version = "0.8" }
-alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true, features = ["getrandom"] }
 clap = { workspace = true, features = ["env"] }
 tokio = { workspace = true }
 serde_json = { workspace = true }
