@@ -157,9 +157,21 @@ pub const VALID_FEE_REDEMPTION_VKEY_FILE: &str = "valid_fee_redemption";
 pub const PROCESS_MATCH_SETTLE_VKEYS_FILE: &str = "process_match_settle";
 
 /// The file name for the concatenated
+/// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE WITH COMMITMENTS
+/// verification keys
+pub const PROCESS_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_FILE: &str =
+    "process_match_settle_with_commitments";
+
+/// The file name for the concatenated
 /// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE ATOMIC
 /// verification keys
 pub const PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE: &str = "process_match_settle_atomic";
+
+/// The file name for the concatenated
+/// VALID COMMITMENTS, VALID REBLIND, & VALID MATCH SETTLE ATOMIC WITH
+/// COMMITMENTS verification keys
+pub const PROCESS_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_VKEYS_FILE: &str =
+    "process_match_settle_atomic_with_commitments";
 
 /// The file name for the concatenated
 /// VALID COMMITMENTS, VALID REBLIND, & VALID MALLEABLE MATCH SETTLE ATOMIC

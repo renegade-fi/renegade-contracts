@@ -331,6 +331,20 @@ pub const PROCESS_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/process_match_settle");
 
 /// The serialized
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE WITH COMMITMENTS]
+/// verification keys
+#[cfg(feature = "vkeys")]
+pub const PROCESS_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/process_match_settle_with_commitments");
+
+/// The serialized testing
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE WITH COMMITMENTS]
+/// verification keys
+#[cfg(feature = "test-vkeys")]
+pub const PROCESS_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/process_match_settle_with_commitments");
+
+/// The serialized
 /// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE ATOMIC]
 /// verification keys
 #[cfg(feature = "vkeys")]
@@ -343,6 +357,22 @@ pub const PROCESS_ATOMIC_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
 #[cfg(feature = "test-vkeys")]
 pub const PROCESS_ATOMIC_MATCH_SETTLE_VKEYS_BYTES: &[u8] =
     include_bytes!("../../vkeys/test/process_match_settle_atomic");
+
+/// The serialized
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE ATOMIC WITH
+/// COMMITMENTS]
+/// verification keys
+#[cfg(feature = "vkeys")]
+pub const PROCESS_ATOMIC_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/prod/process_match_settle_atomic_with_commitments");
+
+/// The serialized testing
+/// [VALID COMMITMENTS, VALID REBLIND, VALID MATCH SETTLE ATOMIC WITH
+/// COMMITMENTS]
+/// verification keys
+#[cfg(feature = "test-vkeys")]
+pub const PROCESS_ATOMIC_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_BYTES: &[u8] =
+    include_bytes!("../../vkeys/test/process_match_settle_atomic_with_commitments");
 
 /// The serialized
 /// [VALID COMMITMENTS, VALID REBLIND, VALID MALLEABLE MATCH SETTLE ATOMIC]

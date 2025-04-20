@@ -9,22 +9,28 @@ use alloy::{
 use alloy_sol_types::SolConstructor;
 use circuit_types::traits::SingleProverCircuit;
 use circuits::zk_circuits::{
-    valid_commitments::SizedValidCommitments, valid_fee_redemption::SizedValidFeeRedemption,
+    valid_commitments::SizedValidCommitments,
+    valid_fee_redemption::SizedValidFeeRedemption,
     valid_malleable_match_settle_atomic::SizedValidMalleableMatchSettleAtomic,
-    valid_match_settle::SizedValidMatchSettle,
-    valid_match_settle_atomic::SizedValidMatchSettleAtomic,
-    valid_offline_fee_settlement::SizedValidOfflineFeeSettlement, valid_reblind::SizedValidReblind,
+    valid_match_settle::{SizedValidMatchSettle, SizedValidMatchSettleWithCommitments},
+    valid_match_settle_atomic::{
+        SizedValidMatchSettleAtomic, SizedValidMatchSettleAtomicWithCommitments,
+    },
+    valid_offline_fee_settlement::SizedValidOfflineFeeSettlement,
+    valid_reblind::SizedValidReblind,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlement,
-    valid_wallet_create::SizedValidWalletCreate, valid_wallet_update::SizedValidWalletUpdate,
+    valid_wallet_create::SizedValidWalletCreate,
+    valid_wallet_update::SizedValidWalletUpdate,
 };
 use contracts_utils::{
     conversion::to_contract_vkey,
     proof_system::{
         dummy_renegade_circuits::{
             DummyValidCommitments, DummyValidFeeRedemption, DummyValidMalleableMatchSettleAtomic,
-            DummyValidMatchSettle, DummyValidMatchSettleAtomic, DummyValidOfflineFeeSettlement,
-            DummyValidReblind, DummyValidRelayerFeeSettlement, DummyValidWalletCreate,
-            DummyValidWalletUpdate,
+            DummyValidMatchSettle, DummyValidMatchSettleAtomic,
+            DummyValidMatchSettleAtomicWithCommitments, DummyValidMatchSettleWithCommitments,
+            DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidRelayerFeeSettlement,
+            DummyValidWalletCreate, DummyValidWalletUpdate,
         },
         gen_malleable_match_atomic_linking_vkeys, gen_malleable_match_atomic_vkeys,
         gen_match_atomic_linking_vkeys, gen_match_atomic_vkeys, gen_match_linking_vkeys,
@@ -45,12 +51,14 @@ use crate::{
     constants::{
         TransparentUpgradeableProxy, NUM_BYTES_ADDRESS, NUM_BYTES_STORAGE_SLOT, PERMIT2_BYTECODE,
         PERMIT2_CONTRACT_KEY, PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
-        PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE, PROCESS_MATCH_SETTLE_VKEYS_FILE,
-        PROXY_ADMIN_CONTRACT_KEY, PROXY_ADMIN_STORAGE_SLOT, PROXY_CONTRACT_KEY,
-        TEST_ERC20_DECIMALS, TEST_ERC20_TICKER1, TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT,
-        TRANSPARENT_UPGRADEABLE_PROXY_BYTECODE, VALID_FEE_REDEMPTION_VKEY_FILE,
-        VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE, VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE,
-        VALID_WALLET_CREATE_VKEY_FILE, VALID_WALLET_UPDATE_VKEY_FILE,
+        PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE,
+        PROCESS_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_VKEYS_FILE, PROCESS_MATCH_SETTLE_VKEYS_FILE,
+        PROCESS_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_FILE, PROXY_ADMIN_CONTRACT_KEY,
+        PROXY_ADMIN_STORAGE_SLOT, PROXY_CONTRACT_KEY, TEST_ERC20_DECIMALS, TEST_ERC20_TICKER1,
+        TEST_ERC20_TICKER2, TEST_FUNDING_AMOUNT, TRANSPARENT_UPGRADEABLE_PROXY_BYTECODE,
+        VALID_FEE_REDEMPTION_VKEY_FILE, VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE,
+        VALID_RELAYER_FEE_SETTLEMENT_VKEY_FILE, VALID_WALLET_CREATE_VKEY_FILE,
+        VALID_WALLET_UPDATE_VKEY_FILE,
     },
     errors::ScriptError,
     solidity::{DummyErc20, DummyWeth, ProxyAdmin},
@@ -676,16 +684,18 @@ pub fn gen_set_all_delegate_addresses_calldata_hex(
 
 /// Computes verification keys for the protocol circuits
 fn compute_vkeys<
-    VWC: SingleProverCircuit,   // VALID WALLET CREATE
-    VWU: SingleProverCircuit,   // VALID WALLET UPDATE
-    VRFS: SingleProverCircuit,  // VALID RELAYER FEE SETTLEMENT
-    VOFS: SingleProverCircuit,  // VALID OFFLINE FEE SETTLEMENT
-    VFR: SingleProverCircuit,   // VALID FEE REDEMPTION
-    VC: SingleProverCircuit,    // VALID COMMITMENTS
-    VR: SingleProverCircuit,    // VALID REBLIND
-    VMS: SingleProverCircuit,   // VALID MATCH SETTLE
-    VMSA: SingleProverCircuit,  // VALID MATCH SETTLE ATOMIC
-    VMMSA: SingleProverCircuit, // VALID MALLEABLE MATCH SETTLE ATOMIC
+    VWC: SingleProverCircuit,    // VALID WALLET CREATE
+    VWU: SingleProverCircuit,    // VALID WALLET UPDATE
+    VRFS: SingleProverCircuit,   // VALID RELAYER FEE SETTLEMENT
+    VOFS: SingleProverCircuit,   // VALID OFFLINE FEE SETTLEMENT
+    VFR: SingleProverCircuit,    // VALID FEE REDEMPTION
+    VC: SingleProverCircuit,     // VALID COMMITMENTS
+    VR: SingleProverCircuit,     // VALID REBLIND
+    VMS: SingleProverCircuit,    // VALID MATCH SETTLE
+    VMSWC: SingleProverCircuit,  // VALID MATCH SETTLE WITH COMMITMENTS
+    VMSA: SingleProverCircuit,   // VALID MATCH SETTLE ATOMIC
+    VMSAWC: SingleProverCircuit, // VALID MATCH SETTLE ATOMIC WITH COMMITMENTS
+    VMMSA: SingleProverCircuit,  // VALID MALLEABLE MATCH SETTLE ATOMIC
 >() -> Result<RenegadeVerificationKeys, ScriptError> {
     let valid_wallet_create = to_contract_vkey((*VWC::verifying_key()).clone())
         .map_err(|_| ScriptError::CircuitCreation)?;
@@ -702,20 +712,32 @@ fn compute_vkeys<
     let valid_fee_redemption = to_contract_vkey((*VFR::verifying_key()).clone())
         .map_err(|_| ScriptError::CircuitCreation)?;
 
+    // Match settle vkeys
     let match_vkeys = gen_match_vkeys::<VC, VR, VMS>().map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_match_settle_with_commitments = to_contract_vkey((*VMSWC::verifying_key()).clone())
+        .map_err(|_| ScriptError::CircuitCreation)?;
+    let mut match_with_commitments_vkeys = match_vkeys.clone();
+    match_with_commitments_vkeys.valid_match_settle_vkey = valid_match_settle_with_commitments;
 
     let match_linking_vkeys =
         gen_match_linking_vkeys::<VC>().map_err(|_| ScriptError::CircuitCreation)?;
 
+    // Match settle atomic vkeys
     let match_atomic_vkeys =
         gen_match_atomic_vkeys::<VC, VR, VMSA>().map_err(|_| ScriptError::CircuitCreation)?;
+    let valid_match_settle_atomic_with_commitments =
+        to_contract_vkey((*VMSAWC::verifying_key()).clone())
+            .map_err(|_| ScriptError::CircuitCreation)?;
+    let mut match_atomic_with_commitments_vkeys = match_atomic_vkeys.clone();
+    match_atomic_with_commitments_vkeys.settlement_vkey =
+        valid_match_settle_atomic_with_commitments;
 
     let match_atomic_linking_vkeys =
         gen_match_atomic_linking_vkeys::<VC>().map_err(|_| ScriptError::CircuitCreation)?;
 
+    // Malleable match settle atomic vkeys
     let malleable_match_atomic_vkeys = gen_malleable_match_atomic_vkeys::<VC, VR, VMMSA>()
         .map_err(|_| ScriptError::CircuitCreation)?;
-
     let malleable_match_atomic_linking_vkeys = gen_malleable_match_atomic_linking_vkeys::<VC>()
         .map_err(|_| ScriptError::CircuitCreation)?;
 
@@ -726,8 +748,10 @@ fn compute_vkeys<
         valid_offline_fee_settlement,
         valid_fee_redemption,
         match_vkeys,
+        match_with_commitments_vkeys,
         match_linking_vkeys,
         match_atomic_vkeys,
+        match_atomic_with_commitments_vkeys,
         match_atomic_linking_vkeys,
         malleable_match_atomic_vkeys,
         malleable_match_atomic_linking_vkeys,
@@ -753,11 +777,16 @@ fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), 
 
     let match_vkeys =
         postcard::to_allocvec(&vkeys.match_vkeys).map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let match_with_commitments_vkeys = postcard::to_allocvec(&vkeys.match_with_commitments_vkeys)
+        .map_err(|e| ScriptError::Serde(e.to_string()))?;
     let match_linking_vkeys = postcard::to_allocvec(&vkeys.match_linking_vkeys)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
     let match_atomic_vkeys = postcard::to_allocvec(&vkeys.match_atomic_vkeys)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
+    let match_atomic_with_commitments_vkeys =
+        postcard::to_allocvec(&vkeys.match_atomic_with_commitments_vkeys)
+            .map_err(|e| ScriptError::Serde(e.to_string()))?;
     let match_atomic_linking_vkeys = postcard::to_allocvec(&vkeys.match_atomic_linking_vkeys)
         .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
@@ -768,10 +797,15 @@ fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), 
             .map_err(|e| ScriptError::Serde(e.to_string()))?;
 
     // The match vkeys & linking vkeys are serialized together
-    let process_match_settle = [match_vkeys, match_linking_vkeys].concat();
+    let process_match_settle = [match_vkeys, match_linking_vkeys.clone()].concat();
+    let process_match_settle_with_commitments =
+        [match_with_commitments_vkeys, match_linking_vkeys].concat();
 
     // The match atomic vkeys & linking vkeys are serialized together
-    let process_atomic_match_settle = [match_atomic_vkeys, match_atomic_linking_vkeys].concat();
+    let process_atomic_match_settle =
+        [match_atomic_vkeys, match_atomic_linking_vkeys.clone()].concat();
+    let process_atomic_match_settle_with_commitments =
+        [match_atomic_with_commitments_vkeys, match_atomic_linking_vkeys].concat();
 
     // The malleable match atomic vkeys & linking vkeys are serialized together
     let process_malleable_match_atomic_settle =
@@ -784,7 +818,12 @@ fn write_vkeys(vkeys_dir: &str, vkeys: &RenegadeVerificationKeys) -> Result<(), 
         (VALID_OFFLINE_FEE_SETTLEMENT_VKEY_FILE, valid_offline_fee_settlement),
         (VALID_FEE_REDEMPTION_VKEY_FILE, valid_fee_redemption),
         (PROCESS_MATCH_SETTLE_VKEYS_FILE, process_match_settle),
+        (PROCESS_MATCH_SETTLE_WITH_COMMITMENTS_VKEYS_FILE, process_match_settle_with_commitments),
         (PROCESS_MATCH_SETTLE_ATOMIC_VKEYS_FILE, process_atomic_match_settle),
+        (
+            PROCESS_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_VKEYS_FILE,
+            process_atomic_match_settle_with_commitments,
+        ),
         (PROCESS_MALLEABLE_MATCH_SETTLE_ATOMIC_VKEYS_FILE, process_malleable_match_atomic_settle),
     ] {
         write_vkey_file(vkeys_dir, file, &data)?;
@@ -806,7 +845,9 @@ pub fn gen_vkeys(args: &GenVkeysArgs) -> Result<(), ScriptError> {
             DummyValidCommitments,
             DummyValidReblind,
             DummyValidMatchSettle,
+            DummyValidMatchSettleWithCommitments,
             DummyValidMatchSettleAtomic,
+            DummyValidMatchSettleAtomicWithCommitments,
             DummyValidMalleableMatchSettleAtomic,
         >()
     } else {
@@ -819,7 +860,9 @@ pub fn gen_vkeys(args: &GenVkeysArgs) -> Result<(), ScriptError> {
             SizedValidCommitments,
             SizedValidReblind,
             SizedValidMatchSettle,
+            SizedValidMatchSettleWithCommitments,
             SizedValidMatchSettleAtomic,
+            SizedValidMatchSettleAtomicWithCommitments,
             SizedValidMalleableMatchSettleAtomic,
         >()
     }?;
