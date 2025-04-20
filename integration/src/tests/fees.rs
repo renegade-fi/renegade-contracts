@@ -16,7 +16,10 @@ use scripts::utils::send_tx;
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
 
 use crate::{
-    utils::{get_protocol_pubkey, insert_shares_and_get_root, serialize_to_calldata},
+    utils::{
+        get_protocol_pubkey, insert_commitment_and_get_root, insert_shares_and_get_root,
+        serialize_to_calldata,
+    },
     TestContext,
 };
 
@@ -98,11 +101,10 @@ async fn test_settle_offline_fee(ctx: TestContext) -> Result<()> {
     assert_true_result!(nullifier_spent)?;
 
     // Assert that Merkle root is correct
-    insert_shares_and_get_root(
+    insert_commitment_and_get_root(
         &mut ark_merkle,
-        statement.updated_wallet_commitment,
-        &statement.updated_wallet_public_shares,
         0, // index
+        statement.new_wallet_commitment,
     )
     .map_err(|e| eyre!("{}", e))?;
 
@@ -170,11 +172,10 @@ async fn test_redeem_fee(ctx: TestContext) -> Result<()> {
     assert_true_result!(nullifier_spent)?;
 
     // Assert that Merkle root is correct
-    let ark_root = insert_shares_and_get_root(
+    let ark_root = insert_commitment_and_get_root(
         &mut ark_merkle,
-        statement.new_wallet_commitment,
-        &statement.new_wallet_public_shares,
         0, // index
+        statement.new_shares_commitment,
     )
     .map_err(|e| eyre!("{}", e))?;
 

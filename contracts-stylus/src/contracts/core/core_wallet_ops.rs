@@ -9,7 +9,8 @@ use crate::{
     contracts::core::core_helpers::{
         check_root_and_nullify, commit_note, execute_external_transfer, fetch_vkeys,
         get_protocol_public_encryption_key, insert_commitment_into_tree, log_blinder_used,
-        rotate_wallet, rotate_wallet_with_signature, verify,
+        rotate_wallet, rotate_wallet_with_commitment, rotate_wallet_with_signed_commitment,
+        rotate_wallet_with_signed_shares, verify,
     },
     if_verifying,
     utils::{
@@ -222,14 +223,13 @@ impl CoreWalletOpsContract {
             )?;
         });
 
-        // TODO: Use full commitment here
-        rotate_wallet_with_signature(
+        rotate_wallet_with_signed_commitment(
             self,
             valid_wallet_update_statement.old_shares_nullifier,
             valid_wallet_update_statement.merkle_root,
             valid_wallet_update_statement.new_wallet_commitment,
-            &valid_wallet_update_statement.new_public_shares,
             wallet_commitment_signature.0,
+            &valid_wallet_update_statement.new_public_shares,
             valid_wallet_update_statement.old_pk_root,
         )?;
 
@@ -279,7 +279,7 @@ impl CoreWalletOpsContract {
             &valid_relayer_fee_settlement_statement.sender_updated_public_shares,
         )?;
 
-        rotate_wallet_with_signature(
+        rotate_wallet_with_signed_shares(
             self,
             valid_relayer_fee_settlement_statement.recipient_nullifier,
             valid_relayer_fee_settlement_statement.recipient_root,
@@ -321,7 +321,7 @@ impl CoreWalletOpsContract {
             )?;
         });
 
-        rotate_wallet(
+        rotate_wallet_with_commitment(
             self,
             valid_offline_fee_settlement_statement.nullifier,
             valid_offline_fee_settlement_statement.merkle_root,
@@ -357,13 +357,13 @@ impl CoreWalletOpsContract {
             )?;
         });
 
-        rotate_wallet_with_signature(
+        rotate_wallet_with_signed_commitment(
             self,
             valid_fee_redemption_statement.nullifier,
             valid_fee_redemption_statement.wallet_root,
             valid_fee_redemption_statement.new_shares_commitment,
-            &valid_fee_redemption_statement.new_wallet_public_shares,
             recipient_wallet_commitment_signature.0,
+            &valid_fee_redemption_statement.new_wallet_public_shares,
             valid_fee_redemption_statement.old_pk_root,
         )?;
 
