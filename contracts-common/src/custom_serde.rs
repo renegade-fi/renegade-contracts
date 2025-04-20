@@ -208,7 +208,7 @@ pub trait ScalarSerializable {
 
 impl ScalarSerializable for ValidWalletCreateStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = vec![self.private_shares_commitment];
+        let mut scalars = vec![self.wallet_share_commitment];
         scalars.extend(&self.public_wallet_shares);
         Ok(scalars)
     }
@@ -216,7 +216,7 @@ impl ScalarSerializable for ValidWalletCreateStatement {
 
 impl ScalarSerializable for ValidWalletUpdateStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
-        let mut scalars = vec![self.old_shares_nullifier, self.new_private_shares_commitment];
+        let mut scalars = vec![self.old_shares_nullifier, self.new_wallet_commitment];
         scalars.extend(&self.new_public_shares);
         scalars.push(self.merkle_root);
 
@@ -308,7 +308,7 @@ impl ScalarSerializable for ValidRelayerFeeSettlementStatement {
 impl ScalarSerializable for ValidOfflineFeeSettlementStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> =
-            vec![self.merkle_root, self.nullifier, self.updated_wallet_commitment];
+            vec![self.merkle_root, self.nullifier, self.new_wallet_commitment];
         scalars.extend(&self.updated_wallet_public_shares);
         scalars.extend(&note_ciphertext_to_scalars(&self.note_ciphertext));
         scalars.push(self.note_commitment);
@@ -325,7 +325,7 @@ impl ScalarSerializable for ValidFeeRedemptionStatement {
             self.note_root,
             self.nullifier,
             self.note_nullifier,
-            self.new_wallet_commitment,
+            self.new_shares_commitment,
         ];
         scalars.extend(&self.new_wallet_public_shares);
         scalars.extend(&pk_to_scalars(&self.old_pk_root));

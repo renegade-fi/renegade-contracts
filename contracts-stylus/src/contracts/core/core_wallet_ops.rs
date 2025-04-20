@@ -8,8 +8,8 @@ use crate::{
     assert_result,
     contracts::core::core_helpers::{
         check_root_and_nullify, commit_note, execute_external_transfer, fetch_vkeys,
-        get_protocol_public_encryption_key, insert_wallet_commitment_to_merkle_tree,
-        log_blinder_used, rotate_wallet, rotate_wallet_with_signature, verify,
+        get_protocol_public_encryption_key, insert_commitment_into_tree, log_blinder_used,
+        rotate_wallet, rotate_wallet_with_signature, verify,
     },
     if_verifying,
     utils::{
@@ -191,12 +191,7 @@ impl CoreWalletOpsContract {
             )?;
         });
 
-        insert_wallet_commitment_to_merkle_tree(
-            self,
-            valid_wallet_create_statement.private_shares_commitment,
-            &valid_wallet_create_statement.public_wallet_shares,
-        )?;
-
+        insert_commitment_into_tree(self, valid_wallet_create_statement.wallet_share_commitment)?;
         log_blinder_used(self, &valid_wallet_create_statement.public_wallet_shares)?;
         Ok(())
     }
@@ -227,11 +222,12 @@ impl CoreWalletOpsContract {
             )?;
         });
 
+        // TODO: Use full commitment here
         rotate_wallet_with_signature(
             self,
             valid_wallet_update_statement.old_shares_nullifier,
             valid_wallet_update_statement.merkle_root,
-            valid_wallet_update_statement.new_private_shares_commitment,
+            valid_wallet_update_statement.new_wallet_commitment,
             &valid_wallet_update_statement.new_public_shares,
             wallet_commitment_signature.0,
             valid_wallet_update_statement.old_pk_root,
@@ -329,7 +325,7 @@ impl CoreWalletOpsContract {
             self,
             valid_offline_fee_settlement_statement.nullifier,
             valid_offline_fee_settlement_statement.merkle_root,
-            valid_offline_fee_settlement_statement.updated_wallet_commitment,
+            valid_offline_fee_settlement_statement.new_wallet_commitment,
             &valid_offline_fee_settlement_statement.updated_wallet_public_shares,
         )?;
 
@@ -365,7 +361,7 @@ impl CoreWalletOpsContract {
             self,
             valid_fee_redemption_statement.nullifier,
             valid_fee_redemption_statement.wallet_root,
-            valid_fee_redemption_statement.new_wallet_commitment,
+            valid_fee_redemption_statement.new_shares_commitment,
             &valid_fee_redemption_statement.new_wallet_public_shares,
             recipient_wallet_commitment_signature.0,
             valid_fee_redemption_statement.old_pk_root,

@@ -16,7 +16,7 @@ itertools = { workspace = true }
 circuits = { workspace = true, features = ["test_helpers"] }
 circuit-types = { workspace = true }
 constants = { workspace = true }
-util = { git = "https://github.com/renegade-fi/renegade.git", features = [
+util = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/alloy-v0.11.0", features = [
     "errors",
 ] }
 mpc-plonk = { workspace = true }
