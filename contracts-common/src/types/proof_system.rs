@@ -93,8 +93,7 @@ pub struct VerificationKey {
 
 /// The Plonk verification keys used when verifying the matching and settlement
 /// of a trade
-#[derive(Serialize, Deserialize)]
-#[cfg_attr(feature = "test-helpers", derive(Clone))]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MatchVkeys {
     /// The verification key for `VALID COMMITMENTS`
     pub valid_commitments_vkey: VerificationKey,
@@ -123,7 +122,7 @@ impl MatchVkeys {
 
 /// The Plonk verification keys used when verifying the settlement of an atomic
 /// match
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MatchAtomicVkeys {
     /// The verification key for `VALID COMMITMENTS`
     pub valid_commitments_vkey: VerificationKey,

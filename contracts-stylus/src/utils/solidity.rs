@@ -36,7 +36,9 @@ sol! {
     function validWalletCreateVkey() external view returns (bytes);
     function validWalletUpdateVkey() external view returns (bytes);
     function processMatchSettleVkeys() external view returns (bytes);
+    function processMatchSettleWithCommitmentsVkeys() external view returns (bytes);
     function processAtomicMatchSettleVkeys() external view returns (bytes);
+    function processAtomicMatchSettleWithCommitmentsVkeys() external view returns (bytes);
     function processMalleableAtomicMatchSettleVkeys() external view returns (bytes);
     function validRelayerFeeSettlementVkey() external view returns (bytes);
     function validOfflineFeeSettlementVkey() external view returns (bytes);

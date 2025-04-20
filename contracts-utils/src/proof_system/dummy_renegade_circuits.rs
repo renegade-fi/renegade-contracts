@@ -202,6 +202,47 @@ impl SingleProverCircuit for DummyValidMatchSettle {
     }
 }
 
+/// The dummy version of the `VALID MATCH SETTLE WITH COMMITMENTS` witness,
+/// which defines two elements to be linked with the dummy
+/// `VALID COMMITMENTS` circuit depending on which party is settling
+#[circuit_type(singleprover_circuit)]
+#[derive(Clone)]
+pub struct DummyValidMatchSettleWithCommitmentsWitness {
+    /// The first element to be linked with `VALID COMMITMENTS`
+    #[link_groups = "valid_commitments_match_settle0"]
+    pub valid_commitments_match_settle0: Scalar,
+    /// The second element to be linked with `VALID COMMITMENTS`
+    #[link_groups = "valid_commitments_match_settle1"]
+    pub valid_commitments_match_settle1: Scalar,
+}
+
+/// The dummy version of the `VALID MATCH SETTLE WITH COMMITMENTS` circuit
+pub struct DummyValidMatchSettleWithCommitments;
+
+impl SingleProverCircuit for DummyValidMatchSettleWithCommitments {
+    type Statement = SizedValidMatchSettleStatement;
+    type Witness = DummyValidMatchSettleWithCommitmentsWitness;
+
+    fn name() -> String {
+        "Dummy Valid Match Settle With Commitments".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: <DummyValidMatchSettleWithCommitmentsWitness as CircuitBaseType>::VarType,
+        _statement_var: <SizedValidMatchSettleStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
+    }
+
+    fn proof_linking_groups() -> Result<Vec<(String, Option<GroupLayout>)>, PlonkError> {
+        Ok(vec![
+            (VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), None),
+            (VALID_COMMITMENTS_MATCH_SETTLE_LINK1.to_string(), None),
+        ])
+    }
+}
+
 /// The dummy version of the `VALID MATCH SETTLE ATOMIC` witness,
 /// which defines a single element to be linked with the dummy
 /// `VALID COMMITMENTS` circuit
@@ -226,6 +267,44 @@ impl SingleProverCircuit for DummyValidMatchSettleAtomic {
 
     fn apply_constraints(
         _witness_var: <DummyValidMatchSettleAtomicWitness as CircuitBaseType>::VarType,
+        _statement_var: <SizedValidMatchSettleAtomicStatement as CircuitBaseType>::VarType,
+        _cs: &mut PlonkCircuit,
+    ) -> Result<(), PlonkError> {
+        Ok(())
+    }
+
+    fn proof_linking_groups() -> Result<Vec<(String, Option<GroupLayout>)>, PlonkError> {
+        let layout = DummyValidMatchSettle::get_circuit_layout()?;
+        let group_layout = layout.get_group_layout(VALID_COMMITMENTS_MATCH_SETTLE_LINK0);
+        Ok(vec![(VALID_COMMITMENTS_MATCH_SETTLE_LINK0.to_string(), Some(group_layout))])
+    }
+}
+
+/// The dummy version of the `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+/// witness, which defines a single element to be linked with the dummy
+/// `VALID COMMITMENTS` circuit
+#[circuit_type(singleprover_circuit)]
+#[derive(Clone)]
+pub struct DummyValidMatchSettleAtomicWithCommitmentsWitness {
+    /// The element to be linked with `VALID COMMITMENTS`
+    #[link_groups = "valid_commitments_match_settle0"]
+    pub valid_commitments_match_settle0: Scalar,
+}
+
+/// The dummy version of the `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+/// circuit
+pub struct DummyValidMatchSettleAtomicWithCommitments;
+
+impl SingleProverCircuit for DummyValidMatchSettleAtomicWithCommitments {
+    type Statement = SizedValidMatchSettleAtomicStatement;
+    type Witness = DummyValidMatchSettleAtomicWithCommitmentsWitness;
+
+    fn name() -> String {
+        "Dummy Valid Match Settle Atomic With Commitments".to_string()
+    }
+
+    fn apply_constraints(
+        _witness_var: <DummyValidMatchSettleAtomicWithCommitmentsWitness as CircuitBaseType>::VarType,
         _statement_var: <SizedValidMatchSettleAtomicStatement as CircuitBaseType>::VarType,
         _cs: &mut PlonkCircuit,
     ) -> Result<(), PlonkError> {
