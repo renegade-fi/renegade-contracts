@@ -28,8 +28,9 @@ sol! {
     function root() external view returns (uint256);
     function rootInHistory(uint256 root) external view returns (bool);
     function insertSharesCommitment(uint256[] shares) external;
-    function verifyStateSigAndInsert(uint256[] shares, bytes sig, uint256[4] old_pk_root) external;
-    function insertNoteCommitment(uint256 note_commitment) external;
+    function insertSharesWithSig(uint256[] shares, bytes sig, uint256[4] old_pk_root) external;
+    function insertCommitment(uint256 commitment) external;
+    function insertCommitmentWithSig(uint256 commitment, bytes sig, uint256[4] old_pk_root) external;
 
     // Vkeys functions
     function validWalletCreateVkey() external view returns (bytes);

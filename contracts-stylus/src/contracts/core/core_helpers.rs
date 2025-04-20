@@ -14,8 +14,8 @@ use crate::{
             static_call_helper,
         },
         solidity::{
-            executeExternalTransferCall, executeTransferBatchCall, insertNoteCommitmentCall,
-            insertSharesCommitmentCall, rootInHistoryCall, verifyCall, verifyStateSigAndInsertCall,
+            executeExternalTransferCall, executeTransferBatchCall, insertCommitmentCall,
+            insertSharesCommitmentCall, insertSharesWithSigCall, rootInHistoryCall, verifyCall,
             NotePosted, NullifierSpent, WalletUpdated,
         },
     },
@@ -216,7 +216,7 @@ pub fn insert_signed_wallet_commitment_to_merkle_tree<
     let old_pk_root_u256s =
         pk_to_u256s(old_pk_root).map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())?;
 
-    delegate_call_helper::<verifyStateSigAndInsertCall>(
+    delegate_call_helper::<insertSharesWithSigCall>(
         s,
         merkle_address,
         (total_wallet_shares, wallet_commitment_signature.to_vec().into(), old_pk_root_u256s),
@@ -421,7 +421,7 @@ pub fn commit_note<C: CoreContractStorage, S: TopLevelStorage + HostAccess + Bor
 ) -> Result<(), Vec<u8>> {
     let note_commitment_u256 = scalar_to_u256(note_commitment);
     let merkle_address = s.borrow_mut().merkle_address();
-    delegate_call_helper::<insertNoteCommitmentCall>(s, merkle_address, (note_commitment_u256,))?;
+    delegate_call_helper::<insertCommitmentCall>(s, merkle_address, (note_commitment_u256,))?;
 
     log(s.vm(), NotePosted { note_commitment: note_commitment_u256 });
 

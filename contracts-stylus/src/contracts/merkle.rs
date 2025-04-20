@@ -101,19 +101,8 @@ where
     /// Merkle tree
     #[payable]
     pub fn insert_shares_commitment(&mut self, shares: Vec<U256>) -> Result<(), Vec<u8>> {
-        let insert_index: u128 = self.next_index.get().to();
-        assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
-
         let shares_commitment = self.compute_shares_commitment(shares)?;
-
-        self.insert_helper(
-            shares_commitment,
-            P::HEIGHT as u8,
-            insert_index,
-            true, // subtree_filled
-        )?;
-
-        Ok(())
+        self._insert_commitment(shares_commitment)
     }
 
     /// Computes a commitment to the given wallet shares,
@@ -124,7 +113,7 @@ where
     /// to avoid moving the computation of the commitment there.
     /// That would require us to link in Poseidon hashing code, increasing the
     /// binary size beyond what we can reasonably mitigate for the 24kb limit.
-    pub fn verify_state_sig_and_insert(
+    pub fn insert_shares_with_sig(
         &mut self,
         shares: Vec<U256>,
         sig: Bytes,
@@ -133,51 +122,41 @@ where
         let insert_index: u128 = self.next_index.get().to();
         assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
 
+        // Compute the commitment to the secret shares, and verify the signature
         let shares_commitment = self.compute_shares_commitment(shares)?;
-
-        let old_pk_root = PublicSigningKey {
-            x: [u256_to_scalar(old_pk_root[0])?, u256_to_scalar(old_pk_root[1])?],
-            y: [u256_to_scalar(old_pk_root[2])?, u256_to_scalar(old_pk_root[3])?],
-        };
-
-        if_verifying!(assert_valid_signature(
-            &old_pk_root,
-            &shares_commitment.serialize_to_bytes(),
-            &sig
-        )?);
-
-        self.insert_helper(
-            shares_commitment,
-            P::HEIGHT as u8,
-            insert_index,
-            true, // subtree_filled
-        )?;
-
-        Ok(())
+        self._insert_commitment_with_sig(shares_commitment, sig, old_pk_root)
     }
 
-    /// Inserts a note commitment into the Merkle tree
-    pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
-        let insert_index: u128 = self.next_index.get().to();
-        assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
+    /// Inserts a commitment directly into the Merkle tree, without any extra
+    /// processing
+    pub fn insert_commitment(&mut self, commitment: U256) -> Result<(), Vec<u8>> {
+        let comm_scalar = u256_to_scalar(commitment)?;
+        self._insert_commitment(comm_scalar)
+    }
 
-        self.insert_helper(
-            u256_to_scalar(note_commitment)?,
-            P::HEIGHT as u8,
-            insert_index,
-            true, // subtree_filled
-        )?;
-
-        Ok(())
+    /// Checks a signature on a commitment and inserts it into the Merkle tree
+    pub fn insert_commitment_with_sig(
+        &mut self,
+        commitment: U256,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        // Verify the signature on the commitment, then insert
+        let comm_scalar = u256_to_scalar(commitment)?;
+        self._insert_commitment_with_sig(comm_scalar, sig, old_pk_root)
     }
 }
+
+// -------------------
+// | Private Helpers |
+// -------------------
 
 impl<P> MerkleContract<P>
 where
     P: MerkleParams,
 {
     /// Stores a new root, also adding it to the root history
-    pub fn store_root(&mut self, root: ScalarField) {
+    fn store_root(&mut self, root: ScalarField) {
         let root_u256 = scalar_to_u256(root);
 
         self.root.set(root_u256);
@@ -185,7 +164,7 @@ where
     }
 
     /// Computes a commitment to the given wallet shares
-    pub fn compute_shares_commitment(&mut self, shares: Vec<U256>) -> Result<ScalarField, Vec<u8>> {
+    fn compute_shares_commitment(&mut self, shares: Vec<U256>) -> Result<ScalarField, Vec<u8>> {
         let shares: Vec<ScalarField> = shares
             .into_iter()
             .map(u256_to_scalar)
@@ -193,6 +172,52 @@ where
 
         Ok(compute_poseidon_hash(&shares))
     }
+
+    /// Verify the signature of a wallet commitment
+    fn verify_commitment_sig(
+        commitment: ScalarField,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        let old_pk_root = PublicSigningKey {
+            x: [u256_to_scalar(old_pk_root[0])?, u256_to_scalar(old_pk_root[1])?],
+            y: [u256_to_scalar(old_pk_root[2])?, u256_to_scalar(old_pk_root[3])?],
+        };
+
+        if_verifying!(assert_valid_signature(
+            &old_pk_root,
+            &commitment.serialize_to_bytes(),
+            &sig
+        )?);
+
+        Ok(())
+    }
+
+    /// Insert a commitment into the Merkle tree
+    fn _insert_commitment(&mut self, commitment: ScalarField) -> Result<(), Vec<u8>> {
+        let insert_index: u128 = self.next_index.get().to();
+        assert_result!(insert_index < 2_u128.pow(P::HEIGHT as u32), TREE_FULL_ERROR_MESSAGE)?;
+
+        self.insert_helper(
+            commitment,
+            P::HEIGHT as u8,
+            insert_index,
+            true, // subtree_filled
+        )
+    }
+
+    /// Verify a signature on a commitment and insert it into the Merkle tree
+    fn _insert_commitment_with_sig(
+        &mut self,
+        commitment: ScalarField,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        Self::verify_commitment_sig(commitment, sig, old_pk_root)?;
+        self._insert_commitment(commitment)
+    }
+
+    // --- Insert --- //
 
     /// A helper to insert a value into the tree
     fn insert_helper(
@@ -321,17 +346,27 @@ impl ProdMerkleContract {
     }
 
     #[doc(hidden)]
-    pub fn verify_state_sig_and_insert(
+    pub fn insert_shares_with_sig(
         &mut self,
         shares: Vec<U256>,
         sig: Bytes,
         old_pk_root: [U256; NUM_SCALARS_PK],
     ) -> Result<(), Vec<u8>> {
-        self.merkle.verify_state_sig_and_insert(shares, sig, old_pk_root)
+        self.merkle.insert_shares_with_sig(shares, sig, old_pk_root)
     }
 
     #[doc(hidden)]
-    pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
-        self.merkle.insert_note_commitment(note_commitment)
+    pub fn insert_commitment(&mut self, commitment: U256) -> Result<(), Vec<u8>> {
+        self.merkle.insert_commitment(commitment)
+    }
+
+    #[doc(hidden)]
+    pub fn insert_commitment_with_sig(
+        &mut self,
+        commitment: U256,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        self.merkle.insert_commitment_with_sig(commitment, sig, old_pk_root)
     }
 }
