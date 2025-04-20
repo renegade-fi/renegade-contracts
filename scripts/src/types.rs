@@ -92,13 +92,19 @@ pub struct RenegadeVerificationKeys {
     pub valid_fee_redemption: VerificationKey,
     /// The verification keys used in matching & settling a trade
     pub match_vkeys: MatchVkeys,
-    /// The proof linking verification keys used in
-    /// matching & settling a trade
+    /// The verification keys used in matching & settling a trade with full
+    /// wallet commitments already computed
+    pub match_with_commitments_vkeys: MatchVkeys,
+    /// The proof linking verification keys used in matching & settling a
+    /// trade
     pub match_linking_vkeys: MatchLinkingVkeys,
-    /// The verification keys used in matching & settling a trade
+    /// The verification keys used in matching & settling an atomic trade
     pub match_atomic_vkeys: MatchAtomicVkeys,
-    /// The proof linking verification keys used in
-    /// matching & settling a trade
+    /// The verification keys used in matching & settling an atomic trade with
+    /// full wallet commitments already computed
+    pub match_atomic_with_commitments_vkeys: MatchAtomicVkeys,
+    /// The proof linking verification keys used in matching & settling an
+    /// atomic trade
     pub match_atomic_linking_vkeys: MatchAtomicLinkingVkeys,
     /// The verification keys used in matching & settling a trade
     pub malleable_match_atomic_vkeys: MatchAtomicVkeys,
