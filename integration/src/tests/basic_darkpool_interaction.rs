@@ -17,7 +17,10 @@ use scripts::utils::{call_helper, send_tx};
 use test_helpers::integration_test_async;
 
 use crate::{
-    utils::{insert_shares_and_get_root, serialize_to_calldata, u256_to_scalar},
+    utils::{
+        insert_commitment_and_get_root, insert_shares_and_get_root, serialize_to_calldata,
+        u256_to_scalar,
+    },
     TestContext,
 };
 
@@ -39,11 +42,10 @@ async fn test_new_wallet(ctx: TestContext) -> Result<()> {
     // Assert that Merkle root is correct
     let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
 
-    let ark_root = insert_shares_and_get_root(
+    let ark_root = insert_commitment_and_get_root(
         &mut ark_merkle,
-        statement.private_shares_commitment,
-        &statement.public_wallet_shares,
         0, // index
+        statement.wallet_share_commitment,
     )?;
 
     let contract_root = ctx.get_root_scalar().await?;
@@ -82,11 +84,10 @@ async fn test_update_wallet(ctx: TestContext) -> Result<()> {
     assert!(nullifier_spent, "Nullifier not spent");
 
     // Assert that Merkle root is correct
-    let ark_root = insert_shares_and_get_root(
+    let ark_root = insert_commitment_and_get_root(
         &mut ark_merkle,
-        statement.new_private_shares_commitment,
-        &statement.new_public_shares,
         0, // index
+        statement.new_wallet_commitment,
     )
     .map_err(|e| eyre!("{}", e))?;
 

@@ -50,6 +50,16 @@ pub(crate) fn insert_shares_and_get_root(
     let mut shares = vec![private_shares_commitment];
     shares.extend(public_shares);
     let commitment = compute_poseidon_hash(&shares);
+    insert_commitment_and_get_root(ark_merkle, index, commitment)
+}
+
+/// Inserts a commitment to the given wallet shares into the Arkworks Merkle
+/// tree and returns the new root
+pub(crate) fn insert_commitment_and_get_root(
+    ark_merkle: &mut ArkMerkleTree<MerkleConfig>,
+    index: usize,
+    commitment: ScalarField,
+) -> Result<Scalar> {
     ark_merkle
         .update(index, &commitment)
         .map_err(|_| eyre!("Failed to update Arkworks Merkle tree"))?;

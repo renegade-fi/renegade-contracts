@@ -15,8 +15,8 @@ use crate::{
         },
         solidity::{
             executeExternalTransferCall, executeTransferBatchCall, insertCommitmentCall,
-            insertSharesCommitmentCall, insertSharesWithSigCall, rootInHistoryCall, verifyCall,
-            NotePosted, NullifierSpent, WalletUpdated,
+            insertCommitmentWithSigCall, insertSharesCommitmentCall, insertSharesWithSigCall,
+            rootInHistoryCall, verifyCall, NotePosted, NullifierSpent, WalletUpdated,
         },
     },
     TRANSFER_ARITHMETIC_OVERFLOW_ERROR_MESSAGE, VKEYS_FETCH_ERROR_MESSAGE,
@@ -183,6 +183,30 @@ pub fn insert_commitment_into_tree<C: CoreContractStorage, S: TopLevelStorage + 
     Ok(())
 }
 
+/// Inserts a signed commitment into the Merkle tree
+pub fn insert_signed_commitment_into_tree<
+    C: CoreContractStorage,
+    S: TopLevelStorage + BorrowMut<C>,
+>(
+    s: &mut S,
+    commitment: ScalarField,
+    signature: Vec<u8>,
+    old_pk_root: PublicSigningKey,
+) -> Result<(), Vec<u8>> {
+    let storage = s.borrow_mut();
+    let merkle_address = storage.merkle_address();
+    let commitment_u256 = scalar_to_u256(commitment);
+    let old_pk_root_u256s =
+        pk_to_u256s(&old_pk_root).map_err(|_| INVALID_ARR_LEN_ERROR_MESSAGE.to_vec())?;
+
+    delegate_call_helper::<insertCommitmentWithSigCall>(
+        s,
+        merkle_address,
+        (commitment_u256, signature.into(), old_pk_root_u256s),
+    )?;
+    Ok(())
+}
+
 /// Prepares the wallet shares for insertion into the Merkle tree by converting
 /// them to a vector of [`U256`]
 pub fn prepare_wallet_shares_for_insertion(
@@ -199,7 +223,7 @@ pub fn prepare_wallet_shares_for_insertion(
 /// Prepares the private shares commitment & public wallet shares for insertion
 /// into the Merkle tree and delegate-calls the appropriate method on the Merkle
 /// contract
-pub fn insert_wallet_shares_into_tree<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+pub fn insert_shares_into_tree<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     s: &mut S,
     private_shares_commitment: ScalarField,
     public_wallet_shares: &[ScalarField],
@@ -234,7 +258,7 @@ pub fn insert_signed_shares_into_tree<C: CoreContractStorage, S: TopLevelStorage
     delegate_call_helper::<insertSharesWithSigCall>(
         s,
         merkle_address,
-        (total_wallet_shares, wallet_commitment_signature.to_vec().into(), old_pk_root_u256s),
+        (total_wallet_shares, wallet_commitment_signature.into(), old_pk_root_u256s),
     )
     .map(|_| ())
 }
@@ -363,16 +387,29 @@ pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + HostAccess + B
     new_wallet_public_shares: &[ScalarField],
 ) -> Result<(), Vec<u8>> {
     check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
-    insert_wallet_shares_into_tree(
-        s,
-        new_wallet_private_shares_commitment,
-        new_wallet_public_shares,
-    )
+    insert_shares_into_tree(s, new_wallet_private_shares_commitment, new_wallet_public_shares)
 }
 
-/// Nullifies the old wallet and commits to the new wallet,
-/// verifying a signature over the commitment to the new wallet
-pub fn rotate_wallet_with_signature<
+/// Nullifies the old wallet and commits to the new wallet using a previously
+/// generated commitment directly, rather than the wallet's shares
+pub fn rotate_wallet_with_commitment<
+    C: CoreContractStorage,
+    S: TopLevelStorage + HostAccess + BorrowMut<C>,
+>(
+    s: &mut S,
+    old_wallet_nullifier: ScalarField,
+    merkle_root: ScalarField,
+    new_wallet_commitment: ScalarField,
+    new_wallet_public_shares: &[ScalarField],
+) -> Result<(), Vec<u8>> {
+    check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
+    insert_commitment_into_tree(s, new_wallet_commitment)?;
+    Ok(())
+}
+
+/// Nullifies the old wallet and commits to the new wallet, using a previously
+/// generated commitment directly, rather than the wallet's shares
+pub fn rotate_wallet_with_signed_shares<
     C: CoreContractStorage,
     S: TopLevelStorage + HostAccess + BorrowMut<C>,
 >(
@@ -391,6 +428,29 @@ pub fn rotate_wallet_with_signature<
         new_wallet_public_shares,
         new_wallet_commitment_signature,
         &old_pk_root,
+    )
+}
+
+/// Nullifies the old wallet and commits to the new wallet, using a previously
+/// generated commitment directly, rather than the wallet's shares
+pub fn rotate_wallet_with_signed_commitment<
+    C: CoreContractStorage,
+    S: TopLevelStorage + HostAccess + BorrowMut<C>,
+>(
+    s: &mut S,
+    old_wallet_nullifier: ScalarField,
+    merkle_root: ScalarField,
+    new_wallet_commitment: ScalarField,
+    new_wallet_commitment_signature: Vec<u8>,
+    new_wallet_public_shares: &[ScalarField],
+    old_pk_root: PublicSigningKey,
+) -> Result<(), Vec<u8>> {
+    check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
+    insert_signed_commitment_into_tree(
+        s,
+        new_wallet_commitment,
+        new_wallet_commitment_signature,
+        old_pk_root,
     )
 }
 

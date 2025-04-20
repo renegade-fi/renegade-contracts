@@ -309,15 +309,7 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
 
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement = to_contract_valid_wallet_update_statement(&statement)?;
-
-    let shares_commitment = compute_poseidon_hash(
-        &[
-            vec![contract_statement.new_wallet_commitment],
-            contract_statement.new_public_shares.clone(),
-        ]
-        .concat(),
-    );
-
+    let shares_commitment = statement.new_wallet_commitment.inner();
     let wallet_commitment_signature = Bytes::from(
         hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).as_bytes(),
     );
@@ -410,15 +402,7 @@ pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
     // Convert the statement & proof types to the ones expected by the contract
     let contract_statement: ContractValidFeeRedemptionStatement =
         to_contract_valid_fee_redemption_statement(&statement)?;
-
-    let shares_commitment = compute_poseidon_hash(
-        &[
-            vec![contract_statement.new_shares_commitment],
-            contract_statement.new_wallet_public_shares.clone(),
-        ]
-        .concat(),
-    );
-
+    let shares_commitment = statement.new_shares_commitment.inner();
     let wallet_commitment_signature = Bytes::from(
         hash_and_sign_message(&signing_key, &shares_commitment.serialize_to_bytes()).as_bytes(),
     );
