@@ -49,9 +49,11 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         calldata[NUM_BYTES_FELT * 2..].copy_from_slice(&b.serialize_to_bytes());
 
         // Call the `ecAdd` precompile
-        let res_xy_bytes = RawCall::new_static()
-            .call(Address::with_last_byte(EC_ADD_ADDRESS_LAST_BYTE), &calldata)
-            .map_err(|_| G1ArithmeticError)?;
+        let res_xy_bytes = unsafe {
+            RawCall::new_static()
+                .call(Address::with_last_byte(EC_ADD_ADDRESS_LAST_BYTE), &calldata)
+                .map_err(|_| G1ArithmeticError)?
+        };
 
         // Deserialize the affine coordinates returned from the precompile
         G1Affine::deserialize_from_bytes(&res_xy_bytes).map_err(|_| G1ArithmeticError)
@@ -70,9 +72,11 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         calldata[NUM_BYTES_FELT * 2..].copy_from_slice(&a.serialize_to_bytes());
 
         // Call the `ecMul` precompile
-        let res_xy_bytes = RawCall::new_static()
-            .call(Address::with_last_byte(EC_MUL_ADDRESS_LAST_BYTE), &calldata)
-            .map_err(|_| G1ArithmeticError)?;
+        let res_xy_bytes = unsafe {
+            RawCall::new_static()
+                .call(Address::with_last_byte(EC_MUL_ADDRESS_LAST_BYTE), &calldata)
+                .map_err(|_| G1ArithmeticError)?
+        };
 
         // Deserialize the affine coordinates returned from the precompile
         G1Affine::deserialize_from_bytes(&res_xy_bytes).map_err(|_| G1ArithmeticError)
@@ -94,9 +98,10 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
         calldata[NUM_BYTES_FELT * 8..].copy_from_slice(&b_2.serialize_to_bytes());
 
         // Call the `ecPairing` precompile
-        let res = RawCall::new_static()
-            // Only get the last byte of the 32-byte return data,
-            // containing the boolean result
+        let res = unsafe {
+            RawCall::new_static()
+                // Only get the last byte of the 32-byte return data,
+                // containing the boolean result
             .limit_return_data(
                 PAIRING_CHECK_RESULT_LAST_BYTE_INDEX, /* offset */
                 1,                                    /* size */
@@ -105,7 +110,8 @@ impl G1ArithmeticBackend for PrecompileG1ArithmeticBackend {
                 Address::with_last_byte(EC_PAIRING_ADDRESS_LAST_BYTE),
                 &calldata,
             )
-            .map_err(|_| G1ArithmeticError)?;
+            .map_err(|_| G1ArithmeticError)?
+        };
 
         // Return the result of the pairing check, which is either a 0 or 1.
         Ok(res[0] == 1)
@@ -151,14 +157,16 @@ impl EcRecoverBackend for PrecompileEcRecoverBackend {
         input[2 * NUM_BYTES_U256..].copy_from_slice(&signature[0..2 * NUM_BYTES_U256]);
 
         // Call the `ecRecover` precompile
-        let res = RawCall::new_static()
-            // Only get the last 20 bytes of the 32-byte return data
-            .limit_return_data(NUM_BYTES_U256 - NUM_BYTES_ADDRESS, NUM_BYTES_ADDRESS)
+        let res = unsafe {
+            RawCall::new_static()
+                // Only get the last 20 bytes of the 32-byte return data
+                .limit_return_data(NUM_BYTES_U256 - NUM_BYTES_ADDRESS, NUM_BYTES_ADDRESS)
             .call(
                 Address::with_last_byte(EC_RECOVER_ADDRESS_LAST_BYTE),
                 &input,
             )
-            .map_err(|_| EcdsaError)?;
+            .map_err(|_| EcdsaError)?
+        };
 
         res.try_into().map_err(|_| EcdsaError)
     }
