@@ -125,6 +125,8 @@ where
 // | CORE SETTER HELPERS |
 // -----------------------
 
+// --- Nullifier and Blinder Sets --- //
+
 /// Marks the given nullifier as spent
 pub fn mark_nullifier_spent<
     C: CoreContractStorage,
@@ -162,6 +164,25 @@ pub fn mark_public_blinder_used<C: CoreContractStorage, S: TopLevelStorage + Bor
     Ok(())
 }
 
+// --- Merkle Tree --- //
+
+/// Inserts a wallet commitment directly into the Merkle tree, without hashing
+/// shares to generate the commitment
+///
+/// This method is used for wallet rotations in which the full wallet commitment
+/// is computed in-circuit
+pub fn insert_commitment_into_tree<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
+    s: &mut S,
+    commitment: ScalarField,
+) -> Result<(), Vec<u8>> {
+    let storage = s.borrow_mut();
+    let merkle_address = storage.merkle_address();
+    let commitment_u256 = scalar_to_u256(commitment);
+    delegate_call_helper::<insertCommitmentCall>(s, merkle_address, (commitment_u256,))?;
+
+    Ok(())
+}
+
 /// Prepares the wallet shares for insertion into the Merkle tree by converting
 /// them to a vector of [`U256`]
 pub fn prepare_wallet_shares_for_insertion(
@@ -178,10 +199,7 @@ pub fn prepare_wallet_shares_for_insertion(
 /// Prepares the private shares commitment & public wallet shares for insertion
 /// into the Merkle tree and delegate-calls the appropriate method on the Merkle
 /// contract
-pub fn insert_wallet_commitment_to_merkle_tree<
-    C: CoreContractStorage,
-    S: TopLevelStorage + BorrowMut<C>,
->(
+pub fn insert_wallet_shares_into_tree<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     s: &mut S,
     private_shares_commitment: ScalarField,
     public_wallet_shares: &[ScalarField],
@@ -198,10 +216,7 @@ pub fn insert_wallet_commitment_to_merkle_tree<
 /// Prepares the private shares commitment & public wallet shares for insertion
 /// into the Merkle tree, as well as the signature & pubkey for verification,
 /// and delegate-calls the appropriate method on the Merkle contract
-pub fn insert_signed_wallet_commitment_to_merkle_tree<
-    C: CoreContractStorage,
-    S: TopLevelStorage + BorrowMut<C>,
->(
+pub fn insert_signed_shares_into_tree<C: CoreContractStorage, S: TopLevelStorage + BorrowMut<C>>(
     s: &mut S,
     private_shares_commitment: ScalarField,
     public_wallet_shares: &[ScalarField],
@@ -348,7 +363,7 @@ pub fn rotate_wallet<C: CoreContractStorage, S: TopLevelStorage + HostAccess + B
     new_wallet_public_shares: &[ScalarField],
 ) -> Result<(), Vec<u8>> {
     check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
-    insert_wallet_commitment_to_merkle_tree(
+    insert_wallet_shares_into_tree(
         s,
         new_wallet_private_shares_commitment,
         new_wallet_public_shares,
@@ -370,7 +385,7 @@ pub fn rotate_wallet_with_signature<
     old_pk_root: PublicSigningKey,
 ) -> Result<(), Vec<u8>> {
     check_wallet_rotation(s, old_wallet_nullifier, merkle_root, new_wallet_public_shares)?;
-    insert_signed_wallet_commitment_to_merkle_tree(
+    insert_signed_shares_into_tree(
         s,
         new_wallet_private_shares_commitment,
         new_wallet_public_shares,

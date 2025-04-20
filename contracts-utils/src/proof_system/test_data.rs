@@ -176,7 +176,7 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
     // since creating a dummy `ExternalTransfer` from random scalars will panic
     // due to an invalid value for `ExternalTransferDirection`
     let old_shares_nullifier = dummy_circuit_type(rng);
-    let new_private_shares_commitment = dummy_circuit_type(rng);
+    let new_wallet_commitment = dummy_circuit_type(rng);
     let new_public_shares = dummy_circuit_type(rng);
 
     SizedValidWalletUpdateStatement {
@@ -184,7 +184,7 @@ pub fn dummy_valid_wallet_update_statement<R: RngCore + CryptoRng>(
         merkle_root,
         old_pk_root,
         old_shares_nullifier,
-        new_private_shares_commitment,
+        new_wallet_commitment,
         new_public_shares,
     }
 }
@@ -217,7 +217,7 @@ pub fn dummy_valid_offline_fee_settlement_statement<R: RngCore + CryptoRng>(
     // due to an invalid boolean value
 
     let nullifier = dummy_circuit_type(rng);
-    let updated_wallet_commitment = dummy_circuit_type(rng);
+    let new_wallet_commitment = dummy_circuit_type(rng);
     let updated_wallet_public_shares = dummy_circuit_type(rng);
     let note_ciphertext = dummy_circuit_type(rng);
     let note_commitment = dummy_circuit_type(rng);
@@ -225,7 +225,7 @@ pub fn dummy_valid_offline_fee_settlement_statement<R: RngCore + CryptoRng>(
     SizedValidOfflineFeeSettlementStatement {
         merkle_root,
         nullifier,
-        updated_wallet_commitment,
+        new_wallet_commitment,
         updated_wallet_public_shares,
         note_ciphertext,
         note_commitment,
@@ -312,7 +312,7 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
 
     let shares_commitment = compute_poseidon_hash(
         &[
-            vec![contract_statement.new_private_shares_commitment],
+            vec![contract_statement.new_wallet_commitment],
             contract_statement.new_public_shares.clone(),
         ]
         .concat(),
@@ -413,7 +413,7 @@ pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
 
     let shares_commitment = compute_poseidon_hash(
         &[
-            vec![contract_statement.new_wallet_commitment],
+            vec![contract_statement.new_shares_commitment],
             contract_statement.new_wallet_public_shares.clone(),
         ]
         .concat(),
