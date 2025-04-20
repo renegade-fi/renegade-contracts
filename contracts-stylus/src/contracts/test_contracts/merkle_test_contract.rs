@@ -54,17 +54,27 @@ impl TestMerkleContract {
     }
 
     #[doc(hidden)]
-    pub fn verify_state_sig_and_insert(
+    pub fn insert_shares_with_sig(
         &mut self,
         shares: Vec<U256>,
         sig: Bytes,
         old_pk_root: [U256; NUM_SCALARS_PK],
     ) -> Result<(), Vec<u8>> {
-        self.merkle.verify_state_sig_and_insert(shares, sig, old_pk_root)
+        self.merkle.insert_shares_with_sig(shares, sig, old_pk_root)
     }
 
     #[doc(hidden)]
-    pub fn insert_note_commitment(&mut self, note_commitment: U256) -> Result<(), Vec<u8>> {
-        self.merkle.insert_note_commitment(note_commitment)
+    pub fn insert_commitment(&mut self, commitment: U256) -> Result<(), Vec<u8>> {
+        self.merkle.insert_commitment(commitment)
+    }
+
+    #[doc(hidden)]
+    pub fn insert_commitment_with_sig(
+        &mut self,
+        commitment: U256,
+        sig: Bytes,
+        old_pk_root: [U256; NUM_SCALARS_PK],
+    ) -> Result<(), Vec<u8>> {
+        self.merkle.insert_commitment_with_sig(commitment, sig, old_pk_root)
     }
 }
