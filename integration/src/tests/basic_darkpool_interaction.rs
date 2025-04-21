@@ -8,7 +8,8 @@ use contracts_common::{constants::TEST_MERKLE_HEIGHT, types::ScalarField};
 use contracts_utils::{
     merkle::new_ark_merkle_tree,
     proof_system::test_data::{
-        gen_new_wallet_data, gen_process_match_settle_data, gen_update_wallet_data,
+        gen_new_wallet_data, gen_process_match_settle_data,
+        gen_process_match_settle_with_commitments_data, gen_update_wallet_data,
     },
 };
 use eyre::{eyre, Result};
@@ -156,6 +157,64 @@ async fn test_process_match_settle_success(ctx: TestContext) -> Result<()> {
     Ok(())
 }
 integration_test_async!(test_process_match_settle_success);
+
+/// Test the `process_match_settle_with_commitments` method on the darkpool
+async fn test_process_match_settle_with_commitments(ctx: TestContext) -> Result<()> {
+    let contract = ctx.darkpool_contract();
+
+    // Ensure the merkle state is cleared for the test
+    send_tx(contract.clearMerkle()).await?;
+
+    // Generate test data
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+
+    let contract_root = ctx.get_root_scalar().await?;
+    let fee_u256 = call_helper(contract.getFee()).await?._0;
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee_u256)));
+    let mut rng = thread_rng();
+    let data =
+        gen_process_match_settle_with_commitments_data(&mut rng, contract_root, protocol_fee)?;
+
+    // Call `process_match_settle_with_commitments` with valid data
+    let call = contract.processMatchSettleWithCommitments(
+        serialize_to_calldata(&data.match_payload_0)?,
+        serialize_to_calldata(&data.match_payload_1)?,
+        serialize_to_calldata(&data.valid_match_settle_statement)?,
+        serialize_to_calldata(&data.match_proofs)?,
+        serialize_to_calldata(&data.match_linking_proofs)?,
+    );
+    send_tx(call).await?;
+
+    // Assert that correct nullifiers are spent
+    let party_0_nullifier = data.match_payload_0.valid_reblind_statement.original_shares_nullifier;
+    let party_1_nullifier = data.match_payload_1.valid_reblind_statement.original_shares_nullifier;
+
+    let party_0_nullifier_spent = ctx.nullifier_spent(party_0_nullifier).await?;
+    assert!(party_0_nullifier_spent, "Party 0 nullifier not spent");
+
+    let party_1_nullifier_spent = ctx.nullifier_spent(party_1_nullifier).await?;
+    assert!(party_1_nullifier_spent, "Party 1 nullifier not spent");
+
+    // Assert that Merkle root is correct
+    insert_commitment_and_get_root(
+        &mut ark_merkle,
+        0, // index
+        data.valid_match_settle_statement.new_share_commitment0,
+    )
+    .map_err(|e| eyre!("{}", e))?;
+    let ark_root = insert_commitment_and_get_root(
+        &mut ark_merkle,
+        1, // index
+        data.valid_match_settle_statement.new_share_commitment1,
+    )
+    .map_err(|e| eyre!("{}", e))?;
+
+    let contract_root = ctx.get_root_scalar().await?;
+    assert_eq!(ark_root, contract_root, "Merkle root incorrect");
+
+    Ok(())
+}
+integration_test_async!(test_process_match_settle_with_commitments);
 
 /// Test that the `process_match_settle` method on the darkpool
 /// fails when order settlement indices are inconsistent
