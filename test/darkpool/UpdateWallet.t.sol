@@ -16,7 +16,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
     function test_updateWallet_validUpdate() public {
         // Setup calldata
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Modify the merkle root to be valid
@@ -51,7 +51,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
             transferType: TransferType.Deposit
         });
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
+            generateUpdateWalletCalldata(transfer, rootKeyWallet);
         statement.merkleRoot = darkpool.getMerkleRoot();
 
         // Authorize the deposit
@@ -88,7 +88,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
             transferType: TransferType.Withdrawal
         });
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
+            generateUpdateWalletCalldata(transfer, rootKeyWallet);
         statement.merkleRoot = darkpool.getMerkleRoot();
 
         // Authorize the withdrawal
@@ -109,7 +109,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
     /// @notice Test updating a wallet with an invalid proof
     function test_updateWallet_invalidProof() public {
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         vm.expectRevert("Verification failed for wallet update");
@@ -125,7 +125,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
 
         // Update the wallet with the same public blinder share
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
         statement.merkleRoot = darkpool.getMerkleRoot();
         statement.newPublicShares[statement.newPublicShares.length - 1] = publicBlinder;
@@ -139,7 +139,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
     function test_updateWallet_invalidMerkleRoot() public {
         // Setup calldata
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Modify the merkle root to be invalid
@@ -154,7 +154,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
     function test_updateWallet_spentNullifier() public {
         // Setup calldata
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Modify the merkle root to be valid
@@ -173,7 +173,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
     function test_updateWallet_invalidSignature() public {
         // Setup calldata
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
         // Use the current Merkle root to isolate the signature check directly

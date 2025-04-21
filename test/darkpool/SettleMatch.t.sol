@@ -94,7 +94,7 @@ contract SettleMatchTest is DarkpoolTestBase {
 
         // Update a wallet using the nullifier
         (bytes memory newSharesCommitmentSig, ValidWalletUpdateStatement memory statement, PlonkProof memory proof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         statement.previousNullifier = nullifier;
         statement.merkleRoot = merkleRoot;
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();

@@ -81,7 +81,7 @@ contract CalldataUtils is TestUtils {
         returns (ValidWalletCreateStatement memory statement, PlonkProof memory proof)
     {
         statement = ValidWalletCreateStatement({
-            privateShareCommitment: BN254.ScalarField.wrap(randomFelt()),
+            walletShareCommitment: BN254.ScalarField.wrap(randomFelt()),
             publicShares: randomWalletShares()
         });
         proof = dummyPlonkProof();
@@ -90,7 +90,7 @@ contract CalldataUtils is TestUtils {
     /// --- Update Wallet --- ///
 
     /// @notice Generate calldata for updating a wallet
-    function updateWalletCalldata(IHasher hasher)
+    function updateWalletCalldata()
         internal
         returns (
             bytes memory newSharesCommitmentSig,
@@ -99,14 +99,11 @@ contract CalldataUtils is TestUtils {
         )
     {
         ExternalTransfer memory transfer = emptyExternalTransfer();
-        return updateWalletWithExternalTransferCalldata(hasher, transfer);
+        return updateWalletWithExternalTransferCalldata(transfer);
     }
 
     /// @notice Generate calldata for a wallet update with a given external transfer
-    function updateWalletWithExternalTransferCalldata(
-        IHasher hasher,
-        ExternalTransfer memory transfer
-    )
+    function updateWalletWithExternalTransferCalldata(ExternalTransfer memory transfer)
         internal
         returns (
             bytes memory newSharesCommitmentSig,
@@ -115,12 +112,11 @@ contract CalldataUtils is TestUtils {
         )
     {
         Vm.Wallet memory rootKeyWallet = randomEthereumWallet();
-        return generateUpdateWalletCalldata(hasher, transfer, rootKeyWallet);
+        return generateUpdateWalletCalldata(transfer, rootKeyWallet);
     }
 
     /// @notice Generate update wallet calldata for a given transfer using a given root key wallet
     function generateUpdateWalletCalldata(
-        IHasher hasher,
         ExternalTransfer memory transfer,
         Vm.Wallet memory rootKeyWallet
     )
@@ -133,8 +129,8 @@ contract CalldataUtils is TestUtils {
     {
         statement = ValidWalletUpdateStatement({
             previousNullifier: randomScalar(),
+            newWalletCommitment: randomScalar(),
             newPublicShares: randomWalletShares(),
-            newPrivateShareCommitment: randomScalar(),
             merkleRoot: randomScalar(),
             externalTransfer: transfer,
             oldPkRoot: forgeWalletToRootKey(rootKeyWallet)
@@ -142,11 +138,7 @@ contract CalldataUtils is TestUtils {
         proof = dummyPlonkProof();
 
         // Sign the new shares commitment
-        BN254.ScalarField newSharesCommitment = WalletOperations.computeWalletCommitment(
-            statement.newPrivateShareCommitment, statement.newPublicShares, hasher
-        );
-
-        bytes32 digest = WalletOperations.walletCommitmentDigest(newSharesCommitment);
+        bytes32 digest = WalletOperations.walletCommitmentDigest(statement.newWalletCommitment);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(rootKeyWallet.privateKey, digest);
         newSharesCommitmentSig = abi.encodePacked(r, s, v);
     }
@@ -315,7 +307,7 @@ contract CalldataUtils is TestUtils {
         statement = ValidOfflineFeeSettlementStatement({
             merkleRoot: merkleRoot,
             walletNullifier: randomScalar(),
-            updatedWalletCommitment: randomScalar(),
+            newWalletCommitment: randomScalar(),
             updatedWalletPublicShares: randomWalletShares(),
             noteCiphertext: randomElGamalCiphertext(NOTE_CIPHERTEXT_SCALARS),
             noteCommitment: randomScalar(),
@@ -330,8 +322,7 @@ contract CalldataUtils is TestUtils {
     /// @notice Generate calldata for redeeming a fee
     function redeemFeeCalldata(
         BN254.ScalarField merkleRoot,
-        Vm.Wallet memory receiverWallet,
-        IHasher hasher
+        Vm.Wallet memory receiverWallet
     )
         internal
         returns (
@@ -345,18 +336,14 @@ contract CalldataUtils is TestUtils {
             noteRoot: merkleRoot,
             walletNullifier: randomScalar(),
             noteNullifier: randomScalar(),
-            newWalletCommitment: randomScalar(),
+            newSharesCommitment: randomScalar(),
             newWalletPublicShares: randomWalletShares(),
             walletRootKey: forgeWalletToRootKey(receiverWallet)
         });
         proof = dummyPlonkProof();
 
         // Sign the new shares commitment
-        BN254.ScalarField newSharesCommitment = WalletOperations.computeWalletCommitment(
-            statement.newWalletCommitment, statement.newWalletPublicShares, hasher
-        );
-
-        bytes32 digest = WalletOperations.walletCommitmentDigest(newSharesCommitment);
+        bytes32 digest = WalletOperations.walletCommitmentDigest(statement.newSharesCommitment);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(receiverWallet.privateKey, digest);
         newSharesCommitmentSig = abi.encodePacked(r, s, v);
     }

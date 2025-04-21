@@ -220,7 +220,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
             bytes memory newSharesCommitmentSig,
             ValidWalletUpdateStatement memory updateStatement,
             PlonkProof memory updateProof
-        ) = updateWalletCalldata(hasher);
+        ) = updateWalletCalldata();
         updateStatement.previousNullifier = nullifier;
         updateStatement.merkleRoot = merkleRoot;
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
