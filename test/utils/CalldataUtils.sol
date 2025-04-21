@@ -38,6 +38,7 @@ import {
     ValidMatchSettleStatement,
     ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
@@ -266,6 +267,41 @@ contract CalldataUtils is TestUtils {
         linkingProofs = MatchAtomicLinkingProofs({
             validReblindCommitments: dummyLinkingProof(),
             validCommitmentsMatchSettleAtomic: dummyLinkingProof()
+        });
+    }
+
+    /// --- Settle Atomic Match With Commitments --- ///
+
+    /// @notice Generate calldata for settling an atomic match with commitments
+    function settleAtomicMatchWithCommitmentsCalldata(
+        BN254.ScalarField merkleRoot,
+        ExternalMatchResult memory matchResult
+    )
+        internal
+        returns (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicWithCommitmentsStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        )
+    {
+        // Generate base calldata
+        ValidMatchSettleAtomicStatement memory baseStatement;
+        (internalPartyPayload, baseStatement, proofs, linkingProofs) =
+            settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+
+        // Create a `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS` statement
+        BN254.ScalarField privateShareCommitment = internalPartyPayload.validReblindStatement.newPrivateShareCommitment;
+        BN254.ScalarField newShareCommitment = randomScalar();
+        statement = ValidMatchSettleAtomicWithCommitmentsStatement({
+            privateShareCommitment: privateShareCommitment,
+            newShareCommitment: newShareCommitment,
+            matchResult: baseStatement.matchResult,
+            externalPartyFees: baseStatement.externalPartyFees,
+            internalPartyModifiedShares: baseStatement.internalPartyModifiedShares,
+            internalPartySettlementIndices: baseStatement.internalPartySettlementIndices,
+            protocolFeeRate: baseStatement.protocolFeeRate,
+            relayerFeeAddress: baseStatement.relayerFeeAddress
         });
     }
 
