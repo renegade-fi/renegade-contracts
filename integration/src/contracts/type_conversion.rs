@@ -15,8 +15,9 @@ use renegade_circuit_types::{
     PlonkLinkProof, PlonkProof,
 };
 use renegade_circuits::zk_circuits::{
-    valid_commitments::ValidCommitmentsStatement, valid_reblind::ValidReblindStatement,
-    valid_wallet_create::SizedValidWalletCreateStatement,
+    valid_commitments::ValidCommitmentsStatement,
+    valid_match_settle::SizedValidMatchSettleWithCommitmentsStatement,
+    valid_reblind::ValidReblindStatement, valid_wallet_create::SizedValidWalletCreateStatement,
 };
 use renegade_circuits::zk_circuits::{
     valid_match_settle::SizedValidMatchSettleStatement,
@@ -31,6 +32,7 @@ use super::darkpool::{
     PublicRootKey as ContractRootKey, TransferAuthorization as ContractTransferAuth,
     ValidCommitmentsStatement as ContractValidCommitmentsStatement,
     ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement as ContractValidMatchSettleWithCommitmentsStatement,
     ValidReblindStatement as ContractValidReblindStatement,
     ValidWalletCreateStatement as ContractValidWalletCreateStatement,
     ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
@@ -115,6 +117,33 @@ impl From<SizedValidMatchSettleStatement> for ContractValidMatchSettleStatement 
     }
 }
 
+impl From<SizedValidMatchSettleWithCommitmentsStatement>
+    for ContractValidMatchSettleWithCommitmentsStatement
+{
+    fn from(statement: SizedValidMatchSettleWithCommitmentsStatement) -> Self {
+        Self {
+            privateShareCommitment0: scalar_to_u256(statement.private_share_commitment0),
+            privateShareCommitment1: scalar_to_u256(statement.private_share_commitment1),
+            newShareCommitment0: scalar_to_u256(statement.new_share_commitment0),
+            newShareCommitment1: scalar_to_u256(statement.new_share_commitment1),
+            firstPartyPublicShares: statement
+                .party0_modified_shares
+                .to_scalars()
+                .into_iter()
+                .map(scalar_to_u256)
+                .collect(),
+            secondPartyPublicShares: statement
+                .party1_modified_shares
+                .to_scalars()
+                .into_iter()
+                .map(scalar_to_u256)
+                .collect(),
+            firstPartySettlementIndices: statement.party0_indices.into(),
+            secondPartySettlementIndices: statement.party1_indices.into(),
+            protocolFeeRate: scalar_to_u256(statement.protocol_fee.repr),
+        }
+    }
+}
 // ---------------------
 // | Application Types |
 // ---------------------

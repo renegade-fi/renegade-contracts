@@ -10,7 +10,8 @@ import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
-    ValidMatchSettleStatement
+    ValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement
 } from "renegade-lib/darkpool/PublicInputs.sol";
 
 contract SettleMatchTest is DarkpoolTestBase {
@@ -30,6 +31,28 @@ contract SettleMatchTest is DarkpoolTestBase {
 
         // Process the match
         darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
+
+        // Check that the nullifiers are used
+        BN254.ScalarField nullifier0 = party0Payload.validReblindStatement.originalSharesNullifier;
+        BN254.ScalarField nullifier1 = party1Payload.validReblindStatement.originalSharesNullifier;
+        assertEq(darkpool.nullifierSpent(nullifier0), true);
+        assertEq(darkpool.nullifierSpent(nullifier1), true);
+    }
+
+    /// @notice Test settling a match with commitments attached
+    function test_settleMatchWithCommitments_validMatch() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleWithCommitmentsStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        ) = settleMatchWithCommitmentsCalldata(merkleRoot);
+
+        // Process the match
+        darkpool.processMatchSettleWithCommitments(party0Payload, party1Payload, statement, proofs, linkingProofs);
 
         // Check that the nullifiers are used
         BN254.ScalarField nullifier0 = party0Payload.validReblindStatement.originalSharesNullifier;
@@ -191,5 +214,79 @@ contract SettleMatchTest is DarkpoolTestBase {
         // Should fail
         vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
         darkpool.processMatchSettle(party0Payload, party1Payload, statement, proofs, linkingProofs);
+    }
+
+    /// @notice Test settling a match with commitments in which one party's settlement indices are inconsistent
+    function test_settleMatchWithCommitments_inconsistentIndices() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleWithCommitmentsStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        ) = settleMatchWithCommitmentsCalldata(merkleRoot);
+
+        bytes memory revertString;
+        if (vm.randomBool()) {
+            // Party 0 has an invalid settlement indices
+            party0Payload.validCommitmentsStatement.indices = randomOrderSettlementIndices();
+            revertString = "Invalid party 0 order settlement indices";
+        } else {
+            // Party 1 has an invalid settlement indices
+            party1Payload.validCommitmentsStatement.indices = randomOrderSettlementIndices();
+            revertString = "Invalid party 1 order settlement indices";
+        }
+
+        // Should fail
+        vm.expectRevert(revertString);
+        darkpool.processMatchSettleWithCommitments(party0Payload, party1Payload, statement, proofs, linkingProofs);
+    }
+
+    /// @notice Test settling a match with commitments in which one party's private share commitment is invalid
+    function test_settleMatchWithCommitments_invalidPrivateShareCommitment() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleWithCommitmentsStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        ) = settleMatchWithCommitmentsCalldata(merkleRoot);
+
+        bytes memory revertString;
+        if (vm.randomBool()) {
+            // Party 0 has an invalid private share commitment
+            party0Payload.validReblindStatement.newPrivateShareCommitment = randomScalar();
+            revertString = "Invalid party 0 private share commitment";
+        } else {
+            // Party 1 has an invalid private share commitment
+            party1Payload.validReblindStatement.newPrivateShareCommitment = randomScalar();
+            revertString = "Invalid party 1 private share commitment";
+        }
+
+        // Should fail
+        vm.expectRevert(revertString);
+        darkpool.processMatchSettleWithCommitments(party0Payload, party1Payload, statement, proofs, linkingProofs);
+    }
+
+    /// @notice Test settling a match with commitments in which the protocol fee rate is invalid
+    function test_settleMatchWithCommitments_invalidProtocolFeeRate() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleWithCommitmentsStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        ) = settleMatchWithCommitmentsCalldata(merkleRoot);
+        statement.protocolFeeRate = BN254.ScalarField.unwrap(randomScalar());
+
+        // Should fail
+        vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
+        darkpool.processMatchSettleWithCommitments(party0Payload, party1Payload, statement, proofs, linkingProofs);
     }
 }

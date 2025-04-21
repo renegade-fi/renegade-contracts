@@ -14,6 +14,7 @@ import {
     ValidCommitmentsStatement,
     ValidReblindStatement,
     ValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
@@ -39,6 +40,7 @@ using StatementSerializer for ValidWalletUpdateStatement;
 using StatementSerializer for ValidCommitmentsStatement;
 using StatementSerializer for ValidReblindStatement;
 using StatementSerializer for ValidMatchSettleStatement;
+using StatementSerializer for ValidMatchSettleWithCommitmentsStatement;
 using StatementSerializer for ValidMatchSettleAtomicStatement;
 using StatementSerializer for ValidOfflineFeeSettlementStatement;
 using StatementSerializer for ValidFeeRedemptionStatement;
@@ -120,6 +122,69 @@ contract Verifier is IVerifier {
             ProofLinkingVK memory commitmentsMatchSettleVk0,
             ProofLinkingVK memory commitmentsMatchSettleVk1
         ) = vkeys.matchBundleKeys();
+
+        // Build the batch
+        PlonkProof[] memory proofs = new PlonkProof[](NUM_MATCH_PROOFS);
+        BN254.ScalarField[][] memory publicInputs = new BN254.ScalarField[][](NUM_MATCH_PROOFS);
+        VerificationKey[] memory vks = new VerificationKey[](NUM_MATCH_PROOFS);
+        proofs[0] = matchProofs.validCommitments0;
+        proofs[1] = matchProofs.validReblind0;
+        proofs[2] = matchProofs.validCommitments1;
+        proofs[3] = matchProofs.validReblind1;
+        proofs[4] = matchProofs.validMatchSettle;
+
+        publicInputs[0] = party0MatchPayload.validCommitmentsStatement.scalarSerialize();
+        publicInputs[1] = party0MatchPayload.validReblindStatement.scalarSerialize();
+        publicInputs[2] = party1MatchPayload.validCommitmentsStatement.scalarSerialize();
+        publicInputs[3] = party1MatchPayload.validReblindStatement.scalarSerialize();
+        publicInputs[4] = matchSettleStatement.scalarSerialize();
+
+        vks[0] = commitmentsVk;
+        vks[1] = reblindVk;
+        vks[2] = commitmentsVk;
+        vks[3] = reblindVk;
+        vks[4] = settleVk;
+
+        // Add proof linking instances to the opening
+        ProofLinkingInstance[] memory instances = createMatchLinkingInstances(
+            matchProofs, matchLinkingProofs, reblindCommitmentsVk, commitmentsMatchSettleVk0, commitmentsMatchSettleVk1
+        );
+        OpeningElements memory linkOpenings = ProofLinkingCore.createOpeningElements(instances);
+
+        // Verify the batch
+        return VerifierCore.batchVerify(proofs, publicInputs, vks, linkOpenings);
+    }
+
+    /// @notice Verify a proof of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @dev We use the same verification types between variants of `VALID MATCH SETTLE`.
+    /// @dev The statements and vkeys capture different relations, but their shapes are identical
+    /// @dev and the linking group layouts are the same.
+    /// @param party0MatchPayload The payload for the first party
+    /// @param party1MatchPayload The payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param matchProofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param matchLinkingProofs The proof linking arguments for the match
+    /// @return True if the match bundle is valid, false otherwise
+    function verifyMatchSettleWithCommitments(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
+        MatchProofs calldata matchProofs,
+        MatchLinkingProofs calldata matchLinkingProofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        // Load the verification keys
+        (
+            VerificationKey memory commitmentsVk,
+            VerificationKey memory reblindVk,
+            VerificationKey memory settleVk,
+            ProofLinkingVK memory reblindCommitmentsVk,
+            ProofLinkingVK memory commitmentsMatchSettleVk0,
+            ProofLinkingVK memory commitmentsMatchSettleVk1
+        ) = vkeys.matchBundleWithCommitmentsKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_MATCH_PROOFS);
