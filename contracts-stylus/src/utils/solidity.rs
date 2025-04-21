@@ -20,6 +20,7 @@ sol! {
 
     // Core settlement functions
     function processMatchSettle(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
+    function processMatchSettleWithCommitments(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
     function processAtomicMatchSettle(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
     function processMalleableAtomicMatchSettle(uint256 baseAmount, address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
 

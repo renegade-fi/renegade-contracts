@@ -35,8 +35,8 @@ use crate::{
         solidity::{
             init_0Call as initMerkleCall, init_1Call as initTransferExecutorCall, newWalletCall,
             processAtomicMatchSettleCall, processMalleableAtomicMatchSettleCall,
-            processMatchSettleCall, redeemFeeCall, rootCall, rootInHistoryCall,
-            settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
+            processMatchSettleCall, processMatchSettleWithCommitmentsCall, redeemFeeCall, rootCall,
+            rootInHistoryCall, settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
             CoreAtomicMatchSettlementAddressChanged, CoreMalleableMatchSettlementAddressChanged,
             CoreMatchSettlementAddressChanged, CoreWalletOpsAddressChanged,
             ExternalFeeCollectionAddressChanged, ExternalMatchFeeChanged, FeeChanged,
@@ -652,6 +652,36 @@ impl DarkpoolContract {
 
         let delegate = Self::get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMatchSettleCall>(
+            storage,
+            delegate,
+            (
+                party_0_match_payload.to_vec().into(),
+                party_1_match_payload.to_vec().into(),
+                valid_match_settle_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|_| ())
+    }
+
+    /// Settles a matched order between two parties with full wallet
+    /// commitments, inserting the updated wallets into the commitment tree.
+    ///
+    /// This is a variant of `process_match_settle` that uses a settlement
+    /// circuit which takes the full wallet commitment as an input.
+    pub fn process_match_settle_with_commitments<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        party_0_match_payload: Bytes,
+        party_1_match_payload: Bytes,
+        valid_match_settle_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let delegate = Self::get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+        delegate_call_helper::<processMatchSettleWithCommitmentsCall>(
             storage,
             delegate,
             (

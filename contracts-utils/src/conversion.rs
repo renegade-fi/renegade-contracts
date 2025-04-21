@@ -16,7 +16,9 @@ use circuits::zk_circuits::{
     valid_commitments::ValidCommitmentsStatement,
     valid_fee_redemption::SizedValidFeeRedemptionStatement,
     valid_malleable_match_settle_atomic::SizedValidMalleableMatchSettleAtomicStatement,
-    valid_match_settle::SizedValidMatchSettleStatement,
+    valid_match_settle::{
+        SizedValidMatchSettleStatement, SizedValidMatchSettleWithCommitmentsStatement,
+    },
     valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
@@ -40,6 +42,7 @@ use contracts_common::types::{
     ValidMalleableMatchSettleAtomicStatement as ContractValidMalleableMatchSettleAtomicStatement,
     ValidMatchSettleAtomicStatement as ContractValidMatchSettleAtomicStatement,
     ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement as ContractValidMatchSettleWithCommitmentsStatement,
     ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
     ValidReblindStatement as ContractValidReblindStatement,
     ValidRelayerFeeSettlementStatement as ContractValidRelayerFeeSettlementStatement,
@@ -258,6 +261,24 @@ pub fn to_contract_valid_match_settle_statement(
         party1_modified_shares,
         party0_indices,
         party1_indices,
+        protocol_fee: statement.protocol_fee.repr.inner(),
+    }
+}
+
+/// Convert a [`SizedValidMatchSettleWithCommitmentsStatement`] to its
+/// corresponding smart contract type
+pub fn to_contract_valid_match_settle_with_commitments_statement(
+    statement: &SizedValidMatchSettleWithCommitmentsStatement,
+) -> ContractValidMatchSettleWithCommitmentsStatement {
+    ContractValidMatchSettleWithCommitmentsStatement {
+        private_share_commitment0: statement.private_share_commitment0.inner(),
+        private_share_commitment1: statement.private_share_commitment1.inner(),
+        new_share_commitment0: statement.new_share_commitment0.inner(),
+        new_share_commitment1: statement.new_share_commitment1.inner(),
+        party0_modified_shares: wallet_shares_to_scalar_vec(&statement.party0_modified_shares),
+        party1_modified_shares: wallet_shares_to_scalar_vec(&statement.party1_modified_shares),
+        party0_indices: to_contract_order_settlement_indices(&statement.party0_indices),
+        party1_indices: to_contract_order_settlement_indices(&statement.party1_indices),
         protocol_fee: statement.protocol_fee.repr.inner(),
     }
 }
