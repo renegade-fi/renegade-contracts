@@ -7,6 +7,7 @@ use crate::{
     assert_result,
     contracts::core::core_helpers::{
         call_settlement_verifier, execute_atomic_match_transfers, fetch_vkeys, rotate_wallet,
+        rotate_wallet_with_commitment,
     },
     if_verifying,
     utils::{
@@ -18,16 +19,21 @@ use crate::{
         helpers::{
             deserialize_from_calldata, get_weth_address, is_native_eth_address, postcard_serialize,
             serialize_atomic_match_statements_for_verification,
+            serialize_atomic_match_statements_for_verification_with_commitments,
         },
-        solidity::{processAtomicMatchSettleVkeysCall, verifyAtomicMatchCall, ExternalMatchOutput},
+        solidity::{
+            processAtomicMatchSettleVkeysCall, processAtomicMatchSettleWithCommitmentsVkeysCall,
+            verifyAtomicMatchCall, ExternalMatchOutput,
+        },
     },
     IMPL_ADDRESS_STORAGE_GAP1_SIZE, IMPL_ADDRESS_STORAGE_GAP2_SIZE,
-    INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
+    INVALID_PRIVATE_COMMITMENT_ERROR_MESSAGE, INVALID_TRANSACTION_VALUE_ERROR_MESSAGE,
 };
 use alloc::{vec, vec::Vec};
 use alloy_sol_types::SolCall;
 use contracts_common::types::{
-    u256_to_scalar, MatchPayload, ValidMatchSettleAtomicStatement, VerifyAtomicMatchCalldata,
+    u256_to_scalar, MatchPayload, ValidMatchSettleAtomicStatement,
+    ValidMatchSettleAtomicWithCommitmentsStatement, VerifyAtomicMatchCalldata,
 };
 use stylus_sdk::{
     abi::Bytes,
@@ -205,7 +211,6 @@ impl CoreAtomicMatchSettleContract {
                 &internal_party_match_payload.valid_commitments_statement.indices;
             let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
             let same_indices = commitments_indices == settlement_indices;
-
             assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
 
             // We convert the protocol fee directly to a scalar as it is already kept
@@ -250,7 +255,93 @@ impl CoreAtomicMatchSettleContract {
         )?;
 
         log(self.vm(), ExternalMatchOutput { received_amount });
+        Ok(received_amount)
+    }
 
+    /// Processes an atomic match settle with commitments
+    ///
+    /// This function is similar to `process_atomic_match_settle` but includes
+    /// a full commitment too the internal party's new wallet, computed
+    /// in-circuit.
+    pub fn process_atomic_match_settle_with_commitments(
+        &mut self,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<U256, Vec<u8>> {
+        let internal_party_match_payload: MatchPayload =
+            deserialize_from_calldata(&internal_party_match_payload)?;
+        let valid_match_settle_atomic_statement: ValidMatchSettleAtomicWithCommitmentsStatement =
+            deserialize_from_calldata(&valid_match_settle_statement)?;
+
+        // The transaction value should be zero unless the external party is selling
+        // native ETH in the trade
+        let match_result = &valid_match_settle_atomic_statement.match_result;
+        let is_native_eth = is_native_eth_address(match_result.base_mint);
+        let is_external_party_sell = match_result.is_external_party_sell();
+        let native_eth_sell = is_native_eth && is_external_party_sell;
+        if !native_eth_sell && self.vm().msg_value() > U256::ZERO {
+            return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
+        }
+
+        if_verifying!({
+            let commitments_indices =
+                &internal_party_match_payload.valid_commitments_statement.indices;
+            let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
+            let same_indices = commitments_indices == settlement_indices;
+
+            assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
+
+            // Check that the private commitment used in `VALID REBLIND` is the same as the
+            // one used in `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+            let reblind_comm = internal_party_match_payload
+                .valid_reblind_statement
+                .reblinded_private_shares_commitment;
+            let new_comm = valid_match_settle_atomic_statement.private_share_commitment;
+            assert_result!(reblind_comm == new_comm, INVALID_PRIVATE_COMMITMENT_ERROR_MESSAGE)?;
+
+            // We convert the protocol fee directly to a scalar as it is already kept
+            // in storage as fixed-point number, no manipulation is needed to coerce it
+            // to the form expected in the statement / circuit.
+            let protocol_fee = self.external_match_protocol_fee(match_result.base_mint);
+            let protocol_fee = u256_to_scalar(protocol_fee)?;
+            assert_result!(
+                valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
+                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+            )?;
+
+            self.batch_verify_process_atomic_match_settle_with_commitments(
+                is_native_eth,
+                &internal_party_match_payload,
+                valid_match_settle_atomic_statement.clone(),
+                match_proofs,
+                match_linking_proofs,
+            )?;
+        });
+
+        rotate_wallet_with_commitment(
+            self,
+            internal_party_match_payload.valid_reblind_statement.original_shares_nullifier,
+            internal_party_match_payload.valid_reblind_statement.merkle_root,
+            valid_match_settle_atomic_statement.new_share_commitment,
+            &valid_match_settle_atomic_statement.internal_party_modified_shares,
+        )?;
+
+        // Execute the transfers to/from the external party
+        let fees = valid_match_settle_atomic_statement.external_party_fees;
+        let match_result = valid_match_settle_atomic_statement.match_result;
+        let relayer_fee_address = valid_match_settle_atomic_statement.relayer_fee_address;
+        let received_amount = execute_atomic_match_transfers(
+            self,
+            receiver,
+            fees,
+            match_result,
+            relayer_fee_address,
+        )?;
+
+        log(self.vm(), ExternalMatchOutput { received_amount });
         Ok(received_amount)
     }
 }
@@ -305,6 +396,56 @@ impl CoreAtomicMatchSettleContract {
             (calldata_bytes.into(),),
         )?;
 
+        assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
+    }
+
+    /// Batch-verifies all of the `process_atomic_match_settle_with_commitments`
+    /// proofs
+    pub fn batch_verify_process_atomic_match_settle_with_commitments(
+        &mut self,
+        is_native_eth: bool,
+        internal_party_match_payload: &MatchPayload,
+        mut valid_match_settle_atomic_statement: ValidMatchSettleAtomicWithCommitmentsStatement,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        // Fetch the Plonk & linking verification keys used in verifying the matching of
+        // a trade
+        let process_atomic_match_settle_vkeys =
+            fetch_vkeys(self, &processAtomicMatchSettleWithCommitmentsVkeysCall::SELECTOR)?;
+
+        // We allow native ETH transfers on external matches, but the verifier will
+        // expect WETH to be compatible with internal orders, so we change it
+        // here
+        if is_native_eth {
+            let weth = get_weth_address();
+            valid_match_settle_atomic_statement.match_result.base_mint = weth;
+        }
+
+        let atomic_match_public_inputs =
+            serialize_atomic_match_statements_for_verification_with_commitments(
+                &internal_party_match_payload.valid_commitments_statement,
+                &internal_party_match_payload.valid_reblind_statement,
+                &valid_match_settle_atomic_statement,
+            )?;
+
+        // Although the proofs are different, we can re-use the same verification path
+        // for atomic matches and atomic matches with commitments, because the
+        // shapes of the public inputs and linking groups are the same
+        let verifier_address = self.verifier_core_address();
+        let calldata = VerifyAtomicMatchCalldata {
+            verifier_address,
+            match_atomic_vkeys: process_atomic_match_settle_vkeys,
+            match_atomic_proofs: match_proofs.0,
+            match_atomic_public_inputs: atomic_match_public_inputs,
+            match_atomic_linking_proofs: match_linking_proofs.0,
+        };
+
+        let calldata_bytes = postcard_serialize(&calldata)?;
+        let result = call_settlement_verifier::<_, _, verifyAtomicMatchCall>(
+            self,
+            (calldata_bytes.into(),),
+        )?;
         assert_result!(result._0, VERIFICATION_FAILED_ERROR_MESSAGE)
     }
 }
