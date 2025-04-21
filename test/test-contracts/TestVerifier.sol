@@ -6,8 +6,9 @@ import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
-    ValidMatchSettleAtomicStatement,
     ValidMatchSettleWithCommitmentsStatement,
+    ValidMatchSettleAtomicStatement,
+    ValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
@@ -96,7 +97,7 @@ contract TestVerifier is IVerifier {
     /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
     /// @param linkingProofs The proof linking arguments for the match
     /// @return True always, regardless of the proof
-    function verifyMatchSettleWithCommitments(
+    function verifyMatchBundleWithCommitments(
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
@@ -107,7 +108,7 @@ contract TestVerifier is IVerifier {
         view
         returns (bool)
     {
-        verifier.verifyMatchSettleWithCommitments(
+        verifier.verifyMatchBundleWithCommitments(
             party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
         );
         return true;
@@ -130,6 +131,28 @@ contract TestVerifier is IVerifier {
         returns (bool)
     {
         verifier.verifyAtomicMatchBundle(internalPartyPayload, matchSettleStatement, proofs, linkingProofs);
+        return true;
+    }
+
+    /// @notice Verify a proof of `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+    /// @param internalPartyPayload The payload for the internal party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+    /// @param proofs The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return True always, regardless of the proof
+    function verifyAtomicMatchBundleWithCommitments(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        verifier.verifyAtomicMatchBundleWithCommitments(
+            internalPartyPayload, matchSettleStatement, proofs, linkingProofs
+        );
         return true;
     }
 

@@ -20,6 +20,7 @@ import {
     ValidMatchSettleStatement,
     ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
@@ -402,7 +403,7 @@ contract Darkpool is Ownable, Pausable {
         ValidReblindStatement calldata reblindStatement1 = party1MatchPayload.validReblindStatement;
 
         // 1. Verify the proofs
-        bool res = verifier.verifyMatchSettleWithCommitments(
+        bool res = verifier.verifyMatchBundleWithCommitments(
             party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
         );
         require(res, "Verification failed for match bundle with commitments");
@@ -530,6 +531,117 @@ contract Darkpool is Ownable, Pausable {
             reblindStatement.originalSharesNullifier,
             reblindStatement.merkleRoot,
             reblindStatement.newPrivateShareCommitment,
+            matchSettleStatement.internalPartyModifiedShares,
+            nullifierSet,
+            publicBlinderSet,
+            merkleTree,
+            hasher
+        );
+
+        // 6. Execute external transfers to/from the external party using TransferExecutor
+        (bool success, bytes memory returnData) = transferExecutor.delegatecall(
+            abi.encodeWithSelector(
+                TransferExecutor.executeAtomicMatchTransfers.selector,
+                receiver,
+                matchSettleStatement.relayerFeeAddress,
+                protocolFeeRecipient,
+                matchSettleStatement.matchResult,
+                matchSettleStatement.externalPartyFees,
+                weth
+            )
+        );
+        _handleDelegateCallResult(success, returnData);
+    }
+
+    /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
+    /// @dev An internal party is one with state committed into the darkpool, while
+    /// @dev an external party provides liquidity to the pool during the
+    /// @dev transaction in which this method is called
+    /// @dev The receiver of the match settlement is the sender of the transaction
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processAtomicMatchSettleWithCommitments(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        public
+        payable
+        whenNotPaused
+    {
+        address receiver = msg.sender;
+        processAtomicMatchSettleWithCommitmentsReceiver(
+            receiver, internalPartyPayload, matchSettleStatement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
+    /// @dev An internal party is one with state committed into the darkpool, while
+    /// @dev an external party provides liquidity to the pool during the
+    /// @dev transaction in which this method is called
+    /// @dev The receiver of the match settlement is the sender of the transaction
+    /// @dev This variant allows the receiver to be specified as a parameter
+    /// @param receiver The address that will receive the buy side token amount for the external party
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processAtomicMatchSettleWithCommitmentsReceiver(
+        address receiver,
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        public
+        payable
+        whenNotPaused
+    {
+        ValidCommitmentsStatement calldata commitmentsStatement = internalPartyPayload.validCommitmentsStatement;
+        ValidReblindStatement calldata reblindStatement = internalPartyPayload.validReblindStatement;
+
+        // 1. Validate the transaction value
+        // If the external party is selling a native token, validate that they have provided the correct
+        // amount in the transaction's value
+        ExternalMatchResult memory matchResult = matchSettleStatement.matchResult;
+        bool tradesNativeToken = DarkpoolConstants.isNativeToken(matchResult.baseMint);
+        bool externalPartySells = matchResult.direction == ExternalMatchDirection.InternalPartyBuy;
+        bool nativeTokenSell = tradesNativeToken && externalPartySells;
+
+        // The tx value should be zero unless the external party is selling native token
+        if (!nativeTokenSell && msg.value != 0) {
+            revert("Invalid ETH value, should be zero unless selling native token");
+        }
+
+        // 2. Verify the proofs
+        bool res = verifier.verifyAtomicMatchBundleWithCommitments(
+            internalPartyPayload, matchSettleStatement, proofs, linkingProofs
+        );
+        require(res, "Verification failed for atomic match bundle with commitments");
+
+        // 3. Check statement consistency for the internal party
+        // I.e. public inputs used in multiple proofs should take the same values
+        bool internalPartyValidIndices =
+            commitmentsStatement.indices.indicesEqual(matchSettleStatement.internalPartySettlementIndices);
+        require(internalPartyValidIndices, "Invalid internal party order settlement indices");
+
+        uint256 reblindComm = BN254.ScalarField.unwrap(reblindStatement.newPrivateShareCommitment);
+        uint256 newShareComm = BN254.ScalarField.unwrap(matchSettleStatement.privateShareCommitment);
+        bool internalPartyValidCommitment = reblindComm == newShareComm;
+        require(internalPartyValidCommitment, "Invalid internal party private share commitment");
+
+        // 4. Validate the protocol fee rate used in the settlement
+        uint256 protocolFee = getTokenExternalMatchFeeRate(matchResult.baseMint);
+        require(matchSettleStatement.protocolFeeRate == protocolFee, "Invalid protocol fee rate");
+
+        // 5. Insert the new shares into the Merkle tree
+        WalletOperations.rotateWalletWithCommitment(
+            reblindStatement.originalSharesNullifier,
+            reblindStatement.merkleRoot,
+            matchSettleStatement.newShareCommitment,
             matchSettleStatement.internalPartyModifiedShares,
             nullifierSet,
             publicBlinderSet,
