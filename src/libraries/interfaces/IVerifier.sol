@@ -6,6 +6,7 @@ import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
@@ -55,6 +56,23 @@ interface IVerifier {
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param party0MatchPayload The payload for the first party
+    /// @param party1MatchPayload The payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @return True if the match bundle is valid, false otherwise
+    function verifyMatchSettleWithCommitments(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
         MatchProofs calldata proofs,
         MatchLinkingProofs calldata linkingProofs
     )

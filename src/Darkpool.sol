@@ -18,6 +18,7 @@ import {
     ValidCommitmentsStatement,
     ValidReblindStatement,
     ValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
@@ -377,7 +378,80 @@ contract Darkpool is Ownable, Pausable {
         );
     }
 
-    /// @notice Process and atomic match settlement between two parties; one internal and one external
+    /// @notice Settle a match in the darkpool with wallet commitments pre-computed in-circuit
+    /// @dev This is a variant of `processMatchSettle` that allows the prover to pre-compute the wallet
+    /// @dev commitments for the two parties, then pass them into the function as part of the statement
+    /// @param party0MatchPayload The validity proofs for the first party
+    /// @param party1MatchPayload The validity proofs for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processMatchSettleWithCommitments(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
+    )
+        public
+        whenNotPaused
+    {
+        ValidCommitmentsStatement calldata commitmentsStatement0 = party0MatchPayload.validCommitmentsStatement;
+        ValidCommitmentsStatement calldata commitmentsStatement1 = party1MatchPayload.validCommitmentsStatement;
+        ValidReblindStatement calldata reblindStatement0 = party0MatchPayload.validReblindStatement;
+        ValidReblindStatement calldata reblindStatement1 = party1MatchPayload.validReblindStatement;
+
+        // 1. Verify the proofs
+        bool res = verifier.verifyMatchSettleWithCommitments(
+            party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
+        );
+        require(res, "Verification failed for match bundle with commitments");
+
+        // 2. Check statement consistency between the proofs for the two parties
+        // I.e. public inputs used in multiple proofs should take the same values
+        bool party0ValidIndices =
+            commitmentsStatement0.indices.indicesEqual(matchSettleStatement.firstPartySettlementIndices);
+        bool party1ValidIndices =
+            commitmentsStatement1.indices.indicesEqual(matchSettleStatement.secondPartySettlementIndices);
+        require(party0ValidIndices, "Invalid party 0 order settlement indices");
+        require(party1ValidIndices, "Invalid party 1 order settlement indices");
+
+        uint256 reblindComm0 = BN254.ScalarField.unwrap(reblindStatement0.newPrivateShareCommitment);
+        uint256 reblindComm1 = BN254.ScalarField.unwrap(reblindStatement1.newPrivateShareCommitment);
+        uint256 newShareComm0 = BN254.ScalarField.unwrap(matchSettleStatement.newShareCommitment0);
+        uint256 newShareComm1 = BN254.ScalarField.unwrap(matchSettleStatement.newShareCommitment1);
+        bool party0ValidCommitment = reblindComm0 == newShareComm0;
+        bool party1ValidCommitment = reblindComm1 == newShareComm1;
+        require(party0ValidCommitment, "Invalid party 0 private share commitment");
+        require(party1ValidCommitment, "Invalid party 1 private share commitment");
+
+        // 3. Validate the protocol fee rate used in the settlement
+        require(matchSettleStatement.protocolFeeRate == protocolFeeRate, "Invalid protocol fee rate");
+
+        // 4. Insert the new shares into the Merkle tree
+        WalletOperations.rotateWalletWithCommitment(
+            reblindStatement0.originalSharesNullifier,
+            reblindStatement0.merkleRoot,
+            matchSettleStatement.newShareCommitment0,
+            matchSettleStatement.firstPartyPublicShares,
+            nullifierSet,
+            publicBlinderSet,
+            merkleTree,
+            hasher
+        );
+        WalletOperations.rotateWalletWithCommitment(
+            reblindStatement1.originalSharesNullifier,
+            reblindStatement1.merkleRoot,
+            matchSettleStatement.newShareCommitment1,
+            matchSettleStatement.secondPartyPublicShares,
+            nullifierSet,
+            publicBlinderSet,
+            merkleTree,
+            hasher
+        );
+    }
+
+    /// @notice Process an atomic match settlement between two parties; one internal and one external
     /// @dev An internal party is one with state committed into the darkpool, while
     /// @dev an external party provides liquidity to the pool during the
     /// @dev transaction in which this method is called

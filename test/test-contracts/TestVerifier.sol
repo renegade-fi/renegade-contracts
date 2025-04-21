@@ -7,6 +7,7 @@ import {
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMatchSettleWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
@@ -85,6 +86,30 @@ contract TestVerifier is IVerifier {
         returns (bool)
     {
         verifier.verifyMatchBundle(party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs);
+        return true;
+    }
+
+    /// @notice Verify a proof of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param party0MatchPayload The payload for the first party
+    /// @param party1MatchPayload The payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return True always, regardless of the proof
+    function verifyMatchSettleWithCommitments(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool)
+    {
+        verifier.verifyMatchSettleWithCommitments(
+            party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
+        );
         return true;
     }
 
