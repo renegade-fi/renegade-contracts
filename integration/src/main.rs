@@ -44,9 +44,9 @@ const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 /// The provider type for the tests
 pub type Wallet = DynProvider<Ethereum>;
 /// A darkpool instance using the default generics
-pub type Darkpool = IDarkpoolInstance<(), Wallet, Ethereum>;
+pub type Darkpool = IDarkpoolInstance<Wallet, Ethereum>;
 /// An ERC20 instance with default generics
-pub type ERC20 = ERC20MockInstance<(), Wallet, Ethereum>;
+pub type ERC20 = ERC20MockInstance<Wallet, Ethereum>;
 
 /// The CLI arguments for the integration tests
 #[derive(Debug, Clone, Parser)]

@@ -76,7 +76,7 @@ async fn test_match_settle(args: TestArgs) -> Result<(), eyre::Error> {
     fund_wallet_for_match(&match_result, &o2, &mut wallet2, &args).await?;
 
     // Generate calldata and submit the match
-    let protocol_fee_rate = call_helper(darkpool.protocolFeeRate()).await?._0;
+    let protocol_fee_rate = call_helper(darkpool.protocolFeeRate()).await?;
     let fee_rate = FixedPoint::from_repr(u256_to_scalar(protocol_fee_rate));
     let (
         party0_payload,
