@@ -11,26 +11,26 @@ ark-bn254 = "0.4"
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 
 # === Renegade Dependencies === #
-renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", features = [
+renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", features = [
     "test_helpers",
 ] }
-renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade" }
-renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", default-features = false, features = [
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit" }
+renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", default-features = false, features = [
     "all-types",
 ] }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade" }
-renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", features = [
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit" }
+renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", features = [
     "blockchain",
 ] }
-test-helpers = { git = "https://github.com/renegade-fi/renegade", features = [
+test-helpers = { git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", features = [
     "contracts",
 ] }
 
 # === Alloy Dependencies === #
-alloy = { version = "0.12", features = ["essentials"] }
-alloy-contract = "0.12.3"
-alloy-sol-types = "0.8.23"
-alloy-sol-macro = "0.8.23"
+alloy = { version = "0.14", features = ["essentials"] }
+alloy-contract = "0.14"
+alloy-sol-types = "1.0.0"
+alloy-sol-macro = "1.0.0"
 ethers-signers = "2.0"
 
 # === Test Harness Dependencies === #

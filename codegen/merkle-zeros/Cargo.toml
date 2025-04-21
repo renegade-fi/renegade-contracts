@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 # === Renegade === #
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git" }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", default-features = false }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit" }
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit", default-features = false }
 common = { path = "../../test/rust-reference-impls/common" }
 
 # === Misc === #
