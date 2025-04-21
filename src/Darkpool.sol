@@ -259,6 +259,7 @@ contract Darkpool is Ownable, Pausable {
         require(res, "Verification failed for wallet create");
 
         // 2. Mark the public blinder share as spent
+        // Assumes that the public blinder share is the last share in the array
         BN254.ScalarField publicBlinder = statement.publicShares[statement.publicShares.length - 1];
         WalletOperations.markPublicBlinderAsUsed(publicBlinder, publicBlinderSet);
 
@@ -513,7 +514,13 @@ contract Darkpool is Ownable, Pausable {
         }
 
         // 2. Verify the proofs
-        bool res = verifier.verifyAtomicMatchBundle(internalPartyPayload, matchSettleStatement, proofs, linkingProofs);
+        // If trading the native token, we need to convert the base mint to use WETH so that its pair
+        // matches the internal party's pair
+        ValidMatchSettleAtomicStatement memory statement = matchSettleStatement;
+        if (tradesNativeToken) {
+            statement.matchResult.baseMint = address(weth);
+        }
+        bool res = verifier.verifyAtomicMatchBundle(internalPartyPayload, statement, proofs, linkingProofs);
         require(res, "Verification failed for atomic match bundle");
 
         // 3. Check statement consistency for the internal party
@@ -545,7 +552,7 @@ contract Darkpool is Ownable, Pausable {
                 receiver,
                 matchSettleStatement.relayerFeeAddress,
                 protocolFeeRecipient,
-                matchSettleStatement.matchResult,
+                matchResult,
                 matchSettleStatement.externalPartyFees,
                 weth
             )
@@ -617,9 +624,14 @@ contract Darkpool is Ownable, Pausable {
         }
 
         // 2. Verify the proofs
-        bool res = verifier.verifyAtomicMatchBundleWithCommitments(
-            internalPartyPayload, matchSettleStatement, proofs, linkingProofs
-        );
+        // If trading the native token, we need to convert the base mint to use WETH so that its pair
+        // matches the internal party's pair
+        ValidMatchSettleAtomicWithCommitmentsStatement memory statement = matchSettleStatement;
+        if (tradesNativeToken) {
+            statement.matchResult.baseMint = address(weth);
+        }
+        bool res =
+            verifier.verifyAtomicMatchBundleWithCommitments(internalPartyPayload, statement, proofs, linkingProofs);
         require(res, "Verification failed for atomic match bundle with commitments");
 
         // 3. Check statement consistency for the internal party
@@ -656,7 +668,7 @@ contract Darkpool is Ownable, Pausable {
                 receiver,
                 matchSettleStatement.relayerFeeAddress,
                 protocolFeeRecipient,
-                matchSettleStatement.matchResult,
+                matchResult,
                 matchSettleStatement.externalPartyFees,
                 weth
             )
@@ -702,8 +714,13 @@ contract Darkpool is Ownable, Pausable {
         }
 
         // 2. Verify the proofs
-        bool res =
-            verifier.verifyMalleableMatchBundle(internalPartyPayload, matchSettleStatement, proofs, linkingProofs);
+        // If trading the native token, we need to convert the base mint to use WETH so that its pair
+        // matches the internal party's pair
+        ValidMalleableMatchSettleAtomicStatement memory statement = matchSettleStatement;
+        if (tradesNativeToken) {
+            statement.matchResult.baseMint = address(weth);
+        }
+        bool res = verifier.verifyMalleableMatchBundle(internalPartyPayload, statement, proofs, linkingProofs);
         require(res, "Verification failed for malleable match bundle");
 
         // 3. Verify the protocol fee rates used in settlement

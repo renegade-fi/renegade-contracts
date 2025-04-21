@@ -230,6 +230,7 @@ library WalletOperations {
     }
 
     /// @notice Apply an external match to a wallet's public shares
+    /// @dev Arithmetic here is safe because the amounts are constrained in-circuit
     /// @param shares The wallet's shares
     /// @param internalPartyFeeRate The fees due on the match
     /// @param matchResult The result of the match
