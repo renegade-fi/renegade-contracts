@@ -384,7 +384,7 @@ library StatementSerializer {
         uint256 offset = 4;
         uint256 n = self.firstPartyPublicShares.length;
         for (uint256 i = 0; i < n; i++) {
-            serialized[i] = self.firstPartyPublicShares[i];
+            serialized[offset + i] = self.firstPartyPublicShares[i];
         }
 
         // Copy the second party public shares

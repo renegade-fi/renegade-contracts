@@ -13,6 +13,7 @@ import {
     ValidCommitmentsStatement,
     ValidReblindStatement,
     ValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
@@ -139,6 +140,21 @@ interface IDarkpool {
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
+    )
+        external;
+
+    /// @notice Process a match settlement between two parties with commitments
+    /// @param party0MatchPayload The validity proofs payload for the first party
+    /// @param party1MatchPayload The validity proofs payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processMatchSettleWithCommitments(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
         MatchProofs calldata proofs,
         MatchLinkingProofs calldata linkingProofs
     )
