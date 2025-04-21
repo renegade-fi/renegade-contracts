@@ -8,6 +8,7 @@ import {
     ValidMatchSettleStatement,
     ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
+    ValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
@@ -69,7 +70,7 @@ interface IVerifier {
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
     /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
     /// @return True if the match bundle is valid, false otherwise
-    function verifyMatchSettleWithCommitments(
+    function verifyMatchBundleWithCommitments(
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
         ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
@@ -89,6 +90,22 @@ interface IVerifier {
     function verifyAtomicMatchBundle(
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+    /// @param internalPartyPayload The payload for the internal party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+    /// @param proofs The proofs for the match, including a validity proof and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
+    /// @return True if the proof is valid, false otherwise
+    function verifyAtomicMatchBundleWithCommitments(
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
         MatchAtomicProofs calldata proofs,
         MatchAtomicLinkingProofs calldata linkingProofs
     )

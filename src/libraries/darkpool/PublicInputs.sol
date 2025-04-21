@@ -126,6 +126,30 @@ struct ValidMatchSettleAtomicStatement {
     address relayerFeeAddress;
 }
 
+/// @title ValidMatchSettleAtomicWithCommitmentsStatement
+/// @notice The statement type for the `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS` proof
+struct ValidMatchSettleAtomicWithCommitmentsStatement {
+    /// @dev A commitment to the internal party's private shares
+    BN254.ScalarField privateShareCommitment;
+    /// @dev A commitment to the new wallet shares of the internal party
+    BN254.ScalarField newShareCommitment;
+    /// @dev The result of the match
+    ExternalMatchResult matchResult;
+    /// @dev The external party's fee obligations as a result of the match
+    FeeTake externalPartyFees;
+    /// @dev The modified public shares of the internal party
+    BN254.ScalarField[] internalPartyModifiedShares;
+    /// @dev The indices that settlement should modify in the internal party's wallet
+    OrderSettlementIndices internalPartySettlementIndices;
+    /// @dev The protocol fee rate used for the match
+    /// @dev This is a fixed point value encoded as a uint256,
+    /// @dev so the true fee rate is `protocolFeeRate / 2^{FIXED_POINT_PRECISION}`
+    uint256 protocolFeeRate;
+    /// @dev The address at which the relayer wishes to receive their fee due
+    /// @dev from the external party
+    address relayerFeeAddress;
+}
+
 /// @title ValidMalleableMatchSettleAtomicStatement
 /// @notice The statement type for the `VALID MALLEABLE MATCH SETTLE ATOMIC` proof
 struct ValidMalleableMatchSettleAtomicStatement {
@@ -192,7 +216,9 @@ library StatementSerializer {
     using StatementSerializer for ValidReblindStatement;
     using StatementSerializer for ValidCommitmentsStatement;
     using StatementSerializer for ValidMatchSettleStatement;
+    using StatementSerializer for ValidMatchSettleWithCommitmentsStatement;
     using StatementSerializer for ValidMatchSettleAtomicStatement;
+    using StatementSerializer for ValidMatchSettleAtomicWithCommitmentsStatement;
     using StatementSerializer for ValidMalleableMatchSettleAtomicStatement;
     using StatementSerializer for ValidOfflineFeeSettlementStatement;
     using StatementSerializer for ValidFeeRedemptionStatement;
@@ -220,6 +246,8 @@ library StatementSerializer {
     uint256 constant VALID_MATCH_SETTLE_WITH_COMMITMENTS_SCALAR_SIZE = 151;
     /// @notice The number of scalar field elements in a ValidMatchSettleAtomicStatement
     uint256 constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
+    /// @notice The number of scalar field elements in a ValidMatchSettleAtomicWithCommitmentsStatement
+    uint256 constant VALID_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_SCALAR_SIZE = 84;
     /// @notice The number of scalar field elements in a ValidMalleableMatchSettleAtomicStatement
     uint256 constant VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 81;
     /// @notice The number of scalar field elements in a ValidOfflineFeeSettlementStatement
@@ -434,6 +462,57 @@ library StatementSerializer {
 
         // Copy the external party fees
         uint256 offset = matchResultSerialized.length;
+        BN254.ScalarField[] memory externalPartyFeesSerialized = self.externalPartyFees.scalarSerialize();
+        for (uint256 i = 0; i < externalPartyFeesSerialized.length; i++) {
+            serialized[offset + i] = externalPartyFeesSerialized[i];
+        }
+
+        // Copy the internal party modified shares
+        offset += externalPartyFeesSerialized.length;
+        for (uint256 i = 0; i < self.internalPartyModifiedShares.length; i++) {
+            serialized[offset + i] = self.internalPartyModifiedShares[i];
+        }
+
+        // Copy the internal party settlement indices
+        offset += self.internalPartyModifiedShares.length;
+        BN254.ScalarField[] memory internalPartySettlementIndicesSerialized =
+            self.internalPartySettlementIndices.scalarSerialize();
+        for (uint256 i = 0; i < internalPartySettlementIndicesSerialized.length; i++) {
+            serialized[offset + i] = internalPartySettlementIndicesSerialized[i];
+        }
+
+        // Copy the protocol fee rate and relayer fee address
+        serialized[serialized.length - 2] = BN254.ScalarField.wrap(self.protocolFeeRate);
+        serialized[serialized.length - 1] = BN254.ScalarField.wrap(uint256(uint160(self.relayerFeeAddress)));
+        return serialized;
+    }
+
+    // --- Valid Match Settle Atomic With Commitments --- //
+
+    /// @notice Serializes a ValidMatchSettleAtomicWithCommitmentsStatement into an array of scalar field elements
+    /// @param self The statement to serialize
+    /// @return serialized The serialized statement as an array of scalar field elements
+    function scalarSerialize(ValidMatchSettleAtomicWithCommitmentsStatement memory self)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory)
+    {
+        BN254.ScalarField[] memory serialized =
+            new BN254.ScalarField[](VALID_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_SCALAR_SIZE);
+
+        // Copy the private share commitment
+        serialized[0] = self.privateShareCommitment;
+        serialized[1] = self.newShareCommitment;
+
+        // Copy the match result
+        uint256 offset = 2;
+        BN254.ScalarField[] memory matchResultSerialized = self.matchResult.scalarSerialize();
+        for (uint256 i = 0; i < matchResultSerialized.length; i++) {
+            serialized[offset + i] = matchResultSerialized[i];
+        }
+
+        // Copy the external party fees
+        offset += matchResultSerialized.length;
         BN254.ScalarField[] memory externalPartyFeesSerialized = self.externalPartyFees.scalarSerialize();
         for (uint256 i = 0; i < externalPartyFeesSerialized.length; i++) {
             serialized[offset + i] = externalPartyFeesSerialized[i];
