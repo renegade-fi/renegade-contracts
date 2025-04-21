@@ -239,7 +239,7 @@ impl CoreMatchSettleContract {
 
     /// Process a match settle with a full wallet commitment already provided
     /// and proven in-circuit
-    pub fn process_match_settle_with_commitment(
+    pub fn process_match_settle_with_commitments(
         &mut self,
         party_0_match_payload: Bytes,
         party_1_match_payload: Bytes,

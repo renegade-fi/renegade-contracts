@@ -34,8 +34,9 @@ use crate::{
         helpers::{check_address_not_zero, delegate_call_helper},
         solidity::{
             init_0Call as initMerkleCall, init_1Call as initTransferExecutorCall, newWalletCall,
-            processAtomicMatchSettleCall, processMalleableAtomicMatchSettleCall,
-            processMatchSettleCall, redeemFeeCall, rootCall, rootInHistoryCall,
+            processAtomicMatchSettleCall, processAtomicMatchSettleWithCommitmentsCall,
+            processMalleableAtomicMatchSettleCall, processMatchSettleCall,
+            processMatchSettleWithCommitmentsCall, redeemFeeCall, rootCall, rootInHistoryCall,
             settleOfflineFeeCall, settleOnlineRelayerFeeCall, updateWalletCall,
             CoreAtomicMatchSettlementAddressChanged, CoreMalleableMatchSettlementAddressChanged,
             CoreMatchSettlementAddressChanged, CoreWalletOpsAddressChanged,
@@ -665,6 +666,36 @@ impl DarkpoolContract {
         .map(|_| ())
     }
 
+    /// Settles a matched order between two parties with full wallet
+    /// commitments, inserting the updated wallets into the commitment tree.
+    ///
+    /// This is a variant of `process_match_settle` that uses a settlement
+    /// circuit which takes the full wallet commitment as an input.
+    pub fn process_match_settle_with_commitments<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        party_0_match_payload: Bytes,
+        party_1_match_payload: Bytes,
+        valid_match_settle_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<(), Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let delegate = Self::get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+        delegate_call_helper::<processMatchSettleWithCommitmentsCall>(
+            storage,
+            delegate,
+            (
+                party_0_match_payload.to_vec().into(),
+                party_1_match_payload.to_vec().into(),
+                valid_match_settle_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|_| ())
+    }
+
     /// Processes an atomic match settlement between two parties; one internal
     /// and one external
     ///
@@ -710,6 +741,42 @@ impl DarkpoolContract {
         .map(|ret| ret._0)
     }
 
+    /// Processes an atomic match settlement with commitments between two
+    /// parties; one internal and one external
+    ///
+    /// This is a variant of `process_atomic_match_settle` that uses a
+    /// settlement circuit which takes the full wallet commitment as an
+    /// input.
+    ///
+    /// Returns the amount received by the external party in the match.
+    #[payable]
+    pub fn process_atomic_match_settle_with_commitments<S: TopLevelStorage + BorrowMut<Self>>(
+        storage: &mut S,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<U256, Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let receiver = msg::sender();
+        let delegate =
+            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+
+        delegate_call_helper::<processAtomicMatchSettleWithCommitmentsCall>(
+            storage,
+            delegate,
+            (
+                receiver,
+                internal_party_match_payload.to_vec().into(),
+                valid_match_settle_atomic_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|ret| ret._0)
+    }
+
     /// Process an atomic match settle statement with a receiver specified.
     ///
     /// Returns the amount received by the external party in the match.
@@ -728,6 +795,44 @@ impl DarkpoolContract {
             Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
 
         delegate_call_helper::<processAtomicMatchSettleCall>(
+            storage,
+            delegate,
+            (
+                receiver,
+                internal_party_match_payload.to_vec().into(),
+                valid_match_settle_atomic_statement.to_vec().into(),
+                match_proofs.to_vec().into(),
+                match_linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|ret| ret._0)
+    }
+
+    /// Process an atomic match settle with commitments statement with a
+    /// receiver specified.
+    ///
+    /// This is a variant of `process_atomic_match_settle_with_receiver` that
+    /// uses a settlement circuit which takes the full wallet commitment as
+    /// an input.
+    ///
+    /// Returns the amount received by the external party in the match.
+    #[payable]
+    pub fn process_atomic_match_settle_with_commitments_with_receiver<
+        S: TopLevelStorage + BorrowMut<Self>,
+    >(
+        storage: &mut S,
+        receiver: Address,
+        internal_party_match_payload: Bytes,
+        valid_match_settle_atomic_statement: Bytes,
+        match_proofs: Bytes,
+        match_linking_proofs: Bytes,
+    ) -> Result<U256, Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let delegate =
+            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+
+        delegate_call_helper::<processAtomicMatchSettleWithCommitmentsCall>(
             storage,
             delegate,
             (
