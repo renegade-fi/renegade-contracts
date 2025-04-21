@@ -172,6 +172,34 @@ pub struct ValidMatchSettleAtomicStatement {
     pub relayer_fee_address: Address,
 }
 
+/// The statement type for `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ValidMatchSettleAtomicWithCommitmentsStatement {
+    /// A commitment to the internal party's private shares
+    #[serde_as(as = "ScalarFieldDef")]
+    pub private_share_commitment: ScalarField,
+    /// A commitment to the new wallet shares of the internal party
+    #[serde_as(as = "ScalarFieldDef")]
+    pub new_share_commitment: ScalarField,
+    /// The result of the match
+    pub match_result: ExternalMatchResult,
+    /// The external party's fee obligations as a result of the match
+    pub external_party_fees: FeeTake,
+    /// The modified public shares of the internal party
+    #[serde_as(as = "Vec<ScalarFieldDef>")]
+    pub internal_party_modified_shares: Vec<ScalarField>,
+    /// The indices that settlement should modify in the internal party's wallet
+    pub internal_party_indices: OrderSettlementIndices,
+    /// The protocol fee used in the match
+    #[serde_as(as = "ScalarFieldDef")]
+    pub protocol_fee: ScalarField,
+    /// The address at which the relayer wishes to receive their fee due from
+    /// the external party
+    #[serde_as(as = "AddressDef")]
+    pub relayer_fee_address: Address,
+}
+
 /// Statement for the `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize)]

@@ -7,8 +7,8 @@ use contracts_common::{
     types::{
         MatchAtomicPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidMalleableMatchSettleAtomicStatement,
-        ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
-        ValidMatchSettleWithCommitmentsStatement, ValidReblindStatement,
+        ValidMatchSettleAtomicStatement, ValidMatchSettleAtomicWithCommitmentsStatement,
+        ValidMatchSettleStatement, ValidMatchSettleWithCommitmentsStatement, ValidReblindStatement,
     },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify_with_pubkey;
@@ -145,6 +145,24 @@ pub fn serialize_atomic_match_statements_for_verification(
     valid_commitments: &ValidCommitmentsStatement,
     valid_reblind: &ValidReblindStatement,
     valid_match_settle_atomic: &ValidMatchSettleAtomicStatement,
+) -> Result<Vec<u8>, Vec<u8>> {
+    let match_atomic_public_inputs = MatchAtomicPublicInputs {
+        valid_commitments: statement_to_public_inputs(valid_commitments)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind: statement_to_public_inputs(valid_reblind).map_err(map_calldata_ser_error)?,
+        valid_match_settle_atomic: statement_to_public_inputs(valid_match_settle_atomic)
+            .map_err(map_calldata_ser_error)?,
+    };
+    postcard_serialize(&match_atomic_public_inputs)
+}
+
+/// Serialized the statements used in verying the settlement of an atomic
+/// match with full commitments attached
+#[cfg_attr(not(feature = "core-atomic-match-settle"), allow(dead_code))]
+pub fn serialize_atomic_match_statements_for_verification_with_commitments(
+    valid_commitments: &ValidCommitmentsStatement,
+    valid_reblind: &ValidReblindStatement,
+    valid_match_settle_atomic: &ValidMatchSettleAtomicWithCommitmentsStatement,
 ) -> Result<Vec<u8>, Vec<u8>> {
     let match_atomic_public_inputs = MatchAtomicPublicInputs {
         valid_commitments: statement_to_public_inputs(valid_commitments)
