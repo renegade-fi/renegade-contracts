@@ -19,7 +19,9 @@ use circuits::zk_circuits::{
     valid_match_settle::{
         SizedValidMatchSettleStatement, SizedValidMatchSettleWithCommitmentsStatement,
     },
-    valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
+    valid_match_settle_atomic::{
+        SizedValidMatchSettleAtomicStatement, SizedValidMatchSettleAtomicWithCommitmentsStatement,
+    },
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
@@ -41,6 +43,7 @@ use contracts_common::types::{
     ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
     ValidMalleableMatchSettleAtomicStatement as ContractValidMalleableMatchSettleAtomicStatement,
     ValidMatchSettleAtomicStatement as ContractValidMatchSettleAtomicStatement,
+    ValidMatchSettleAtomicWithCommitmentsStatement as ContractValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMatchSettleStatement as ContractValidMatchSettleStatement,
     ValidMatchSettleWithCommitmentsStatement as ContractValidMatchSettleWithCommitmentsStatement,
     ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
@@ -348,6 +351,28 @@ pub fn to_contract_valid_match_settle_atomic_statement(
         to_contract_order_settlement_indices(&statement.internal_party_indices);
 
     Ok(ContractValidMatchSettleAtomicStatement {
+        match_result: to_contract_external_match_result(&statement.match_result)?,
+        external_party_fees: to_contract_fee_take(&statement.external_party_fees)?,
+        internal_party_modified_shares,
+        internal_party_indices,
+        protocol_fee: statement.protocol_fee.repr.inner(),
+        relayer_fee_address: biguint_to_address(&statement.relayer_fee_address)?,
+    })
+}
+
+/// Convert a [`SizedValidMatchSettleAtomicWithCommitmentsStatement`] to its
+/// corresponding smart contract type
+pub fn to_contract_valid_match_settle_atomic_with_commitments_statement(
+    statement: &SizedValidMatchSettleAtomicWithCommitmentsStatement,
+) -> Result<ContractValidMatchSettleAtomicWithCommitmentsStatement> {
+    let internal_party_modified_shares =
+        wallet_shares_to_scalar_vec(&statement.internal_party_modified_shares);
+    let internal_party_indices =
+        to_contract_order_settlement_indices(&statement.internal_party_indices);
+
+    Ok(ContractValidMatchSettleAtomicWithCommitmentsStatement {
+        private_share_commitment: statement.private_share_commitment.inner(),
+        new_share_commitment: statement.new_share_commitment.inner(),
         match_result: to_contract_external_match_result(&statement.match_result)?,
         external_party_fees: to_contract_fee_take(&statement.external_party_fees)?,
         internal_party_modified_shares,

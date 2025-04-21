@@ -11,8 +11,10 @@ use test_helpers::{assert_eq_result, integration_test_async};
 use crate::{
     abis::DarkpoolTestContract::ExternalMatchOutput,
     utils::{
-        extract_first_event, insert_shares_and_get_root, serialize_to_calldata,
-        setup_atomic_match_settle_test, setup_atomic_match_settle_test_native_eth, u256_to_scalar,
+        extract_first_event, insert_commitment_and_get_root, insert_shares_and_get_root,
+        serialize_to_calldata, setup_atomic_match_settle_test,
+        setup_atomic_match_settle_test_native_eth, setup_atomic_match_settle_test_with_commitments,
+        u256_to_scalar,
     },
     TestContext,
 };
@@ -61,6 +63,49 @@ async fn test_process_atomic_match_settle__internal_party(ctx: TestContext) -> R
     Ok(())
 }
 integration_test_async!(test_process_atomic_match_settle__internal_party);
+
+/// Test `process_atomic_match_settle_with_commitments` and verify the internal
+/// party's state after update
+#[allow(non_snake_case)]
+async fn test_process_atomic_match_settle_with_commitments__internal_party(
+    ctx: TestContext,
+) -> Result<()> {
+    let contract = ctx.darkpool_contract();
+    let data = setup_atomic_match_settle_test_with_commitments(
+        true,  // buy_side
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
+
+    // Call process_atomic_match_settle_with_commitments
+    let call = contract.processAtomicMatchSettleWithCommitments(
+        serialize_to_calldata(&data.internal_party_match_payload)?,
+        serialize_to_calldata(&data.valid_match_settle_atomic_with_commitments_statement)?,
+        serialize_to_calldata(&data.match_atomic_proofs)?,
+        serialize_to_calldata(&data.match_atomic_linking_proofs)?,
+    );
+    send_tx(call).await?;
+
+    // Assert nullifier is spent
+    let nullifier =
+        data.internal_party_match_payload.valid_reblind_statement.original_shares_nullifier;
+    let nullifier_spent = ctx.nullifier_spent(nullifier).await?;
+    assert!(nullifier_spent, "Nullifier not spent");
+
+    // Verify merkle root
+    let mut ark_merkle = new_ark_merkle_tree(TEST_MERKLE_HEIGHT);
+    let expected_root = insert_commitment_and_get_root(
+        &mut ark_merkle,
+        0, // index
+        data.valid_match_settle_atomic_with_commitments_statement.new_share_commitment,
+    )?;
+    let root = ctx.get_root_scalar().await?;
+    assert_eq!(expected_root, root, "Merkle root mismatch");
+
+    Ok(())
+}
+integration_test_async!(test_process_atomic_match_settle_with_commitments__internal_party);
 
 /// Test `process_atomic_match_settle` and verify the external party's state
 /// after update. That is, the erc20 transfers that result from the atomic match

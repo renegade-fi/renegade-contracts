@@ -16,7 +16,9 @@ use circuits::zk_circuits::{
     valid_match_settle::{
         SizedValidMatchSettleStatement, SizedValidMatchSettleWithCommitmentsStatement,
     },
-    valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
+    valid_match_settle_atomic::{
+        SizedValidMatchSettleAtomicStatement, SizedValidMatchSettleAtomicWithCommitmentsStatement,
+    },
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
@@ -275,31 +277,20 @@ impl SingleProverCircuit for DummyValidMatchSettleAtomic {
 }
 
 /// The dummy version of the `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
-/// witness, which defines a single element to be linked with the dummy
-/// `VALID COMMITMENTS` circuit
-#[circuit_type(singleprover_circuit)]
-#[derive(Clone)]
-pub struct DummyValidMatchSettleAtomicWithCommitmentsWitness {
-    /// The element to be linked with `VALID COMMITMENTS`
-    #[link_groups = "valid_commitments_match_settle0"]
-    pub valid_commitments_match_settle0: Scalar,
-}
-
-/// The dummy version of the `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
 /// circuit
 pub struct DummyValidMatchSettleAtomicWithCommitments;
 
 impl SingleProverCircuit for DummyValidMatchSettleAtomicWithCommitments {
-    type Statement = SizedValidMatchSettleAtomicStatement;
-    type Witness = DummyValidMatchSettleAtomicWithCommitmentsWitness;
+    type Statement = SizedValidMatchSettleAtomicWithCommitmentsStatement;
+    type Witness = DummyValidMatchSettleAtomicWitness;
 
     fn name() -> String {
         "Dummy Valid Match Settle Atomic With Commitments".to_string()
     }
 
     fn apply_constraints(
-        _witness_var: <DummyValidMatchSettleAtomicWithCommitmentsWitness as CircuitBaseType>::VarType,
-        _statement_var: <SizedValidMatchSettleAtomicStatement as CircuitBaseType>::VarType,
+        _witness_var: <DummyValidMatchSettleAtomicWitness as CircuitBaseType>::VarType,
+        _statement_var: <SizedValidMatchSettleAtomicWithCommitmentsStatement as CircuitBaseType>::VarType,
         _cs: &mut PlonkCircuit,
     ) -> Result<(), PlonkError> {
         Ok(())

@@ -4,7 +4,8 @@ use alloy_primitives::U256;
 use circuit_types::{fees::FeeTake, fixed_point::FixedPoint, r#match::ExternalMatchResult};
 use constants::Scalar;
 use contracts_utils::proof_system::test_data::{
-    gen_atomic_match_with_match_and_fees, ProcessAtomicMatchSettleData,
+    gen_atomic_match_with_match_and_fees, gen_atomic_match_with_match_and_fees_with_commitments,
+    ProcessAtomicMatchSettleData, ProcessAtomicMatchSettleWithCommitmentsData,
 };
 use eyre::Result;
 use rand::thread_rng;
@@ -73,6 +74,36 @@ pub async fn setup_atomic_match_settle_test(
     let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee)));
 
     let data = gen_atomic_match_with_match_and_fees(
+        &mut rng,
+        contract_root,
+        protocol_fee,
+        match_result,
+        fees,
+    )?;
+
+    Ok(data)
+}
+
+/// Setup an atomic match settle test with commitments
+pub async fn setup_atomic_match_settle_test_with_commitments(
+    buy_side: bool,
+    use_gas_sponsor: bool,
+    ctx: &TestContext,
+) -> Result<ProcessAtomicMatchSettleWithCommitmentsData> {
+    let darkpool_contract = ctx.darkpool_contract();
+
+    // Clear merkle state
+    send_tx(darkpool_contract.clearMerkle()).await?;
+
+    let mut rng = thread_rng();
+    let contract_root = ctx.get_root_scalar().await?;
+    let (match_result, fees) =
+        dummy_external_match_result_and_fees(buy_side, use_gas_sponsor, ctx).await?;
+    let base = biguint_to_address(&match_result.base_mint);
+    let fee = darkpool_contract.getExternalMatchFeeForAsset(base).call().await?._0;
+    let protocol_fee = FixedPoint::from(Scalar::new(u256_to_scalar(fee)));
+
+    let data = gen_atomic_match_with_match_and_fees_with_commitments(
         &mut rng,
         contract_root,
         protocol_fee,

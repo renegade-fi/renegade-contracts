@@ -23,7 +23,10 @@ use circuits::zk_circuits::{
         SizedValidMatchSettleStatement, SizedValidMatchSettleWithCommitmentsStatement,
         ValidMatchSettleWithCommitmentsStatement,
     },
-    valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement,
+    valid_match_settle_atomic::{
+        SizedValidMatchSettleAtomicStatement, SizedValidMatchSettleAtomicWithCommitmentsStatement,
+        ValidMatchSettleAtomicWithCommitmentsStatement,
+    },
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlementStatement,
     valid_reblind::ValidReblindStatement,
     valid_relayer_fee_settlement::SizedValidRelayerFeeSettlementStatement,
@@ -40,6 +43,7 @@ use contracts_common::{
         ValidFeeRedemptionStatement as ContractValidFeeRedemptionStatement,
         ValidMalleableMatchSettleAtomicStatement as ContractValidMalleableMatchSettleAtomicStatement,
         ValidMatchSettleAtomicStatement as ContractValidMatchSettleAtomicStatement,
+        ValidMatchSettleAtomicWithCommitmentsStatement as ContractValidMatchSettleAtomicWithCommitmentsStatement,
         ValidMatchSettleStatement as ContractValidMatchSettleStatement,
         ValidMatchSettleWithCommitmentsStatement as ContractValidMatchSettleWithCommitmentsStatement,
         ValidOfflineFeeSettlementStatement as ContractValidOfflineFeeSettlementStatement,
@@ -67,7 +71,9 @@ use crate::{
         to_circuit_pubkey, to_contract_link_proof, to_contract_proof,
         to_contract_valid_commitments_statement, to_contract_valid_fee_redemption_statement,
         to_contract_valid_malleable_match_settle_atomic_statement,
-        to_contract_valid_match_settle_atomic_statement, to_contract_valid_match_settle_statement,
+        to_contract_valid_match_settle_atomic_statement,
+        to_contract_valid_match_settle_atomic_with_commitments_statement,
+        to_contract_valid_match_settle_statement,
         to_contract_valid_match_settle_with_commitments_statement,
         to_contract_valid_offline_fee_settlement_statement, to_contract_valid_reblind_statement,
         to_contract_valid_relayer_fee_settlement_statement,
@@ -84,10 +90,10 @@ use super::{
     dummy_renegade_circuits::{
         DummyValidCommitments, DummyValidCommitmentsWitness, DummyValidFeeRedemption,
         DummyValidMalleableMatchSettleAtomicWitness, DummyValidMatchSettle,
-        DummyValidMatchSettleAtomicWitness, DummyValidMatchSettleWithCommitments,
-        DummyValidMatchSettleWitness, DummyValidOfflineFeeSettlement, DummyValidReblind,
-        DummyValidReblindWitness, DummyValidRelayerFeeSettlement, DummyValidWalletCreate,
-        DummyValidWalletUpdate,
+        DummyValidMatchSettleAtomicWithCommitments, DummyValidMatchSettleAtomicWitness,
+        DummyValidMatchSettleWithCommitments, DummyValidMatchSettleWitness,
+        DummyValidOfflineFeeSettlement, DummyValidReblind, DummyValidReblindWitness,
+        DummyValidRelayerFeeSettlement, DummyValidWalletCreate, DummyValidWalletUpdate,
     },
     gen_match_layouts, gen_match_linking_vkeys, gen_match_vkeys, MatchGroupLayouts,
 };
@@ -883,6 +889,22 @@ pub struct ProcessAtomicMatchSettleData {
     pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
 }
 
+/// The inputs for the `process_atomic_match_settle_with_commitments` darkpool
+/// method
+pub struct ProcessAtomicMatchSettleWithCommitmentsData {
+    /// The internal party's match payload
+    pub internal_party_match_payload: MatchPayload,
+    /// The `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS` statement
+    pub valid_match_settle_atomic_with_commitments_statement:
+        ContractValidMatchSettleAtomicWithCommitmentsStatement,
+    /// The Plonk proofs submitted to
+    /// `process_atomic_match_settle_with_commitments`
+    pub match_atomic_proofs: MatchAtomicProofs,
+    /// The linking proofs submitted to
+    /// `process_atomic_match_settle_with_commitments`
+    pub match_atomic_linking_proofs: MatchAtomicLinkingProofs,
+}
+
 /// Generates dummy statements to be submitted to `process_atomic_match_settle`
 fn dummy_match_atomic_statements<R: CryptoRng + RngCore>(
     rng: &mut R,
@@ -906,6 +928,45 @@ fn dummy_match_atomic_statements<R: CryptoRng + RngCore>(
     };
 
     (valid_commitments, valid_reblind, valid_match_settle_atomic)
+}
+
+/// Generates dummy statements to be used in the proofs submitted to
+/// `process_atomic_match_settle_with_commitments`
+fn dummy_match_atomic_with_commitments_statements<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_fee: FixedPoint,
+    external_party_fees: FeeTake,
+    match_result: ExternalMatchResult,
+) -> (
+    ValidCommitmentsStatement,
+    ValidReblindStatement,
+    SizedValidMatchSettleAtomicWithCommitmentsStatement,
+) {
+    let (commitments, reblind, match_settle) = dummy_match_atomic_statements(
+        rng,
+        merkle_root,
+        protocol_fee,
+        external_party_fees,
+        match_result,
+    );
+
+    let private_share_commitment = reblind.reblinded_private_share_commitment;
+    let new_share_commitment = Scalar::random(rng);
+
+    let valid_match_settle_atomic_with_commitments =
+        ValidMatchSettleAtomicWithCommitmentsStatement {
+            private_share_commitment,
+            new_share_commitment,
+            match_result: match_settle.match_result,
+            external_party_fees: match_settle.external_party_fees,
+            internal_party_modified_shares: match_settle.internal_party_modified_shares,
+            internal_party_indices: commitments.indices,
+            protocol_fee: match_settle.protocol_fee,
+            relayer_fee_address: match_settle.relayer_fee_address,
+        };
+
+    (commitments, reblind, valid_match_settle_atomic_with_commitments)
 }
 
 /// Generates dummy witnesses to be used in the proofs submitted to
@@ -950,6 +1011,42 @@ fn match_atomic_proofs_and_hints(
 
     let (valid_match_settle_atomic, valid_match_settle_atomic_hint) =
         DummyValidMatchSettleAtomic::prove_with_link_hint(
+            valid_match_settle_atomic_witness,
+            valid_match_settle_atomic_statement,
+        )?;
+    let valid_match_settle_atomic = to_contract_proof(&valid_match_settle_atomic)?;
+
+    Ok((
+        MatchAtomicProofs { valid_commitments, valid_reblind, valid_match_settle_atomic },
+        [
+            (valid_reblind_hint, valid_commitments_hint.clone()),
+            (valid_commitments_hint, valid_match_settle_atomic_hint),
+        ],
+    ))
+}
+
+/// Generates the linking proofs to be submitted to
+/// `process_atomic_match_settle_with_commitments`
+fn match_atomic_with_commitments_proofs_and_hints(
+    valid_commitments_statement: ValidCommitmentsStatement,
+    valid_reblind_statement: ValidReblindStatement,
+    valid_match_settle_atomic_statement: SizedValidMatchSettleAtomicWithCommitmentsStatement,
+    valid_commitments_witness: DummyValidCommitmentsWitness,
+    valid_reblind_witness: DummyValidReblindWitness,
+    valid_match_settle_atomic_witness: DummyValidMatchSettleAtomicWitness,
+) -> Result<MatchAtomicProofsAndHints> {
+    let (valid_commitments, valid_commitments_hint) = DummyValidCommitments::prove_with_link_hint(
+        valid_commitments_witness.clone(),
+        valid_commitments_statement,
+    )?;
+    // Prove `VALID COMMITMENTS` and `VALID REBLIND`
+    let valid_commitments = to_contract_proof(&valid_commitments)?;
+    let (valid_reblind, valid_reblind_hint) =
+        DummyValidReblind::prove_with_link_hint(valid_reblind_witness, valid_reblind_statement)?;
+    let valid_reblind = to_contract_proof(&valid_reblind)?;
+
+    let (valid_match_settle_atomic, valid_match_settle_atomic_hint) =
+        DummyValidMatchSettleAtomicWithCommitments::prove_with_link_hint(
             valid_match_settle_atomic_witness,
             valid_match_settle_atomic_statement,
         )?;
@@ -1034,6 +1131,54 @@ pub fn gen_atomic_match_with_match_and_fees<R: CryptoRng + RngCore>(
         valid_match_settle_atomic_statement: to_contract_valid_match_settle_atomic_statement(
             &valid_match_settle_atomic_statement,
         )?,
+        match_atomic_proofs,
+        match_atomic_linking_proofs,
+    })
+}
+
+/// Generates a `process_atomic_match_settle_with_commitments` payload with the
+/// given match and fees
+pub fn gen_atomic_match_with_match_and_fees_with_commitments<R: CryptoRng + RngCore>(
+    rng: &mut R,
+    merkle_root: Scalar,
+    protocol_fee: FixedPoint,
+    match_result: ExternalMatchResult,
+    fees: FeeTake,
+) -> Result<ProcessAtomicMatchSettleWithCommitmentsData> {
+    let (valid_commitments_statement, valid_reblind_statement, valid_match_settle_atomic_statement) =
+        dummy_match_atomic_with_commitments_statements(
+            rng,
+            merkle_root,
+            protocol_fee,
+            fees,
+            match_result,
+        );
+    let (valid_commitments_witness, valid_reblind_witness, valid_match_settle_atomic_witness) =
+        dummy_match_atomic_witnesses(rng);
+
+    let (match_atomic_proofs, link_hints) = match_atomic_with_commitments_proofs_and_hints(
+        valid_commitments_statement,
+        valid_reblind_statement.clone(),
+        valid_match_settle_atomic_statement.clone(),
+        valid_commitments_witness,
+        valid_reblind_witness,
+        valid_match_settle_atomic_witness,
+    )?;
+    let match_atomic_linking_proofs = match_atomic_link_proofs(link_hints)?;
+
+    let internal_party_match_payload = MatchPayload {
+        valid_commitments_statement: to_contract_valid_commitments_statement(
+            valid_commitments_statement,
+        ),
+        valid_reblind_statement: to_contract_valid_reblind_statement(&valid_reblind_statement),
+    };
+
+    Ok(ProcessAtomicMatchSettleWithCommitmentsData {
+        internal_party_match_payload,
+        valid_match_settle_atomic_with_commitments_statement:
+            to_contract_valid_match_settle_atomic_with_commitments_statement(
+                &valid_match_settle_atomic_statement,
+            )?,
         match_atomic_proofs,
         match_atomic_linking_proofs,
     })
