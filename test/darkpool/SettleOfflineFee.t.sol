@@ -88,7 +88,7 @@ contract SettleOfflineFee is DarkpoolTestBase {
             bytes memory newSharesCommitmentSig,
             ValidWalletUpdateStatement memory updateStatement,
             PlonkProof memory updateProof
-        ) = updateWalletCalldata(hasher);
+        ) = updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
         updateStatement.previousNullifier = nullifier;
         updateStatement.merkleRoot = merkleRoot;

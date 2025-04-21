@@ -45,7 +45,7 @@ use super::darkpool::{
 impl From<SizedValidWalletCreateStatement> for ContractValidWalletCreateStatement {
     fn from(statement: SizedValidWalletCreateStatement) -> Self {
         Self {
-            privateShareCommitment: scalar_to_u256(statement.private_shares_commitment),
+            walletShareCommitment: scalar_to_u256(statement.wallet_share_commitment),
             publicShares: statement
                 .public_wallet_shares
                 .to_scalars()
@@ -61,7 +61,7 @@ impl From<SizedValidWalletUpdateStatement> for ContractValidWalletUpdateStatemen
     fn from(statement: SizedValidWalletUpdateStatement) -> Self {
         Self {
             previousNullifier: scalar_to_u256(statement.old_shares_nullifier),
-            newPrivateShareCommitment: scalar_to_u256(statement.new_private_shares_commitment),
+            newWalletCommitment: scalar_to_u256(statement.new_wallet_commitment),
             newPublicShares: statement
                 .new_public_shares
                 .to_scalars()

@@ -300,7 +300,7 @@ fn build_witness_statement(
     let old_wallet_nullifier = old_wallet.get_wallet_nullifier();
     let old_wallet_merkle = old_wallet.merkle_proof.expect("no merkle proof").clone();
     let old_wallet_merkle_root = old_wallet_merkle.compute_root();
-    let new_wallet_commitment = new_wallet.get_private_share_commitment();
+    let new_wallet_commitment = new_wallet.get_wallet_share_commitment();
     let merkle_proof = old_wallet_merkle.into();
 
     Ok((
@@ -313,7 +313,7 @@ fn build_witness_statement(
         },
         SizedValidWalletUpdateStatement {
             old_shares_nullifier: old_wallet_nullifier,
-            new_private_shares_commitment: new_wallet_commitment,
+            new_wallet_commitment,
             new_public_shares: new_wallet.blinded_public_shares,
             merkle_root: old_wallet_merkle_root,
             external_transfer: transfer,

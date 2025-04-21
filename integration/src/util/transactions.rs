@@ -6,7 +6,7 @@ use eyre::Result;
 use test_helpers::assert_eq_result;
 
 /// The call builder type for the tests
-pub type TestCallBuilder<'a, C> = CallBuilder<(), &'a DynProvider, C, Ethereum>;
+pub type TestCallBuilder<'a, C> = CallBuilder<&'a DynProvider, C, Ethereum>;
 
 // ----------------
 // | Transactions |

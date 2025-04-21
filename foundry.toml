@@ -11,10 +11,8 @@ fs_permissions = [{ access = "read-write", path = "./deployments.json" }]
 
 # The darkpool is a large contract so we limit the optimizer runs
 # Todo: if more space is needed, decrease the number of runs
-additional_compiler_profiles = [{ name = "darkpool", optimizer_runs = 18_000 }]
-compilation_restrictions = [
-    { paths = "src/Darkpool.sol", optimizer_runs = 18_000 },
-]
+additional_compiler_profiles = [{ name = "darkpool", optimizer_runs = 1 }]
+compilation_restrictions = [{ paths = "src/Darkpool.sol", optimizer_runs = 1 }]
 
 [fmt]
 line_length = 120

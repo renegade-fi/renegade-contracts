@@ -18,8 +18,8 @@ import { ElGamalCiphertext, EncryptionKey } from "./types/Ciphertext.sol";
 /// @title ValidWalletCreateStatement
 /// @notice The statement type for the `VALID WALLET CREATE` proof
 struct ValidWalletCreateStatement {
-    /// @dev The commitment to the wallet's private shares
-    BN254.ScalarField privateShareCommitment;
+    /// @dev The commitment to the wallet's secret shares
+    BN254.ScalarField walletShareCommitment;
     /// @dev The public wallet shares of the wallet
     BN254.ScalarField[] publicShares;
 }
@@ -29,8 +29,8 @@ struct ValidWalletCreateStatement {
 struct ValidWalletUpdateStatement {
     /// @dev The nullifier of the previous wallet
     BN254.ScalarField previousNullifier;
-    /// @dev A commitment to the new wallet's private shares
-    BN254.ScalarField newPrivateShareCommitment;
+    /// @dev A commitment to the new wallet's secret shares
+    BN254.ScalarField newWalletCommitment;
     /// @dev The new public shares of the wallet
     BN254.ScalarField[] newPublicShares;
     /// @dev The global Merkle root that the old wallet shares open into
@@ -119,8 +119,8 @@ struct ValidOfflineFeeSettlementStatement {
     BN254.ScalarField merkleRoot;
     /// @dev The nullifier of the wallet paying the fee
     BN254.ScalarField walletNullifier;
-    /// @dev The commitment to the payer's updated private shares
-    BN254.ScalarField updatedWalletCommitment;
+    /// @dev The commitment to the payer's updated wallet shares
+    BN254.ScalarField newWalletCommitment;
     /// @dev The public shares of the payer's updated wallet
     BN254.ScalarField[] updatedWalletPublicShares;
     /// @dev The ciphertext of the note
@@ -144,8 +144,8 @@ struct ValidFeeRedemptionStatement {
     BN254.ScalarField walletNullifier;
     /// @dev The nullifier of the note
     BN254.ScalarField noteNullifier;
-    /// @dev A commitment to the new wallet's private shares
-    BN254.ScalarField newWalletCommitment;
+    /// @dev A commitment to the new wallet's secret shares
+    BN254.ScalarField newSharesCommitment;
     /// @dev The new public shares of the wallet
     BN254.ScalarField[] newWalletPublicShares;
     /// @dev The root key for the keychain of the wallet that redeems the note
@@ -210,7 +210,7 @@ library StatementSerializer {
         BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_WALLET_CREATE_SCALAR_SIZE);
 
         // Add the wallet commitment
-        serialized[0] = self.privateShareCommitment;
+        serialized[0] = self.walletShareCommitment;
 
         // Add all public shares
         for (uint256 i = 0; i < self.publicShares.length; i++) {
@@ -232,7 +232,7 @@ library StatementSerializer {
     {
         BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_WALLET_UPDATE_SCALAR_SIZE);
         serialized[0] = self.previousNullifier;
-        serialized[1] = self.newPrivateShareCommitment;
+        serialized[1] = self.newWalletCommitment;
 
         // Copy the public shares
         uint256 n = self.newPublicShares.length;
@@ -432,7 +432,7 @@ library StatementSerializer {
         BN254.ScalarField[] memory serialized = new BN254.ScalarField[](VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE);
         serialized[0] = self.merkleRoot;
         serialized[1] = self.walletNullifier;
-        serialized[2] = self.updatedWalletCommitment;
+        serialized[2] = self.newWalletCommitment;
 
         // Serialize the updated wallet public shares
         uint256 offset = 3;
@@ -479,7 +479,7 @@ library StatementSerializer {
         serialized[1] = self.noteRoot;
         serialized[2] = self.walletNullifier;
         serialized[3] = self.noteNullifier;
-        serialized[4] = self.newWalletCommitment;
+        serialized[4] = self.newSharesCommitment;
 
         // Serialize the new wallet public shares
         uint256 offset = 5;

@@ -24,7 +24,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory newSharesCommitmentSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot, receiverWallet);
         darkpool.redeemFee(newSharesCommitmentSig, statement, proof);
 
         // Check that the nullifiers are spent
@@ -42,7 +42,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory newSharesCommitmentSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot, receiverWallet);
 
         // Should fail
         vm.expectRevert("Verification failed for fee redemption");
@@ -60,7 +60,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
         Vm.Wallet memory receiverWallet = randomEthereumWallet();
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
         (bytes memory redeemSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot, receiverWallet);
         statement.newWalletPublicShares[statement.newWalletPublicShares.length - 1] = publicBlinder;
 
         // Should fail
@@ -76,7 +76,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory newSharesCommitmentSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot, receiverWallet);
         statement.walletRoot = randomScalar();
         vm.expectRevert(INVALID_ROOT_REVERT_STRING);
         darkpool.redeemFee(newSharesCommitmentSig, statement, proof);
@@ -90,7 +90,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory newSharesCommitmentSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot, receiverWallet);
         statement.noteRoot = randomScalar();
         vm.expectRevert(INVALID_NOTE_ROOT_REVERT_STRING);
         darkpool.redeemFee(newSharesCommitmentSig, statement, proof);
@@ -103,7 +103,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Update a wallet using the nullifier
         (bytes memory updateSig, ValidWalletUpdateStatement memory updateStatement, PlonkProof memory updateProof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
         updateStatement.previousNullifier = nullifier;
         updateStatement.merkleRoot = merkleRoot;
@@ -115,7 +115,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory redeemSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot2, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot2, receiverWallet);
         statement.walletNullifier = nullifier;
         vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
         darkpool.redeemFee(redeemSig, statement, proof);
@@ -128,7 +128,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Update a wallet using the nullifier
         (bytes memory updateSig, ValidWalletUpdateStatement memory updateStatement, PlonkProof memory updateProof) =
-            updateWalletCalldata(hasher);
+            updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
         updateStatement.previousNullifier = nullifier;
         updateStatement.merkleRoot = merkleRoot;
@@ -140,7 +140,7 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory redeemSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot2, receiverWallet, hasher);
+            redeemFeeCalldata(merkleRoot2, receiverWallet);
         statement.noteNullifier = nullifier;
         vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
         darkpool.redeemFee(redeemSig, statement, proof);
@@ -154,8 +154,8 @@ contract RedeemFeeTest is DarkpoolTestBase {
 
         // Generate the calldata and redeem the fee
         (bytes memory redeemSig, ValidFeeRedemptionStatement memory statement, PlonkProof memory proof) =
-            redeemFeeCalldata(merkleRoot, receiverWallet, hasher);
-        statement.newWalletCommitment = randomScalar();
+            redeemFeeCalldata(merkleRoot, receiverWallet);
+        statement.newSharesCommitment = randomScalar();
         statement.walletRootKey = forgeWalletToRootKey(receiverWallet);
         vm.expectRevert(INVALID_SIGNATURE_REVERT_STRING);
         darkpool.redeemFee(redeemSig, statement, proof);

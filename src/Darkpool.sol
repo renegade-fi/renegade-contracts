@@ -256,10 +256,12 @@ contract Darkpool is Ownable, Pausable {
         bool res = verifier.verifyValidWalletCreate(statement, proof);
         require(res, "Verification failed for wallet create");
 
-        // 2. Insert the wallet shares into the Merkle tree
-        WalletOperations.insertWalletCommitment(
-            statement.privateShareCommitment, statement.publicShares, merkleTree, publicBlinderSet, hasher
-        );
+        // 2. Mark the public blinder share as spent
+        BN254.ScalarField publicBlinder = statement.publicShares[statement.publicShares.length - 1];
+        WalletOperations.markPublicBlinderAsUsed(publicBlinder, publicBlinderSet);
+
+        // 3. Insert the wallet shares into the Merkle tree
+        merkleTree.insertLeaf(statement.walletShareCommitment, hasher);
     }
 
     /// @notice Update a wallet in the darkpool
@@ -281,10 +283,11 @@ contract Darkpool is Ownable, Pausable {
         require(res, "Verification failed for wallet update");
 
         // 2. Rotate the wallet's shares into the Merkle tree
-        BN254.ScalarField newCommitment = WalletOperations.rotateWallet(
+        BN254.ScalarField newCommitment = statement.newWalletCommitment;
+        WalletOperations.rotateWalletWithCommitment(
             statement.previousNullifier,
             statement.merkleRoot,
-            statement.newPrivateShareCommitment,
+            newCommitment,
             statement.newPublicShares,
             nullifierSet,
             publicBlinderSet,
@@ -586,10 +589,10 @@ contract Darkpool is Ownable, Pausable {
         require(res, "Verification failed for offline fee settlement");
 
         // 3. Rotate the fee payer's wallet
-        WalletOperations.rotateWallet(
+        WalletOperations.rotateWalletWithCommitment(
             statement.walletNullifier,
             statement.merkleRoot,
-            statement.updatedWalletCommitment,
+            statement.newWalletCommitment,
             statement.updatedWalletPublicShares,
             nullifierSet,
             publicBlinderSet,
@@ -617,10 +620,11 @@ contract Darkpool is Ownable, Pausable {
         require(res, "Verification failed for fee redemption");
 
         // 2. Rotate the wallet
-        BN254.ScalarField newCommitment = WalletOperations.rotateWallet(
+        BN254.ScalarField newCommitment = statement.newSharesCommitment;
+        WalletOperations.rotateWalletWithCommitment(
             statement.walletNullifier,
             statement.walletRoot,
-            statement.newWalletCommitment,
+            newCommitment,
             statement.newWalletPublicShares,
             nullifierSet,
             publicBlinderSet,

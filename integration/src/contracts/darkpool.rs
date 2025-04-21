@@ -25,7 +25,7 @@ impl Darkpool {
         let root_u256 = scalar_to_u256(root);
         let call = self.rootInHistory(root_u256);
         let res = call_helper(call).await?;
-        Ok(res._0)
+        Ok(res)
     }
 }
 

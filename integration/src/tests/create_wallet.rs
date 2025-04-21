@@ -72,7 +72,7 @@ pub fn create_sized_witness_statement_with_wallet(
     SizedValidWalletCreateWitness,
     SizedValidWalletCreateStatement,
 ) {
-    let private_shares_commitment = wallet.get_private_share_commitment();
+    let wallet_share_commitment = wallet.get_wallet_share_commitment();
 
     (
         SizedValidWalletCreateWitness {
@@ -80,7 +80,7 @@ pub fn create_sized_witness_statement_with_wallet(
             blinder_seed,
         },
         SizedValidWalletCreateStatement {
-            private_shares_commitment,
+            wallet_share_commitment,
             public_wallet_shares: wallet.blinded_public_shares.clone(),
         },
     )
