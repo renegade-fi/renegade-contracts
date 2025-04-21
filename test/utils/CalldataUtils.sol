@@ -36,6 +36,7 @@ import {
     ValidCommitmentsStatement,
     ValidReblindStatement,
     ValidMatchSettleStatement,
+    ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
@@ -180,6 +181,41 @@ contract CalldataUtils is TestUtils {
             validCommitmentsMatchSettle0: dummyLinkingProof(),
             validReblindCommitments1: dummyLinkingProof(),
             validCommitmentsMatchSettle1: dummyLinkingProof()
+        });
+    }
+
+    /// --- Settle Match With Commitments --- ///
+
+    /// @notice Generate calldata for settling a match with commitments
+    function settleMatchWithCommitmentsCalldata(BN254.ScalarField merkleRoot)
+        internal
+        returns (
+            PartyMatchPayload memory party0Payload,
+            PartyMatchPayload memory party1Payload,
+            ValidMatchSettleWithCommitmentsStatement memory statement,
+            MatchProofs memory proofs,
+            MatchLinkingProofs memory linkingProofs
+        )
+    {
+        // Generate base calldata
+        ValidMatchSettleStatement memory baseStatement;
+        (party0Payload, party1Payload, baseStatement, proofs, linkingProofs) = settleMatchCalldata(merkleRoot);
+
+        // Create a `VALID MATCH SETTLE WITH COMMITMENTS` statement
+        BN254.ScalarField privateShareCommitment0 = party0Payload.validReblindStatement.newPrivateShareCommitment;
+        BN254.ScalarField privateShareCommitment1 = party1Payload.validReblindStatement.newPrivateShareCommitment;
+        BN254.ScalarField newShareCommitment0 = randomScalar();
+        BN254.ScalarField newShareCommitment1 = randomScalar();
+        statement = ValidMatchSettleWithCommitmentsStatement({
+            privateShareCommitment0: privateShareCommitment0,
+            privateShareCommitment1: privateShareCommitment1,
+            newShareCommitment0: newShareCommitment0,
+            newShareCommitment1: newShareCommitment1,
+            firstPartyPublicShares: baseStatement.firstPartyPublicShares,
+            secondPartyPublicShares: baseStatement.secondPartyPublicShares,
+            firstPartySettlementIndices: baseStatement.firstPartySettlementIndices,
+            secondPartySettlementIndices: baseStatement.secondPartySettlementIndices,
+            protocolFeeRate: baseStatement.protocolFeeRate
         });
     }
 

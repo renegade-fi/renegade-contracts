@@ -418,8 +418,8 @@ contract Darkpool is Ownable, Pausable {
 
         uint256 reblindComm0 = BN254.ScalarField.unwrap(reblindStatement0.newPrivateShareCommitment);
         uint256 reblindComm1 = BN254.ScalarField.unwrap(reblindStatement1.newPrivateShareCommitment);
-        uint256 newShareComm0 = BN254.ScalarField.unwrap(matchSettleStatement.newShareCommitment0);
-        uint256 newShareComm1 = BN254.ScalarField.unwrap(matchSettleStatement.newShareCommitment1);
+        uint256 newShareComm0 = BN254.ScalarField.unwrap(matchSettleStatement.privateShareCommitment0);
+        uint256 newShareComm1 = BN254.ScalarField.unwrap(matchSettleStatement.privateShareCommitment1);
         bool party0ValidCommitment = reblindComm0 == newShareComm0;
         bool party1ValidCommitment = reblindComm1 == newShareComm1;
         require(party0ValidCommitment, "Invalid party 0 private share commitment");
