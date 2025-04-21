@@ -6,13 +6,13 @@ edition = "2021"
 [dependencies]
 # === Renegade === #
 reference-impl-common = { package = "common", path = "../../test/rust-reference-impls/common" }
-renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade.git" }
-renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git" }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git" }
+renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit" }
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit" }
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit" }
 
 # === EVM === #
-alloy = "0.11"
-alloy-sol-types = "0.8.21"
+alloy = "0.14"
+alloy-sol-types = "1.0.0"
 
 # === Misc === #
 anyhow = "1.0"

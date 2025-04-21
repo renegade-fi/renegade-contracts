@@ -37,6 +37,25 @@ interface IVKeys {
             ProofLinkingVK memory commitmentsMatchSettleVk1
         );
 
+    /// @notice Get all verification keys needed for a match bundle with commitments verification
+    /// @return commitmentsVk The verification key for `VALID COMMITMENTS`
+    /// @return reblindVk The verification key for `VALID REBLIND`
+    /// @return settleVk The verification key for `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @return reblindCommitmentsVk The linking key for `VALID REBLIND` -> `VALID COMMITMENTS`
+    /// @return commitmentsMatchSettleVk0 The linking key for party 0's `VALID COMMITMENTS` -> `VALID MATCH SETTLE`
+    /// @return commitmentsMatchSettleVk1 The linking key for party 1's `VALID COMMITMENTS` -> `VALID MATCH SETTLE`
+    function matchBundleWithCommitmentsKeys()
+        external
+        view
+        returns (
+            VerificationKey memory commitmentsVk,
+            VerificationKey memory reblindVk,
+            VerificationKey memory settleVk,
+            ProofLinkingVK memory reblindCommitmentsVk,
+            ProofLinkingVK memory commitmentsMatchSettleVk0,
+            ProofLinkingVK memory commitmentsMatchSettleVk1
+        );
+
     // Atomic match bundle keys
     /// @notice Get all verification keys needed for an atomic match bundle verification
     /// @return commitmentsVk The verification key for `VALID COMMITMENTS`
@@ -45,6 +64,23 @@ interface IVKeys {
     /// @return reblindCommitmentsVk The linking key for `VALID REBLIND` -> `VALID COMMITMENTS`
     /// @return commitmentsMatchSettleVk The linking key for `VALID COMMITMENTS` -> `VALID MATCH SETTLE ATOMIC`
     function atomicMatchBundleKeys()
+        external
+        view
+        returns (
+            VerificationKey memory commitmentsVk,
+            VerificationKey memory reblindVk,
+            VerificationKey memory settleVk,
+            ProofLinkingVK memory reblindCommitmentsVk,
+            ProofLinkingVK memory commitmentsMatchSettleVk
+        );
+
+    /// @notice Get all verification keys needed for an atomic match bundle with commitments verification
+    /// @return commitmentsVk The verification key for `VALID COMMITMENTS`
+    /// @return reblindVk The verification key for `VALID REBLIND`
+    /// @return settleVk The verification key for `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+    /// @return reblindCommitmentsVk The linking key for `VALID REBLIND` -> `VALID COMMITMENTS`
+    /// @return commitmentsMatchSettleVk The linking key for `VALID COMMITMENTS` -> `VALID MATCH SETTLE ATOMIC`
+    function atomicMatchBundleWithCommitmentsKeys()
         external
         view
         returns (

@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git" }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", default-features = false }
+renegade-crypto = { git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit" }
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade.git", branch = "joey/next-audit", default-features = false }
 
 anyhow = "1.0"
 clap = { version = "4.5.1", features = ["derive"] }

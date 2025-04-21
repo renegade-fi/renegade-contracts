@@ -11,8 +11,10 @@ use renegade_circuits::zk_circuits::{
     valid_commitments::SizedValidCommitments,
     valid_fee_redemption::SizedValidFeeRedemption,
     valid_malleable_match_settle_atomic::SizedValidMalleableMatchSettleAtomic,
-    valid_match_settle::SizedValidMatchSettle,
-    valid_match_settle_atomic::SizedValidMatchSettleAtomic,
+    valid_match_settle::{SizedValidMatchSettle, SizedValidMatchSettleWithCommitments},
+    valid_match_settle_atomic::{
+        SizedValidMatchSettleAtomic, SizedValidMatchSettleAtomicWithCommitments,
+    },
     valid_offline_fee_settlement::SizedValidOfflineFeeSettlement,
     valid_reblind::SizedValidReblind,
     valid_wallet_create::SizedValidWalletCreate,
@@ -34,8 +36,12 @@ pub(super) enum Circuit {
     ValidCommitments,
     /// The `VALID MATCH SETTLE` circuit
     ValidMatchSettle,
+    /// The `VALID MATCH SETTLE WITH COMMITMENTS` circuit
+    ValidMatchSettleWithCommitments,
     /// The `VALID MATCH SETTLE ATOMIC` circuit
     ValidMatchSettleAtomic,
+    /// The `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS` circuit
+    ValidMatchSettleAtomicWithCommitments,
     /// The `VALID MALLEABLE MATCH SETTLE ATOMIC` circuit
     ValidMalleableMatchSettleAtomic,
     /// The `VALID OFFLINE FEE SETTLEMENT` circuit
@@ -61,11 +67,17 @@ impl Circuit {
             Self::ValidReblind => generate_vkey_for_circuit::<SizedValidReblind>(),
             Self::ValidCommitments => generate_vkey_for_circuit::<SizedValidCommitments>(),
             Self::ValidMatchSettle => generate_vkey_for_circuit::<SizedValidMatchSettle>(),
+            Self::ValidMatchSettleWithCommitments => {
+                generate_vkey_for_circuit::<SizedValidMatchSettleWithCommitments>()
+            }
             Self::ValidMatchSettleAtomic => {
                 generate_vkey_for_circuit::<SizedValidMatchSettleAtomic>()
             }
             Self::ValidMalleableMatchSettleAtomic => {
                 generate_vkey_for_circuit::<SizedValidMalleableMatchSettleAtomic>()
+            }
+            Self::ValidMatchSettleAtomicWithCommitments => {
+                generate_vkey_for_circuit::<SizedValidMatchSettleAtomicWithCommitments>()
             }
             Self::ValidOfflineFeeSettlement => {
                 generate_vkey_for_circuit::<SizedValidOfflineFeeSettlement>()
@@ -82,7 +94,11 @@ impl Circuit {
             Self::ValidReblind => "VALID_REBLIND",
             Self::ValidCommitments => "VALID_COMMITMENTS",
             Self::ValidMatchSettle => "VALID_MATCH_SETTLE",
+            Self::ValidMatchSettleWithCommitments => "VALID_MATCH_SETTLE_WITH_COMMITMENTS",
             Self::ValidMatchSettleAtomic => "VALID_MATCH_SETTLE_ATOMIC",
+            Self::ValidMatchSettleAtomicWithCommitments => {
+                "VALID_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS"
+            }
             Self::ValidMalleableMatchSettleAtomic => "VALID_MALLEABLE_MATCH_SETTLE_ATOMIC",
             Self::ValidOfflineFeeSettlement => "VALID_OFFLINE_FEE_SETTLEMENT",
             Self::ValidFeeRedemption => "VALID_FEE_REDEMPTION",
@@ -97,7 +113,9 @@ impl Circuit {
             Self::ValidReblind,
             Self::ValidCommitments,
             Self::ValidMatchSettle,
+            Self::ValidMatchSettleWithCommitments,
             Self::ValidMatchSettleAtomic,
+            Self::ValidMatchSettleAtomicWithCommitments,
             Self::ValidMalleableMatchSettleAtomic,
             Self::ValidOfflineFeeSettlement,
             Self::ValidFeeRedemption,
