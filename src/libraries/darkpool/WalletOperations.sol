@@ -58,39 +58,61 @@ library WalletOperations {
         internal
         returns (BN254.ScalarField newCommitment)
     {
-        // 1. Nullify the previous wallet's shares
-        nullifierSet.spend(nullifier);
-
-        // 2. Check that the Merkle root is in the historical Merkle roots
-        require(merkleTree.rootInHistory(historicalMerkleRoot), "Merkle root not in history");
-
-        // 3. Insert the new shares into the Merkle tree
-        newCommitment =
-            insertWalletCommitment(newPrivateShareCommitment, newPublicShares, merkleTree, publicBlinderSet, hasher);
+        // Compute the wallet commitment from the shares
+        newCommitment = computeWalletCommitment(newPrivateShareCommitment, newPublicShares, hasher);
+        rotateWalletWithCommitment(
+            nullifier,
+            historicalMerkleRoot,
+            newCommitment,
+            newPublicShares,
+            nullifierSet,
+            publicBlinderSet,
+            merkleTree,
+            hasher
+        );
     }
 
-    /// @notice Insert a wallet's shares into the Merkle tree
-    /// @param walletCommitment The commitment to the wallet's shares
+    /// @notice Rotate a wallet given a commitment to the new shares directly
+    /// @dev Using this method, the contract does not need to hash the public shares to generate
+    /// a wallet commitment
+    /// @param newSharesCommitment The commitment to the new shares
     /// @param merkleTree The merkle tree for the darkpool
     /// @param hasher The hasher for the darkpool
-    function insertWalletCommitment(
-        BN254.ScalarField privateShareCommitment,
-        BN254.ScalarField[] memory publicShares,
-        MerkleTreeLib.MerkleTree storage merkleTree,
+    function rotateWalletWithCommitment(
+        BN254.ScalarField nullifier,
+        BN254.ScalarField historicalMerkleRoot,
+        BN254.ScalarField newSharesCommitment,
+        BN254.ScalarField[] memory newPublicShares,
+        NullifierLib.NullifierSet storage nullifierSet,
         NullifierLib.NullifierSet storage publicBlinderSet,
+        MerkleTreeLib.MerkleTree storage merkleTree,
         IHasher hasher
     )
         internal
-        returns (BN254.ScalarField walletCommitment)
     {
-        // 1. Mark the public blinder share as spent, and emit an event
-        // Note: We assume the blinder is serialized as the final share
-        BN254.ScalarField publicBlinder = publicShares[publicShares.length - 1];
+        // 1. Nullify the previous wallet's shares
+        nullifierSet.spend(nullifier);
+
+        // 2. Mark the public blinder share as spent
+        BN254.ScalarField publicBlinder = newPublicShares[newPublicShares.length - 1];
+        markPublicBlinderAsUsed(publicBlinder, publicBlinderSet);
+
+        // 3. Check that the Merkle root is in the historical Merkle roots
+        require(merkleTree.rootInHistory(historicalMerkleRoot), "Merkle root not in history");
+
+        // 4. Insert the new shares into the Merkle tree
+        merkleTree.insertLeaf(newSharesCommitment, hasher);
+    }
+
+    /// @notice Mark a public blinder as used
+    function markPublicBlinderAsUsed(
+        BN254.ScalarField publicBlinder,
+        NullifierLib.NullifierSet storage publicBlinderSet
+    )
+        internal
+    {
         publicBlinderSet.spend(publicBlinder);
         emit IDarkpool.WalletUpdated(BN254.ScalarField.unwrap(publicBlinder));
-
-        walletCommitment = computeWalletCommitment(privateShareCommitment, publicShares, hasher);
-        merkleTree.insertLeaf(walletCommitment, hasher);
     }
 
     /// @notice Compute a commitment to a wallet's shares
