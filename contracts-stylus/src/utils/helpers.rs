@@ -7,7 +7,8 @@ use contracts_common::{
     types::{
         MatchAtomicPublicInputs, MatchPublicInputs, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidMalleableMatchSettleAtomicStatement,
-        ValidMatchSettleAtomicStatement, ValidMatchSettleStatement, ValidReblindStatement,
+        ValidMatchSettleAtomicStatement, ValidMatchSettleStatement,
+        ValidMatchSettleWithCommitmentsStatement, ValidReblindStatement,
     },
 };
 use contracts_core::crypto::ecdsa::ecdsa_verify_with_pubkey;
@@ -103,6 +104,31 @@ pub fn serialize_match_statements_for_verification(
         valid_reblind_0: statement_to_public_inputs(valid_reblind_0)
             .map_err(map_calldata_ser_error)?,
         valid_reblind_1: statement_to_public_inputs(valid_reblind_1)
+            .map_err(map_calldata_ser_error)?,
+        valid_match_settle: statement_to_public_inputs(valid_match_settle)
+            .map_err(map_calldata_ser_error)?,
+    };
+    postcard_serialize(&match_public_inputs)
+}
+
+/// Serializes the statements used in verifying the settlement of a matched
+/// trade with commitments
+#[cfg_attr(not(feature = "core-match-settle"), allow(dead_code))]
+pub fn serialize_match_statements_for_verification_with_commitments(
+    valid_commitments0: &ValidCommitmentsStatement,
+    valid_commitments1: &ValidCommitmentsStatement,
+    valid_reblind0: &ValidReblindStatement,
+    valid_reblind1: &ValidReblindStatement,
+    valid_match_settle: &ValidMatchSettleWithCommitmentsStatement,
+) -> Result<Vec<u8>, Vec<u8>> {
+    let match_public_inputs = MatchPublicInputs {
+        valid_commitments_0: statement_to_public_inputs(valid_commitments0)
+            .map_err(map_calldata_ser_error)?,
+        valid_commitments_1: statement_to_public_inputs(valid_commitments1)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind_0: statement_to_public_inputs(valid_reblind0)
+            .map_err(map_calldata_ser_error)?,
+        valid_reblind_1: statement_to_public_inputs(valid_reblind1)
             .map_err(map_calldata_ser_error)?,
         valid_match_settle: statement_to_public_inputs(valid_match_settle)
             .map_err(map_calldata_ser_error)?,

@@ -17,7 +17,8 @@ use crate::{
         OrderSettlementIndices, PublicInputs, PublicSigningKey, ScalarField,
         ValidCommitmentsStatement, ValidFeeRedemptionStatement,
         ValidMalleableMatchSettleAtomicStatement, ValidMatchSettleAtomicStatement,
-        ValidMatchSettleStatement, ValidOfflineFeeSettlementStatement, ValidReblindStatement,
+        ValidMatchSettleStatement, ValidMatchSettleWithCommitmentsStatement,
+        ValidOfflineFeeSettlementStatement, ValidReblindStatement,
         ValidRelayerFeeSettlementStatement, ValidWalletCreateStatement, ValidWalletUpdateStatement,
     },
 };
@@ -262,6 +263,22 @@ impl ScalarSerializable for ValidMatchSettleStatement {
     }
 }
 
+impl ScalarSerializable for ValidMatchSettleWithCommitmentsStatement {
+    fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
+        let mut scalars = vec![
+            self.private_share_commitment0,
+            self.private_share_commitment1,
+            self.new_share_commitment0,
+            self.new_share_commitment1,
+        ];
+        scalars.extend(&self.party0_modified_shares);
+        scalars.extend(&self.party1_modified_shares);
+        scalars.extend(&self.party0_indices.serialize_to_scalars()?);
+        scalars.extend(&self.party1_indices.serialize_to_scalars()?);
+        scalars.push(self.protocol_fee);
+        Ok(scalars)
+    }
+}
 impl ScalarSerializable for ValidMatchSettleAtomicStatement {
     fn serialize_to_scalars(&self) -> Result<Vec<ScalarField>, SerdeError> {
         let mut scalars: Vec<ScalarField> = Vec::new();

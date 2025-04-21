@@ -1524,7 +1524,7 @@ dependencies = [
 [[package]]
 name = "circuit-macros"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#8536d8c13cb14914970048493c25515be54e8e97"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#f94d4797dbca21dc4202cb5126c16b44e2056925"
 dependencies = [
  "itertools 0.10.5",
  "proc-macro2",
@@ -1546,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "circuit-types"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#8536d8c13cb14914970048493c25515be54e8e97"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#f94d4797dbca21dc4202cb5126c16b44e2056925"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1577,7 +1577,7 @@ dependencies = [
 [[package]]
 name = "circuits"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#8536d8c13cb14914970048493c25515be54e8e97"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#f94d4797dbca21dc4202cb5126c16b44e2056925"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
@@ -1766,7 +1766,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 [[package]]
 name = "constants"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#8536d8c13cb14914970048493c25515be54e8e97"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#f94d4797dbca21dc4202cb5126c16b44e2056925"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -5416,7 +5416,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "renegade-crypto"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#8536d8c13cb14914970048493c25515be54e8e97"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#f94d4797dbca21dc4202cb5126c16b44e2056925"
 dependencies = [
  "ark-ec",
  "ark-ff 0.4.2",
@@ -7208,7 +7208,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#8536d8c13cb14914970048493c25515be54e8e97"
+source = "git+https://github.com/renegade-fi/renegade.git?branch=joey/alloy-v0.11.0#f94d4797dbca21dc4202cb5126c16b44e2056925"
 dependencies = [
  "alloy",
  "ark-ec",
