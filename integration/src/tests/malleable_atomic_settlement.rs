@@ -110,11 +110,9 @@ integration_test_async!(test_malleable_match__non_sender_receiver_native);
 async fn test_malleable_match__non_native_invalid_value(ctx: TestContext) -> Result<()> {
     let darkpool = ctx.darkpool_contract();
     let (base_amount, payload) = setup_malleable_match_test(false /* is_native */, &ctx).await?;
-    let receiver = Address::random();
     let tx = darkpool
         .processMalleableAtomicMatchSettle(
             base_amount,
-            receiver,
             serialize_to_calldata(&payload.internal_party_match_payload)?,
             serialize_to_calldata(&payload.valid_malleable_match_settle_atomic_statement)?,
             serialize_to_calldata(&payload.match_atomic_proofs)?,
@@ -133,12 +131,10 @@ async fn test_malleable_match__native_value_too_small(ctx: TestContext) -> Resul
     let (base_amount, mut payload) = setup_malleable_match_test(true /* is_native */, &ctx).await?;
     payload.valid_malleable_match_settle_atomic_statement.match_result.direction = false; // sell
 
-    let receiver = ctx.client.address();
     let invalid_value = base_amount - U256::from(1);
     let tx = darkpool
         .processMalleableAtomicMatchSettle(
             base_amount,
-            receiver,
             serialize_to_calldata(&payload.internal_party_match_payload)?,
             serialize_to_calldata(&payload.valid_malleable_match_settle_atomic_statement)?,
             serialize_to_calldata(&payload.match_atomic_proofs)?,
@@ -166,11 +162,8 @@ async fn test_malleable_match__incorrect_protocol_fee_rate(ctx: TestContext) -> 
     };
 
     fee_rate.protocol_fee_rate.repr -= ScalarField::from(1);
-    let receiver = ctx.client.address();
-
     let tx = darkpool.processMalleableAtomicMatchSettle(
         base_amount,
-        receiver,
         serialize_to_calldata(&payload.internal_party_match_payload)?,
         serialize_to_calldata(&payload.valid_malleable_match_settle_atomic_statement)?,
         serialize_to_calldata(&payload.match_atomic_proofs)?,
@@ -209,7 +202,7 @@ async fn submit_and_validate_malleable_match(
     let value = if native_sell { base_amount } else { U256::ZERO };
 
     let tx = darkpool
-        .processMalleableAtomicMatchSettle(
+        .processMalleableAtomicMatchSettleWithReceiver(
             base_amount,
             receiver,
             serialize_to_calldata(&internal_party_payload)?,

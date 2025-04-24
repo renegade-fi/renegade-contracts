@@ -29,10 +29,12 @@ use contracts_utils::{
         gen_malleable_match_atomic_linking_vkeys, gen_malleable_match_atomic_vkeys,
         gen_match_atomic_linking_vkeys, gen_match_atomic_vkeys, gen_match_linking_vkeys,
         gen_match_vkeys,
+        test_data::random_fee_rate,
     },
 };
 use hex::FromHex;
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
+use renegade_crypto::fields::scalar_to_u64;
 use std::{env, str::FromStr};
 use tracing::log::info;
 use util::err_str;
@@ -79,6 +81,7 @@ pub async fn deploy_test_contracts(
     client: LocalWalletHttpClient,
     deployments_path: &str,
 ) -> Result<(), ScriptError> {
+    let mut rng = thread_rng();
     info!("Generating testing verification keys");
     let gen_vkeys_args = GenVkeysArgs { vkeys_dir: args.vkeys_dir.clone(), test: true };
     gen_vkeys(&gen_vkeys_args)?;
@@ -247,8 +250,9 @@ pub async fn deploy_test_contracts(
     .await?;
 
     info!("Deploying darkpool proxy contract");
+    let fee = random_fee_rate(&mut rng);
     let deploy_darkpool_proxy_args = DeployDarkpoolProxyArgs {
-        fee: thread_rng().gen(),
+        fee: scalar_to_u64(&fee.repr),
         protocol_public_encryption_key: None,
         protocol_external_fee_collection_address: None,
         test: true,
