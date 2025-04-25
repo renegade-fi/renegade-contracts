@@ -23,7 +23,7 @@ sol! {
     function processMatchSettleWithCommitments(bytes memory party_0_match_payload, bytes memory party_1_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
     function processAtomicMatchSettle(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
     function processAtomicMatchSettleWithCommitments(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
-    function processMalleableAtomicMatchSettle(uint256 baseAmount, address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external;
+    function processMalleableAtomicMatchSettle(uint256 baseAmount, address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
 
     // Merkle functions
     function init() external;
@@ -113,6 +113,7 @@ sol! {
 sol_interface! {
     interface IDarkpool {
         function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
+        function processMalleableAtomicMatchSettleWithReceiver(uint256 memory base_amount, address receiver, bytes memory internal_party_match_payload, bytes memory malleable_match_settle_atomic_statement, bytes memory proofs, bytes memory linking_proofs) external payable returns (uint256);
     }
 
     interface IErc20 {

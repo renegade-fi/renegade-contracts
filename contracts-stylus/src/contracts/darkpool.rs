@@ -871,12 +871,44 @@ impl DarkpoolContract {
     pub fn process_malleable_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
         base_amount: U256,
+        internal_party_payload: Bytes,
+        malleable_match_settle_atomic_statement: Bytes,
+        proofs: Bytes,
+        linking_proofs: Bytes,
+    ) -> Result<U256, Vec<u8>> {
+        DarkpoolContract::_check_not_paused(storage)?;
+
+        let receiver = msg::sender();
+        let delegate =
+            Self::_get_delegate_address(storage, CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+        delegate_call_helper::<processMalleableAtomicMatchSettleCall>(
+            storage,
+            delegate,
+            (
+                base_amount,
+                receiver,
+                internal_party_payload.to_vec().into(),
+                malleable_match_settle_atomic_statement.to_vec().into(),
+                proofs.to_vec().into(),
+                linking_proofs.to_vec().into(),
+            ),
+        )
+        .map(|ret| ret._0)
+    }
+
+    /// Process a malleable match settlement with a receiver specified
+    #[payable]
+    pub fn process_malleable_atomic_match_settle_with_receiver<
+        S: TopLevelStorage + BorrowMut<Self>,
+    >(
+        storage: &mut S,
+        base_amount: U256,
         receiver: Address,
         internal_party_payload: Bytes,
         malleable_match_settle_atomic_statement: Bytes,
         proofs: Bytes,
         linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let delegate =
@@ -893,7 +925,7 @@ impl DarkpoolContract {
                 linking_proofs.to_vec().into(),
             ),
         )
-        .map(|_| ())
+        .map(|ret| ret._0)
     }
 
     /// Settles the fee accumulated by a relayer for a given balance in a
