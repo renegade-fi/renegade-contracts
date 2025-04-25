@@ -177,7 +177,7 @@ impl CoreMalleableMatchSettleContract {
         malleable_match_settle_atomic_statement: Bytes,
         proofs: Bytes,
         linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         let internal_party_match_payload: MatchPayload =
             deserialize_from_calldata(&internal_party_match_payload)?;
         let statement: ValidMalleableMatchSettleAtomicStatement =
@@ -257,7 +257,6 @@ impl CoreMalleableMatchSettleContract {
             match_result,
             relayer_fee_address,
         )
-        .map(|_| ())
     }
 }
 

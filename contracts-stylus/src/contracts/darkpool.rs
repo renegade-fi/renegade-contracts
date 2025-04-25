@@ -759,7 +759,7 @@ impl DarkpoolContract {
         malleable_match_settle_atomic_statement: Bytes,
         proofs: Bytes,
         linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let receiver = msg::sender();
@@ -777,7 +777,7 @@ impl DarkpoolContract {
                 linking_proofs.to_vec().into(),
             ),
         )
-        .map(|_| ())
+        .map(|ret| ret._0)
     }
 
     /// Process a malleable match settlement with a receiver specified
@@ -792,7 +792,7 @@ impl DarkpoolContract {
         malleable_match_settle_atomic_statement: Bytes,
         proofs: Bytes,
         linking_proofs: Bytes,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<U256, Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let delegate =
@@ -809,7 +809,7 @@ impl DarkpoolContract {
                 linking_proofs.to_vec().into(),
             ),
         )
-        .map(|_| ())
+        .map(|ret| ret._0)
     }
 
     /// Settles the fee accumulated by a relayer for a given balance in a
