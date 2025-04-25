@@ -1,6 +1,6 @@
 //! Utilities for generating data for the proof system tests
 
-use alloy::primitives::{Address, Bytes, U256};
+use alloy::primitives::Bytes;
 use alloy_primitives::Address as AlloyAddress;
 use ark_ff::One;
 use ark_std::UniformRand;
@@ -857,24 +857,6 @@ pub fn generate_match_bundle<R: CryptoRng + RngCore>(
         match_linking_proofs,
         match_linking_wire_poly_comms,
     ))
-}
-
-/// The inputs for the `sponsor_atomic_match_settle` darkpool method
-pub struct SponsoredAtomicMatchSettleData {
-    /// The data used to call `process_atomic_match_settle`
-    pub process_atomic_match_settle_data: ProcessAtomicMatchSettleData,
-    /// The address to refund to
-    pub refund_address: Address,
-    /// The address to receive the tokens
-    pub receiver: Address,
-    /// The sponsorship nonce
-    pub nonce: U256,
-    /// Whether to refund through native ETH
-    pub refund_native_eth: bool,
-    /// The refund amount
-    pub refund_amount: U256,
-    /// The signature over the nonce
-    pub signature: Bytes,
 }
 
 /// The inputs for the `process_atomic_match_settle` darkpool method

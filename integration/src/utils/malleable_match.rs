@@ -29,6 +29,7 @@ const MAX_TRADE_SIZE: Amount = 1u128 << 15;
 /// Generate the calldata for a malleable match
 pub async fn setup_malleable_match_test(
     is_native: bool,
+    use_gas_sponsor: bool,
     ctx: &TestContext,
 ) -> Result<(U256, ProcessMalleableMatchSettleAtomicData)> {
     let mut rng = thread_rng();
@@ -59,7 +60,7 @@ pub async fn setup_malleable_match_test(
     mint_dummy_erc20s(quote_mint, U256::from(quote_amount), ctx).await?;
     setup_external_match_token_approvals(
         external_party_buy,
-        false, // use_gas_sponsor
+        use_gas_sponsor,
         &exact_match_res,
         ctx,
     )

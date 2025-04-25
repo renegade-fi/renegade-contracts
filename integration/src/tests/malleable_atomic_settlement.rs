@@ -25,7 +25,12 @@ use crate::{
 /// Test a basic malleable match
 #[allow(non_snake_case)]
 async fn test_malleable_match__basic(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(false /* is_native */, &ctx).await?;
+    let (base_amount, payload) = setup_malleable_match_test(
+        false, // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let receiver = ctx.client.address();
     submit_and_validate_malleable_match(
         receiver,
@@ -45,7 +50,12 @@ integration_test_async!(test_malleable_match__basic);
 /// Test a malleable match on the native asset
 #[allow(non_snake_case)]
 async fn test_malleable_match__native(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(true /* is_native */, &ctx).await?;
+    let (base_amount, payload) = setup_malleable_match_test(
+        true,  // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let receiver = ctx.client.address();
     submit_and_validate_malleable_match(
         receiver,
@@ -65,7 +75,12 @@ integration_test_async!(test_malleable_match__native);
 /// Test a malleable match with a non-sender as the receiver
 #[allow(non_snake_case)]
 async fn test_malleable_match__non_sender_receiver(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(false /* is_native */, &ctx).await?;
+    let (base_amount, payload) = setup_malleable_match_test(
+        false, // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let receiver = Address::random();
     submit_and_validate_malleable_match(
         receiver,
@@ -85,7 +100,12 @@ integration_test_async!(test_malleable_match__non_sender_receiver);
 /// Test a malleable match with a non-sender as the receiver on the native asset
 #[allow(non_snake_case)]
 async fn test_malleable_match__non_sender_receiver_native(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(true /* is_native */, &ctx).await?;
+    let (base_amount, payload) = setup_malleable_match_test(
+        true,  // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let receiver = Address::random();
     submit_and_validate_malleable_match(
         receiver,
@@ -109,8 +129,12 @@ integration_test_async!(test_malleable_match__non_sender_receiver_native);
 #[allow(non_snake_case)]
 async fn test_malleable_match__non_native_invalid_value(ctx: TestContext) -> Result<()> {
     let darkpool = ctx.darkpool_contract();
-    let (base_amount, payload) = setup_malleable_match_test(false /* is_native */, &ctx).await?;
-    let receiver = Address::random();
+    let (base_amount, payload) = setup_malleable_match_test(
+        false, // is_native
+        true,  // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     let tx = darkpool
         .processMalleableAtomicMatchSettle(
             base_amount,
@@ -130,7 +154,12 @@ integration_test_async!(test_malleable_match__non_native_invalid_value);
 #[allow(non_snake_case)]
 async fn test_malleable_match__native_value_too_small(ctx: TestContext) -> Result<()> {
     let darkpool = ctx.darkpool_contract();
-    let (base_amount, mut payload) = setup_malleable_match_test(true /* is_native */, &ctx).await?;
+    let (base_amount, mut payload) = setup_malleable_match_test(
+        true,  // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
     payload.valid_malleable_match_settle_atomic_statement.match_result.direction = false; // sell
 
     let receiver = ctx.client.address();
@@ -155,8 +184,12 @@ integration_test_async!(test_malleable_match__native_value_too_small);
 async fn test_malleable_match__incorrect_protocol_fee_rate(ctx: TestContext) -> Result<()> {
     let mut rng = thread_rng();
     let darkpool = ctx.darkpool_contract();
-    let (base_amount, mut payload) =
-        setup_malleable_match_test(false /* is_native */, &ctx).await?;
+    let (base_amount, mut payload) = setup_malleable_match_test(
+        false, // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
 
     // Modify the fee rate
     let fee_rate = if rng.gen_bool(0.5) {

@@ -148,6 +148,19 @@ sol!(
             uint256 memory refund_amount,
             bytes memory signature
         ) external payable returns (uint256);
+        function sponsorMalleableAtomicMatchSettleWithRefundOptions(
+            uint256 memory base_amount,
+            address receiver,
+            bytes memory internal_party_payload,
+            bytes memory malleable_match_settle_atomic_statement,
+            bytes memory proofs,
+            bytes memory linking_proofs,
+            address memory refund_address,
+            uint256 memory nonce,
+            bool memory refund_native_eth,
+            uint256 memory refund_amount,
+            bytes memory signature
+        ) external payable returns (uint256);
 
         event SponsoredExternalMatchOutput(uint256 indexed received_amount, uint256 indexed nonce);
     }

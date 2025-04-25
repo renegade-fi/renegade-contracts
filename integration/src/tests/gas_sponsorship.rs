@@ -10,7 +10,8 @@ use crate::{
     constants::REFUND_AMOUNT,
     utils::{
         amount_received_in_match, assert_native_eth_gas_refund, burn_gas_sponsor_token_balance,
-        extract_first_event, setup_sponsored_match_test, sponsor_match_with_test_data,
+        extract_first_event, setup_sponsored_malleable_match_test, setup_sponsored_match_test,
+        sponsor_malleable_match_with_test_data, sponsor_match_with_test_data,
         SponsoredMatchTestOptions,
     },
     TestContext,
@@ -626,3 +627,48 @@ pub async fn test_sponsored_match_output_received_amount__underfunded_token(
     assert_eq_result!(expected_received_amount, actual_received_amount)
 }
 integration_test_async!(test_sponsored_match_output_received_amount__underfunded_token);
+
+/// Test a sponsored malleable match through the gas sponsor.
+///
+/// Asserts that the refunded amount is ~equal to the gas paid.
+#[allow(non_snake_case)]
+pub async fn test_sponsored_malleable_match__native_eth(ctx: TestContext) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options: SponsoredMatchTestOptions = Default::default();
+    let data = setup_sponsored_malleable_match_test(options, &ctx).await?;
+
+    let initial_eth_balance = ctx.get_eth_balance().await?;
+    let receipt = sponsor_malleable_match_with_test_data(&gas_sponsor_contract, data).await?;
+    let final_eth_balance = ctx.get_eth_balance().await?;
+
+    assert_native_eth_gas_refund(initial_eth_balance, final_eth_balance, receipt)
+}
+integration_test_async!(test_sponsored_malleable_match__native_eth);
+
+/// Test a sponsored malleable match with an in-kind refund
+#[allow(non_snake_case)]
+pub async fn test_sponsored_malleable_match__in_kind(ctx: TestContext) -> Result<()> {
+    let gas_sponsor_contract = ctx.gas_sponsor_contract();
+    let options = SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() };
+    let data = setup_sponsored_malleable_match_test(options, &ctx).await?;
+
+    let base_amount = data.base_amount;
+    let statement = &data
+        .process_malleable_match_settle_atomic_data
+        .valid_malleable_match_settle_atomic_statement;
+    let match_res = statement.match_result.clone();
+    let fee_rates = statement.external_fee_rates;
+
+    let external_match = match_res.to_external_match_result(base_amount).unwrap();
+    let (buy_token_addr, buy_amount) = external_match.external_party_buy_mint_amount();
+    let external_part_fees = fee_rates.get_fee_take(buy_amount);
+    let net_recv = buy_amount - external_part_fees.total();
+
+    let initial_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    sponsor_malleable_match_with_test_data(&gas_sponsor_contract, data).await?;
+    let final_balance = ctx.get_erc20_balance(buy_token_addr).await?;
+    let post_refund_balance = final_balance - net_recv - initial_balance;
+
+    assert_eq_result!(post_refund_balance, REFUND_AMOUNT)
+}
+integration_test_async!(test_sponsored_malleable_match__in_kind);
