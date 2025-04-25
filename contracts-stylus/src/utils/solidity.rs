@@ -108,7 +108,7 @@ sol! {
 sol_interface! {
     interface IDarkpool {
         function processAtomicMatchSettleWithReceiver(address receiver, bytes memory internal_party_match_payload, bytes memory valid_match_settle_atomic_statement, bytes memory match_proofs, bytes memory match_linking_proofs) external payable returns (uint256);
-        function processMalleableAtomicMatchSettleWithReceiver(uint256 memory base_amount, address receiver, bytes memory internal_party_match_payload, bytes memory malleable_match_settle_atomic_statement, bytes memory proofs, bytes memory linking_proofs) external payable;
+        function processMalleableAtomicMatchSettleWithReceiver(uint256 memory base_amount, address receiver, bytes memory internal_party_match_payload, bytes memory malleable_match_settle_atomic_statement, bytes memory proofs, bytes memory linking_proofs) external payable returns (uint256);
     }
 
     interface IErc20 {

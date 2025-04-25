@@ -382,7 +382,8 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
         StylusContract::VerifierCore
         | StylusContract::VerifierSettlement
         | StylusContract::Darkpool
-        | StylusContract::DarkpoolTestContract => {
+        | StylusContract::DarkpoolTestContract
+        | StylusContract::GasSponsor => {
             format!("{}{} {}", OPT_LEVEL_FLAG, OPT_LEVEL_Z, INLINE_THRESHOLD_FLAG)
         },
         _ => format!("{}{}", OPT_LEVEL_FLAG, OPT_LEVEL_3),
@@ -395,7 +396,9 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
 /// given contract
 pub fn get_wasm_opt_flags_for_contract(contract: &StylusContract) -> &'static str {
     match contract {
-        StylusContract::DarkpoolTestContract => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
+        StylusContract::DarkpoolTestContract | StylusContract::GasSponsor => {
+            AGGRESSIVE_SIZE_OPTIMIZATION_FLAG
+        },
         _ => AGGRESSIVE_OPTIMIZATION_FLAG,
     }
 }
