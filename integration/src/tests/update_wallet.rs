@@ -1,5 +1,13 @@
 //! Wallet update tests
 
+use abi::{
+    relayer_types::{address_to_biguint, biguint_to_address},
+    IDarkpool::{
+        ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,
+        TransferAuthorization as ContractTransferAuth,
+        ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
+    },
+};
 use alloy::primitives::{Address, Bytes, U256};
 use alloy_sol_types::SolValue;
 use eyre::Result;
@@ -23,14 +31,6 @@ use test_helpers::{
 };
 
 use crate::{
-    contracts::{
-        darkpool::{
-            ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,
-            TransferAuthorization as ContractTransferAuth,
-            ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
-        },
-        type_conversion::{address_to_biguint, biguint_to_address},
-    },
     util::{merkle::update_wallet_opening, transactions::send_tx, WrapEyre},
     TestArgs,
 };

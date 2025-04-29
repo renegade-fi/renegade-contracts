@@ -1,5 +1,9 @@
 //! Utils for fetching and operating on Merkle openings
 
+use abi::{
+    relayer_types::{scalar_to_u256, size_vec, u256_to_scalar},
+    IDarkpool::MerkleOpeningNode,
+};
 use alloy::{
     primitives::{TxHash, U256},
     providers::Provider,
@@ -10,13 +14,7 @@ use num_bigint::BigUint;
 use renegade_common::types::{merkle::MerkleAuthenticationPath, wallet::Wallet as RenegadeWallet};
 use renegade_constants::{Scalar, MERKLE_HEIGHT};
 
-use crate::{
-    contracts::{
-        darkpool::MerkleOpeningNode,
-        type_conversion::{scalar_to_u256, size_vec, u256_to_scalar},
-    },
-    Darkpool,
-};
+use crate::Darkpool;
 
 // -----------------
 // | Merkle Proofs |

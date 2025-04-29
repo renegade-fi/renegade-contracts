@@ -11,18 +11,19 @@ ark-bn254 = "0.4"
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 
 # === Renegade Dependencies === #
-renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", features = [
+abi = { path = "../abi", features = ["relayer-types"] }
+renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", features = [
     "test_helpers",
 ] }
-renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit" }
-renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", default-features = false, features = [
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25" }
+renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", default-features = false, features = [
     "all-types",
 ] }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit" }
-renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", features = [
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25" }
+renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", features = [
     "blockchain",
 ] }
-test-helpers = { git = "https://github.com/renegade-fi/renegade", branch = "joey/next-audit", features = [
+test-helpers = { git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", features = [
     "contracts",
 ] }
 

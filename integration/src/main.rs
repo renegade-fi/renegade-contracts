@@ -16,13 +16,14 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::util::deployments::read_deployment;
+use abi::relayer_types::scalar_to_u256;
+use abi::IDarkpool::IDarkpoolInstance;
 use alloy::network::Ethereum;
 use alloy::primitives::Address;
 use alloy::providers::{DynProvider, Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::transports::http::reqwest::Url;
 use clap::Parser;
-use contracts::darkpool::IDarkpool::IDarkpoolInstance;
 use contracts::erc20::ERC20Mock;
 use contracts::erc20::ERC20MockInstance;
 use ethers_signers::LocalWallet;
@@ -37,6 +38,7 @@ use renegade_common::types::wallet::{
 use renegade_constants::Scalar;
 use renegade_util::on_chain::wallet::alloy_signer_to_ethers_wallet;
 use test_helpers::{integration_test_main, types::TestVerbosity};
+use util::transactions::call_helper;
 
 /// The default private key for the tests, the first default account in an Anvil node
 const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -127,6 +129,14 @@ impl TestArgs {
     fn get_ethers_wallet(&self) -> LocalWallet {
         let pkey = self.pkey.clone();
         alloy_signer_to_ethers_wallet(&pkey)
+    }
+
+    /// Check whether a given root is a valid historical root
+    pub async fn check_root(&self, root: Scalar) -> Result<bool> {
+        let root_u256 = scalar_to_u256(root);
+        let call = self.darkpool.rootInHistory(root_u256);
+        let res = call_helper(call).await?;
+        Ok(res)
     }
 
     /// Derive a keychain for the wallet

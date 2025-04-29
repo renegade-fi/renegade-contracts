@@ -36,7 +36,7 @@ async fn test_create_wallet__recover_wallet(args: TestArgs) -> Result<()> {
 
     // Validate the opening
     let root = opening.compute_root();
-    let valid_root = darkpool.check_root(root).await?;
+    let valid_root = args.check_root(root).await?;
     assert_true_result!(valid_root)
 }
 integration_test_async!(test_create_wallet__recover_wallet);
