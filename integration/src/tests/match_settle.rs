@@ -1,5 +1,13 @@
 //! Tests for settling internal matches
 
+use abi::{
+    relayer_types::{address_to_biguint, biguint_to_address, u256_to_scalar},
+    IDarkpool::{
+        MatchLinkingProofs, MatchProofs, PartyMatchPayload,
+        ValidMatchSettleStatement as ContractValidMatchSettleStatement,
+        ValidMatchSettleWithCommitmentsStatement as ContractValidMatchSettleWithCommitmentsStatement,
+    },
+};
 use eyre::{eyre, Result};
 use renegade_circuit_types::{
     balance::Balance,
@@ -36,14 +44,6 @@ use renegade_util::matching_engine::{
 use test_helpers::integration_test_async;
 
 use crate::{
-    contracts::{
-        darkpool::{
-            MatchLinkingProofs, MatchProofs, PartyMatchPayload,
-            ValidMatchSettleStatement as ContractValidMatchSettleStatement,
-            ValidMatchSettleWithCommitmentsStatement as ContractValidMatchSettleWithCommitmentsStatement,
-        },
-        type_conversion::{address_to_biguint, biguint_to_address, u256_to_scalar},
-    },
     util::{merkle::update_wallet_opening, transactions::call_helper, WrapEyre},
     TestArgs,
 };
