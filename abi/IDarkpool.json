@@ -146,6 +146,19 @@
   },
   {
     "type": "function",
+    "name": "getProtocolFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getProtocolFeeKey",
     "inputs": [],
     "outputs": [
@@ -4504,6 +4517,25 @@
   },
   {
     "type": "function",
+    "name": "publicBlinderUsed",
+    "inputs": [
+      {
+        "name": "publicBlinder",
+        "type": "uint256",
+        "internalType": "BN254.ScalarField"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "redeemFee",
     "inputs": [
       {
@@ -5202,6 +5234,19 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NullifierSpent",
+    "inputs": [
+      {
+        "name": "nullifier",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "BN254.ScalarField"
       }
     ],
     "anonymous": false

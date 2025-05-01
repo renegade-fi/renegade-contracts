@@ -50,6 +50,9 @@ interface IDarkpool {
     /// @param index The leaf index
     /// @param value The value of the leaf
     event MerkleInsertion(uint128 indexed index, uint256 indexed value);
+    /// @notice Emitted when a nullifier is spent
+    /// @param nullifier The nullifier that was spent
+    event NullifierSpent(BN254.ScalarField nullifier);
 
     // --- State Getters --- //
 
@@ -66,6 +69,15 @@ interface IDarkpool {
     /// @param nullifier The nullifier to check
     /// @return Whether the nullifier has been spent
     function nullifierSpent(BN254.ScalarField nullifier) external view returns (bool);
+
+    /// @notice Check whether a public blinder has been used
+    /// @param publicBlinder The public blinder to check
+    /// @return Whether the public blinder has been used
+    function publicBlinderUsed(BN254.ScalarField publicBlinder) external view returns (bool);
+
+    /// @notice Get the protocol fee rate
+    /// @return The protocol fee rate
+    function getProtocolFee() external view returns (uint256);
 
     /// @notice Get the public encryption key for the protocol's fees
     /// @return The public encryption key for the protocol's fees

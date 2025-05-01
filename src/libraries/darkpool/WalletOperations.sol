@@ -91,7 +91,7 @@ library WalletOperations {
         internal
     {
         // 1. Nullify the previous wallet's shares
-        nullifierSet.spend(nullifier);
+        spendNullifier(nullifier, nullifierSet);
 
         // 2. Mark the public blinder share as spent
         BN254.ScalarField publicBlinder = newPublicShares[newPublicShares.length - 1];
@@ -113,6 +113,12 @@ library WalletOperations {
     {
         publicBlinderSet.spend(publicBlinder);
         emit IDarkpool.WalletUpdated(BN254.ScalarField.unwrap(publicBlinder));
+    }
+
+    /// @notice Spend a nullifier
+    function spendNullifier(BN254.ScalarField nullifier, NullifierLib.NullifierSet storage nullifierSet) internal {
+        nullifierSet.spend(nullifier);
+        emit IDarkpool.NullifierSpent(nullifier);
     }
 
     /// @notice Compute a commitment to a wallet's shares
@@ -157,7 +163,7 @@ library WalletOperations {
         require(merkleTree.rootInHistory(noteRoot), "Note not in Merkle history");
 
         // 2. Spend the note
-        nullifierSet.spend(noteNullifier);
+        spendNullifier(noteNullifier, nullifierSet);
     }
 
     /// @notice Verify a wallet update signature

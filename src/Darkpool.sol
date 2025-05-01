@@ -154,6 +154,19 @@ contract Darkpool is Ownable, Pausable {
         return nullifierSet.isSpent(nullifier);
     }
 
+    /// @notice Check whether a public blinder has been used
+    /// @param publicBlinder The public blinder to check
+    /// @return Whether the public blinder has been used
+    function publicBlinderUsed(BN254.ScalarField publicBlinder) public view returns (bool) {
+        return publicBlinderSet.isSpent(publicBlinder);
+    }
+
+    /// @notice Get the protocol fee rate
+    /// @return The protocol fee rate
+    function getProtocolFee() public view returns (uint256) {
+        return protocolFeeRate;
+    }
+
     /// @notice Get the public encryption key for the protocol's fees
     /// @return The public encryption key for the protocol's fees
     function getProtocolFeeKey() public view returns (EncryptionKey memory) {
