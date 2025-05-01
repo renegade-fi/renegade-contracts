@@ -466,31 +466,6 @@ contract Darkpool is Ownable, Pausable {
         );
     }
 
-    /// @notice Process an atomic match settlement between two parties; one internal and one external
-    /// @dev An internal party is one with state committed into the darkpool, while
-    /// @dev an external party provides liquidity to the pool during the
-    /// @dev transaction in which this method is called
-    /// @dev The receiver of the match settlement is the sender of the transaction
-    /// @param internalPartyPayload The validity proofs for the internal party
-    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
-    /// @param proofs The proofs for the match
-    /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettle(
-        PartyMatchPayload calldata internalPartyPayload,
-        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
-        MatchAtomicProofs calldata proofs,
-        MatchAtomicLinkingProofs calldata linkingProofs
-    )
-        public
-        payable
-        whenNotPaused
-    {
-        address receiver = msg.sender;
-        processAtomicMatchSettleWithReceiver(
-            receiver, internalPartyPayload, matchSettleStatement, proofs, linkingProofs
-        );
-    }
-
     /// @notice Process an atomic match with a non-sender receiver specified
     /// @dev The receiver will receive the buy side token amount implied by the match
     /// @dev net of fees by the relayer and protocol
@@ -499,7 +474,7 @@ contract Darkpool is Ownable, Pausable {
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettleWithReceiver(
+    function processAtomicMatchSettle(
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicStatement calldata matchSettleStatement,
@@ -578,38 +553,13 @@ contract Darkpool is Ownable, Pausable {
     /// @dev an external party provides liquidity to the pool during the
     /// @dev transaction in which this method is called
     /// @dev The receiver of the match settlement is the sender of the transaction
-    /// @param internalPartyPayload The validity proofs for the internal party
-    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
-    /// @param proofs The proofs for the match
-    /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettleWithCommitments(
-        PartyMatchPayload calldata internalPartyPayload,
-        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
-        MatchAtomicProofs calldata proofs,
-        MatchAtomicLinkingProofs calldata linkingProofs
-    )
-        public
-        payable
-        whenNotPaused
-    {
-        address receiver = msg.sender;
-        processAtomicMatchSettleWithCommitmentsReceiver(
-            receiver, internalPartyPayload, matchSettleStatement, proofs, linkingProofs
-        );
-    }
-
-    /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
-    /// @dev An internal party is one with state committed into the darkpool, while
-    /// @dev an external party provides liquidity to the pool during the
-    /// @dev transaction in which this method is called
-    /// @dev The receiver of the match settlement is the sender of the transaction
     /// @dev This variant allows the receiver to be specified as a parameter
     /// @param receiver The address that will receive the buy side token amount for the external party
     /// @param internalPartyPayload The validity proofs for the internal party
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettleWithCommitmentsReceiver(
+    function processAtomicMatchSettleWithCommitments(
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,

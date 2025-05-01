@@ -173,24 +173,6 @@ interface IDarkpool {
     )
         external;
 
-    /// @notice Process and atomic match settlement between two parties; one internal and one external
-    /// @dev An internal party is one with state committed into the darkpool, while
-    /// @dev an external party provides liquidity to the pool during the
-    /// @dev transaction in which this method is called
-    /// @dev The receiver of the match settlement is the sender of the transaction
-    /// @param internalPartyPayload The validity proofs for the internal party
-    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
-    /// @param proofs The proofs for the match
-    /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettle(
-        PartyMatchPayload calldata internalPartyPayload,
-        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
-        MatchAtomicProofs calldata proofs,
-        MatchAtomicLinkingProofs calldata linkingProofs
-    )
-        external
-        payable;
-
     /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
     /// @dev An internal party is one with state committed into the darkpool, while
     /// @dev an external party provides liquidity to the pool during the
@@ -217,7 +199,7 @@ interface IDarkpool {
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettleWithReceiver(
+    function processAtomicMatchSettle(
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicStatement calldata matchSettleStatement,
