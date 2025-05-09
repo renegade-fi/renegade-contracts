@@ -1,6 +1,7 @@
 //! Implementations of the various deploy scripts
 
 use alloy::{
+    hex::FromHex,
     network::TransactionBuilder,
     primitives::{Address, Bytes, U256},
     providers::Provider,
@@ -37,7 +38,6 @@ use contracts_utils::{
         gen_match_vkeys,
     },
 };
-use hex::FromHex;
 use rand::{thread_rng, Rng};
 use std::{env, str::FromStr};
 use tracing::log::info;

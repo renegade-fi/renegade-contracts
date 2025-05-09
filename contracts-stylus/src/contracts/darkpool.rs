@@ -307,7 +307,7 @@ impl DarkpoolContract {
     pub fn get_root<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
     ) -> Result<U256, Vec<u8>> {
-        let merkle_address = Self::get_delegate_address(storage, MERKLE_DELEGATE_SELECTOR);
+        let merkle_address = Self::_get_delegate_address(storage, MERKLE_DELEGATE_SELECTOR);
         let (res,) = delegate_call_helper::<rootCall>(storage, merkle_address, ())?.into();
         Ok(res)
     }
@@ -317,7 +317,7 @@ impl DarkpoolContract {
         storage: &mut S,
         root: U256,
     ) -> Result<bool, Vec<u8>> {
-        let merkle_address = Self::get_delegate_address(storage, MERKLE_DELEGATE_SELECTOR);
+        let merkle_address = Self::_get_delegate_address(storage, MERKLE_DELEGATE_SELECTOR);
         let (res,) =
             delegate_call_helper::<rootInHistoryCall>(storage, merkle_address, (root,))?.into();
 
@@ -441,6 +441,15 @@ impl DarkpoolContract {
     }
 
     // --- Implementation Addresses --- //
+
+    /// Get the delegate call address for a given selector
+    pub fn get_delegate_address<S: TopLevelStorage + Borrow<Self>>(
+        storage: &S,
+        selector: u64,
+    ) -> Result<Address, Vec<u8>> {
+        let address = Self::_get_delegate_address(storage, selector);
+        Ok(address)
+    }
 
     /// Sets a delegate call address
     fn set_delegate_address<S: TopLevelStorage + BorrowMut<Self>>(
@@ -601,7 +610,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
+        let delegate = Self::_get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<newWalletCall>(
             storage,
             delegate,
@@ -620,7 +629,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
+        let delegate = Self::_get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<updateWalletCall>(
             storage,
             delegate,
@@ -651,7 +660,8 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+        let delegate =
+            Self::_get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMatchSettleCall>(
             storage,
             delegate,
@@ -681,7 +691,8 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+        let delegate =
+            Self::_get_delegate_address(storage, CORE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMatchSettleWithCommitmentsCall>(
             storage,
             delegate,
@@ -725,7 +736,7 @@ impl DarkpoolContract {
 
         let receiver = msg::sender();
         let delegate =
-            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+            Self::_get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
 
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
@@ -761,7 +772,7 @@ impl DarkpoolContract {
 
         let receiver = msg::sender();
         let delegate =
-            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+            Self::_get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
 
         delegate_call_helper::<processAtomicMatchSettleWithCommitmentsCall>(
             storage,
@@ -792,7 +803,7 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let delegate =
-            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+            Self::_get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
 
         delegate_call_helper::<processAtomicMatchSettleCall>(
             storage,
@@ -830,7 +841,7 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let delegate =
-            Self::get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+            Self::_get_delegate_address(storage, CORE_ATOMIC_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
 
         delegate_call_helper::<processAtomicMatchSettleWithCommitmentsCall>(
             storage,
@@ -869,7 +880,7 @@ impl DarkpoolContract {
         DarkpoolContract::_check_not_paused(storage)?;
 
         let delegate =
-            Self::get_delegate_address(storage, CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
+            Self::_get_delegate_address(storage, CORE_MALLEABLE_MATCH_SETTLEMENT_DELEGATE_SELECTOR);
         delegate_call_helper::<processMalleableAtomicMatchSettleCall>(
             storage,
             delegate,
@@ -895,7 +906,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
+        let delegate = Self::_get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<settleOnlineRelayerFeeCall>(
             storage,
             delegate,
@@ -917,7 +928,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
+        let delegate = Self::_get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<settleOfflineFeeCall>(
             storage,
             delegate,
@@ -935,7 +946,7 @@ impl DarkpoolContract {
     ) -> Result<(), Vec<u8>> {
         DarkpoolContract::_check_not_paused(storage)?;
 
-        let delegate = Self::get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
+        let delegate = Self::_get_delegate_address(storage, CORE_WALLET_OPS_DELEGATE_SELECTOR);
         delegate_call_helper::<redeemFeeCall>(
             storage,
             delegate,
@@ -1016,7 +1027,7 @@ impl DarkpoolContract {
     // ----------------
 
     /// Get the delegate call address for a given selector
-    pub fn get_delegate_address<S: TopLevelStorage + Borrow<Self>>(
+    pub fn _get_delegate_address<S: TopLevelStorage + Borrow<Self>>(
         storage: &S,
         selector: u64,
     ) -> Address {

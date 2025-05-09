@@ -173,6 +173,7 @@ pub const NATIVE_ETH_ADDRESS: &str = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
     feature = "core-malleable-match-settle"
 ))]
 pub const WETH_ADDRESS: &str = env!("WETH_ADDRESS");
+// pub const WETH_ADDRESS: &str = "0xc3414a7ef14aaaa9c4522dfc00a4e66e74e9c25a";
 
 /// The last byte of the `ecAdd` precompile address, 0x06
 pub const EC_ADD_ADDRESS_LAST_BYTE: u8 = 6;
