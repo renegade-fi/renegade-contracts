@@ -24,7 +24,7 @@
 
 This repository contains the [Arbitrum Stylus](https://arbitrum.io/stylus) code for Renegade's settlement layer. This includes managing the system-global state, verifying Plonk proofs, and emitting events that are consumed by the p2p network.
 
-Please refer to our [whitepaper](https://www.renegade.fi/whitepaper.pdf) and [docs](https://docs.renegade.fi/) for an introduction the Renegade protocol as a whole, and see [here](./docs/specification.md) for a high-level specification of the contracts' functionality.
+Please refer to our [whitepaper](https://www.renegade.fi/whitepaper.pdf) and [docs](https://docs.renegade.fi/) for an introduction to the Renegade protocol as a whole, and see [here](./docs/specification.md) for a high-level specification of the contracts' functionality.
 
 ## Contract Development Setup
 
@@ -51,7 +51,7 @@ rustup target add wasm32-unknown-unknown
 
 ### Install the Stylus CLI
 
-You'll need the Stylus CLI to deploy the Renegade contracts for the integrationt tests:
+You'll need the Stylus CLI to deploy the Renegade contracts for the integration tests:
 
 ```shell
 RUSTFLAGS="-C link-args=-rdynamic" cargo install --force cargo-stylus
@@ -83,7 +83,7 @@ cargo test -p contracts-common
 cargo test -p contracts-core
 ```
 
-_Note: since the `contracts-stylus` crate is intended only to be compiled to WASM that runs in the Stylus VM, running a simple `cargo test` at the workspace root will error when it attempts to compile the `contracts-stylus` crate (by default targeting the native maching architecture)_
+_Note: since the `contracts-stylus` crate is intended only to be compiled to WASM that runs in the Stylus VM, running a simple `cargo test` at the workspace root will error when it attempts to compile the `contracts-stylus` crate (by default targeting the native machine architecture)_
 
 ## Running integration tests
 
