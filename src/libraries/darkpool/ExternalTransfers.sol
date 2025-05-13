@@ -60,12 +60,21 @@ library ExternalTransferLib {
     )
         internal
     {
+        // Get the darkpool balance before the transfer
+        uint256 balanceBefore = getDarkpoolBalance(transfer.mint);
+        uint256 expectedBalance;
         bool isDeposit = transfer.transferType == TransferType.Deposit;
         if (isDeposit) {
             executeDeposit(oldPkRoot, transfer, authorization, permit2);
+            expectedBalance = balanceBefore + transfer.amount;
         } else {
             executeWithdrawal(oldPkRoot, transfer, authorization);
+            expectedBalance = balanceBefore - transfer.amount;
         }
+
+        // Check that the balance after the transfer equals the expected balance
+        uint256 balanceAfter = getDarkpoolBalance(transfer.mint);
+        require(balanceAfter == expectedBalance, "Balance after transfer does not match expected balance");
     }
 
     /// @notice Execute a batch of simple ERC20 transfers
@@ -77,12 +86,20 @@ library ExternalTransferLib {
             }
 
             // Otherwise, execute the transfer
+            uint256 balanceBefore = getDarkpoolBalanceMaybeNative(transfers[i].mint, wrapper);
+            uint256 expectedBalance;
             SimpleTransferType transferType = transfers[i].transferType;
             if (transferType == SimpleTransferType.Withdrawal) {
                 executeSimpleWithdrawal(transfers[i], wrapper);
+                expectedBalance = balanceBefore - transfers[i].amount;
             } else {
                 executeSimpleDeposit(transfers[i], wrapper);
+                expectedBalance = balanceBefore + transfers[i].amount;
             }
+
+            // Check that the balance after the transfer equals the expected balance
+            uint256 balanceAfter = getDarkpoolBalanceMaybeNative(transfers[i].mint, wrapper);
+            require(balanceAfter == expectedBalance, "Balance after transfer does not match expected balance");
         }
     }
 
@@ -175,5 +192,22 @@ library ExternalTransferLib {
 
         IERC20 token = IERC20(transfer.mint);
         token.transfer(transfer.account, transfer.amount);
+    }
+
+    // --- Helpers --- //
+
+    /// @notice Get the balance of the darkpool for a given ERC20 token
+    function getDarkpoolBalance(address token) internal view returns (uint256) {
+        return IERC20(token).balanceOf(address(this));
+    }
+
+    /// @notice Get a darkpool balance for an ERC20 token address that might be the native token
+    /// @dev The darkpool only ever holds the wrapped native asset, so use the wrapped balance if the token is native
+    function getDarkpoolBalanceMaybeNative(address token, IWETH9 wrapper) internal view returns (uint256) {
+        if (DarkpoolConstants.isNativeToken(token)) {
+            return wrapper.balanceOf(address(this));
+        }
+
+        return getDarkpoolBalance(token);
     }
 }
