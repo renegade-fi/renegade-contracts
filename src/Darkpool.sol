@@ -133,6 +133,9 @@ contract Darkpool is Ownable2Step, Pausable {
         merkleTree.initialize();
     }
 
+    /// @notice Allows the contract to receive ETH transfers
+    receive() external payable { }
+
     // --- State Getters --- //
 
     /// @notice Get the current Merkle root
