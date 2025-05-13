@@ -69,7 +69,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         quoteToken.approve(address(darkpool), QUOTE_AMT);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(externalParty.addr, internalPartyPayload, statement, proofs, linkingProofs);
         vm.stopBroadcast();
 
         // Check the token flows
@@ -129,7 +129,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         baseToken.approve(address(darkpool), BASE_AMT);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(externalParty.addr, internalPartyPayload, statement, proofs, linkingProofs);
         vm.stopBroadcast();
 
         // Check the token flows
@@ -185,7 +185,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         quoteToken.approve(address(darkpool), QUOTE_AMT);
-        darkpool.processAtomicMatchSettleWithReceiver(receiver, internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(receiver, internalPartyPayload, statement, proofs, linkingProofs);
         vm.stopBroadcast();
 
         // Check the token flows
@@ -238,7 +238,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         baseToken.approve(address(darkpool), BASE_AMT);
-        darkpool.processAtomicMatchSettleWithReceiver(receiver, internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(receiver, internalPartyPayload, statement, proofs, linkingProofs);
         vm.stopBroadcast();
 
         // Check the token flows
@@ -290,7 +290,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         quoteToken.approve(address(darkpool), QUOTE_AMT);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(externalParty.addr, internalPartyPayload, statement, proofs, linkingProofs);
         vm.stopBroadcast();
 
         // Check the token flows
@@ -337,7 +337,9 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Process the match
         vm.startBroadcast(externalParty.addr);
-        darkpool.processAtomicMatchSettle{ value: BASE_AMT }(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle{ value: BASE_AMT }(
+            externalParty.addr, internalPartyPayload, statement, proofs, linkingProofs
+        );
         vm.stopBroadcast();
 
         // Check the token flows
@@ -397,7 +399,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         baseToken.approve(address(darkpool), BASE_AMT);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(externalParty.addr, internalPartyPayload, statement, proofs, linkingProofs);
         vm.stopBroadcast();
 
         // Check the token flows
@@ -446,7 +448,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         quoteToken.approve(address(darkpool), QUOTE_AMT);
-        darkpool.processAtomicMatchSettleWithCommitmentsReceiver(
+        darkpool.processAtomicMatchSettleWithCommitments(
             receiver, internalPartyPayload, statement, proofs, linkingProofs
         );
         vm.stopBroadcast();
@@ -499,7 +501,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Process the match
         vm.startBroadcast(externalParty.addr);
         baseToken.approve(address(darkpool), BASE_AMT);
-        darkpool.processAtomicMatchSettleWithCommitmentsReceiver(
+        darkpool.processAtomicMatchSettleWithCommitments(
             receiver, internalPartyPayload, statement, proofs, linkingProofs
         );
         vm.stopBroadcast();
@@ -542,7 +544,9 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert("Verification failed for atomic match bundle");
-        darkpoolRealVerifier.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpoolRealVerifier.processAtomicMatchSettle(
+            address(0), internalPartyPayload, statement, proofs, linkingProofs
+        );
     }
 
     /// @notice Test settling an atomic match with a duplicate public blinder share
@@ -573,7 +577,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match wherein the fees exceed the receive amount
@@ -599,7 +603,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Process the match
         vm.expectRevert();
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match with an invalid ETH value
@@ -615,7 +619,9 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Process the match
         vm.expectRevert(INVALID_ETH_VALUE_REVERT_STRING);
-        darkpool.processAtomicMatchSettle{ value: 1 wei }(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle{ value: 1 wei }(
+            address(0), internalPartyPayload, statement, proofs, linkingProofs
+        );
     }
 
     /// @notice Test settling an atomic match with a spent nullifier from the internal party
@@ -644,7 +650,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, matchStatement, matchProofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, matchStatement, matchProofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match with an invalid merkle root
@@ -660,7 +666,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_ROOT_REVERT_STRING);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match with inconsistent settlement indices for the internal party
@@ -678,7 +684,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert("Invalid internal party order settlement indices");
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match with an invalid protocol fee rate
@@ -696,7 +702,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
-        darkpool.processAtomicMatchSettle(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test settling an atomic match with insufficient tx value
@@ -724,7 +730,9 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         // Should fail
         vm.startBroadcast(externalParty.addr);
         vm.expectRevert(INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING);
-        darkpool.processAtomicMatchSettle{ value: 1 wei }(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettle{ value: 1 wei }(
+            address(0), internalPartyPayload, statement, proofs, linkingProofs
+        );
         vm.stopBroadcast();
     }
 
@@ -750,6 +758,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.expectRevert(INVALID_PRIVATE_COMMITMENT_REVERT_STRING);
-        darkpool.processAtomicMatchSettleWithCommitments(internalPartyPayload, statement, proofs, linkingProofs);
+        darkpool.processAtomicMatchSettleWithCommitments(
+            address(0), internalPartyPayload, statement, proofs, linkingProofs
+        );
     }
 }
