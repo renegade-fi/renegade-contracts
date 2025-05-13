@@ -15,7 +15,8 @@ import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title ExternalTransferLib
 /// @notice This library implements the logic for executing external transfers
@@ -156,7 +157,7 @@ library ExternalTransferLib {
 
         IERC20 token = IERC20(transfer.mint);
         address self = address(this);
-        token.transferFrom(transfer.account, self, transfer.amount);
+        SafeERC20.safeTransferFrom(token, transfer.account, self, transfer.amount);
     }
 
     // --- Withdrawal --- //
@@ -179,7 +180,7 @@ library ExternalTransferLib {
 
         // 2. Execute the withdrawal as a direct ERC20 transfer
         IERC20 token = IERC20(transfer.mint);
-        token.transfer(transfer.account, transfer.amount);
+        SafeERC20.safeTransfer(token, transfer.account, transfer.amount);
     }
 
     /// @notice Execute a simple ERC20 withdrawal
@@ -191,7 +192,7 @@ library ExternalTransferLib {
         }
 
         IERC20 token = IERC20(transfer.mint);
-        token.transfer(transfer.account, transfer.amount);
+        SafeERC20.safeTransfer(token, transfer.account, transfer.amount);
     }
 
     // --- Helpers --- //
