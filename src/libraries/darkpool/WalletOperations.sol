@@ -12,6 +12,7 @@ import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 import { BalanceShare } from "renegade-lib/darkpool/types/Wallet.sol";
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { IDarkpool } from "../interfaces/IDarkpool.sol";
+import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
 
 // --- Helpers --- //
 
@@ -209,7 +210,7 @@ library WalletOperations {
         }
 
         // Recover signer address using ecrecover
-        address signer = ecrecover(digest, v, r, s);
+        address signer = ECDSA.recover(digest, v, r, s);
         require(signer != address(0), "Invalid signature");
 
         // Convert oldRootKey to address and compare
