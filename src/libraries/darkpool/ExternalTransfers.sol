@@ -17,6 +17,7 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeTransferLib } from "solmate/utils/SafeTransferLib.sol";
 
 /// @title ExternalTransferLib
 /// @notice This library implements the logic for executing external transfers
@@ -187,7 +188,8 @@ library ExternalTransferLib {
     function executeSimpleWithdrawal(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
         // Handle native token withdrawals by unwrapping the transfer amount into ETH
         if (DarkpoolConstants.isNativeToken(transfer.mint)) {
-            wrapper.withdrawTo(transfer.account, transfer.amount);
+            wrapper.withdraw(transfer.amount);
+            SafeTransferLib.safeTransferETH(transfer.account, transfer.amount);
             return;
         }
 
