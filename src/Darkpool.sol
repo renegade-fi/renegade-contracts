@@ -196,7 +196,7 @@ contract Darkpool is Ownable, Pausable {
 
     /// @notice Set the protocol fee rate
     /// @param newFee The new protocol fee rate to set
-    function setProtocolFeeRate(uint256 newFee) public onlyOwner whenNotPaused {
+    function setProtocolFeeRate(uint256 newFee) public onlyOwner {
         require(newFee != 0, "Fee cannot be zero");
         protocolFeeRate = newFee;
         emit FeeChanged(newFee);
@@ -207,7 +207,7 @@ contract Darkpool is Ownable, Pausable {
     /// @param fee The protocol fee rate to set. This is a fixed point representation
     /// @dev of a real number between 0 and 1. To convert to its floating point representation,
     /// @dev divide by the fixed point precision, i.e. `fee = assetFeeRate / FIXED_POINT_PRECISION`.
-    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public onlyOwner whenNotPaused {
+    function setTokenExternalMatchFeeRate(address asset, uint256 fee) public onlyOwner {
         require(fee != 0, "Fee cannot be zero");
         perTokenFeeOverrides[asset] = fee;
         emit ExternalMatchFeeChanged(asset, fee);
@@ -215,7 +215,7 @@ contract Darkpool is Ownable, Pausable {
 
     /// @notice Remove the fee override for an asset
     /// @param asset The asset to remove the fee override for
-    function removeTokenExternalMatchFeeRate(address asset) public onlyOwner whenNotPaused {
+    function removeTokenExternalMatchFeeRate(address asset) public onlyOwner {
         delete perTokenFeeOverrides[asset];
         emit ExternalMatchFeeChanged(asset, protocolFeeRate);
     }
@@ -223,7 +223,7 @@ contract Darkpool is Ownable, Pausable {
     /// @notice Set the protocol public encryption key
     /// @param newPubkeyX The new X coordinate of the public key
     /// @param newPubkeyY The new Y coordinate of the public key
-    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) public onlyOwner whenNotPaused {
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) public onlyOwner {
         protocolFeeKey = EncryptionKey({
             point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(newPubkeyX), y: BN254.ScalarField.wrap(newPubkeyY) })
         });
@@ -232,7 +232,7 @@ contract Darkpool is Ownable, Pausable {
 
     /// @notice Set the protocol external fee collection address
     /// @param newAddress The new address to collect external fees
-    function setProtocolFeeRecipient(address newAddress) public onlyOwner whenNotPaused {
+    function setProtocolFeeRecipient(address newAddress) public onlyOwner {
         require(newAddress != address(0), "Address cannot be zero");
         protocolFeeRecipient = newAddress;
         emit ExternalFeeCollectionAddressChanged(newAddress);
@@ -240,7 +240,7 @@ contract Darkpool is Ownable, Pausable {
 
     /// @notice Set the address of the TransferExecutor contract
     /// @param newTransferExecutor The new address of the TransferExecutor contract
-    function setTransferExecutor(address newTransferExecutor) public onlyOwner whenNotPaused {
+    function setTransferExecutor(address newTransferExecutor) public onlyOwner {
         require(newTransferExecutor != address(0), "Address cannot be zero");
         transferExecutor = newTransferExecutor;
     }
