@@ -9,8 +9,9 @@ import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IHasher } from "./libraries/interfaces/IHasher.sol";
 import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { Ownable } from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import { Pausable } from "openzeppelin-contracts/contracts/utils/Pausable.sol";
+import { Ownable } from "oz-contracts/access/Ownable.sol";
+import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
+import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { TransferExecutor } from "./TransferExecutor.sol";
 import {
     ValidWalletCreateStatement,
@@ -50,7 +51,7 @@ import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 import { BabyJubJubPoint } from "./libraries/darkpool/types/Ciphertext.sol";
 
-contract Darkpool is Ownable, Pausable {
+contract Darkpool is Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
     using TypesLib for ExternalTransfer;
