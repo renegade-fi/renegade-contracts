@@ -23,3 +23,7 @@ multiline_func_header = "all"
 quote_style = "double"
 number_underscore = "thousands"
 wrap_comments = true
+ignore = [
+    "src/libraries/darkpool/VerificationKeys.sol",
+    "src/libraries/merkle/MerkleZeros.sol",
+]
