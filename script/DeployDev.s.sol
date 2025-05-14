@@ -34,10 +34,15 @@ contract DeployDevScript is Script {
         console.log("WETH Mock deployed at:", address(weth));
         DeployUtils.writeDeployment(vm, "Weth", address(weth));
 
-        // Call the shared deployment logic
-        address darkpool = DeployUtils.deployCore(permit2, weth, address(0x42), vm);
-        DeployUtils.writeDeployment(vm, "Darkpool", darkpool);
+        // Use a dummy encryption key
+        EncryptionKey memory protocolFeeKey = EncryptionKey({
+            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(uint256(0)), y: BN254.ScalarField.wrap(uint256(0)) })
+        });
 
+        // Call the shared deployment logic
+        uint256 dummyProtocolFee = 1;
+        address dummyExternalFeeRecipient = address(0x42);
+        DeployUtils.deployCore(dummyProtocolFee, dummyExternalFeeRecipient, protocolFeeKey, permit2, weth, vm);
         vm.stopBroadcast();
     }
 }

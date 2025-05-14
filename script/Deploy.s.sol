@@ -1,27 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @notice This script must be run with the --ffi flag to enable external commands.
+ * Example: forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --sig "run(address,address,address)"
+ * <permit2> <weth> <feeRecipient> --ffi --broadcast --sender <sender> --unlocked
+ */
 import "forge-std/Script.sol";
+import "forge-std/console.sol";
 import "permit2/interfaces/IPermit2.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "./utils/DeployUtils.sol";
 
 contract DeployScript is Script {
-    // Default values for local Anvil node
-    uint256 constant _DEFAULT_PRIVATE_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-    string constant _DEFAULT_RPC_URL = "http://localhost:8545";
+    function run(
+        uint256 protocolFeeKeyX,
+        uint256 protocolFeeKeyY,
+        uint256 protocolFeeRate,
+        address protocolFeeAddr,
+        address permit2Address,
+        address wethAddress
+    )
+        public
+    {
+        vm.startBroadcast();
+        EncryptionKey memory protocolFeeKey = EncryptionKey({
+            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(protocolFeeKeyX), y: BN254.ScalarField.wrap(protocolFeeKeyY) })
+        });
 
-    uint256 private _deployerPrivateKey;
-    string private _rpcUrl;
-
-    function setUp() public {
-        // Load configuration in setUp
-        _deployerPrivateKey = vm.envOr("PRIVATE_KEY", _DEFAULT_PRIVATE_KEY);
-        _rpcUrl = vm.envOr("RPC_URL", _DEFAULT_RPC_URL);
-    }
-
-    function run(address permit2Address, address wethAddress, address protocolFeeAddr) public {
-        // Call the shared deployment logic
-        DeployUtils.deployCore(IPermit2(permit2Address), IWETH9(wethAddress), protocolFeeAddr, vm);
+        DeployUtils.deployCore(
+            protocolFeeRate, protocolFeeAddr, protocolFeeKey, IPermit2(permit2Address), IWETH9(wethAddress), vm
+        );
+        vm.stopBroadcast();
     }
 }

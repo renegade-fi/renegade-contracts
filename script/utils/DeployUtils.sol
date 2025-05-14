@@ -65,9 +65,11 @@ library DeployUtils {
 
     /// @notice Deploy core contracts
     function deployCore(
+        uint256 protocolFeeRate,
+        address protocolFeeAddr,
+        EncryptionKey memory protocolFeeKey,
         IPermit2 permit2,
         IWETH9 weth,
-        address protocolFeeAddr,
         Vm vm
     )
         internal
@@ -75,26 +77,15 @@ library DeployUtils {
     {
         // Deploy library contracts for the darkpool
         IHasher hasher = IHasher(deployHasher(vm));
-        (IVKeys vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
+        (IVKeys _vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
         address transferExecutor = deployTransferExecutor(vm);
 
-        // Set up protocol fee parameters
-        EncryptionKey memory protocolFeeKey = EncryptionKey({
-            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(uint256(0)), y: BN254.ScalarField.wrap(uint256(0)) })
-        });
-
         // Deploy Darkpool with all required parameters
-        // TODO: Allow these parameters to be configured
         Darkpool darkpool = new Darkpool(
-            0.003e18, // 0.3% protocol fee
-            protocolFeeAddr,
-            protocolFeeKey,
-            weth,
-            hasher,
-            verifier,
-            permit2,
-            transferExecutor
+            protocolFeeRate, protocolFeeAddr, protocolFeeKey, weth, hasher, verifier, permit2, transferExecutor
         );
+
+        DeployUtils.writeDeployment(vm, "Darkpool", address(darkpool));
         console.log("Darkpool deployed at:", address(darkpool));
         return address(darkpool);
     }
