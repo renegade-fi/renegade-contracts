@@ -1,0 +1,16 @@
+[package]
+name = "renegade-deploy"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool for deploying Renegade contracts"
+authors = ["Renegade Team"]
+
+[dependencies]
+alloy-primitives = "1.1.0"
+clap = { version = "4.4.3", features = ["derive", "env"] }
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade" }
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade" }
+renegade-crypto = { package = "renegade-crypto", git = "https://github.com/renegade-fi/renegade" }
+renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade" }
+eyre = "0.6.10"
+rand = "0.8"
