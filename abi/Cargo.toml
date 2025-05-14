@@ -17,7 +17,7 @@ relayer-types = [
 ]
 
 [dependencies]
-alloy = { version = "0.14", features = ["essentials"] }
+alloy = { version = "1.0.1", features = ["essentials"] }
 
 # === Relayer Deps === #
 ark-bn254 = { version = "0.4.0", optional = true }
