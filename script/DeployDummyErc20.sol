@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "solmate/test/utils/mocks/MockERC20.sol";
+import "../test/test-contracts/WethMock.sol";
 
 /**
  * @title DeployDummyERC20Script
@@ -21,11 +22,28 @@ contract DeployDummyERC20Script is Script {
         vm.startBroadcast();
 
         // Create the token with constructor params for name, symbol, and decimals
+        // Then mint initial supply to the deployer
         MockERC20 token = new MockERC20(name, symbol, decimals);
-
-        // Mint initial supply to the deployer
         token.mint(msg.sender, _INITIAL_SUPPLY);
         console.log("MockERC20 deployed at: %s", address(token));
+
+        vm.stopBroadcast();
+    }
+}
+
+/**
+ * @title DeployWethMockScript
+ * @notice Deploy script for the WethMock token
+ * @dev Usage: forge script script/DeployDummyErc20.sol --rpc-url <your_rpc_url> --broadcast --sig "deployWeth()"
+ */
+contract DeployWethMockScript is Script {
+    function deployWeth() public {
+        console.log("Deploying WethMock");
+        vm.startBroadcast();
+
+        // Deploy WethMock
+        WethMock weth = new WethMock();
+        console.log("WethMock deployed at: %s", address(weth));
 
         vm.stopBroadcast();
     }
