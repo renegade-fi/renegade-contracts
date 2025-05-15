@@ -6,9 +6,10 @@ use renegade_circuit_types::fixed_point::FixedPoint;
 use renegade_crypto::fields::jubjub_to_scalar;
 use renegade_util::hex::scalar_to_hex_string;
 use std::fs::File;
-use std::io::{self, Write};
-use std::process::{Command, Stdio};
+use std::io::Write;
+use std::process::Command;
 use std::str::FromStr;
+use tool_utils::{prompt_for_eth_address as prompt_for_address, prompt_for_f64, run_command};
 
 /// The signature of the `run` function in the `DeployScript` contract
 ///
@@ -115,22 +116,22 @@ fn main() -> Result<()> {
 /// Prompt for missing arguments
 fn prompt_for_missing_args(args: &mut Args) -> Result<()> {
     if args.permit2.is_none() || !is_valid_eth_address(args.permit2.as_ref().unwrap()) {
-        let addr = prompt_for_eth_address("Enter Permit2 contract address")?;
+        let addr = prompt_for_address("Enter Permit2 contract address")?;
         args.permit2 = Some(addr);
     }
 
     if args.weth.is_none() || !is_valid_eth_address(args.weth.as_ref().unwrap()) {
-        let addr = prompt_for_eth_address("Enter WETH contract address")?;
+        let addr = prompt_for_address("Enter WETH contract address")?;
         args.weth = Some(addr);
     }
 
     if args.fee_recipient.is_none() || !is_valid_eth_address(args.fee_recipient.as_ref().unwrap()) {
-        let addr = prompt_for_eth_address("Enter protocol fee recipient address")?;
+        let addr = prompt_for_address("Enter protocol fee recipient address")?;
         args.fee_recipient = Some(addr);
     }
 
     if args.protocol_fee_rate.is_none() {
-        let rate = prompt_for_f64("Enter protocol fee rate")?;
+        let rate = prompt_for_f64("Enter protocol fee rate", 0.0, 1.0)?;
         args.protocol_fee_rate = Some(rate);
     }
 
@@ -140,46 +141,6 @@ fn prompt_for_missing_args(args: &mut Args) -> Result<()> {
 // Function to validate Ethereum address using Alloy
 fn is_valid_eth_address(address: &str) -> bool {
     Address::from_str(address).is_ok()
-}
-
-// General function to prompt for input
-fn prompt_for_input(prompt: &str) -> io::Result<String> {
-    print!("{}: ", prompt);
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    Ok(input.trim().to_string())
-}
-
-// Function to prompt user for a valid Ethereum address
-fn prompt_for_eth_address(prompt: &str) -> io::Result<String> {
-    loop {
-        let input = prompt_for_input(prompt)?;
-
-        if is_valid_eth_address(&input) {
-            return Ok(input);
-        } else {
-            println!("Invalid Ethereum address format. Please enter a valid address (0x followed by 40 hex characters).");
-        }
-    }
-}
-
-// Function to prompt user for a protocol fee rate
-fn prompt_for_f64(prompt: &str) -> Result<f64> {
-    loop {
-        let input = prompt_for_input(prompt)?;
-        let fee: f64 = input
-            .parse()
-            .map_err(|_| eyre!("Invalid number format. Please enter a valid decimal number."))?;
-
-        if (0.0..=1.0).contains(&fee) {
-            return Ok(fee);
-        } else {
-            println!("Protocol fee rate must be between 0.0 and 1.0. Please try again.");
-        }
-    }
 }
 
 /// Generate a random encryption key
@@ -195,19 +156,4 @@ fn generate_fee_encryption_key() -> Result<EncryptionKey> {
     file.write_all(dec_key_str.as_bytes())?;
 
     Ok(enc_key)
-}
-
-/// Execute a command with real-time output streaming and proper error handling
-fn run_command(mut cmd: Command) -> Result<()> {
-    // Run the command and check the status
-    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-    let status = cmd.status()?;
-
-    // Check if the command succeeded, even if the exit code is non-zero
-    // The "default sender" warning causes a non-zero exit code but isn't a real failure
-    if status.success() || status.code() == Some(1) {
-        Ok(())
-    } else {
-        Err(eyre!("Command failed with status: {}", status))
-    }
 }
