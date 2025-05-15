@@ -8,7 +8,7 @@ import "permit2-test/utils/DeployPermit2.sol";
 import "./utils/DeployUtils.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "../test/test-contracts/WethMock.sol";
-import "oz-contracts/mocks/token/ERC20Mock.sol";
+import "solmate/test/utils/mocks/MockERC20.sol";
 
 contract DeployDevScript is Script {
     function run() public {
@@ -21,15 +21,16 @@ contract DeployDevScript is Script {
         console.log("Permit2 deployed at:", address(permit2));
 
         // Deploy two mock ERC20s
-        ERC20Mock quoteToken = new ERC20Mock();
-        ERC20Mock baseToken = new ERC20Mock();
+        MockERC20 quoteToken = new MockERC20("Quote Token", "QT", 18);
+        MockERC20 baseToken = new MockERC20("Base Token", "BT", 18);
         console.log("Quote Token deployed at:", address(quoteToken));
         console.log("Base Token deployed at:", address(baseToken));
         DeployUtils.writeDeployment(vm, "QuoteToken", address(quoteToken));
         DeployUtils.writeDeployment(vm, "BaseToken", address(baseToken));
 
         // Deploy WETH Mock
-        IWETH9 weth = IWETH9(new WethMock());
+        WethMock wethMock = new WethMock();
+        IWETH9 weth = IWETH9(address(wethMock));
         vm.deal(address(weth), 1e32);
         console.log("WETH Mock deployed at:", address(weth));
         DeployUtils.writeDeployment(vm, "Weth", address(weth));
