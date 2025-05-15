@@ -14,3 +14,4 @@ renegade-crypto = { package = "renegade-crypto", git = "https://github.com/reneg
 renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade" }
 eyre = "0.6.10"
 rand = "0.8"
+tool-utils = { path = "../tool-utils" }

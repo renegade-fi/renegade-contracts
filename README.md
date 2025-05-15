@@ -61,3 +61,37 @@ This will:
 1. Start an `anvil` node
 2. Deploy the Renegade contracts to the node
 3. Run the integration tests against the node. These tests simulate a rust-based client interacting with the darkpool.
+
+## Development Tools
+
+The repository includes several helpful tools for development and deployment.
+
+### Deploying Contracts
+
+To deploy Renegade contracts to an EVM chain:
+
+```shell
+./script/bin/deploy.sh --rpc-url <RPC_URL> --pkey <PRIVATE_KEY>
+```
+
+This will prompt for any missing configuration values like fee rates and contract addresses.
+
+### Deploying Test Tokens
+
+For testing purposes, you can deploy dummy ERC20 tokens or a WETH mock:
+
+```shell
+# Deploy a regular ERC20 token (will prompt for name, symbol, and decimals)
+./script/bin/deploy-token.sh --rpc-url <RPC_URL> --pkey <PRIVATE_KEY>
+
+# Deploy a WETH mock
+./script/bin/deploy-token.sh --rpc-url <RPC_URL> --pkey <PRIVATE_KEY> --weth
+```
+
+You can also specify token details directly:
+
+```shell
+# Deploy with all parameters specified
+./script/bin/deploy-token.sh --rpc-url <RPC_URL> --pkey <PRIVATE_KEY> --name "My Token" --symbol "TKN" --decimals 18
+```
+
