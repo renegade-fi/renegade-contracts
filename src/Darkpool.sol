@@ -108,7 +108,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     NullifierLib.NullifierSet private publicBlinderSet;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+    constructor() Ownable(msg.sender) {
         _disableInitializers();
     }
 

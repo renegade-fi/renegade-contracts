@@ -77,6 +77,20 @@ interface IDarkpool {
     )
         external;
 
+    // --- Admin Interface --- //
+
+    /// @notice Returns the current owner of the contract
+    function owner() external view returns (address);
+
+    /// @notice Returns true if the contract is paused, and false otherwise
+    function paused() external view returns (bool);
+
+    /// @notice Pauses the contract
+    function pause() external;
+
+    /// @notice Unpauses the contract
+    function unpause() external;
+
     // --- State Getters --- //
 
     /// @notice Get the current Merkle root
@@ -140,12 +154,34 @@ interface IDarkpool {
 
     // --- State Setters --- //
 
+    /// @notice Set the protocol fee rate
+    /// @param newFee The new protocol fee rate to set
+    function setProtocolFeeRate(uint256 newFee) external;
+
     /// @notice Set the protocol fee rate for a given asset
     /// @param asset The asset to set the protocol fee rate for
     /// @param fee The protocol fee rate to set. This is a fixed point representation
     /// @dev of a real number between 0 and 1. To convert to its floating point representation,
     /// @dev divide by the fixed point precision, i.e. `fee = assetFeeRate / FIXED_POINT_PRECISION`.
     function setTokenExternalMatchFeeRate(address asset, uint256 fee) external;
+
+    /// @notice Remove the fee override for an asset
+    /// @param asset The asset to remove the fee override for
+    function removeTokenExternalMatchFeeRate(address asset) external;
+
+    /// @notice Set the protocol public encryption key
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) external;
+
+    /// @notice Set the protocol external fee collection address
+    /// @param newAddress The new address to collect external fees
+    function setProtocolFeeRecipient(address newAddress) external;
+
+    /// @notice Get the protocol fee recipient address
+    /// @notice This is the address to which external match fees are sent for the protocol
+    /// @return The protocol fee recipient address
+    function getProtocolFeeRecipient() external view returns (address);
 
     // --- Core Wallet Methods --- //
 
@@ -201,11 +237,14 @@ interface IDarkpool {
     /// @dev an external party provides liquidity to the pool during the
     /// @dev transaction in which this method is called
     /// @dev The receiver of the match settlement is the sender of the transaction
+    /// @dev This variant allows the receiver to be specified as a parameter
+    /// @param receiver The address that will receive the buy side token amount for the external party
     /// @param internalPartyPayload The validity proofs for the internal party
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
     function processAtomicMatchSettleWithCommitments(
+        address receiver,
         PartyMatchPayload calldata internalPartyPayload,
         ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
         MatchAtomicProofs calldata proofs,
