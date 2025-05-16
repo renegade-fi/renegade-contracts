@@ -14,6 +14,7 @@ import "./utils/DeployUtils.sol";
 
 contract DeployScript is Script {
     function run(
+        address owner,
         uint256 protocolFeeKeyX,
         uint256 protocolFeeKeyY,
         uint256 protocolFeeRate,
@@ -29,7 +30,7 @@ contract DeployScript is Script {
         });
 
         DeployUtils.deployCore(
-            protocolFeeRate, protocolFeeAddr, protocolFeeKey, IPermit2(permit2Address), IWETH9(wethAddress), vm
+            owner, protocolFeeRate, protocolFeeAddr, protocolFeeKey, IPermit2(permit2Address), IWETH9(wethAddress), vm
         );
         vm.stopBroadcast();
     }

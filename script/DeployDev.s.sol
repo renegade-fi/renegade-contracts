@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 import "foundry-huff/HuffDeployer.sol";
-import "permit2-test/utils/DeployPermit2.sol";
 import "./utils/DeployUtils.sol";
+import "./utils/Permit2Utils.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "../test/test-contracts/WethMock.sol";
 import "solmate/test/utils/mocks/MockERC20.sol";
@@ -16,7 +16,7 @@ contract DeployDevScript is Script {
         vm.startBroadcast();
 
         // Deploy Permit2
-        IPermit2 permit2 = IPermit2(DeployUtils.deployPermit2());
+        IPermit2 permit2 = IPermit2(Permit2Utils.deployPermit2());
         DeployUtils.writeDeployment(vm, "Permit2", address(permit2));
         console.log("Permit2 deployed at:", address(permit2));
 
@@ -43,7 +43,15 @@ contract DeployDevScript is Script {
         // Call the shared deployment logic
         uint256 dummyProtocolFee = 1;
         address dummyExternalFeeRecipient = address(0x42);
-        DeployUtils.deployCore(dummyProtocolFee, dummyExternalFeeRecipient, protocolFeeKey, permit2, weth, vm);
+        DeployUtils.deployCore(
+            msg.sender, // Use deployer as owner
+            dummyProtocolFee,
+            dummyExternalFeeRecipient,
+            protocolFeeKey,
+            permit2,
+            weth,
+            vm
+        );
         vm.stopBroadcast();
     }
 }
