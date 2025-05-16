@@ -9,6 +9,7 @@ import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
 import { IHasher } from "./libraries/interfaces/IHasher.sol";
 import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
@@ -51,7 +52,7 @@ import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
 import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
 import { BabyJubJubPoint } from "./libraries/darkpool/types/Ciphertext.sol";
 
-contract Darkpool is Ownable2Step, Pausable {
+contract Darkpool is Initializable, Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
     using TypesLib for ExternalTransfer;
@@ -106,11 +107,23 @@ contract Darkpool is Ownable2Step, Pausable {
     /// @dev recover a wallet
     NullifierLib.NullifierSet private publicBlinderSet;
 
-    /// @notice The constructor for the darkpool
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initialize the darkpool
+    /// @param initialOwner The address that will own the contract
+    /// @param protocolFeeRate_ The protocol fee rate for the darkpool
+    /// @param protocolFeeRecipient_ The address to receive protocol fees
+    /// @param protocolFeeKey_ The encryption key for protocol fees
+    /// @param weth_ The WETH9 contract instance
     /// @param hasher_ The hasher for the darkpool
     /// @param verifier_ The verifier for the darkpool
     /// @param permit2_ The Permit2 contract instance for handling deposits
-    constructor(
+    /// @param transferExecutor_ The TransferExecutor contract address
+    function initialize(
+        address initialOwner,
         uint256 protocolFeeRate_,
         address protocolFeeRecipient_,
         EncryptionKey memory protocolFeeKey_,
@@ -120,8 +133,11 @@ contract Darkpool is Ownable2Step, Pausable {
         IPermit2 permit2_,
         address transferExecutor_
     )
-        Ownable(msg.sender)
+        public
+        initializer
     {
+        _transferOwnership(initialOwner);
+
         protocolFeeRate = protocolFeeRate_;
         protocolFeeRecipient = protocolFeeRecipient_;
         protocolFeeKey = protocolFeeKey_;

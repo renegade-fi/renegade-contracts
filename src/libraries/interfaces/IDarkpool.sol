@@ -54,6 +54,29 @@ interface IDarkpool {
     /// @param nullifier The nullifier that was spent
     event NullifierSpent(BN254.ScalarField nullifier);
 
+    /// @notice Initialize the darkpool
+    /// @param initialOwner The initial owner of the contract
+    /// @param protocolFeeRate_ The protocol fee rate
+    /// @param protocolFeeRecipient_ The recipient for protocol fees
+    /// @param protocolFeeKey_ The encryption key for protocol fees
+    /// @param weth_ The WETH contract
+    /// @param hasher_ The Poseidon hasher contract
+    /// @param verifier_ The verifier contract
+    /// @param permit2_ The Permit2 contract
+    /// @param transferExecutor_ The transfer executor contract
+    function initialize(
+        address initialOwner,
+        uint256 protocolFeeRate_,
+        address protocolFeeRecipient_,
+        EncryptionKey memory protocolFeeKey_,
+        IWETH9 weth_,
+        IHasher hasher_,
+        IVerifier verifier_,
+        IPermit2 permit2_,
+        address transferExecutor_
+    )
+        external;
+
     // --- State Getters --- //
 
     /// @notice Get the current Merkle root
