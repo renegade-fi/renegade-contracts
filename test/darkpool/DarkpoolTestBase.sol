@@ -16,6 +16,8 @@ import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { TestVerifier } from "../test-contracts/TestVerifier.sol";
 import { Darkpool } from "renegade/Darkpool.sol";
+import { DarkpoolProxy } from "../../src/DarkpoolProxy.sol";
+import { IDarkpool } from "../../src/libraries/interfaces/IDarkpool.sol";
 import { TransferExecutor } from "renegade/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
@@ -29,9 +31,9 @@ import { IVKeys } from "renegade/libraries/interfaces/IVKeys.sol";
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
 
-    Darkpool public darkpool;
+    IDarkpool public darkpool;
     /// @dev A separate instance of the darkpool contract without a verifier mock
-    Darkpool public darkpoolRealVerifier;
+    IDarkpool public darkpoolRealVerifier;
     IHasher public hasher;
     NullifierLib.NullifierSet private testNullifierSet;
     IPermit2 public permit2;
@@ -43,6 +45,10 @@ contract DarkpoolTestBase is CalldataUtils {
 
     address public protocolFeeAddr;
     address public darkpoolOwner;
+
+    // Implementation contracts (for reference)
+    Darkpool public darkpoolImpl;
+    Darkpool public darkpoolRealVerifierImpl;
 
     bytes constant INVALID_NULLIFIER_REVERT_STRING = "nullifier/blinder already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
@@ -79,12 +85,18 @@ contract DarkpoolTestBase is CalldataUtils {
         // Deploy TransferExecutor
         transferExecutor = new TransferExecutor();
 
-        // Deploy the darkpool
+        // Set admin and protocol fee addresses
         darkpoolOwner = vm.randomAddress();
         protocolFeeAddr = vm.randomAddress();
 
-        vm.prank(darkpoolOwner);
-        darkpool = new Darkpool(
+        // Deploy implementation contracts
+        darkpoolImpl = new Darkpool();
+        darkpoolRealVerifierImpl = new Darkpool();
+
+        // Deploy the darkpool with a fake verifier
+        DarkpoolProxy darkpoolProxy = new DarkpoolProxy(
+            address(darkpoolImpl),
+            darkpoolOwner,
             TEST_PROTOCOL_FEE,
             protocolFeeAddr,
             protocolFeeKey,
@@ -94,9 +106,12 @@ contract DarkpoolTestBase is CalldataUtils {
             permit2,
             address(transferExecutor)
         );
+        darkpool = IDarkpool(address(darkpoolProxy));
 
-        vm.prank(darkpoolOwner);
-        darkpoolRealVerifier = new Darkpool(
+        // Deploy the darkpool with the real verifier
+        DarkpoolProxy darkpoolRealVerifierProxy = new DarkpoolProxy(
+            address(darkpoolRealVerifierImpl),
+            darkpoolOwner,
             TEST_PROTOCOL_FEE,
             protocolFeeAddr,
             protocolFeeKey,
@@ -106,6 +121,7 @@ contract DarkpoolTestBase is CalldataUtils {
             permit2,
             address(transferExecutor)
         );
+        darkpoolRealVerifier = IDarkpool(address(darkpoolRealVerifierProxy));
     }
 
     /// @dev Get the base and quote token amounts for an address
