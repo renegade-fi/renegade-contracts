@@ -14,13 +14,14 @@ use tool_utils::{prompt_for_eth_address as prompt_for_address, prompt_for_f64, r
 /// The signature of the `run` function in the `DeployScript` contract
 ///
 /// Args are:
+/// - The owner address
 /// - The protocol fee encryption key x-coordinate
 /// - The protocol fee encryption key y-coordinate  
 /// - The protocol fee rate
 /// - The protocol fee recipient address
 /// - The permit2 contract address
 /// - The weth contract address
-const RUN_SIGNATURE: &str = "run(uint256,uint256,uint256,address,address,address)";
+const RUN_SIGNATURE: &str = "run(address,uint256,uint256,uint256,address,address,address)";
 /// The path to which we write the decryption key
 const DECRYPTION_KEY_PATH: &str = "fee_decryption_key.txt";
 
@@ -35,6 +36,9 @@ struct Args {
     /// RPC URL to deploy to
     #[arg(short, long, env = "RPC_URL", default_value = "http://localhost:8545")]
     rpc_url: String,
+    /// Owner address for the contracts
+    #[arg(long)]
+    owner: Option<String>,
     /// Permit2 contract address
     #[arg(long)]
     permit2: Option<String>,
@@ -48,11 +52,14 @@ struct Args {
     #[arg(long)]
     fee_recipient: Option<String>,
     /// Private key for signing transactions
-    #[arg(long = "pkey", env = "PKEY")]
+    #[arg(long = "pkey", env = "PKEY", hide_env_values = true)]
     private_key: String,
     /// Verbosity level (v, vv, vvv)
     #[arg(long, default_value = "v")]
     verbosity: String,
+    /// Optional fee decryption key as hex string
+    #[arg(long)]
+    fee_dec_key: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -61,18 +68,20 @@ fn main() -> Result<()> {
     prompt_for_missing_args(&mut args)?;
 
     // Unwrap the Option values now that we're sure they're present and valid
+    let owner = args.owner.unwrap();
     let permit2 = args.permit2.unwrap();
     let weth = args.weth.unwrap();
     let fee_recipient = args.fee_recipient.unwrap();
     let fee_rate = args.protocol_fee_rate.unwrap();
     println!("Deploying to RPC URL: {}", args.rpc_url);
+    println!("\tOwner address: {}", owner);
     println!("\tPermit2 address: {}", permit2);
     println!("\tWETH address: {}", weth);
     println!("\tFee recipient: {}", fee_recipient);
     println!("\tProtocol fee rate: {}", fee_rate);
 
-    // Generate an encryption key for internal protocol fees
-    let enc_key = generate_fee_encryption_key()?;
+    // Get the fee encryption key
+    let enc_key = get_fee_key(args.fee_dec_key.as_deref())?;
     println!("Fee encryption key");
     println!("\tx: {}", enc_key.x);
     println!("\ty: {}", enc_key.y);
@@ -89,6 +98,7 @@ fn main() -> Result<()> {
         .arg(&args.rpc_url)
         .arg("--sig")
         .arg(RUN_SIGNATURE)
+        .arg(&owner)
         .arg(format!("{}", enc_key.x))
         .arg(format!("{}", enc_key.y))
         .arg(format!("{protocol_fee_repr}"))
@@ -105,7 +115,6 @@ fn main() -> Result<()> {
     run_command(cmd)?;
 
     println!("\nDeployment completed successfully!");
-    println!("Decryption key written to {}", DECRYPTION_KEY_PATH);
     Ok(())
 }
 
@@ -115,6 +124,11 @@ fn main() -> Result<()> {
 
 /// Prompt for missing arguments
 fn prompt_for_missing_args(args: &mut Args) -> Result<()> {
+    if args.owner.is_none() || !is_valid_eth_address(args.owner.as_ref().unwrap()) {
+        let addr = prompt_for_address("Enter owner address")?;
+        args.owner = Some(addr);
+    }
+
     if args.permit2.is_none() || !is_valid_eth_address(args.permit2.as_ref().unwrap()) {
         let addr = prompt_for_address("Enter Permit2 contract address")?;
         args.permit2 = Some(addr);
@@ -143,17 +157,42 @@ fn is_valid_eth_address(address: &str) -> bool {
     Address::from_str(address).is_ok()
 }
 
+/// Get the fee encryption key either by generating a new one or deriving from provided decryption key
+///
+/// Returns the encryption key to use for the protocol fee
+fn get_fee_key(fee_dec_key: Option<&str>) -> Result<EncryptionKey> {
+    if let Some(hex_key) = fee_dec_key {
+        derive_fee_encryption_key(hex_key)
+    } else {
+        generate_fee_encryption_key()
+    }
+}
+
 /// Generate a random encryption key
 ///
 /// Writes the decryption key to a file and returns the encryption key
 fn generate_fee_encryption_key() -> Result<EncryptionKey> {
+    // Generate a random key pair
+    println!("Generating random fee encryption key");
     let mut rng = rand::thread_rng();
     let (dec_key, enc_key) = DecryptionKey::random_pair(&mut rng);
 
+    // Write the decryption key to a file
     let key_inner = jubjub_to_scalar(dec_key.key);
     let dec_key_str = scalar_to_hex_string(&key_inner);
     let mut file = File::create(DECRYPTION_KEY_PATH)?;
     file.write_all(dec_key_str.as_bytes())?;
 
+    println!("Decryption key written to {}", DECRYPTION_KEY_PATH);
     Ok(enc_key)
+}
+
+/// Derive an encryption key from a provided decryption key hex string
+///
+/// This does not write the decryption key to a file
+fn derive_fee_encryption_key(hex_key: &str) -> Result<EncryptionKey> {
+    println!("Using provided fee decryption key");
+    let dec_key = DecryptionKey::from_hex_str(hex_key)
+        .map_err(|e| eyre!("Failed to parse fee decryption key: {e}"))?;
+    Ok(dec_key.public_key())
 }
