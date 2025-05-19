@@ -42,7 +42,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ### Clone the repo
 ``` shell
-git clone https://github.com/renegade-fi/renegade-solidity-contracts
+git clone --recurse-submodules https://github.com/renegade-fi/renegade-solidity-contracts
 ```
 
 ## Running unit tests
