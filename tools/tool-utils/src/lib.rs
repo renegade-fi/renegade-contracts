@@ -1,3 +1,4 @@
+use alloy::primitives::Address;
 use eyre::{eyre, Result};
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
@@ -90,7 +91,5 @@ pub fn prompt_for_eth_address(prompt: &str) -> Result<String> {
 /// Function to validate an Ethereum address format
 /// This is a simple check for the 0x prefix and length
 pub fn is_valid_eth_address_format(address: &str) -> bool {
-    address.len() == 42
-        && address.starts_with("0x")
-        && address[2..].chars().all(|c| c.is_ascii_hexdigit())
+    Address::from_str(address).is_ok()
 }
