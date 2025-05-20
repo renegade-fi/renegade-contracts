@@ -261,6 +261,7 @@ interface IDarkpool {
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
+    /// @return The amount of the buy token that the external party receives
     function processAtomicMatchSettle(
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,
@@ -269,7 +270,8 @@ interface IDarkpool {
         MatchAtomicLinkingProofs calldata linkingProofs
     )
         external
-        payable;
+        payable
+        returns (uint256);
 
     /// @notice Process a malleable match settlement between two parties
     /// @dev This is a variant of `processAtomicMatchSettle` that allows the match amount to be determined
@@ -283,6 +285,7 @@ interface IDarkpool {
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
+    /// @return The amount of the buy token that the external party receives
     function processMalleableAtomicMatchSettle(
         uint256 baseAmount,
         address receiver,
@@ -292,7 +295,8 @@ interface IDarkpool {
         MatchAtomicLinkingProofs calldata linkingProofs
     )
         external
-        payable;
+        payable
+        returns (uint256);
 
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
     /// @dev Instead of updating the recipient's wallet, a `Note` is created that the recipient may later redeem
