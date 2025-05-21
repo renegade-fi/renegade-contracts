@@ -870,6 +870,7 @@ impl DarkpoolContract {
     #[payable]
     pub fn process_malleable_atomic_match_settle<S: TopLevelStorage + BorrowMut<Self>>(
         storage: &mut S,
+        quote_amount: U256,
         base_amount: U256,
         internal_party_payload: Bytes,
         malleable_match_settle_atomic_statement: Bytes,
@@ -885,6 +886,7 @@ impl DarkpoolContract {
             storage,
             delegate,
             (
+                quote_amount,
                 base_amount,
                 receiver,
                 internal_party_payload.to_vec().into(),
@@ -902,6 +904,7 @@ impl DarkpoolContract {
         S: TopLevelStorage + BorrowMut<Self>,
     >(
         storage: &mut S,
+        quote_amount: U256,
         base_amount: U256,
         receiver: Address,
         internal_party_payload: Bytes,
@@ -917,6 +920,7 @@ impl DarkpoolContract {
             storage,
             delegate,
             (
+                quote_amount,
                 base_amount,
                 receiver,
                 internal_party_payload.to_vec().into(),

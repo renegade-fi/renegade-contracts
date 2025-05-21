@@ -7,6 +7,8 @@ use crate::serde_def_types::*;
 
 use super::ScalarField;
 
+/// A public signing key in the Renegade system
+///
 /// Represents the affine coordinates of a secp256k1 ECDSA public key.
 /// Since the secp256k1 base field order is larger than that of Bn254's scalar
 /// field, it takes 2 Bn254 scalar field elements to represent each coordinate.

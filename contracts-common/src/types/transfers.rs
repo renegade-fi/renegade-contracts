@@ -24,7 +24,9 @@ pub struct ExternalTransfer {
     pub is_withdrawal: bool,
 }
 
-/// Auxiliary data passed alongside an external transfer to verify its validity.
+/// Auxiliary authorization data for an external transfer
+///
+/// Passed alongside an external transfer to verify its validity.
 /// This includes a signature over the external transfer, and in the case of a
 /// deposit, the associated Permit2 data ([reference](https://docs.uniswap.org/contracts/permit2/reference/signature-transfer))
 #[serde_as]
