@@ -396,9 +396,9 @@ pub fn get_rustflags_for_contract(contract: &StylusContract) -> String {
 /// given contract
 pub fn get_wasm_opt_flags_for_contract(contract: &StylusContract) -> &'static str {
     match contract {
-        StylusContract::DarkpoolTestContract | StylusContract::GasSponsor => {
-            AGGRESSIVE_SIZE_OPTIMIZATION_FLAG
-        },
+        StylusContract::DarkpoolTestContract
+        | StylusContract::GasSponsor
+        | StylusContract::CoreMalleableMatchSettle => AGGRESSIVE_SIZE_OPTIMIZATION_FLAG,
         _ => AGGRESSIVE_OPTIMIZATION_FLAG,
     }
 }

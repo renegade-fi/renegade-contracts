@@ -67,6 +67,8 @@ pub struct SponsoredMalleableMatchSettleAtomicData {
     pub refund_address: Address,
     /// The base amount swapped
     pub base_amount: U256,
+    /// The quote amount swapped
+    pub quote_amount: U256,
     /// The address to receive the tokens
     pub receiver: Address,
     /// The sponsorship nonce
@@ -167,7 +169,7 @@ pub async fn setup_sponsored_malleable_match_test(
     send_tx(ctx.gas_sponsor_contract().unpause()).await?;
 
     // Setup malleable match test data
-    let (base_amount, process_malleable_match_settle_atomic_data) =
+    let (quote_amount, base_amount, process_malleable_match_settle_atomic_data) =
         setup_malleable_match_test(options.trade_native_eth, true /* use_gas_sponsor */, ctx)
             .await?;
 
@@ -206,6 +208,7 @@ pub async fn setup_sponsored_malleable_match_test(
         refund_native_eth: !options.in_kind_refund,
         refund_amount: REFUND_AMOUNT,
         base_amount,
+        quote_amount,
     })
 }
 
@@ -304,6 +307,7 @@ pub async fn sponsor_malleable_match_with_test_data(
         process_malleable_match_settle_atomic_data: test_data,
         refund_address,
         base_amount,
+        quote_amount,
         receiver,
         nonce,
         refund_native_eth,
@@ -327,6 +331,7 @@ pub async fn sponsor_malleable_match_with_test_data(
     // Prepare the transaction
     let settle_tx = gas_sponsor
         .sponsorMalleableAtomicMatchSettleWithRefundOptions(
+            quote_amount,
             base_amount,
             receiver,
             internal_party_payload,

@@ -900,6 +900,7 @@ impl DarkpoolContract {
 
     /// Process a malleable match settlement with a receiver specified
     #[payable]
+    #[allow(clippy::too_many_arguments)]
     pub fn process_malleable_atomic_match_settle_with_receiver<
         S: TopLevelStorage + BorrowMut<Self>,
     >(
