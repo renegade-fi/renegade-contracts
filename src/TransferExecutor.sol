@@ -42,6 +42,7 @@ contract TransferExecutor {
     /// @param matchResult The result of the match
     /// @param feeTake The fee take information
     /// @param weth The WETH9 contract for native token handling
+    /// @return traderTake The amount received by the trader
     function executeAtomicMatchTransfers(
         address externalParty,
         address relayerFeeAddr,
@@ -52,11 +53,13 @@ contract TransferExecutor {
     )
         external
         payable
+        returns (uint256)
     {
-        ExternalTransferLib.SimpleTransfer[] memory transfers =
+        (uint256 traderTake, ExternalTransferLib.SimpleTransfer[] memory transfers) =
             buildAtomicMatchTransfers(externalParty, relayerFeeAddr, protocolFeeRecipient, matchResult, feeTake);
 
         ExternalTransferLib.executeTransferBatch(transfers, weth);
+        return traderTake;
     }
 
     /// @notice Build a list of simple transfers to settle an atomic match
@@ -65,6 +68,7 @@ contract TransferExecutor {
     /// @param protocolFeeRecipient The address to receive protocol fees
     /// @param matchResult The result of the match
     /// @param feeTake The fee take information
+    /// @return traderTake The amount of the trader's take
     /// @return transfers An array of simple transfers to execute
     function buildAtomicMatchTransfers(
         address externalParty,
@@ -75,7 +79,7 @@ contract TransferExecutor {
     )
         public
         view
-        returns (ExternalTransferLib.SimpleTransfer[] memory transfers)
+        returns (uint256 traderTake, ExternalTransferLib.SimpleTransfer[] memory transfers)
     {
         (address sellMint, uint256 sellAmount) = matchResult.externalPartySellMintAmount();
         (address buyMint, uint256 buyAmount) = matchResult.externalPartyBuyMintAmount();
@@ -94,7 +98,7 @@ contract TransferExecutor {
         // 2. Withdraw the buy amount net of fees
         // Tx will revert if the buy amount is less than the total fees
         uint256 totalFees = feeTake.total();
-        uint256 traderTake = buyAmount - totalFees;
+        traderTake = buyAmount - totalFees;
         transfers[1] = ExternalTransferLib.SimpleTransfer({
             account: externalParty,
             mint: buyMint,
