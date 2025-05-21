@@ -652,6 +652,7 @@ pub async fn test_sponsored_malleable_match__in_kind(ctx: TestContext) -> Result
     let options = SponsoredMatchTestOptions { in_kind_refund: true, ..Default::default() };
     let data = setup_sponsored_malleable_match_test(options, &ctx).await?;
 
+    let quote_amount = data.quote_amount;
     let base_amount = data.base_amount;
     let statement = &data
         .process_malleable_match_settle_atomic_data
@@ -659,7 +660,7 @@ pub async fn test_sponsored_malleable_match__in_kind(ctx: TestContext) -> Result
     let match_res = statement.match_result.clone();
     let fee_rates = statement.external_fee_rates;
 
-    let external_match = match_res.to_external_match_result(base_amount).unwrap();
+    let external_match = match_res.to_external_match_result(quote_amount, base_amount).unwrap();
     let (buy_token_addr, buy_amount) = external_match.external_party_buy_mint_amount();
     let external_part_fees = fee_rates.get_fee_take(buy_amount);
     let net_recv = buy_amount - external_part_fees.total();

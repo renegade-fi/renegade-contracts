@@ -27,11 +27,13 @@ use super::{
 const MAX_TRADE_SIZE: Amount = 1u128 << 15;
 
 /// Generate the calldata for a malleable match
+///
+/// Returns the quote amount, base amount, and the payload
 pub async fn setup_malleable_match_test(
     is_native: bool,
     use_gas_sponsor: bool,
     ctx: &TestContext,
-) -> Result<(U256, ProcessMalleableMatchSettleAtomicData)> {
+) -> Result<(U256, U256, ProcessMalleableMatchSettleAtomicData)> {
     let mut rng = thread_rng();
     let merkle_root = ctx.get_root_scalar().await?;
     let protocol_fee = ctx.get_protocol_fee().await?;
@@ -70,7 +72,7 @@ pub async fn setup_malleable_match_test(
         payload.valid_malleable_match_settle_atomic_statement.match_result.base_mint =
             native_eth_address();
     }
-    Ok((U256::from(base_amount), payload))
+    Ok((U256::from(quote_amount), U256::from(base_amount), payload))
 }
 
 /// Generate a random [`BoundedMatchResult`]

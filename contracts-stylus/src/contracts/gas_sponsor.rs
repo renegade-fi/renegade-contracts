@@ -454,6 +454,7 @@ impl GasSponsorContract {
         let darkpool = IDarkpool::new(self.darkpool_address.get());
         let received_in_match = darkpool.process_malleable_atomic_match_settle_with_receiver(
             ctx,
+            quote_amount,
             base_amount,
             receiver,
             internal_party_match_payload.0.into(),

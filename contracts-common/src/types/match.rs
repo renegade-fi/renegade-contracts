@@ -12,6 +12,8 @@ use super::FixedPoint;
 pub const ERROR_INVALID_BASE_AMT: &[u8] = b"invalid base amount";
 /// The revert message when an invalid quote amount is provided
 pub const ERROR_INVALID_QUOTE_AMT: &[u8] = b"invalid quote amount";
+/// The revert message when a zero base or quote amount is provided
+pub const ERROR_ZERO_BASE_OR_QUOTE_AMT: &[u8] = b"zero base or quote amount";
 
 /// The result of an external match
 /// The result of an atomic match
@@ -116,6 +118,10 @@ impl BoundedMatchResult {
 
     /// Validate the base and quote amount for a match
     fn validate_amounts(&self, quote_amount: U256, base_amount: U256) -> Result<(), Vec<u8>> {
+        if quote_amount.is_zero() || base_amount.is_zero() {
+            return Err(ERROR_ZERO_BASE_OR_QUOTE_AMT.into());
+        }
+
         self.validate_base_amount(base_amount)?;
         self.validate_quote_amount(quote_amount, base_amount)
     }

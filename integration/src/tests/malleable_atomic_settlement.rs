@@ -25,7 +25,7 @@ use crate::{
 /// Test a basic malleable match
 #[allow(non_snake_case)]
 async fn test_malleable_match__basic(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, payload) = setup_malleable_match_test(
         false, // is_native
         false, // use_gas_sponsor
         &ctx,
@@ -34,6 +34,7 @@ async fn test_malleable_match__basic(ctx: TestContext) -> Result<()> {
     let receiver = ctx.client.address();
     submit_and_validate_malleable_match(
         receiver,
+        quote_amount,
         base_amount,
         payload.internal_party_match_payload,
         payload.valid_malleable_match_settle_atomic_statement,
@@ -50,7 +51,7 @@ integration_test_async!(test_malleable_match__basic);
 /// Test a malleable match on the native asset
 #[allow(non_snake_case)]
 async fn test_malleable_match__native(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, payload) = setup_malleable_match_test(
         true,  // is_native
         false, // use_gas_sponsor
         &ctx,
@@ -59,6 +60,7 @@ async fn test_malleable_match__native(ctx: TestContext) -> Result<()> {
     let receiver = ctx.client.address();
     submit_and_validate_malleable_match(
         receiver,
+        quote_amount,
         base_amount,
         payload.internal_party_match_payload,
         payload.valid_malleable_match_settle_atomic_statement,
@@ -75,7 +77,7 @@ integration_test_async!(test_malleable_match__native);
 /// Test a malleable match with a non-sender as the receiver
 #[allow(non_snake_case)]
 async fn test_malleable_match__non_sender_receiver(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, payload) = setup_malleable_match_test(
         false, // is_native
         false, // use_gas_sponsor
         &ctx,
@@ -84,6 +86,7 @@ async fn test_malleable_match__non_sender_receiver(ctx: TestContext) -> Result<(
     let receiver = Address::random();
     submit_and_validate_malleable_match(
         receiver,
+        quote_amount,
         base_amount,
         payload.internal_party_match_payload,
         payload.valid_malleable_match_settle_atomic_statement,
@@ -100,7 +103,7 @@ integration_test_async!(test_malleable_match__non_sender_receiver);
 /// Test a malleable match with a non-sender as the receiver on the native asset
 #[allow(non_snake_case)]
 async fn test_malleable_match__non_sender_receiver_native(ctx: TestContext) -> Result<()> {
-    let (base_amount, payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, payload) = setup_malleable_match_test(
         true,  // is_native
         false, // use_gas_sponsor
         &ctx,
@@ -109,6 +112,7 @@ async fn test_malleable_match__non_sender_receiver_native(ctx: TestContext) -> R
     let receiver = Address::random();
     submit_and_validate_malleable_match(
         receiver,
+        quote_amount,
         base_amount,
         payload.internal_party_match_payload,
         payload.valid_malleable_match_settle_atomic_statement,
@@ -129,14 +133,16 @@ integration_test_async!(test_malleable_match__non_sender_receiver_native);
 #[allow(non_snake_case)]
 async fn test_malleable_match__non_native_invalid_value(ctx: TestContext) -> Result<()> {
     let darkpool = ctx.darkpool_contract();
-    let (base_amount, payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, payload) = setup_malleable_match_test(
         false, // is_native
         true,  // use_gas_sponsor
         &ctx,
     )
     .await?;
+    let receiver = ctx.client.address();
     let tx = darkpool
-        .processMalleableAtomicMatchSettle(
+        .processMalleableAtomicMatchSettleWithReceiver(
+            quote_amount,
             base_amount,
             receiver,
             serialize_to_calldata(&payload.internal_party_match_payload)?,
@@ -154,7 +160,7 @@ integration_test_async!(test_malleable_match__non_native_invalid_value);
 #[allow(non_snake_case)]
 async fn test_malleable_match__native_value_too_small(ctx: TestContext) -> Result<()> {
     let darkpool = ctx.darkpool_contract();
-    let (base_amount, mut payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, mut payload) = setup_malleable_match_test(
         true,  // is_native
         false, // use_gas_sponsor
         &ctx,
@@ -165,7 +171,8 @@ async fn test_malleable_match__native_value_too_small(ctx: TestContext) -> Resul
     let receiver = ctx.client.address();
     let invalid_value = base_amount - U256::from(1);
     let tx = darkpool
-        .processMalleableAtomicMatchSettle(
+        .processMalleableAtomicMatchSettleWithReceiver(
+            quote_amount,
             base_amount,
             receiver,
             serialize_to_calldata(&payload.internal_party_match_payload)?,
@@ -184,7 +191,7 @@ integration_test_async!(test_malleable_match__native_value_too_small);
 async fn test_malleable_match__incorrect_protocol_fee_rate(ctx: TestContext) -> Result<()> {
     let mut rng = thread_rng();
     let darkpool = ctx.darkpool_contract();
-    let (base_amount, mut payload) = setup_malleable_match_test(
+    let (quote_amount, base_amount, mut payload) = setup_malleable_match_test(
         false, // is_native
         false, // use_gas_sponsor
         &ctx,
@@ -201,7 +208,8 @@ async fn test_malleable_match__incorrect_protocol_fee_rate(ctx: TestContext) -> 
     fee_rate.protocol_fee_rate.repr -= ScalarField::from(1);
     let receiver = ctx.client.address();
 
-    let tx = darkpool.processMalleableAtomicMatchSettle(
+    let tx = darkpool.processMalleableAtomicMatchSettleWithReceiver(
+        quote_amount,
         base_amount,
         receiver,
         serialize_to_calldata(&payload.internal_party_match_payload)?,
@@ -220,8 +228,10 @@ integration_test_async!(test_malleable_match__incorrect_protocol_fee_rate);
 
 /// Submit a malleable match, and validate the balances of all parties before
 /// and after
+#[allow(clippy::too_many_arguments)]
 async fn submit_and_validate_malleable_match(
     receiver: Address,
+    quote_amount: U256,
     base_amount: U256,
     internal_party_payload: MatchPayload,
     statement: ValidMalleableMatchSettleAtomicStatement,
@@ -242,7 +252,8 @@ async fn submit_and_validate_malleable_match(
     let value = if native_sell { base_amount } else { U256::ZERO };
 
     let tx = darkpool
-        .processMalleableAtomicMatchSettle(
+        .processMalleableAtomicMatchSettleWithReceiver(
+            quote_amount,
             base_amount,
             receiver,
             serialize_to_calldata(&internal_party_payload)?,
