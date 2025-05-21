@@ -16,8 +16,8 @@ import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { TestVerifier } from "../test-contracts/TestVerifier.sol";
 import { Darkpool } from "renegade/Darkpool.sol";
-import { DarkpoolProxy } from "../../src/DarkpoolProxy.sol";
-import { IDarkpool } from "../../src/libraries/interfaces/IDarkpool.sol";
+import { DarkpoolProxy } from "renegade/proxies/DarkpoolProxy.sol";
+import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
 import { TransferExecutor } from "renegade/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
@@ -27,6 +27,9 @@ import { Verifier } from "renegade/Verifier.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { VKeys } from "renegade/VKeys.sol";
 import { IVKeys } from "renegade/libraries/interfaces/IVKeys.sol";
+import { GasSponsor } from "../../src/GasSponsor.sol";
+import { GasSponsorProxy } from "../../src/proxies/GasSponsorProxy.sol";
+import { IGasSponsor } from "../../src/libraries/interfaces/IGasSponsor.sol";
 
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
@@ -42,13 +45,20 @@ contract DarkpoolTestBase is CalldataUtils {
     WethMock public weth;
     IVKeys public vkeys;
     TransferExecutor public transferExecutor;
+    /// @dev Gas sponsor contract (points to the darkpool with disabled verification)
+    IGasSponsor public gasSponsor;
 
     address public protocolFeeAddr;
     address public darkpoolOwner;
+    address public gasSponsorOwner;
+    address public gasSponsorAuthAddress;
+    /// @dev Private key for the gas sponsor auth address
+    uint256 public gasSponsorAuthPrivateKey;
 
     // Implementation contracts (for reference)
     Darkpool public darkpoolImpl;
     Darkpool public darkpoolRealVerifierImpl;
+    GasSponsor public gasSponsorImpl;
 
     bytes constant INVALID_NULLIFIER_REVERT_STRING = "nullifier/blinder already spent";
     bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
@@ -63,6 +73,15 @@ contract DarkpoolTestBase is CalldataUtils {
     bytes constant INVALID_PRIVATE_COMMITMENT_REVERT_STRING = "Invalid internal party private share commitment";
 
     function setUp() public virtual {
+        deployTokens();
+        deployDarkpool();
+        deployGasSponsor();
+    }
+
+    /**
+     * @dev Deploys the ERC20 tokens and funds the WETH contract
+     */
+    function deployTokens() internal {
         // Deploy a Permit2 instance for testing
         DeployPermit2 permit2Deployer = new DeployPermit2();
         permit2 = IPermit2(permit2Deployer.deployPermit2());
@@ -74,7 +93,12 @@ contract DarkpoolTestBase is CalldataUtils {
 
         // Capitalize the weth contract
         vm.deal(address(weth), 100_000_000_000_000 ether);
+    }
 
+    /**
+     * @dev Deploys the darkpool and all its dependencies
+     */
+    function deployDarkpool() internal {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         vkeys = new VKeys();
@@ -122,6 +146,59 @@ contract DarkpoolTestBase is CalldataUtils {
             address(transferExecutor)
         );
         darkpoolRealVerifier = IDarkpool(address(darkpoolRealVerifierProxy));
+    }
+
+    /**
+     * @dev Deploys the gas sponsor contract pointing to the darkpool with disabled verification
+     */
+    function deployGasSponsor() internal {
+        // Set gas sponsor owner
+        gasSponsorOwner = vm.randomAddress();
+
+        // Create a wallet for gas sponsor auth with a known private key
+        Vm.Wallet memory wallet = vm.createWallet("gas_sponsor_auth");
+        gasSponsorAuthPrivateKey = wallet.privateKey;
+        gasSponsorAuthAddress = wallet.addr;
+
+        // Deploy gas sponsor implementation contract
+        gasSponsorImpl = new GasSponsor();
+
+        // Deploy gas sponsor proxy, pointing to the darkpool with disabled verification
+        GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(
+            address(gasSponsorImpl),
+            darkpoolOwner, // Use same admin as darkpool for simplicity
+            gasSponsorOwner,
+            address(darkpool), // Point to the darkpool with test verifier
+            gasSponsorAuthAddress
+        );
+        gasSponsor = IGasSponsor(address(gasSponsorProxy));
+
+        // Fund the gas sponsor with some ETH for gas refunds
+        vm.deal(address(gasSponsor), 10 ether);
+    }
+
+    /**
+     * @dev Creates a signature for gas sponsorship using the stored private key
+     * @param nonce The nonce to use for the signature
+     * @param refundAddress The refund address
+     * @param refundAmount The refund amount
+     * @return signature The signed sponsorship payload
+     */
+    function signGasSponsorshipPayload(
+        uint256 nonce,
+        address refundAddress,
+        uint256 refundAmount
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        // Create message hash directly from encoded tuple (same as in GasSponsor._assertSponsorshipSignature)
+        bytes32 messageHash = keccak256(abi.encode(nonce, refundAddress, refundAmount));
+
+        // Sign the message hash with the private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(gasSponsorAuthPrivateKey, messageHash);
+        return abi.encodePacked(r, s, v);
     }
 
     /// @dev Get the base and quote token amounts for an address

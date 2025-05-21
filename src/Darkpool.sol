@@ -494,6 +494,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
+    /// @return The amount of the external party's receive amount
     function processAtomicMatchSettle(
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,
@@ -504,6 +505,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         public
         payable
         whenNotPaused
+        returns (uint256)
     {
         ValidCommitmentsStatement calldata commitmentsStatement = internalPartyPayload.validCommitmentsStatement;
         ValidReblindStatement calldata reblindStatement = internalPartyPayload.validReblindStatement;
@@ -566,6 +568,9 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
             )
         );
         _handleDelegateCallResult(success, returnData);
+
+        // Extract and return the uint256 value from the return data
+        return _parseUint256FromBytes(returnData);
     }
 
     /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
@@ -671,6 +676,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match
     /// @param linkingProofs The proof-linking arguments for the match
+    /// @return The amount of the external party's receive amount
     function processMalleableAtomicMatchSettle(
         uint256 baseAmount,
         address receiver,
@@ -682,6 +688,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         public
         payable
         whenNotPaused
+        returns (uint256)
     {
         // 1. Validate the transaction value
         // If the external party is selling a native token, validate that they have provided the correct
@@ -752,6 +759,9 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
             )
         );
         _handleDelegateCallResult(success, returnData);
+
+        // Extract and return the uint256 value from the return data
+        return _parseUint256FromBytes(returnData);
     }
 
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
@@ -839,6 +849,15 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
                 let returnDataSize := mload(returnData)
                 revert(add(32, returnData), returnDataSize)
             }
+        }
+    }
+
+    /// @notice Helper function to parse a uint256 from bytes
+    /// @param data The bytes to parse
+    /// @return value The parsed uint256 value
+    function _parseUint256FromBytes(bytes memory data) private pure returns (uint256 value) {
+        assembly {
+            value := mload(add(data, 32))
         }
     }
 }

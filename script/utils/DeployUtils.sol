@@ -8,7 +8,7 @@ import "permit2/interfaces/IPermit2.sol";
 import "permit2-test/utils/DeployPermit2.sol";
 
 import "renegade/Darkpool.sol";
-import "renegade/DarkpoolProxy.sol";
+import "renegade/proxies/DarkpoolProxy.sol";
 import "renegade/Verifier.sol";
 import "renegade/VKeys.sol";
 import "renegade-lib/interfaces/IHasher.sol";
