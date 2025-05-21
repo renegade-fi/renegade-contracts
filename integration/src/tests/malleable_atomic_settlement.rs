@@ -222,6 +222,97 @@ async fn test_malleable_match__incorrect_protocol_fee_rate(ctx: TestContext) -> 
 }
 integration_test_async!(test_malleable_match__incorrect_protocol_fee_rate);
 
+/// Tests a malleable match in which the quote amount is set outside of the
+/// quote bounds
+#[allow(non_snake_case)]
+async fn test_malleable_match__quote_amount_outside_bounds(ctx: TestContext) -> Result<()> {
+    let darkpool = ctx.darkpool_contract();
+    let (_, base_amount, payload) = setup_malleable_match_test(
+        false, // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
+
+    // Choose a quote amount outside the quote bounds
+    // To isolate the min and max bounds, we choose one that gives price improvement
+    // to the internal user, and defer the price improvement constraint to another
+    // test
+    let statement = &payload.valid_malleable_match_settle_atomic_statement;
+    let match_res = &statement.match_result;
+    let is_sell = statement.match_result.is_external_party_sell();
+    let quote_amount = if is_sell {
+        // If the external party is selling, try a quote amount lower than the minimum
+        // base amount's implied quote
+        let min_quote = match_res.price.unsafe_fixed_point_mul(match_res.min_base_amount);
+        min_quote - U256::from(1)
+    } else {
+        // If the external party is buying, try a quote amount greater than the
+        // maximum base amount's implied quote
+        let max_quote = match_res.price.unsafe_fixed_point_mul(match_res.max_base_amount);
+        max_quote + U256::from(1)
+    };
+
+    // Try submitting the match, should fail
+    let receiver = ctx.client.address();
+    let tx = darkpool.processMalleableAtomicMatchSettleWithReceiver(
+        quote_amount,
+        base_amount,
+        receiver,
+        serialize_to_calldata(&payload.internal_party_match_payload)?,
+        serialize_to_calldata(&statement)?,
+        serialize_to_calldata(&payload.match_atomic_proofs)?,
+        serialize_to_calldata(&payload.match_atomic_linking_proofs)?,
+    );
+    let is_err = send_tx(tx).await.is_err();
+    assert_true_result!(is_err)
+}
+integration_test_async!(test_malleable_match__quote_amount_outside_bounds);
+
+/// Test a malleable match in which the quote amount attempts to give price
+/// improvement to the external user. This is invalid, all price improvement
+/// over the reference price goes to the internal user
+#[allow(non_snake_case)]
+async fn test_malleable_match__invalid_price_improvement(ctx: TestContext) -> Result<()> {
+    let darkpool = ctx.darkpool_contract();
+    let (_, base_amount, payload) = setup_malleable_match_test(
+        false, // is_native
+        false, // use_gas_sponsor
+        &ctx,
+    )
+    .await?;
+
+    // Modify the quote amount to give price improvement to the external user
+    let statement = &payload.valid_malleable_match_settle_atomic_statement;
+    let match_res = &statement.match_result;
+    let is_sell = statement.match_result.is_external_party_sell();
+    let ref_quote_amount = match_res.price.unsafe_fixed_point_mul(base_amount);
+    let quote_amount = if is_sell {
+        // If the external party is selling, try a quote amount higher than the
+        // reference quote amount => higher price
+        ref_quote_amount + U256::from(1)
+    } else {
+        // If the external party is buying, try a quote amount lower than the
+        // reference quote amount => lower price
+        ref_quote_amount - U256::from(1)
+    };
+
+    // Try submitting the match, should fail
+    let receiver = ctx.client.address();
+    let tx = darkpool.processMalleableAtomicMatchSettleWithReceiver(
+        quote_amount,
+        base_amount,
+        receiver,
+        serialize_to_calldata(&payload.internal_party_match_payload)?,
+        serialize_to_calldata(&statement)?,
+        serialize_to_calldata(&payload.match_atomic_proofs)?,
+        serialize_to_calldata(&payload.match_atomic_linking_proofs)?,
+    );
+    let is_err = send_tx(tx).await.is_err();
+    assert_true_result!(is_err)
+}
+integration_test_async!(test_malleable_match__invalid_price_improvement);
+
 // -----------
 // | Helpers |
 // -----------
