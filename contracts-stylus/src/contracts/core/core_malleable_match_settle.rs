@@ -171,6 +171,7 @@ impl CoreMalleableMatchSettleContract {
     #[payable]
     pub fn process_malleable_atomic_match_settle(
         &mut self,
+        quote_amount: U256,
         base_amount: U256,
         receiver: Address,
         internal_party_match_payload: Bytes,
@@ -220,7 +221,8 @@ impl CoreMalleableMatchSettleContract {
         });
 
         // Build an external match result given the base amount
-        let match_result = bounded_match_result.to_external_match_result(base_amount)?;
+        let match_result =
+            bounded_match_result.to_external_match_result(quote_amount, base_amount)?;
 
         // Apply the external match directly to the internal party's wallet
         let public_shares = statement.internal_party_public_shares;

@@ -156,11 +156,11 @@ impl BoundedMatchResult {
     ///
     /// Note that we can combine these two checks by taking the intersection of
     /// their respective intervals. For an external party buy order, this is the
-    /// interval:  `[ref_quote, inf) \cap [min_quote, max_quote] =
-    /// [ref_quote, max_quote]`
+    /// interval:  
+    ///   [ref_quote, inf) \cap [min_quote, max_quote] = [ref_quote, max_quote]
     ///
     /// For an external party sell order, this is the interval:
-    ///  `[0, ref_quote] \cap [min_quote, max_quote] = [min_quote, ref_quote]`
+    ///   [0, ref_quote] \cap [min_quote, max_quote] = [min_quote, ref_quote]
     ///
     /// So we check that the quote lies in the intersection interval
     ///
