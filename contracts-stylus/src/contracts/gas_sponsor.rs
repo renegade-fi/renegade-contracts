@@ -253,6 +253,7 @@ impl GasSponsorContract {
     #[allow(clippy::too_many_arguments)]
     pub fn sponsor_malleable_atomic_match_settle_with_refund_options(
         &mut self,
+        quote_amount: U256,
         base_amount: U256,
         receiver: Address,
         internal_party_match_payload: Bytes,
@@ -271,6 +272,7 @@ impl GasSponsorContract {
 
         // Execute the malleable match on the darkpool
         let (match_res, received_in_match) = self.do_malleable_match(
+            quote_amount,
             base_amount,
             receiver,
             internal_party_match_payload,
@@ -429,6 +431,7 @@ impl GasSponsorContract {
     /// `process_malleable_match_settle_with_receiver` method as sender
     pub fn do_malleable_match(
         &mut self,
+        quote_amount: U256,
         base_amount: U256,
         receiver: Address,
         internal_party_match_payload: Bytes,
@@ -439,7 +442,8 @@ impl GasSponsorContract {
         // Take custody of the trader's input tokens to proxy the match
         let statement: ValidMalleableMatchSettleAtomicStatement =
             deserialize_from_calldata(&malleable_match_settle_statement)?;
-        let external_match = statement.match_result.to_external_match_result(base_amount)?;
+        let external_match =
+            statement.match_result.to_external_match_result(quote_amount, base_amount)?;
         self.custody_send_tokens(&external_match)?;
 
         // Call the darkpool contract's `process_malleable_match_settle_with_receiver`
