@@ -16,11 +16,19 @@ import "renegade-lib/interfaces/IVerifier.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "renegade-lib/darkpool/types/Ciphertext.sol";
 import "renegade/TransferExecutor.sol";
+import "renegade/GasSponsor.sol";
+import "renegade/proxies/GasSponsorProxy.sol";
 import "./JsonUtils.sol";
 
 library DeployUtils {
     /// @dev Path to the deployments JSON file
-    string constant DEPLOYMENTS_PATH = "deployments.json";
+    string constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
+
+    /// @dev Get the deployments path from environment or use default
+    /// @param vm The VM to access environment variables
+    function getDeploymentsPath(Vm vm) internal view returns (string memory) {
+        return vm.envOr("DEPLOYMENTS", DEFAULT_DEPLOYMENTS_PATH);
+    }
 
     /// @dev Deploy the Poseidon2 hasher contract
     /// @param vm The VM to run the commands with
@@ -76,6 +84,38 @@ library DeployUtils {
         return address(uint160(uint256(adminSlot)));
     }
 
+    /// @notice Deploy the GasSponsor contract behind a proxy
+    /// @param owner The owner address - serves as both proxy admin and GasSponsor contract owner
+    /// @param darkpoolAddress The address of the darkpool proxy contract
+    /// @param authAddress The public key used to authenticate gas sponsorship
+    /// @param vm The VM to run the commands with
+    function deployGasSponsor(
+        address owner,
+        address darkpoolAddress,
+        address authAddress,
+        Vm vm
+    )
+        internal
+        returns (address gasSponsorProxyAddr)
+    {
+        // Deploy the GasSponsor implementation
+        GasSponsor gasSponsor = new GasSponsor();
+        writeDeployment(vm, "GasSponsor", address(gasSponsor));
+        console.log("GasSponsor implementation deployed at:", address(gasSponsor));
+
+        // Deploy the GasSponsorProxy
+        GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(address(gasSponsor), owner, darkpoolAddress, authAddress);
+        writeDeployment(vm, "GasSponsorProxy", address(gasSponsorProxy));
+        console.log("GasSponsorProxy deployed at:", address(gasSponsorProxy));
+
+        // Extract and save the ProxyAdmin address
+        address proxyAdmin = getProxyAdmin(address(gasSponsorProxy), vm);
+        writeDeployment(vm, "GasSponsorProxyAdmin", proxyAdmin);
+        console.log("GasSponsorProxyAdmin deployed at:", proxyAdmin);
+
+        return address(gasSponsorProxy);
+    }
+
     /// @notice Deploy core contracts
     function deployCore(
         address owner,
@@ -126,6 +166,6 @@ library DeployUtils {
     /// @param contractName The name of the contract being deployed
     /// @param contractAddress The address of the deployed contract
     function writeDeployment(Vm vm, string memory contractName, address contractAddress) internal {
-        JsonUtils.writeJsonEntry(vm, DEPLOYMENTS_PATH, contractName, vm.toString(contractAddress));
+        JsonUtils.writeJsonEntry(vm, getDeploymentsPath(vm), contractName, vm.toString(contractAddress));
     }
 }
