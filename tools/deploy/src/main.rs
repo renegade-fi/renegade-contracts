@@ -1,5 +1,6 @@
-use alloy_primitives::Address;
-use clap::Parser;
+use alloy::primitives::Address;
+use alloy::signers::local::PrivateKeySigner;
+use clap::{Parser, Subcommand};
 use eyre::{eyre, Result};
 use renegade_circuit_types::elgamal::{DecryptionKey, EncryptionKey};
 use renegade_circuit_types::fixed_point::FixedPoint;
@@ -21,9 +22,21 @@ use tool_utils::{prompt_for_eth_address as prompt_for_address, prompt_for_f64, r
 /// - The protocol fee recipient address
 /// - The permit2 contract address
 /// - The weth contract address
-const RUN_SIGNATURE: &str = "run(address,uint256,uint256,uint256,address,address,address)";
+const DARKPOOL_RUN_SIGNATURE: &str = "run(address,uint256,uint256,uint256,address,address,address)";
+
+/// The signature of the `run` function in the `DeployGasSponsorScript` contract
+///
+/// Args are:
+/// - owner (both proxy admin and gas sponsor owner)
+/// - darkpoolAddress (address of deployed darkpool)
+/// - authAddress (gas sponsor auth address)
+const GAS_SPONSOR_RUN_SIGNATURE: &str = "run(address,address,address)";
+
 /// The path to which we write the decryption key
 const DECRYPTION_KEY_PATH: &str = "fee_decryption_key.txt";
+
+/// The path to which we write the gas sponsor auth private key
+const GAS_SPONSOR_AUTH_KEY_PATH: &str = "gas_sponsor_auth_key.txt";
 
 // -------
 // | CLI |
@@ -33,39 +46,102 @@ const DECRYPTION_KEY_PATH: &str = "fee_decryption_key.txt";
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+/// Common arguments for all commands
+#[derive(Parser, Debug, Clone)]
+struct CommonArgs {
     /// RPC URL to deploy to
     #[arg(short, long, env = "RPC_URL", default_value = "http://localhost:8545")]
     rpc_url: String,
-    /// Owner address for the contracts
-    #[arg(long)]
-    owner: Option<String>,
-    /// Permit2 contract address
-    #[arg(long)]
-    permit2: Option<String>,
-    /// WETH contract address
-    #[arg(long)]
-    weth: Option<String>,
-    /// The protocol fee rate
-    #[arg(long)]
-    protocol_fee_rate: Option<f64>,
-    /// Protocol fee recipient address
-    #[arg(long)]
-    fee_recipient: Option<String>,
+
     /// Private key for signing transactions
     #[arg(long = "pkey", env = "PKEY", hide_env_values = true)]
     private_key: String,
+
     /// Verbosity level (v, vv, vvv)
     #[arg(long, default_value = "v")]
     verbosity: String,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Deploy the Darkpool contracts
+    #[command(name = "deploy-darkpool")]
+    DeployDarkpool(DeployDarkpoolArgs),
+
+    /// Deploy the GasSponsor contract
+    #[command(name = "deploy-gas-sponsor")]
+    DeployGasSponsor(DeployGasSponsorArgs),
+}
+
+/// Arguments for deploying Darkpool contracts
+#[derive(Parser, Debug)]
+struct DeployDarkpoolArgs {
+    /// Common arguments
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Owner address for the contracts
+    #[arg(long)]
+    owner: Option<String>,
+
+    /// Permit2 contract address
+    #[arg(long)]
+    permit2: Option<String>,
+
+    /// WETH contract address
+    #[arg(long)]
+    weth: Option<String>,
+
+    /// The protocol fee rate
+    #[arg(long)]
+    protocol_fee_rate: Option<f64>,
+
+    /// Protocol fee recipient address
+    #[arg(long)]
+    fee_recipient: Option<String>,
+
     /// Optional fee decryption key as hex string
     #[arg(long)]
     fee_dec_key: Option<String>,
 }
 
+/// Arguments for deploying GasSponsor contract
+#[derive(Parser, Debug)]
+struct DeployGasSponsorArgs {
+    /// Common arguments
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Owner address - serves as both proxy admin and GasSponsor contract owner
+    #[arg(long)]
+    owner: Option<String>,
+
+    /// Darkpool contract address
+    #[arg(long)]
+    darkpool: Option<String>,
+
+    /// Auth address for gas sponsorship
+    #[arg(long)]
+    auth_address: Option<String>,
+}
+
 fn main() -> Result<()> {
+    let args = Args::parse();
+
+    match args.command {
+        Commands::DeployDarkpool(args) => deploy_darkpool(args),
+        Commands::DeployGasSponsor(args) => deploy_gas_sponsor(args),
+    }
+}
+
+/// Deploy the Darkpool contracts
+fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
     // Prompt for required arguments if not provided
-    let mut args = Args::parse();
-    prompt_for_missing_args(&mut args)?;
+    prompt_for_darkpool_args(&mut args)?;
 
     // Unwrap the Option values now that we're sure they're present and valid
     let owner = args.owner.unwrap();
@@ -73,7 +149,7 @@ fn main() -> Result<()> {
     let weth = args.weth.unwrap();
     let fee_recipient = args.fee_recipient.unwrap();
     let fee_rate = args.protocol_fee_rate.unwrap();
-    println!("Deploying to RPC URL: {}", args.rpc_url);
+    println!("Deploying Darkpool to RPC URL: {}", args.common.rpc_url);
     println!("\tOwner address: {}", owner);
     println!("\tPermit2 address: {}", permit2);
     println!("\tWETH address: {}", weth);
@@ -95,9 +171,9 @@ fn main() -> Result<()> {
     cmd.arg("script")
         .arg("script/Deploy.s.sol:DeployScript") // Specify contract name with path
         .arg("--rpc-url")
-        .arg(&args.rpc_url)
+        .arg(&args.common.rpc_url)
         .arg("--sig")
-        .arg(RUN_SIGNATURE)
+        .arg(DARKPOOL_RUN_SIGNATURE)
         .arg(&owner)
         .arg(format!("{}", enc_key.x))
         .arg(format!("{}", enc_key.y))
@@ -108,13 +184,51 @@ fn main() -> Result<()> {
         .arg("--ffi") // Add FFI flag to allow external commands (huffc)
         .arg("--broadcast") // Always use broadcast
         .arg("--private-key")
-        .arg(&args.private_key)
-        .arg(format!("-{}", args.verbosity));
+        .arg(&args.common.private_key)
+        .arg(format!("-{}", args.common.verbosity));
 
     // Execute the command
     run_command(cmd)?;
 
-    println!("\nDeployment completed successfully!");
+    println!("\nDarkpool deployment completed successfully!");
+    Ok(())
+}
+
+/// Deploy the GasSponsor contract
+fn deploy_gas_sponsor(mut args: DeployGasSponsorArgs) -> Result<()> {
+    // Prompt for required arguments if not provided
+    prompt_for_gas_sponsor_args(&mut args)?;
+
+    // Unwrap the Option values now that we're sure they're present and valid
+    let owner = args.owner.unwrap();
+    let darkpool = args.darkpool.unwrap();
+    let auth_address = args.auth_address.unwrap();
+
+    println!("Deploying GasSponsor to RPC URL: {}", args.common.rpc_url);
+    println!("\tOwner/Admin address: {}", owner);
+    println!("\tDarkpool address: {}", darkpool);
+    println!("\tAuth address: {}", auth_address);
+
+    // Build the forge script command
+    let mut cmd = Command::new("forge");
+    cmd.arg("script")
+        .arg("script/DeployGasSponsor.s.sol:DeployGasSponsorScript") // Specify contract name with path
+        .arg("--rpc-url")
+        .arg(&args.common.rpc_url)
+        .arg("--sig")
+        .arg(GAS_SPONSOR_RUN_SIGNATURE)
+        .arg(&owner)
+        .arg(&darkpool)
+        .arg(&auth_address)
+        .arg("--broadcast") // Always use broadcast
+        .arg("--private-key")
+        .arg(&args.common.private_key)
+        .arg(format!("-{}", args.common.verbosity));
+
+    // Execute the command
+    run_command(cmd)?;
+
+    println!("\nGasSponsor deployment completed successfully!");
     Ok(())
 }
 
@@ -122,8 +236,8 @@ fn main() -> Result<()> {
 // | Helpers |
 // -----------
 
-/// Prompt for missing arguments
-fn prompt_for_missing_args(args: &mut Args) -> Result<()> {
+/// Prompt for missing Darkpool arguments
+fn prompt_for_darkpool_args(args: &mut DeployDarkpoolArgs) -> Result<()> {
     if args.owner.is_none() || !is_valid_eth_address(args.owner.as_ref().unwrap()) {
         let addr = prompt_for_address("Enter owner address")?;
         args.owner = Some(addr);
@@ -150,6 +264,51 @@ fn prompt_for_missing_args(args: &mut Args) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Prompt for missing GasSponsor arguments
+fn prompt_for_gas_sponsor_args(args: &mut DeployGasSponsorArgs) -> Result<()> {
+    if args.owner.is_none() || !is_valid_eth_address(args.owner.as_ref().unwrap()) {
+        let addr = prompt_for_address("Enter owner address (also used as proxy admin)")?;
+        args.owner = Some(addr);
+    }
+
+    if args.darkpool.is_none() || !is_valid_eth_address(args.darkpool.as_ref().unwrap()) {
+        let addr = prompt_for_address("Enter Darkpool contract address")?;
+        args.darkpool = Some(addr);
+    }
+
+    if args.auth_address.is_none() {
+        println!("No auth address provided. Generating a new key pair...");
+        let address = generate_auth_key_pair()?;
+        println!("Generated auth address: {}", address);
+        args.auth_address = Some(address);
+    } else if !is_valid_eth_address(args.auth_address.as_ref().unwrap()) {
+        let addr = prompt_for_address("Enter auth address for gas sponsorship")?;
+        args.auth_address = Some(addr);
+    }
+
+    Ok(())
+}
+
+/// Generate a random private key and derive the corresponding Ethereum address
+/// Returns the address
+fn generate_auth_key_pair() -> Result<String> {
+    // Create a random wallet
+    let wallet = PrivateKeySigner::random();
+    let address = wallet.address();
+
+    // Get the private key bytes
+    let private_key_bytes = wallet.credential().to_bytes();
+    let private_key_hex = hex::encode(private_key_bytes);
+    let address_hex = format!("{address:?}");
+
+    // Write the private key to a file
+    let mut file = File::create(GAS_SPONSOR_AUTH_KEY_PATH)?;
+    file.write_all(private_key_hex.as_bytes())?;
+    println!("Private key saved to {}", GAS_SPONSOR_AUTH_KEY_PATH);
+
+    Ok(address_hex)
 }
 
 // Function to validate Ethereum address using Alloy

@@ -7,7 +7,12 @@ remappings = ["forge-std/=lib/forge-std/src/"]
 via_ir = true
 optimizer = true
 optimizer_runs = 100_000
-fs_permissions = [{ access = "read-write", path = "./deployments.json" }]
+fs_permissions = [
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read-write", path = "./deployments.devnet.json" },
+    { access = "read-write", path = "./deployments.testnet.json" },
+    { access = "read-write", path = "./deployments.mainnet.json" },
+]
 
 # The darkpool is a large contract so we limit the optimizer runs
 # Todo: if more space is needed, decrease the number of runs

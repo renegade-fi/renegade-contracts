@@ -16,7 +16,6 @@ contract GasSponsorProxy is TransparentUpgradeableProxy {
      *
      * @param implementation The GasSponsor implementation address
      * @param admin The admin address - serves as both ProxyAdmin owner and can manage proxy upgrades
-     * @param initialOwner The initial owner of the GasSponsor contract
      * @param darkpoolAddress The address of the darkpool proxy contract
      * @param authAddress The public key used to authenticate gas sponsorship
      */
@@ -24,7 +23,6 @@ contract GasSponsorProxy is TransparentUpgradeableProxy {
         address implementation,
         address admin,
         // GasSponsor-specific initialization parameters
-        address initialOwner,
         address darkpoolAddress,
         address authAddress
     )
@@ -32,7 +30,7 @@ contract GasSponsorProxy is TransparentUpgradeableProxy {
         TransparentUpgradeableProxy(
             implementation,
             admin,
-            abi.encodeWithSelector(IGasSponsor.initialize.selector, initialOwner, darkpoolAddress, authAddress)
+            abi.encodeWithSelector(IGasSponsor.initialize.selector, admin, darkpoolAddress, authAddress)
         )
     { }
 }
