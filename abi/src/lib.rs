@@ -3,11 +3,13 @@ use alloy::{
     sol,
 };
 
+// We use a combined ABI between the darkpool and the gas sponsor as the sol macro currently requires all
+// types to be present in the same macro invocation.
 sol! {
-    #[allow(missing_docs)]
+    #[allow(missing_docs, clippy::too_many_arguments)]
     #[sol(rpc)]
     IDarkpool,
-    "IDarkpool.json"
+    "ICombined.json",
 }
 
 impl Default for IDarkpool::TransferAuthorization {
