@@ -6,7 +6,7 @@ import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { TypesLib, FixedPoint } from "renegade-lib/darkpool/types/TypesLib.sol";
 import {
     PartyMatchPayload,
     MatchAtomicProofs,
@@ -26,6 +26,7 @@ import { IGasSponsor } from "../../src/libraries/interfaces/IGasSponsor.sol";
 import { console2 } from "forge-std/console2.sol";
 
 contract GasSponsorTest is DarkpoolTestBase {
+    using TypesLib for FixedPoint;
     using TypesLib for FeeTake;
     using TypesLib for FeeTakeRate;
     using TypesLib for ExternalMatchResult;
@@ -112,6 +113,7 @@ contract GasSponsorTest is DarkpoolTestBase {
     function test_sponsorMalleableAtomicMatchSettle_externalPartyBuySide() public {
         // Setup the malleable match with external party buy side
         (
+            uint256 quoteAmount,
             uint256 baseAmount,
             PartyMatchPayload memory internalPartyPayload,
             ValidMalleableMatchSettleAtomicStatement memory statement,
@@ -120,13 +122,16 @@ contract GasSponsorTest is DarkpoolTestBase {
         ) = setupMalleableMatch(ExternalMatchDirection.InternalPartySell);
 
         // Execute the sponsorship and verify results
-        executeMalleableMatchSponsorship(baseAmount, internalPartyPayload, statement, proofs, linkingProofs);
+        executeMalleableMatchSponsorship(
+            quoteAmount, baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+        );
     }
 
     /// @notice Test sponsoring a malleable atomic match with external party on sell side
     function test_sponsorMalleableAtomicMatchSettle_externalPartySellSide() public {
         // Setup the malleable match with external party sell side
         (
+            uint256 quoteAmount,
             uint256 baseAmount,
             PartyMatchPayload memory internalPartyPayload,
             ValidMalleableMatchSettleAtomicStatement memory statement,
@@ -135,7 +140,9 @@ contract GasSponsorTest is DarkpoolTestBase {
         ) = setupMalleableMatch(ExternalMatchDirection.InternalPartyBuy);
 
         // Execute the sponsorship and verify results
-        executeMalleableMatchSponsorship(baseAmount, internalPartyPayload, statement, proofs, linkingProofs);
+        executeMalleableMatchSponsorship(
+            quoteAmount, baseAmount, internalPartyPayload, statement, proofs, linkingProofs
+        );
     }
 
     // --- Helpers --- //
@@ -167,6 +174,7 @@ contract GasSponsorTest is DarkpoolTestBase {
     function setupMalleableMatch(ExternalMatchDirection direction)
         internal
         returns (
+            uint256 quoteAmount,
             uint256 baseAmount,
             PartyMatchPayload memory internalPartyPayload,
             ValidMalleableMatchSettleAtomicStatement memory statement,
@@ -185,6 +193,7 @@ contract GasSponsorTest is DarkpoolTestBase {
 
         // Sample a base amount
         baseAmount = sampleBaseAmount(statement.matchResult);
+        quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
     }
 
     /// @notice Create gas sponsorship parameters (nonce, refund address, signature)
@@ -245,6 +254,7 @@ contract GasSponsorTest is DarkpoolTestBase {
 
     /// @notice Execute a malleable match sponsorship and verify results
     function executeMalleableMatchSponsorship(
+        uint256 quoteAmount,
         uint256 baseAmount,
         PartyMatchPayload memory internalPartyPayload,
         ValidMalleableMatchSettleAtomicStatement memory statement,
@@ -258,7 +268,7 @@ contract GasSponsorTest is DarkpoolTestBase {
         SponsorshipParams memory params = createSponsorshipParams();
 
         ExternalMatchResult memory externalMatchResult =
-            TypesLib.buildExternalMatchResult(baseAmount, statement.matchResult);
+            TypesLib.buildExternalMatchResult(quoteAmount, baseAmount, statement.matchResult);
 
         vm.startBroadcast(externalPartyAddr);
         if (statement.matchResult.direction == ExternalMatchDirection.InternalPartySell) {
@@ -272,6 +282,7 @@ contract GasSponsorTest is DarkpoolTestBase {
         }
 
         uint256 receivedAmount = gasSponsor.sponsorMalleableAtomicMatchSettle(
+            quoteAmount,
             baseAmount,
             receiver,
             internalPartyPayload,
@@ -287,7 +298,8 @@ contract GasSponsorTest is DarkpoolTestBase {
         vm.stopBroadcast();
 
         // Verify balances and results
-        ExternalMatchResult memory matchResult = TypesLib.buildExternalMatchResult(baseAmount, statement.matchResult);
+        ExternalMatchResult memory matchResult =
+            TypesLib.buildExternalMatchResult(quoteAmount, baseAmount, statement.matchResult);
         (address _recv, uint256 recvAmt) = matchResult.externalPartyBuyMintAmount();
         FeeTake memory externalPartyFees = statement.externalFeeRates.computeFeeTake(recvAmt);
         verifyBalancesAndResults(

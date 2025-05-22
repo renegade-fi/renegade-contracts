@@ -264,6 +264,44 @@ interface IDarkpool {
         payable
         returns (uint256);
 
+    /// @notice Process a match settlement between two parties with commitments
+    /// @notice This method is currently disabled on the darkpool, but left in the ABI so that tests compile
+    /// @param party0MatchPayload The validity proofs payload for the first party
+    /// @param party1MatchPayload The validity proofs payload for the second party
+    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processMatchSettleWithCommitments(
+        PartyMatchPayload calldata party0MatchPayload,
+        PartyMatchPayload calldata party1MatchPayload,
+        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
+        MatchProofs calldata proofs,
+        MatchLinkingProofs calldata linkingProofs
+    )
+        external;
+
+    /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
+    /// @notice This method is currently disabled on the darkpool, but left in the ABI so that tests compile
+    /// @dev An internal party is one with state committed into the darkpool, while
+    /// @dev an external party provides liquidity to the pool during the
+    /// @dev transaction in which this method is called
+    /// @dev The receiver of the match settlement is the sender of the transaction
+    /// @dev This variant allows the receiver to be specified as a parameter
+    /// @param receiver The address that will receive the buy side token amount for the external party
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function processAtomicMatchSettleWithCommitments(
+        address receiver,
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        payable;
+
     /// @notice Settle a fee due to the protocol or a relayer offline, i.e. without updating the recipient's wallet
     /// @dev Instead of updating the recipient's wallet, a `Note` is created that the recipient may later redeem
     /// @param statement The statement of `VALID OFFLINE FEE SETTLEMENT`

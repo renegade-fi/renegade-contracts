@@ -41,6 +41,8 @@ contract SettleMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling a match with commitments attached
     function test_settleMatchWithCommitments_validMatch() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
         (
@@ -218,6 +220,8 @@ contract SettleMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling a match with commitments in which one party's settlement indices are inconsistent
     function test_settleMatchWithCommitments_inconsistentIndices() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
         (
@@ -246,6 +250,8 @@ contract SettleMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling a match with commitments in which one party's private share commitment is invalid
     function test_settleMatchWithCommitments_invalidPrivateShareCommitment() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
         (
@@ -274,6 +280,8 @@ contract SettleMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling a match with commitments in which the protocol fee rate is invalid
     function test_settleMatchWithCommitments_invalidProtocolFeeRate() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
         (

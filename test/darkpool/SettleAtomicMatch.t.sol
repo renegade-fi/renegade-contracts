@@ -417,6 +417,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling an atomic match with commitments
     function test_settleAtomicMatchWithCommitments_buySide() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         Vm.Wallet memory externalParty = randomEthereumWallet();
         address receiver = vm.randomAddress();
 
@@ -470,6 +472,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling an atomic match with commitments, sell side
     function test_settleAtomicMatchWithCommitments_sellSide() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         Vm.Wallet memory externalParty = randomEthereumWallet();
         address receiver = vm.randomAddress();
 
@@ -738,6 +742,8 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
     /// @notice Test settling an atomic match with commitments with an invalid private share commitment
     function test_settleAtomicMatchWithCommitments_invalidPrivateShareCommitment() public {
+        vm.skip(true, "Match with commitments tests are disabled");
+
         // Setup calldata
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
         ExternalMatchResult memory matchResult = ExternalMatchResult({

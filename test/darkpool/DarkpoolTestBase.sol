@@ -166,7 +166,6 @@ contract DarkpoolTestBase is CalldataUtils {
         // Deploy gas sponsor proxy, pointing to the darkpool with disabled verification
         GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(
             address(gasSponsorImpl),
-            darkpoolOwner, // Use same admin as darkpool for simplicity
             gasSponsorOwner,
             address(darkpool), // Point to the darkpool with test verifier
             gasSponsorAuthAddress
