@@ -72,6 +72,7 @@ interface IGasSponsor {
      * @return The amount received by the external party
      */
     function sponsorMalleableAtomicMatchSettle(
+        uint256 quoteAmount,
         uint256 baseAmount,
         address receiver,
         PartyMatchPayload calldata internalPartyMatchPayload,

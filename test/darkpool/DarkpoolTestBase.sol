@@ -71,6 +71,7 @@ contract DarkpoolTestBase is CalldataUtils {
     bytes constant INVALID_INTERNAL_PARTY_FEE_REVERT_STRING = "Invalid internal party protocol fee rate";
     bytes constant INVALID_EXTERNAL_PARTY_FEE_REVERT_STRING = "Invalid external party protocol fee rate";
     bytes constant INVALID_PRIVATE_COMMITMENT_REVERT_STRING = "Invalid internal party private share commitment";
+    bytes constant INVALID_QUOTE_AMOUNT_REVERT_STRING = "quote amount is out of `BoundedMatchResult` bounds";
 
     function setUp() public virtual {
         deployTokens();
@@ -166,7 +167,6 @@ contract DarkpoolTestBase is CalldataUtils {
         // Deploy gas sponsor proxy, pointing to the darkpool with disabled verification
         GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(
             address(gasSponsorImpl),
-            darkpoolOwner, // Use same admin as darkpool for simplicity
             gasSponsorOwner,
             address(darkpool), // Point to the darkpool with test verifier
             gasSponsorAuthAddress

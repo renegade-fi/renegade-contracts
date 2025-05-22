@@ -9,8 +9,6 @@ import { FeeTake, FeeTakeRate } from "./Fees.sol";
 import { ExternalMatchDirection } from "./Settlement.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 
-// This file contains helpers for darkpool types
-
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
 /// @dev The type string for the DepositWitness struct

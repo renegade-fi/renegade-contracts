@@ -639,6 +639,11 @@
     "name": "sponsorMalleableAtomicMatchSettle",
     "inputs": [
       {
+        "name": "quoteAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "baseAmount",
         "type": "uint256",
         "internalType": "uint256"
@@ -2854,6 +2859,11 @@
     "type": "function",
     "name": "processMalleableAtomicMatchSettle",
     "inputs": [
+      {
+        "name": "quoteAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "baseAmount",
         "type": "uint256",
