@@ -360,6 +360,68 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         );
     }
 
+    /// @notice Tests settling a malleable match with with a quote amount out of range
+    function test_settleMalleableAtomicMatch_quoteAmountOutOfRange() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Should fail
+        uint256 baseAmount = statement.matchResult.minBaseAmount;
+        uint256 quoteAmount;
+        if (vm.randomBool()) {
+            uint256 minBase = statement.matchResult.minBaseAmount;
+            uint256 minQuote = statement.matchResult.price.unsafeFixedPointMul(minBase);
+            quoteAmount = minQuote - 1;
+        } else {
+            uint256 maxBase = statement.matchResult.maxBaseAmount;
+            uint256 maxQuote = statement.matchResult.price.unsafeFixedPointMul(maxBase);
+            quoteAmount = maxQuote + 1;
+        }
+
+        vm.expectRevert(INVALID_QUOTE_AMOUNT_REVERT_STRING);
+        darkpool.processMalleableAtomicMatchSettle(
+            quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
+    /// @notice Tests settling a malleable match with price improvement that goes to the external user
+    function test_settleMalleableAtomicMatch_priceImprovementToExternalUser() public {
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
+
+        // Should fail
+        ExternalMatchResult memory matchRes = sampleExternalMatch(statement.matchResult);
+        uint256 baseAmount = matchRes.baseAmount;
+        uint256 refQuoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount;
+
+        bool isSell = matchRes.direction == ExternalMatchDirection.InternalPartyBuy;
+        if (isSell) {
+            // Sell side, the external party tries to increase the price above the reference price
+            quoteAmount = refQuoteAmount + 1;
+        } else {
+            // Buy side, the external party tries to reduce the price below the reference price
+            quoteAmount = refQuoteAmount - 1;
+        }
+
+        vm.expectRevert(INVALID_QUOTE_AMOUNT_REVERT_STRING);
+        darkpool.processMalleableAtomicMatchSettle(
+            quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
+        );
+    }
+
     // --- Helper Functions --- //
 
     /// @notice Sample a random base amount between the bounds on a `BoundedMatchResult`
