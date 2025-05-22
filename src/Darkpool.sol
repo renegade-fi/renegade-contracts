@@ -428,7 +428,9 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         MatchProofs calldata proofs,
         MatchLinkingProofs calldata linkingProofs
     )
-        public
+        /// We mark this method as internal as it's not currently used in the system, so we save
+        /// on bytecode size for the Darkpool contract by allowing the optimizer to prune it
+        internal
         whenNotPaused
     {
         ValidCommitmentsStatement calldata commitmentsStatement0 = party0MatchPayload.validCommitmentsStatement;
@@ -591,8 +593,10 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         MatchAtomicProofs calldata proofs,
         MatchAtomicLinkingProofs calldata linkingProofs
     )
-        public
-        payable
+        /// We mark this method as internal as it's not currently used in the system, so we save
+        /// on bytecode size for the Darkpool contract by allowing the optimizer to prune it
+        internal
+        /// payable // TODO: Uncomment this if we mark this method public
         whenNotPaused
     {
         ValidCommitmentsStatement calldata commitmentsStatement = internalPartyPayload.validCommitmentsStatement;
@@ -670,6 +674,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @dev amount, allowing the tx sender to choose any value in this range.
     /// @dev The darkpool then uses the price specified in the statement to determine the quote amount and fees
     /// @dev for the match, then settles the obligations to both the internal and external parties
+    /// @param quoteAmount The quote amount of the match, resolving in between the bounds
     /// @param baseAmount The base amount of the match, resolving in between the bounds
     /// @param receiver The address that will receive the buy side token amount for the external party
     /// @param internalPartyPayload The validity proofs for the internal party
@@ -678,6 +683,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @param linkingProofs The proof-linking arguments for the match
     /// @return The amount of the external party's receive amount
     function processMalleableAtomicMatchSettle(
+        uint256 quoteAmount,
         uint256 baseAmount,
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,
@@ -721,7 +727,8 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         require(externalPartyFees.protocolFeeRate.repr == protocolFee, "Invalid external party protocol fee rate");
 
         // 4. Build an external match result from the bounded match result
-        ExternalMatchResult memory matchResult = TypesLib.buildExternalMatchResult(baseAmount, boundedMatchResult);
+        ExternalMatchResult memory matchResult =
+            TypesLib.buildExternalMatchResult(quoteAmount, baseAmount, boundedMatchResult);
 
         // 5. Compute the fees due on the match
         (, uint256 externalPartyReceiveAmount) = matchResult.externalPartyBuyMintAmount();
