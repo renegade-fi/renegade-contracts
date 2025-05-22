@@ -217,42 +217,6 @@ interface IDarkpool {
     )
         external;
 
-    /// @notice Process a match settlement between two parties with commitments
-    /// @param party0MatchPayload The validity proofs payload for the first party
-    /// @param party1MatchPayload The validity proofs payload for the second party
-    /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
-    /// @param proofs The proofs for the match
-    /// @param linkingProofs The proof-linking arguments for the match
-    function processMatchSettleWithCommitments(
-        PartyMatchPayload calldata party0MatchPayload,
-        PartyMatchPayload calldata party1MatchPayload,
-        ValidMatchSettleWithCommitmentsStatement calldata matchSettleStatement,
-        MatchProofs calldata proofs,
-        MatchLinkingProofs calldata linkingProofs
-    )
-        external;
-
-    /// @notice Process an atomic match settlement between two parties with commitments; one internal and one external
-    /// @dev An internal party is one with state committed into the darkpool, while
-    /// @dev an external party provides liquidity to the pool during the
-    /// @dev transaction in which this method is called
-    /// @dev The receiver of the match settlement is the sender of the transaction
-    /// @dev This variant allows the receiver to be specified as a parameter
-    /// @param receiver The address that will receive the buy side token amount for the external party
-    /// @param internalPartyPayload The validity proofs for the internal party
-    /// @param matchSettleStatement The statement (public inputs) of `VALID MATCH SETTLE WITH COMMITMENTS`
-    /// @param proofs The proofs for the match
-    /// @param linkingProofs The proof-linking arguments for the match
-    function processAtomicMatchSettleWithCommitments(
-        address receiver,
-        PartyMatchPayload calldata internalPartyPayload,
-        ValidMatchSettleAtomicWithCommitmentsStatement calldata matchSettleStatement,
-        MatchAtomicProofs calldata proofs,
-        MatchAtomicLinkingProofs calldata linkingProofs
-    )
-        external
-        payable;
-
     /// @notice Process an atomic match with a non-sender receiver specified
     /// @dev The receiver will receive the buy side token amount implied by the match
     /// @dev net of fees by the relayer and protocol
@@ -279,6 +243,7 @@ interface IDarkpool {
     /// @dev amount, allowing the tx sender to choose any value in this range.
     /// @dev The darkpool then uses the price specified in the statement to determine the quote amount and fees
     /// @dev for the match, then settles the obligations to both the internal and external parties
+    /// @param quoteAmount The quote amount of the match, resolving in between the bounds
     /// @param baseAmount The base amount of the match, resolving in between the bounds
     /// @param receiver The address that will receive the buy side token amount for the external party
     /// @param internalPartyPayload The validity proofs for the internal party
@@ -287,6 +252,7 @@ interface IDarkpool {
     /// @param linkingProofs The proof-linking arguments for the match
     /// @return The amount of the buy token that the external party receives
     function processMalleableAtomicMatchSettle(
+        uint256 quoteAmount,
         uint256 baseAmount,
         address receiver,
         PartyMatchPayload calldata internalPartyPayload,

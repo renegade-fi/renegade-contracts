@@ -119,11 +119,112 @@ library TypesLib {
         }
     }
 
+    // --- Bounded Match Result --- //
+
+    /// @notice Validate the base amount for a match
+    /// @dev This simply validates that the base amount lies in the range constructed
+    /// by the relayer. This range is validated in-circuit to be well capitalized.
+    /// @param boundedMatchResult The bounded match result to validate against
+    /// @param baseAmount The base amount to validate
+    function validateBaseAmount(BoundedMatchResult memory boundedMatchResult, uint256 baseAmount) public pure {
+        bool amountTooLow = baseAmount < boundedMatchResult.minBaseAmount;
+        bool amountTooHigh = baseAmount > boundedMatchResult.maxBaseAmount;
+        if (amountTooLow || amountTooHigh) {
+            revert("base amount is out of `BoundedMatchResult` bounds");
+        }
+    }
+
+    /// @notice Validate the quote amount for a match
+    /// @dev We allow an external user to specify a quote amount, but we need to
+    /// ensure that they have not given themselves an invalid amount or price
+    /// improvement at the expense of the internal party.
+    ///
+    /// This involves two checks:
+    /// 1. The quote amount must be within the range implied by the base amount
+    ///    range. Let `min_quote = floor(min_base * price)` and `max_quote =
+    ///    floor(max_base * price)`. The quote amount must lie in the range
+    ///    `[min_quote, max_quote]`.
+    /// 2. The quote amount must imply a price that improves upon the reference
+    ///    price in the match result *for the internal party*. Let
+    ///    `reference_quote = floor(base_amount * price)`. Then for an external
+    ///    sell order, we assert `quote_amount <= reference_quote`; i.e. the
+    ///    external party sells at a lower price. For an external buy order, we
+    ///    assert `quote_amount >= reference_quote`; i.e. the external party
+    ///    buys at a higher price.
+    ///
+    /// Note that we can combine these two checks by taking the intersection of
+    /// their respective intervals. For an external party buy order, this is the
+    /// interval:
+    ///   [ref_quote, inf) ∩ [min_quote, max_quote] = [ref_quote, max_quote]
+    ///
+    /// For an external party sell order, this is the interval:
+    ///   [0, ref_quote] ∩ [min_quote, max_quote] = [min_quote, ref_quote]
+    ///
+    /// So we check that the quote lies in the intersection interval.
+    ///
+    /// SAFETY: All values below are constrained to be within 100 bits, and the
+    /// price is constrained to be within 127 bits, so wraparound is impossible
+    /// @param boundedMatchResult The bounded match result to validate against
+    /// @param quoteAmount The quote amount to validate
+    /// @param baseAmount The base amount for the match
+    function validateQuoteAmount(
+        BoundedMatchResult memory boundedMatchResult,
+        uint256 quoteAmount,
+        uint256 baseAmount
+    )
+        public
+        pure
+    {
+        // Compute the quote amount bounds
+        uint256 minQuote = unsafeFixedPointMul(boundedMatchResult.price, boundedMatchResult.minBaseAmount);
+        uint256 maxQuote = unsafeFixedPointMul(boundedMatchResult.price, boundedMatchResult.maxBaseAmount);
+        uint256 refQuote = unsafeFixedPointMul(boundedMatchResult.price, baseAmount);
+
+        // Check that the quote amount lies in the intersection interval
+        uint256 rangeMin;
+        uint256 rangeMax;
+        bool isSell = boundedMatchResult.direction == ExternalMatchDirection.InternalPartyBuy;
+        if (isSell) {
+            rangeMin = minQuote;
+            rangeMax = refQuote;
+        } else {
+            rangeMin = refQuote;
+            rangeMax = maxQuote;
+        }
+
+        bool quoteTooLow = quoteAmount < rangeMin;
+        bool quoteTooHigh = quoteAmount > rangeMax;
+        if (quoteTooLow || quoteTooHigh) {
+            revert("quote amount is out of `BoundedMatchResult` bounds");
+        }
+    }
+
+    /// @notice Validate the base and quote amount for a match
+    /// @param boundedMatchResult The bounded match result to validate against
+    /// @param quoteAmount The quote amount to validate
+    /// @param baseAmount The base amount to validate
+    function validateAmounts(
+        BoundedMatchResult memory boundedMatchResult,
+        uint256 quoteAmount,
+        uint256 baseAmount
+    )
+        public
+        pure
+    {
+        if (quoteAmount == 0 || baseAmount == 0) {
+            revert("zero base or quote amount");
+        }
+
+        validateBaseAmount(boundedMatchResult, baseAmount);
+        validateQuoteAmount(boundedMatchResult, quoteAmount, baseAmount);
+    }
+
     /// @notice Build an `ExternalMatchResult` from a `BoundedMatchResult`
     /// @param baseAmount The base amount of the match, resolving in between the bounds
     /// @param boundedMatchResult The `BoundedMatchResult` to build the `ExternalMatchResult` from
     /// @return The `ExternalMatchResult`
     function buildExternalMatchResult(
+        uint256 quoteAmount,
         uint256 baseAmount,
         BoundedMatchResult memory boundedMatchResult
     )
@@ -131,19 +232,8 @@ library TypesLib {
         pure
         returns (ExternalMatchResult memory)
     {
-        // Verify that the base amount is within the bounds
-        if (baseAmount < boundedMatchResult.minBaseAmount || baseAmount > boundedMatchResult.maxBaseAmount) {
-            revert("base amount is out of `BoundedMatchResult` bounds");
-        }
-
-        // Use the price to compute the quote amount
-        // SAFETY: Prices are constrained in-circuit to be less than 2^127 and all amounts
-        // are constrained to be less than 2^100, so the product is less than 2^227, which fits
-        // in a uint256
-        FixedPoint memory price = boundedMatchResult.price;
-        uint256 quoteAmount = unsafeFixedPointMul(price, baseAmount);
-
-        // Build the external match result
+        // Validate the amounts then build the match result
+        validateAmounts(boundedMatchResult, quoteAmount, baseAmount);
         return ExternalMatchResult({
             quoteMint: boundedMatchResult.quoteMint,
             baseMint: boundedMatchResult.baseMint,
