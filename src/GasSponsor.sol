@@ -197,6 +197,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Sponsors a malleable atomic match settlement
+     * @param quoteAmount The quote amount for the malleable match
      * @param baseAmount The base amount for the malleable match
      * @param receiver The address to receive the tokens
      * @param internalPartyMatchPayload The internal party match payload
@@ -211,6 +212,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
      * @return The amount received by the external party
      */
     function sponsorMalleableAtomicMatchSettle(
+        uint256 quoteAmount,
         uint256 baseAmount,
         address receiver,
         PartyMatchPayload calldata internalPartyMatchPayload,
@@ -233,6 +235,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
         // Execute the malleable match
         (ExternalMatchResult memory matchRes, uint256 receivedInMatch) = _doMalleableMatch(
+            quoteAmount,
             baseAmount,
             resolvedReceiver,
             internalPartyMatchPayload,
@@ -365,6 +368,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
      * @notice Executes a malleable match on the darkpool
      */
     function _doMalleableMatch(
+        uint256 quoteAmount,
         uint256 baseAmount,
         address receiver,
         PartyMatchPayload calldata internalPartyMatchPayload,
@@ -377,12 +381,13 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
     {
         // Convert malleable match to external match result using base amount
         ExternalMatchResult memory matchResult =
-            TypesLib.buildExternalMatchResult(baseAmount, malleableMatchSettleStatement.matchResult);
+            TypesLib.buildExternalMatchResult(quoteAmount, baseAmount, malleableMatchSettleStatement.matchResult);
         _custodySendTokens(matchResult);
 
         // Call the darkpool contract
         IDarkpool darkpool = IDarkpool(darkpoolAddress);
         uint256 receivedInMatch = darkpool.processMalleableAtomicMatchSettle{ value: msg.value }(
+            quoteAmount,
             baseAmount,
             receiver,
             internalPartyMatchPayload,
