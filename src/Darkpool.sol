@@ -265,6 +265,13 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         transferExecutor = newTransferExecutor;
     }
 
+    /// @notice Set the verifier for the darkpool
+    /// @param newVerifier The new verifier for the darkpool
+    function setVerifier(IVerifier newVerifier) public onlyOwner {
+        require(address(newVerifier) != address(0), "Address cannot be zero");
+        verifier = newVerifier;
+    }
+
     /// @notice Pause the darkpool
     function pause() public onlyOwner {
         _pause();
