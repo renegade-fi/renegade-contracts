@@ -86,6 +86,7 @@ async fn test_match_settle(args: TestArgs) -> Result<(), eyre::Error> {
 integration_test_async!(test_match_settle);
 
 /// Test settling a match with commitments attached
+#[allow(unused, dead_code)]
 async fn test_match_settle_with_commitments(args: TestArgs) -> Result<(), eyre::Error> {
     println!("[skipped] match with commitments is currently disabled");
     return Ok(());
@@ -160,7 +161,9 @@ async fn create_match_and_wallets(
 /// --- Test Data --- //
 
 /// Create two orders and a match
-fn create_match_data(args: &TestArgs) -> Result<(Order, Order, FixedPoint, MatchResult)> {
+pub(crate) fn create_match_data(
+    args: &TestArgs,
+) -> Result<(Order, Order, FixedPoint, MatchResult)> {
     let base_addr = address_to_biguint(*args.base_token()?.address());
     let quote_addr = address_to_biguint(*args.quote_token()?.address());
 
@@ -177,7 +180,7 @@ fn create_match_data(args: &TestArgs) -> Result<(Order, Order, FixedPoint, Match
 // --- Funding --- //
 
 /// Fund a wallet ahead of a match
-async fn fund_wallet_for_match(
+pub(crate) async fn fund_wallet_for_match(
     match_result: &MatchResult,
     order: &Order,
     wallet: &mut Wallet,
@@ -372,7 +375,7 @@ fn prove_match_bundle_with_commitments(
 /// Prove valid reblind for a wallet
 ///
 /// Modifies the wallet in place by reblinding
-fn prove_reblind(
+pub(crate) fn prove_reblind(
     wallet: &mut Wallet,
 ) -> Result<(ValidReblindStatement, PlonkProof, ProofLinkingHint)> {
     let original_wallet = wallet.clone();
@@ -410,7 +413,7 @@ fn prove_reblind(
 /// Assumes the wallet only has one order for simplicity
 ///
 /// Assumes that the wallet has already been reblinded
-fn prove_commitments(
+pub(crate) fn prove_commitments(
     match_result: &MatchResult,
     wallet: &Wallet,
 ) -> Result<

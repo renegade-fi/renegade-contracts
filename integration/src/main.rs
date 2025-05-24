@@ -19,7 +19,7 @@ use crate::util::deployments::read_deployment;
 use abi::relayer_types::scalar_to_u256;
 use abi::IDarkpool::IDarkpoolInstance;
 use alloy::network::Ethereum;
-use alloy::primitives::Address;
+use alloy::primitives::{Address, U256};
 use alloy::providers::{DynProvider, Provider, ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::transports::http::reqwest::Url;
@@ -27,6 +27,7 @@ use clap::Parser;
 use contracts::erc20::ERC20Mock;
 use contracts::erc20::ERC20MockInstance;
 use eyre::{eyre, Result};
+use renegade_circuit_types::Amount;
 use renegade_common::types::wallet::{
     derivation::{
         derive_blinder_seed, derive_share_seed, derive_wallet_id, derive_wallet_keychain,
@@ -35,7 +36,7 @@ use renegade_common::types::wallet::{
 };
 use renegade_constants::Scalar;
 use test_helpers::{integration_test_main, types::TestVerbosity};
-use util::transactions::call_helper;
+use util::transactions::{call_helper, send_tx};
 
 /// The default private key for the tests, the first default account in an Anvil node
 const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -125,6 +126,20 @@ impl TestArgs {
         let provider = self.darkpool.provider().clone();
         let erc20 = ERC20Mock::new(addr, provider);
         Ok(erc20)
+    }
+
+    /// Fund the test wallet with the given erc20
+    async fn fund_address(
+        &self,
+        who: Address,
+        mint: Address,
+        amt: Amount,
+    ) -> Result<(), eyre::Error> {
+        let erc20 = self.erc20_from_addr(mint)?;
+        let mint_tx = erc20.mint(who, U256::from(amt));
+        send_tx(mint_tx).await?;
+
+        Ok(())
     }
 
     /// Check whether a given root is a valid historical root

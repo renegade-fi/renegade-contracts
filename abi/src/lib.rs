@@ -56,6 +56,7 @@ pub mod relayer_types {
     use renegade_circuits::zk_circuits::valid_commitments::ValidCommitmentsStatement as CircuitValidCommitmentsStatement;
     use renegade_circuits::zk_circuits::valid_match_settle::SizedValidMatchSettleStatement;
     use renegade_circuits::zk_circuits::valid_match_settle::SizedValidMatchSettleWithCommitmentsStatement;
+    use renegade_circuits::zk_circuits::valid_match_settle_atomic::SizedValidMatchSettleAtomicStatement;
     use renegade_circuits::zk_circuits::valid_reblind::ValidReblindStatement as CircuitValidReblindStatement;
     use renegade_circuits::zk_circuits::valid_wallet_create::SizedValidWalletCreateStatement;
     use renegade_circuits::zk_circuits::valid_wallet_update::SizedValidWalletUpdateStatement;
@@ -166,6 +167,33 @@ pub mod relayer_types {
                 firstPartySettlementIndices: statement.party0_indices.into(),
                 secondPartySettlementIndices: statement.party1_indices.into(),
                 protocolFeeRate: scalar_to_u256(statement.protocol_fee.repr),
+            }
+        }
+    }
+
+    impl From<SizedValidMatchSettleAtomicStatement> for ValidMatchSettleAtomicStatement {
+        fn from(statement: SizedValidMatchSettleAtomicStatement) -> Self {
+            Self {
+                matchResult: ExternalMatchResult {
+                    quoteMint: biguint_to_address(statement.match_result.quote_mint),
+                    baseMint: biguint_to_address(statement.match_result.base_mint),
+                    quoteAmount: U256::from(statement.match_result.quote_amount),
+                    baseAmount: U256::from(statement.match_result.base_amount),
+                    direction: statement.match_result.direction as u8,
+                },
+                externalPartyFees: FeeTake {
+                    relayerFee: U256::from(statement.external_party_fees.relayer_fee),
+                    protocolFee: U256::from(statement.external_party_fees.protocol_fee),
+                },
+                internalPartyModifiedShares: statement
+                    .internal_party_modified_shares
+                    .to_scalars()
+                    .into_iter()
+                    .map(scalar_to_u256)
+                    .collect(),
+                internalPartySettlementIndices: statement.internal_party_indices.into(),
+                protocolFeeRate: scalar_to_u256(statement.protocol_fee.repr),
+                relayerFeeAddress: biguint_to_address(statement.relayer_fee_address),
             }
         }
     }
