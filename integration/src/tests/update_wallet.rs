@@ -8,7 +8,7 @@ use abi::{
         ValidWalletUpdateStatement as ContractValidWalletUpdateStatement,
     },
 };
-use alloy::primitives::{Address, Bytes, U256};
+use alloy::primitives::{Address, U256};
 use alloy_sol_types::SolValue;
 use eyre::Result;
 use num_bigint::BigUint;
@@ -26,9 +26,8 @@ use renegade_circuits::{
     },
 };
 use renegade_common::types::wallet::{Order, OrderIdentifier, Wallet};
-use test_helpers::{
-    contract_interaction::transfer_auth::gen_deposit_with_auth, integration_test_async,
-};
+use renegade_darkpool_client::transfer_auth::base::build_deposit_auth;
+use test_helpers::integration_test_async;
 
 use crate::{
     util::{merkle::update_wallet_opening, transactions::send_tx, WrapEyre},
@@ -185,7 +184,7 @@ async fn submit_wallet_update_with_transfer(
     // Add update and transfer auth
     let new_wallet_comm = new_wallet.get_wallet_share_commitment();
     let update_sig = old_wallet.sign_commitment(new_wallet_comm).to_eyre()?;
-    let update_sig_bytes = Bytes::from(update_sig.to_vec());
+    let update_sig_bytes = update_sig.as_bytes().into();
     let transfer_auth = generate_transfer_auth(&transfer, &old_wallet, args).await?;
 
     // Prove the update
@@ -243,8 +242,8 @@ async fn authorize_deposit(
     let darkpool_address = args.darkpool_addr();
     let chain_id = args.chain_id().await?;
 
-    let signer = args.get_ethers_wallet();
-    let auth = gen_deposit_with_auth(
+    let signer = args.signer();
+    let auth = build_deposit_auth(
         &signer,
         pk_root,
         transfer.clone(),
@@ -267,7 +266,7 @@ fn authorize_withdrawal(
 ) -> Result<ContractTransferAuth> {
     let contract_transfer: ContractTransfer = transfer.clone().into();
     let transfer_bytes = contract_transfer.abi_encode();
-    let sig = wallet.sign_bytes(&transfer_bytes).to_eyre()?.to_vec();
+    let sig = wallet.sign_bytes(&transfer_bytes).to_eyre()?.as_bytes();
     Ok(ContractTransferAuth::withdrawal(sig.to_vec()))
 }
 

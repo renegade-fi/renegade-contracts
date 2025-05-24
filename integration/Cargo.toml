@@ -12,27 +12,30 @@ jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 
 # === Renegade Dependencies === #
 abi = { path = "../abi", features = ["relayer-types"] }
-renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", features = [
+renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", features = [
     "test_helpers",
 ] }
-renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25" }
-renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", default-features = false, features = [
+renegade-circuit-types = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade" }
+renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", default-features = false, features = [
     "all-types",
 ] }
-renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25" }
-renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", features = [
+renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade" }
+renegade-darkpool-client = { package = "darkpool-client", git = "https://github.com/renegade-fi/renegade", features = [
+    "base",
+    "transfer-auth",
+] }
+renegade-util = { package = "util", git = "https://github.com/renegade-fi/renegade", features = [
     "blockchain",
 ] }
-test-helpers = { git = "https://github.com/renegade-fi/renegade", branch = "zksecurity-audit-4-21-25", features = [
-    "contracts",
+test-helpers = { git = "https://github.com/renegade-fi/renegade", features = [
+    "base",
 ] }
 
 # === Alloy Dependencies === #
-alloy = { version = "0.14", features = ["essentials"] }
-alloy-contract = "0.14"
-alloy-sol-types = "1.0.0"
-alloy-sol-macro = "1.0.0"
-ethers-signers = "2.0"
+alloy = { version = "1.0.1", features = ["essentials"] }
+alloy-contract = "1.0.1"
+alloy-sol-types = "1.0.1"
+alloy-sol-macro = "1.0.1"
 
 # === Test Harness Dependencies === #
 clap = { version = "4.0", features = ["derive"] }
