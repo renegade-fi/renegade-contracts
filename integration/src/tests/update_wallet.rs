@@ -124,11 +124,7 @@ pub async fn fund_and_deposit(
     wallet: &mut Wallet,
     args: &TestArgs,
 ) -> Result<(), eyre::Error> {
-    // Fund the address
-    let erc20 = args.erc20_from_addr(addr)?;
-    let wallet_addr = args.wallet_addr();
-    let mint_tx = erc20.mint(wallet_addr, U256::from(amt));
-    send_tx(mint_tx).await?;
+    args.fund_address(args.wallet_addr(), addr, amt).await?;
 
     // Deposit into the wallet
     let old_wallet = wallet.clone();
@@ -139,7 +135,7 @@ pub async fn fund_and_deposit(
 
     // Submit a transfer to the darkpool
     let transfer = ExternalTransfer {
-        account_addr: address_to_biguint(wallet_addr),
+        account_addr: address_to_biguint(args.wallet_addr()),
         mint: address_to_biguint(addr),
         amount: amt,
         direction: ExternalTransferDirection::Deposit,
