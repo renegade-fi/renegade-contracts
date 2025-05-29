@@ -565,10 +565,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         );
 
         // 6. Execute external transfers to/from the external party using TransferExecutor
+        address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
         (bool success, bytes memory returnData) = transferExecutor.delegatecall(
             abi.encodeWithSelector(
                 TransferExecutor.executeAtomicMatchTransfers.selector,
-                receiver,
+                resolvedReceiver,
                 matchSettleStatement.relayerFeeAddress,
                 protocolFeeRecipient,
                 matchResult,
@@ -661,10 +662,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         );
 
         // 6. Execute external transfers to/from the external party using TransferExecutor
+        address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
         (bool success, bytes memory returnData) = transferExecutor.delegatecall(
             abi.encodeWithSelector(
                 TransferExecutor.executeAtomicMatchTransfers.selector,
-                receiver,
+                resolvedReceiver,
                 matchSettleStatement.relayerFeeAddress,
                 protocolFeeRecipient,
                 matchResult,
@@ -761,10 +763,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         );
 
         // 8. Execute external transfers to/from the external party using TransferExecutor
+        address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
         (bool success, bytes memory returnData) = transferExecutor.delegatecall(
             abi.encodeWithSelector(
                 TransferExecutor.executeAtomicMatchTransfers.selector,
-                receiver,
+                resolvedReceiver,
                 matchSettleStatement.relayerFeeAddress,
                 protocolFeeRecipient,
                 matchResult,
