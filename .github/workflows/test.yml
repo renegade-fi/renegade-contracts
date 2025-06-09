@@ -11,8 +11,6 @@ env:
   CARGO_INCREMENTAL: 1
   CARGO_NET_RETRY: 10
   RUSTUP_MAX_RETRIES: 10
-  SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
 
 jobs:
   check:
@@ -42,11 +40,8 @@ jobs:
           toolchain: nightly-2024-12-01
           components: rustfmt, clippy
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.5
-
       - name: Cache Rust dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -59,7 +54,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Cache Foundry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.foundry/cache
