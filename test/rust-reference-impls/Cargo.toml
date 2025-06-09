@@ -1,5 +1,6 @@
 [workspace]
 members = ["common", "merkle", "poseidon", "transcript", "verifier"]
+resolver = "2"
 
 [workspace.dependencies]
 # === EVM Dependencies === #
