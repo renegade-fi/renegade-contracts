@@ -85,7 +85,7 @@ contract TestUtils is Test {
     function compileRustBinary(string memory manifestPath) internal virtual {
         string[] memory compileInputs = new string[](5);
         compileInputs[0] = "cargo";
-        compileInputs[1] = "+nightly-2024-11-01";
+        compileInputs[1] = "+nightly-2024-12-01";
         compileInputs[2] = "build";
         compileInputs[3] = "--quiet";
         compileInputs[4] = string.concat("--manifest-path=", manifestPath);
