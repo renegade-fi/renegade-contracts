@@ -3,7 +3,8 @@ members = ["common", "merkle", "poseidon", "transcript", "verifier"]
 
 [workspace.dependencies]
 # === EVM Dependencies === #
-alloy = "0.14"
+alloy = "1.0.1"
+alloy-sol-types = "1.0.1"
 
 # === Renegade Dependencies === #
 common = { path = "common" }

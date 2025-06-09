@@ -14,8 +14,8 @@ ark-serialize = "0.4.0"
 tiny-keccak = { version = "2.0", features = ["keccak"] }
 
 # === EVM === #
-alloy = "0.14"
-alloy-sol-types = "1.0.0"
+alloy = { workspace = true }
+alloy-sol-types = { workspace = true }
 
 # === Renegade === #
 mpc-plonk = { workspace = true }
