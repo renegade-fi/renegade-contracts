@@ -30,6 +30,12 @@ jobs:
         with:
           version: nightly
 
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly-2024-09-01
+          components: rustfmt, clippy
+
       - name: Show Forge version
         run: |
           forge --version
@@ -37,6 +43,18 @@ jobs:
       - name: Show Huff version
         run: |
           huffc --version
+
+      - name: Show Rust version
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Build Rust reference implementations
+        run: |
+          cd test/rust-reference-impls
+          cargo build --release
+          # Also build debug versions since tests seem to use debug paths
+          cargo build
 
       - name: Run Forge fmt
         run: |
