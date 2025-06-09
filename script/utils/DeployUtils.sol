@@ -8,7 +8,7 @@ import "permit2/interfaces/IPermit2.sol";
 import "permit2-test/utils/DeployPermit2.sol";
 
 import "renegade/Darkpool.sol";
-import "renegade/proxies/DarkpoolProxy.sol";
+import "proxies/DarkpoolProxy.sol";
 import "renegade/Verifier.sol";
 import "renegade/VKeys.sol";
 import "renegade-lib/interfaces/IHasher.sol";
@@ -17,7 +17,7 @@ import "renegade-lib/interfaces/IWETH9.sol";
 import "renegade-lib/darkpool/types/Ciphertext.sol";
 import "renegade/TransferExecutor.sol";
 import "renegade/GasSponsor.sol";
-import "renegade/proxies/GasSponsorProxy.sol";
+import "proxies/GasSponsorProxy.sol";
 import "./JsonUtils.sol";
 
 library DeployUtils {

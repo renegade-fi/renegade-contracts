@@ -16,7 +16,7 @@ import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { TestVerifier } from "../test-contracts/TestVerifier.sol";
 import { Darkpool } from "renegade/Darkpool.sol";
-import { DarkpoolProxy } from "renegade/proxies/DarkpoolProxy.sol";
+import { DarkpoolProxy } from "proxies/DarkpoolProxy.sol";
 import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
 import { TransferExecutor } from "renegade/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
@@ -26,10 +26,10 @@ import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "renegade/Verifier.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { VKeys } from "renegade/VKeys.sol";
-import { IVKeys } from "renegade/libraries/interfaces/IVKeys.sol";
-import { GasSponsor } from "../../src/GasSponsor.sol";
-import { GasSponsorProxy } from "../../src/proxies/GasSponsorProxy.sol";
-import { IGasSponsor } from "../../src/libraries/interfaces/IGasSponsor.sol";
+import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
+import { GasSponsor } from "renegade/GasSponsor.sol";
+import { GasSponsorProxy } from "proxies/GasSponsorProxy.sol";
+import { IGasSponsor } from "renegade-lib/interfaces/IGasSponsor.sol";
 
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
