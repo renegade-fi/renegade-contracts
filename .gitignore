@@ -1,4 +1,5 @@
-**/deployments.*.json
+**/deployments.json
+**/deployments.*.json 
 
 # Workspace 
 .vscode
