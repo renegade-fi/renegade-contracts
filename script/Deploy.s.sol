@@ -8,7 +8,7 @@ pragma solidity ^0.8.0;
  */
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "permit2/interfaces/IPermit2.sol";
+import "permit2-lib/interfaces/IPermit2.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "./utils/DeployUtils.sol";
 

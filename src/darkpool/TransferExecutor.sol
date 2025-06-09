@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";

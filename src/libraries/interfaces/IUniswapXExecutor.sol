@@ -10,4 +10,7 @@ interface IUniswapXExecutor is IReactorCallback {
     /// @param darkpool The darkpool address
     /// @param whitelistedCaller The whitelisted caller address
     function initialize(address initialOwner, address darkpool, address whitelistedCaller) external;
+    /// @notice Returns the address of the current owner
+    /// @return The address of the current owner
+    function owner() external view returns (address);
 }

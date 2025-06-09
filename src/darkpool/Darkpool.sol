@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
