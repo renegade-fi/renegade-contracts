@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 import "foundry-huff/HuffDeployer.sol";
-import "permit2/interfaces/IPermit2.sol";
+import "permit2-lib/interfaces/IPermit2.sol";
 import "permit2-test/utils/DeployPermit2.sol";
 
 import "renegade/Darkpool.sol";

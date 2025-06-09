@@ -8,7 +8,7 @@ import "./utils/DeployUtils.sol";
 import "./utils/Permit2Utils.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
 import "../test/test-contracts/WethMock.sol";
-import "solmate/test/utils/mocks/MockERC20.sol";
+import "solmate/src/test/utils/mocks/MockERC20.sol";
 
 contract DeployDevScript is Script {
     function run() public {

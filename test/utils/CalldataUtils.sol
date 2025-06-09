@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
-import { ISignatureTransfer } from "permit2/interfaces/ISignatureTransfer.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
+import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
@@ -623,8 +623,8 @@ contract CalldataUtils is TestUtils {
     }
 
     /// @notice Generate a permit2 signature for a witness transfer
-    /// @dev Borrowed from `permit2/test/utils/PermitSignature.sol`, solc cannot infer types correctly
-    /// @dev if the import is directly from `permit2/test/utils/PermitSignature.sol`
+    /// @dev Borrowed from `permit2-lib/test/utils/PermitSignature.sol`, solc cannot infer types correctly
+    /// @dev if the import is directly from `permit2-lib/test/utils/PermitSignature.sol`
     function getPermitWitnessTransferSignature(
         ISignatureTransfer.PermitTransferFrom memory permit,
         address receiver,

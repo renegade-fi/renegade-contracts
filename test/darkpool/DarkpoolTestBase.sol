@@ -5,7 +5,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { WethMock } from "../test-contracts/WethMock.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "../utils/TestUtils.sol";

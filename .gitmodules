@@ -16,3 +16,6 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/transmissions11/solmate
+[submodule "lib/UniswapX"]
+	path = lib/UniswapX
+	url = https://github.com/Uniswap/UniswapX
