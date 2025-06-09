@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 import { IPermit2 } from "permit2/interfaces/IPermit2.sol";
 import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { VerifierCore } from "./libraries/verifier/VerifierCore.sol";
-import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
-import { IHasher } from "./libraries/interfaces/IHasher.sol";
-import { IVerifier } from "./libraries/interfaces/IVerifier.sol";
+import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
+import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
@@ -48,9 +48,9 @@ import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol
 import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
 import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
-import { MerkleTreeLib } from "./libraries/merkle/MerkleTree.sol";
-import { NullifierLib } from "./libraries/darkpool/NullifierSet.sol";
-import { BabyJubJubPoint } from "./libraries/darkpool/types/Ciphertext.sol";
+import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
+import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
+import { BabyJubJubPoint } from "renegade-lib/darkpool/types/Ciphertext.sol";
 
 contract Darkpool is Initializable, Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;

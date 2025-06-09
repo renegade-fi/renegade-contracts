@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { VerificationKey, ProofLinkingVK } from "./libraries/verifier/Types.sol";
-import { VerificationKeys } from "./libraries/darkpool/VerificationKeys.sol";
-import { IVKeys } from "./libraries/interfaces/IVKeys.sol";
+import { VerificationKey, ProofLinkingVK } from "renegade-lib/verifier/Types.sol";
+import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
 
 contract VKeys is IVKeys {
     // Individual verification keys

@@ -21,7 +21,7 @@ import {
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import { IVKeys } from "renegade/libraries/interfaces/IVKeys.sol";
+import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "renegade/Verifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";

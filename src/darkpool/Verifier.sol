@@ -30,7 +30,7 @@ import {
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import { IVKeys } from "./libraries/interfaces/IVKeys.sol";
+import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
