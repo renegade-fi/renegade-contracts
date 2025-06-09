@@ -25,9 +25,18 @@ jobs:
         with:
           version: nightly
 
+      - name: Install Huff
+        uses: huff-language/huff-toolchain@v3
+        with:
+          version: nightly
+
       - name: Show Forge version
         run: |
           forge --version
+
+      - name: Show Huff version
+        run: |
+          huffc --version
 
       - name: Run Forge fmt
         run: |
