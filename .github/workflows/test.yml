@@ -18,7 +18,8 @@ jobs:
       fail-fast: true
 
     name: Foundry checks
-    runs-on: ubuntu-latest
+    runs-on:
+      group: Renegade Runner Group
     steps:
       - uses: actions/checkout@v4
         with:
