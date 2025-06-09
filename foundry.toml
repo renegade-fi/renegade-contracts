@@ -21,7 +21,6 @@ fs_permissions = [
     { access = "read-write", path = "./deployments.mainnet.json" },
 ]
 
-
 [fmt]
 line_length = 120
 tab_width = 4
