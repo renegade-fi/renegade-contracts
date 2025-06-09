@@ -7,6 +7,12 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 1
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   check:
@@ -36,6 +42,32 @@ jobs:
           toolchain: nightly-2024-12-01
           components: rustfmt, clippy
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.5
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            test/rust-reference-impls/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cache Foundry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.foundry/cache
+            ~/.foundry/out
+          key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-foundry-
+
       - name: Show Forge version
         run: |
           forge --version
@@ -52,9 +84,16 @@ jobs:
       - name: Build Rust reference implementations
         run: |
           cd test/rust-reference-impls
-          cargo build --release
-          # Also build debug versions since tests seem to use debug paths
-          cargo build
+          # Check if binaries already exist from cache
+          if [ -f "target/debug/verifier" ] && [ -f "target/release/verifier" ]; then
+            echo "Binaries found in cache, checking if rebuild needed..."
+            cargo build --release --all-targets || true
+            cargo build --all-targets || true
+          else
+            echo "Building from scratch..."
+            cargo build --release --all-targets
+            cargo build --all-targets
+          fi
 
       - name: Run Forge fmt
         run: |
