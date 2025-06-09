@@ -76,19 +76,13 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Build Rust reference implementations
+      - name: Build Rust reference implementations (debug only)
+        timeout-minutes: 30
         run: |
           cd test/rust-reference-impls
-          # Check if binaries already exist from cache
-          if [ -f "target/debug/verifier" ] && [ -f "target/release/verifier" ]; then
-            echo "Binaries found in cache, checking if rebuild needed..."
-            cargo build --release --all-targets || true
-            cargo build --all-targets || true
-          else
-            echo "Building from scratch..."
-            cargo build --release --all-targets
-            cargo build --all-targets
-          fi
+          # Only build the specific binaries that tests use
+          echo "Building required debug binaries: verifier, transcript, poseidon, merkle..."
+          cargo build --bin verifier --bin transcript --bin poseidon --bin merkle -v
 
       - name: Run Forge fmt
         run: |
