@@ -17,19 +17,19 @@ contract UniswapXExecutorProxy is TransparentUpgradeableProxy {
      * @param implementation The UniswapXExecutor implementation address
      * @param admin The admin address - serves as both ProxyAdmin owner and UniswapXExecutor owner
      * @param darkpool The darkpool address
-     * @param whitelistedCaller The whitelisted caller address
+     * @param uniswapXReactor The UniswapX reactor address
      */
     constructor(
         address implementation,
         address admin,
         address darkpool,
-        address whitelistedCaller
+        address uniswapXReactor
     )
         payable
         TransparentUpgradeableProxy(
             implementation,
             admin,
-            abi.encodeWithSelector(IUniswapXExecutor.initialize.selector, admin, darkpool, whitelistedCaller)
+            abi.encodeWithSelector(IUniswapXExecutor.initialize.selector, admin, darkpool, uniswapXReactor)
         )
     { }
 }
