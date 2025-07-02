@@ -12,11 +12,6 @@ use core::marker::PhantomData;
 // | Error Messages |
 // ------------------
 
-/// The revert message when verification is disabled but
-/// the chain is not a Renegade devnet
-#[cfg(feature = "no-verify")]
-pub const VERIFICATION_DISABLED_ERROR_MESSAGE: &[u8] = b"verification disabled on non-devnet chain";
-
 /// The revert message when a contract/owner address
 /// is attempted to be set to the zero address
 pub const ZERO_ADDRESS_ERROR_MESSAGE: &[u8] = b"zero address";

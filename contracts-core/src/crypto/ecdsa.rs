@@ -8,10 +8,11 @@ use contracts_common::{
 };
 use ruint::aliases::U256;
 
-/// Verify a secp256k1 ECDSA signature given a public key (extracted from a
-/// `VALID_WALLET_UPDATE` statement), a (un-hashed) message, and a signature (in
-/// the format expected by the `ecRecover` precompile, i.e. including a `v`
-/// recovery identifier)
+/// Verify a secp256k1 ECDSA signature.
+///
+/// Expects a public key (extracted from a `VALID_WALLET_UPDATE` statement),
+/// an (un-hashed) message, and a signature (in the format expected by the
+/// `ecRecover` precompile, i.e. including a `v` recovery identifier)
 pub fn ecdsa_verify_with_pubkey<H: HashBackend, E: EcRecoverBackend>(
     pubkey: &PublicSigningKey,
     msg: &[u8],

@@ -34,10 +34,10 @@ use crate::{
     constants::{
         AGGRESSIVE_OPTIMIZATION_FLAG, AGGRESSIVE_SIZE_OPTIMIZATION_FLAG, BUILD_COMMAND,
         CARGO_COMMAND, DEFAULT_RUSTFLAGS, DEPLOYMENTS_KEY, DEPLOY_COMMAND, ERC20S_KEY,
-        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, NO_VERIFY_FEATURE, OPT_LEVEL_3,
-        OPT_LEVEL_FLAG, OPT_LEVEL_Z, RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND,
-        STYLUS_CONTRACTS_CRATE_NAME, TARGET_PATH_SEGMENT, WASM_EXTENSION, WASM_OPT_COMMAND,
-        WASM_OPT_EXTENSION, WASM_TARGET_TRIPLE, Z_FLAGS,
+        INLINE_THRESHOLD_FLAG, MANIFEST_DIR_ENV_VAR, OPT_LEVEL_3, OPT_LEVEL_FLAG, OPT_LEVEL_Z,
+        RELEASE_PATH_SEGMENT, RUSTFLAGS_ENV_VAR, STYLUS_COMMAND, STYLUS_CONTRACTS_CRATE_NAME,
+        TARGET_PATH_SEGMENT, WASM_EXTENSION, WASM_OPT_COMMAND, WASM_OPT_EXTENSION,
+        WASM_TARGET_TRIPLE, Z_FLAGS,
     },
     errors::ScriptError,
     solidity::{
@@ -408,10 +408,7 @@ pub fn get_wasm_opt_flags_for_contract(contract: &StylusContract) -> &'static st
 ///
 /// Assumes that `cargo`, the `nightly` toolchain, and `wasm-opt` are locally
 /// available.
-pub fn build_stylus_contract(
-    contract: &StylusContract,
-    no_verify: bool,
-) -> Result<PathBuf, ScriptError> {
+pub fn build_stylus_contract(contract: &StylusContract) -> Result<PathBuf, ScriptError> {
     let current_dir = PathBuf::from(env::var(MANIFEST_DIR_ENV_VAR).unwrap());
     let workspace_path = current_dir.parent().ok_or(ScriptError::ContractCompilation(
         String::from("Could not find contracts directory"),
@@ -432,13 +429,7 @@ pub fn build_stylus_contract(
     // Set the feature for the given contract,
     // ensuring that the contract gets built
     build_cmd.arg("--features");
-    let mut features = vec![contract.to_string()];
-    // If the `--no-verify` flag is set, enable the
-    // "no-verify" feature
-    if no_verify {
-        features.push(NO_VERIFY_FEATURE.to_string());
-    }
-    build_cmd.arg(features.join(","));
+    build_cmd.arg(contract.to_string());
     // Set the build target to WASM
     build_cmd.arg("--target");
     build_cmd.arg(WASM_TARGET_TRIPLE);

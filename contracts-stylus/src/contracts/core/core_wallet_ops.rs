@@ -12,7 +12,6 @@ use crate::{
         rotate_wallet, rotate_wallet_with_commitment, rotate_wallet_with_signed_commitment,
         rotate_wallet_with_signed_shares, verify,
     },
-    if_verifying,
     utils::{
         constants::{
             INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
@@ -177,20 +176,18 @@ impl CoreWalletOpsContract {
         let valid_wallet_create_statement: ValidWalletCreateStatement =
             deserialize_from_calldata(&valid_wallet_create_statement_bytes)?;
 
-        if_verifying!({
-            let valid_wallet_create_vkey_bytes =
-                fetch_vkeys(self, &validWalletCreateVkeyCall::SELECTOR)?;
+        let valid_wallet_create_vkey_bytes =
+            fetch_vkeys(self, &validWalletCreateVkeyCall::SELECTOR)?;
 
-            assert_result!(
-                verify(
-                    self,
-                    valid_wallet_create_vkey_bytes,
-                    proof.0,
-                    serialize_statement_for_verification(&valid_wallet_create_statement)?,
-                )?,
-                VERIFICATION_FAILED_ERROR_MESSAGE
-            )?;
-        });
+        assert_result!(
+            verify(
+                self,
+                valid_wallet_create_vkey_bytes,
+                proof.0,
+                serialize_statement_for_verification(&valid_wallet_create_statement)?,
+            )?,
+            VERIFICATION_FAILED_ERROR_MESSAGE
+        )?;
 
         insert_commitment_into_tree(self, valid_wallet_create_statement.wallet_share_commitment)?;
         log_blinder_used(self, &valid_wallet_create_statement.public_wallet_shares)?;
@@ -208,20 +205,18 @@ impl CoreWalletOpsContract {
         let valid_wallet_update_statement: ValidWalletUpdateStatement =
             deserialize_from_calldata(&valid_wallet_update_statement_bytes)?;
 
-        if_verifying!({
-            let valid_wallet_update_vkey_bytes =
-                fetch_vkeys(self, &validWalletUpdateVkeyCall::SELECTOR)?;
+        let valid_wallet_update_vkey_bytes =
+            fetch_vkeys(self, &validWalletUpdateVkeyCall::SELECTOR)?;
 
-            assert_result!(
-                verify(
-                    self,
-                    valid_wallet_update_vkey_bytes,
-                    proof.0,
-                    serialize_statement_for_verification(&valid_wallet_update_statement)?,
-                )?,
-                VERIFICATION_FAILED_ERROR_MESSAGE
-            )?;
-        });
+        assert_result!(
+            verify(
+                self,
+                valid_wallet_update_vkey_bytes,
+                proof.0,
+                serialize_statement_for_verification(&valid_wallet_update_statement)?,
+            )?,
+            VERIFICATION_FAILED_ERROR_MESSAGE
+        )?;
 
         rotate_wallet_with_signed_commitment(
             self,
@@ -256,20 +251,18 @@ impl CoreWalletOpsContract {
         let valid_relayer_fee_settlement_statement: ValidRelayerFeeSettlementStatement =
             deserialize_from_calldata(&valid_relayer_fee_settlement_statement)?;
 
-        if_verifying!({
-            let valid_relayer_fee_settlement_vkey_bytes =
-                fetch_vkeys(self, &validRelayerFeeSettlementVkeyCall::SELECTOR)?;
+        let valid_relayer_fee_settlement_vkey_bytes =
+            fetch_vkeys(self, &validRelayerFeeSettlementVkeyCall::SELECTOR)?;
 
-            assert_result!(
-                verify(
-                    self,
-                    valid_relayer_fee_settlement_vkey_bytes,
-                    proof.0,
-                    serialize_statement_for_verification(&valid_relayer_fee_settlement_statement)?,
-                )?,
-                VERIFICATION_FAILED_ERROR_MESSAGE
-            )?;
-        });
+        assert_result!(
+            verify(
+                self,
+                valid_relayer_fee_settlement_vkey_bytes,
+                proof.0,
+                serialize_statement_for_verification(&valid_relayer_fee_settlement_statement)?,
+            )?,
+            VERIFICATION_FAILED_ERROR_MESSAGE
+        )?;
 
         rotate_wallet(
             self,
@@ -300,26 +293,24 @@ impl CoreWalletOpsContract {
         let valid_offline_fee_settlement_statement: ValidOfflineFeeSettlementStatement =
             deserialize_from_calldata(&valid_offline_fee_settlement_statement)?;
 
-        if_verifying!({
-            let protocol_pubkey = get_protocol_public_encryption_key(self)?;
-            assert_result!(
-                valid_offline_fee_settlement_statement.protocol_key == protocol_pubkey,
-                INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE
-            )?;
+        let protocol_pubkey = get_protocol_public_encryption_key(self)?;
+        assert_result!(
+            valid_offline_fee_settlement_statement.protocol_key == protocol_pubkey,
+            INVALID_PROTOCOL_PUBKEY_ERROR_MESSAGE
+        )?;
 
-            let valid_offline_fee_settlement_vkey_bytes =
-                fetch_vkeys(self, &validOfflineFeeSettlementVkeyCall::SELECTOR)?;
+        let valid_offline_fee_settlement_vkey_bytes =
+            fetch_vkeys(self, &validOfflineFeeSettlementVkeyCall::SELECTOR)?;
 
-            assert_result!(
-                verify(
-                    self,
-                    valid_offline_fee_settlement_vkey_bytes,
-                    proof.0,
-                    serialize_statement_for_verification(&valid_offline_fee_settlement_statement)?,
-                )?,
-                VERIFICATION_FAILED_ERROR_MESSAGE
-            )?;
-        });
+        assert_result!(
+            verify(
+                self,
+                valid_offline_fee_settlement_vkey_bytes,
+                proof.0,
+                serialize_statement_for_verification(&valid_offline_fee_settlement_statement)?,
+            )?,
+            VERIFICATION_FAILED_ERROR_MESSAGE
+        )?;
 
         rotate_wallet_with_commitment(
             self,
@@ -342,20 +333,18 @@ impl CoreWalletOpsContract {
         let valid_fee_redemption_statement: ValidFeeRedemptionStatement =
             deserialize_from_calldata(&valid_fee_redemption_statement)?;
 
-        if_verifying!({
-            let valid_fee_redemption_vkey_bytes =
-                fetch_vkeys(self, &validFeeRedemptionVkeyCall::SELECTOR)?;
+        let valid_fee_redemption_vkey_bytes =
+            fetch_vkeys(self, &validFeeRedemptionVkeyCall::SELECTOR)?;
 
-            assert_result!(
-                verify(
-                    self,
-                    valid_fee_redemption_vkey_bytes,
-                    proof.0,
-                    serialize_statement_for_verification(&valid_fee_redemption_statement)?,
-                )?,
-                VERIFICATION_FAILED_ERROR_MESSAGE
-            )?;
-        });
+        assert_result!(
+            verify(
+                self,
+                valid_fee_redemption_vkey_bytes,
+                proof.0,
+                serialize_statement_for_verification(&valid_fee_redemption_statement)?,
+            )?,
+            VERIFICATION_FAILED_ERROR_MESSAGE
+        )?;
 
         rotate_wallet_with_signed_commitment(
             self,

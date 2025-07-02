@@ -8,7 +8,6 @@ use crate::{
     contracts::core::core_helpers::{
         call_settlement_verifier, execute_atomic_match_transfers, fetch_vkeys, rotate_wallet,
     },
-    if_verifying,
     utils::{
         constants::{
             INVALID_PROTOCOL_FEE_ERROR_MESSAGE, MERKLE_STORAGE_GAP_SIZE,
@@ -169,6 +168,7 @@ impl CoreMalleableMatchSettleContract {
     /// an external party provides liquidity to the pool during the
     /// transaction in which this method is called
     #[payable]
+    #[allow(clippy::too_many_arguments)]
     pub fn process_malleable_atomic_match_settle(
         &mut self,
         quote_amount: U256,
@@ -194,31 +194,28 @@ impl CoreMalleableMatchSettleContract {
             return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
         }
 
-        if_verifying!({
-            // The protocol fee used in the proofs must match the fee configured in the
-            // contract
-            let internal_fee_rates = statement.internal_fee_rates;
-            let external_fee_rates = statement.external_fee_rates;
-            let protocol_fee_u256 =
-                self.external_match_protocol_fee(bounded_match_result.base_mint);
-            let protocol_fee = u256_to_scalar(protocol_fee_u256)?;
-            assert_result!(
-                internal_fee_rates.protocol_fee_rate.repr == protocol_fee,
-                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
-            )?;
-            assert_result!(
-                external_fee_rates.protocol_fee_rate.repr == protocol_fee,
-                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
-            )?;
+        // The protocol fee used in the proofs must match the fee configured in the
+        // contract
+        let internal_fee_rates = statement.internal_fee_rates;
+        let external_fee_rates = statement.external_fee_rates;
+        let protocol_fee_u256 = self.external_match_protocol_fee(bounded_match_result.base_mint);
+        let protocol_fee = u256_to_scalar(protocol_fee_u256)?;
+        assert_result!(
+            internal_fee_rates.protocol_fee_rate.repr == protocol_fee,
+            INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+        )?;
+        assert_result!(
+            external_fee_rates.protocol_fee_rate.repr == protocol_fee,
+            INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+        )?;
 
-            self.batch_verify_process_malleable_atomic_match_settle(
-                is_native_eth,
-                &internal_party_match_payload,
-                statement.clone(),
-                proofs,
-                linking_proofs,
-            )?;
-        });
+        self.batch_verify_process_malleable_atomic_match_settle(
+            is_native_eth,
+            &internal_party_match_payload,
+            statement.clone(),
+            proofs,
+            linking_proofs,
+        )?;
 
         // Build an external match result given the base amount
         let match_result =

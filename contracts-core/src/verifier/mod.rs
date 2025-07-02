@@ -1,4 +1,5 @@
 //! The Plonk verifier, as described in section 8.3 of the paper: https://eprint.iacr.org/2019/953.pdf.
+//!
 //! Each of the steps of the verification algorithm described in the paper are
 //! represented as separate helper functions. This version of the verification
 //! algorithm currently only supports fan-in 2, fan-out 1 gates. The verifier is

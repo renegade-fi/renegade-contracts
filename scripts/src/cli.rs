@@ -102,11 +102,6 @@ impl Command {
 /// keys)
 #[derive(Args)]
 pub struct DeployTestContractsArgs {
-    /// Whether or not to enable proof & ECDSA verification.
-    /// This only applies to the darkpool & Merkle contracts.
-    #[arg(long)]
-    pub no_verify: bool,
-
     /// The directory to which to write the testing verification keys
     #[arg(short, long)]
     pub vkeys_dir: String,
@@ -165,11 +160,6 @@ pub struct DeployStylusArgs {
     /// The Stylus contract to deploy
     #[arg(short, long)]
     pub contract: StylusContract,
-
-    /// Whether or not to enable proof & ECDSA verification.
-    /// This only applies to the darkpool & Merkle contracts.
-    #[arg(long)]
-    pub no_verify: bool,
 }
 
 /// Deploy a dummy ERC20. Assumes the darkpool contract has already been

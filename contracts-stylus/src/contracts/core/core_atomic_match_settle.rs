@@ -9,7 +9,6 @@ use crate::{
         call_settlement_verifier, execute_atomic_match_transfers, fetch_vkeys, rotate_wallet,
         rotate_wallet_with_commitment,
     },
-    if_verifying,
     utils::{
         constants::{
             INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE, INVALID_PROTOCOL_FEE_ERROR_MESSAGE,
@@ -206,31 +205,28 @@ impl CoreAtomicMatchSettleContract {
             return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
         }
 
-        if_verifying!({
-            let commitments_indices =
-                &internal_party_match_payload.valid_commitments_statement.indices;
-            let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
-            let same_indices = commitments_indices == settlement_indices;
-            assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
+        let commitments_indices = &internal_party_match_payload.valid_commitments_statement.indices;
+        let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
+        let same_indices = commitments_indices == settlement_indices;
+        assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
 
-            // We convert the protocol fee directly to a scalar as it is already kept
-            // in storage as fixed-point number, no manipulation is needed to coerce it
-            // to the form expected in the statement / circuit.
-            let protocol_fee = self.external_match_protocol_fee(match_result.base_mint);
-            let protocol_fee = u256_to_scalar(protocol_fee)?;
-            assert_result!(
-                valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
-                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
-            )?;
+        // We convert the protocol fee directly to a scalar as it is already kept
+        // in storage as fixed-point number, no manipulation is needed to coerce it
+        // to the form expected in the statement / circuit.
+        let protocol_fee = self.external_match_protocol_fee(match_result.base_mint);
+        let protocol_fee = u256_to_scalar(protocol_fee)?;
+        assert_result!(
+            valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
+            INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+        )?;
 
-            self.batch_verify_process_atomic_match_settle(
-                is_native_eth,
-                &internal_party_match_payload,
-                valid_match_settle_atomic_statement.clone(),
-                match_proofs,
-                match_linking_proofs,
-            )?;
-        });
+        self.batch_verify_process_atomic_match_settle(
+            is_native_eth,
+            &internal_party_match_payload,
+            valid_match_settle_atomic_statement.clone(),
+            match_proofs,
+            match_linking_proofs,
+        )?;
 
         rotate_wallet(
             self,
@@ -286,40 +282,37 @@ impl CoreAtomicMatchSettleContract {
             return Err(INVALID_TRANSACTION_VALUE_ERROR_MESSAGE.into());
         }
 
-        if_verifying!({
-            let commitments_indices =
-                &internal_party_match_payload.valid_commitments_statement.indices;
-            let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
-            let same_indices = commitments_indices == settlement_indices;
+        let commitments_indices = &internal_party_match_payload.valid_commitments_statement.indices;
+        let settlement_indices = &valid_match_settle_atomic_statement.internal_party_indices;
+        let same_indices = commitments_indices == settlement_indices;
 
-            assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
+        assert_result!(same_indices, INVALID_ORDER_SETTLEMENT_INDICES_ERROR_MESSAGE)?;
 
-            // Check that the private commitment used in `VALID REBLIND` is the same as the
-            // one used in `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
-            let reblind_comm = internal_party_match_payload
-                .valid_reblind_statement
-                .reblinded_private_shares_commitment;
-            let new_comm = valid_match_settle_atomic_statement.private_share_commitment;
-            assert_result!(reblind_comm == new_comm, INVALID_PRIVATE_COMMITMENT_ERROR_MESSAGE)?;
+        // Check that the private commitment used in `VALID REBLIND` is the same as the
+        // one used in `VALID MATCH SETTLE ATOMIC WITH COMMITMENTS`
+        let reblind_comm = internal_party_match_payload
+            .valid_reblind_statement
+            .reblinded_private_shares_commitment;
+        let new_comm = valid_match_settle_atomic_statement.private_share_commitment;
+        assert_result!(reblind_comm == new_comm, INVALID_PRIVATE_COMMITMENT_ERROR_MESSAGE)?;
 
-            // We convert the protocol fee directly to a scalar as it is already kept
-            // in storage as fixed-point number, no manipulation is needed to coerce it
-            // to the form expected in the statement / circuit.
-            let protocol_fee = self.external_match_protocol_fee(match_result.base_mint);
-            let protocol_fee = u256_to_scalar(protocol_fee)?;
-            assert_result!(
-                valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
-                INVALID_PROTOCOL_FEE_ERROR_MESSAGE
-            )?;
+        // We convert the protocol fee directly to a scalar as it is already kept
+        // in storage as fixed-point number, no manipulation is needed to coerce it
+        // to the form expected in the statement / circuit.
+        let protocol_fee = self.external_match_protocol_fee(match_result.base_mint);
+        let protocol_fee = u256_to_scalar(protocol_fee)?;
+        assert_result!(
+            valid_match_settle_atomic_statement.protocol_fee == protocol_fee,
+            INVALID_PROTOCOL_FEE_ERROR_MESSAGE
+        )?;
 
-            self.batch_verify_process_atomic_match_settle_with_commitments(
-                is_native_eth,
-                &internal_party_match_payload,
-                valid_match_settle_atomic_statement.clone(),
-                match_proofs,
-                match_linking_proofs,
-            )?;
-        });
+        self.batch_verify_process_atomic_match_settle_with_commitments(
+            is_native_eth,
+            &internal_party_match_payload,
+            valid_match_settle_atomic_statement.clone(),
+            match_proofs,
+            match_linking_proofs,
+        )?;
 
         rotate_wallet_with_commitment(
             self,

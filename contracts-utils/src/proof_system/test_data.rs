@@ -296,8 +296,9 @@ pub fn gen_new_wallet_data<R: CryptoRng + RngCore>(
     Ok((proof, contract_statement))
 }
 
-/// Generates the inputs for the `update_wallet` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID WALLET UPDATE`
+/// Generates the inputs for the `update_wallet` darkpool method.
+///
+/// Namely, a dummy statement and associated proof for the `VALID WALLET UPDATE`
 /// circuit, along with a signature over the commitment to the wallet shares
 pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     rng: &mut R,
@@ -329,8 +330,9 @@ pub fn gen_update_wallet_data<R: CryptoRng + RngCore>(
     Ok((proof, contract_statement, wallet_commitment_signature))
 }
 
-/// Generates the inputs for the `settle_online_relayer_fee` darkpool method,
-/// namely a dummy statement and associated proof for the `VALID RELAYER FEE
+/// Generates the inputs for the `settle_online_relayer_fee` darkpool method.
+///
+/// Namely, a dummy statement and associated proof for the `VALID RELAYER FEE
 /// SETTLEMENT` circuit, along with a signature over the commitment to the
 /// wallet shares
 pub fn gen_settle_online_relayer_fee_data<R: CryptoRng + RngCore>(
@@ -393,9 +395,11 @@ pub fn gen_settle_offline_fee_data<R: CryptoRng + RngCore>(
     Ok((proof, contract_statement))
 }
 
-/// Generates the inputs for the `redeem_fee` darkpool method, namely
-/// a dummy statement and associated proof for the `VALID FEE REDEMPTION`
-/// circuit, along with a signature over the commitment to the wallet shares
+/// Generates the inputs for the `redeem_fee` darkpool method.
+///
+/// Namely, a dummy statement and associated proof for the `VALID FEE
+/// REDEMPTION` circuit, along with a signature over the commitment to the
+/// wallet shares
 pub fn gen_redeem_fee_data<R: CryptoRng + RngCore>(
     rng: &mut R,
     merkle_root: Scalar,
