@@ -91,8 +91,7 @@ pub async fn deploy_test_contracts(
     let gen_vkeys_args = GenVkeysArgs { vkeys_dir: args.vkeys_dir.clone(), test: true };
     gen_vkeys(&gen_vkeys_args)?;
 
-    let mut deploy_stylus_args =
-        DeployStylusArgs { contract: StylusContract::TestVkeys, no_verify: args.no_verify };
+    let mut deploy_stylus_args = DeployStylusArgs { contract: StylusContract::TestVkeys };
 
     info!("Deploying testing verification keys");
     build_and_deploy_stylus_contract(
@@ -497,7 +496,7 @@ pub async fn deploy_erc20(
         StylusContract::DummyErc20(args.symbol.clone())
     };
 
-    let deploy_stylus_args = DeployStylusArgs { contract, no_verify: false };
+    let deploy_stylus_args = DeployStylusArgs { contract };
     let erc20_address = build_and_deploy_stylus_contract(
         &deploy_stylus_args,
         rpc_url,
@@ -587,7 +586,7 @@ pub async fn build_and_deploy_stylus_contract(
     deployments_path: &str,
 ) -> Result<Address, ScriptError> {
     // Build the contract to WASM
-    let wasm_file_path = build_stylus_contract(&args.contract, args.no_verify)?;
+    let wasm_file_path = build_stylus_contract(&args.contract)?;
 
     // Deploy the contract
     let deployed_address =

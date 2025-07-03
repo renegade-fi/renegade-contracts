@@ -113,8 +113,9 @@ impl SingleProverCircuit for DummyValidReblind {
     }
 }
 
-/// The dummy version of the `VALID COMMITMENTS` witness,
-/// which defines a single element to be linked with the dummy
+/// The dummy version of the `VALID COMMITMENTS` witness.
+///
+/// Defines a single element to be linked with the dummy
 /// `VALID REBLIND` circuit, and two elements to be linked with the dummy
 /// `VALID MATCH SETTLE` circuit depending on which party is settling
 #[circuit_type(singleprover_circuit)]

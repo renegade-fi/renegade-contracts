@@ -1,6 +1,8 @@
 //! Various Solidity definitions, including ABI-compatible interfaces, events,
 //! functions, etc.
 
+#![allow(clippy::too_many_arguments)]
+
 use alloy_sol_types::sol;
 use stylus_sdk::prelude::sol_interface;
 

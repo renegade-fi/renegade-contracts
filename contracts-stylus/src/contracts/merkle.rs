@@ -25,7 +25,7 @@ use stylus_sdk::{
 };
 
 use crate::{
-    assert_result, if_verifying,
+    assert_result,
     utils::{
         constants::{TREE_FULL_ERROR_MESSAGE, ZEROS},
         helpers::assert_valid_signature,
@@ -184,11 +184,7 @@ where
             y: [u256_to_scalar(old_pk_root[2])?, u256_to_scalar(old_pk_root[3])?],
         };
 
-        if_verifying!(assert_valid_signature(
-            &old_pk_root,
-            &commitment.serialize_to_bytes(),
-            &sig
-        )?);
+        assert_valid_signature(&old_pk_root, &commitment.serialize_to_bytes(), &sig)?;
 
         Ok(())
     }

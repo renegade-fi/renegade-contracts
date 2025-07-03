@@ -31,6 +31,8 @@ pub enum SerdeError {
     InvalidLength,
     /// An error in the conversion of a type into a BN254 scalar field element
     ScalarConversion,
+    /// An error deserializing a point that doesn't lie on the associated curve
+    PointNotOnCurve,
 }
 
 // -------------------------------
@@ -133,10 +135,19 @@ impl BytesDeserializable for G1Affine {
         // since we can assume that precompiles will always correctly return
         // elements contained in the field
         let mut cursor = 0;
-        let x = deserialize_cursor(bytes, &mut cursor)?;
-        let y = deserialize_cursor(bytes, &mut cursor)?;
+        let x: G1BaseField = deserialize_cursor(bytes, &mut cursor)?;
+        let y: G1BaseField = deserialize_cursor(bytes, &mut cursor)?;
 
-        Ok(G1Affine { x, y, infinity: x.is_zero() && y.is_zero() })
+        if x.is_zero() && y.is_zero() {
+            return Ok(G1Affine::identity());
+        }
+
+        let pt = G1Affine::new_unchecked(x, y);
+        if !pt.is_on_curve() {
+            return Err(SerdeError::PointNotOnCurve);
+        }
+
+        Ok(pt)
     }
 }
 
@@ -190,7 +201,16 @@ impl BytesDeserializable for G2Affine {
         let x = G2BaseField { c0: x_c0, c1: x_c1 };
         let y = G2BaseField { c0: y_c0, c1: y_c1 };
 
-        Ok(G2Affine { x, y, infinity: x.is_zero() && y.is_zero() })
+        if x.is_zero() && y.is_zero() {
+            return Ok(G2Affine::identity());
+        }
+
+        let pt = G2Affine::new_unchecked(x, y);
+        if !pt.is_on_curve() {
+            return Err(SerdeError::PointNotOnCurve);
+        }
+
+        Ok(pt)
     }
 }
 

@@ -70,10 +70,6 @@ pub const BUILD_COMMAND: &str = "build";
 /// The target triple for the WASM build target
 pub const WASM_TARGET_TRIPLE: &str = "wasm32-unknown-unknown";
 
-/// The name of the "no-verify" feature, used to disable
-/// proof & ECDSA verification in the darkpool
-pub const NO_VERIFY_FEATURE: &str = "no-verify";
-
 /// Nightly Z flags to add to build command
 pub const Z_FLAGS: [&str; 3] =
     ["unstable-options", "build-std=std,panic_abort", "build-std-features=panic_immediate_abort"];

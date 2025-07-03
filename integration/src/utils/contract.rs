@@ -12,6 +12,7 @@ use contracts_core::crypto::poseidon::compute_poseidon_hash;
 use contracts_utils::merkle::MerkleConfig;
 use eyre::{eyre, Result};
 use scripts::utils::{EthereumCall, LocalWalletHttpClient};
+use test_helpers::assert_true_result;
 
 use crate::DarkpoolTestInstance;
 
@@ -92,15 +93,13 @@ pub async fn assert_only_owner<C: SolCall>(
 /// Asserts that all the given transactions revert
 pub async fn assert_revert<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>) -> Result<()> {
     let pending_res = call.send().await;
-    assert!(pending_res.is_err(), "Expected transaction to revert, but it succeeded");
-    Ok(())
+    assert_true_result!(pending_res.is_err())
 }
 
 /// Asserts that all of the given transactions successfully execute
 pub async fn assert_success<'a, C: CallDecoder + Unpin>(call: EthereumCall<'_, C>) -> Result<()> {
     let pending_res = call.send().await;
-    assert!(pending_res.is_ok(), "Expected transaction to succeed, but it reverted");
-    Ok(())
+    assert_true_result!(pending_res.is_ok())
 }
 
 // -----------------

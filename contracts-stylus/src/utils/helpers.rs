@@ -299,35 +299,6 @@ pub fn check_address_not_zero(address: Address) -> Result<(), Vec<u8>> {
     crate::assert_result!(address != Address::ZERO, ZERO_ADDRESS_ERROR_MESSAGE)
 }
 
-/// Expands to the given code block if verification is enabled,
-/// otherwise guards the disablement of verification.
-///
-/// We guard against verification disablement here, instead of the
-/// initialization of a contract, in the case that a contract is
-/// upgraded to a version w/ verification disabled - the initialization
-/// method may not be called.
-#[macro_export]
-macro_rules! if_verifying {
-    ($($logic:tt)*) => {
-        // If verification is enabled, execute the given logic
-        #[cfg(not(feature = "no-verify"))]
-        {
-            $($logic)*
-        }
-
-        // Otherwise, ensure that verification disablement
-        // is permitted (i.e., we are on the Renegade devnet)
-        #[cfg(feature = "no-verify")]
-        {
-            use stylus_sdk::block;
-            use contracts_common::constants::DEVNET_CHAINID;
-            use $crate::{assert_result, utils::constants::VERIFICATION_DISABLED_ERROR_MESSAGE};
-
-            assert_result!(block::chainid() == DEVNET_CHAINID, VERIFICATION_DISABLED_ERROR_MESSAGE)?;
-        }
-    };
-}
-
 /// Asserts the given condition, and returns an error if it fails.
 /// The "type" this macro returns is `Result<(), Vec<u8>>`, matching
 /// the return type of external contract methods.

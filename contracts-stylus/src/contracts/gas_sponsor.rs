@@ -429,6 +429,7 @@ impl GasSponsorContract {
     /// Invokes the malleable match path on the darkpool contract, by first
     /// transferring the tokens to the gas sponsor, then invoking the
     /// `process_malleable_match_settle_with_receiver` method as sender
+    #[allow(clippy::too_many_arguments)]
     pub fn do_malleable_match(
         &mut self,
         quote_amount: U256,
@@ -573,6 +574,7 @@ impl GasSponsorContract {
     ///
     /// Returns the amount that the external party will receive including the
     /// refund
+    #[allow(clippy::too_many_arguments)]
     fn refund_gas_cost(
         &mut self,
         refund_native_eth: bool,

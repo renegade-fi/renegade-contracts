@@ -42,7 +42,6 @@ precompile-test-contract = []
 dummy-erc20 = []
 dummy-weth = ["dummy-erc20"]
 dummy-upgrade-target = []
-no-verify = []
 
 export-abi = ["stylus-sdk/export-abi"]
 

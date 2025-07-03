@@ -2,7 +2,7 @@
 use core::borrow::{Borrow, BorrowMut};
 
 use crate::{
-    assert_result, if_verifying,
+    assert_result,
     utils::{
         constants::{
             CALL_RETDATA_DECODING_ERROR_MESSAGE, INVALID_ARR_LEN_ERROR_MESSAGE,
@@ -139,10 +139,7 @@ pub fn mark_nullifier_spent<
 
     let nullifier = scalar_to_u256(nullifier);
 
-    if_verifying!(assert_result!(
-        !this.nullifier_set().get(nullifier),
-        NULLIFIER_SPENT_ERROR_MESSAGE
-    )?);
+    assert_result!(!this.nullifier_set().get(nullifier), NULLIFIER_SPENT_ERROR_MESSAGE)?;
 
     this.nullifier_set_mut().insert(nullifier, true);
     log(s.vm(), NullifierSpent { nullifier });
@@ -482,9 +479,7 @@ pub fn check_root_and_nullify<
     nullifier: ScalarField,
     merkle_root: ScalarField,
 ) -> Result<(), Vec<u8>> {
-    if_verifying!({
-        check_root_in_history(s, merkle_root)?;
-    });
+    check_root_in_history(s, merkle_root)?;
 
     mark_nullifier_spent(s, nullifier)
 }
