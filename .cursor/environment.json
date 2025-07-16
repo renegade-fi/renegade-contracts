@@ -2,5 +2,8 @@
   "build": {
     "context": ".",
     "dockerfile": "Dockerfile"
+  },
+  "environment": {
+    "TERM": "xterm-256color"
   }
 }

@@ -10,6 +10,7 @@ oz-contracts/=lib/openzeppelin-contracts/contracts
 openzeppelin-contracts/=lib/UniswapX/lib/openzeppelin-contracts/contracts/
 solmate/=lib/solmate
 uniswapx/=lib/UniswapX/src
+uniswapx-test/=lib/UniswapX/test
 renegade/=src/darkpool
 proxies/=src/proxies
 renegade-lib/=src/libraries
