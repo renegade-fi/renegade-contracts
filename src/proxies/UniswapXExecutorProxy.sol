@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { TransparentUpgradeableProxy } from "oz-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { IUniswapXExecutor } from "renegade-lib/interfaces/IUniswapXExecutor.sol";
+import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
 
 /**
  * @title UniswapXExecutorProxy
@@ -29,7 +29,7 @@ contract UniswapXExecutorProxy is TransparentUpgradeableProxy {
         TransparentUpgradeableProxy(
             implementation,
             admin,
-            abi.encodeWithSelector(IUniswapXExecutor.initialize.selector, admin, darkpool, uniswapXReactor)
+            abi.encodeWithSelector(IDarkpoolExecutor.initialize.selector, admin, darkpool, uniswapXReactor)
         )
     { }
 }

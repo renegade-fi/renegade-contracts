@@ -4,11 +4,10 @@ pragma solidity ^0.8.27;
 import { DarkpoolExecutor } from "renegade-executor/DarkpoolExecutor.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { UniswapXExecutorProxy } from "proxies/UniswapXExecutorProxy.sol";
-import { IUniswapXExecutor } from "renegade-lib/interfaces/IUniswapXExecutor.sol";
+import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DarkpoolTestBase } from "test/darkpool/DarkpoolTestBase.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
@@ -28,19 +27,15 @@ import {
     PartyMatchPayload,
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
-    MalleableMatchAtomicProofs,
     ExternalMatchDirection,
     ExternalMatchResult
 } from "renegade-lib/darkpool/types/Settlement.sol";
-import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+import { ValidMatchSettleAtomicStatement } from "renegade-lib/darkpool/PublicInputs.sol";
 import { Permit2Lib } from "uniswapx/lib/Permit2Lib.sol";
 import { PermitHash } from "permit2/src/libraries/PermitHash.sol";
 import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
-import { console2 } from "forge-std/console2.sol";
-import { SignatureVerification } from "permit2/src/libraries/SignatureVerification.sol";
+import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 
 /// @title UniswapXExecutorTest
 /// @notice Test contract for the UniswapXExecutor
@@ -51,9 +46,10 @@ contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
     using PriorityFeeLib for PriorityInput;
     using PriorityFeeLib for PriorityOutput[];
     using PermitHash for ISignatureTransfer.PermitTransferFrom;
+    using TypesLib for FeeTake;
 
     PriorityOrderReactor reactor;
-    IUniswapXExecutor executor;
+    IDarkpoolExecutor executor;
 
     /// @notice Sets up the test environment
     /// @dev For now we test against a `PriorityOrderReactor`, which is the flavor deployed on Base
@@ -69,7 +65,7 @@ contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
         DarkpoolExecutor executorImpl = new DarkpoolExecutor();
         UniswapXExecutorProxy executorProxy =
             new UniswapXExecutorProxy(address(executorImpl), darkpoolOwner, address(darkpool), address(reactor));
-        executor = IUniswapXExecutor(address(executorProxy));
+        executor = IDarkpoolExecutor(address(executorProxy));
     }
 
     /// @notice Test that the owner is set correctly
@@ -92,16 +88,13 @@ contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
 
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party buy side
     function test_executeAtomicMatchSettle_externalPartyBuySide() public {
-        uint256 QUOTE_AMT = 1_000_000;
-        uint256 BASE_AMT = 5_000_000;
+        Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
-        quoteToken.mint(address(executor), QUOTE_AMT);
+        uint256 QUOTE_AMT = 1_000_000;
+        uint256 BASE_AMT = 5_000_000;
+        quoteToken.mint(userWallet.addr, QUOTE_AMT);
         baseToken.mint(address(darkpool), BASE_AMT);
-
-        // Get initial balances
-        uint256 reactorBaseBalance1 = baseToken.balanceOf(address(reactor));
-        uint256 reactorQuoteBalance1 = quoteToken.balanceOf(address(reactor));
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
@@ -120,16 +113,29 @@ contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
             MatchAtomicProofs memory proofs,
             MatchAtomicLinkingProofs memory linkingProofs
         ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
-        SignedOrder memory signedOrder = _createSignedOrder(matchResult);
+        FeeTake memory feeTake = statement.externalPartyFees;
+        SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
 
-        vm.startBroadcast(address(executor));
-        quoteToken.approve(address(darkpool), QUOTE_AMT);
+        (uint256 userBasePreBalance, uint256 userQuotePreBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePreBalance, uint256 darkpoolQuotePreBalance) = baseQuoteBalances(address(darkpool));
+
+        // Approve the permit2 contract to spend the quote token
+        vm.startBroadcast(userWallet.addr);
+        quoteToken.approve(address(permit2), QUOTE_AMT);
+        vm.stopBroadcast();
 
         // Call executeAtomicMatchSettle
-        DarkpoolExecutor(address(executor)).executeAtomicMatchSettle(
-            signedOrder, internalPartyPayload, statement, proofs, linkingProofs
-        );
-        vm.stopBroadcast();
+        executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
+
+        // Check the balance updates
+        (uint256 userBasePostBalance, uint256 userQuotePostBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePostBalance, uint256 darkpoolQuotePostBalance) = baseQuoteBalances(address(darkpool));
+
+        uint256 totalFee = feeTake.total();
+        assertEq(userBasePostBalance, userBasePreBalance + BASE_AMT - totalFee);
+        assertEq(userQuotePostBalance, userQuotePreBalance - QUOTE_AMT);
+        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance - BASE_AMT);
+        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance + QUOTE_AMT);
     }
 
     // -----------
@@ -141,23 +147,42 @@ contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
     /// @notice Creates a dummy signed priority order for a given match result, simulating a user order for UniswapX
     /// execution tests.
     /// @param matchResult The ExternalMatchResult specifying the quote/base tokens and amounts for the order.
+    /// @param userWallet The wallet of the user who is signing the order.
     /// @return A SignedOrder struct representing the signed priority order.
-    function _createSignedOrder(ExternalMatchResult memory matchResult) internal returns (SignedOrder memory) {
-        // Create a dummy user
-        Vm.Wallet memory userWallet = randomEthereumWallet();
-        console2.log("userWallet", userWallet.addr);
-
+    function _createSignedOrder(
+        ExternalMatchResult memory matchResult,
+        FeeTake memory feeTake,
+        Vm.Wallet memory userWallet
+    )
+        internal
+        returns (SignedOrder memory)
+    {
         // Create the input
-        PriorityInput memory input = PriorityInput({
-            token: ERC20(address(quoteToken)),
-            amount: matchResult.quoteAmount,
-            mpsPerPriorityFeeWei: 0
-        });
+        address inputToken;
+        address outputToken;
+        uint256 inputAmount;
+        uint256 outputAmount;
+
+        if (matchResult.direction == ExternalMatchDirection.InternalPartySell) {
+            inputToken = address(quoteToken);
+            outputToken = address(baseToken);
+            inputAmount = matchResult.quoteAmount;
+            outputAmount = matchResult.baseAmount;
+        } else {
+            inputToken = address(baseToken);
+            outputToken = address(quoteToken);
+            inputAmount = matchResult.baseAmount;
+            outputAmount = matchResult.quoteAmount;
+        }
+
+        PriorityInput memory input =
+            PriorityInput({ token: ERC20(inputToken), amount: inputAmount, mpsPerPriorityFeeWei: 0 });
 
         // Create the output
+        uint256 totalFee = feeTake.total();
         PriorityOutput memory output = PriorityOutput({
-            token: address(baseToken),
-            amount: matchResult.baseAmount,
+            token: outputToken,
+            amount: outputAmount - totalFee,
             mpsPerPriorityFeeWei: 0,
             recipient: userWallet.addr
         });

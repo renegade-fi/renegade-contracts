@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.27;
+
+import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
+import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
+import {
+    PartyMatchPayload,
+    MatchAtomicProofs,
+    MatchAtomicLinkingProofs,
+    MalleableMatchAtomicProofs
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import {
+    ValidMatchSettleAtomicStatement,
+    ValidMalleableMatchSettleAtomicStatement
+} from "renegade-lib/darkpool/PublicInputs.sol";
+
+interface IDarkpoolExecutor is IReactorCallback {
+    /// @notice Returns the address of the current owner
+    /// @return The address of the current owner
+    function owner() external view returns (address);
+
+    /// @notice Initializes the DarkpoolExecutor
+    /// @param initialOwner The address that will own the contract
+    /// @param darkpool_ The darkpool address
+    /// @param uniswapXReactor_ The UniswapX reactor address
+    function initialize(address initialOwner, address darkpool_, address uniswapXReactor_) external;
+
+    /// @notice Execute a UniswapX order with atomic match settlement
+    /// @param order The signed order to execute
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of VALID MATCH SETTLE
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function executeAtomicMatchSettle(
+        SignedOrder calldata order,
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMatchSettleAtomicStatement calldata matchSettleStatement,
+        MatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        payable;
+
+    /// @notice Execute a UniswapX order with malleable atomic match settlement
+    /// @param order The signed order to execute
+    /// @param quoteAmount The quote amount of the match, resolving in between the bounds
+    /// @param baseAmount The base amount of the match, resolving in between the bounds
+    /// @param internalPartyPayload The validity proofs for the internal party
+    /// @param matchSettleStatement The statement (public inputs) of VALID MATCH SETTLE
+    /// @param proofs The proofs for the match
+    /// @param linkingProofs The proof-linking arguments for the match
+    function executeMalleableAtomicMatchSettle(
+        SignedOrder calldata order,
+        uint256 quoteAmount,
+        uint256 baseAmount,
+        PartyMatchPayload calldata internalPartyPayload,
+        ValidMalleableMatchSettleAtomicStatement calldata matchSettleStatement,
+        MalleableMatchAtomicProofs calldata proofs,
+        MatchAtomicLinkingProofs calldata linkingProofs
+    )
+        external
+        payable;
+}
