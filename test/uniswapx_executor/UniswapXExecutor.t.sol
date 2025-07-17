@@ -37,10 +37,10 @@ import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.so
 import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
 import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 
-/// @title UniswapXExecutorTest
-/// @notice Test contract for the UniswapXExecutor
-/// @dev This contract tests the UniswapXExecutor contract
-contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
+/// @title DarkpoolExecutorTest
+/// @notice Test contract for the DarkpoolExecutor
+/// @dev This contract tests the DarkpoolExecutor contract
+contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
     using Permit2Lib for ResolvedOrder;
     using PriorityOrderLib for PriorityOrder;
     using PriorityFeeLib for PriorityInput;
@@ -136,6 +136,58 @@ contract UniswapXExecutorTest is DarkpoolTestBase, PermitSignature {
         assertEq(userQuotePostBalance, userQuotePreBalance - QUOTE_AMT);
         assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance - BASE_AMT);
         assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance + QUOTE_AMT);
+    }
+
+    /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party sell side
+    function test_executeAtomicMatchSettle_externalPartySellSide() public {
+        Vm.Wallet memory userWallet = randomEthereumWallet();
+
+        // Setup tokens
+        uint256 QUOTE_AMT = 1_000_000;
+        uint256 BASE_AMT = 5_000_000;
+        baseToken.mint(userWallet.addr, BASE_AMT);
+        quoteToken.mint(address(darkpool), QUOTE_AMT);
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        FeeTake memory feeTake = statement.externalPartyFees;
+        SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
+
+        (uint256 userBasePreBalance, uint256 userQuotePreBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePreBalance, uint256 darkpoolQuotePreBalance) = baseQuoteBalances(address(darkpool));
+
+        // Approve the permit2 contract to spend the quote token
+        vm.startBroadcast(userWallet.addr);
+        baseToken.approve(address(permit2), BASE_AMT);
+        vm.stopBroadcast();
+
+        // Call executeAtomicMatchSettle
+        executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
+
+        // Check the balance updates
+        (uint256 userBasePostBalance, uint256 userQuotePostBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePostBalance, uint256 darkpoolQuotePostBalance) = baseQuoteBalances(address(darkpool));
+
+        uint256 totalFee = feeTake.total();
+        assertEq(userBasePostBalance, userBasePreBalance - BASE_AMT);
+        assertEq(userQuotePostBalance, userQuotePreBalance + QUOTE_AMT - totalFee);
+        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance + BASE_AMT);
+        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance - QUOTE_AMT);
     }
 
     // -----------
