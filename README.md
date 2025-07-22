@@ -34,6 +34,12 @@ Please refer to our [whitepaper](https://www.renegade.fi/whitepaper.pdf) and [do
 curl -L https://foundry.paradigm.xyz | bash
 ```
 
+### Install `huffc`
+
+```shell
+curl -L get.huff.sh | bash
+```
+
 ### Install Cargo
 The integration tests are written in rust, and the unit test use rust reference implementations:
 ``` shell
