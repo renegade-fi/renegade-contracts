@@ -7,6 +7,7 @@ import { UniswapXExecutorProxy } from "proxies/UniswapXExecutorProxy.sol";
 import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
+import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { DarkpoolTestBase } from "test/darkpool/DarkpoolTestBase.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -86,8 +87,39 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         IReactorCallback(address(executor)).reactorCallback(resolvedOrders, callbackData);
     }
 
+    /// @notice Test that non-solver addresses cannot call executeAtomicMatchSettle
+    function test_executeAtomicMatchSettle_callerNotSolver() public {
+        Vm.Wallet memory userWallet = randomEthereumWallet();
+        
+        // Setup dummy parameters
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: 1_000_000,
+            baseAmount: 5_000_000,
+            direction: ExternalMatchDirection.InternalPartySell
+        });
+
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        FeeTake memory feeTake = statement.externalPartyFees;
+        SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
+
+        // Expect revert when calling without being whitelisted
+        vm.expectRevert(DarkpoolExecutor.CallerNotSolver.selector);
+        executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
+    }
+
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party buy side
     function test_executeAtomicMatchSettle_externalPartyBuySide() public {
+        // Whitelist this test contract as a solver
+        vm.prank(darkpoolOwner);
+        executor.addSolver(address(this));
         Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
@@ -140,6 +172,9 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
 
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party sell side
     function test_executeAtomicMatchSettle_externalPartySellSide() public {
+        // Whitelist this test contract as a solver
+        vm.prank(darkpoolOwner);
+        executor.addSolver(address(this));
         Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
@@ -188,6 +223,64 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         assertEq(userQuotePostBalance, userQuotePreBalance + QUOTE_AMT - totalFee);
         assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance + BASE_AMT);
         assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance - QUOTE_AMT);
+    }
+
+    /// @notice Test adding a solver to the whitelist
+    function test_addSolver() public {
+        address newSolver = vm.randomAddress();
+        
+        // Check that the address is not a solver initially
+        assertFalse(executor.isSolver(newSolver));
+        
+        // Add the solver as the owner
+        vm.prank(darkpoolOwner);
+        executor.addSolver(newSolver);
+        
+        // Check that the address is now a solver
+        assertTrue(executor.isSolver(newSolver));
+    }
+
+    /// @notice Test removing a solver from the whitelist
+    function test_removeSolver() public {
+        address solver = vm.randomAddress();
+        
+        // First add the solver
+        vm.prank(darkpoolOwner);
+        executor.addSolver(solver);
+        assertTrue(executor.isSolver(solver));
+        
+        // Remove the solver
+        vm.prank(darkpoolOwner);
+        executor.removeSolver(solver);
+        
+        // Check that the address is no longer a solver
+        assertFalse(executor.isSolver(solver));
+    }
+
+    /// @notice Test that only owner can add solvers
+    function test_addSolver_onlyOwner() public {
+        address newSolver = vm.randomAddress();
+        address nonOwner = vm.randomAddress();
+        
+        // Try to add solver as non-owner
+        vm.prank(nonOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
+        executor.addSolver(newSolver);
+    }
+
+    /// @notice Test that only owner can remove solvers
+    function test_removeSolver_onlyOwner() public {
+        address solver = vm.randomAddress();
+        address nonOwner = vm.randomAddress();
+        
+        // First add the solver as owner
+        vm.prank(darkpoolOwner);
+        executor.addSolver(solver);
+        
+        // Try to remove solver as non-owner
+        vm.prank(nonOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
+        executor.removeSolver(solver);
     }
 
     // -----------
