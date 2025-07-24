@@ -8,6 +8,7 @@ import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
+import { Address } from "oz-contracts/utils/Address.sol";
 import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
 import { IReactor } from "uniswapx/interfaces/IReactor.sol";
 import { SignedOrder } from "uniswapx/base/ReactorStructs.sol";
@@ -22,6 +23,9 @@ import {
     ValidMalleableMatchSettleAtomicStatement
 } from "renegade-lib/darkpool/PublicInputs.sol";
 
+import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { ERC20 } from "solmate/src/tokens/ERC20.sol";
+
 /**
  * @title DarkpoolExecutor
  * @notice A wrapper contract that acts as a UniswapX executor for the darkpool
@@ -29,6 +33,8 @@ import {
  * and routes them to the darkpool for settlement
  */
 contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable {
+    using SafeTransferLib for ERC20;
+
     // --- State Variables --- //
 
     /// @notice The darkpool contract
@@ -77,7 +83,7 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
         // Encode callback data for processAtomicMatchSettle
         bytes memory callbackData = abi.encodeWithSelector(
             darkpool.processAtomicMatchSettle.selector,
-            address(uniswapXReactor), // receiver is always the reactor
+            address(this), // executor is the receiver
             internalPartyPayload,
             matchSettleStatement,
             proofs,
@@ -114,7 +120,7 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
             darkpool.processMalleableAtomicMatchSettle.selector,
             quoteAmount,
             baseAmount,
-            address(uniswapXReactor), // receiver is always the reactor
+            address(this), // executor is the receiver
             internalPartyPayload,
             matchSettleStatement,
             proofs,
@@ -130,8 +136,9 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
     /// @notice Called by the reactor during the execution of an order
     /// @param callbackData The callbackData specified for an order execution
     /// @dev Must have approved each token and amount in outputs to the msg.sender
+    /// @dev For now we assume that there is only one resolved order with a single output token
     function reactorCallback(
-        ResolvedOrder[] memory, /* resolvedOrders */
+        ResolvedOrder[] memory resolvedOrders,
         bytes memory callbackData
     )
         external
@@ -145,9 +152,20 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
         // TODO: Properly account for the ether value of the transaction
         uint256 value = address(this).balance;
 
+        // Approve the darkpool to spend the input token
+        ResolvedOrder memory resolvedOrder = resolvedOrders[0];
+        ERC20 sendToken = resolvedOrder.input.token;
+        uint256 balance = sendToken.balanceOf(address(this));
+        sendToken.safeApprove(address(darkpool), balance);
+
         // Forward the call directly to the darkpool
         // The callback data already contains the selector and all properly encoded parameters
-        (bool success,) = address(darkpool).call{ value: value }(callbackData);
-        require(success, "Darkpool call failed");
+        // This will automatically bubble up any revert reason from the darkpool
+        Address.functionCallWithValue(address(darkpool), callbackData, value);
+
+        // Finally, approve the reactor to transfer the output tokens
+        ERC20 receiveToken = ERC20(resolvedOrder.outputs[0].token);
+        uint256 receiveAmount = resolvedOrder.outputs[0].amount;
+        receiveToken.safeApprove(address(uniswapXReactor), receiveAmount);
     }
 }

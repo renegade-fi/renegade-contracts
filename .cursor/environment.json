@@ -1,4 +1,5 @@
 {
+  "install": "export TERM=xterm-256color",
   "build": {
     "context": ".",
     "dockerfile": "Dockerfile"

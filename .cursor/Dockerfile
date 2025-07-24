@@ -2,6 +2,7 @@ FROM ubuntu:22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm-256color
 ENV USER=ubuntu
 ENV HOME=/home/ubuntu
 

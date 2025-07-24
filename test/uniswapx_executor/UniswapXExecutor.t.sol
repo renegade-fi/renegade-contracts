@@ -2,20 +2,54 @@
 pragma solidity ^0.8.27;
 
 import { DarkpoolExecutor } from "renegade-executor/DarkpoolExecutor.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { UniswapXExecutorProxy } from "proxies/UniswapXExecutorProxy.sol";
-import { IUniswapXExecutor } from "renegade-lib/interfaces/IUniswapXExecutor.sol";
-
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
+import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
+import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
+import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
+import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { DarkpoolTestBase } from "test/darkpool/DarkpoolTestBase.sol";
+import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { PriorityOrderReactor } from "uniswapx/reactors/PriorityOrderReactor.sol";
+import { PriorityOrderLib } from "uniswapx/lib/PriorityOrderLib.sol";
+import { PriorityFeeLib } from "uniswapx/lib/PriorityFeeLib.sol";
+import {
+    PriorityOrder,
+    OrderInfo,
+    PriorityInput,
+    PriorityOutput,
+    PriorityCosignerData
+} from "uniswapx/lib/PriorityOrderLib.sol";
+import { PermitSignature } from "uniswapx-test/util/PermitSignature.sol";
+import { IValidationCallback } from "uniswapx/interfaces/IValidationCallback.sol";
+import {
+    PartyMatchPayload,
+    MatchAtomicProofs,
+    MatchAtomicLinkingProofs,
+    ExternalMatchDirection,
+    ExternalMatchResult
+} from "renegade-lib/darkpool/types/Settlement.sol";
+import { ValidMatchSettleAtomicStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { Permit2Lib } from "uniswapx/lib/Permit2Lib.sol";
+import { PermitHash } from "permit2/src/libraries/PermitHash.sol";
+import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
+import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
 
-/// @title UniswapXExecutorTest
-/// @notice Test contract for the UniswapXExecutor
-/// @dev This contract tests the UniswapXExecutor contract
-contract UniswapXExecutorTest is DarkpoolTestBase {
+/// @title DarkpoolExecutorTest
+/// @notice Test contract for the DarkpoolExecutor
+/// @dev This contract tests the DarkpoolExecutor contract
+contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
+    using Permit2Lib for ResolvedOrder;
+    using PriorityOrderLib for PriorityOrder;
+    using PriorityFeeLib for PriorityInput;
+    using PriorityFeeLib for PriorityOutput[];
+    using PermitHash for ISignatureTransfer.PermitTransferFrom;
+    using TypesLib for FeeTake;
+
     PriorityOrderReactor reactor;
-    IUniswapXExecutor executor;
+    IDarkpoolExecutor executor;
 
     /// @notice Sets up the test environment
     /// @dev For now we test against a `PriorityOrderReactor`, which is the flavor deployed on Base
@@ -31,12 +65,242 @@ contract UniswapXExecutorTest is DarkpoolTestBase {
         DarkpoolExecutor executorImpl = new DarkpoolExecutor();
         UniswapXExecutorProxy executorProxy =
             new UniswapXExecutorProxy(address(executorImpl), darkpoolOwner, address(darkpool), address(reactor));
-        executor = IUniswapXExecutor(address(executorProxy));
+        executor = IDarkpoolExecutor(address(executorProxy));
     }
 
     /// @notice Test that the owner is set correctly
-    function testOwner() public {
+    function testOwner() public view {
         // Check that the owner is set correctly
         assertEq(executor.owner(), darkpoolOwner);
+    }
+
+    /// @notice Test that unauthorized callers are rejected in reactor callback
+    function test_reactorCallback_unauthorizedCaller() public {
+        bytes memory callbackData = abi.encodeWithSelector(
+            darkpool.processAtomicMatchSettle.selector, address(0), address(0), address(0), address(0), address(0)
+        );
+
+        ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](0);
+
+        vm.expectRevert(DarkpoolExecutor.UnauthorizedCaller.selector);
+        IReactorCallback(address(executor)).reactorCallback(resolvedOrders, callbackData);
+    }
+
+    /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party buy side
+    function test_executeAtomicMatchSettle_externalPartyBuySide() public {
+        Vm.Wallet memory userWallet = randomEthereumWallet();
+
+        // Setup tokens
+        uint256 QUOTE_AMT = 1_000_000;
+        uint256 BASE_AMT = 5_000_000;
+        quoteToken.mint(userWallet.addr, QUOTE_AMT);
+        baseToken.mint(address(darkpool), BASE_AMT);
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartySell
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        FeeTake memory feeTake = statement.externalPartyFees;
+        SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
+
+        (uint256 userBasePreBalance, uint256 userQuotePreBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePreBalance, uint256 darkpoolQuotePreBalance) = baseQuoteBalances(address(darkpool));
+
+        // Approve the permit2 contract to spend the quote token
+        vm.startBroadcast(userWallet.addr);
+        quoteToken.approve(address(permit2), QUOTE_AMT);
+        vm.stopBroadcast();
+
+        // Call executeAtomicMatchSettle
+        executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
+
+        // Check the balance updates
+        (uint256 userBasePostBalance, uint256 userQuotePostBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePostBalance, uint256 darkpoolQuotePostBalance) = baseQuoteBalances(address(darkpool));
+
+        uint256 totalFee = feeTake.total();
+        assertEq(userBasePostBalance, userBasePreBalance + BASE_AMT - totalFee);
+        assertEq(userQuotePostBalance, userQuotePreBalance - QUOTE_AMT);
+        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance - BASE_AMT);
+        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance + QUOTE_AMT);
+    }
+
+    /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party sell side
+    function test_executeAtomicMatchSettle_externalPartySellSide() public {
+        Vm.Wallet memory userWallet = randomEthereumWallet();
+
+        // Setup tokens
+        uint256 QUOTE_AMT = 1_000_000;
+        uint256 BASE_AMT = 5_000_000;
+        baseToken.mint(userWallet.addr, BASE_AMT);
+        quoteToken.mint(address(darkpool), QUOTE_AMT);
+
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartyBuy
+        });
+
+        // Setup calldata
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        FeeTake memory feeTake = statement.externalPartyFees;
+        SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
+
+        (uint256 userBasePreBalance, uint256 userQuotePreBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePreBalance, uint256 darkpoolQuotePreBalance) = baseQuoteBalances(address(darkpool));
+
+        // Approve the permit2 contract to spend the quote token
+        vm.startBroadcast(userWallet.addr);
+        baseToken.approve(address(permit2), BASE_AMT);
+        vm.stopBroadcast();
+
+        // Call executeAtomicMatchSettle
+        executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
+
+        // Check the balance updates
+        (uint256 userBasePostBalance, uint256 userQuotePostBalance) = baseQuoteBalances(userWallet.addr);
+        (uint256 darkpoolBasePostBalance, uint256 darkpoolQuotePostBalance) = baseQuoteBalances(address(darkpool));
+
+        uint256 totalFee = feeTake.total();
+        assertEq(userBasePostBalance, userBasePreBalance - BASE_AMT);
+        assertEq(userQuotePostBalance, userQuotePreBalance + QUOTE_AMT - totalFee);
+        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance + BASE_AMT);
+        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance - QUOTE_AMT);
+    }
+
+    // -----------
+    // | Helpers |
+    // -----------
+
+    // --- UniswapX Helpers --- //
+
+    /// @notice Creates a dummy signed priority order for a given match result, simulating a user order for UniswapX
+    /// execution tests.
+    /// @param matchResult The ExternalMatchResult specifying the quote/base tokens and amounts for the order.
+    /// @param userWallet The wallet of the user who is signing the order.
+    /// @return A SignedOrder struct representing the signed priority order.
+    function _createSignedOrder(
+        ExternalMatchResult memory matchResult,
+        FeeTake memory feeTake,
+        Vm.Wallet memory userWallet
+    )
+        internal
+        returns (SignedOrder memory)
+    {
+        // Create the input
+        address inputToken;
+        address outputToken;
+        uint256 inputAmount;
+        uint256 outputAmount;
+
+        if (matchResult.direction == ExternalMatchDirection.InternalPartySell) {
+            inputToken = address(quoteToken);
+            outputToken = address(baseToken);
+            inputAmount = matchResult.quoteAmount;
+            outputAmount = matchResult.baseAmount;
+        } else {
+            inputToken = address(baseToken);
+            outputToken = address(quoteToken);
+            inputAmount = matchResult.baseAmount;
+            outputAmount = matchResult.quoteAmount;
+        }
+
+        PriorityInput memory input =
+            PriorityInput({ token: ERC20(inputToken), amount: inputAmount, mpsPerPriorityFeeWei: 0 });
+
+        // Create the output
+        uint256 totalFee = feeTake.total();
+        PriorityOutput memory output = PriorityOutput({
+            token: outputToken,
+            amount: outputAmount - totalFee,
+            mpsPerPriorityFeeWei: 0,
+            recipient: userWallet.addr
+        });
+        PriorityOutput[] memory outputs = new PriorityOutput[](1);
+        outputs[0] = output;
+
+        // Create the order
+        uint256 nonce = randomUint();
+        OrderInfo memory info = OrderInfo({
+            reactor: reactor,
+            swapper: userWallet.addr,
+            nonce: nonce,
+            deadline: block.timestamp + 1 days,
+            additionalValidationContract: IValidationCallback(address(0)),
+            additionalValidationData: ""
+        });
+
+        // Create the cosigner data
+        PriorityCosignerData memory cosignerData = PriorityCosignerData({ auctionTargetBlock: block.number });
+        bytes memory cosignature = bytes("");
+
+        // Create the order
+        PriorityOrder memory order = PriorityOrder({
+            info: info,
+            cosigner: address(0),
+            auctionStartBlock: block.number,
+            baselinePriorityFeeWei: 0,
+            input: input,
+            outputs: outputs,
+            cosignerData: cosignerData,
+            cosignature: cosignature
+        });
+
+        // Create the permit signature
+        SignedOrder memory signedOrder = _signPriorityOrder(userWallet, order);
+        return signedOrder;
+    }
+
+    /// @notice Constructs and signs a PriorityOrder for the given user and match result, returning a SignedOrder with a
+    /// valid Permit2 signature.
+    /// @param userWallet The wallet of the user who is signing the order.
+    /// @param order The PriorityOrder to sign.
+    /// @return signedOrder The SignedOrder with a valid Permit2 signature.
+    function _signPriorityOrder(
+        Vm.Wallet memory userWallet,
+        PriorityOrder memory order
+    )
+        internal
+        returns (SignedOrder memory signedOrder)
+    {
+        uint256 inputAmount = order.input.amount;
+        address inputToken = address(order.input.token);
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: inputToken, amount: inputAmount }),
+            nonce: order.info.nonce,
+            deadline: order.info.deadline
+        });
+
+        bytes32 witness = order.hash();
+        bytes32 domainSeparator = permit2.DOMAIN_SEPARATOR();
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(reactor), userWallet.privateKey, PRIORITY_ORDER_TYPE_HASH, witness, domainSeparator
+        );
+
+        // Create the signed order
+        signedOrder = SignedOrder({ order: abi.encode(order), sig: sig });
+        return signedOrder;
     }
 }
