@@ -7,6 +7,7 @@ import { ResolvedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
+import { AccessControl } from "oz-contracts/access/AccessControl.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { Address } from "oz-contracts/utils/Address.sol";
 import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
@@ -32,7 +33,7 @@ import { ERC20 } from "solmate/src/tokens/ERC20.sol";
  * @dev This contract implements IReactorCallback to handle order execution callbacks from UniswapX
  * and routes them to the darkpool for settlement
  */
-contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable {
+contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable, AccessControl {
     using SafeTransferLib for ERC20;
 
     // --- State Variables --- //
@@ -41,21 +42,19 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
     IDarkpool public darkpool;
     /// @notice The UniswapX reactor contract
     IReactor public uniswapXReactor;
-    /// @notice The set of allowed solvers. Allowed solvers have a value of `true` in this mapping.
-    mapping(address => bool) private solvers;
+    /// @notice Role identifier for whitelisted solvers
+    bytes32 public constant SOLVER_ROLE = keccak256("SOLVER_ROLE");
 
     // --- Errors --- //
 
     /// @notice Thrown when the caller is not whitelisted
     error UnauthorizedCaller();
-    /// @notice Thrown when the caller is not a solver
-    error CallerNotSolver();
 
     // --- Modifiers --- //
 
-    /// @notice Ensures the caller is an allowed solver
+    /// @notice Ensures the caller is a whitelisted solver
     modifier onlySolver() {
-        if (!isSolver(msg.sender)) revert CallerNotSolver();
+        _checkRole(SOLVER_ROLE);
         _;
     }
 
@@ -149,21 +148,21 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
 
     /// @notice Add an address to the set of allowed solvers
     /// @param solver The solver address to add
-    function addSolver(address solver) public onlyOwner {
-        solvers[solver] = true;
+    function whitelistSolver(address solver) public onlyOwner {
+        _grantRole(SOLVER_ROLE, solver);
     }
 
     /// @notice Remove an address from the set of allowed solvers
     /// @param solver The solver address to remove
-    function removeSolver(address solver) public onlyOwner {
-        solvers[solver] = false;
+    function removeWhitelistedSolver(address solver) public onlyOwner {
+        _revokeRole(SOLVER_ROLE, solver);
     }
 
     /// @notice Check if an address is an allowed solver
     /// @param solver The address to check
     /// @return Whether the address is an allowed solver
-    function isSolver(address solver) public view returns (bool) {
-        return solvers[solver];
+    function isWhitelistedSolver(address solver) public view returns (bool) {
+        return hasRole(SOLVER_ROLE, solver);
     }
 
     // --- Callback Logic --- //

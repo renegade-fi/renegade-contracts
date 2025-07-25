@@ -63,14 +63,14 @@ interface IDarkpoolExecutor is IReactorCallback {
 
     /// @notice Add an address to the set of allowed solvers
     /// @param solver The solver address to add
-    function addSolver(address solver) external;
+    function whitelistSolver(address solver) external;
 
     /// @notice Remove an address from the set of allowed solvers
     /// @param solver The solver address to remove
-    function removeSolver(address solver) external;
+    function removeWhitelistedSolver(address solver) external;
 
     /// @notice Check if an address is an allowed solver
     /// @param solver The address to check
     /// @return Whether the address is an allowed solver
-    function isSolver(address solver) external view returns (bool);
+    function isWhitelistedSolver(address solver) external view returns (bool);
 }

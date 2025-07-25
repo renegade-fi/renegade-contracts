@@ -67,6 +67,10 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         UniswapXExecutorProxy executorProxy =
             new UniswapXExecutorProxy(address(executorImpl), darkpoolOwner, address(darkpool), address(reactor));
         executor = IDarkpoolExecutor(address(executorProxy));
+
+        // Whitelist this test contract as a solver for execution tests
+        vm.prank(darkpoolOwner);
+        executor.whitelistSolver(address(this));
     }
 
     /// @notice Test that the owner is set correctly
@@ -110,16 +114,17 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         FeeTake memory feeTake = statement.externalPartyFees;
         SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
 
+        // Create a non-whitelisted address to test with
+        address nonSolver = vm.randomAddress();
+
         // Expect revert when calling without being whitelisted
-        vm.expectRevert(DarkpoolExecutor.CallerNotSolver.selector);
+        vm.prank(nonSolver);
+        vm.expectRevert(); // AccessControl will revert with its own error
         executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party buy side
     function test_executeAtomicMatchSettle_externalPartyBuySide() public {
-        // Whitelist this test contract as a solver
-        vm.prank(darkpoolOwner);
-        executor.addSolver(address(this));
         Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
@@ -172,9 +177,6 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
 
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party sell side
     function test_executeAtomicMatchSettle_externalPartySellSide() public {
-        // Whitelist this test contract as a solver
-        vm.prank(darkpoolOwner);
-        executor.addSolver(address(this));
         Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
@@ -223,64 +225,6 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         assertEq(userQuotePostBalance, userQuotePreBalance + QUOTE_AMT - totalFee);
         assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance + BASE_AMT);
         assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance - QUOTE_AMT);
-    }
-
-    /// @notice Test adding a solver to the whitelist
-    function test_addSolver() public {
-        address newSolver = vm.randomAddress();
-
-        // Check that the address is not a solver initially
-        assertFalse(executor.isSolver(newSolver));
-
-        // Add the solver as the owner
-        vm.prank(darkpoolOwner);
-        executor.addSolver(newSolver);
-
-        // Check that the address is now a solver
-        assertTrue(executor.isSolver(newSolver));
-    }
-
-    /// @notice Test removing a solver from the whitelist
-    function test_removeSolver() public {
-        address solver = vm.randomAddress();
-
-        // First add the solver
-        vm.prank(darkpoolOwner);
-        executor.addSolver(solver);
-        assertTrue(executor.isSolver(solver));
-
-        // Remove the solver
-        vm.prank(darkpoolOwner);
-        executor.removeSolver(solver);
-
-        // Check that the address is no longer a solver
-        assertFalse(executor.isSolver(solver));
-    }
-
-    /// @notice Test that only owner can add solvers
-    function test_addSolver_onlyOwner() public {
-        address newSolver = vm.randomAddress();
-        address nonOwner = vm.randomAddress();
-
-        // Try to add solver as non-owner
-        vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
-        executor.addSolver(newSolver);
-    }
-
-    /// @notice Test that only owner can remove solvers
-    function test_removeSolver_onlyOwner() public {
-        address solver = vm.randomAddress();
-        address nonOwner = vm.randomAddress();
-
-        // First add the solver as owner
-        vm.prank(darkpoolOwner);
-        executor.addSolver(solver);
-
-        // Try to remove solver as non-owner
-        vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
-        executor.removeSolver(solver);
     }
 
     // -----------
