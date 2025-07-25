@@ -7,6 +7,7 @@ import { UniswapXExecutorProxy } from "proxies/UniswapXExecutorProxy.sol";
 import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
+import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 import { DarkpoolTestBase } from "test/darkpool/DarkpoolTestBase.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -66,6 +67,10 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         UniswapXExecutorProxy executorProxy =
             new UniswapXExecutorProxy(address(executorImpl), darkpoolOwner, address(darkpool), address(reactor));
         executor = IDarkpoolExecutor(address(executorProxy));
+
+        // Whitelist this test contract as a solver for execution tests
+        vm.prank(darkpoolOwner);
+        executor.whitelistSolver(address(this));
     }
 
     /// @notice Test that the owner is set correctly
@@ -84,6 +89,38 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
 
         vm.expectRevert(DarkpoolExecutor.UnauthorizedCaller.selector);
         IReactorCallback(address(executor)).reactorCallback(resolvedOrders, callbackData);
+    }
+
+    /// @notice Test that non-solver addresses cannot call executeAtomicMatchSettle
+    function test_executeAtomicMatchSettle_callerNotSolver() public {
+        Vm.Wallet memory userWallet = randomEthereumWallet();
+
+        // Setup dummy parameters
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: 1_000_000,
+            baseAmount: 5_000_000,
+            direction: ExternalMatchDirection.InternalPartySell
+        });
+
+        BN254.ScalarField merkleRoot = darkpool.getMerkleRoot();
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
+        FeeTake memory feeTake = statement.externalPartyFees;
+        SignedOrder memory signedOrder = _createSignedOrder(matchResult, feeTake, userWallet);
+
+        // Create a non-whitelisted address to test with
+        address nonSolver = vm.randomAddress();
+
+        // Expect revert when calling without being whitelisted
+        vm.prank(nonSolver);
+        vm.expectRevert(); // AccessControl will revert with its own error
+        executor.executeAtomicMatchSettle(signedOrder, internalPartyPayload, statement, proofs, linkingProofs);
     }
 
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party buy side

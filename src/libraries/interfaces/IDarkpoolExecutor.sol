@@ -60,4 +60,17 @@ interface IDarkpoolExecutor is IReactorCallback {
     )
         external
         payable;
+
+    /// @notice Add an address to the set of allowed solvers
+    /// @param solver The solver address to add
+    function whitelistSolver(address solver) external;
+
+    /// @notice Remove an address from the set of allowed solvers
+    /// @param solver The solver address to remove
+    function removeWhitelistedSolver(address solver) external;
+
+    /// @notice Check if an address is an allowed solver
+    /// @param solver The address to check
+    /// @return Whether the address is an allowed solver
+    function isWhitelistedSolver(address solver) external view returns (bool);
 }

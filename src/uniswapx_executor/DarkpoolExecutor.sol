@@ -7,6 +7,7 @@ import { ResolvedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
+import { AccessControl } from "oz-contracts/access/AccessControl.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { Address } from "oz-contracts/utils/Address.sol";
 import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
@@ -32,7 +33,7 @@ import { ERC20 } from "solmate/src/tokens/ERC20.sol";
  * @dev This contract implements IReactorCallback to handle order execution callbacks from UniswapX
  * and routes them to the darkpool for settlement
  */
-contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable {
+contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable, AccessControl {
     using SafeTransferLib for ERC20;
 
     // --- State Variables --- //
@@ -41,11 +42,21 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
     IDarkpool public darkpool;
     /// @notice The UniswapX reactor contract
     IReactor public uniswapXReactor;
+    /// @notice Role identifier for whitelisted solvers
+    bytes32 public constant SOLVER_ROLE = keccak256("SOLVER_ROLE");
 
     // --- Errors --- //
 
     /// @notice Thrown when the caller is not whitelisted
     error UnauthorizedCaller();
+
+    // --- Modifiers --- //
+
+    /// @notice Ensures the caller is a whitelisted solver
+    modifier onlySolver() {
+        _checkRole(SOLVER_ROLE);
+        _;
+    }
 
     // --- Initializer --- //
 
@@ -79,6 +90,7 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
         external
         payable
         whenNotPaused
+        onlySolver
     {
         // Encode callback data for processAtomicMatchSettle
         bytes memory callbackData = abi.encodeWithSelector(
@@ -114,6 +126,7 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
         external
         payable
         whenNotPaused
+        onlySolver
     {
         // Encode callback data for processMalleableAtomicMatchSettle
         bytes memory callbackData = abi.encodeWithSelector(
@@ -129,6 +142,27 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
 
         // Call the reactor's executeWithCallback, which will call back to our reactorCallback
         uniswapXReactor.executeWithCallback{ value: msg.value }(order, callbackData);
+    }
+
+    // --- Admin Functions --- //
+
+    /// @notice Add an address to the set of allowed solvers
+    /// @param solver The solver address to add
+    function whitelistSolver(address solver) public onlyOwner {
+        _grantRole(SOLVER_ROLE, solver);
+    }
+
+    /// @notice Remove an address from the set of allowed solvers
+    /// @param solver The solver address to remove
+    function removeWhitelistedSolver(address solver) public onlyOwner {
+        _revokeRole(SOLVER_ROLE, solver);
+    }
+
+    /// @notice Check if an address is an allowed solver
+    /// @param solver The address to check
+    /// @return Whether the address is an allowed solver
+    function isWhitelistedSolver(address solver) public view returns (bool) {
+        return hasRole(SOLVER_ROLE, solver);
     }
 
     // --- Callback Logic --- //
