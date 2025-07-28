@@ -815,7 +815,10 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         );
 
         // 4. Commit the note into the merkle tree
-        _commitNote(statement.noteCommitment);
+        merkleTree.insertLeaf(statement.noteCommitment, hasher);
+
+        // 5. Emit the event
+        emit NotePosted(statement.noteCommitment);
     }
 
     /// @notice Redeem a fee that has been paid offline into a wallet
@@ -877,12 +880,5 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         assembly {
             value := mload(add(data, 32))
         }
-    }
-
-    /// @notice Insert a note commitment into the Merkle tree and emit `NotePosted`
-    /// @param noteCommitment The note commitment as a BN254.ScalarField
-    function _commitNote(BN254.ScalarField noteCommitment) internal {
-        merkleTree.insertLeaf(noteCommitment, hasher);
-        emit NotePosted(noteCommitment);
     }
 }
