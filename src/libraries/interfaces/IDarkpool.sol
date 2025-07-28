@@ -55,7 +55,7 @@ interface IDarkpool {
     event NullifierSpent(BN254.ScalarField nullifier);
     /// @notice Emitted when a note commitment is inserted into the Merkle tree
     /// @param noteCommitment The commitment inserted
-    event NotePosted(BN254.ScalarField indexed noteCommitment);
+    event NotePosted(uint256 indexed noteCommitment);
 
     /// @notice Initialize the darkpool
     /// @param initialOwner The initial owner of the contract
