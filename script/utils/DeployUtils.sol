@@ -161,6 +161,14 @@ library DeployUtils {
         return address(darkpoolProxy);
     }
 
+    /// @dev Deploy only the Darkpool implementation contract for proxy upgrades
+    function deployDarkpoolImplementation(Vm vm) internal returns (address implAddr) {
+        Darkpool darkpool = new Darkpool();
+        writeDeployment(vm, "Darkpool", address(darkpool));
+        console.log("Darkpool implementation deployed at:", address(darkpool));
+        return address(darkpool);
+    }
+
     /// @dev Write a deployment address to the deployments.json file
     /// @param vm The VM to run the commands with
     /// @param contractName The name of the contract being deployed
