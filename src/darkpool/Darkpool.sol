@@ -66,6 +66,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     event ExternalMatchFeeChanged(address indexed asset, uint256 newFee);
     event PubkeyRotated(uint256 newPubkeyX, uint256 newPubkeyY);
     event ExternalFeeCollectionAddressChanged(address indexed newAddress);
+    event NotePosted(uint256 indexed noteCommitment);
 
     /// @notice The protocol fee rate for the darkpool
     /// @dev This is the fixed point representation of a real number between 0 and 1.
@@ -815,6 +816,9 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // 4. Commit the note into the merkle tree
         merkleTree.insertLeaf(statement.noteCommitment, hasher);
+
+        // 5. Emit the event
+        emit NotePosted(BN254.ScalarField.unwrap(statement.noteCommitment));
     }
 
     /// @notice Redeem a fee that has been paid offline into a wallet
