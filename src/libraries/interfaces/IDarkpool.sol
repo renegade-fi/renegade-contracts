@@ -53,6 +53,12 @@ interface IDarkpool {
     /// @notice Emitted when a nullifier is spent
     /// @param nullifier The nullifier that was spent
     event NullifierSpent(BN254.ScalarField nullifier);
+    /// @notice Emitted when an external transfer is executed
+    /// @param account The account that the transfer is executed for
+    /// @param mint The mint of the token that is transferred
+    /// @param isWithdrawal Whether the transfer is a withdrawal
+    /// @param amount The amount of the token that is transferred
+    event ExternalTransfer(address indexed account, address indexed mint, bool indexed isWithdrawal, uint256 amount);
     /// @notice Emitted when a note commitment is inserted into the Merkle tree
     /// @param noteCommitment The commitment inserted
     event NotePosted(uint256 indexed noteCommitment);

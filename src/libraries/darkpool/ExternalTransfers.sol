@@ -12,6 +12,7 @@ import { PublicRootKey, publicKeyToUints, publicKeyToUints } from "renegade-lib/
 
 import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
 import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
+import { IDarkpool } from "../interfaces/IDarkpool.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.sol";
@@ -77,6 +78,7 @@ library ExternalTransferLib {
         // Check that the balance after the transfer equals the expected balance
         uint256 balanceAfter = getDarkpoolBalance(transfer.mint);
         require(balanceAfter == expectedBalance, "Balance after transfer does not match expected balance");
+        emit IDarkpool.ExternalTransfer(transfer.account, transfer.mint, !isDeposit, transfer.amount);
     }
 
     /// @notice Execute a batch of simple ERC20 transfers
