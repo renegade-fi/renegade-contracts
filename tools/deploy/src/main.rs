@@ -24,6 +24,9 @@ use tool_utils::{prompt_for_eth_address as prompt_for_address, prompt_for_f64, r
 /// - The weth contract address
 const DARKPOOL_RUN_SIGNATURE: &str = "run(address,uint256,uint256,uint256,address,address,address)";
 
+/// The signature of the `run` function in the `DeployDarkpoolImplementationScript` contract
+const DARKPOOL_IMPLEMENTATION_RUN_SIGNATURE: &str = "run()";
+
 /// The signature of the `run` function in the `DeployGasSponsorScript` contract
 ///
 /// Args are:
@@ -75,6 +78,10 @@ enum Commands {
     /// Deploy the GasSponsor contract
     #[command(name = "deploy-gas-sponsor")]
     DeployGasSponsor(DeployGasSponsorArgs),
+
+    /// Deploy only the Darkpool implementation contract (for proxy upgrades)
+    #[command(name = "deploy-darkpool-implementation")]
+    DeployDarkpoolImplementation(DeployDarkpoolImplementationArgs),
 }
 
 /// Arguments for deploying Darkpool contracts
@@ -129,12 +136,21 @@ struct DeployGasSponsorArgs {
     auth_address: Option<String>,
 }
 
+/// Arguments for deploying only the Darkpool implementation contract
+#[derive(Parser, Debug)]
+struct DeployDarkpoolImplementationArgs {
+    /// Common arguments
+    #[command(flatten)]
+    common: CommonArgs,
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.command {
         Commands::DeployDarkpool(args) => deploy_darkpool(args),
         Commands::DeployGasSponsor(args) => deploy_gas_sponsor(args),
+        Commands::DeployDarkpoolImplementation(args) => deploy_darkpool_implementation(args),
     }
 }
 
@@ -229,6 +245,33 @@ fn deploy_gas_sponsor(mut args: DeployGasSponsorArgs) -> Result<()> {
     run_command(cmd)?;
 
     println!("\nGasSponsor deployment completed successfully!");
+    Ok(())
+}
+
+/// Deploy only the Darkpool implementation contract (no proxy, no libraries)
+fn deploy_darkpool_implementation(args: DeployDarkpoolImplementationArgs) -> Result<()> {
+    println!(
+        "Deploying Darkpool implementation to RPC URL: {}",
+        args.common.rpc_url
+    );
+
+    // Build the forge script command
+    let mut cmd = Command::new("forge");
+    cmd.arg("script")
+        .arg("script/DeployDarkpoolImplementation.s.sol:DeployDarkpoolImplementationScript")
+        .arg("--rpc-url")
+        .arg(&args.common.rpc_url)
+        .arg("--sig")
+        .arg(DARKPOOL_IMPLEMENTATION_RUN_SIGNATURE)
+        .arg("--broadcast") // Always use broadcast
+        .arg("--private-key")
+        .arg(&args.common.private_key)
+        .arg(format!("-{}", args.common.verbosity));
+
+    // Execute the command
+    run_command(cmd)?;
+
+    println!("\nDarkpool implementation deployment completed successfully!");
     Ok(())
 }
 
