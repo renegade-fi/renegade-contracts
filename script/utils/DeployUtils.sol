@@ -99,12 +99,10 @@ library DeployUtils {
         returns (address gasSponsorProxyAddr)
     {
         // Deploy the GasSponsor implementation
-        GasSponsor gasSponsor = new GasSponsor();
-        writeDeployment(vm, "GasSponsor", address(gasSponsor));
-        console.log("GasSponsor implementation deployed at:", address(gasSponsor));
+        address gasSponsorAddr = deployGasSponsorImplementation(vm);
 
         // Deploy the GasSponsorProxy
-        GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(address(gasSponsor), owner, darkpoolAddress, authAddress);
+        GasSponsorProxy gasSponsorProxy = new GasSponsorProxy(gasSponsorAddr, owner, darkpoolAddress, authAddress);
         writeDeployment(vm, "GasSponsorProxy", address(gasSponsorProxy));
         console.log("GasSponsorProxy deployed at:", address(gasSponsorProxy));
 
@@ -114,6 +112,14 @@ library DeployUtils {
         console.log("GasSponsorProxyAdmin deployed at:", proxyAdmin);
 
         return address(gasSponsorProxy);
+    }
+
+    /// @dev Deploy only the GasSponsor implementation contract for proxy upgrades
+    function deployGasSponsorImplementation(Vm vm) internal returns (address implAddr) {
+        GasSponsor gasSponsor = new GasSponsor();
+        writeDeployment(vm, "GasSponsor", address(gasSponsor));
+        console.log("GasSponsor implementation deployed at:", address(gasSponsor));
+        return address(gasSponsor);
     }
 
     /// @notice Deploy core contracts

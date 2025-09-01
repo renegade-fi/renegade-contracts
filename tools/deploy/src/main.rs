@@ -35,6 +35,9 @@ const DARKPOOL_IMPLEMENTATION_RUN_SIGNATURE: &str = "run()";
 /// - authAddress (gas sponsor auth address)
 const GAS_SPONSOR_RUN_SIGNATURE: &str = "run(address,address,address)";
 
+/// The signature of the `run` function in the `DeployGasSponsorImplementationScript` contract
+const GAS_SPONSOR_IMPLEMENTATION_RUN_SIGNATURE: &str = "run()";
+
 /// The path to which we write the decryption key
 const DECRYPTION_KEY_PATH: &str = "fee_decryption_key.txt";
 
@@ -82,6 +85,10 @@ enum Commands {
     /// Deploy only the Darkpool implementation contract (for proxy upgrades)
     #[command(name = "deploy-darkpool-implementation")]
     DeployDarkpoolImplementation(DeployDarkpoolImplementationArgs),
+
+    /// Deploy only the GasSponsor implementation contract (for proxy upgrades)
+    #[command(name = "deploy-gas-sponsor-implementation")]
+    DeployGasSponsorImplementation(DeployGasSponsorImplementationArgs),
 }
 
 /// Arguments for deploying Darkpool contracts
@@ -144,6 +151,14 @@ struct DeployDarkpoolImplementationArgs {
     common: CommonArgs,
 }
 
+/// Arguments for deploying only the GasSponsor implementation contract
+#[derive(Parser, Debug)]
+struct DeployGasSponsorImplementationArgs {
+    /// Common arguments
+    #[command(flatten)]
+    common: CommonArgs,
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -151,6 +166,7 @@ fn main() -> Result<()> {
         Commands::DeployDarkpool(args) => deploy_darkpool(args),
         Commands::DeployGasSponsor(args) => deploy_gas_sponsor(args),
         Commands::DeployDarkpoolImplementation(args) => deploy_darkpool_implementation(args),
+        Commands::DeployGasSponsorImplementation(args) => deploy_gas_sponsor_implementation(args),
     }
 }
 
@@ -272,6 +288,32 @@ fn deploy_darkpool_implementation(args: DeployDarkpoolImplementationArgs) -> Res
     run_command(cmd)?;
 
     println!("\nDarkpool implementation deployment completed successfully!");
+    Ok(())
+}
+
+/// Deploy only the GasSponsor implementation contract (no proxy, no libraries)
+fn deploy_gas_sponsor_implementation(args: DeployGasSponsorImplementationArgs) -> Result<()> {
+    println!(
+        "Deploying GasSponsor implementation to RPC URL: {}",
+        args.common.rpc_url
+    );
+
+    // Build the forge script command
+    let mut cmd = Command::new("forge");
+    cmd.arg("script")
+        .arg("script/DeployGasSponsorImplementation.sol:DeployGasSponsorImplementationScript")
+        .arg("--rpc-url")
+        .arg(&args.common.rpc_url)
+        .arg("--sig")
+        .arg(GAS_SPONSOR_IMPLEMENTATION_RUN_SIGNATURE)
+        .arg("--broadcast") // Always use broadcast
+        .arg("--private-key")
+        .arg(&args.common.private_key)
+        .arg(format!("-{}", args.common.verbosity));
+
+    // Execute the command
+    run_command(cmd)?;
+    println!("\nGasSponsor implementation deployment completed successfully!");
     Ok(())
 }
 
