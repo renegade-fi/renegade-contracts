@@ -145,6 +145,123 @@ contract GasSponsorTest is DarkpoolTestBase {
         );
     }
 
+    /// @notice Test native ETH refund path with zero refund amount (early return)
+    function test_sponsorAtomicMatchSettle_zeroRefund_nativeEth() public {
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartySell
+        });
+
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = setupAtomicMatch(matchResult);
+
+        // Sponsor ETH balance before (should not change when refundAmount == 0)
+        uint256 sponsorEthBalance1 = address(gasSponsor).balance;
+
+        // Sponsorship params with zero refund, native ETH refund flag
+        uint256 nonce = randomUint();
+        address refundAddress = receiver;
+        bool refundNativeEth = true;
+        bytes memory signature = signGasSponsorshipPayload(nonce, refundAddress, 0 /* refundAmount */ );
+
+        // Fund and approve tokens for external party
+        vm.startBroadcast(externalPartyAddr);
+        if (statement.matchResult.direction == ExternalMatchDirection.InternalPartySell) {
+            quoteToken.mint(externalPartyAddr, statement.matchResult.quoteAmount);
+            baseToken.mint(address(darkpool), statement.matchResult.baseAmount);
+            quoteToken.approve(address(gasSponsor), statement.matchResult.quoteAmount);
+        } else {
+            baseToken.mint(externalPartyAddr, statement.matchResult.baseAmount);
+            quoteToken.mint(address(darkpool), statement.matchResult.quoteAmount);
+            baseToken.approve(address(gasSponsor), statement.matchResult.baseAmount);
+        }
+
+        uint256 receivedAmount = gasSponsor.sponsorAtomicMatchSettle(
+            receiver,
+            internalPartyPayload,
+            statement,
+            proofs,
+            linkingProofs,
+            refundAddress,
+            refundNativeEth,
+            0,
+            nonce,
+            signature
+        );
+        vm.stopBroadcast();
+
+        // Verify only the sponsor's ETH balance (no native refund transfer occurs)
+        uint256 sponsorEthBalance2 = address(gasSponsor).balance;
+        assertEq(sponsorEthBalance2, sponsorEthBalance1, "Sponsor ETH balance changed (zero native refund)");
+    }
+
+    /// @notice Test in-kind refund path with zero refund amount (early return)
+    function test_sponsorAtomicMatchSettle_zeroRefund_inKind() public {
+        // Setup the match
+        ExternalMatchResult memory matchResult = ExternalMatchResult({
+            quoteMint: address(quoteToken),
+            baseMint: address(baseToken),
+            quoteAmount: QUOTE_AMT,
+            baseAmount: BASE_AMT,
+            direction: ExternalMatchDirection.InternalPartySell
+        });
+
+        (
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMatchSettleAtomicStatement memory statement,
+            MatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = setupAtomicMatch(matchResult);
+
+        // Sponsor token balances before (should not change when refundAmount == 0)
+        (uint256 sponsorBaseBalance1, uint256 sponsorQuoteBalance1) = baseQuoteBalances(address(gasSponsor));
+
+        // Sponsorship params with zero refund, in-kind refund flag
+        uint256 nonce = randomUint();
+        address refundAddress = receiver;
+        bool refundNativeEth = false;
+        bytes memory signature = signGasSponsorshipPayload(nonce, refundAddress, 0 /* refundAmount */ );
+
+        // Fund and approve tokens for external party
+        vm.startBroadcast(externalPartyAddr);
+        if (statement.matchResult.direction == ExternalMatchDirection.InternalPartySell) {
+            quoteToken.mint(externalPartyAddr, statement.matchResult.quoteAmount);
+            baseToken.mint(address(darkpool), statement.matchResult.baseAmount);
+            quoteToken.approve(address(gasSponsor), statement.matchResult.quoteAmount);
+        } else {
+            baseToken.mint(externalPartyAddr, statement.matchResult.baseAmount);
+            quoteToken.mint(address(darkpool), statement.matchResult.quoteAmount);
+            baseToken.approve(address(gasSponsor), statement.matchResult.baseAmount);
+        }
+
+        uint256 receivedAmount = gasSponsor.sponsorAtomicMatchSettle(
+            receiver,
+            internalPartyPayload,
+            statement,
+            proofs,
+            linkingProofs,
+            refundAddress,
+            refundNativeEth,
+            0,
+            nonce,
+            signature
+        );
+        vm.stopBroadcast();
+
+        // Verify the sponsor's token balances (no in-kind refund transfer occurs)
+        (uint256 sponsorBaseBalance2, uint256 sponsorQuoteBalance2) = baseQuoteBalances(address(gasSponsor));
+        assertEq(sponsorBaseBalance2, sponsorBaseBalance1, "Sponsor base balance changed (zero in-kind refund)");
+        assertEq(sponsorQuoteBalance2, sponsorQuoteBalance1, "Sponsor quote balance changed (zero in-kind refund)");
+    }
+
     // --- Helpers --- //
 
     /// @notice Sample a random base amount between the bounds on a `BoundedMatchResult`
