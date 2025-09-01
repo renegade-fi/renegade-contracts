@@ -55,7 +55,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
     event InsufficientSponsorBalance(uint256 indexed nonce);
     event SponsoredExternalMatch(uint256 refundAmount, address token, uint256 indexed nonce);
     event SponsoredExternalMatchOutput(uint256 receivedAmount, uint256 indexed nonce);
-    event GasSponsorPausedFallback(uint256 indexed nonce);
+    event GasSponsorshipSkipped(uint256 indexed nonce);
 
     // -----------
     // | STORAGE |
@@ -178,9 +178,9 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
             matchLinkingProofs
         );
 
-        // If gas sponsorship is paused, return early
-        if (paused()) {
-            emit GasSponsorPausedFallback(nonce);
+        // If gas sponsorship is paused or refund amount is 0, return early
+        if (paused() || refundAmount == 0) {
+            emit GasSponsorshipSkipped(nonce);
             emit SponsoredExternalMatchOutput(receivedInMatch, nonce);
             return receivedInMatch;
         }
@@ -244,9 +244,9 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
             matchLinkingProofs
         );
 
-        // If gas sponsorship is paused, return early
-        if (paused()) {
-            emit GasSponsorPausedFallback(nonce);
+        // If gas sponsorship is paused or refund amount is 0, return early
+        if (paused() || refundAmount == 0) {
+            emit GasSponsorshipSkipped(nonce);
             emit SponsoredExternalMatchOutput(receivedInMatch, nonce);
             return receivedInMatch;
         }
