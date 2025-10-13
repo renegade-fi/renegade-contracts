@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { ValidWalletCreateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { ValidWalletCreateStatement } from "darkpoolv1-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 contract CreateWalletTest is DarkpoolTestBase {

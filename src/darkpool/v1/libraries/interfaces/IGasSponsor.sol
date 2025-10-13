@@ -2,16 +2,15 @@
 pragma solidity ^0.8.0;
 
 import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+    ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 import {
     PartyMatchPayload,
     MatchAtomicProofs,
     MalleableMatchAtomicProofs,
     MatchAtomicLinkingProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 
 /**
  * @title IGasSponsor

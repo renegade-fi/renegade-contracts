@@ -5,7 +5,7 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
-import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
+import { VerificationKeys } from "darkpoolv1-lib/VerificationKeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
@@ -27,11 +27,11 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
-} from "renegade-lib/darkpool/PublicInputs.sol";
-import { WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
-import { ExternalTransferLib } from "renegade-lib/darkpool/ExternalTransfers.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { ExternalTransfer } from "renegade-lib/darkpool/types/Transfers.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
+import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
+import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
+import { ExternalTransfer } from "darkpoolv1-types/Transfers.sol";
 import {
     BoundedMatchResult,
     ExternalMatchResult,
@@ -43,14 +43,14 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
-import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
-import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
+import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
-import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
-import { BabyJubJubPoint } from "renegade-lib/darkpool/types/Ciphertext.sol";
+import { NullifierLib } from "renegade-lib/NullifierSet.sol";
+import { BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 
 contract Darkpool is Initializable, Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;

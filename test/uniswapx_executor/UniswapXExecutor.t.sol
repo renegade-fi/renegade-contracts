@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { DarkpoolExecutor } from "renegade-executor/DarkpoolExecutor.sol";
+import { DarkpoolExecutor } from "darkpoolv1-executor/DarkpoolExecutor.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { UniswapXExecutorProxy } from "proxies/UniswapXExecutorProxy.sol";
-import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
+import { UniswapXExecutorProxy } from "darkpoolv1-proxies/UniswapXExecutorProxy.sol";
+import { IDarkpoolExecutor } from "darkpoolv1-lib/interfaces/IDarkpoolExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
@@ -30,13 +30,13 @@ import {
     MatchAtomicLinkingProofs,
     ExternalMatchDirection,
     ExternalMatchResult
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { ValidMatchSettleAtomicStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { ValidMatchSettleAtomicStatement } from "darkpoolv1-lib/PublicInputs.sol";
 import { Permit2Lib } from "uniswapx/lib/Permit2Lib.sol";
 import { PermitHash } from "permit2/src/libraries/PermitHash.sol";
 import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
+import { FeeTake } from "darkpoolv1-types/Fees.sol";
 
 /// @title DarkpoolExecutorTest
 /// @notice Test contract for the DarkpoolExecutor

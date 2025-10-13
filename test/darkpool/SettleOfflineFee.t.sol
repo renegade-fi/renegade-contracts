@@ -4,14 +4,14 @@ pragma solidity ^0.8.0;
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
-import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
     ValidOfflineFeeSettlementStatement
-} from "src/libraries/darkpool/PublicInputs.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 contract SettleOfflineFee is DarkpoolTestBase {
     // --- Settle Offline Fee --- //

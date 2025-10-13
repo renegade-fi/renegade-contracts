@@ -2,16 +2,16 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
+import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
-import { NullifierLib } from "renegade-lib/darkpool/NullifierSet.sol";
-import { WalletShare, WalletLib } from "renegade-lib/darkpool/types/Wallet.sol";
-import { ExternalMatchResult, OrderSettlementIndices } from "renegade-lib/darkpool/types/Settlement.sol";
-import { FeeTakeRate, FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
-import { BalanceShare } from "renegade-lib/darkpool/types/Wallet.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { IDarkpool } from "../interfaces/IDarkpool.sol";
+import { NullifierLib } from "renegade-lib/NullifierSet.sol";
+import { WalletShare, WalletLib } from "darkpoolv1-types/Wallet.sol";
+import { ExternalMatchResult, OrderSettlementIndices } from "darkpoolv1-types/Settlement.sol";
+import { FeeTakeRate, FeeTake } from "darkpoolv1-types/Fees.sol";
+import { BalanceShare } from "darkpoolv1-types/Wallet.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
+import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
 import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
 
 // --- Helpers --- //

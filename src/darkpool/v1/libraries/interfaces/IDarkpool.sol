@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { IHasher } from "./IHasher.sol";
-import { IVerifier } from "./IVerifier.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import {
     ValidWalletCreateStatement,
@@ -19,8 +19,8 @@ import {
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
-import { ExternalTransfer } from "renegade-lib/darkpool/types/Transfers.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
+import { ExternalTransfer } from "darkpoolv1-types/Transfers.sol";
 import {
     BoundedMatchResult,
     ExternalMatchResult,
@@ -30,10 +30,10 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
-import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
-import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
+import { FeeTake } from "darkpoolv1-types/Fees.sol";
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 interface IDarkpool {
     // --- Events --- //

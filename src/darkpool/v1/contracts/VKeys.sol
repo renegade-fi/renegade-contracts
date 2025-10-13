@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 import { VerificationKey, ProofLinkingVK } from "renegade-lib/verifier/Types.sol";
-import { VerificationKeys } from "renegade-lib/darkpool/VerificationKeys.sol";
-import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
+import { VerificationKeys } from "darkpoolv1-lib/VerificationKeys.sol";
+import { IVKeys } from "darkpoolv1-lib/interfaces/IVKeys.sol";
 
 contract VKeys is IVKeys {
     // Individual verification keys

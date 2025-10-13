@@ -8,11 +8,10 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+    ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 interface IDarkpoolExecutor is IReactorCallback {
     /// @notice Returns the address of the current owner

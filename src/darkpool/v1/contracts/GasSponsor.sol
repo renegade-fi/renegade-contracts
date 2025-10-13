@@ -5,19 +5,18 @@ import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
-import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
 import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 
 import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+    ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 import {
     ExternalMatchResult,
@@ -25,7 +24,7 @@ import {
     MatchAtomicProofs,
     MalleableMatchAtomicProofs,
     MatchAtomicLinkingProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 
 /**
  * @title GasSponsor

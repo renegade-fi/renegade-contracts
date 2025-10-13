@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { TransparentUpgradeableProxy } from "oz-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { IGasSponsor } from "renegade-lib/interfaces/IGasSponsor.sol";
+import { IGasSponsor } from "darkpoolv1-lib/interfaces/IGasSponsor.sol";
 
 /**
  * @title GasSponsorProxy

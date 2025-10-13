@@ -9,10 +9,9 @@ import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { FixedPoint, TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { ExternalTransfer, TransferType, TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
-import { PublicRootKey, publicKeyToUints } from "renegade-lib/darkpool/types/Keychain.sol";
-import { DepositWitness } from "renegade-lib/darkpool/types/Transfers.sol";
+import { FixedPoint, TypesLib } from "darkpoolv1-types/TypesLib.sol";
+import { ExternalTransfer, TransferType, TransferAuthorization, DepositWitness } from "darkpoolv1-types/Transfers.sol";
+import { PublicRootKey, publicKeyToUints } from "darkpoolv1-types/Keychain.sol";
 import {
     MatchProofs,
     MatchLinkingProofs,
@@ -24,12 +23,12 @@ import {
     ExternalMatchDirection,
     BoundedMatchResult,
     OrderSettlementIndices
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
-import { EncryptionKey, ElGamalCiphertext } from "renegade-lib/darkpool/types/Ciphertext.sol";
-import { BabyJubJubPoint } from "renegade-lib/darkpool/types/Ciphertext.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
-import { uintToScalarWords, WalletOperations } from "renegade-lib/darkpool/WalletOperations.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
+import { EncryptionKey, ElGamalCiphertext } from "darkpoolv1-types/Ciphertext.sol";
+import { BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
+import { uintToScalarWords, WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -42,7 +41,7 @@ import {
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 /// @dev The typehash for the PermitWitnessTransferFrom parameters
 bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(

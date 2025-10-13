@@ -4,13 +4,13 @@ pragma solidity ^0.8.0;
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { ExternalTransferLib } from "renegade-lib/darkpool/ExternalTransfers.sol";
-import { ExternalTransfer, TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
-import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
-import { ExternalMatchResult, ExternalMatchDirection } from "renegade-lib/darkpool/types/Settlement.sol";
-import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
+import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
+import { ExternalTransfer, TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
+import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
+import { ExternalMatchResult, ExternalMatchDirection } from "darkpoolv1-types/Settlement.sol";
+import { FeeTake } from "darkpoolv1-types/Fees.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 /// @title TransferExecutor
 /// @notice A contract that executes external transfers for the Darkpool contract

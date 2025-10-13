@@ -7,7 +7,7 @@ import { EncryptionKey } from "./Ciphertext.sol";
 import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from "./Settlement.sol";
 import { FeeTake, FeeTakeRate } from "./Fees.sol";
 import { ExternalMatchDirection } from "./Settlement.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");

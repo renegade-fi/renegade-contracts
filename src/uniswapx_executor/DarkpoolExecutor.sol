@@ -10,7 +10,7 @@ import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { AccessControl } from "oz-contracts/access/AccessControl.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { Address } from "oz-contracts/utils/Address.sol";
-import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
 import { IReactor } from "uniswapx/interfaces/IReactor.sol";
 import { SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import {
@@ -18,11 +18,10 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+    ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";

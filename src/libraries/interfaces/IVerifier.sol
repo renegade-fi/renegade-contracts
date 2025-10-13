@@ -12,7 +12,7 @@ import {
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
 import {
     PartyMatchPayload,
     MatchProofs,
@@ -20,7 +20,7 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 
 interface IVerifier {
     /// @notice Verify a proof of `VALID WALLET CREATE`

@@ -7,23 +7,19 @@ import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 
 import {
-    PartyMatchPayload,
-    MalleableMatchAtomicProofs,
-    MatchAtomicLinkingProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { TypesLib, FixedPoint } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
+    PartyMatchPayload, MalleableMatchAtomicProofs, MatchAtomicLinkingProofs
+} from "darkpoolv1-types/Settlement.sol";
+import { TypesLib, FixedPoint } from "darkpoolv1-types/TypesLib.sol";
+import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
-import {
-    ExternalMatchDirection, BoundedMatchResult, ExternalMatchResult
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import { ExternalMatchDirection, BoundedMatchResult, ExternalMatchResult } from "darkpoolv1-types/Settlement.sol";
+import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import {
     ValidWalletCreateStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidWalletUpdateStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 contract SettleMalleableAtomicMatch is DarkpoolTestBase {
     using TypesLib for FixedPoint;

@@ -5,14 +5,14 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
-import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "renegade-lib/darkpool/types/Settlement.sol";
-import { TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
+import { PartyMatchPayload, MatchProofs, MatchLinkingProofs } from "darkpoolv1-types/Settlement.sol";
+import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleWithCommitmentsStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 contract SettleMatchTest is DarkpoolTestBase {
     // --- Settle Match --- //

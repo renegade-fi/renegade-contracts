@@ -7,17 +7,17 @@ import "foundry-huff/HuffDeployer.sol";
 import "permit2-lib/interfaces/IPermit2.sol";
 import "permit2-test/utils/DeployPermit2.sol";
 
-import "renegade/Darkpool.sol";
-import "proxies/DarkpoolProxy.sol";
-import "renegade/Verifier.sol";
-import "renegade/VKeys.sol";
+import "darkpoolv1-contracts/Darkpool.sol";
+import "darkpoolv1-proxies/DarkpoolProxy.sol";
+import "darkpoolv1-contracts/Verifier.sol";
+import "darkpoolv1-contracts/VKeys.sol";
 import "renegade-lib/interfaces/IHasher.sol";
 import "renegade-lib/interfaces/IVerifier.sol";
 import "renegade-lib/interfaces/IWETH9.sol";
-import "renegade-lib/darkpool/types/Ciphertext.sol";
-import "renegade/TransferExecutor.sol";
-import "renegade/GasSponsor.sol";
-import "proxies/GasSponsorProxy.sol";
+import "darkpoolv1-types/Ciphertext.sol";
+import "darkpoolv1-contracts/TransferExecutor.sol";
+import "darkpoolv1-contracts/GasSponsor.sol";
+import "darkpoolv1-proxies/GasSponsorProxy.sol";
 import "./JsonUtils.sol";
 
 library DeployUtils {

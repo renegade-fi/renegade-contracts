@@ -13,17 +13,15 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
-} from "renegade-lib/darkpool/PublicInputs.sol";
-import { PartyMatchPayload } from "renegade-lib/darkpool/types/Settlement.sol";
-import { MatchProofs, MatchLinkingProofs } from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
+import { PartyMatchPayload } from "darkpoolv1-types/Settlement.sol";
+import { MatchProofs, MatchLinkingProofs } from "darkpoolv1-types/Settlement.sol";
 import {
-    MatchAtomicProofs,
-    MatchAtomicLinkingProofs,
-    MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
+    MatchAtomicProofs, MatchAtomicLinkingProofs, MalleableMatchAtomicProofs
+} from "darkpoolv1-types/Settlement.sol";
+import { IVKeys } from "darkpoolv1-lib/interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
-import { Verifier } from "renegade/Verifier.sol";
+import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 

@@ -6,7 +6,7 @@ import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { TypesLib, FixedPoint } from "renegade-lib/darkpool/types/TypesLib.sol";
+import { TypesLib, FixedPoint } from "darkpoolv1-types/TypesLib.sol";
 import {
     PartyMatchPayload,
     MatchAtomicProofs,
@@ -15,14 +15,13 @@ import {
     ExternalMatchDirection,
     ExternalMatchResult,
     BoundedMatchResult
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { FeeTake, FeeTakeRate } from "renegade-lib/darkpool/types/Fees.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
-import { IGasSponsor } from "../../src/libraries/interfaces/IGasSponsor.sol";
+    ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
+} from "darkpoolv1-lib/PublicInputs.sol";
+import { IGasSponsor } from "darkpoolv1-lib/interfaces/IGasSponsor.sol";
 import { console2 } from "forge-std/console2.sol";
 
 contract GasSponsorTest is DarkpoolTestBase {

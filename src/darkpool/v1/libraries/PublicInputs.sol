@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
-import { ExternalTransfer } from "./types/Transfers.sol";
-import { PublicRootKey } from "./types/Keychain.sol";
-import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from "./types/Settlement.sol";
-import { FeeTake, FeeTakeRate } from "./types/Fees.sol";
-import { ElGamalCiphertext, EncryptionKey } from "./types/Ciphertext.sol";
+import { ExternalTransfer } from "darkpoolv1-types/Transfers.sol";
+import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
+import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from "darkpoolv1-types/Settlement.sol";
+import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
+import { ElGamalCiphertext, EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 // This file represents the public inputs (statements) for various proofs used by the darkpool
 

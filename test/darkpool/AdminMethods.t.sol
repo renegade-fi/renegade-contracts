@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { EncryptionKey } from "renegade-lib/darkpool/types/Ciphertext.sol";
-import { ValidWalletCreateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { ValidWalletCreateStatement } from "darkpoolv1-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 contract AdminMethodsTest is DarkpoolTestBase {

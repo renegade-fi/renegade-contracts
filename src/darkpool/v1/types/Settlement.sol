@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint } from "./TypesLib.sol";
-import { ValidCommitmentsStatement, ValidReblindStatement } from "../PublicInputs.sol";
+import { ValidCommitmentsStatement, ValidReblindStatement } from "darkpoolv1-lib/PublicInputs.sol";
 import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 
 // This file contains types for settlement in the darkpool

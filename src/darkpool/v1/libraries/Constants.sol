@@ -5,7 +5,7 @@ import {
     MAX_ORDERS as WALLET_MAX_ORDERS,
     MAX_BALANCES as WALLET_MAX_BALANCES,
     NUM_WALLET_SCALARS
-} from "./types/Wallet.sol";
+} from "darkpoolv1-types/Wallet.sol";
 
 /// @title Darkpool Constants
 /// @notice Constants used in the darkpool

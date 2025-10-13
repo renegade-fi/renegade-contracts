@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
-import { ExternalTransfer, TransferType, TransferAuthorization } from "renegade-lib/darkpool/types/Transfers.sol";
-import { PublicRootKey } from "renegade-lib/darkpool/types/Keychain.sol";
+import { ExternalTransfer, TransferType, TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
+import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { ValidWalletCreateStatement, ValidWalletUpdateStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+import { ValidWalletCreateStatement, ValidWalletUpdateStatement } from "darkpoolv1-lib/PublicInputs.sol";
 
 contract UpdateWalletTest is DarkpoolTestBase {
     // --- Update Wallet --- //

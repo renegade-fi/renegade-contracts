@@ -21,7 +21,7 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement,
     StatementSerializer
-} from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
 import {
     PartyMatchPayload,
     MatchProofs,
@@ -29,8 +29,8 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { IVKeys } from "renegade-lib/interfaces/IVKeys.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { IVKeys } from "darkpoolv1-lib/interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
