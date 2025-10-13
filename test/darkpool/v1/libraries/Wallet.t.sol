@@ -12,7 +12,7 @@ import { FeeTakeRate, FeeTake } from "darkpoolv1-types/Fees.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
-import { CalldataUtils } from "test/utils/CalldataUtils.sol";
+import { CalldataUtils } from "darkpoolv1-test/utils/CalldataUtils.sol";
 
 contract WalletTest is CalldataUtils {
     using BN254 for BN254.ScalarField;

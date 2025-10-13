@@ -9,7 +9,7 @@ import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { DarkpoolTestBase } from "test/darkpool/DarkpoolTestBase.sol";
+import { DarkpoolTestBase } from "test/darkpool/v1/DarkpoolTestBase.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { PriorityOrderReactor } from "uniswapx/reactors/PriorityOrderReactor.sol";

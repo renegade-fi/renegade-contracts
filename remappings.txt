@@ -18,5 +18,8 @@ darkpoolv1-types/=src/darkpool/v1/types
 darkpoolv1-proxies/=src/darkpool/v1/proxies
 darkpoolv1-lib/=src/darkpool/v1/libraries
 darkpoolv1-executor/=src/uniswapx_executor
+darkpoolv1-test/=test/darkpool/v1
 
 renegade-lib/=src/libraries
+test-contracts/=test/test-contracts
+test-utils/=test/utils

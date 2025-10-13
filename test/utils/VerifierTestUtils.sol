@@ -11,9 +11,9 @@ import {
     ProofLinkingVK,
     ProofLinkingInstance,
     LinkingProof
-} from "../../src/libraries/verifier/Types.sol";
+} from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "../../src/libraries/verifier/BN254Helpers.sol";
+import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { Strings } from "oz-contracts/utils/Strings.sol";
 
 contract VerifierTestUtils is TestUtils {
