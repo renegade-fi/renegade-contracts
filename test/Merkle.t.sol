@@ -8,7 +8,7 @@ import { TestUtils } from "./utils/TestUtils.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { MerkleZeros } from "renegade-lib/merkle/MerkleZeros.sol";
-import { DarkpoolConstants } from "renegade-lib/darkpool/Constants.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 contract MerkleTest is TestUtils {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;

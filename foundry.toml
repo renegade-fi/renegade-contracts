@@ -11,7 +11,7 @@ optimizer_runs = 100_000
 # Todo: if more space is needed, decrease the number of runs
 additional_compiler_profiles = [{ name = "darkpool", optimizer_runs = 3000 }]
 compilation_restrictions = [
-    { paths = "src/darkpool/Darkpool.sol", optimizer_runs = 3000 },
+    { paths = "src/darkpool/v1/contracts/Darkpool.sol", optimizer_runs = 3000 },
 ]
 
 fs_permissions = [

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import { TestUtils } from "./utils/TestUtils.sol";
-import { VerifierTestUtils } from "./utils/VerifierTestUtils.sol";
-import { VerifierCore } from "../src/libraries/verifier/VerifierCore.sol";
+import { TestUtils } from "test-utils/TestUtils.sol";
+import { VerifierTestUtils } from "test-utils/VerifierTestUtils.sol";
+import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import {
     PlonkProof,
     NUM_WIRE_TYPES,
@@ -12,8 +12,8 @@ import {
     OpeningElements,
     emptyOpeningElements,
     ProofLinkingInstance
-} from "../src/libraries/verifier/Types.sol";
-import { ProofLinkingCore } from "../src/libraries/verifier/ProofLinking.sol";
+} from "renegade-lib/verifier/Types.sol";
+import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 contract VerifierTest is VerifierTestUtils {
