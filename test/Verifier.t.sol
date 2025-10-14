@@ -7,7 +7,6 @@ import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import {
     PlonkProof,
     NUM_WIRE_TYPES,
-    NUM_SELECTORS,
     VerificationKey,
     OpeningElements,
     emptyOpeningElements,
@@ -35,18 +34,18 @@ contract VerifierTest is VerifierTestUtils {
         BN254.ScalarField invalidScalar = BN254.ScalarField.wrap(BN254.R_MOD);
 
         // Create fixed-size arrays
-        BN254.G1Point[NUM_WIRE_TYPES] memory wire_comms;
-        BN254.G1Point[NUM_WIRE_TYPES] memory quotient_comms;
-        BN254.ScalarField[NUM_WIRE_TYPES] memory wire_evals;
-        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigma_evals;
+        BN254.G1Point[NUM_WIRE_TYPES] memory wireComms;
+        BN254.G1Point[NUM_WIRE_TYPES] memory quotientComms;
+        BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals;
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals;
 
         // Fill arrays with valid values
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            wire_comms[i] = validPoint;
-            quotient_comms[i] = validPoint;
-            wire_evals[i] = validScalar;
+            wireComms[i] = validPoint;
+            quotientComms[i] = validPoint;
+            wireEvals[i] = validScalar;
             if (i < NUM_WIRE_TYPES - 1) {
-                sigma_evals[i] = validScalar;
+                sigmaEvals[i] = validScalar;
             }
         }
 
@@ -54,13 +53,13 @@ contract VerifierTest is VerifierTestUtils {
         BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](1);
         publicInputs[0] = validScalar;
         PlonkProof memory proof = PlonkProof({
-            wire_comms: wire_comms,
+            wireComms: wireComms,
             z_comm: validPoint,
-            quotient_comms: quotient_comms,
-            w_zeta: validPoint,
+            quotientComms: quotientComms,
+            wZeta: validPoint,
             w_zeta_omega: validPoint,
-            wire_evals: wire_evals,
-            sigma_evals: sigma_evals,
+            wireEvals: wireEvals,
+            sigmaEvals: sigmaEvals,
             z_bar: validScalar
         });
 
@@ -69,59 +68,59 @@ contract VerifierTest is VerifierTestUtils {
 
         // Test Case 1: Invalid wire commitment
         uint256 invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.wire_comms[invalidIdx] = invalidPoint;
+        proof.wireComms[invalidIdx] = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.wire_comms[invalidIdx] = validPoint; // Reset
+        proof.wireComms[invalidIdx] = validPoint; // Reset
 
         // Test Case 2: Invalid z commitment
         invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.z_comm = invalidPoint;
+        proof.zComm = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.z_comm = validPoint; // Reset
+        proof.zComm = validPoint; // Reset
 
         // Test Case 3: Invalid quotient commitment
         invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.quotient_comms[invalidIdx] = invalidPoint;
+        proof.quotientComms[invalidIdx] = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.quotient_comms[invalidIdx] = validPoint; // Reset
+        proof.quotientComms[invalidIdx] = validPoint; // Reset
 
         // Test Case 4: Invalid w_zeta
         invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.w_zeta = invalidPoint;
+        proof.wZeta = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.w_zeta = validPoint; // Reset
+        proof.wZeta = validPoint; // Reset
 
         // Test Case 5: Invalid w_zeta_omega
         invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.w_zeta_omega = invalidPoint;
+        proof.wZetaOmega = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.w_zeta_omega = validPoint; // Reset
+        proof.wZetaOmega = validPoint; // Reset
 
         // Test Case 6: Invalid wire evaluation
         invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.wire_evals[invalidIdx] = invalidScalar;
+        proof.wireEvals[invalidIdx] = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.wire_evals[invalidIdx] = validScalar; // Reset
+        proof.wireEvals[invalidIdx] = validScalar; // Reset
 
         // Test Case 7: Invalid sigma evaluation
         invalidIdx = randomUint(NUM_WIRE_TYPES - 1);
-        proof.sigma_evals[invalidIdx] = invalidScalar;
+        proof.sigmaEvals[invalidIdx] = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.sigma_evals[invalidIdx] = validScalar; // Reset
+        proof.sigmaEvals[invalidIdx] = validScalar; // Reset
 
         // Test Case 8: Invalid z_bar
         invalidIdx = randomUint(NUM_WIRE_TYPES);
-        proof.z_bar = invalidScalar;
+        proof.zBar = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
         VerifierCore.verify(proof, publicInputs, vk);
-        proof.z_bar = validScalar; // Reset
+        proof.zBar = validScalar; // Reset
     }
 
     /// @notice Test that the verifier properly validates public inputs in step 3 of Plonk verification
@@ -132,45 +131,45 @@ contract VerifierTest is VerifierTestUtils {
         BN254.ScalarField invalidScalar = BN254.ScalarField.wrap(BN254.R_MOD);
 
         // Create fixed-size arrays for a valid proof
-        BN254.G1Point[NUM_WIRE_TYPES] memory wire_comms;
-        BN254.G1Point[NUM_WIRE_TYPES] memory quotient_comms;
-        BN254.ScalarField[NUM_WIRE_TYPES] memory wire_evals;
-        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigma_evals;
+        BN254.G1Point[NUM_WIRE_TYPES] memory wireComms;
+        BN254.G1Point[NUM_WIRE_TYPES] memory quotientComms;
+        BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals;
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals;
 
         // Fill arrays with valid values
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            wire_comms[i] = validPoint;
-            quotient_comms[i] = validPoint;
-            wire_evals[i] = validScalar;
+            wireComms[i] = validPoint;
+            quotientComms[i] = validPoint;
+            wireEvals[i] = validScalar;
             if (i < NUM_WIRE_TYPES - 1) {
-                sigma_evals[i] = validScalar;
+                sigmaEvals[i] = validScalar;
             }
         }
 
         // Create a valid proof
         PlonkProof memory proof = PlonkProof({
-            wire_comms: wire_comms,
-            z_comm: validPoint,
-            quotient_comms: quotient_comms,
-            w_zeta: validPoint,
-            w_zeta_omega: validPoint,
-            wire_evals: wire_evals,
-            sigma_evals: sigma_evals,
-            z_bar: validScalar
+            wireComms: wireComms,
+            zComm: validPoint,
+            quotientComms: quotientComms,
+            wZeta: validPoint,
+            wZetaOmega: validPoint,
+            wireEvals: wireEvals,
+            sigmaEvals: sigmaEvals,
+            zBar: validScalar
         });
 
         // Create a mock verification key
         VerificationKey memory vk = createMockVerificationKey();
-        uint256 NUM_PUBLIC_INPUTS = vk.l;
+        uint256 numPublicInputs = vk.l;
 
         // Test Case: Invalid public input
-        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](NUM_PUBLIC_INPUTS);
-        for (uint256 i = 0; i < NUM_PUBLIC_INPUTS; i++) {
+        BN254.ScalarField[] memory publicInputs = new BN254.ScalarField[](numPublicInputs);
+        for (uint256 i = 0; i < numPublicInputs; i++) {
             publicInputs[i] = validScalar;
         }
 
         // Try a random position with an invalid scalar
-        uint256 invalidIdx = randomUint(NUM_PUBLIC_INPUTS);
+        uint256 invalidIdx = randomUint(numPublicInputs);
         publicInputs[invalidIdx] = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
         VerifierCore.verify(proof, publicInputs, vk);
@@ -183,30 +182,30 @@ contract VerifierTest is VerifierTestUtils {
         BN254.ScalarField validScalar = BN254.ScalarField.wrap(1);
 
         // Create fixed-size arrays for a valid proof
-        BN254.G1Point[NUM_WIRE_TYPES] memory wire_comms;
-        BN254.G1Point[NUM_WIRE_TYPES] memory quotient_comms;
-        BN254.ScalarField[NUM_WIRE_TYPES] memory wire_evals;
-        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigma_evals;
+        BN254.G1Point[NUM_WIRE_TYPES] memory wireComms;
+        BN254.G1Point[NUM_WIRE_TYPES] memory quotientComms;
+        BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals;
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals;
 
         // Fill arrays with valid values
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            wire_comms[i] = validPoint;
-            quotient_comms[i] = validPoint;
-            wire_evals[i] = validScalar;
+            wireComms[i] = validPoint;
+            quotientComms[i] = validPoint;
+            wireEvals[i] = validScalar;
             if (i < NUM_WIRE_TYPES - 1) {
-                sigma_evals[i] = validScalar;
+                sigmaEvals[i] = validScalar;
             }
         }
 
         // Create a valid proof
         PlonkProof memory proof = PlonkProof({
-            wire_comms: wire_comms,
+            wire_comms: wireComms,
             z_comm: validPoint,
-            quotient_comms: quotient_comms,
+            quotient_comms: quotientComms,
             w_zeta: validPoint,
             w_zeta_omega: validPoint,
-            wire_evals: wire_evals,
-            sigma_evals: sigma_evals,
+            wire_evals: wireEvals,
+            sigma_evals: sigmaEvals,
             z_bar: validScalar
         });
 
@@ -475,15 +474,15 @@ contract VerifierTest is VerifierTestUtils {
 
     /// @notice Test the verifier against a reference implementation on the sum-pow circuit
     function testVerifierSumPow() public {
-        uint256 NUM_INPUTS = 10;
+        uint256 numInputs = 10;
 
         // First generate the verification key for the circuit
         compileRustBinary("test/rust-reference-impls/verifier/Cargo.toml");
         VerificationKey memory vkey = getSumPowVkey();
 
         // Generate ten random inputs
-        uint256[10] memory inputs;
-        for (uint256 i = 0; i < NUM_INPUTS; i++) {
+        uint256[numInputs] memory inputs;
+        for (uint256 i = 0; i < numInputs; i++) {
             inputs[i] = randomFelt();
         }
 

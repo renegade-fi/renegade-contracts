@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
+import { SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import {
     PartyMatchPayload,

@@ -2,9 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
-import { Test } from "forge-std/Test.sol";
-import { Vm } from "forge-std/Vm.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { TypesLib, FixedPoint } from "darkpoolv1-types/TypesLib.sol";
 import {
@@ -17,12 +14,9 @@ import {
     BoundedMatchResult
 } from "darkpoolv1-types/Settlement.sol";
 import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
-import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import {
     ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
-import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
-import { console2 } from "forge-std/console2.sol";
 
 contract GasSponsorTest is DarkpoolTestBase {
     using TypesLib for FixedPoint;

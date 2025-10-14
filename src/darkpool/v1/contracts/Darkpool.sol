@@ -2,10 +2,8 @@
 pragma solidity ^0.8.0;
 
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
-import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
-import { VerificationKeys } from "darkpoolv1-lib/VerificationKeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
@@ -25,11 +23,9 @@ import {
     ValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
-    ValidFeeRedemptionStatement,
-    StatementSerializer
+    ValidFeeRedemptionStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
 import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
-import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { ExternalTransfer } from "darkpoolv1-types/Transfers.sol";
 import {

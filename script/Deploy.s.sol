@@ -7,13 +7,12 @@ pragma solidity ^0.8.0;
  * <permit2> <weth> <feeRecipient> --ffi --broadcast --sender <sender> --unlocked
  */
 import { Script } from "forge-std/Script.sol";
-import { console } from "forge-std/console.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BabyJubJubPoint, EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
-import "permit2-lib/interfaces/IPermit2.sol";
-import "renegade-lib/interfaces/IWETH9.sol";
-import "./utils/DeployUtils.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { DeployUtils } from "./utils/DeployUtils.sol";
 
 contract DeployScript is Script {
     function run(

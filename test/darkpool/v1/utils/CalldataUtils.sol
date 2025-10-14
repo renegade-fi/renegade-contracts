@@ -8,7 +8,6 @@ import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.so
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { TestUtils } from "test-utils/TestUtils.sol";
 import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { FixedPoint, TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { ExternalTransfer, TransferType, TransferAuthorization, DepositWitness } from "darkpoolv1-types/Transfers.sol";
 import { PublicRootKey, publicKeyToUints } from "darkpoolv1-types/Keychain.sol";

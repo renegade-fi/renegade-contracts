@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "../src/libraries/verifier/BN254Helpers.sol";
 import { Transcript, TranscriptLib } from "../src/libraries/verifier/Transcript.sol";
@@ -42,21 +41,21 @@ contract TranscriptTest is TestUtils {
 
     /// @notice Test the basic flow of transcript operations with multiple inputs
     function testTranscriptMultiple() public {
-        uint256 TEST_DATA_BYTES = 1024;
-        uint256 NUM_TEST_INPUTS = 5;
+        uint256 testDataBytes = 1024;
+        uint256 numTestInputs = 5;
 
         // Create a new transcript
         Transcript memory transcript = TranscriptLib.newTranscript();
 
         // Generate multiple random test inputs
-        bytes[] memory testInputs = new bytes[](NUM_TEST_INPUTS);
-        for (uint256 i = 0; i < NUM_TEST_INPUTS; i++) {
-            testInputs[i] = vm.randomBytes(TEST_DATA_BYTES);
+        bytes[] memory testInputs = new bytes[](numTestInputs);
+        for (uint256 i = 0; i < numTestInputs; i++) {
+            testInputs[i] = vm.randomBytes(testDataBytes);
         }
 
         // Get challenges from our implementation
-        BN254.ScalarField[] memory challenges = new BN254.ScalarField[](NUM_TEST_INPUTS);
-        for (uint256 i = 0; i < NUM_TEST_INPUTS; i++) {
+        BN254.ScalarField[] memory challenges = new BN254.ScalarField[](numTestInputs);
+        for (uint256 i = 0; i < numTestInputs; i++) {
             transcript.appendMessage(testInputs[i]);
             challenges[i] = transcript.getChallenge();
         }
@@ -65,7 +64,7 @@ contract TranscriptTest is TestUtils {
         uint256[] memory expectedChallenges = runReferenceImpl(testInputs);
 
         // Compare results
-        for (uint256 i = 0; i < NUM_TEST_INPUTS; i++) {
+        for (uint256 i = 0; i < numTestInputs; i++) {
             assertEq(
                 BN254.ScalarField.unwrap(challenges[i]),
                 expectedChallenges[i],
@@ -76,15 +75,15 @@ contract TranscriptTest is TestUtils {
 
     /// @notice Test the methods for appending a set of scalars to the transcript
     function testTranscriptAppendScalars() public {
-        uint256 NUM_SCALARS = 10;
-        BN254.ScalarField[] memory scalars = new BN254.ScalarField[](NUM_SCALARS);
-        for (uint256 i = 0; i < NUM_SCALARS; i++) {
+        uint256 numScalars = 10;
+        BN254.ScalarField[] memory scalars = new BN254.ScalarField[](numScalars);
+        for (uint256 i = 0; i < numScalars; i++) {
             scalars[i] = BN254.ScalarField.wrap(randomFelt());
         }
 
         // Run the reference implementation
         bytes memory fullInput = "";
-        for (uint256 i = 0; i < NUM_SCALARS; i++) {
+        for (uint256 i = 0; i < numScalars; i++) {
             fullInput = abi.encodePacked(fullInput, BN254Helpers.scalarToLeBytes(scalars[i]));
         }
         bytes[] memory inputs = new bytes[](1);
@@ -108,15 +107,15 @@ contract TranscriptTest is TestUtils {
 
     /// @notice Test the methods for appending a set of points to the transcript
     function testTranscriptAppendPoints() public {
-        uint256 NUM_POINTS = 10;
-        BN254.G1Point[] memory points = new BN254.G1Point[](NUM_POINTS);
-        for (uint256 i = 0; i < NUM_POINTS; i++) {
+        uint256 numPoints = 10;
+        BN254.G1Point[] memory points = new BN254.G1Point[](numPoints);
+        for (uint256 i = 0; i < numPoints; i++) {
             points[i] = randomG1Point();
         }
 
         // Run the reference implementation
         bytes memory fullInput = "";
-        for (uint256 i = 0; i < NUM_POINTS; i++) {
+        for (uint256 i = 0; i < numPoints; i++) {
             fullInput = abi.encodePacked(fullInput, BN254.g1Serialize(points[i]));
         }
         bytes[] memory inputs = new bytes[](1);

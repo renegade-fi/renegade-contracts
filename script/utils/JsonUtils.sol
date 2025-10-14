@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "forge-std/Vm.sol";
+import { Vm } from "forge-std/Vm.sol";
 
 library JsonUtils {
     /// @dev Write a key-value pair to a JSON file, handling existing entries

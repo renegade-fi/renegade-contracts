@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { PlonkProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
@@ -11,8 +11,7 @@ import {
     ValidMatchSettleAtomicWithCommitmentsStatement,
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
-    ValidFeeRedemptionStatement,
-    StatementSerializer
+    ValidFeeRedemptionStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
 import { PartyMatchPayload } from "darkpoolv1-types/Settlement.sol";
 import { MatchProofs, MatchLinkingProofs } from "darkpoolv1-types/Settlement.sol";
@@ -22,8 +21,6 @@ import {
 import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
-import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
-import { BN254 } from "solidity-bn254/BN254.sol";
 
 /// @title Test Verifier Implementation
 /// @notice This is a test implementation of the `IVerifier` interface that always returns true

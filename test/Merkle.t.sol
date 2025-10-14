@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { Test } from "forge-std/Test.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -117,14 +116,14 @@ contract MerkleTest is TestUtils {
     /// @notice Test the sibling path after a number of inserts
     /// @dev This is effectively testing the consistency of the sibling path across successive insertions
     function test_siblingPathAfterMultiInsert() public {
-        uint256 N_INSERTS = randomUint(1, 20);
-        uint256[] memory inputs = new uint256[](N_INSERTS);
-        for (uint256 i = 0; i < N_INSERTS; i++) {
+        uint256 nInserts = randomUint(1, 20);
+        uint256[] memory inputs = new uint256[](nInserts);
+        for (uint256 i = 0; i < nInserts; i++) {
             inputs[i] = randomFelt();
         }
 
         // Insert into the solidity Merkle tree
-        for (uint256 i = 0; i < N_INSERTS; i++) {
+        for (uint256 i = 0; i < nInserts; i++) {
             tree.insertLeaf(BN254.ScalarField.wrap(inputs[i]), hasher);
         }
 
@@ -139,7 +138,7 @@ contract MerkleTest is TestUtils {
         tree.insertLeaf(BN254.ScalarField.wrap(nextInput), hasher);
 
         // Check that the sibling path from the previous insert opens the new leaf to the current root
-        uint256 idx = N_INSERTS;
+        uint256 idx = nInserts;
         uint256 expectedRoot = BN254.ScalarField.unwrap(tree.getRoot());
         uint256 openedRoot = nextInput;
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {

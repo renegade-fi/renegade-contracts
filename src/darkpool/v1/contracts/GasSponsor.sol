@@ -6,7 +6,10 @@ import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+
 import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 
@@ -302,7 +305,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
         view
     {
         // Create message hash directly from encoded tuple
-        bytes32 messageHash = keccak256(abi.encode(nonce, refundAddress, refundAmount));
+        bytes32 messageHash = EfficientHashLib.hash(abi.encode(nonce, refundAddress, refundAmount));
 
         // Split the signature into r, s and v
         require(signature.length == 65, "Invalid signature length");

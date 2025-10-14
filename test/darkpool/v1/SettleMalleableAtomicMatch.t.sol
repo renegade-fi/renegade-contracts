@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
-import { Test } from "forge-std/Test.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 
 import {

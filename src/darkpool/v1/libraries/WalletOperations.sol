@@ -13,6 +13,7 @@ import { BalanceShare } from "darkpoolv1-types/Wallet.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 // --- Helpers --- //
 
@@ -221,7 +222,7 @@ library WalletOperations {
     /// @notice Get the digest of a wallet commitment
     function walletCommitmentDigest(BN254.ScalarField walletCommitment) internal pure returns (bytes32) {
         bytes32 walletCommitmentBytes = bytes32(BN254.ScalarField.unwrap(walletCommitment));
-        return keccak256(abi.encode(walletCommitmentBytes));
+        return EfficientHashLib.hash(abi.encode(walletCommitmentBytes));
     }
 
     /// @notice Get an ethereum address from a public root key
@@ -232,7 +233,7 @@ library WalletOperations {
         bytes memory packed = abi.encodePacked(x, y);
 
         // Hash and convert last 20 bytes to address
-        bytes32 hash = keccak256(packed);
+        bytes32 hash = EfficientHashLib.hash(packed);
         return address(uint160(uint256(hash)));
     }
 

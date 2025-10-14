@@ -8,6 +8,7 @@ import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from 
 import { FeeTake, FeeTakeRate } from "./Fees.sol";
 import { ExternalMatchDirection } from "./Settlement.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 /// @dev The type hash for the DepositWitness struct
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
@@ -51,6 +52,7 @@ library TypesLib {
     /// @param scalar The scalar to multiply by
     /// @return The truncated result of the multiplication
     function unsafeFixedPointMul(FixedPoint memory self, uint256 scalar) public pure returns (uint256) {
+        /// forge-lint: disable-next-line(incorrect-shift)
         return (self.repr * scalar) / (1 << DarkpoolConstants.FIXED_POINT_PRECISION_BITS);
     }
 
@@ -68,8 +70,8 @@ library TypesLib {
     /// @return The EIP-712 hash of the DepositWitness
     function hashWitness(DepositWitness memory witness) public pure returns (bytes32) {
         // Hash the struct data according to EIP-712
-        bytes32 pkRootHash = keccak256(abi.encode(witness.pkRoot));
-        return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, pkRootHash));
+        bytes32 pkRootHash = EfficientHashLib.hash(abi.encode(witness.pkRoot));
+        return EfficientHashLib.hash(abi.encode(DEPOSIT_WITNESS_TYPEHASH, pkRootHash));
     }
 
     // --- Order Settlement Indices --- //

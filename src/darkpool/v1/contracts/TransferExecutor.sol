@@ -8,9 +8,8 @@ import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
 import { ExternalTransfer, TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
-import { ExternalMatchResult, ExternalMatchDirection } from "darkpoolv1-types/Settlement.sol";
+import { ExternalMatchResult } from "darkpoolv1-types/Settlement.sol";
 import { FeeTake } from "darkpoolv1-types/Fees.sol";
-import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 /// @title TransferExecutor
 /// @notice A contract that executes external transfers for the Darkpool contract

@@ -58,10 +58,10 @@ contract Verifier is IVerifier {
     uint256 public constant NUM_MALLEABLE_MATCH_PROOFS = 3;
     uint256 public constant NUM_MALLEABLE_MATCH_LINKING_PROOFS = 2;
 
-    IVKeys public immutable vkeys;
+    IVKeys public immutable VKEYS;
 
     constructor(IVKeys _vkeys) {
-        vkeys = _vkeys;
+        VKEYS = _vkeys;
     }
 
     /// @notice Verify a proof of `VALID WALLET CREATE`
@@ -76,7 +76,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = vkeys.walletCreateKeys();
+        VerificationKey memory vk = VKEYS.walletCreateKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -93,7 +93,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = vkeys.walletUpdateKeys();
+        VerificationKey memory vk = VKEYS.walletUpdateKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -123,7 +123,7 @@ contract Verifier is IVerifier {
             ProofLinkingVK memory reblindCommitmentsVk,
             ProofLinkingVK memory commitmentsMatchSettleVk0,
             ProofLinkingVK memory commitmentsMatchSettleVk1
-        ) = vkeys.matchBundleKeys();
+        ) = VKEYS.matchBundleKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_MATCH_PROOFS);
@@ -186,7 +186,7 @@ contract Verifier is IVerifier {
             ProofLinkingVK memory reblindCommitmentsVk,
             ProofLinkingVK memory commitmentsMatchSettleVk0,
             ProofLinkingVK memory commitmentsMatchSettleVk1
-        ) = vkeys.matchBundleWithCommitmentsKeys();
+        ) = VKEYS.matchBundleWithCommitmentsKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_MATCH_PROOFS);
@@ -243,7 +243,7 @@ contract Verifier is IVerifier {
             VerificationKey memory settleVk,
             ProofLinkingVK memory reblindCommitmentsVk,
             ProofLinkingVK memory commitmentsMatchSettleVk
-        ) = vkeys.atomicMatchBundleKeys();
+        ) = VKEYS.atomicMatchBundleKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_ATOMIC_MATCH_PROOFS);
@@ -294,7 +294,7 @@ contract Verifier is IVerifier {
             VerificationKey memory settleVk,
             ProofLinkingVK memory reblindCommitmentsVk,
             ProofLinkingVK memory commitmentsMatchSettleVk
-        ) = vkeys.atomicMatchBundleWithCommitmentsKeys();
+        ) = VKEYS.atomicMatchBundleWithCommitmentsKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_ATOMIC_MATCH_PROOFS);
@@ -345,7 +345,7 @@ contract Verifier is IVerifier {
             VerificationKey memory settleVk,
             ProofLinkingVK memory reblindCommitmentsVk,
             ProofLinkingVK memory commitmentsMatchSettleVk
-        ) = vkeys.malleableMatchBundleKeys();
+        ) = VKEYS.malleableMatchBundleKeys();
 
         // Build the batch
         PlonkProof[] memory proofs = new PlonkProof[](NUM_MALLEABLE_MATCH_PROOFS);
@@ -385,7 +385,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = vkeys.offlineFeeSettlementKeys();
+        VerificationKey memory vk = VKEYS.offlineFeeSettlementKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }
@@ -402,7 +402,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = vkeys.feeRedemptionKeys();
+        VerificationKey memory vk = VKEYS.feeRedemptionKeys();
         BN254.ScalarField[] memory publicInputs = statement.scalarSerialize();
         return VerifierCore.verify(proof, publicInputs, vk);
     }

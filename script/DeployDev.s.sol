@@ -3,8 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Script } from "forge-std/Script.sol";
 import { console } from "forge-std/console.sol";
-import { Vm } from "forge-std/Vm.sol";
-import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { DeployUtils } from "./utils/DeployUtils.sol";
 import { Permit2Utils } from "./utils/Permit2Utils.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";

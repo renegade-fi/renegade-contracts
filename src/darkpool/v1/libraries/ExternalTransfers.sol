@@ -14,6 +14,7 @@ import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.so
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 /// @title ExternalTransferLib
 /// @notice This library implements the logic for executing external transfers
@@ -171,7 +172,7 @@ library ExternalTransferLib {
     {
         // 1. Verify the signature of the withdrawal
         bytes memory transferBytes = abi.encode(transfer);
-        bytes32 transferHash = keccak256(transferBytes);
+        bytes32 transferHash = EfficientHashLib.hash(transferBytes);
         bool sigValid =
             WalletOperations.verifyRootKeySignature(transferHash, authorization.externalTransferSignature, oldPkRoot);
         require(sigValid, "Invalid withdrawal signature");

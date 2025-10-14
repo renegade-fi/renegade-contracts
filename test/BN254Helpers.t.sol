@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "../src/libraries/verifier/BN254Helpers.sol";

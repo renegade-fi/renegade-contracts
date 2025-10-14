@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint } from "darkpoolv1-types/TypesLib.sol";
-import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { PublicKeychain } from "darkpoolv1-types/Keychain.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
