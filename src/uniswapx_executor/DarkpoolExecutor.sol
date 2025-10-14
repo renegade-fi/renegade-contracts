@@ -10,7 +10,7 @@ import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { AccessControl } from "oz-contracts/access/AccessControl.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { Address } from "oz-contracts/utils/Address.sol";
-import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IReactor } from "uniswapx/interfaces/IReactor.sol";
 import { SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import {

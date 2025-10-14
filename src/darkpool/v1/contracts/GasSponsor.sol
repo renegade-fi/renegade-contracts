@@ -5,7 +5,7 @@ import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
-import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";

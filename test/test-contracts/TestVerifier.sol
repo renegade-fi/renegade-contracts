@@ -19,7 +19,7 @@ import { MatchProofs, MatchLinkingProofs } from "darkpoolv1-types/Settlement.sol
 import {
     MatchAtomicProofs, MatchAtomicLinkingProofs, MalleableMatchAtomicProofs
 } from "darkpoolv1-types/Settlement.sol";
-import { IVKeys } from "darkpoolv1-lib/interfaces/IVKeys.sol";
+import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";

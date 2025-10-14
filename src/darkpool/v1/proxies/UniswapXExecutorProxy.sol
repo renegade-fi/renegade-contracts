@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { TransparentUpgradeableProxy } from "oz-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { IDarkpoolExecutor } from "darkpoolv1-lib/interfaces/IDarkpoolExecutor.sol";
+import { IDarkpoolExecutor } from "darkpoolv1-interfaces/IDarkpoolExecutor.sol";
 
 /**
  * @title UniswapXExecutorProxy

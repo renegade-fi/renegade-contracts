@@ -3,6 +3,7 @@
 
 # Workspace 
 .vscode
+.cursor
 **/.DS_Store
 codegen/**/*.huff
 

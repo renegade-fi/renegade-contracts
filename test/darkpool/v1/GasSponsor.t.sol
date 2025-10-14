@@ -21,7 +21,7 @@ import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import {
     ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
-import { IGasSponsor } from "darkpoolv1-lib/interfaces/IGasSponsor.sol";
+import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 import { console2 } from "forge-std/console2.sol";
 
 contract GasSponsorTest is DarkpoolTestBase {
@@ -183,7 +183,7 @@ contract GasSponsorTest is DarkpoolTestBase {
             baseToken.approve(address(gasSponsor), statement.matchResult.baseAmount);
         }
 
-        uint256 receivedAmount = gasSponsor.sponsorAtomicMatchSettle(
+        gasSponsor.sponsorAtomicMatchSettle(
             receiver,
             internalPartyPayload,
             statement,
@@ -241,7 +241,7 @@ contract GasSponsorTest is DarkpoolTestBase {
             baseToken.approve(address(gasSponsor), statement.matchResult.baseAmount);
         }
 
-        uint256 receivedAmount = gasSponsor.sponsorAtomicMatchSettle(
+        gasSponsor.sponsorAtomicMatchSettle(
             receiver,
             internalPartyPayload,
             statement,
@@ -416,7 +416,7 @@ contract GasSponsorTest is DarkpoolTestBase {
         // Verify balances and results
         ExternalMatchResult memory matchResult =
             TypesLib.buildExternalMatchResult(quoteAmount, baseAmount, statement.matchResult);
-        (address _recv, uint256 recvAmt) = matchResult.externalPartyBuyMintAmount();
+        (, uint256 recvAmt) = matchResult.externalPartyBuyMintAmount();
         FeeTake memory externalPartyFees = statement.externalFeeRates.computeFeeTake(recvAmt);
         verifyBalancesAndResults(
             receivedAmount, receiverBaseBalance1, receiverQuoteBalance1, matchResult, externalPartyFees
@@ -439,7 +439,7 @@ contract GasSponsorTest is DarkpoolTestBase {
 
         // Verify results
         uint256 totalFee = externalPartyFees.total();
-        (address _recv, uint256 tradeRecv) = matchResult.externalPartyBuyMintAmount();
+        (, uint256 tradeRecv) = matchResult.externalPartyBuyMintAmount();
 
         // Verify received amount
         uint256 expectedTotalReceived = tradeRecv + REFUND_AMT - totalFee;

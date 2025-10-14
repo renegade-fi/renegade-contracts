@@ -7,43 +7,39 @@ import { WethMock } from "test-contracts/WethMock.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
+
 import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "test-utils/TestUtils.sol";
 import { CalldataUtils } from "darkpoolv1-test/utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+
 import { TestVerifier } from "test-contracts/TestVerifier.sol";
 import { Darkpool } from "darkpoolv1-contracts/Darkpool.sol";
 import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
-import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
-import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
-import { PlonkProof } from "renegade-lib/verifier/Types.sol";
-import { VKeys } from "darkpoolv1-contracts/VKeys.sol";
-import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 
-contract DarkpoolTestBase is CalldataUtils {
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+
+contract DarkpoolV2TestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
 
-    IDarkpool public darkpool;
-    /// @dev A separate instance of the darkpool contract without a verifier mock
-    IDarkpool public darkpoolRealVerifier;
+    IDarkpoolV2 public darkpool;
     IHasher public hasher;
     NullifierLib.NullifierSet private testNullifierSet;
     IPermit2 public permit2;
     ERC20Mock public quoteToken;
     ERC20Mock public baseToken;
     WethMock public weth;
-    IVKeys public vkeys;
     TransferExecutor public transferExecutor;
     /// @dev Gas sponsor contract (points to the darkpool with disabled verification)
     IGasSponsor public gasSponsor;
@@ -57,21 +53,7 @@ contract DarkpoolTestBase is CalldataUtils {
 
     // Implementation contracts (for reference)
     Darkpool public darkpoolImpl;
-    Darkpool public darkpoolRealVerifierImpl;
     GasSponsor public gasSponsorImpl;
-
-    bytes constant INVALID_NULLIFIER_REVERT_STRING = "nullifier/blinder already spent";
-    bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
-    bytes constant INVALID_NOTE_ROOT_REVERT_STRING = "Note not in Merkle history";
-    bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
-    bytes constant INVALID_PROTOCOL_FEE_REVERT_STRING = "Invalid protocol fee rate";
-    bytes constant INVALID_PROTOCOL_FEE_KEY_REVERT_STRING = "Invalid protocol fee encryption key";
-    bytes constant INVALID_ETH_VALUE_REVERT_STRING = "Invalid ETH value, should be zero unless selling native token";
-    bytes constant INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING = "msg.value does not match deposit amount";
-    bytes constant INVALID_INTERNAL_PARTY_FEE_REVERT_STRING = "Invalid internal party protocol fee rate";
-    bytes constant INVALID_EXTERNAL_PARTY_FEE_REVERT_STRING = "Invalid external party protocol fee rate";
-    bytes constant INVALID_PRIVATE_COMMITMENT_REVERT_STRING = "Invalid internal party private share commitment";
-    bytes constant INVALID_QUOTE_AMOUNT_REVERT_STRING = "quote amount is out of `BoundedMatchResult` bounds";
 
     function setUp() public virtual {
         deployTokens();
@@ -102,9 +84,7 @@ contract DarkpoolTestBase is CalldataUtils {
     function deployDarkpool() internal {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
-        vkeys = new VKeys();
-        IVerifier verifier = new TestVerifier(vkeys);
-        IVerifier realVerifier = new Verifier(vkeys);
+        IVerifier verifier = IVerifier(vm.randomAddress()); // TODO: Add verifier
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
         // Deploy TransferExecutor
@@ -116,7 +96,6 @@ contract DarkpoolTestBase is CalldataUtils {
 
         // Deploy implementation contracts
         darkpoolImpl = new Darkpool();
-        darkpoolRealVerifierImpl = new Darkpool();
 
         // Deploy the darkpool with a fake verifier
         DarkpoolProxy darkpoolProxy = new DarkpoolProxy(
@@ -131,22 +110,7 @@ contract DarkpoolTestBase is CalldataUtils {
             permit2,
             address(transferExecutor)
         );
-        darkpool = IDarkpool(address(darkpoolProxy));
-
-        // Deploy the darkpool with the real verifier
-        DarkpoolProxy darkpoolRealVerifierProxy = new DarkpoolProxy(
-            address(darkpoolRealVerifierImpl),
-            darkpoolOwner,
-            TEST_PROTOCOL_FEE,
-            protocolFeeAddr,
-            protocolFeeKey,
-            IWETH9(address(weth)),
-            hasher,
-            realVerifier,
-            permit2,
-            address(transferExecutor)
-        );
-        darkpoolRealVerifier = IDarkpool(address(darkpoolRealVerifierProxy));
+        darkpool = IDarkpoolV2(address(darkpoolProxy));
     }
 
     /**
@@ -217,22 +181,5 @@ contract DarkpoolTestBase is CalldataUtils {
     function etherQuoteBalances(address addr) public view returns (uint256 etherAmt, uint256 quoteAmt) {
         etherAmt = addr.balance;
         quoteAmt = quoteToken.balanceOf(addr);
-    }
-
-    // ---------------------------
-    // | Library Primitive Tests |
-    // ---------------------------
-
-    /// @notice Test the nullifier set
-    function test_nullifierSet() public {
-        BN254.ScalarField nullifier = BN254.ScalarField.wrap(randomFelt());
-        testNullifierSet.spend(nullifier); // Should succeed
-
-        // Check that the nullifier is spent
-        assertEq(testNullifierSet.isSpent(nullifier), true);
-
-        // Should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
-        testNullifierSet.spend(nullifier);
     }
 }

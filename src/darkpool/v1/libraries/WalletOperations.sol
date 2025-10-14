@@ -11,7 +11,7 @@ import { ExternalMatchResult, OrderSettlementIndices } from "darkpoolv1-types/Se
 import { FeeTakeRate, FeeTake } from "darkpoolv1-types/Fees.sol";
 import { BalanceShare } from "darkpoolv1-types/Wallet.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
-import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
 
 // --- Helpers --- //
