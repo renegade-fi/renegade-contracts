@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
-import { PlonkProof, VerificationKey, NUM_SELECTORS, NUM_WIRE_TYPES } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
@@ -10,8 +10,6 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import {
     ValidWalletCreateStatement,
     ValidWalletUpdateStatement,
-    ValidCommitmentsStatement,
-    ValidReblindStatement,
     ValidMatchSettleStatement,
     ValidMatchSettleWithCommitmentsStatement,
     ValidMatchSettleAtomicStatement,
@@ -20,10 +18,7 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
-import { ExternalTransfer as DarkpoolExternalTransfer } from "darkpoolv1-types/Transfers.sol";
 import {
-    BoundedMatchResult,
-    ExternalMatchResult,
     PartyMatchPayload,
     MatchProofs,
     MatchLinkingProofs,
@@ -32,7 +27,6 @@ import {
     MalleableMatchAtomicProofs
 } from "darkpoolv1-types/Settlement.sol";
 import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
-import { FeeTake } from "darkpoolv1-types/Fees.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 interface IDarkpool {
@@ -40,15 +34,18 @@ interface IDarkpool {
 
     /// @notice Emitted when a wallet update is performed
     /// @param wallet_blinder_share The public blinder share of the wallet, used for indexing
+    /// forge-lint: disable-next-line(mixed-case-variable)
     event WalletUpdated(uint256 indexed wallet_blinder_share);
     /// @notice Emitted when an internal Merkle node is updated
     /// @param depth The depth at which the node is updated
     /// @param index The index of the node in the Merkle tree
     /// @param new_value The new value of the node
+    /// forge-lint: disable-next-line(mixed-case-variable)
     event MerkleOpeningNode(uint8 indexed depth, uint128 indexed index, uint256 new_value);
     /// @notice Emitted when a Merkle leaf is inserted into the tree
     /// @param index The leaf index
     /// @param value The value of the leaf
+    /// forge-lint: disable-next-line(mixed-case-variable)
     event MerkleInsertion(uint128 indexed index, uint256 indexed value);
     /// @notice Emitted when a nullifier is spent
     /// @param nullifier The nullifier that was spent

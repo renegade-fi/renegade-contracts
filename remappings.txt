@@ -9,6 +9,7 @@ permit2-test/=lib/permit2/test/
 oz-contracts/=lib/openzeppelin-contracts/contracts
 openzeppelin-contracts/=lib/UniswapX/lib/openzeppelin-contracts/contracts/
 solmate/=lib/solmate
+solady/=lib/solady/src
 uniswapx/=lib/UniswapX/src
 uniswapx-test/=lib/UniswapX/test
 

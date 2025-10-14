@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { WethMock } from "test-contracts/WethMock.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
 
-import { Test } from "forge-std/Test.sol";
-import { TestUtils } from "test-utils/TestUtils.sol";
 import { CalldataUtils } from "darkpoolv1-test/utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
 
-import { TestVerifier } from "test-contracts/TestVerifier.sol";
 import { Darkpool } from "darkpoolv1-contracts/Darkpool.sol";
 import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -27,9 +23,8 @@ import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
-import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
-import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
+// solhint-disable-next-line max-states-count
 contract DarkpoolV2TestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
 

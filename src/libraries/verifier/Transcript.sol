@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { NUM_WIRE_TYPES, NUM_SELECTORS } from "./Types.sol";
 
 // --- Hash & Transcript Constants --- //
@@ -67,8 +68,8 @@ library TranscriptLib {
         bytes memory input1 = abi.encodePacked(self.hashStateLow, self.hashStateHigh, self.elements, uint8(1));
 
         // Hash inputs and update the hash state
-        bytes32 low = keccak256(input0);
-        bytes32 high = keccak256(input1);
+        bytes32 low = EfficientHashLib.hash(input0);
+        bytes32 high = EfficientHashLib.hash(input1);
         self.hashStateLow = uint256(low);
         self.hashStateHigh = uint256(high);
 

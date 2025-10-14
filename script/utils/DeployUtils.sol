@@ -1,28 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
-import "forge-std/Vm.sol";
-import "foundry-huff/HuffDeployer.sol";
-import "permit2-lib/interfaces/IPermit2.sol";
-import "permit2-test/utils/DeployPermit2.sol";
+import { console } from "forge-std/console.sol";
+import { Vm } from "forge-std/Vm.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 
-import "darkpoolv1-contracts/Darkpool.sol";
-import "darkpoolv1-proxies/DarkpoolProxy.sol";
-import "darkpoolv1-contracts/Verifier.sol";
-import "darkpoolv1-contracts/VKeys.sol";
-import "renegade-lib/interfaces/IHasher.sol";
-import "renegade-lib/interfaces/IVerifier.sol";
-import "renegade-lib/interfaces/IWETH9.sol";
-import "darkpoolv1-types/Ciphertext.sol";
-import "darkpoolv1-contracts/TransferExecutor.sol";
-import "darkpoolv1-contracts/GasSponsor.sol";
-import "darkpoolv1-proxies/GasSponsorProxy.sol";
-import "./JsonUtils.sol";
+import { Darkpool } from "darkpoolv1-contracts/Darkpool.sol";
+import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
+import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
+import { VKeys, IVKeys } from "darkpoolv1-contracts/VKeys.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
+import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
+import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
+import { JsonUtils } from "./JsonUtils.sol";
 
 library DeployUtils {
     /// @dev Path to the deployments JSON file
-    string constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
+    string internal constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
 
     /// @dev Get the deployments path from environment or use default
     /// @param vm The VM to access environment variables
@@ -42,6 +40,7 @@ library DeployUtils {
 
         // Deploy the contract
         address deployedAddress;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             deployedAddress :=
                 create(
@@ -51,6 +50,7 @@ library DeployUtils {
                 )
         }
 
+        // solhint-disable-next-line gas-custom-errors
         require(deployedAddress != address(0), "Hasher deployment failed");
         writeDeployment(vm, "Hasher", deployedAddress);
         return deployedAddress;

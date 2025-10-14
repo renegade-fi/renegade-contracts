@@ -81,11 +81,6 @@ jobs:
           echo "Building required debug binaries: verifier, transcript, poseidon, merkle..."
           cargo build --bin verifier --bin transcript --bin poseidon --bin merkle -v
 
-      - name: Run Forge fmt
-        run: |
-          forge fmt --check
-        id: fmt
-
       - name: Run Forge build
         run: |
           forge build --sizes

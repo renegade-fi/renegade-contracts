@@ -3,18 +3,11 @@ pragma solidity ^0.8.0;
 
 import { Transcript } from "./Transcript.sol";
 import {
-    PlonkProof,
-    VerificationKey,
-    Challenges,
-    NUM_WIRE_TYPES,
-    NUM_SELECTORS,
-    OpeningElements,
-    emptyOpeningElements
+    PlonkProof, VerificationKey, Challenges, NUM_WIRE_TYPES, OpeningElements, emptyOpeningElements
 } from "./Types.sol";
 import { TranscriptLib } from "./Transcript.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
-import { Utils } from "solidity-bn254/Utils.sol";
 
 // -------------
 // | Constants |
@@ -142,7 +135,7 @@ library VerifierCore {
     /// @return True if the batch opening is valid, false otherwise
     function verifyBatchOpening(
         BN254.G2Point memory h,
-        BN254.G2Point memory x_h,
+        BN254.G2Point memory xH,
         OpeningElements memory proofOpeningElements,
         OpeningElements memory extraOpeningElements
     )
@@ -180,7 +173,7 @@ library VerifierCore {
             rCurr = BN254.mul(rCurr, r);
         }
 
-        return BN254.pairingProd2(lhsTerm, x_h, rhsTerm, h);
+        return BN254.pairingProd2(lhsTerm, xH, rhsTerm, h);
     }
 
     /// @notice Step 1 and 2 of the plonk verification algorithm

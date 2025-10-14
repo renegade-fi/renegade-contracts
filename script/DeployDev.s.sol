@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
-import "forge-std/Vm.sol";
-import "foundry-huff/HuffDeployer.sol";
-import "./utils/DeployUtils.sol";
-import "./utils/Permit2Utils.sol";
-import "renegade-lib/interfaces/IWETH9.sol";
-import "../test/test-contracts/WethMock.sol";
-import "solmate/src/test/utils/mocks/MockERC20.sol";
+import { Script } from "forge-std/Script.sol";
+import { console } from "forge-std/console.sol";
+import { Vm } from "forge-std/Vm.sol";
+import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
+import { DeployUtils } from "./utils/DeployUtils.sol";
+import { Permit2Utils } from "./utils/Permit2Utils.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
+import { WethMock } from "../test/test-contracts/WethMock.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+
+import { BN254 } from "solidity-bn254/BN254.sol";
+import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 
 contract DeployDevScript is Script {
     function run() public {

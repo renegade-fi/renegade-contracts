@@ -12,29 +12,29 @@ uint256 constant NUM_SELECTORS = 13;
 /// @notice This matches the Rust implementation from mpc-jellyfish
 struct PlonkProof {
     /// @dev The commitments to the wire polynomials
-    BN254.G1Point[NUM_WIRE_TYPES] wire_comms;
+    BN254.G1Point[NUM_WIRE_TYPES] wireComms;
     /// @dev The commitment to the grand product polynomial encoding the permutation argument
-    BN254.G1Point z_comm;
+    BN254.G1Point zComm;
     /// @dev The commitments to the split quotient polynomials
-    BN254.G1Point[NUM_WIRE_TYPES] quotient_comms;
+    BN254.G1Point[NUM_WIRE_TYPES] quotientComms;
     /// @dev The opening proof of evaluations at challenge point `zeta`
-    BN254.G1Point w_zeta;
+    BN254.G1Point wZeta;
     /// @dev The opening proof of evaluations at challenge point `zeta * omega`
-    BN254.G1Point w_zeta_omega;
+    BN254.G1Point wZetaOmega;
     /// @dev The evaluations of the wire polynomials at the challenge point `zeta`
-    BN254.ScalarField[NUM_WIRE_TYPES] wire_evals;
+    BN254.ScalarField[NUM_WIRE_TYPES] wireEvals;
     /// @dev The evaluations of the permutation polynomials at the challenge point `zeta`
-    BN254.ScalarField[NUM_WIRE_TYPES - 1] sigma_evals;
+    BN254.ScalarField[NUM_WIRE_TYPES - 1] sigmaEvals;
     /// @dev The evaluation of the grand product polynomial at the challenge point `zeta * omega`
-    BN254.ScalarField z_bar;
+    BN254.ScalarField zBar;
 }
 
 /// @title A proof of a group of linked inputs between two Plonk proofs
 struct LinkingProof {
     /// @dev The commitment to the linking quotient polynomial
-    BN254.G1Point linking_quotient_poly_comm;
+    BN254.G1Point linkingQuotientPolyComm;
     /// @dev The opening proof of the linking polynomial
-    BN254.G1Point linking_poly_opening;
+    BN254.G1Point linkingPolyOpening;
 }
 
 /// @title A Plonk verification key
@@ -46,25 +46,26 @@ struct VerificationKey {
     /// The constants used to generate the cosets of the evaluation domain
     BN254.ScalarField[NUM_WIRE_TYPES] k;
     /// The commitments to the selector polynomials
-    BN254.G1Point[NUM_SELECTORS] q_comms;
+    BN254.G1Point[NUM_SELECTORS] qComms;
     /// The commitments to the permutation polynomials
-    BN254.G1Point[NUM_WIRE_TYPES] sigma_comms;
+    BN254.G1Point[NUM_WIRE_TYPES] sigmaComms;
     /// The generator of G1
     BN254.G1Point g;
     /// The generator of G2
     BN254.G2Point h;
     /// The secret evaluation point multiplied by the generator of G2
-    BN254.G2Point x_h;
+    BN254.G2Point xH;
 }
 
 /// @title A verification key for the proof linking relation
+/// forge-lint: disable-next-line(pascal-case-struct)
 struct ProofLinkingVK {
     /// @dev The generator of the subdomain over which the linked inputs are defined
-    BN254.ScalarField link_group_generator;
+    BN254.ScalarField linkGroupGenerator;
     /// @dev The offset into the domain at which the subdomain begins
-    uint256 link_group_offset;
+    uint256 linkGroupOffset;
     /// @dev The number of linked inputs, equivalently the size of the subdomain
-    uint256 link_group_size;
+    uint256 linkGroupSize;
 }
 
 /// @title The public coin challenges used throughout the Plonk protocol
@@ -87,9 +88,9 @@ struct Challenges {
 /// @title An instance of a proof linking argument
 struct ProofLinkingInstance {
     /// @dev The commitment to the first proof's first wire polynomial
-    BN254.G1Point wire_comm0;
+    BN254.G1Point wireComm0;
     /// @dev The commitment to the second proof's first wire polynomial
-    BN254.G1Point wire_comm1;
+    BN254.G1Point wireComm1;
     /// @dev The linking proof itself
     LinkingProof proof;
     /// @dev The proof linking relation verification key

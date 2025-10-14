@@ -171,8 +171,8 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
     /// @dev Must have approved each token and amount in outputs to the msg.sender
     /// @dev For now we assume that there is only one resolved order with a single output token
     function reactorCallback(
-        ResolvedOrder[] memory resolvedOrders,
-        bytes memory callbackData
+        ResolvedOrder[] calldata resolvedOrders,
+        bytes calldata callbackData
     )
         external
         override
