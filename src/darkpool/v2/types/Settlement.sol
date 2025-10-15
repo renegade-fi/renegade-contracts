@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.24;
 
+import { Intent } from "darkpoolv2-types/Intent.sol";
+
 /// @notice A settlement bundle for a user
 /// @dev This type encapsulates all the data required to validate a user's obligation to a trade
 /// @dev and settle the trade. The fields themselves are tagged unions of different data types representing
@@ -35,6 +37,22 @@ struct IntentBundle {
     IntentType intentType;
     /// @dev The data validating the intent
     bytes data;
+}
+
+/// @notice The public intent authorization payload with signature attached
+struct PublicIntentAuthBundle {
+    /// @dev The intent authorization permit
+    PublicIntentPermit permit;
+    /// @dev The signature of the intent
+    bytes signature;
+}
+
+/// @notice Intent authorization data for a public intent
+struct PublicIntentPermit {
+    /// @dev The intent to authorize
+    Intent intent;
+    /// @dev The authorized executor of the intent
+    address executor;
 }
 
 /// @notice The type of intent to settle

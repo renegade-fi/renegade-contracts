@@ -12,8 +12,8 @@ import { FeeTakeRate, FeeTake } from "darkpoolv1-types/Fees.sol";
 import { BalanceShare } from "darkpoolv1-types/Wallet.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
-import { ECDSA } from "oz-contracts/utils/cryptography/ECDSA.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ECDSALib } from "renegade-lib/ECDSA.sol";
 
 // --- Helpers --- //
 
@@ -237,23 +237,8 @@ library WalletOperations {
         pure
         returns (bool)
     {
-        // Split the signature into r, s and v
-        if (signature.length != 65) revert InvalidSignatureLength();
-        bytes32 r = bytes32(signature[:32]);
-        bytes32 s = bytes32(signature[32:64]);
-        uint8 v = uint8(signature[64]);
-        // Clients (notably ethers) sometimes use v = 0 or 1, the ecrecover precompile expects 27 or 28
-        if (v == 0 || v == 1) {
-            v += 27;
-        }
-
-        // Recover signer address using ecrecover
-        address signer = ECDSA.recover(digest, v, r, s);
-        if (signer == address(0)) revert InvalidSignature();
-
-        // Convert oldRootKey to address and compare
         address rootKeyAddress = addressFromRootKey(rootKey);
-        return signer == rootKeyAddress;
+        return ECDSALib.verify(digest, signature, rootKeyAddress);
     }
 
     /// @notice Get the digest of a wallet commitment
