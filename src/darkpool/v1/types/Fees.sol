@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { FixedPoint } from "./TypesLib.sol";
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 
 // This file contains types for fees due from trades in the darkpool
 

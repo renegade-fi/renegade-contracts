@@ -18,6 +18,9 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
+import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
+import { SettlementLib } from "darkpoolv2-libraries/SettlementLib.sol";
+
 /// @title DarkpoolV2
 /// @author Renegade Eng
 /// @notice V2 of the Renegade darkpool contract for private trading
@@ -132,5 +135,31 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @return Whether the nullifier has been spent
     function nullifierSpent(BN254.ScalarField nullifier) public view returns (bool) {
         return nullifierSet.isSpent(nullifier);
+    }
+
+    // --- Settlement --- //
+
+    /// @notice Settle a trade
+    /// @param party0SettlementBundle The settlement bundle for the first party
+    /// @param party1SettlementBundle The settlement bundle for the second party
+    function settleMatch(
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle
+    )
+        public
+    {
+        // 1. Validate that the settlement obligations are compatible with one another
+        SettlementLib.checkObligationCompatibility(party0SettlementBundle, party1SettlementBundle);
+
+        // 2. Authorize the intents in the settlement bundles
+        SettlementLib.authorizeIntent(party0SettlementBundle.intent);
+        SettlementLib.authorizeIntent(party1SettlementBundle.intent);
+
+        // 3. Validate the intent and balance constraints on the obligations
+        SettlementLib.validateObligationConstraints(party0SettlementBundle);
+        SettlementLib.validateObligationConstraints(party1SettlementBundle);
+
+        // 4. Settle the match by updating the balances for each party
+        // TODO: Settlement logic
     }
 }

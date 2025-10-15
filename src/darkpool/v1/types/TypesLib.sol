@@ -7,8 +7,8 @@ import { EncryptionKey } from "./Ciphertext.sol";
 import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from "./Settlement.sol";
 import { FeeTake, FeeTakeRate } from "./Fees.sol";
 import { ExternalMatchDirection } from "./Settlement.sol";
-import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 /// @dev The type hash for the DepositWitness struct
 // solhint-disable-next-line gas-small-strings
@@ -24,14 +24,6 @@ bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4]
 string constant DEPOSIT_WITNESS_TYPE_STRING =
     "DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)";
 
-/// @notice A fixed point representation of a real number
-/// @dev The precision used is specified in `DarkpoolConstants.FIXED_POINT_PRECISION_BITS`
-/// @dev The real number represented is `repr / 2^{FIXED_POINT_PRECISION_BITS}`
-struct FixedPoint {
-    /// @dev The representation of the number
-    uint256 repr;
-}
-
 /// @title TypesLib
 /// @author Renegade Eng
 /// @notice A library that allows us to define function on types in the darkpool
@@ -42,29 +34,6 @@ library TypesLib {
     error QuoteAmountOutOfBounds();
     /// @notice Error thrown when base or quote amount is zero
     error ZeroAmount();
-
-    // --- Fixed Point --- //
-
-    /// @notice Wrap a uint256 into a FixedPoint
-    /// @param x The uint256 to wrap
-    /// @return A FixedPoint with the given representation
-    function wrap(uint256 x) public pure returns (FixedPoint memory) {
-        return FixedPoint({ repr: x });
-    }
-
-    /// @notice Multiply a fixed point by a scalar and return the truncated result
-    /// @dev Computes `(self.repr * scalar) / DarkpoolConstants.FIXED_POINT_PRECISION_BITS`
-    /// @dev The repr already has the fixed point scaling value, so we only need to undo the
-    /// @dev scaling once to get the desired result. Because division naturally truncates in
-    /// @dev Solidity, we can use this will implement the floor of the above division.
-    /// @dev This function is unsafe because it does not check for overflows
-    /// @param self The fixed point to multiply
-    /// @param scalar The scalar to multiply by
-    /// @return The truncated result of the multiplication
-    function unsafeFixedPointMul(FixedPoint memory self, uint256 scalar) public pure returns (uint256) {
-        /// forge-lint: disable-next-line(incorrect-shift)
-        return (self.repr * scalar) / (1 << DarkpoolConstants.FIXED_POINT_PRECISION_BITS);
-    }
 
     // --- External Transfers --- //
 
@@ -192,9 +161,9 @@ library TypesLib {
         pure
     {
         // Compute the quote amount bounds
-        uint256 minQuote = unsafeFixedPointMul(boundedMatchResult.price, boundedMatchResult.minBaseAmount);
-        uint256 maxQuote = unsafeFixedPointMul(boundedMatchResult.price, boundedMatchResult.maxBaseAmount);
-        uint256 refQuote = unsafeFixedPointMul(boundedMatchResult.price, baseAmount);
+        uint256 minQuote = FixedPointLib.unsafeFixedPointMul(boundedMatchResult.price, boundedMatchResult.minBaseAmount);
+        uint256 maxQuote = FixedPointLib.unsafeFixedPointMul(boundedMatchResult.price, boundedMatchResult.maxBaseAmount);
+        uint256 refQuote = FixedPointLib.unsafeFixedPointMul(boundedMatchResult.price, baseAmount);
 
         // Check that the quote amount lies in the intersection interval
         uint256 rangeMin;
@@ -277,8 +246,8 @@ library TypesLib {
         // SAFETY: The fee rates are constrained in-circuit to be less than 2^63, and the receive amount
         // is constrained to be less than 2^100, so the product is less than 2^163, which fits in a uint256
         return FeeTake({
-            relayerFee: unsafeFixedPointMul(feeRates.relayerFeeRate, receiveAmount),
-            protocolFee: unsafeFixedPointMul(feeRates.protocolFeeRate, receiveAmount)
+            relayerFee: FixedPointLib.unsafeFixedPointMul(feeRates.relayerFeeRate, receiveAmount),
+            protocolFee: FixedPointLib.unsafeFixedPointMul(feeRates.protocolFeeRate, receiveAmount)
         });
     }
 

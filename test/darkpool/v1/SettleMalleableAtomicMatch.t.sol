@@ -12,7 +12,8 @@ import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
 import {
     PartyMatchPayload, MalleableMatchAtomicProofs, MatchAtomicLinkingProofs
 } from "darkpoolv1-types/Settlement.sol";
-import { TypesLib, FixedPoint } from "darkpoolv1-types/TypesLib.sol";
+import { FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { ExternalMatchDirection, BoundedMatchResult, ExternalMatchResult } from "darkpoolv1-types/Settlement.sol";
@@ -25,7 +26,6 @@ import {
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 contract SettleMalleableAtomicMatch is DarkpoolTestBase {
-    using TypesLib for FixedPoint;
     using TypesLib for FeeTake;
     using TypesLib for FeeTakeRate;
     using TypesLib for BoundedMatchResult;
@@ -191,7 +191,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         vm.expectRevert(IDarkpool.VerificationFailed.selector);
         darkpoolRealVerifier.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -217,7 +217,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount) + 1;
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount) + 1;
         vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -254,7 +254,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -274,7 +274,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         vm.expectRevert(WalletOperations.MerkleRootNotInHistory.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -294,7 +294,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         vm.expectRevert(IDarkpool.InvalidETHValue.selector);
         darkpool.processMalleableAtomicMatchSettle{ value: 1 ether }(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -319,7 +319,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         vm.startBroadcast(txSender);
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         vm.expectRevert(ExternalTransferLib.InvalidDepositAmount.selector);
         darkpool.processMalleableAtomicMatchSettle{ value: value }(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -352,7 +352,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
 
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
-        uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         vm.expectRevert(revertMessage);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
@@ -375,11 +375,11 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         uint256 quoteAmount;
         if (vm.randomBool()) {
             uint256 minBase = statement.matchResult.minBaseAmount;
-            uint256 minQuote = statement.matchResult.price.unsafeFixedPointMul(minBase);
+            uint256 minQuote = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, minBase);
             quoteAmount = minQuote - 1;
         } else {
             uint256 maxBase = statement.matchResult.maxBaseAmount;
-            uint256 maxQuote = statement.matchResult.price.unsafeFixedPointMul(maxBase);
+            uint256 maxQuote = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, maxBase);
             quoteAmount = maxQuote + 1;
         }
 
@@ -403,7 +403,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         ExternalMatchResult memory matchRes = sampleExternalMatch(statement.matchResult);
         uint256 baseAmount = matchRes.baseAmount;
-        uint256 refQuoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 refQuoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
         uint256 quoteAmount;
 
         bool isSell = matchRes.direction == ExternalMatchDirection.InternalPartyBuy;
@@ -433,7 +433,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
     /// @notice Sample an external match from a bounded match
     function sampleExternalMatch(BoundedMatchResult memory matchResult) internal returns (ExternalMatchResult memory) {
         uint256 baseAmt = sampleBaseAmount(matchResult);
-        uint256 quoteAmt = matchResult.price.unsafeFixedPointMul(baseAmt);
+        uint256 quoteAmt = FixedPointLib.unsafeFixedPointMul(matchResult.price, baseAmt);
         return TypesLib.buildExternalMatchResult(quoteAmt, baseAmt, matchResult);
     }
 

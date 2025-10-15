@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
-import { TypesLib, FixedPoint } from "darkpoolv1-types/TypesLib.sol";
+import { FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import {
     PartyMatchPayload,
     MatchAtomicProofs,
@@ -19,7 +20,6 @@ import {
 } from "darkpoolv1-lib/PublicInputs.sol";
 
 contract GasSponsorTest is DarkpoolTestBase {
-    using TypesLib for FixedPoint;
     using TypesLib for FeeTake;
     using TypesLib for FeeTakeRate;
     using TypesLib for ExternalMatchResult;
@@ -303,7 +303,7 @@ contract GasSponsorTest is DarkpoolTestBase {
 
         // Sample a base amount
         baseAmount = sampleBaseAmount(statement.matchResult);
-        quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        quoteAmount = FixedPointLib.unsafeFixedPointMul(statement.matchResult.price, baseAmount);
     }
 
     /// @notice Create gas sponsorship parameters (nonce, refund address, signature)
