@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /* solhint-disable gas-increment-by-one */
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { FixedPoint } from "darkpoolv1-types/TypesLib.sol";
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { PublicKeychain } from "darkpoolv1-types/Keychain.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
