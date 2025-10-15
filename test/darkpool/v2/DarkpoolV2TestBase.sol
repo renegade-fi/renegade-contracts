@@ -11,7 +11,7 @@ import { CalldataUtils } from "darkpoolv1-test/utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
 
-import { Darkpool } from "darkpoolv1-contracts/Darkpool.sol";
+import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
@@ -47,7 +47,7 @@ contract DarkpoolV2TestBase is CalldataUtils {
     uint256 public gasSponsorAuthPrivateKey;
 
     // Implementation contracts (for reference)
-    Darkpool public darkpoolImpl;
+    DarkpoolV2 public darkpoolImpl;
     GasSponsor public gasSponsorImpl;
 
     function setUp() public virtual {
@@ -90,7 +90,7 @@ contract DarkpoolV2TestBase is CalldataUtils {
         protocolFeeAddr = vm.randomAddress();
 
         // Deploy implementation contracts
-        darkpoolImpl = new Darkpool();
+        darkpoolImpl = new DarkpoolV2();
 
         // Deploy the darkpool with a fake verifier
         DarkpoolProxy darkpoolProxy = new DarkpoolProxy(

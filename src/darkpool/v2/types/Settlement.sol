@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: Apache
+pragma solidity ^0.8.24;
+
+/// @notice A settlement bundle for a user
+/// @dev This type encapsulates all the data required to validate a user's obligation to a trade
+/// @dev and settle the trade. The fields themselves are tagged unions of different data types representing
+/// @dev the different privacy configurations for each side of the trade.
+struct SettlementBundle {
+    /// @dev The settlement obligation
+    ObligationBundle obligation;
+    /// @dev The intent to settle
+    IntentBundle intent;
+}
+
+/// @notice The obligation to settle
+/// @dev This type represents a tagged union of different obligation types: public and private
+struct ObligationBundle {
+    /// @dev The type of obligation to settle
+    ObligationType obligationType;
+    /// @dev The data validating the obligation
+    bytes data;
+}
+
+/// @notice The type of the obligation to settle
+enum ObligationType {
+    PUBLIC,
+    PRIVATE
+}
+
+/// @notice The intent to settle
+/// @dev This type represents a tagged union of different intent types: public and private
+/// @dev The `data` field contains the fields required to authorize the intent type.
+struct IntentBundle {
+    /// @dev The type of intent to settle
+    IntentType intentType;
+    /// @dev The data validating the intent
+    bytes data;
+}
+
+/// @notice The type of intent to settle
+enum IntentType {
+    PUBLIC,
+    PRIVATE
+}
+
+/// @notice The balance capitalizing the intent
+/// @dev This type represents a tagged union of different balance types: EOA and private
+struct BalanceBundle {
+    /// @dev The type of balance to settle
+    BalanceType balanceType;
+    /// @dev The data validating the balance type
+    bytes data;
+}
+
+/// @notice The type of the balance to settle
+enum BalanceType {
+    EOA,
+    PRIVATE
+}
