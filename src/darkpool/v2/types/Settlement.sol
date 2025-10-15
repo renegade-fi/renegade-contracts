@@ -44,7 +44,10 @@ struct PublicIntentAuthBundle {
     /// @dev The intent authorization permit
     PublicIntentPermit permit;
     /// @dev The signature of the intent
-    bytes signature;
+    bytes intentSignature;
+    /// @dev The signature of the settlement obligation by the authorized executor
+    /// @dev This authorizes the fields of the obligation, and importantly implicitly authorizes the price
+    bytes executorSignature;
 }
 
 /// @notice Intent authorization data for a public intent

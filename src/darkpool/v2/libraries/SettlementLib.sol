@@ -26,6 +26,8 @@ library SettlementLib {
     error IncompatibleAmounts();
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
+    /// @notice Error thrown when an executor signature is invalid
+    error InvalidExecutorSignature();
 
     // --- Obligation Compatibility --- //
 
@@ -86,29 +88,37 @@ library SettlementLib {
     // --- Intent Authorization --- //
 
     /// @notice Authorize an intent bundle
-    /// @param intentBundle The intent bundle to authorize
-    function authorizeIntent(IntentBundle calldata intentBundle) public pure {
+    /// @param settlementBundle The settlement bundle to authorize
+    function authorizeIntent(SettlementBundle calldata settlementBundle) public pure {
+        IntentBundle calldata intentBundle = settlementBundle.intent;
         IntentType intentType = intentBundle.intentType;
         if (intentType == IntentType.PUBLIC) {
-            validatePublicIntentAuthorization(intentBundle);
+            validatePublicIntentAuthorization(settlementBundle);
         } else {
             revert("Not implemented");
         }
     }
 
     /// @notice Validate the authorization of a public intent
-    /// @param intentBundle The intent bundle to validate
+    /// @param settlementBundle The settlement bundle to validate
     /// @dev Authorization for a public intent is a signature by the intent owner over the tuple:
     /// @dev (executor, intent), where executor is the address of the party allowed to execute the intent
-    function validatePublicIntentAuthorization(IntentBundle calldata intentBundle) public pure {
+    function validatePublicIntentAuthorization(SettlementBundle calldata settlementBundle) public pure {
         // Decode the intent data
+        IntentBundle memory intentBundle = settlementBundle.intent;
         PublicIntentAuthBundle memory auth = abi.decode(intentBundle.data, (PublicIntentAuthBundle));
 
         // Verify the signature - intent owner must sign
         bytes memory intentBytes = abi.encode(auth.permit.executor, auth.permit.intent);
         bytes32 intentHash = EfficientHashLib.hash(intentBytes);
-        bool sigValid = ECDSALib.verify(intentHash, auth.signature, auth.permit.intent.owner);
+        bool sigValid = ECDSALib.verify(intentHash, auth.intentSignature, auth.permit.intent.owner);
         if (!sigValid) revert InvalidIntentSignature();
+
+        // Verify that the executor has signed the settlement obligation
+        bytes memory obligationBytes = abi.encode(settlementBundle.obligation);
+        bytes32 obligationHash = EfficientHashLib.hash(obligationBytes);
+        bool executorValid = ECDSALib.verify(obligationHash, auth.executorSignature, auth.permit.executor);
+        if (!executorValid) revert InvalidExecutorSignature();
     }
 
     // --- Obligation Constraints --- //

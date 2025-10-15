@@ -3,13 +3,12 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import { DarkpoolV2TestBase } from "../../DarkpoolV2TestBase.sol";
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { SettlementLib } from "darkpoolv2-libraries/SettlementLib.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
-contract ObligationCompatibilityTest is DarkpoolV2TestBase {
+contract ObligationCompatibilityTest is SettlementTestUtils {
     function setUp() public override {
         super.setUp();
     }
@@ -17,7 +16,7 @@ contract ObligationCompatibilityTest is DarkpoolV2TestBase {
     function test_compatibleObligations() public view {
         // Create compatible obligations
         (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
-            SettlementTestUtils.createCompatibleObligations(address(baseToken), address(quoteToken));
+            createCompatibleObligations(address(baseToken), address(quoteToken));
 
         ObligationBundle memory party0Bundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party0Obligation) });
@@ -31,7 +30,7 @@ contract ObligationCompatibilityTest is DarkpoolV2TestBase {
     function test_incompatiblePairs() public {
         // Party 0: Selling 100 base for 200 quote
         (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
-            SettlementTestUtils.createCompatibleObligations(address(baseToken), address(quoteToken));
+            createCompatibleObligations(address(baseToken), address(quoteToken));
 
         // Corrupt one of the obligations
         if (vm.randomBool()) {
@@ -52,7 +51,7 @@ contract ObligationCompatibilityTest is DarkpoolV2TestBase {
 
     function test_incompatibleAmounts() public {
         (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
-            SettlementTestUtils.createCompatibleObligations(address(baseToken), address(quoteToken));
+            createCompatibleObligations(address(baseToken), address(quoteToken));
 
         // Corrupt one of the obligations
         if (vm.randomBool()) {
