@@ -5,7 +5,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { MerkleZeros } from "./MerkleZeros.sol";
-import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 
 /// @title MerkleTreeLib
 /// @notice Library for Merkle tree operations

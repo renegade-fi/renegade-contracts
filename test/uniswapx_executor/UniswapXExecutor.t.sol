@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { DarkpoolExecutor } from "darkpoolv1-executor/DarkpoolExecutor.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { UniswapXExecutorProxy } from "darkpoolv1-proxies/UniswapXExecutorProxy.sol";
-import { IDarkpoolExecutor } from "darkpoolv1-lib/interfaces/IDarkpoolExecutor.sol";
+import { IDarkpoolExecutor } from "darkpoolv1-interfaces/IDarkpoolExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
@@ -320,6 +320,7 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         PriorityOrder memory order
     )
         internal
+        view
         returns (SignedOrder memory signedOrder)
     {
         uint256 inputAmount = order.input.amount;

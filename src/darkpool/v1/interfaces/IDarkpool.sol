@@ -20,7 +20,7 @@ import {
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
-import { ExternalTransfer } from "darkpoolv1-types/Transfers.sol";
+import { ExternalTransfer as DarkpoolExternalTransfer } from "darkpoolv1-types/Transfers.sol";
 import {
     BoundedMatchResult,
     ExternalMatchResult,

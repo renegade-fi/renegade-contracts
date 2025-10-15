@@ -7,7 +7,7 @@ import { PublicRootKey, publicKeyToUints, publicKeyToUints } from "darkpoolv1-ty
 
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
-import { IDarkpool } from "darkpoolv1-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.sol";

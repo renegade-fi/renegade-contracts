@@ -137,7 +137,7 @@ library DeployUtils {
     {
         // Deploy library contracts for the darkpool
         IHasher hasher = IHasher(deployHasher(vm));
-        (IVKeys _vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
+        (, IVerifier verifier) = deployVKeysAndVerifier(vm);
         address transferExecutor = deployTransferExecutor(vm);
 
         // Deploy Darkpool with all required parameters
