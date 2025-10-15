@@ -1,4 +1,4 @@
-name: CI
+name: Tests
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Foundry checks
+    name: Forge Tests
     runs-on: build-runner
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: v1.3.5
 
       - name: Install Huff
         uses: huff-language/huff-toolchain@v3

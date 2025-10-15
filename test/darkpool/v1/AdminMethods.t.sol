@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { ValidWalletCreateStatement } from "darkpoolv1-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
@@ -28,7 +29,7 @@ contract AdminMethodsTest is DarkpoolTestBase {
         darkpool.setProtocolFeeRate(newFee);
 
         // Try to set the fee to zero
-        vm.expectRevert("Fee cannot be zero");
+        vm.expectRevert(IDarkpool.FeeCannotBeZero.selector);
         vm.prank(darkpoolOwner);
         darkpool.setProtocolFeeRate(0);
 

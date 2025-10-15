@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ExternalTransfer, DepositWitness } from "./Transfers.sol";
@@ -11,6 +11,7 @@ import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 /// @dev The type hash for the DepositWitness struct
+// solhint-disable-next-line gas-small-strings
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4] pkRoot)");
 /// @dev The type string for the DepositWitness struct
 /// @dev We must include the `TokenPermission` type encoding as well as this is concatenated with
@@ -19,6 +20,7 @@ bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256[4]
 /// @dev So we must prepare our type string to concatenate to the entire type encoding
 /// @dev See:
 /// https://github.com/Uniswap/permit2/blob/cc56ad0f3439c502c246fc5cfcc3db92bb8b7219/src/libraries/PermitHash.sol#L31-L32
+// solhint-disable-next-line gas-small-strings
 string constant DEPOSIT_WITNESS_TYPE_STRING =
     "DepositWitness witness)DepositWitness(uint256[4] pkRoot)TokenPermissions(address token,uint256 amount)";
 
@@ -31,8 +33,16 @@ struct FixedPoint {
 }
 
 /// @title TypesLib
+/// @author Renegade Eng
 /// @notice A library that allows us to define function on types in the darkpool
 library TypesLib {
+    /// @notice Error thrown when base amount is out of bounds
+    error BaseAmountOutOfBounds();
+    /// @notice Error thrown when quote amount is out of bounds
+    error QuoteAmountOutOfBounds();
+    /// @notice Error thrown when base or quote amount is zero
+    error ZeroAmount();
+
     // --- Fixed Point --- //
 
     /// @notice Wrap a uint256 into a FixedPoint
@@ -94,6 +104,9 @@ library TypesLib {
     // --- Match Settlement --- //
 
     /// @notice Return the sell mint and amount for the external party
+    /// @param matchResult The match result to return the sell mint and amount for
+    /// @return The sell mint
+    /// @return The sell amount
     function externalPartySellMintAmount(ExternalMatchResult memory matchResult)
         public
         pure
@@ -107,6 +120,9 @@ library TypesLib {
     }
 
     /// @notice Return the buy mint and amount for the external party
+    /// @param matchResult The match result to return the buy mint and amount for
+    /// @return The buy mint
+    /// @return The buy amount
     function externalPartyBuyMintAmount(ExternalMatchResult memory matchResult)
         public
         pure
@@ -130,7 +146,7 @@ library TypesLib {
         bool amountTooLow = baseAmount < boundedMatchResult.minBaseAmount;
         bool amountTooHigh = baseAmount > boundedMatchResult.maxBaseAmount;
         if (amountTooLow || amountTooHigh) {
-            revert("base amount is out of `BoundedMatchResult` bounds");
+            revert BaseAmountOutOfBounds();
         }
     }
 
@@ -195,7 +211,7 @@ library TypesLib {
         bool quoteTooLow = quoteAmount < rangeMin;
         bool quoteTooHigh = quoteAmount > rangeMax;
         if (quoteTooLow || quoteTooHigh) {
-            revert("quote amount is out of `BoundedMatchResult` bounds");
+            revert QuoteAmountOutOfBounds();
         }
     }
 
@@ -212,7 +228,7 @@ library TypesLib {
         pure
     {
         if (quoteAmount == 0 || baseAmount == 0) {
-            revert("zero base or quote amount");
+            revert ZeroAmount();
         }
 
         validateBaseAmount(boundedMatchResult, baseAmount);
@@ -220,6 +236,7 @@ library TypesLib {
     }
 
     /// @notice Build an `ExternalMatchResult` from a `BoundedMatchResult`
+    /// @param quoteAmount The quote amount of the match
     /// @param baseAmount The base amount of the match, resolving in between the bounds
     /// @param boundedMatchResult The `BoundedMatchResult` to build the `ExternalMatchResult` from
     /// @return The `ExternalMatchResult`

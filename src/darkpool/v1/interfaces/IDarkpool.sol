@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/* solhint-disable var-name-mixedcase */
+
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -29,7 +31,31 @@ import {
 import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
+/// @title IDarkpool
+/// @author Renegade Eng
+/// @notice Interface for the Renegade darkpool contract for private trading
 interface IDarkpool {
+    // --- Errors --- //
+
+    /// @notice Thrown when fee is set to zero
+    error FeeCannotBeZero();
+    /// @notice Thrown when an address parameter is zero
+    error AddressCannotBeZero();
+    /// @notice Thrown when proof verification fails
+    error VerificationFailed();
+    /// @notice Thrown when a signature is invalid
+    error InvalidSignature();
+    /// @notice Thrown when order settlement indices don't match
+    error InvalidOrderSettlementIndices();
+    /// @notice Thrown when protocol fee rate doesn't match expected
+    error InvalidProtocolFeeRate();
+    /// @notice Thrown when private share commitment doesn't match
+    error InvalidPrivateShareCommitment();
+    /// @notice Thrown when ETH value is invalid for the transaction
+    error InvalidETHValue();
+    /// @notice Thrown when protocol encryption key doesn't match
+    error InvalidProtocolEncryptionKey();
+
     // --- Events --- //
 
     /// @notice Emitted when a wallet update is performed
@@ -86,9 +112,11 @@ interface IDarkpool {
     // --- Admin Interface --- //
 
     /// @notice Returns the current owner of the contract
+    /// @return The address of the current owner
     function owner() external view returns (address);
 
     /// @notice Returns true if the contract is paused, and false otherwise
+    /// @return True if paused, false otherwise
     function paused() external view returns (bool);
 
     /// @notice Pauses the contract
@@ -135,27 +163,36 @@ interface IDarkpool {
     // --- State Variables --- //
 
     /// @notice The protocol fee rate for the darkpool
+    /// @return The protocol fee rate as a fixed-point number
     function protocolFeeRate() external view returns (uint256);
 
     /// @notice The address at which external parties pay protocol fees
+    /// @return The protocol fee recipient address
     function protocolFeeRecipient() external view returns (address);
 
     /// @notice The public encryption key for the protocol's fees
+    /// @return The protocol fee encryption key
     function protocolFeeKey() external view returns (EncryptionKey memory);
 
     /// @notice A per-asset fee override for the darkpool
-    function perTokenFeeOverrides(address) external view returns (uint256);
+    /// @param asset The token address to query
+    /// @return The fee override for the given asset
+    function perTokenFeeOverrides(address asset) external view returns (uint256);
 
     /// @notice The hasher for the darkpool
+    /// @return The hasher contract instance
     function hasher() external view returns (IHasher);
 
     /// @notice The verifier for the darkpool
+    /// @return The verifier contract instance
     function verifier() external view returns (IVerifier);
 
     /// @notice The Permit2 contract instance for handling deposits
+    /// @return The Permit2 contract instance
     function permit2() external view returns (IPermit2);
 
     /// @notice The WETH9 contract instance used for depositing/withdrawing native tokens
+    /// @return The WETH9 contract instance
     function weth() external view returns (IWETH9);
 
     // --- State Setters --- //
@@ -199,6 +236,7 @@ interface IDarkpool {
     /// @notice Update a wallet in the darkpool
     /// @param newSharesCommitmentSig The signature of the new wallet shares commitment by the
     /// old wallet's root key
+    /// @param transferAuthorization The authorization for any external transfer in the update
     /// @param statement The statement to verify
     /// @param proof The proof of `VALID WALLET UPDATE`
     function updateWallet(
@@ -214,6 +252,7 @@ interface IDarkpool {
     /// @param party1MatchPayload The validity proofs payload for the second party
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param linkingProofs The proof-linking arguments for the match
     function processMatchSettle(
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
@@ -320,6 +359,7 @@ interface IDarkpool {
         payable;
 
     /// @notice Redeem a fee that has been paid offline into a wallet
+    /// @param recipientCommitmentSig The signature of the recipient's wallet commitment
     /// @param statement The statement of `VALID FEE REDEMPTION`
     /// @param proof The proof of `VALID FEE REDEMPTION`
     function redeemFee(

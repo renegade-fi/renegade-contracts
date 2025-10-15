@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
@@ -31,6 +31,7 @@ import {
 
 /**
  * @title GasSponsor
+ * @author Renegade Eng
  * @notice A contract used to sponsor gas costs of external (atomic) matches
  */
 contract GasSponsor is Initializable, Ownable2Step, Pausable {
@@ -45,18 +46,36 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
     error InvalidVersion();
     error NotOwner();
     error InvalidSignature();
+    error InvalidSignatureLength();
     error AddressZero();
 
     // ----------
     // | EVENTS |
     // ----------
 
+    /// @notice Emitted when ownership is transferred
+    /// @param newOwner The address of the new owner
     event OwnershipTransferred(address indexed newOwner);
+    /// @notice Emitted when a nonce is used
+    /// @param nonce The nonce that was used
     event NonceUsed(uint256 indexed nonce);
+    /// @notice Emitted when the auth address is rotated
+    /// @param newAuthAddress The new auth address
     event AuthAddressRotated(address indexed newAuthAddress);
+    /// @notice Emitted when the sponsor balance is insufficient for a refund
+    /// @param nonce The nonce of the sponsorship attempt
     event InsufficientSponsorBalance(uint256 indexed nonce);
+    /// @notice Emitted when an external match is successfully sponsored
+    /// @param refundAmount The amount refunded
+    /// @param token The token used for refund (address(0) for native ETH)
+    /// @param nonce The nonce of the sponsorship
     event SponsoredExternalMatch(uint256 refundAmount, address token, uint256 indexed nonce);
+    /// @notice Emitted with the output amount of a sponsored match
+    /// @param receivedAmount The amount received by the external party
+    /// @param nonce The nonce of the sponsorship
     event SponsoredExternalMatchOutput(uint256 receivedAmount, uint256 indexed nonce);
+    /// @notice Emitted when gas sponsorship is skipped (paused or zero refund)
+    /// @param nonce The nonce of the sponsorship
     event GasSponsorshipSkipped(uint256 indexed nonce);
 
     // -----------
@@ -74,6 +93,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
     // | CONSTRUCTOR |
     // ---------------
 
+    /// @notice Constructor that disables initializers for the implementation contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() Ownable(msg.sender) {
         _disableInitializers();
@@ -308,7 +328,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
         bytes32 messageHash = EfficientHashLib.hash(abi.encode(nonce, refundAddress, refundAmount));
 
         // Split the signature into r, s and v
-        require(signature.length == 65, "Invalid signature length");
+        if (signature.length != 65) revert InvalidSignatureLength();
         bytes32 r = bytes32(signature[:32]);
         bytes32 s = bytes32(signature[32:64]);
         uint8 v = uint8(signature[64]);
@@ -341,7 +361,8 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
      * @param validMatchSettleAtomicStatement The match settle statement
      * @param matchProofs The match proofs
      * @param matchLinkingProofs The match linking proofs
-     * @return The match result and amount received in the match
+     * @return matchResult The external match result
+     * @return receivedInMatch The amount received by the external party in the match
      */
     function _doAtomicMatch(
         address receiver,
@@ -368,6 +389,15 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Executes a malleable match on the darkpool
+     * @param quoteAmount The quote amount for the malleable match
+     * @param baseAmount The base amount for the malleable match
+     * @param receiver The address to receive tokens
+     * @param internalPartyMatchPayload The match payload for the internal party
+     * @param malleableMatchSettleStatement The malleable match settle statement
+     * @param matchProofs The match proofs
+     * @param matchLinkingProofs The match linking proofs
+     * @return matchResult The external match result
+     * @return receivedInMatch The amount received by the external party in the match
      */
     function _doMalleableMatch(
         uint256 quoteAmount,
@@ -405,6 +435,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Takes custody of the trader's tokens to proxy the match
+     * @param matchResult The external match result containing token and amount details
      */
     function _custodySendTokens(ExternalMatchResult memory matchResult) internal {
         address sender = msg.sender;
@@ -423,6 +454,10 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Resolves the refund address to use
+     * @param refundNativeEth Whether to refund in native ETH
+     * @param refundAddress The explicitly specified refund address
+     * @param receiver The receiver of the match output
+     * @return The resolved refund address
      */
     function _resolveRefundAddress(
         bool refundNativeEth,
@@ -438,6 +473,7 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
             return refundAddress;
         } else if (refundNativeEth) {
             // If refunding through native ETH, default to tx.origin
+            // solhint-disable-next-line avoid-tx-origin
             return tx.origin;
         } else {
             // Otherwise default to the receiver
@@ -447,6 +483,10 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Refunds gas costs through native ETH
+     * @param refundAddress The address to receive the refund
+     * @param refundAmount The amount to refund in native ETH
+     * @param nonce The nonce of the sponsorship
+     * @return The amount actually refunded (0 if balance insufficient)
      */
     function _refundThroughNativeEth(
         address refundAddress,
@@ -470,6 +510,11 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Refunds gas costs through the buy-side token
+     * @param refundAddress The address to receive the refund
+     * @param buyTokenAddr The token address to use for refund
+     * @param refundAmount The amount to refund in the buy token
+     * @param nonce The nonce of the sponsorship
+     * @return The amount actually refunded (0 if balance insufficient)
      */
     function _refundThroughBuyToken(
         address refundAddress,
@@ -495,6 +540,14 @@ contract GasSponsor is Initializable, Ownable2Step, Pausable {
 
     /**
      * @notice Refunds the user's gas costs
+     * @param refundNativeEth Whether to refund in native ETH
+     * @param refundAddress The address to receive the refund
+     * @param buyTokenAddr The buy token address from the match
+     * @param refundAmount The amount to refund
+     * @param receivedInMatch The amount received from the match
+     * @param receiver The receiver of the match output
+     * @param nonce The nonce of the sponsorship
+     * @return The total amount received including refund
      */
     function _refundGasCost(
         bool refundNativeEth,

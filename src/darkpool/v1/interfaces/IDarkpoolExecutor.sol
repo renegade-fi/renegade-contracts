@@ -13,6 +13,9 @@ import {
     ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
 
+/// @title IDarkpoolExecutor
+/// @author Renegade Eng
+/// @notice Interface for the DarkpoolExecutor contract
 interface IDarkpoolExecutor is IReactorCallback {
     /// @notice Returns the address of the current owner
     /// @return The address of the current owner

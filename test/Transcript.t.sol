@@ -14,13 +14,13 @@ contract TranscriptTest is TestUtils {
 
     /// @notice Test the basic flow of transcript operations with a single input
     function testTranscriptBasic() public {
-        uint256 TEST_DATA_BYTES = 1024;
+        uint256 testDataBytes = 1024;
 
         // Create a new transcript
         Transcript memory transcript = TranscriptLib.newTranscript();
 
         // Generate random test data
-        bytes memory testData = vm.randomBytes(TEST_DATA_BYTES);
+        bytes memory testData = vm.randomBytes(testDataBytes);
         transcript.appendMessage(testData);
 
         // Get a challenge from our implementation

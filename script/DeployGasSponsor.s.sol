@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
+
+/* solhint-disable gas-small-strings */
 
 /**
  * @notice This script deploys the GasSponsor contract behind a proxy
@@ -11,6 +13,9 @@ import { Script } from "forge-std/Script.sol";
 import { console } from "forge-std/console.sol";
 import { DeployUtils } from "./utils/DeployUtils.sol";
 
+/// @title DeployGasSponsorScript
+/// @author Renegade Eng
+/// @notice Deployment script for the GasSponsor contract
 contract DeployGasSponsorScript is Script {
     /**
      * @notice Deploy the GasSponsor contract behind a proxy

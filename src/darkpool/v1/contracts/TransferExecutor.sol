@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
@@ -12,6 +12,7 @@ import { ExternalMatchResult } from "darkpoolv1-types/Settlement.sol";
 import { FeeTake } from "darkpoolv1-types/Fees.sol";
 
 /// @title TransferExecutor
+/// @author Renegade Eng
 /// @notice A contract that executes external transfers for the Darkpool contract
 /// @dev This contract is designed to be used with delegatecall from the Darkpool contract
 contract TransferExecutor {

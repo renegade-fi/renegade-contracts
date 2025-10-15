@@ -44,7 +44,7 @@ contract PoseidonTest is TestUtils {
         uint256 a = randomFelt();
         uint256 b = randomFelt();
         uint256 c = randomFelt();
-        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite._testInternalMds(a, b, c);
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalMds(a, b, c);
 
         // Calculate the expected results
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _internalMds(a, b, c);
@@ -58,7 +58,7 @@ contract PoseidonTest is TestUtils {
         uint256 a = randomFelt();
         uint256 b = randomFelt();
         uint256 c = randomFelt();
-        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite._testExternalMds(a, b, c);
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalMds(a, b, c);
 
         // Calculate the expected results
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _externalMds(a, b, c);
@@ -72,7 +72,7 @@ contract PoseidonTest is TestUtils {
         uint256 a = randomFelt();
         uint256 b = randomFelt();
         uint256 c = randomFelt();
-        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite._testExternalRound(a, b, c);
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalRound(a, b, c);
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _externalRound(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
         assertEq(b1, expectedB, "Expected result to match b");
@@ -84,7 +84,7 @@ contract PoseidonTest is TestUtils {
         uint256 a = randomFelt();
         uint256 b = randomFelt();
         uint256 c = randomFelt();
-        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite._testInternalRound(a, b, c);
+        (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalRound(a, b, c);
         (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _internalRound(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
         assertEq(b1, expectedB, "Expected result to match b");
@@ -96,7 +96,7 @@ contract PoseidonTest is TestUtils {
         uint256 a = randomFelt();
         uint256 b = randomFelt();
 
-        uint256 result = poseidonSuite._testFullHash(a, b);
+        uint256 result = poseidonSuite.testFullHash(a, b);
         uint256 expected = _runReferenceImpl(a, b);
         assertEq(result, expected, "Hash result does not match reference implementation");
     }

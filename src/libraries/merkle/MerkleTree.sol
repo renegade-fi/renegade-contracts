@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -8,9 +8,13 @@ import { MerkleZeros } from "./MerkleZeros.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 
 /// @title MerkleTreeLib
+/// @author Renegade Eng
 /// @notice Library for Merkle tree operations
 
 library MerkleTreeLib {
+    /// @notice Error thrown when the Merkle tree is full
+    error MerkleTreeFull();
+
     /// @notice Structure containing Merkle tree state
     struct MerkleTree {
         /// @notice The next available leaf index
@@ -40,7 +44,7 @@ library MerkleTreeLib {
 
         // Initialize the sibling path array
         tree.siblingPath = new BN254.ScalarField[](DarkpoolConstants.MERKLE_DEPTH);
-        for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; i++) {
+        for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; ++i) {
             tree.siblingPath[i] = zeroValue(i);
         }
     }
@@ -63,20 +67,21 @@ library MerkleTreeLib {
     /// @notice Insert a leaf into the tree
     /// @param tree The tree to insert the leaf into
     /// @param leaf The leaf to insert
+    /// @param hasher The hasher to use for computing Merkle hashes
     function insertLeaf(MerkleTree storage tree, BN254.ScalarField leaf, IHasher hasher) internal {
         // Compute the hash of the leaf into the tree
         uint256 idx = tree.nextIndex;
-        require(idx < DarkpoolConstants.MAX_MERKLE_LEAVES, "Merkle tree is full");
+        if (idx > DarkpoolConstants.MAX_MERKLE_LEAVES - 1) revert MerkleTreeFull();
 
         uint256 leafUint = BN254.ScalarField.unwrap(leaf);
         uint256[] memory sisterLeaves = new uint256[](tree.siblingPath.length);
-        for (uint256 i = 0; i < tree.siblingPath.length; i++) {
+        for (uint256 i = 0; i < tree.siblingPath.length; ++i) {
             sisterLeaves[i] = BN254.ScalarField.unwrap(tree.siblingPath[i]);
         }
         uint256[] memory hashes = hasher.merkleHash(idx, leafUint, sisterLeaves);
 
         // Update the tree
-        tree.nextIndex++;
+        ++tree.nextIndex;
         BN254.ScalarField newRoot = BN254.ScalarField.wrap(hashes[hashes.length - 1]);
         tree.root = newRoot;
         tree.rootHistory[newRoot] = true;
@@ -85,7 +90,7 @@ library MerkleTreeLib {
         // `subtreeFilled` maintains whether the subtree rooted at the current node is full
         // This is initially true, as the current node is the leaf being inserted
         bool subtreeFilled = true;
-        for (uint256 height = 0; height < DarkpoolConstants.MERKLE_DEPTH; height++) {
+        for (uint256 height = 0; height < DarkpoolConstants.MERKLE_DEPTH; ++height) {
             // Compute the insertion coordinates at the current height
             uint256 idxAtHeight = idx >> height;
             uint256 idxBit = idxAtHeight & 1;

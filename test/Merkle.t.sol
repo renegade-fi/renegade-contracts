@@ -90,9 +90,9 @@ contract MerkleTest is TestUtils {
 
     /// @notice Test the root after inserting a leaf
     function test_rootAfterMultiInsert() public {
-        uint256 N_INSERTS = randomUint(1, 20);
-        uint256[] memory inputs = new uint256[](N_INSERTS);
-        for (uint256 i = 0; i < N_INSERTS; i++) {
+        uint256 nInserts = randomUint(1, 20);
+        uint256[] memory inputs = new uint256[](nInserts);
+        for (uint256 i = 0; i < nInserts; i++) {
             // inputs[i] = randomFelt();
             inputs[i] = i;
         }
@@ -101,7 +101,7 @@ contract MerkleTest is TestUtils {
         uint256 expectedRoot = runMerkleRootReferenceImpl(inputs);
 
         // Insert into the solidity Merkle tree
-        for (uint256 i = 0; i < N_INSERTS; i++) {
+        for (uint256 i = 0; i < nInserts; i++) {
             tree.insertLeaf(BN254.ScalarField.wrap(inputs[i]), hasher);
         }
 
@@ -110,7 +110,7 @@ contract MerkleTest is TestUtils {
         assertEq(actualRoot, expectedRoot);
 
         // Check the next index on the tree
-        assertEq(tree.nextIndex, N_INSERTS);
+        assertEq(tree.nextIndex, nInserts);
     }
 
     /// @notice Test the sibling path after a number of inserts

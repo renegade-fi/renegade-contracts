@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
+
+/* solhint-disable gas-increment-by-one */
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint } from "darkpoolv1-types/TypesLib.sol";
@@ -68,6 +70,7 @@ struct OrderShare {
 }
 
 /// @title WalletLib
+/// @author Renegade Eng
 /// @notice A library for operating on wallets
 library WalletLib {
     /// @notice Serialize a wallet share into a list of scalars
@@ -78,7 +81,7 @@ library WalletLib {
 
         // Serialize the balances
         uint256 offset = 0;
-        for (uint256 i = 0; i < MAX_BALANCES; i++) {
+        for (uint256 i = 0; i < MAX_BALANCES; ++i) {
             scalars[offset++] = wallet.balances[i].token;
             scalars[offset++] = wallet.balances[i].amount;
             scalars[offset++] = wallet.balances[i].relayerFeeBalance;
@@ -86,7 +89,7 @@ library WalletLib {
         }
 
         // Serialize the orders
-        for (uint256 i = 0; i < MAX_ORDERS; i++) {
+        for (uint256 i = 0; i < MAX_ORDERS; ++i) {
             scalars[offset++] = wallet.orders[i].quoteMint;
             scalars[offset++] = wallet.orders[i].baseMint;
             scalars[offset++] = wallet.orders[i].side;
@@ -120,7 +123,7 @@ library WalletLib {
         uint256 offset = 0;
 
         // Deserialize the balances
-        for (uint256 i = 0; i < MAX_BALANCES; i++) {
+        for (uint256 i = 0; i < MAX_BALANCES; ++i) {
             wallet.balances[i].token = scalars[offset++];
             wallet.balances[i].amount = scalars[offset++];
             wallet.balances[i].relayerFeeBalance = scalars[offset++];
@@ -128,7 +131,7 @@ library WalletLib {
         }
 
         // Deserialize the orders
-        for (uint256 i = 0; i < MAX_ORDERS; i++) {
+        for (uint256 i = 0; i < MAX_ORDERS; ++i) {
             wallet.orders[i].quoteMint = scalars[offset++];
             wallet.orders[i].baseMint = scalars[offset++];
             wallet.orders[i].side = scalars[offset++];

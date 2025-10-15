@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { TypesLib, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv1-types/TypesLib.sol";
 import { DepositWitness, ExternalTransfer, TransferType, TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
-import { PublicRootKey, publicKeyToUints, publicKeyToUints } from "darkpoolv1-types/Keychain.sol";
+import { PublicRootKey, publicKeyToUints } from "darkpoolv1-types/Keychain.sol";
 
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
@@ -17,10 +17,20 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 /// @title ExternalTransferLib
+/// @author Renegade Eng
 /// @notice This library implements the logic for executing external transfers
 /// @notice External transfers are either deposits or withdrawals into/from the darkpool
 library ExternalTransferLib {
     using TypesLib for DepositWitness;
+
+    // --- Errors --- //
+
+    /// @notice Thrown when balance after transfer does not match expected balance
+    error BalanceMismatch();
+    /// @notice Thrown when msg.value does not match deposit amount for native token
+    error InvalidDepositAmount();
+    /// @notice Thrown when withdrawal signature is invalid
+    error InvalidWithdrawalSignature();
 
     // --- Types --- //
 
@@ -73,13 +83,15 @@ library ExternalTransferLib {
 
         // Check that the balance after the transfer equals the expected balance
         uint256 balanceAfter = getDarkpoolBalance(transfer.mint);
-        require(balanceAfter == expectedBalance, "Balance after transfer does not match expected balance");
+        if (balanceAfter != expectedBalance) revert BalanceMismatch();
         emit IDarkpool.ExternalTransfer(transfer.account, transfer.mint, !isDeposit, transfer.amount);
     }
 
     /// @notice Execute a batch of simple ERC20 transfers
+    /// @param transfers The batch of transfers to execute
+    /// @param wrapper The WETH9 wrapper contract for native token handling
     function executeTransferBatch(SimpleTransfer[] memory transfers, IWETH9 wrapper) internal {
-        for (uint256 i = 0; i < transfers.length; i++) {
+        for (uint256 i = 0; i < transfers.length; ++i) {
             // Do nothing if the transfer amount i zero
             if (transfers[i].amount == 0) {
                 continue;
@@ -99,7 +111,7 @@ library ExternalTransferLib {
 
             // Check that the balance after the transfer equals the expected balance
             uint256 balanceAfter = getDarkpoolBalanceMaybeNative(transfers[i].mint, wrapper);
-            require(balanceAfter == expectedBalance, "Balance after transfer does not match expected balance");
+            if (balanceAfter != expectedBalance) revert BalanceMismatch();
         }
     }
 
@@ -109,6 +121,7 @@ library ExternalTransferLib {
     /// @dev Deposits flow through the permit2 contract, which allows us to attach the public root
     /// @dev key to the deposit's witness. This provides a link between the on-chain wallet and the
     /// @dev Renegade wallet, ensuring that only one Renegade wallet may redeem the permit.
+    /// @param oldPkRoot The public root key of the depositor's wallet
     /// @param transfer The transfer to execute
     /// @param authorization The authorization for the deposit
     /// @param permit2 The permit2 contract
@@ -146,10 +159,12 @@ library ExternalTransferLib {
 
     /// @notice Execute a simple ERC20 deposit
     /// @dev It is assumed that the address from which we deposit has approved the darkpool to spend the tokens
+    /// @param transfer The transfer to execute
+    /// @param wrapper The WETH9 wrapper contract for native token handling
     function executeSimpleDeposit(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
         // Handle native token deposits by wrapping the transaction value
         if (DarkpoolConstants.isNativeToken(transfer.mint)) {
-            require(msg.value == transfer.amount, "msg.value does not match deposit amount");
+            if (msg.value != transfer.amount) revert InvalidDepositAmount();
             wrapper.deposit{ value: transfer.amount }();
             return;
         }
@@ -162,7 +177,9 @@ library ExternalTransferLib {
     // --- Withdrawal --- //
 
     /// @notice Executes a withdrawal of shares from the darkpool
+    /// @param oldPkRoot The public root key of the withdrawer's wallet
     /// @param transfer The transfer to execute
+    /// @param authorization The authorization for the withdrawal
     function executeWithdrawal(
         PublicRootKey calldata oldPkRoot,
         ExternalTransfer calldata transfer,
@@ -175,7 +192,7 @@ library ExternalTransferLib {
         bytes32 transferHash = EfficientHashLib.hash(transferBytes);
         bool sigValid =
             WalletOperations.verifyRootKeySignature(transferHash, authorization.externalTransferSignature, oldPkRoot);
-        require(sigValid, "Invalid withdrawal signature");
+        if (!sigValid) revert InvalidWithdrawalSignature();
 
         // 2. Execute the withdrawal as a direct ERC20 transfer
         IERC20 token = IERC20(transfer.mint);
@@ -183,6 +200,8 @@ library ExternalTransferLib {
     }
 
     /// @notice Execute a simple ERC20 withdrawal
+    /// @param transfer The transfer to execute
+    /// @param wrapper The WETH9 wrapper contract for native token handling
     function executeSimpleWithdrawal(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
         // Handle native token withdrawals by unwrapping the transfer amount into ETH
         if (DarkpoolConstants.isNativeToken(transfer.mint)) {
@@ -198,12 +217,17 @@ library ExternalTransferLib {
     // --- Helpers --- //
 
     /// @notice Get the balance of the darkpool for a given ERC20 token
+    /// @param token The ERC20 token address
+    /// @return The balance of the darkpool for the given token
     function getDarkpoolBalance(address token) internal view returns (uint256) {
         return IERC20(token).balanceOf(address(this));
     }
 
     /// @notice Get a darkpool balance for an ERC20 token address that might be the native token
     /// @dev The darkpool only ever holds the wrapped native asset, so use the wrapped balance if the token is native
+    /// @param token The ERC20 token address (or native token address)
+    /// @param wrapper The WETH9 wrapper contract
+    /// @return The balance of the darkpool for the given token
     function getDarkpoolBalanceMaybeNative(address token, IWETH9 wrapper) internal view returns (uint256) {
         if (DarkpoolConstants.isNativeToken(token)) {
             return wrapper.balanceOf(address(this));

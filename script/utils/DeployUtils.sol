@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/* solhint-disable gas-small-strings */
+
 import { console } from "forge-std/console.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
@@ -18,18 +20,23 @@ import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { JsonUtils } from "./JsonUtils.sol";
 
+/// @title DeployUtils
+/// @author Renegade Eng
+/// @notice Deployment utilities for the Renegade darkpool
 library DeployUtils {
     /// @dev Path to the deployments JSON file
     string internal constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
 
-    /// @dev Get the deployments path from environment or use default
+    /// @notice Get the deployments path from environment or use default
     /// @param vm The VM to access environment variables
+    /// @return The deployments file path
     function getDeploymentsPath(Vm vm) internal view returns (string memory) {
         return vm.envOr("DEPLOYMENTS", DEFAULT_DEPLOYMENTS_PATH);
     }
 
-    /// @dev Deploy the Poseidon2 hasher contract
+    /// @notice Deploy the Poseidon2 hasher contract
     /// @param vm The VM to run the commands with
+    /// @return The deployed hasher contract address
     function deployHasher(Vm vm) internal returns (address) {
         // Get the bytecode using huffc
         string[] memory inputs = new string[](3);
@@ -40,7 +47,6 @@ library DeployUtils {
 
         // Deploy the contract
         address deployedAddress;
-        // solhint-disable-next-line no-inline-assembly
         assembly {
             deployedAddress :=
                 create(
@@ -57,6 +63,8 @@ library DeployUtils {
     }
 
     /// @notice Deploy the TransferExecutor contract
+    /// @param vm The VM to write deployments
+    /// @return The deployed TransferExecutor address
     function deployTransferExecutor(Vm vm) internal returns (address) {
         TransferExecutor transferExecutor = new TransferExecutor();
         writeDeployment(vm, "TransferExecutor", address(transferExecutor));
@@ -64,6 +72,9 @@ library DeployUtils {
     }
 
     /// @notice Deploy the VKeys and Verifier contracts
+    /// @param vm The VM to write deployments
+    /// @return The deployed VKeys contract
+    /// @return The deployed Verifier contract
     function deployVKeysAndVerifier(Vm vm) internal returns (IVKeys, IVerifier) {
         VKeys vkeys = new VKeys();
         IVerifier verifier = new Verifier(vkeys);
@@ -72,9 +83,10 @@ library DeployUtils {
         return (vkeys, verifier);
     }
 
-    /// @dev Get the ProxyAdmin address for a TransparentUpgradeableProxy
+    /// @notice Get the ProxyAdmin address for a TransparentUpgradeableProxy
     /// @param proxy The proxy address
     /// @param vm The VM instance to use for reading storage
+    /// @return The admin address
     function getProxyAdmin(address proxy, Vm vm) internal view returns (address) {
         // ERC1967 admin storage slot: 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103
         bytes32 slot = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
@@ -89,6 +101,7 @@ library DeployUtils {
     /// @param darkpoolAddress The address of the darkpool proxy contract
     /// @param authAddress The public key used to authenticate gas sponsorship
     /// @param vm The VM to run the commands with
+    /// @return gasSponsorProxyAddr The deployed GasSponsor proxy address
     function deployGasSponsor(
         address owner,
         address darkpoolAddress,
@@ -114,7 +127,9 @@ library DeployUtils {
         return address(gasSponsorProxy);
     }
 
-    /// @dev Deploy only the GasSponsor implementation contract for proxy upgrades
+    /// @notice Deploy only the GasSponsor implementation contract for proxy upgrades
+    /// @param vm The VM to write deployments
+    /// @return implAddr The deployed implementation address
     function deployGasSponsorImplementation(Vm vm) internal returns (address implAddr) {
         GasSponsor gasSponsor = new GasSponsor();
         writeDeployment(vm, "GasSponsor", address(gasSponsor));
@@ -123,6 +138,14 @@ library DeployUtils {
     }
 
     /// @notice Deploy core contracts
+    /// @param owner The owner address for the darkpool
+    /// @param protocolFeeRate The protocol fee rate
+    /// @param protocolFeeAddr The address to receive protocol fees
+    /// @param protocolFeeKey The encryption key for protocol fees
+    /// @param permit2 The Permit2 contract instance
+    /// @param weth The WETH9 contract instance
+    /// @param vm The VM to run the commands with
+    /// @return darkpoolAddr The deployed darkpool proxy address
     function deployCore(
         address owner,
         uint256 protocolFeeRate,
@@ -167,7 +190,9 @@ library DeployUtils {
         return address(darkpoolProxy);
     }
 
-    /// @dev Deploy only the Darkpool implementation contract for proxy upgrades
+    /// @notice Deploy only the Darkpool implementation contract for proxy upgrades
+    /// @param vm The VM to write deployments
+    /// @return implAddr The deployed implementation address
     function deployDarkpoolImplementation(Vm vm) internal returns (address implAddr) {
         Darkpool darkpool = new Darkpool();
         writeDeployment(vm, "Darkpool", address(darkpool));
@@ -175,7 +200,7 @@ library DeployUtils {
         return address(darkpool);
     }
 
-    /// @dev Write a deployment address to the deployments.json file
+    /// @notice Write a deployment address to the deployments.json file
     /// @param vm The VM to run the commands with
     /// @param contractName The name of the contract being deployed
     /// @param contractAddress The address of the deployed contract

@@ -714,20 +714,20 @@ contract CalldataUtils is TestUtils {
         publicInputs[0] = dummyScalar;
 
         proof = PlonkProof({
-            wire_comms: [dummyPoint, dummyPoint, dummyPoint, dummyPoint, dummyPoint],
-            z_comm: dummyPoint,
-            quotient_comms: [dummyPoint, dummyPoint, dummyPoint, dummyPoint, dummyPoint],
-            w_zeta: dummyPoint,
-            w_zeta_omega: dummyPoint,
-            wire_evals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar, dummyScalar],
-            sigma_evals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar],
-            z_bar: dummyScalar
+            wireComms: [dummyPoint, dummyPoint, dummyPoint, dummyPoint, dummyPoint],
+            zComm: dummyPoint,
+            quotientComms: [dummyPoint, dummyPoint, dummyPoint, dummyPoint, dummyPoint],
+            wZeta: dummyPoint,
+            wZetaOmega: dummyPoint,
+            wireEvals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar, dummyScalar],
+            sigmaEvals: [dummyScalar, dummyScalar, dummyScalar, dummyScalar],
+            zBar: dummyScalar
         });
     }
 
     /// @notice Generates a dummy linking proof
     function dummyLinkingProof() internal pure returns (LinkingProof memory proof) {
         BN254.G1Point memory dummyPoint = BN254.P1();
-        proof = LinkingProof({ linking_quotient_poly_comm: dummyPoint, linking_poly_opening: dummyPoint });
+        proof = LinkingProof({ linkingQuotientPolyComm: dummyPoint, linkingPolyOpening: dummyPoint });
     }
 }

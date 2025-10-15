@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
+
+/* solhint-disable function-max-lines */
 
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
@@ -48,6 +50,9 @@ import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 
+/// @title Darkpool
+/// @author Renegade Eng
+/// @notice The Renegade darkpool v1
 contract Darkpool is Initializable, Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
@@ -57,11 +62,34 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     using TypesLib for FeeTake;
     using TypesLib for EncryptionKey;
 
+    // Custom Errors
+    error FeeCannotBeZero();
+    error AddressCannotBeZero();
+    error VerificationFailed();
+    error InvalidSignature();
+    error InvalidOrderSettlementIndices();
+    error InvalidProtocolFeeRate();
+    error InvalidPrivateShareCommitment();
+    error InvalidETHValue();
+    error InvalidProtocolEncryptionKey();
+
     // Events
-    event FeeChanged(uint256 newFee);
-    event ExternalMatchFeeChanged(address indexed asset, uint256 newFee);
-    event PubkeyRotated(uint256 newPubkeyX, uint256 newPubkeyY);
+    /// @notice Emitted when the protocol fee rate is changed
+    /// @param newFee The new protocol fee rate
+    event FeeChanged(uint256 indexed newFee);
+    /// @notice Emitted when the external match fee rate for a specific asset is changed
+    /// @param asset The asset address
+    /// @param newFee The new fee rate for the asset
+    event ExternalMatchFeeChanged(address indexed asset, uint256 indexed newFee);
+    /// @notice Emitted when the protocol's public encryption key is rotated
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    event PubkeyRotated(uint256 indexed newPubkeyX, uint256 indexed newPubkeyY);
+    /// @notice Emitted when the external fee collection address is changed
+    /// @param newAddress The new fee collection address
     event ExternalFeeCollectionAddressChanged(address indexed newAddress);
+    /// @notice Emitted when a note is posted to the darkpool
+    /// @param noteCommitment The commitment of the posted note
     event NotePosted(uint256 indexed noteCommitment);
 
     /// @notice The protocol fee rate for the darkpool
@@ -104,6 +132,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @dev recover a wallet
     NullifierLib.NullifierSet private publicBlinderSet;
 
+    /// @notice Constructor that disables initializers for the implementation contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() Ownable(msg.sender) {
         _disableInitializers();
@@ -214,7 +243,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @notice Set the protocol fee rate
     /// @param newFee The new protocol fee rate to set
     function setProtocolFeeRate(uint256 newFee) public onlyOwner {
-        require(newFee != 0, "Fee cannot be zero");
+        if (newFee == 0) revert FeeCannotBeZero();
         protocolFeeRate = newFee;
         emit FeeChanged(newFee);
     }
@@ -225,7 +254,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @dev of a real number between 0 and 1. To convert to its floating point representation,
     /// @dev divide by the fixed point precision, i.e. `fee = assetFeeRate / FIXED_POINT_PRECISION`.
     function setTokenExternalMatchFeeRate(address asset, uint256 fee) public onlyOwner {
-        require(fee != 0, "Fee cannot be zero");
+        if (fee == 0) revert FeeCannotBeZero();
         perTokenFeeOverrides[asset] = fee;
         emit ExternalMatchFeeChanged(asset, fee);
     }
@@ -250,7 +279,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @notice Set the protocol external fee collection address
     /// @param newAddress The new address to collect external fees
     function setProtocolFeeRecipient(address newAddress) public onlyOwner {
-        require(newAddress != address(0), "Address cannot be zero");
+        if (newAddress == address(0)) revert AddressCannotBeZero();
         protocolFeeRecipient = newAddress;
         emit ExternalFeeCollectionAddressChanged(newAddress);
     }
@@ -258,14 +287,14 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @notice Set the address of the TransferExecutor contract
     /// @param newTransferExecutor The new address of the TransferExecutor contract
     function setTransferExecutor(address newTransferExecutor) public onlyOwner {
-        require(newTransferExecutor != address(0), "Address cannot be zero");
+        if (newTransferExecutor == address(0)) revert AddressCannotBeZero();
         transferExecutor = newTransferExecutor;
     }
 
     /// @notice Set the verifier for the darkpool
     /// @param newVerifier The new verifier for the darkpool
     function setVerifier(IVerifier newVerifier) public onlyOwner {
-        require(address(newVerifier) != address(0), "Address cannot be zero");
+        if (address(newVerifier) == address(0)) revert AddressCannotBeZero();
         verifier = newVerifier;
     }
 
@@ -293,7 +322,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     {
         // 1. Verify the proof
         bool res = verifier.verifyValidWalletCreate(statement, proof);
-        require(res, "Verification failed for wallet create");
+        if (!res) revert VerificationFailed();
 
         // 2. Mark the public blinder share as spent
         // Assumes that the public blinder share is the last share in the array
@@ -305,8 +334,8 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     }
 
     /// @notice Update a wallet in the darkpool
-    /// @param newSharesCommitmentSig The signature of the new wallet shares commitment by the
-    /// old wallet's root key
+    /// @param newSharesCommitmentSig The signature of the new wallet shares commitment by the old wallet's root key
+    /// @param transferAuthorization The authorization data for the external transfer
     /// @param statement The statement to verify
     /// @param proof The proof of `VALID WALLET UPDATE`
     function updateWallet(
@@ -320,7 +349,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     {
         // 1. Verify the proof
         bool res = verifier.verifyValidWalletUpdate(statement, proof);
-        require(res, "Verification failed for wallet update");
+        if (!res) revert VerificationFailed();
 
         // 2. Rotate the wallet's shares into the Merkle tree
         BN254.ScalarField newCommitment = statement.newWalletCommitment;
@@ -338,11 +367,12 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         // 3. Verify the signature of the new shares commitment by the root key
         bool validSig =
             WalletOperations.verifyWalletUpdateSignature(newCommitment, newSharesCommitmentSig, statement.oldPkRoot);
-        require(validSig, "Invalid signature");
+        if (!validSig) revert InvalidSignature();
 
         // 4. Execute the external transfer if it is non-zero
         if (!statement.externalTransfer.isZero()) {
             // delegatecall to TransferExecutor
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, bytes memory returnData) = transferExecutor.delegatecall(
                 abi.encodeWithSelector(
                     TransferExecutor.executeTransfer.selector,
@@ -361,6 +391,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     /// @param party1MatchPayload The validity proofs payload for the second party
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param linkingProofs The proof linking arguments for the match
     function processMatchSettle(
         PartyMatchPayload calldata party0MatchPayload,
         PartyMatchPayload calldata party1MatchPayload,
@@ -380,7 +411,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         bool res = verifier.verifyMatchBundle(
             party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
         );
-        require(res, "Verification failed for match bundle");
+        if (!res) revert VerificationFailed();
 
         // 2. Check statement consistency between the proofs for the two parties
         // I.e. public inputs used in multiple proofs should take the same values
@@ -388,11 +419,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
             commitmentsStatement0.indices.indicesEqual(matchSettleStatement.firstPartySettlementIndices);
         bool party1ValidIndices =
             commitmentsStatement1.indices.indicesEqual(matchSettleStatement.secondPartySettlementIndices);
-        require(party0ValidIndices, "Invalid party 0 order settlement indices");
-        require(party1ValidIndices, "Invalid party 1 order settlement indices");
+        if (!party0ValidIndices) revert InvalidOrderSettlementIndices();
+        if (!party1ValidIndices) revert InvalidOrderSettlementIndices();
 
         // 3. Validate the protocol fee rate used in the settlement
-        require(matchSettleStatement.protocolFeeRate == protocolFeeRate, "Invalid protocol fee rate");
+        if (matchSettleStatement.protocolFeeRate != protocolFeeRate) revert InvalidProtocolFeeRate();
 
         // 4. Insert the new shares into the Merkle tree
         WalletOperations.rotateWallet(
@@ -446,7 +477,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         bool res = verifier.verifyMatchBundleWithCommitments(
             party0MatchPayload, party1MatchPayload, matchSettleStatement, proofs, linkingProofs
         );
-        require(res, "Verification failed for match bundle with commitments");
+        if (!res) revert VerificationFailed();
 
         // 2. Check statement consistency between the proofs for the two parties
         // I.e. public inputs used in multiple proofs should take the same values
@@ -454,8 +485,8 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
             commitmentsStatement0.indices.indicesEqual(matchSettleStatement.firstPartySettlementIndices);
         bool party1ValidIndices =
             commitmentsStatement1.indices.indicesEqual(matchSettleStatement.secondPartySettlementIndices);
-        require(party0ValidIndices, "Invalid party 0 order settlement indices");
-        require(party1ValidIndices, "Invalid party 1 order settlement indices");
+        if (!party0ValidIndices) revert InvalidOrderSettlementIndices();
+        if (!party1ValidIndices) revert InvalidOrderSettlementIndices();
 
         uint256 reblindComm0 = BN254.ScalarField.unwrap(reblindStatement0.newPrivateShareCommitment);
         uint256 reblindComm1 = BN254.ScalarField.unwrap(reblindStatement1.newPrivateShareCommitment);
@@ -463,11 +494,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         uint256 newShareComm1 = BN254.ScalarField.unwrap(matchSettleStatement.privateShareCommitment1);
         bool party0ValidCommitment = reblindComm0 == newShareComm0;
         bool party1ValidCommitment = reblindComm1 == newShareComm1;
-        require(party0ValidCommitment, "Invalid party 0 private share commitment");
-        require(party1ValidCommitment, "Invalid party 1 private share commitment");
+        if (!party0ValidCommitment) revert InvalidPrivateShareCommitment();
+        if (!party1ValidCommitment) revert InvalidPrivateShareCommitment();
 
         // 3. Validate the protocol fee rate used in the settlement
-        require(matchSettleStatement.protocolFeeRate == protocolFeeRate, "Invalid protocol fee rate");
+        if (matchSettleStatement.protocolFeeRate != protocolFeeRate) revert InvalidProtocolFeeRate();
 
         // 4. Insert the new shares into the Merkle tree
         WalletOperations.rotateWalletWithCommitment(
@@ -526,7 +557,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // The tx value should be zero unless the external party is selling native token
         if (!nativeTokenSell && msg.value != 0) {
-            revert("Invalid ETH value, should be zero unless selling native token");
+            revert InvalidETHValue();
         }
 
         // 2. Verify the proofs
@@ -537,17 +568,17 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
             statement.matchResult.baseMint = address(weth);
         }
         bool res = verifier.verifyAtomicMatchBundle(internalPartyPayload, statement, proofs, linkingProofs);
-        require(res, "Verification failed for atomic match bundle");
+        if (!res) revert VerificationFailed();
 
         // 3. Check statement consistency for the internal party
         // I.e. public inputs used in multiple proofs should take the same values
         bool internalPartyValidIndices =
             commitmentsStatement.indices.indicesEqual(matchSettleStatement.internalPartySettlementIndices);
-        require(internalPartyValidIndices, "Invalid internal party order settlement indices");
+        if (!internalPartyValidIndices) revert InvalidOrderSettlementIndices();
 
         // 4. Validate the protocol fee rate used in the settlement
         uint256 protocolFee = getTokenExternalMatchFeeRate(matchResult.baseMint);
-        require(matchSettleStatement.protocolFeeRate == protocolFee, "Invalid protocol fee rate");
+        if (matchSettleStatement.protocolFeeRate != protocolFee) revert InvalidProtocolFeeRate();
 
         // 5. Insert the new shares into the Merkle tree
         WalletOperations.rotateWallet(
@@ -563,6 +594,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // 6. Execute external transfers to/from the external party using TransferExecutor
         address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returnData) = transferExecutor.delegatecall(
             abi.encodeWithSelector(
                 TransferExecutor.executeAtomicMatchTransfers.selector,
@@ -617,7 +649,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // The tx value should be zero unless the external party is selling native token
         if (!nativeTokenSell && msg.value != 0) {
-            revert("Invalid ETH value, should be zero unless selling native token");
+            revert InvalidETHValue();
         }
 
         // 2. Verify the proofs
@@ -629,22 +661,22 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         }
         bool res =
             verifier.verifyAtomicMatchBundleWithCommitments(internalPartyPayload, statement, proofs, linkingProofs);
-        require(res, "Verification failed for atomic match bundle with commitments");
+        if (!res) revert VerificationFailed();
 
         // 3. Check statement consistency for the internal party
         // I.e. public inputs used in multiple proofs should take the same values
         bool internalPartyValidIndices =
             commitmentsStatement.indices.indicesEqual(matchSettleStatement.internalPartySettlementIndices);
-        require(internalPartyValidIndices, "Invalid internal party order settlement indices");
+        if (!internalPartyValidIndices) revert InvalidOrderSettlementIndices();
 
         uint256 reblindComm = BN254.ScalarField.unwrap(reblindStatement.newPrivateShareCommitment);
         uint256 newShareComm = BN254.ScalarField.unwrap(matchSettleStatement.privateShareCommitment);
         bool internalPartyValidCommitment = reblindComm == newShareComm;
-        require(internalPartyValidCommitment, "Invalid internal party private share commitment");
+        if (!internalPartyValidCommitment) revert InvalidPrivateShareCommitment();
 
         // 4. Validate the protocol fee rate used in the settlement
         uint256 protocolFee = getTokenExternalMatchFeeRate(matchResult.baseMint);
-        require(matchSettleStatement.protocolFeeRate == protocolFee, "Invalid protocol fee rate");
+        if (matchSettleStatement.protocolFeeRate != protocolFee) revert InvalidProtocolFeeRate();
 
         // 5. Insert the new shares into the Merkle tree
         WalletOperations.rotateWalletWithCommitment(
@@ -660,6 +692,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // 6. Execute external transfers to/from the external party using TransferExecutor
         address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returnData) = transferExecutor.delegatecall(
             abi.encodeWithSelector(
                 TransferExecutor.executeAtomicMatchTransfers.selector,
@@ -712,7 +745,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // The tx value should be zero unless the external party is selling native token
         if (!nativeTokenSell && msg.value != 0) {
-            revert("Invalid ETH value, should be zero unless selling native token");
+            revert InvalidETHValue();
         }
 
         // 2. Verify the proofs
@@ -723,14 +756,14 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
             statement.matchResult.baseMint = address(weth);
         }
         bool res = verifier.verifyMalleableMatchBundle(internalPartyPayload, statement, proofs, linkingProofs);
-        require(res, "Verification failed for malleable match bundle");
+        if (!res) revert VerificationFailed();
 
         // 3. Verify the protocol fee rates used in settlement
         uint256 protocolFee = getTokenExternalMatchFeeRate(boundedMatchResult.baseMint);
         FeeTakeRate memory internalPartyFees = matchSettleStatement.internalFeeRates;
         FeeTakeRate memory externalPartyFees = matchSettleStatement.externalFeeRates;
-        require(internalPartyFees.protocolFeeRate.repr == protocolFee, "Invalid internal party protocol fee rate");
-        require(externalPartyFees.protocolFeeRate.repr == protocolFee, "Invalid external party protocol fee rate");
+        if (internalPartyFees.protocolFeeRate.repr != protocolFee) revert InvalidProtocolFeeRate();
+        if (externalPartyFees.protocolFeeRate.repr != protocolFee) revert InvalidProtocolFeeRate();
 
         // 4. Build an external match result from the bounded match result
         ExternalMatchResult memory matchResult =
@@ -761,6 +794,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
 
         // 8. Execute external transfers to/from the external party using TransferExecutor
         address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returnData) = transferExecutor.delegatecall(
             abi.encodeWithSelector(
                 TransferExecutor.executeAtomicMatchTransfers.selector,
@@ -792,11 +826,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     {
         // 1. Check that the statement uses the correct protocol fee encryption key
         bool correctKey = statement.protocolKey.encryptionKeyEqual(protocolFeeKey);
-        require(correctKey, "Invalid protocol fee encryption key");
+        if (!correctKey) revert InvalidProtocolEncryptionKey();
 
         // 2. Verify the proof of `VALID OFFLINE FEE SETTLEMENT`
         bool res = verifier.verifyValidOfflineFeeSettlement(statement, proof);
-        require(res, "Verification failed for offline fee settlement");
+        if (!res) revert VerificationFailed();
 
         // 3. Rotate the fee payer's wallet
         WalletOperations.rotateWalletWithCommitment(
@@ -818,6 +852,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     }
 
     /// @notice Redeem a fee that has been paid offline into a wallet
+    /// @param recipientCommitmentSig The signature of the new shares commitment by the wallet's root key
     /// @param statement The statement of `VALID FEE REDEMPTION`
     /// @param proof The proof of `VALID FEE REDEMPTION`
     function redeemFee(
@@ -830,7 +865,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
     {
         // 1. Verify the proof
         bool res = verifier.verifyValidFeeRedemption(statement, proof);
-        require(res, "Verification failed for fee redemption");
+        if (!res) revert VerificationFailed();
 
         // 2. Rotate the wallet
         BN254.ScalarField newCommitment = statement.newSharesCommitment;
@@ -848,7 +883,7 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         // 3. Verify the signature of the new shares commitment by the root key
         bool validSig =
             WalletOperations.verifyWalletUpdateSignature(newCommitment, recipientCommitmentSig, statement.walletRootKey);
-        require(validSig, "Invalid signature");
+        if (!validSig) revert InvalidSignature();
 
         // 4. Spend the note
         WalletOperations.spendNote(statement.noteNullifier, statement.noteRoot, nullifierSet, merkleTree);

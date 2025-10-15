@@ -13,7 +13,11 @@ import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 
+/// @title DeployDevScript
+/// @author Renegade Eng
+/// @notice Development deployment script with mock tokens and Permit2
 contract DeployDevScript is Script {
+    /// @notice Deploy all contracts for local development
     function run() public {
         // Start broadcast for the actual deployments
         vm.startBroadcast();

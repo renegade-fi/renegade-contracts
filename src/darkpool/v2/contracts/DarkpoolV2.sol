@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { Initializable } from "oz-contracts/proxy/utils/Initializable.sol";
 import { Ownable } from "oz-contracts/access/Ownable.sol";
@@ -18,15 +18,30 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
+/// @title DarkpoolV2
+/// @author Renegade Eng
+/// @notice V2 of the Renegade darkpool contract for private trading
 contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
 
     // Events
-    event FeeChanged(uint256 newFee);
-    event ExternalMatchFeeChanged(address indexed asset, uint256 newFee);
-    event PubkeyRotated(uint256 newPubkeyX, uint256 newPubkeyY);
+    /// @notice Emitted when the protocol fee rate is changed
+    /// @param newFee The new protocol fee rate
+    event FeeChanged(uint256 indexed newFee);
+    /// @notice Emitted when a per-token fee override is changed
+    /// @param asset The asset address
+    /// @param newFee The new fee rate for the asset
+    event ExternalMatchFeeChanged(address indexed asset, uint256 indexed newFee);
+    /// @notice Emitted when the protocol's public key is rotated
+    /// @param newPubkeyX The x-coordinate of the new public key
+    /// @param newPubkeyY The y-coordinate of the new public key
+    event PubkeyRotated(uint256 indexed newPubkeyX, uint256 indexed newPubkeyY);
+    /// @notice Emitted when the external fee collection address is changed
+    /// @param newAddress The new fee collection address
     event ExternalFeeCollectionAddressChanged(address indexed newAddress);
+    /// @notice Emitted when a note is posted to the darkpool
+    /// @param noteCommitment The commitment to the note
     event NotePosted(uint256 indexed noteCommitment);
 
     /// @notice The protocol fee rate for the darkpool
@@ -69,7 +84,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @dev recover a wallet
     NullifierLib.NullifierSet private publicBlinderSet;
 
-    // @custom:oz-upgrades-unsafe-allow constructor
+    /// @notice Constructor that disables initializers for the implementation contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() Ownable(msg.sender) {
         _disableInitializers();
     }

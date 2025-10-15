@@ -4,6 +4,9 @@ pragma solidity ^0.8.0;
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { NullifierLib as NullifierSetLib } from "renegade-lib/NullifierSet.sol";
+import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
@@ -42,7 +45,7 @@ contract SettleOfflineFee is DarkpoolTestBase {
             settleOfflineFeeCalldata(merkleRoot, protocolFeeKey);
 
         // Should fail
-        vm.expectRevert("Verification failed for offline fee settlement");
+        vm.expectRevert(IDarkpool.VerificationFailed.selector);
         darkpoolRealVerifier.settleOfflineFee(statement, proof);
     }
 
@@ -61,7 +64,7 @@ contract SettleOfflineFee is DarkpoolTestBase {
         statement.updatedWalletPublicShares[statement.updatedWalletPublicShares.length - 1] = publicBlinder;
 
         // Should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.settleOfflineFee(statement, proof);
     }
 
@@ -74,7 +77,7 @@ contract SettleOfflineFee is DarkpoolTestBase {
         // Generate the calldata and settle the fee
         (ValidOfflineFeeSettlementStatement memory statement, PlonkProof memory proof) =
             settleOfflineFeeCalldata(merkleRoot, protocolFeeKey);
-        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
+        vm.expectRevert(WalletOperations.MerkleRootNotInHistory.selector);
         darkpool.settleOfflineFee(statement, proof);
     }
 
@@ -102,7 +105,7 @@ contract SettleOfflineFee is DarkpoolTestBase {
         (ValidOfflineFeeSettlementStatement memory statement, PlonkProof memory proof) =
             settleOfflineFeeCalldata(merkleRoot2, protocolFeeKey);
         statement.walletNullifier = nullifier;
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.settleOfflineFee(statement, proof);
     }
 
@@ -115,7 +118,7 @@ contract SettleOfflineFee is DarkpoolTestBase {
         // Generate the calldata and settle the fee
         (ValidOfflineFeeSettlementStatement memory statement, PlonkProof memory proof) =
             settleOfflineFeeCalldata(merkleRoot, protocolFeeKey);
-        vm.expectRevert(INVALID_PROTOCOL_FEE_KEY_REVERT_STRING);
+        vm.expectRevert(IDarkpool.InvalidProtocolEncryptionKey.selector);
         darkpool.settleOfflineFee(statement, proof);
     }
 }

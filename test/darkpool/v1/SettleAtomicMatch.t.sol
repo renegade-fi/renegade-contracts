@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { NullifierLib as NullifierSetLib } from "renegade-lib/NullifierSet.sol";
+import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
+import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import {
     PartyMatchPayload,
@@ -545,7 +549,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         ) = settleAtomicMatchCalldataWithMatchResult(merkleRoot, matchResult);
 
         // Should fail
-        vm.expectRevert("Verification failed for atomic match bundle");
+        vm.expectRevert(IDarkpool.VerificationFailed.selector);
         darkpoolRealVerifier.processAtomicMatchSettle(
             address(0), internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -578,7 +582,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         statement.internalPartyModifiedShares[statement.internalPartyModifiedShares.length - 1] = publicBlinder;
 
         // Should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
@@ -620,7 +624,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         ) = settleAtomicMatchCalldata(merkleRoot);
 
         // Process the match
-        vm.expectRevert(INVALID_ETH_VALUE_REVERT_STRING);
+        vm.expectRevert(IDarkpool.InvalidETHValue.selector);
         darkpool.processAtomicMatchSettle{ value: 1 wei }(
             address(0), internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -651,7 +655,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         internalPartyPayload.validReblindStatement.originalSharesNullifier = nullifier;
 
         // Should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, matchStatement, matchProofs, linkingProofs);
     }
 
@@ -667,7 +671,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         ) = settleAtomicMatchCalldata(merkleRoot);
 
         // Should fail
-        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
+        vm.expectRevert(WalletOperations.MerkleRootNotInHistory.selector);
         darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
@@ -685,7 +689,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         internalPartyPayload.validCommitmentsStatement.indices = randomOrderSettlementIndices();
 
         // Should fail
-        vm.expectRevert("Invalid internal party order settlement indices");
+        vm.expectRevert(IDarkpool.InvalidOrderSettlementIndices.selector);
         darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
@@ -703,7 +707,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         statement.protocolFeeRate = BN254.ScalarField.unwrap(randomScalar());
 
         // Should fail
-        vm.expectRevert(INVALID_PROTOCOL_FEE_REVERT_STRING);
+        vm.expectRevert(IDarkpool.InvalidProtocolFeeRate.selector);
         darkpool.processAtomicMatchSettle(address(0), internalPartyPayload, statement, proofs, linkingProofs);
     }
 
@@ -731,7 +735,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
 
         // Should fail
         vm.startBroadcast(externalParty.addr);
-        vm.expectRevert(INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING);
+        vm.expectRevert(ExternalTransferLib.InvalidDepositAmount.selector);
         darkpool.processAtomicMatchSettle{ value: 1 wei }(
             address(0), internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -761,7 +765,7 @@ contract SettleAtomicMatchTest is DarkpoolTestBase {
         statement.privateShareCommitment = randomScalar();
 
         // Should fail
-        vm.expectRevert(INVALID_PRIVATE_COMMITMENT_REVERT_STRING);
+        vm.expectRevert(IDarkpool.InvalidPrivateShareCommitment.selector);
         darkpool.processAtomicMatchSettleWithCommitments(
             address(0), internalPartyPayload, statement, proofs, linkingProofs
         );

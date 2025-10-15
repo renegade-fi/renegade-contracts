@@ -47,7 +47,7 @@ contract VerifierTestUtils is TestUtils {
             sigmaComms: sigmaComms,
             g: validPoint,
             h: BN254.P2(),
-            x_h: BN254.P2()
+            xH: BN254.P2()
         });
     }
 
@@ -329,8 +329,8 @@ contract VerifierTestUtils is TestUtils {
 
         // Create a linking argument from the linking proof
         ProofLinkingInstance memory linkArg = ProofLinkingInstance({
-            wire_comm0: sumProof.wire_comms[0],
-            wire_comm1: productProof.wire_comms[0],
+            wireComm0: sumProof.wireComms[0],
+            wireComm1: productProof.wireComms[0],
             proof: linkProof,
             vk: linkVkey
         });

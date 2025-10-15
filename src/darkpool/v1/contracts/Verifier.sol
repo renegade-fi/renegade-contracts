@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {
     PlonkProof,
@@ -49,17 +49,27 @@ using StatementSerializer for ValidFeeRedemptionStatement;
 using StatementSerializer for ValidMalleableMatchSettleAtomicStatement;
 
 /// @title PlonK Verifier with the Jellyfish-style arithmetization
+/// @author Renegade Eng
 /// @notice The methods on this contract are darkpool-specific
 contract Verifier is IVerifier {
+    /// @notice The number of proofs in a match bundle
     uint256 public constant NUM_MATCH_PROOFS = 5;
+    /// @notice The number of linking proofs in a match bundle
     uint256 public constant NUM_MATCH_LINKING_PROOFS = 4;
+    /// @notice The number of proofs in an atomic match bundle
     uint256 public constant NUM_ATOMIC_MATCH_PROOFS = 3;
+    /// @notice The number of linking proofs in an atomic match bundle
     uint256 public constant NUM_ATOMIC_MATCH_LINKING_PROOFS = 2;
+    /// @notice The number of proofs in a malleable match bundle
     uint256 public constant NUM_MALLEABLE_MATCH_PROOFS = 3;
+    /// @notice The number of linking proofs in a malleable match bundle
     uint256 public constant NUM_MALLEABLE_MATCH_LINKING_PROOFS = 2;
 
+    /// @notice The verification keys contract
     IVKeys public immutable VKEYS;
 
+    /// @notice Constructor that sets the verification keys contract
+    /// @param _vkeys The verification keys contract address
     constructor(IVKeys _vkeys) {
         VKEYS = _vkeys;
     }
@@ -69,8 +79,8 @@ contract Verifier is IVerifier {
     /// @param proof The proof to verify
     /// @return True if the proof is valid, false otherwise
     function verifyValidWalletCreate(
-        ValidWalletCreateStatement memory statement,
-        PlonkProof memory proof
+        ValidWalletCreateStatement calldata statement,
+        PlonkProof calldata proof
     )
         external
         view
@@ -86,8 +96,8 @@ contract Verifier is IVerifier {
     /// @param proof The proof to verify
     /// @return True if the proof is valid, false otherwise
     function verifyValidWalletUpdate(
-        ValidWalletUpdateStatement memory statement,
-        PlonkProof memory proof
+        ValidWalletUpdateStatement calldata statement,
+        PlonkProof calldata proof
     )
         external
         view
@@ -103,6 +113,7 @@ contract Verifier is IVerifier {
     /// @param party1MatchPayload The payload for the second party
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
     /// @param matchProofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param matchLinkingProofs The proof linking arguments for the match
     /// @return True if the match bundle is valid, false otherwise
     function verifyMatchBundle(
         PartyMatchPayload calldata party0MatchPayload,
@@ -431,32 +442,32 @@ contract Verifier is IVerifier {
 
         // Party 0: VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
-            wire_comm0: matchProofs.validReblind0.wire_comms[0],
-            wire_comm1: matchProofs.validCommitments0.wire_comms[0],
+            wireComm0: matchProofs.validReblind0.wireComms[0],
+            wireComm1: matchProofs.validCommitments0.wireComms[0],
             proof: matchLinkingProofs.validReblindCommitments0,
             vk: reblindCommitmentsVk
         });
 
         // Party 0: VALID COMMITMENTS -> VALID MATCH SETTLE
         instances[1] = ProofLinkingInstance({
-            wire_comm0: matchProofs.validCommitments0.wire_comms[0],
-            wire_comm1: matchProofs.validMatchSettle.wire_comms[0],
+            wireComm0: matchProofs.validCommitments0.wireComms[0],
+            wireComm1: matchProofs.validMatchSettle.wireComms[0],
             proof: matchLinkingProofs.validCommitmentsMatchSettle0,
             vk: commitmentsMatchSettleVk0
         });
 
         // Party 1: VALID REBLIND -> VALID COMMITMENTS
         instances[2] = ProofLinkingInstance({
-            wire_comm0: matchProofs.validReblind1.wire_comms[0],
-            wire_comm1: matchProofs.validCommitments1.wire_comms[0],
+            wireComm0: matchProofs.validReblind1.wireComms[0],
+            wireComm1: matchProofs.validCommitments1.wireComms[0],
             proof: matchLinkingProofs.validReblindCommitments1,
             vk: reblindCommitmentsVk
         });
 
         // Party 1: VALID COMMITMENTS -> VALID MATCH SETTLE
         instances[3] = ProofLinkingInstance({
-            wire_comm0: matchProofs.validCommitments1.wire_comms[0],
-            wire_comm1: matchProofs.validMatchSettle.wire_comms[0],
+            wireComm0: matchProofs.validCommitments1.wireComms[0],
+            wireComm1: matchProofs.validMatchSettle.wireComms[0],
             proof: matchLinkingProofs.validCommitmentsMatchSettle1,
             vk: commitmentsMatchSettleVk1
         });
@@ -482,16 +493,16 @@ contract Verifier is IVerifier {
 
         // VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
-            wire_comm0: matchProofs.validReblind.wire_comms[0],
-            wire_comm1: matchProofs.validCommitments.wire_comms[0],
+            wireComm0: matchProofs.validReblind.wireComms[0],
+            wireComm1: matchProofs.validCommitments.wireComms[0],
             proof: matchLinkingProofs.validReblindCommitments,
             vk: reblindCommitmentsVk
         });
 
         // VALID COMMITMENTS -> VALID MATCH SETTLE ATOMIC
         instances[1] = ProofLinkingInstance({
-            wire_comm0: matchProofs.validCommitments.wire_comms[0],
-            wire_comm1: matchProofs.validMatchSettleAtomic.wire_comms[0],
+            wireComm0: matchProofs.validCommitments.wireComms[0],
+            wireComm1: matchProofs.validMatchSettleAtomic.wireComms[0],
             proof: matchLinkingProofs.validCommitmentsMatchSettleAtomic,
             vk: commitmentsMatchSettleVk
         });
@@ -517,16 +528,16 @@ contract Verifier is IVerifier {
 
         // VALID REBLIND -> VALID COMMITMENTS
         instances[0] = ProofLinkingInstance({
-            wire_comm0: proofs.validReblind.wire_comms[0],
-            wire_comm1: proofs.validCommitments.wire_comms[0],
+            wireComm0: proofs.validReblind.wireComms[0],
+            wireComm1: proofs.validCommitments.wireComms[0],
             proof: linkingProofs.validReblindCommitments,
             vk: reblindCommitmentsVk
         });
 
         // VALID COMMITMENTS -> VALID MALLEABLE MATCH SETTLE ATOMIC
         instances[1] = ProofLinkingInstance({
-            wire_comm0: proofs.validCommitments.wire_comms[0],
-            wire_comm1: proofs.validMalleableMatchSettleAtomic.wire_comms[0],
+            wireComm0: proofs.validCommitments.wireComms[0],
+            wireComm1: proofs.validMalleableMatchSettleAtomic.wireComms[0],
             proof: linkingProofs.validCommitmentsMatchSettleAtomic,
             vk: commitmentsMatchSettleVk
         });

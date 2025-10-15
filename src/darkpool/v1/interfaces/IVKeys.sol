@@ -1,20 +1,27 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { VerificationKey, ProofLinkingVK } from "renegade-lib/verifier/Types.sol";
 
+/// @title IVKeys
+/// @author Renegade Eng
+/// @notice Interface for the verification keys in the darkpool
 interface IVKeys {
     // Individual verification keys
     /// @notice Get the verification key for `VALID WALLET CREATE`
+    /// @return The verification key for `VALID WALLET CREATE`
     function walletCreateKeys() external view returns (VerificationKey memory);
 
     /// @notice Get the verification key for `VALID WALLET UPDATE`
+    /// @return The verification key for `VALID WALLET UPDATE`
     function walletUpdateKeys() external view returns (VerificationKey memory);
 
     /// @notice Get the verification key for `VALID OFFLINE FEE SETTLEMENT`
+    /// @return The verification key for `VALID OFFLINE FEE SETTLEMENT`
     function offlineFeeSettlementKeys() external view returns (VerificationKey memory);
 
     /// @notice Get the verification key for `VALID FEE REDEMPTION`
+    /// @return The verification key for `VALID FEE REDEMPTION`
     function feeRedemptionKeys() external view returns (VerificationKey memory);
 
     // Match bundle keys

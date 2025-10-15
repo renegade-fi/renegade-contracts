@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
+
+/* solhint-disable gas-increment-by-one */
+/* solhint-disable gas-strict-inequalities */
 
 import { Vm } from "forge-std/Vm.sol";
 
+/// @title JsonUtils
+/// @author Renegade Eng
+/// @notice Utility library for JSON file manipulation in deployment scripts
 library JsonUtils {
-    /// @dev Write a key-value pair to a JSON file, handling existing entries
+    /// @notice Write a key-value pair to a JSON file, handling existing entries
     /// @param vm The VM to run the commands with
     /// @param filePath The path to the JSON file
     /// @param key The key to write
@@ -33,7 +39,7 @@ library JsonUtils {
 
             string memory currentKey = extractKey(entry);
             if (keccak256(bytes(currentKey)) == keccak256(bytes(key))) {
-                newEntries[i] = string(abi.encodePacked('"', key, '":"', value, '"'));
+                newEntries[i] = string(abi.encodePacked("\"", key, "\":\"", value, "\""));
                 found = true;
             } else {
                 newEntries[i] = entry;
@@ -42,7 +48,7 @@ library JsonUtils {
 
         // Add new entry if not found
         if (!found) {
-            newEntries[entries.length] = string(abi.encodePacked('"', key, '":"', value, '"'));
+            newEntries[entries.length] = string(abi.encodePacked("\"", key, "\":\"", value, "\""));
         }
 
         // Construct new JSON
@@ -60,7 +66,9 @@ library JsonUtils {
         vm.writeFile(filePath, newJson);
     }
 
-    /// @dev Parse JSON string into array of key-value entries
+    /// @notice Parse JSON string into array of key-value entries
+    /// @param json The JSON string to parse
+    /// @return Array of key-value entry strings
     function parseJsonEntries(string memory json) internal pure returns (string[] memory) {
         // Remove whitespace and outer braces
         string memory cleaned = cleanJson(json);
@@ -71,20 +79,24 @@ library JsonUtils {
         return entries;
     }
 
-    /// @dev Extract key from a JSON entry
+    /// @notice Extract key from a JSON entry
+    /// @param entry The JSON entry string
+    /// @return The extracted key
     function extractKey(string memory entry) internal pure returns (string memory) {
         uint256 colonPos = findChar(entry, ":");
         if (colonPos == 0) return "";
 
         string memory key = substring(entry, 0, colonPos);
         // Remove quotes
-        if (bytes(key).length >= 2 && bytes(key)[0] == '"' && bytes(key)[bytes(key).length - 1] == '"') {
+        if (bytes(key).length >= 2 && bytes(key)[0] == "\"" && bytes(key)[bytes(key).length - 1] == "\"") {
             return substring(key, 1, bytes(key).length - 1);
         }
         return key;
     }
 
-    /// @dev Split string by commas, respecting quotes
+    /// @notice Split string by commas, respecting quotes
+    /// @param str The string to split
+    /// @return Array of substrings
     function splitByComma(string memory str) internal pure returns (string[] memory) {
         bytes memory strBytes = bytes(str);
         bool inQuotes = false;
@@ -92,7 +104,7 @@ library JsonUtils {
 
         // Count number of top-level commas
         for (uint256 i = 0; i < strBytes.length; i++) {
-            if (strBytes[i] == '"') {
+            if (strBytes[i] == "\"") {
                 inQuotes = !inQuotes;
             } else if (strBytes[i] == "," && !inQuotes) {
                 count++;
@@ -106,7 +118,7 @@ library JsonUtils {
         inQuotes = false;
 
         for (uint256 i = 0; i < strBytes.length; i++) {
-            if (strBytes[i] == '"') {
+            if (strBytes[i] == "\"") {
                 inQuotes = !inQuotes;
             } else if (strBytes[i] == "," && !inQuotes) {
                 parts[partIndex] = substring(str, lastIndex, i);
@@ -123,7 +135,9 @@ library JsonUtils {
         return parts;
     }
 
-    /// @dev Clean up a JSON string by removing whitespace
+    /// @notice Clean up a JSON string by removing whitespace
+    /// @param json The JSON string to clean
+    /// @return The cleaned JSON string
     function cleanJson(string memory json) internal pure returns (string memory) {
         bytes memory jsonBytes = bytes(json);
         bytes memory cleaned = new bytes(jsonBytes.length);
@@ -133,7 +147,7 @@ library JsonUtils {
         for (uint256 i = 0; i < jsonBytes.length; i++) {
             bytes1 char = jsonBytes[i];
 
-            if (char == '"') {
+            if (char == "\"") {
                 inQuotes = !inQuotes;
             }
 
@@ -151,7 +165,10 @@ library JsonUtils {
         return string(result);
     }
 
-    /// @dev Helper function to find a character in a string
+    /// @notice Helper function to find a character in a string
+    /// @param str The string to search
+    /// @param char The character to find
+    /// @return The index of the character, or 0 if not found
     function findChar(string memory str, bytes1 char) internal pure returns (uint256) {
         bytes memory strBytes = bytes(str);
         for (uint256 i = 0; i < strBytes.length; i++) {
@@ -162,7 +179,11 @@ library JsonUtils {
         return 0;
     }
 
-    /// @dev Helper function to get a substring
+    /// @notice Helper function to get a substring
+    /// @param str The source string
+    /// @param startIndex The start index (inclusive)
+    /// @param endIndex The end index (exclusive)
+    /// @return The extracted substring
     function substring(string memory str, uint256 startIndex, uint256 endIndex) internal pure returns (string memory) {
         bytes memory strBytes = bytes(str);
         bytes memory result = new bytes(endIndex - startIndex);

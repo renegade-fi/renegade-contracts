@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
@@ -42,7 +42,7 @@ struct VerificationKey {
     /// The number of gates in the circuit
     uint64 n;
     /// The number of public inputs to the circuit
-    uint64 l;
+    uint64 l; // solhint-disable-line use-forbidden-name
     /// The constants used to generate the cosets of the evaluation domain
     BN254.ScalarField[NUM_WIRE_TYPES] k;
     /// The commitments to the selector polynomials

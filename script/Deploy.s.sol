@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 /**
  * @notice This script must be run with the --ffi flag to enable external commands.
@@ -14,7 +14,18 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { DeployUtils } from "./utils/DeployUtils.sol";
 
+/// @title DeployScript
+/// @author Renegade Eng
+/// @notice Deployment script for the Renegade darkpool
 contract DeployScript is Script {
+    /// @notice Deploy the darkpool with the given parameters
+    /// @param owner The owner of the darkpool
+    /// @param protocolFeeKeyX The X coordinate of the protocol fee encryption key
+    /// @param protocolFeeKeyY The Y coordinate of the protocol fee encryption key
+    /// @param protocolFeeRate The protocol fee rate
+    /// @param protocolFeeAddr The address to receive protocol fees
+    /// @param permit2Address The address of the Permit2 contract
+    /// @param wethAddress The address of the WETH9 contract
     function run(
         address owner,
         uint256 protocolFeeKeyX,

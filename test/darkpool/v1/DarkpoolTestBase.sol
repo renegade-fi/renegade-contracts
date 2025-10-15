@@ -25,6 +25,7 @@ import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
+import { NullifierLib as NullifierSetLib } from "renegade-lib/NullifierSet.sol";
 
 contract DarkpoolTestBase is CalldataUtils {
     using NullifierLib for NullifierLib.NullifierSet;
@@ -54,19 +55,6 @@ contract DarkpoolTestBase is CalldataUtils {
     Darkpool public darkpoolImpl;
     Darkpool public darkpoolRealVerifierImpl;
     GasSponsor public gasSponsorImpl;
-
-    bytes constant INVALID_NULLIFIER_REVERT_STRING = "nullifier/blinder already spent";
-    bytes constant INVALID_ROOT_REVERT_STRING = "Merkle root not in history";
-    bytes constant INVALID_NOTE_ROOT_REVERT_STRING = "Note not in Merkle history";
-    bytes constant INVALID_SIGNATURE_REVERT_STRING = "Invalid signature";
-    bytes constant INVALID_PROTOCOL_FEE_REVERT_STRING = "Invalid protocol fee rate";
-    bytes constant INVALID_PROTOCOL_FEE_KEY_REVERT_STRING = "Invalid protocol fee encryption key";
-    bytes constant INVALID_ETH_VALUE_REVERT_STRING = "Invalid ETH value, should be zero unless selling native token";
-    bytes constant INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING = "msg.value does not match deposit amount";
-    bytes constant INVALID_INTERNAL_PARTY_FEE_REVERT_STRING = "Invalid internal party protocol fee rate";
-    bytes constant INVALID_EXTERNAL_PARTY_FEE_REVERT_STRING = "Invalid external party protocol fee rate";
-    bytes constant INVALID_PRIVATE_COMMITMENT_REVERT_STRING = "Invalid internal party private share commitment";
-    bytes constant INVALID_QUOTE_AMOUNT_REVERT_STRING = "quote amount is out of `BoundedMatchResult` bounds";
 
     function setUp() public virtual {
         deployTokens();
@@ -227,7 +215,7 @@ contract DarkpoolTestBase is CalldataUtils {
         assertEq(testNullifierSet.isSpent(nullifier), true);
 
         // Should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         testNullifierSet.spend(nullifier);
     }
 }

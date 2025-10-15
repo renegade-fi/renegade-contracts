@@ -3,6 +3,9 @@ pragma solidity ^0.8.0;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { NullifierLib as NullifierSetLib } from "renegade-lib/NullifierSet.sol";
+import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { ExternalTransfer, TransferType, TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
@@ -112,7 +115,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
             updateWalletCalldata();
         TransferAuthorization memory transferAuthorization = emptyTransferAuthorization();
 
-        vm.expectRevert("Verification failed for wallet update");
+        vm.expectRevert(IDarkpool.VerificationFailed.selector);
         darkpoolRealVerifier.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
@@ -131,7 +134,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         statement.newPublicShares[statement.newPublicShares.length - 1] = publicBlinder;
 
         // Should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
@@ -146,7 +149,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         statement.merkleRoot = randomScalar();
 
         // Should fail
-        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
+        vm.expectRevert(WalletOperations.MerkleRootNotInHistory.selector);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
@@ -165,7 +168,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
 
         // Second update with same nullifier should fail
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 
@@ -185,7 +188,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         newSharesCommitmentSig[randIdx] = randomByte();
 
         // Should fail
-        vm.expectRevert(INVALID_SIGNATURE_REVERT_STRING);
+        vm.expectRevert(IDarkpool.InvalidSignature.selector);
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "./BN254Helpers.sol";
@@ -43,8 +43,11 @@ struct Transcript {
 // --- Implementation Library --- //
 
 /// @title The Fiat-Shamir transcript used by the verifier
+/// @author Renegade Eng
+/// @notice This library is used to create and manage the Fiat-Shamir transcript used by the verifier
 library TranscriptLib {
-    /// @dev Creates a new transcript in memory
+    /// @notice Creates a new transcript in memory
+    /// @return t The new transcript
     function newTranscript() internal pure returns (Transcript memory t) {
         t.hashStateLow = 0;
         t.hashStateHigh = 0;
@@ -52,14 +55,14 @@ library TranscriptLib {
         return t;
     }
 
-    /// @dev Appends a message to the transcript
+    /// @notice Appends a message to the transcript
     /// @param self The transcript
     /// @param element The message to append
     function appendMessage(Transcript memory self, bytes memory element) internal pure {
         self.elements = abi.encodePacked(self.elements, element);
     }
 
-    /// @dev Gets the current challenge from the transcript
+    /// @notice Gets the current challenge from the transcript
     /// @param self The transcript
     /// @return Challenge The Fiat-Shamir challenge
     function getChallenge(Transcript memory self) internal pure returns (BN254.ScalarField) {
@@ -95,7 +98,7 @@ library TranscriptLib {
         return BN254.add(lowScalar, shiftedHigh);
     }
 
-    /// @dev Append a u64 value to the transcript
+    /// @notice Append a u64 value to the transcript
     /// @param self The transcript
     /// @param element The u64 value to append
     function appendU64(Transcript memory self, uint64 element) internal pure {
@@ -107,7 +110,7 @@ library TranscriptLib {
     // | Scalars |
     // -----------
 
-    /// @dev Appends a scalar value to the transcript
+    /// @notice Appends a scalar value to the transcript
     /// @param self The transcript
     /// @param element The scalar to append
     function appendScalar(Transcript memory self, BN254.ScalarField element) internal pure {
@@ -116,13 +119,13 @@ library TranscriptLib {
         appendMessage(self, abi.encodePacked(leBytes));
     }
 
-    /// @dev Append a list of scalars to the transcript
+    /// @notice Append a list of scalars to the transcript
     /// @param self The transcript
     /// @param dataPtr Pointer to the start of scalar data in memory
     /// @param len Length of the array
     function appendScalarsHelper(Transcript memory self, uint256 dataPtr, uint256 len) internal pure {
         bytes memory scalarsSerialized = new bytes(len * SCALAR_BYTES);
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             // Load the scalar from memory
             bytes32 scalarBytes;
             assembly {
@@ -142,7 +145,7 @@ library TranscriptLib {
         appendMessage(self, scalarsSerialized);
     }
 
-    /// @dev Append a list of scalars to the transcript (dynamic array version)
+    /// @notice Append a list of scalars to the transcript (dynamic array version)
     /// @param self The transcript
     /// @param elements The scalars to append
     function appendScalars(Transcript memory self, BN254.ScalarField[] memory elements) internal pure {
@@ -155,7 +158,7 @@ library TranscriptLib {
         appendScalarsHelper(self, dataPtr, len);
     }
 
-    /// @dev Append a fixed-size list of scalars to the transcript
+    /// @notice Append a fixed-size list of scalars to the transcript
     /// @param self The transcript
     /// @param elements The scalars to append
     function appendScalars(Transcript memory self, BN254.ScalarField[NUM_WIRE_TYPES] memory elements) internal pure {
@@ -166,7 +169,7 @@ library TranscriptLib {
         appendScalarsHelper(self, dataPtr, NUM_WIRE_TYPES);
     }
 
-    /// @dev Append a fixed-size list of scalars to the transcript
+    /// @notice Append a fixed-size list of scalars to the transcript
     /// @param self The transcript
     /// @param elements The scalars to append
     function appendScalars(
@@ -187,13 +190,15 @@ library TranscriptLib {
     // | Points |
     // ----------
 
-    /// @dev Append a single point to the transcript
+    /// @notice Append a single point to the transcript
+    /// @param self The transcript
+    /// @param point The point to append
     function appendPoint(Transcript memory self, BN254.G1Point memory point) internal pure {
         bytes32 serializedPoint = BN254Helpers.serializePoint(point);
         appendMessage(self, abi.encodePacked(serializedPoint));
     }
 
-    /// @dev Helper to append multiple points to the transcript using direct memory access
+    /// @notice Helper to append multiple points to the transcript using direct memory access
     /// @param self The transcript
     /// @param dataPtr Pointer to the start of point data in memory
     /// @param len Number of points to append
@@ -202,7 +207,7 @@ library TranscriptLib {
         // Each G1 point serializes to 64 bytes
         bytes memory pointsSerialized = new bytes(len * POINT_BYTES);
 
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; ++i) {
             // Each G1Point is 2 words (64 bytes) in memory
             BN254.G1Point memory point;
             assembly {
@@ -227,7 +232,7 @@ library TranscriptLib {
         appendMessage(self, pointsSerialized);
     }
 
-    /// @dev Append a list of points to the transcript (dynamic array version)
+    /// @notice Append a list of points to the transcript (dynamic array version)
     /// @param self The transcript
     /// @param points The points to append
     function appendPoints(Transcript memory self, BN254.G1Point[] memory points) internal pure {
@@ -240,7 +245,7 @@ library TranscriptLib {
         appendPointsHelper(self, dataPtr, len);
     }
 
-    /// @dev Append a fixed-size list of points to the transcript
+    /// @notice Append a fixed-size list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
     function appendPoints(Transcript memory self, BN254.G1Point[NUM_WIRE_TYPES] memory points) internal pure {
@@ -251,7 +256,7 @@ library TranscriptLib {
         appendPointsHelper(self, dataPtr, NUM_WIRE_TYPES);
     }
 
-    /// @dev Append a fixed-size list of points to the transcript
+    /// @notice Append a fixed-size list of points to the transcript
     /// @param self The transcript
     /// @param points The points to append
     function appendPoints(Transcript memory self, BN254.G1Point[NUM_SELECTORS] memory points) internal pure {
@@ -266,7 +271,9 @@ library TranscriptLib {
     // | Serialization Helpers |
     // -------------------------
 
-    /// @dev Converts a u64 value to little-endian bytes
+    /// @notice Converts a u64 value to little-endian bytes
+    /// @param value The u64 value to convert
+    /// @return leBytes The little-endian bytes
     function u64ToLeBytes(uint64 value) internal pure returns (bytes memory) {
         bytes memory leBytes = new bytes(8);
         assembly {

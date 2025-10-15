@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { FixedPoint } from "./TypesLib.sol";
 import { ValidCommitmentsStatement, ValidReblindStatement } from "darkpoolv1-lib/PublicInputs.sol";

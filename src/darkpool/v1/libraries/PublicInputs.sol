@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
@@ -209,7 +209,9 @@ struct ValidFeeRedemptionStatement {
 // | Scalar Serialization |
 // ------------------------
 
-/// @title StatementSerializer Library for serializing statement types to scalar arrays
+/// @title StatementSerializer
+/// @author Renegade Eng
+/// @notice Library for serializing statement types to scalar arrays
 library StatementSerializer {
     using StatementSerializer for ValidWalletCreateStatement;
     using StatementSerializer for ValidWalletUpdateStatement;
@@ -233,27 +235,27 @@ library StatementSerializer {
     using StatementSerializer for EncryptionKey;
 
     /// @notice The number of scalar field elements in a ValidWalletCreateStatement
-    uint256 constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
+    uint256 internal constant VALID_WALLET_CREATE_SCALAR_SIZE = 71;
     /// @notice The number of scalar field elements in a ValidWalletUpdateStatement
-    uint256 constant VALID_WALLET_UPDATE_SCALAR_SIZE = 81;
+    uint256 internal constant VALID_WALLET_UPDATE_SCALAR_SIZE = 81;
     /// @notice The number of scalar field elements in a ValidReblindStatement
-    uint256 constant VALID_REBLIND_SCALAR_SIZE = 3;
+    uint256 internal constant VALID_REBLIND_SCALAR_SIZE = 3;
     /// @notice The number of scalar field elements in a ValidCommitmentsStatement
-    uint256 constant VALID_COMMITMENTS_SCALAR_SIZE = 3;
+    uint256 internal constant VALID_COMMITMENTS_SCALAR_SIZE = 3;
     /// @notice The number of scalar field elements in a ValidMatchSettleStatement
-    uint256 constant VALID_MATCH_SETTLE_SCALAR_SIZE = 147;
+    uint256 internal constant VALID_MATCH_SETTLE_SCALAR_SIZE = 147;
     /// @notice The number of scalar field elements in a ValidMatchSettleWithCommitmentsStatement
-    uint256 constant VALID_MATCH_SETTLE_WITH_COMMITMENTS_SCALAR_SIZE = 151;
+    uint256 internal constant VALID_MATCH_SETTLE_WITH_COMMITMENTS_SCALAR_SIZE = 151;
     /// @notice The number of scalar field elements in a ValidMatchSettleAtomicStatement
-    uint256 constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
+    uint256 internal constant VALID_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 82;
     /// @notice The number of scalar field elements in a ValidMatchSettleAtomicWithCommitmentsStatement
-    uint256 constant VALID_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_SCALAR_SIZE = 84;
+    uint256 internal constant VALID_MATCH_SETTLE_ATOMIC_WITH_COMMITMENTS_SCALAR_SIZE = 84;
     /// @notice The number of scalar field elements in a ValidMalleableMatchSettleAtomicStatement
-    uint256 constant VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 81;
+    uint256 internal constant VALID_MALLEABLE_MATCH_SETTLE_ATOMIC_SCALAR_SIZE = 81;
     /// @notice The number of scalar field elements in a ValidOfflineFeeSettlementStatement
-    uint256 constant VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE = 82;
+    uint256 internal constant VALID_OFFLINE_FEE_SETTLEMENT_SCALAR_SIZE = 82;
     /// @notice The number of scalar field elements in a ValidFeeRedemptionStatement
-    uint256 constant VALID_FEE_REDEMPTION_SCALAR_SIZE = 79;
+    uint256 internal constant VALID_FEE_REDEMPTION_SCALAR_SIZE = 79;
 
     // --- Valid Wallet Create --- //
 
@@ -272,7 +274,7 @@ library StatementSerializer {
         serialized[0] = self.walletShareCommitment;
 
         // Add all public shares
-        for (uint256 i = 0; i < self.publicShares.length; i++) {
+        for (uint256 i = 0; i < self.publicShares.length; ++i) {
             serialized[i + 1] = self.publicShares[i];
         }
 
@@ -295,18 +297,18 @@ library StatementSerializer {
 
         // Copy the public shares
         uint256 n = self.newPublicShares.length;
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             serialized[i + 2] = self.newPublicShares[i];
         }
 
         serialized[n + 2] = self.merkleRoot;
         BN254.ScalarField[] memory externalTransferSerialized = self.externalTransfer.scalarSerialize();
-        for (uint256 i = 0; i < externalTransferSerialized.length; i++) {
+        for (uint256 i = 0; i < externalTransferSerialized.length; ++i) {
             serialized[n + 3 + i] = externalTransferSerialized[i];
         }
 
         BN254.ScalarField[] memory oldPkRootSerialized = self.oldPkRoot.scalarSerialize();
-        for (uint256 i = 0; i < oldPkRootSerialized.length; i++) {
+        for (uint256 i = 0; i < oldPkRootSerialized.length; ++i) {
             serialized[n + 3 + externalTransferSerialized.length + i] = oldPkRootSerialized[i];
         }
 
@@ -359,13 +361,13 @@ library StatementSerializer {
 
         // Copy the public shares
         uint256 n = self.firstPartyPublicShares.length;
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             serialized[i] = self.firstPartyPublicShares[i];
         }
 
         // Copy the second party public shares
         uint256 offset = self.firstPartyPublicShares.length;
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             serialized[offset + i] = self.secondPartyPublicShares[i];
         }
 
@@ -373,7 +375,7 @@ library StatementSerializer {
         offset += n;
         BN254.ScalarField[] memory firstPartySettlementIndicesSerialized =
             self.firstPartySettlementIndices.scalarSerialize();
-        for (uint256 i = 0; i < firstPartySettlementIndicesSerialized.length; i++) {
+        for (uint256 i = 0; i < firstPartySettlementIndicesSerialized.length; ++i) {
             serialized[offset + i] = firstPartySettlementIndicesSerialized[i];
         }
 
@@ -381,7 +383,7 @@ library StatementSerializer {
         offset += firstPartySettlementIndicesSerialized.length;
         BN254.ScalarField[] memory secondPartySettlementIndicesSerialized =
             self.secondPartySettlementIndices.scalarSerialize();
-        for (uint256 i = 0; i < secondPartySettlementIndicesSerialized.length; i++) {
+        for (uint256 i = 0; i < secondPartySettlementIndicesSerialized.length; ++i) {
             serialized[offset + i] = secondPartySettlementIndicesSerialized[i];
         }
 
@@ -411,13 +413,13 @@ library StatementSerializer {
         // Copy the public shares
         uint256 offset = 4;
         uint256 n = self.firstPartyPublicShares.length;
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             serialized[offset + i] = self.firstPartyPublicShares[i];
         }
 
         // Copy the second party public shares
         offset += n;
-        for (uint256 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; ++i) {
             serialized[offset + i] = self.secondPartyPublicShares[i];
         }
 
@@ -425,7 +427,7 @@ library StatementSerializer {
         offset += n;
         BN254.ScalarField[] memory firstPartySettlementIndicesSerialized =
             self.firstPartySettlementIndices.scalarSerialize();
-        for (uint256 i = 0; i < firstPartySettlementIndicesSerialized.length; i++) {
+        for (uint256 i = 0; i < firstPartySettlementIndicesSerialized.length; ++i) {
             serialized[offset + i] = firstPartySettlementIndicesSerialized[i];
         }
 
@@ -433,7 +435,7 @@ library StatementSerializer {
         offset += firstPartySettlementIndicesSerialized.length;
         BN254.ScalarField[] memory secondPartySettlementIndicesSerialized =
             self.secondPartySettlementIndices.scalarSerialize();
-        for (uint256 i = 0; i < secondPartySettlementIndicesSerialized.length; i++) {
+        for (uint256 i = 0; i < secondPartySettlementIndicesSerialized.length; ++i) {
             serialized[offset + i] = secondPartySettlementIndicesSerialized[i];
         }
 
@@ -456,20 +458,20 @@ library StatementSerializer {
 
         // Copy the match result
         BN254.ScalarField[] memory matchResultSerialized = self.matchResult.scalarSerialize();
-        for (uint256 i = 0; i < matchResultSerialized.length; i++) {
+        for (uint256 i = 0; i < matchResultSerialized.length; ++i) {
             serialized[i] = matchResultSerialized[i];
         }
 
         // Copy the external party fees
         uint256 offset = matchResultSerialized.length;
         BN254.ScalarField[] memory externalPartyFeesSerialized = self.externalPartyFees.scalarSerialize();
-        for (uint256 i = 0; i < externalPartyFeesSerialized.length; i++) {
+        for (uint256 i = 0; i < externalPartyFeesSerialized.length; ++i) {
             serialized[offset + i] = externalPartyFeesSerialized[i];
         }
 
         // Copy the internal party modified shares
         offset += externalPartyFeesSerialized.length;
-        for (uint256 i = 0; i < self.internalPartyModifiedShares.length; i++) {
+        for (uint256 i = 0; i < self.internalPartyModifiedShares.length; ++i) {
             serialized[offset + i] = self.internalPartyModifiedShares[i];
         }
 
@@ -477,7 +479,7 @@ library StatementSerializer {
         offset += self.internalPartyModifiedShares.length;
         BN254.ScalarField[] memory internalPartySettlementIndicesSerialized =
             self.internalPartySettlementIndices.scalarSerialize();
-        for (uint256 i = 0; i < internalPartySettlementIndicesSerialized.length; i++) {
+        for (uint256 i = 0; i < internalPartySettlementIndicesSerialized.length; ++i) {
             serialized[offset + i] = internalPartySettlementIndicesSerialized[i];
         }
 
@@ -507,20 +509,20 @@ library StatementSerializer {
         // Copy the match result
         uint256 offset = 2;
         BN254.ScalarField[] memory matchResultSerialized = self.matchResult.scalarSerialize();
-        for (uint256 i = 0; i < matchResultSerialized.length; i++) {
+        for (uint256 i = 0; i < matchResultSerialized.length; ++i) {
             serialized[offset + i] = matchResultSerialized[i];
         }
 
         // Copy the external party fees
         offset += matchResultSerialized.length;
         BN254.ScalarField[] memory externalPartyFeesSerialized = self.externalPartyFees.scalarSerialize();
-        for (uint256 i = 0; i < externalPartyFeesSerialized.length; i++) {
+        for (uint256 i = 0; i < externalPartyFeesSerialized.length; ++i) {
             serialized[offset + i] = externalPartyFeesSerialized[i];
         }
 
         // Copy the internal party modified shares
         offset += externalPartyFeesSerialized.length;
-        for (uint256 i = 0; i < self.internalPartyModifiedShares.length; i++) {
+        for (uint256 i = 0; i < self.internalPartyModifiedShares.length; ++i) {
             serialized[offset + i] = self.internalPartyModifiedShares[i];
         }
 
@@ -528,7 +530,7 @@ library StatementSerializer {
         offset += self.internalPartyModifiedShares.length;
         BN254.ScalarField[] memory internalPartySettlementIndicesSerialized =
             self.internalPartySettlementIndices.scalarSerialize();
-        for (uint256 i = 0; i < internalPartySettlementIndicesSerialized.length; i++) {
+        for (uint256 i = 0; i < internalPartySettlementIndicesSerialized.length; ++i) {
             serialized[offset + i] = internalPartySettlementIndicesSerialized[i];
         }
 
@@ -552,27 +554,27 @@ library StatementSerializer {
 
         // Copy the match result
         BN254.ScalarField[] memory matchResultSerialized = self.matchResult.scalarSerialize();
-        for (uint256 i = 0; i < matchResultSerialized.length; i++) {
+        for (uint256 i = 0; i < matchResultSerialized.length; ++i) {
             serialized[i] = matchResultSerialized[i];
         }
 
         // Copy the external fee rates
         uint256 offset = matchResultSerialized.length;
         BN254.ScalarField[] memory externalFeeRatesSerialized = self.externalFeeRates.scalarSerialize();
-        for (uint256 i = 0; i < externalFeeRatesSerialized.length; i++) {
+        for (uint256 i = 0; i < externalFeeRatesSerialized.length; ++i) {
             serialized[offset + i] = externalFeeRatesSerialized[i];
         }
 
         // Copy the internal fee rates
         offset += externalFeeRatesSerialized.length;
         BN254.ScalarField[] memory internalFeeRatesSerialized = self.internalFeeRates.scalarSerialize();
-        for (uint256 i = 0; i < internalFeeRatesSerialized.length; i++) {
+        for (uint256 i = 0; i < internalFeeRatesSerialized.length; ++i) {
             serialized[offset + i] = internalFeeRatesSerialized[i];
         }
 
         // Copy the internal party public shares
         offset += internalFeeRatesSerialized.length;
-        for (uint256 i = 0; i < self.internalPartyPublicShares.length; i++) {
+        for (uint256 i = 0; i < self.internalPartyPublicShares.length; ++i) {
             serialized[offset + i] = self.internalPartyPublicShares[i];
         }
 
@@ -598,25 +600,25 @@ library StatementSerializer {
 
         // Serialize the updated wallet public shares
         uint256 offset = 3;
-        for (uint256 i = 0; i < self.updatedWalletPublicShares.length; i++) {
+        for (uint256 i = 0; i < self.updatedWalletPublicShares.length; ++i) {
             serialized[offset + i] = self.updatedWalletPublicShares[i];
         }
         offset += self.updatedWalletPublicShares.length;
 
         // Serialize the note ciphertext
         BN254.ScalarField[] memory noteCiphertextSerialized = self.noteCiphertext.scalarSerialize();
-        for (uint256 i = 0; i < noteCiphertextSerialized.length; i++) {
+        for (uint256 i = 0; i < noteCiphertextSerialized.length; ++i) {
             serialized[offset + i] = noteCiphertextSerialized[i];
         }
         offset += noteCiphertextSerialized.length;
 
         // Serialize the note commitment
         serialized[offset] = self.noteCommitment;
-        offset += 1;
+        ++offset;
 
         // Serialize the protocol key
         BN254.ScalarField[] memory protocolKeySerialized = self.protocolKey.scalarSerialize();
-        for (uint256 i = 0; i < protocolKeySerialized.length; i++) {
+        for (uint256 i = 0; i < protocolKeySerialized.length; ++i) {
             serialized[offset + i] = protocolKeySerialized[i];
         }
         offset += protocolKeySerialized.length;
@@ -645,14 +647,14 @@ library StatementSerializer {
 
         // Serialize the new wallet public shares
         uint256 offset = 5;
-        for (uint256 i = 0; i < self.newWalletPublicShares.length; i++) {
+        for (uint256 i = 0; i < self.newWalletPublicShares.length; ++i) {
             serialized[offset + i] = self.newWalletPublicShares[i];
         }
         offset += self.newWalletPublicShares.length;
 
         // Serialize the wallet root key
         BN254.ScalarField[] memory walletRootKeySerialized = self.walletRootKey.scalarSerialize();
-        for (uint256 i = 0; i < walletRootKeySerialized.length; i++) {
+        for (uint256 i = 0; i < walletRootKeySerialized.length; ++i) {
             serialized[offset + i] = walletRootKeySerialized[i];
         }
         return serialized;
@@ -760,7 +762,7 @@ library StatementSerializer {
         serialized[0] = self.ephemeralKey.x;
         serialized[1] = self.ephemeralKey.y;
 
-        for (uint256 i = 0; i < self.ciphertext.length; i++) {
+        for (uint256 i = 0; i < self.ciphertext.length; ++i) {
             serialized[2 + i] = self.ciphertext[i];
         }
         return serialized;

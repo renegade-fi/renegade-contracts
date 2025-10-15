@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { TransparentUpgradeableProxy } from "oz-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
@@ -9,27 +9,23 @@ import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
-/**
- * @title DarkpoolProxy
- * @dev This contract is a TransparentUpgradeableProxy for the Darkpool contract.
- * It simplifies deployment by accepting Darkpool-specific initialization parameters
- * and encoding them appropriately.
- */
+/// @title DarkpoolProxy
+/// @author Renegade Eng
+/// @notice This contract is a TransparentUpgradeableProxy for the Darkpool contract.
+/// It simplifies deployment by accepting Darkpool-specific initialization parameters
+/// and encoding them appropriately.
 contract DarkpoolProxy is TransparentUpgradeableProxy {
-    /**
-     * @dev Initializes a TransparentUpgradeableProxy for a Darkpool implementation.
-     *
-     * @param implementation The Darkpool implementation address
-     * @param admin The admin address - serves as both ProxyAdmin owner and Darkpool owner
-     * @param protocolFeeRate The protocol fee rate for the darkpool
-     * @param protocolFeeRecipient The address to receive protocol fees
-     * @param protocolFeeKey The encryption key for protocol fees
-     * @param weth The WETH9 contract instance
-     * @param hasher The hasher for the darkpool
-     * @param verifier The verifier for the darkpool
-     * @param permit2 The Permit2 contract instance for handling deposits
-     * @param transferExecutor The TransferExecutor contract address
-     */
+    /// @notice Initializes a TransparentUpgradeableProxy for a Darkpool implementation.
+    /// @param implementation The Darkpool implementation address
+    /// @param admin The admin address - serves as both ProxyAdmin owner and Darkpool owner
+    /// @param protocolFeeRate The protocol fee rate for the darkpool
+    /// @param protocolFeeRecipient The address to receive protocol fees
+    /// @param protocolFeeKey The encryption key for protocol fees
+    /// @param weth The WETH9 contract instance
+    /// @param hasher The hasher for the darkpool
+    /// @param verifier The verifier for the darkpool
+    /// @param permit2 The Permit2 contract instance for handling deposits
+    /// @param transferExecutor The TransferExecutor contract address
     constructor(
         address implementation,
         address admin,

@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { NullifierLib as NullifierSetLib } from "renegade-lib/NullifierSet.sol";
+import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
+import { ExternalTransferLib } from "darkpoolv1-lib/ExternalTransfers.sol";
 
 import {
     PartyMatchPayload, MalleableMatchAtomicProofs, MatchAtomicLinkingProofs
@@ -188,7 +192,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
         uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
-        vm.expectRevert("Verification failed for malleable match bundle");
+        vm.expectRevert(IDarkpool.VerificationFailed.selector);
         darkpoolRealVerifier.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -214,7 +218,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
         uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount) + 1;
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -251,7 +255,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
         uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
-        vm.expectRevert(INVALID_NULLIFIER_REVERT_STRING);
+        vm.expectRevert(NullifierSetLib.NullifierAlreadySpent.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -271,7 +275,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
         uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
-        vm.expectRevert(INVALID_ROOT_REVERT_STRING);
+        vm.expectRevert(WalletOperations.MerkleRootNotInHistory.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -291,7 +295,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         // Should fail
         uint256 baseAmount = statement.matchResult.minBaseAmount;
         uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
-        vm.expectRevert(INVALID_ETH_VALUE_REVERT_STRING);
+        vm.expectRevert(IDarkpool.InvalidETHValue.selector);
         darkpool.processMalleableAtomicMatchSettle{ value: 1 ether }(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -316,7 +320,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         vm.startBroadcast(txSender);
         uint256 baseAmount = statement.matchResult.minBaseAmount;
         uint256 quoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
-        vm.expectRevert(INVALID_ETH_DEPOSIT_AMOUNT_REVERT_STRING);
+        vm.expectRevert(ExternalTransferLib.InvalidDepositAmount.selector);
         darkpool.processMalleableAtomicMatchSettle{ value: value }(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -335,15 +339,15 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
         ) = genMalleableMatchCalldata(ExternalMatchDirection.InternalPartySell, merkleRoot);
 
         // Modify the fee on one of the parties
-        bytes memory revertMessage;
+        bytes4 revertMessage;
         if (vm.randomBool()) {
             // Modify the fee on the internal party's side
             statement.internalFeeRates.protocolFeeRate = randomTakeRate();
-            revertMessage = INVALID_INTERNAL_PARTY_FEE_REVERT_STRING;
+            revertMessage = IDarkpool.InvalidProtocolFeeRate.selector;
         } else {
             // Modify the fee on the external party's side
             statement.externalFeeRates.protocolFeeRate = randomTakeRate();
-            revertMessage = INVALID_EXTERNAL_PARTY_FEE_REVERT_STRING;
+            revertMessage = IDarkpool.InvalidProtocolFeeRate.selector;
         }
 
         // Should fail
@@ -379,7 +383,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
             quoteAmount = maxQuote + 1;
         }
 
-        vm.expectRevert(INVALID_QUOTE_AMOUNT_REVERT_STRING);
+        vm.expectRevert(TypesLib.QuoteAmountOutOfBounds.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );
@@ -411,7 +415,7 @@ contract SettleMalleableAtomicMatch is DarkpoolTestBase {
             quoteAmount = refQuoteAmount - 1;
         }
 
-        vm.expectRevert(INVALID_QUOTE_AMOUNT_REVERT_STRING);
+        vm.expectRevert(TypesLib.QuoteAmountOutOfBounds.selector);
         darkpool.processMalleableAtomicMatchSettle(
             quoteAmount, baseAmount, txSender, internalPartyPayload, statement, proofs, linkingProofs
         );

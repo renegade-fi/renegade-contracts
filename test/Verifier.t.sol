@@ -54,13 +54,13 @@ contract VerifierTest is VerifierTestUtils {
         publicInputs[0] = validScalar;
         PlonkProof memory proof = PlonkProof({
             wireComms: wireComms,
-            z_comm: validPoint,
+            zComm: validPoint,
             quotientComms: quotientComms,
             wZeta: validPoint,
-            w_zeta_omega: validPoint,
+            wZetaOmega: validPoint,
             wireEvals: wireEvals,
             sigmaEvals: sigmaEvals,
-            z_bar: validScalar
+            zBar: validScalar
         });
 
         // Create a mock verification key
@@ -94,7 +94,7 @@ contract VerifierTest is VerifierTestUtils {
         VerifierCore.verify(proof, publicInputs, vk);
         proof.wZeta = validPoint; // Reset
 
-        // Test Case 5: Invalid w_zeta_omega
+        // Test Case 5: Invalid wZetaOmega
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.wZetaOmega = invalidPoint;
         vm.expectRevert(INVALID_G1_POINT);
@@ -115,7 +115,7 @@ contract VerifierTest is VerifierTestUtils {
         VerifierCore.verify(proof, publicInputs, vk);
         proof.sigmaEvals[invalidIdx] = validScalar; // Reset
 
-        // Test Case 8: Invalid z_bar
+        // Test Case 8: Invalid zBar
         invalidIdx = randomUint(NUM_WIRE_TYPES);
         proof.zBar = invalidScalar;
         vm.expectRevert(INVALID_SCALAR);
@@ -199,14 +199,14 @@ contract VerifierTest is VerifierTestUtils {
 
         // Create a valid proof
         PlonkProof memory proof = PlonkProof({
-            wire_comms: wireComms,
-            z_comm: validPoint,
-            quotient_comms: quotientComms,
-            w_zeta: validPoint,
-            w_zeta_omega: validPoint,
-            wire_evals: wireEvals,
-            sigma_evals: sigmaEvals,
-            z_bar: validScalar
+            wireComms: wireComms,
+            zComm: validPoint,
+            quotientComms: quotientComms,
+            wZeta: validPoint,
+            wZetaOmega: validPoint,
+            wireEvals: wireEvals,
+            sigmaEvals: sigmaEvals,
+            zBar: validScalar
         });
 
         // Create a mock verification key
@@ -247,15 +247,15 @@ contract VerifierTest is VerifierTestUtils {
         {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.wire_comms[randomIdx] = dummyG1Point;
+            proof.wireComms[randomIdx] = dummyG1Point;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
-        // Test Case 2: Modify z_comm
+        // Test Case 2: Modify zComm
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.z_comm = dummyG1Point;
+            proof.zComm = dummyG1Point;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
@@ -264,23 +264,23 @@ contract VerifierTest is VerifierTestUtils {
         {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.quotient_comms[randomIdx] = dummyG1Point;
+            proof.quotientComms[randomIdx] = dummyG1Point;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
-        // Test Case 4: Modify w_zeta
+        // Test Case 4: Modify wZeta
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.w_zeta = dummyG1Point;
+            proof.wZeta = dummyG1Point;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
-        // Test Case 5: Modify w_zeta_omega
+        // Test Case 5: Modify wZetaOmega
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.w_zeta_omega = dummyG1Point;
+            proof.wZetaOmega = dummyG1Point;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
@@ -289,7 +289,7 @@ contract VerifierTest is VerifierTestUtils {
         {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.wire_evals[randomIdx] = dummyScalar;
+            proof.wireEvals[randomIdx] = dummyScalar;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
@@ -298,15 +298,15 @@ contract VerifierTest is VerifierTestUtils {
         {
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES - 1);
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.sigma_evals[randomIdx] = dummyScalar;
+            proof.sigmaEvals[randomIdx] = dummyScalar;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
 
-        // Test Case 8: Modify z_bar
+        // Test Case 8: Modify zBar
         {
             PlonkProof memory proof = clonePlonkProof(originalProof);
-            proof.z_bar = dummyScalar;
+            proof.zBar = dummyScalar;
             res = VerifierCore.verify(proof, publicInputs, vkey);
             require(!res, "Proof verification should have failed");
         }
@@ -337,31 +337,31 @@ contract VerifierTest is VerifierTestUtils {
         if (modType == 0) {
             // Modify a wire commitment
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
-            invalidProof.wire_comms[randomIdx] = dummyG1Point;
+            invalidProof.wireComms[randomIdx] = dummyG1Point;
         } else if (modType == 1) {
-            // Modify z_comm
-            invalidProof.z_comm = dummyG1Point;
+            // Modify zComm
+            invalidProof.zComm = dummyG1Point;
         } else if (modType == 2) {
             // Modify a quotient commitment
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
-            invalidProof.quotient_comms[randomIdx] = dummyG1Point;
+            invalidProof.quotientComms[randomIdx] = dummyG1Point;
         } else if (modType == 3) {
-            // Modify w_zeta
-            invalidProof.w_zeta = dummyG1Point;
+            // Modify wZeta
+            invalidProof.wZeta = dummyG1Point;
         } else if (modType == 4) {
-            // Modify w_zeta_omega
-            invalidProof.w_zeta_omega = dummyG1Point;
+            // Modify wZetaOmega
+            invalidProof.wZetaOmega = dummyG1Point;
         } else if (modType == 5) {
             // Modify a wire evaluation
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES);
-            invalidProof.wire_evals[randomIdx] = dummyScalar;
+            invalidProof.wireEvals[randomIdx] = dummyScalar;
         } else if (modType == 6) {
             // Modify a sigma evaluation
             uint256 randomIdx = randomUint(NUM_WIRE_TYPES - 1);
-            invalidProof.sigma_evals[randomIdx] = dummyScalar;
+            invalidProof.sigmaEvals[randomIdx] = dummyScalar;
         } else {
-            // Modify z_bar
-            invalidProof.z_bar = dummyScalar;
+            // Modify zBar
+            invalidProof.zBar = dummyScalar;
         }
 
         // Replace the selected proof with the invalid one
@@ -432,16 +432,16 @@ contract VerifierTest is VerifierTestUtils {
         BN254.G1Point memory dummyG1Point = randomG1Point();
         if (modType == 0) {
             // Modify the first wire commitment
-            linkArg.wire_comm0 = dummyG1Point;
+            linkArg.wireComm0 = dummyG1Point;
         } else if (modType == 1) {
             // Modify the second wire commitment
-            linkArg.wire_comm1 = dummyG1Point;
+            linkArg.wireComm1 = dummyG1Point;
         } else if (modType == 2) {
             // Modify the proof linking relation
-            linkArg.proof.linking_quotient_poly_comm = dummyG1Point;
+            linkArg.proof.linkingQuotientPolyComm = dummyG1Point;
         } else {
             // Modify the proof linking relation verification key
-            linkArg.proof.linking_poly_opening = dummyG1Point;
+            linkArg.proof.linkingPolyOpening = dummyG1Point;
         }
 
         // Assert that verification fails
@@ -481,7 +481,7 @@ contract VerifierTest is VerifierTestUtils {
         VerificationKey memory vkey = getSumPowVkey();
 
         // Generate ten random inputs
-        uint256[numInputs] memory inputs;
+        uint256[10] memory inputs;
         for (uint256 i = 0; i < numInputs; i++) {
             inputs[i] = randomFelt();
         }
