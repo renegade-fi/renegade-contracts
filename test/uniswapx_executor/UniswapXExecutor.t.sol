@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { DarkpoolExecutor } from "renegade-executor/DarkpoolExecutor.sol";
+import { DarkpoolExecutor } from "darkpoolv1-executor/DarkpoolExecutor.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { UniswapXExecutorProxy } from "proxies/UniswapXExecutorProxy.sol";
-import { IDarkpoolExecutor } from "renegade-lib/interfaces/IDarkpoolExecutor.sol";
+import { UniswapXExecutorProxy } from "darkpoolv1-proxies/UniswapXExecutorProxy.sol";
+import { IDarkpoolExecutor } from "darkpoolv1-interfaces/IDarkpoolExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
-import { Ownable } from "oz-contracts/access/Ownable.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { DarkpoolTestBase } from "test/darkpool/DarkpoolTestBase.sol";
+import { DarkpoolTestBase } from "test/darkpool/v1/DarkpoolTestBase.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { PriorityOrderReactor } from "uniswapx/reactors/PriorityOrderReactor.sol";
@@ -30,13 +29,13 @@ import {
     MatchAtomicLinkingProofs,
     ExternalMatchDirection,
     ExternalMatchResult
-} from "renegade-lib/darkpool/types/Settlement.sol";
-import { ValidMatchSettleAtomicStatement } from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-types/Settlement.sol";
+import { ValidMatchSettleAtomicStatement } from "darkpoolv1-lib/PublicInputs.sol";
 import { Permit2Lib } from "uniswapx/lib/Permit2Lib.sol";
 import { PermitHash } from "permit2/src/libraries/PermitHash.sol";
 import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
-import { TypesLib } from "renegade-lib/darkpool/types/TypesLib.sol";
-import { FeeTake } from "renegade-lib/darkpool/types/Fees.sol";
+import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
+import { FeeTake } from "darkpoolv1-types/Fees.sol";
 
 /// @title DarkpoolExecutorTest
 /// @notice Test contract for the DarkpoolExecutor
@@ -128,17 +127,17 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
-        uint256 QUOTE_AMT = 1_000_000;
-        uint256 BASE_AMT = 5_000_000;
-        quoteToken.mint(userWallet.addr, QUOTE_AMT);
-        baseToken.mint(address(darkpool), BASE_AMT);
+        uint256 quoteAmt = 1_000_000;
+        uint256 baseAmt = 5_000_000;
+        quoteToken.mint(userWallet.addr, quoteAmt);
+        baseToken.mint(address(darkpool), baseAmt);
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
             quoteMint: address(quoteToken),
             baseMint: address(baseToken),
-            quoteAmount: QUOTE_AMT,
-            baseAmount: BASE_AMT,
+            quoteAmount: quoteAmt,
+            baseAmount: baseAmt,
             direction: ExternalMatchDirection.InternalPartySell
         });
 
@@ -158,7 +157,7 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
 
         // Approve the permit2 contract to spend the quote token
         vm.startBroadcast(userWallet.addr);
-        quoteToken.approve(address(permit2), QUOTE_AMT);
+        quoteToken.approve(address(permit2), quoteAmt);
         vm.stopBroadcast();
 
         // Call executeAtomicMatchSettle
@@ -169,10 +168,10 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         (uint256 darkpoolBasePostBalance, uint256 darkpoolQuotePostBalance) = baseQuoteBalances(address(darkpool));
 
         uint256 totalFee = feeTake.total();
-        assertEq(userBasePostBalance, userBasePreBalance + BASE_AMT - totalFee);
-        assertEq(userQuotePostBalance, userQuotePreBalance - QUOTE_AMT);
-        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance - BASE_AMT);
-        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance + QUOTE_AMT);
+        assertEq(userBasePostBalance, userBasePreBalance + baseAmt - totalFee);
+        assertEq(userQuotePostBalance, userQuotePreBalance - quoteAmt);
+        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance - baseAmt);
+        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance + quoteAmt);
     }
 
     /// @notice Test atomic match settlement through executeAtomicMatchSettle - external party sell side
@@ -180,17 +179,17 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         Vm.Wallet memory userWallet = randomEthereumWallet();
 
         // Setup tokens
-        uint256 QUOTE_AMT = 1_000_000;
-        uint256 BASE_AMT = 5_000_000;
-        baseToken.mint(userWallet.addr, BASE_AMT);
-        quoteToken.mint(address(darkpool), QUOTE_AMT);
+        uint256 quoteAmt = 1_000_000;
+        uint256 baseAmt = 5_000_000;
+        baseToken.mint(userWallet.addr, baseAmt);
+        quoteToken.mint(address(darkpool), quoteAmt);
 
         // Setup the match
         ExternalMatchResult memory matchResult = ExternalMatchResult({
             quoteMint: address(quoteToken),
             baseMint: address(baseToken),
-            quoteAmount: QUOTE_AMT,
-            baseAmount: BASE_AMT,
+            quoteAmount: quoteAmt,
+            baseAmount: baseAmt,
             direction: ExternalMatchDirection.InternalPartyBuy
         });
 
@@ -210,7 +209,7 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
 
         // Approve the permit2 contract to spend the quote token
         vm.startBroadcast(userWallet.addr);
-        baseToken.approve(address(permit2), BASE_AMT);
+        baseToken.approve(address(permit2), baseAmt);
         vm.stopBroadcast();
 
         // Call executeAtomicMatchSettle
@@ -221,10 +220,10 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         (uint256 darkpoolBasePostBalance, uint256 darkpoolQuotePostBalance) = baseQuoteBalances(address(darkpool));
 
         uint256 totalFee = feeTake.total();
-        assertEq(userBasePostBalance, userBasePreBalance - BASE_AMT);
-        assertEq(userQuotePostBalance, userQuotePreBalance + QUOTE_AMT - totalFee);
-        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance + BASE_AMT);
-        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance - QUOTE_AMT);
+        assertEq(userBasePostBalance, userBasePreBalance - baseAmt);
+        assertEq(userQuotePostBalance, userQuotePreBalance + quoteAmt - totalFee);
+        assertEq(darkpoolBasePostBalance, darkpoolBasePreBalance + baseAmt);
+        assertEq(darkpoolQuotePostBalance, darkpoolQuotePreBalance - quoteAmt);
     }
 
     // -----------
@@ -320,6 +319,7 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         PriorityOrder memory order
     )
         internal
+        view
         returns (SignedOrder memory signedOrder)
     {
         uint256 inputAmount = order.input.amount;

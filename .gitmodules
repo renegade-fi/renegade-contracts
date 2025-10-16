@@ -19,3 +19,6 @@
 [submodule "lib/UniswapX"]
 	path = lib/UniswapX
 	url = https://github.com/Uniswap/UniswapX
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady

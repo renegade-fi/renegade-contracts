@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./TestUtils.sol";
 import {
     VerificationKey,
@@ -11,9 +10,9 @@ import {
     ProofLinkingVK,
     ProofLinkingInstance,
     LinkingProof
-} from "../../src/libraries/verifier/Types.sol";
+} from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "../../src/libraries/verifier/BN254Helpers.sol";
+import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { Strings } from "oz-contracts/utils/Strings.sol";
 
 contract VerifierTestUtils is TestUtils {
@@ -27,16 +26,16 @@ contract VerifierTestUtils is TestUtils {
         BN254.ScalarField validScalar = BN254.ScalarField.wrap(1);
 
         // Create arrays for the verification key
-        BN254.G1Point[NUM_SELECTORS] memory q_comms;
-        BN254.G1Point[NUM_WIRE_TYPES] memory sigma_comms;
+        BN254.G1Point[NUM_SELECTORS] memory qComms;
+        BN254.G1Point[NUM_WIRE_TYPES] memory sigmaComms;
         BN254.ScalarField[NUM_WIRE_TYPES] memory k;
 
         // Fill arrays with valid values
         for (uint256 i = 0; i < NUM_SELECTORS; i++) {
-            q_comms[i] = validPoint;
+            qComms[i] = validPoint;
         }
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            sigma_comms[i] = validPoint;
+            sigmaComms[i] = validPoint;
             k[i] = validScalar;
         }
 
@@ -44,11 +43,11 @@ contract VerifierTestUtils is TestUtils {
             n: 8, // Small power of 2 for testing
             l: 3,
             k: k,
-            q_comms: q_comms,
-            sigma_comms: sigma_comms,
+            qComms: qComms,
+            sigmaComms: sigmaComms,
             g: validPoint,
             h: BN254.P2(),
-            x_h: BN254.P2()
+            xH: BN254.P2()
         });
     }
 
@@ -161,30 +160,30 @@ contract VerifierTestUtils is TestUtils {
 
     /// @dev Helper function to create a deep copy of a PlonkProof
     function clonePlonkProof(PlonkProof memory original) internal pure returns (PlonkProof memory) {
-        BN254.G1Point[NUM_WIRE_TYPES] memory wire_comms;
-        BN254.G1Point[NUM_WIRE_TYPES] memory quotient_comms;
-        BN254.ScalarField[NUM_WIRE_TYPES] memory wire_evals;
-        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigma_evals;
+        BN254.G1Point[NUM_WIRE_TYPES] memory wireComms;
+        BN254.G1Point[NUM_WIRE_TYPES] memory quotientComms;
+        BN254.ScalarField[NUM_WIRE_TYPES] memory wireEvals;
+        BN254.ScalarField[NUM_WIRE_TYPES - 1] memory sigmaEvals;
 
         // Clone wire commitments
         for (uint256 i = 0; i < NUM_WIRE_TYPES; i++) {
-            wire_comms[i] = original.wire_comms[i];
-            quotient_comms[i] = original.quotient_comms[i];
-            wire_evals[i] = original.wire_evals[i];
+            wireComms[i] = original.wireComms[i];
+            quotientComms[i] = original.quotientComms[i];
+            wireEvals[i] = original.wireEvals[i];
             if (i < NUM_WIRE_TYPES - 1) {
-                sigma_evals[i] = original.sigma_evals[i];
+                sigmaEvals[i] = original.sigmaEvals[i];
             }
         }
 
         return PlonkProof({
-            wire_comms: wire_comms,
-            z_comm: original.z_comm,
-            quotient_comms: quotient_comms,
-            w_zeta: original.w_zeta,
-            w_zeta_omega: original.w_zeta_omega,
-            wire_evals: wire_evals,
-            sigma_evals: sigma_evals,
-            z_bar: original.z_bar
+            wireComms: wireComms,
+            zComm: original.zComm,
+            quotientComms: quotientComms,
+            wZeta: original.wZeta,
+            wZetaOmega: original.wZetaOmega,
+            wireEvals: wireEvals,
+            sigmaEvals: sigmaEvals,
+            zBar: original.zBar
         });
     }
 
@@ -330,8 +329,8 @@ contract VerifierTestUtils is TestUtils {
 
         // Create a linking argument from the linking proof
         ProofLinkingInstance memory linkArg = ProofLinkingInstance({
-            wire_comm0: sumProof.wire_comms[0],
-            wire_comm1: productProof.wire_comms[0],
+            wireComm0: sumProof.wireComms[0],
+            wireComm1: productProof.wireComms[0],
             proof: linkProof,
             vk: linkVkey
         });

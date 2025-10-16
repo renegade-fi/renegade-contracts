@@ -10,7 +10,7 @@ import { Ownable2Step } from "oz-contracts/access/Ownable2Step.sol";
 import { AccessControl } from "oz-contracts/access/AccessControl.sol";
 import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { Address } from "oz-contracts/utils/Address.sol";
-import { IDarkpool } from "renegade-lib/interfaces/IDarkpool.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IReactor } from "uniswapx/interfaces/IReactor.sol";
 import { SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import {
@@ -18,17 +18,17 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 import {
-    ValidMatchSettleAtomicStatement,
-    ValidMalleableMatchSettleAtomicStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+    ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
+} from "darkpoolv1-lib/PublicInputs.sol";
 
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 
 /**
  * @title DarkpoolExecutor
+ * @author Renegade Eng
  * @notice A wrapper contract that acts as a UniswapX executor for the darkpool
  * @dev This contract implements IReactorCallback to handle order execution callbacks from UniswapX
  * and routes them to the darkpool for settlement
@@ -60,12 +60,16 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
 
     // --- Initializer --- //
 
+    /// @notice Constructor
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() Ownable(msg.sender) {
         _disableInitializers();
     }
 
     /// @notice Initializes the contract
+    /// @param initialOwner The initial owner of the contract
+    /// @param darkpool_ The darkpool address
+    /// @param uniswapXReactor_ The UniswapX reactor address
     function initialize(address initialOwner, address darkpool_, address uniswapXReactor_) public initializer {
         _transferOwnership(initialOwner);
         darkpool = IDarkpool(darkpool_);
@@ -168,12 +172,13 @@ contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Paus
     // --- Callback Logic --- //
 
     /// @notice Called by the reactor during the execution of an order
+    /// @param resolvedOrders The resolved orders
     /// @param callbackData The callbackData specified for an order execution
     /// @dev Must have approved each token and amount in outputs to the msg.sender
     /// @dev For now we assume that there is only one resolved order with a single output token
     function reactorCallback(
-        ResolvedOrder[] memory resolvedOrders,
-        bytes memory callbackData
+        ResolvedOrder[] calldata resolvedOrders,
+        bytes calldata callbackData
     )
         external
         override

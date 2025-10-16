@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+/* solhint-disable one-contract-per-file */
+/* solhint-disable gas-small-strings */
+pragma solidity ^0.8.24;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
-import "solmate/src/test/utils/mocks/MockERC20.sol";
-import "../test/test-contracts/WethMock.sol";
+import { Script } from "forge-std/Script.sol";
+import { console } from "forge-std/console.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { WethMock } from "../test/test-contracts/WethMock.sol";
 
 /**
  * @title DeployDummyERC20Script
+ * @author Renegade Eng
  * @notice Deploy script for the MockERC20 token from solmate
  * @dev Usage: forge script script/DeployDummyErc20.sol --rpc-url <your_rpc_url> --broadcast --sig
  * "run(string,string,uint8)" "TokenName" "TKN" 18
@@ -16,6 +19,10 @@ contract DeployDummyERC20Script is Script {
     // Hardcoded initial supply: 1 token with decimal correction
     uint256 private constant _INITIAL_SUPPLY = 10 ** 18;
 
+    /// @notice Deploy a MockERC20 token
+    /// @param name The name of the token
+    /// @param symbol The symbol of the token
+    /// @param decimals The number of decimals for the token
     function run(string memory name, string memory symbol, uint8 decimals) public {
         console.log("Deploying MockERC20 with name: %s, symbol: %s, decimals: %d", name, symbol, decimals);
 
@@ -33,10 +40,12 @@ contract DeployDummyERC20Script is Script {
 
 /**
  * @title DeployWethMockScript
+ * @author Renegade Eng
  * @notice Deploy script for the WethMock token
  * @dev Usage: forge script script/DeployDummyErc20.sol --rpc-url <your_rpc_url> --broadcast --sig "deployWeth()"
  */
 contract DeployWethMockScript is Script {
+    /// @notice Deploy the WethMock contract
     function deployWeth() public {
         console.log("Deploying WethMock");
         vm.startBroadcast();

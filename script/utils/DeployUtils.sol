@@ -1,37 +1,42 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import "forge-std/console.sol";
-import "forge-std/Vm.sol";
-import "foundry-huff/HuffDeployer.sol";
-import "permit2-lib/interfaces/IPermit2.sol";
-import "permit2-test/utils/DeployPermit2.sol";
+/* solhint-disable gas-small-strings */
 
-import "renegade/Darkpool.sol";
-import "proxies/DarkpoolProxy.sol";
-import "renegade/Verifier.sol";
-import "renegade/VKeys.sol";
-import "renegade-lib/interfaces/IHasher.sol";
-import "renegade-lib/interfaces/IVerifier.sol";
-import "renegade-lib/interfaces/IWETH9.sol";
-import "renegade-lib/darkpool/types/Ciphertext.sol";
-import "renegade/TransferExecutor.sol";
-import "renegade/GasSponsor.sol";
-import "proxies/GasSponsorProxy.sol";
-import "./JsonUtils.sol";
+import { console } from "forge-std/console.sol";
+import { Vm } from "forge-std/Vm.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 
+import { Darkpool } from "darkpoolv1-contracts/Darkpool.sol";
+import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
+import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
+import { VKeys, IVKeys } from "darkpoolv1-contracts/VKeys.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
+import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
+import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
+import { JsonUtils } from "./JsonUtils.sol";
+
+/// @title DeployUtils
+/// @author Renegade Eng
+/// @notice Deployment utilities for the Renegade darkpool
 library DeployUtils {
     /// @dev Path to the deployments JSON file
-    string constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
+    string internal constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
 
-    /// @dev Get the deployments path from environment or use default
+    /// @notice Get the deployments path from environment or use default
     /// @param vm The VM to access environment variables
+    /// @return The deployments file path
     function getDeploymentsPath(Vm vm) internal view returns (string memory) {
         return vm.envOr("DEPLOYMENTS", DEFAULT_DEPLOYMENTS_PATH);
     }
 
-    /// @dev Deploy the Poseidon2 hasher contract
+    /// @notice Deploy the Poseidon2 hasher contract
     /// @param vm The VM to run the commands with
+    /// @return The deployed hasher contract address
     function deployHasher(Vm vm) internal returns (address) {
         // Get the bytecode using huffc
         string[] memory inputs = new string[](3);
@@ -51,12 +56,15 @@ library DeployUtils {
                 )
         }
 
+        // solhint-disable-next-line gas-custom-errors
         require(deployedAddress != address(0), "Hasher deployment failed");
         writeDeployment(vm, "Hasher", deployedAddress);
         return deployedAddress;
     }
 
     /// @notice Deploy the TransferExecutor contract
+    /// @param vm The VM to write deployments
+    /// @return The deployed TransferExecutor address
     function deployTransferExecutor(Vm vm) internal returns (address) {
         TransferExecutor transferExecutor = new TransferExecutor();
         writeDeployment(vm, "TransferExecutor", address(transferExecutor));
@@ -64,6 +72,9 @@ library DeployUtils {
     }
 
     /// @notice Deploy the VKeys and Verifier contracts
+    /// @param vm The VM to write deployments
+    /// @return The deployed VKeys contract
+    /// @return The deployed Verifier contract
     function deployVKeysAndVerifier(Vm vm) internal returns (IVKeys, IVerifier) {
         VKeys vkeys = new VKeys();
         IVerifier verifier = new Verifier(vkeys);
@@ -72,9 +83,10 @@ library DeployUtils {
         return (vkeys, verifier);
     }
 
-    /// @dev Get the ProxyAdmin address for a TransparentUpgradeableProxy
+    /// @notice Get the ProxyAdmin address for a TransparentUpgradeableProxy
     /// @param proxy The proxy address
     /// @param vm The VM instance to use for reading storage
+    /// @return The admin address
     function getProxyAdmin(address proxy, Vm vm) internal view returns (address) {
         // ERC1967 admin storage slot: 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103
         bytes32 slot = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
@@ -89,6 +101,7 @@ library DeployUtils {
     /// @param darkpoolAddress The address of the darkpool proxy contract
     /// @param authAddress The public key used to authenticate gas sponsorship
     /// @param vm The VM to run the commands with
+    /// @return gasSponsorProxyAddr The deployed GasSponsor proxy address
     function deployGasSponsor(
         address owner,
         address darkpoolAddress,
@@ -114,7 +127,9 @@ library DeployUtils {
         return address(gasSponsorProxy);
     }
 
-    /// @dev Deploy only the GasSponsor implementation contract for proxy upgrades
+    /// @notice Deploy only the GasSponsor implementation contract for proxy upgrades
+    /// @param vm The VM to write deployments
+    /// @return implAddr The deployed implementation address
     function deployGasSponsorImplementation(Vm vm) internal returns (address implAddr) {
         GasSponsor gasSponsor = new GasSponsor();
         writeDeployment(vm, "GasSponsor", address(gasSponsor));
@@ -123,6 +138,14 @@ library DeployUtils {
     }
 
     /// @notice Deploy core contracts
+    /// @param owner The owner address for the darkpool
+    /// @param protocolFeeRate The protocol fee rate
+    /// @param protocolFeeAddr The address to receive protocol fees
+    /// @param protocolFeeKey The encryption key for protocol fees
+    /// @param permit2 The Permit2 contract instance
+    /// @param weth The WETH9 contract instance
+    /// @param vm The VM to run the commands with
+    /// @return darkpoolAddr The deployed darkpool proxy address
     function deployCore(
         address owner,
         uint256 protocolFeeRate,
@@ -137,7 +160,7 @@ library DeployUtils {
     {
         // Deploy library contracts for the darkpool
         IHasher hasher = IHasher(deployHasher(vm));
-        (IVKeys _vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
+        (, IVerifier verifier) = deployVKeysAndVerifier(vm);
         address transferExecutor = deployTransferExecutor(vm);
 
         // Deploy Darkpool with all required parameters
@@ -167,7 +190,9 @@ library DeployUtils {
         return address(darkpoolProxy);
     }
 
-    /// @dev Deploy only the Darkpool implementation contract for proxy upgrades
+    /// @notice Deploy only the Darkpool implementation contract for proxy upgrades
+    /// @param vm The VM to write deployments
+    /// @return implAddr The deployed implementation address
     function deployDarkpoolImplementation(Vm vm) internal returns (address implAddr) {
         Darkpool darkpool = new Darkpool();
         writeDeployment(vm, "Darkpool", address(darkpool));
@@ -175,7 +200,7 @@ library DeployUtils {
         return address(darkpool);
     }
 
-    /// @dev Write a deployment address to the deployments.json file
+    /// @notice Write a deployment address to the deployments.json file
     /// @param vm The VM to run the commands with
     /// @param contractName The name of the contract being deployed
     /// @param contractAddress The address of the deployed contract

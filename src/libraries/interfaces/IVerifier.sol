@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import {
@@ -12,7 +12,7 @@ import {
     ValidMalleableMatchSettleAtomicStatement,
     ValidOfflineFeeSettlementStatement,
     ValidFeeRedemptionStatement
-} from "renegade-lib/darkpool/PublicInputs.sol";
+} from "darkpoolv1-lib/PublicInputs.sol";
 import {
     PartyMatchPayload,
     MatchProofs,
@@ -20,12 +20,15 @@ import {
     MatchAtomicProofs,
     MatchAtomicLinkingProofs,
     MalleableMatchAtomicProofs
-} from "renegade-lib/darkpool/types/Settlement.sol";
+} from "darkpoolv1-types/Settlement.sol";
 
+/// @title IVerifier
+/// @author Renegade Eng
+/// @notice Interface for verifying zero-knowledge proofs
 interface IVerifier {
     /// @notice Verify a proof of `VALID WALLET CREATE`
-    /// @param proof The proof to verify
     /// @param statement The public inputs to the proof
+    /// @param proof The proof to verify
     /// @return True if the proof is valid, false otherwise
     function verifyValidWalletCreate(
         ValidWalletCreateStatement calldata statement,
@@ -36,8 +39,8 @@ interface IVerifier {
         returns (bool);
 
     /// @notice Verify a proof of `VALID WALLET UPDATE`
-    /// @param proof The proof to verify
     /// @param statement The public inputs to the proof
+    /// @param proof The proof to verify
     /// @return True if the proof is valid, false otherwise
     function verifyValidWalletUpdate(
         ValidWalletUpdateStatement calldata statement,
@@ -52,6 +55,7 @@ interface IVerifier {
     /// @param party1MatchPayload The payload for the second party
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE`
     /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param linkingProofs The proof-linking arguments for the match
     /// @return True if the match bundle is valid, false otherwise
     function verifyMatchBundle(
         PartyMatchPayload calldata party0MatchPayload,
@@ -69,6 +73,7 @@ interface IVerifier {
     /// @param party1MatchPayload The payload for the second party
     /// @param matchSettleStatement The statement of `VALID MATCH SETTLE WITH COMMITMENTS`
     /// @param proofs The proofs for the match, including two sets of validity proofs and a settlement proof
+    /// @param linkingProofs The proof-linking arguments for the match
     /// @return True if the match bundle is valid, false otherwise
     function verifyMatchBundleWithCommitments(
         PartyMatchPayload calldata party0MatchPayload,

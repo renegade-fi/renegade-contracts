@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-/// @title Hasher, a simple hashing interface for Merkle and sponge hashing using Poseidon2
+/// @title IHasher
+/// @author Renegade Eng
+/// @notice Interface for hashing, both sponge and Merkle tree hashing
 interface IHasher {
     /// @notice Hash a leaf into the merkle tree
     /// @param idx The index of the leaf in the tree

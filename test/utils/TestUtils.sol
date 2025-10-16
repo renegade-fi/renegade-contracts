@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "lib/solidity-bn254/src/BN254.sol";
-import { DarkpoolConstants } from "src/libraries/darkpool/Constants.sol";
+import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 contract TestUtils is Test {
     /// @dev The BN254 field modulus from roundUtils.huff

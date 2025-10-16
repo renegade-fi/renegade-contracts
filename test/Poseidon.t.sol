@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 
@@ -10,11 +9,11 @@ contract PoseidonTest is TestUtils {
     PoseidonSuite public poseidonSuite;
 
     /// @dev The round constant used in testing
-    uint256 TEST_RC1 = 0x1337;
+    uint256 _testRc1 = 0x1337;
     /// @dev The second round constant used in testing
-    uint256 TEST_RC2 = 0x1338;
+    uint256 _testRc2 = 0x1338;
     /// @dev The third round constant used in testing
-    uint256 TEST_RC3 = 0x1339;
+    uint256 _testRc3 = 0x1339;
 
     /// @dev Deploy the PoseidonSuite contract
     function setUp() public {
@@ -27,7 +26,7 @@ contract PoseidonTest is TestUtils {
         uint256 result = poseidonSuite.testSboxSingle(testValue);
 
         // Calculate expected x^5 mod p
-        uint256 expected = fifthPower(testValue);
+        uint256 expected = _fifthPower(testValue);
         assertEq(result, expected, "Expected result to match x^5 mod p");
     }
 
@@ -35,7 +34,7 @@ contract PoseidonTest is TestUtils {
     function testAddRcSingle() public {
         uint256 testValue = randomFelt();
         uint256 result = poseidonSuite.testAddRc(testValue);
-        uint256 expected = addmod(testValue, TEST_RC1, PRIME);
+        uint256 expected = addmod(testValue, _testRc1, PRIME);
         assertEq(result, expected, "Expected result to match x + RC mod p");
     }
 
@@ -48,7 +47,7 @@ contract PoseidonTest is TestUtils {
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalMds(a, b, c);
 
         // Calculate the expected results
-        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = internalMds(a, b, c);
+        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _internalMds(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a + sum mod p");
         assertEq(b1, expectedB, "Expected result to match b + sum mod p");
         assertEq(c1, expectedC, "Expected result to match c + sum mod p");
@@ -62,7 +61,7 @@ contract PoseidonTest is TestUtils {
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalMds(a, b, c);
 
         // Calculate the expected results
-        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = externalMds(a, b, c);
+        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _externalMds(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
         assertEq(b1, expectedB, "Expected result to match b");
         assertEq(c1, expectedC, "Expected result to match c");
@@ -74,7 +73,7 @@ contract PoseidonTest is TestUtils {
         uint256 b = randomFelt();
         uint256 c = randomFelt();
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testExternalRound(a, b, c);
-        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = externalRound(a, b, c);
+        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _externalRound(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
         assertEq(b1, expectedB, "Expected result to match b");
         assertEq(c1, expectedC, "Expected result to match c");
@@ -86,7 +85,7 @@ contract PoseidonTest is TestUtils {
         uint256 b = randomFelt();
         uint256 c = randomFelt();
         (uint256 a1, uint256 b1, uint256 c1) = poseidonSuite.testInternalRound(a, b, c);
-        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = internalRound(a, b, c);
+        (uint256 expectedA, uint256 expectedB, uint256 expectedC) = _internalRound(a, b, c);
         assertEq(a1, expectedA, "Expected result to match a");
         assertEq(b1, expectedB, "Expected result to match b");
         assertEq(c1, expectedC, "Expected result to match c");
@@ -98,12 +97,12 @@ contract PoseidonTest is TestUtils {
         uint256 b = randomFelt();
 
         uint256 result = poseidonSuite.testFullHash(a, b);
-        uint256 expected = runReferenceImpl(a, b);
+        uint256 expected = _runReferenceImpl(a, b);
         assertEq(result, expected, "Hash result does not match reference implementation");
     }
 
     /// @dev Helper to run the reference implementation
-    function runReferenceImpl(uint256 a, uint256 b) internal returns (uint256) {
+    function _runReferenceImpl(uint256 a, uint256 b) internal returns (uint256) {
         // First compile the binary
         compileRustBinary("test/rust-reference-impls/poseidon/Cargo.toml");
 
@@ -120,15 +119,15 @@ contract PoseidonTest is TestUtils {
     /// --- Helpers --- ///
 
     /// @dev Calculate the fifth power of an input
-    function fifthPower(uint256 x) internal pure returns (uint256) {
+    function _fifthPower(uint256 x) internal pure returns (uint256) {
         uint256 x2 = mulmod(x, x, PRIME);
         uint256 x4 = mulmod(x2, x2, PRIME);
         return mulmod(x, x4, PRIME);
     }
 
     /// @dev Calculate the result of the internal MDS matrix applied to the inputs
-    function internalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
-        uint256 sum = sumInputs(a, b, c);
+    function _internalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
+        uint256 sum = _sumInputs(a, b, c);
         uint256 a1 = addmod(a, sum, PRIME);
         uint256 b1 = addmod(b, sum, PRIME);
         uint256 c1 = addmod(addmod(c, sum, PRIME), c, PRIME); // c is doubled
@@ -136,8 +135,8 @@ contract PoseidonTest is TestUtils {
     }
 
     /// @dev Calculate the result of the external MDS matrix applied to the inputs
-    function externalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
-        uint256 sum = sumInputs(a, b, c);
+    function _externalMds(uint256 a, uint256 b, uint256 c) internal pure returns (uint256, uint256, uint256) {
+        uint256 sum = _sumInputs(a, b, c);
         uint256 a1 = addmod(a, sum, PRIME);
         uint256 b1 = addmod(b, sum, PRIME);
         uint256 c1 = addmod(c, sum, PRIME);
@@ -145,25 +144,25 @@ contract PoseidonTest is TestUtils {
     }
 
     /// @dev Calculate the result of the external round function applied to the inputs
-    function externalRound(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
-        uint256 a1 = addmod(a, TEST_RC1, PRIME);
-        uint256 b1 = addmod(b, TEST_RC2, PRIME);
-        uint256 c1 = addmod(c, TEST_RC3, PRIME);
-        uint256 a2 = fifthPower(a1);
-        uint256 b2 = fifthPower(b1);
-        uint256 c2 = fifthPower(c1);
-        return externalMds(a2, b2, c2);
+    function _externalRound(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+        uint256 a1 = addmod(a, _testRc1, PRIME);
+        uint256 b1 = addmod(b, _testRc2, PRIME);
+        uint256 c1 = addmod(c, _testRc3, PRIME);
+        uint256 a2 = _fifthPower(a1);
+        uint256 b2 = _fifthPower(b1);
+        uint256 c2 = _fifthPower(c1);
+        return _externalMds(a2, b2, c2);
     }
 
     /// @dev Calculate the result of the internal round function applied to the inputs
-    function internalRound(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
-        uint256 a1 = addmod(a, TEST_RC1, PRIME);
-        uint256 a2 = fifthPower(a1);
-        return internalMds(a2, b, c);
+    function _internalRound(uint256 a, uint256 b, uint256 c) internal view returns (uint256, uint256, uint256) {
+        uint256 a1 = addmod(a, _testRc1, PRIME);
+        uint256 a2 = _fifthPower(a1);
+        return _internalMds(a2, b, c);
     }
 
     /// @dev Sum the inputs and return the result
-    function sumInputs(uint256 a, uint256 b, uint256 c) internal pure returns (uint256) {
+    function _sumInputs(uint256 a, uint256 b, uint256 c) internal pure returns (uint256) {
         uint256 sum = addmod(a, b, PRIME);
         sum = addmod(sum, c, PRIME);
         return sum;

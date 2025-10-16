@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
 import { TestUtils } from "./utils/TestUtils.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "../src/libraries/verifier/BN254Helpers.sol";
@@ -67,7 +66,7 @@ contract BN254HelpersTest is TestUtils {
         // Run test cases
         for (uint256 i = 0; i < testCases.length; i++) {
             RootOfUnityTest memory tc = testCases[i];
-            uint256 n = 1 << tc.powerOfTwo;
+            uint256 n = 1 << tc.powerOfTwo; // forge-lint: disable-line(incorrect-shift)
             BN254.ScalarField result = BN254Helpers.rootOfUnity(n);
             assertEq(
                 BN254.ScalarField.unwrap(result),
