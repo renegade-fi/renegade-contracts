@@ -28,7 +28,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
     using NullifierLib for NullifierLib.NullifierSet;
 
-    // Events
+    // ----------
+    // | Events |
+    // ----------
+
     /// @notice Emitted when the protocol fee rate is changed
     /// @param newFee The new protocol fee rate
     event FeeChanged(uint256 indexed newFee);
@@ -47,6 +50,12 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @param noteCommitment The commitment to the note
     event NotePosted(uint256 indexed noteCommitment);
 
+    // -----------
+    // | Storage |
+    // -----------
+
+    // --- Fee Storage --- //
+
     /// @notice The protocol fee rate for the darkpool
     /// @dev This is the fixed point representation of a real number between 0 and 1.
     /// @dev To convert to its floating point representation, divide by the fixed point
@@ -64,6 +73,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
     mapping(address => uint256) public perTokenFeeOverrides;
 
+    // --- Delegate Addresses --- //
+
     /// @notice The hasher for the darkpool
     IHasher public hasher;
     /// @notice The verifier for the darkpool
@@ -75,6 +86,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @notice The TransferExecutor contract for handling external transfers
     address public transferExecutor;
 
+    // --- Protocol Level State Storage --- //
+
+    /// @notice The mapping of open public intents
+    /// @dev This maps the intent hash to the amount remaining.
+    /// @dev An intent hash is a hash of the tuple (executor, intent),
+    /// where executor is the address of the party allowed to fill the intent.
+    mapping(bytes32 => uint256) private openPublicIntents;
     /// @notice The Merkle tree for wallet commitments
     MerkleTreeLib.MerkleTree private merkleTree;
     /// @notice The nullifier set for the darkpool
@@ -86,6 +104,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @dev We track this to prevent duplicate blinders that may affect the ability of indexers to uniquely
     /// @dev recover a wallet
     NullifierLib.NullifierSet private publicBlinderSet;
+
+    // ---------------------------------
+    // | Constructors and Initializers |
+    // ---------------------------------
 
     /// @notice Constructor that disables initializers for the implementation contract
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -130,6 +152,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         merkleTree.initialize();
     }
 
+    // -----------------
+    // | State Getters |
+    // -----------------
+
     /// @notice Check if a nullifier has been spent
     /// @param nullifier The nullifier to check
     /// @return Whether the nullifier has been spent
@@ -137,7 +163,9 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         return nullifierSet.isSpent(nullifier);
     }
 
-    // --- Settlement --- //
+    // --------------
+    // | Settlement |
+    // --------------
 
     /// @notice Settle a trade
     /// @param party0SettlementBundle The settlement bundle for the first party
@@ -152,8 +180,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 
         // 2. Authorize the intents in the settlement bundles
-        SettlementLib.authorizeIntent(party0SettlementBundle);
-        SettlementLib.authorizeIntent(party1SettlementBundle);
+        SettlementLib.authorizeIntent(party0SettlementBundle, openPublicIntents);
+        SettlementLib.authorizeIntent(party1SettlementBundle, openPublicIntents);
 
         // 3. Validate the intent and balance constraints on the obligations
         SettlementLib.validateObligationConstraints(party0SettlementBundle);
