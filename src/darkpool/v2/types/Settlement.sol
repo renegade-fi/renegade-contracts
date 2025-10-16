@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { Intent } from "darkpoolv2-types/Intent.sol";
+import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -49,6 +51,26 @@ struct PublicIntentPublicBalanceBundle {
     PublicIntentAuthBundle auth;
 }
 
+/// @title Settlement Bundle Library
+/// @author Renegade Eng
+/// @notice Library for decoding settlement bundle data
+library SettlementBundleLib {
+    /// @notice The error type emitted when a settlement bundle type check fails
+    error InvalidSettlementBundleType();
+
+    /// @notice Decode a public settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodePublicBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (PublicIntentPublicBalanceBundle memory bundleData)
+    {
+        require(bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT, InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
+    }
+}
+
 // --------------------
 // | Obligation Types |
 // --------------------
@@ -68,6 +90,26 @@ struct ObligationBundle {
 enum ObligationType {
     PUBLIC,
     PRIVATE
+}
+
+/// @title Obligation Library
+/// @author Renegade Eng
+/// @notice Library for decoding and hashing obligation data
+library ObligationLib {
+    /// @notice The error type emitted when an obligation type check fails
+    error InvalidObligationType();
+
+    /// @notice Decode a public obligation
+    /// @param bundle The obligation bundle to decode
+    /// @return obligation The decoded obligation
+    function decodePublicObligation(ObligationBundle calldata bundle)
+        internal
+        pure
+        returns (SettlementObligation memory obligation)
+    {
+        require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
+        obligation = abi.decode(bundle.data, (SettlementObligation));
+    }
 }
 
 // ------------------------------
@@ -91,4 +133,16 @@ struct PublicIntentPermit {
     Intent intent;
     /// @dev The authorized executor of the intent
     address executor;
+}
+
+/// @title Public Intent Permit Library
+/// @author Renegade Eng
+/// @notice Library for computing the hash of a public intent permit
+library PublicIntentPermitLib {
+    /// @notice Compute the hash of a public intent permit
+    /// @param permit The public intent permit to compute the hash for
+    /// @return The hash of the public intent permit
+    function computeHash(PublicIntentPermit memory permit) internal pure returns (bytes32) {
+        return EfficientHashLib.hash(abi.encode(permit));
+    }
 }

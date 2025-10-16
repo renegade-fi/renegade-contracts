@@ -10,18 +10,20 @@ import {
     ObligationType,
     PublicIntentPublicBalanceBundle,
     PublicIntentAuthBundle,
-    PublicIntentPermit
+    PublicIntentPermit,
+    PublicIntentPermitLib
 } from "darkpoolv2-types/Settlement.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/SettlementObligation.sol";
 import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
+import { NativeSettledPublicIntentLib } from "darkpoolv2-libraries/settlement/NativeSettledPublicIntent.sol";
 import { FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract IntentAuthorizationTest is SettlementTestUtils {
-    using SettlementLib for PublicIntentPermit;
+    using PublicIntentPermitLib for PublicIntentPermit;
 
     // Test wallets
     Vm.Wallet internal intentOwner;
@@ -121,7 +123,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         bundle.data = abi.encode(bundleData);
 
         // Should revert with InvalidIntentSignature
-        vm.expectRevert(SettlementLib.InvalidIntentSignature.selector);
+        vm.expectRevert(NativeSettledPublicIntentLib.InvalidIntentSignature.selector);
         authorizeIntentHelper(bundle);
     }
 
@@ -135,7 +137,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         bundle.data = abi.encode(bundleData);
 
         // Should revert with InvalidIntentSignature
-        vm.expectRevert(SettlementLib.InvalidIntentSignature.selector);
+        vm.expectRevert(NativeSettledPublicIntentLib.InvalidIntentSignature.selector);
         authorizeIntentHelper(bundle);
     }
 
@@ -150,7 +152,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         bundle.data = abi.encode(bundleData);
 
         // Should revert with InvalidExecutorSignature
-        vm.expectRevert(SettlementLib.InvalidExecutorSignature.selector);
+        vm.expectRevert(NativeSettledPublicIntentLib.InvalidExecutorSignature.selector);
         authorizeIntentHelper(bundle);
     }
 
@@ -162,7 +164,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         // Verify the intent was cached in the mapping
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
-        bytes32 intentHash = authBundle.permit.computeIntentHash();
+        bytes32 intentHash = authBundle.permit.computeHash();
         uint256 amountRemaining = openPublicIntents[intentHash];
         assertEq(amountRemaining, authBundle.permit.intent.amountIn, "Intent not cached");
 

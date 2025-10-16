@@ -3,13 +3,20 @@ pragma solidity ^0.8.24;
 
 import { DarkpoolV2TestBase } from "../../DarkpoolV2TestBase.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
-import { SettlementBundle, ObligationBundle, PublicIntentPermit } from "darkpoolv2-types/Settlement.sol";
+import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/SettlementObligation.sol";
+import {
+    SettlementBundle,
+    ObligationBundle,
+    PublicIntentPermit,
+    ObligationLib,
+    PublicIntentPermitLib
+} from "darkpoolv2-types/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
 
 contract SettlementTestUtils is DarkpoolV2TestBase {
-    using SettlementLib for PublicIntentPermit;
+    using ObligationLib for ObligationBundle;
+    using PublicIntentPermitLib for PublicIntentPermit;
 
     /// @dev Sign an intent permit
     function signIntentPermit(
@@ -21,23 +28,36 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
         returns (bytes memory)
     {
         // Sign with the private key
-        bytes32 permitHash = permit.computeIntentHash();
+        bytes32 permitHash = permit.computeHash();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, permitHash);
         return abi.encodePacked(r, s, v);
     }
 
-    /// @dev Sign an obligation bundle
+    /// @dev Sign an obligation bundle (memory version)
     function signObligation(
-        ObligationBundle memory obligation,
+        ObligationBundle memory obligationBundle,
         uint256 signerPrivateKey
     )
         internal
+        view
+        returns (bytes memory)
+    {
+        // Use the calldata version via external call for memory-to-calldata conversion
+        return this._signObligationCalldata(obligationBundle, signerPrivateKey);
+    }
+
+    /// @dev Sign an obligation bundle (calldata version)
+    function _signObligationCalldata(
+        ObligationBundle calldata obligationBundle,
+        uint256 signerPrivateKey
+    )
+        external
         pure
         returns (bytes memory)
     {
-        // Create the message hash
-        bytes memory obligationBytes = abi.encode(obligation);
-        bytes32 obligationHash = EfficientHashLib.hash(obligationBytes);
+        // Decode and hash the obligation using the new library methods
+        SettlementObligation memory obligation = obligationBundle.decodePublicObligation();
+        bytes32 obligationHash = SettlementObligationLib.computeObligationHash(obligation);
 
         // Sign with the private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, obligationHash);
