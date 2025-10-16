@@ -89,11 +89,17 @@ library SettlementLib {
 
     /// @notice Authorize an intent bundle
     /// @param settlementBundle The settlement bundle to authorize
-    function authorizeIntent(SettlementBundle calldata settlementBundle) public pure {
+    /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
+    function authorizeIntent(
+        SettlementBundle calldata settlementBundle,
+        mapping(bytes32 => uint256) storage openPublicIntents
+    )
+        internal
+    {
         IntentBundle calldata intentBundle = settlementBundle.intent;
         IntentType intentType = intentBundle.intentType;
         if (intentType == IntentType.PUBLIC) {
-            validatePublicIntentAuthorization(settlementBundle);
+            validatePublicIntentAuthorization(settlementBundle, openPublicIntents);
         } else {
             revert("Not implemented");
         }
@@ -101,24 +107,42 @@ library SettlementLib {
 
     /// @notice Validate the authorization of a public intent
     /// @param settlementBundle The settlement bundle to validate
-    /// @dev Authorization for a public intent is a signature by the intent owner over the tuple:
-    /// @dev (executor, intent), where executor is the address of the party allowed to execute the intent
-    function validatePublicIntentAuthorization(SettlementBundle calldata settlementBundle) public pure {
+    /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
+    /// If an intent's hash is already in the mapping, we need not check its owner's signature.
+    /// @dev We require two checks to pass for a public intent to be authorized:
+    /// 1. The executor has signed the settlement obligation. This authorizes the individual fill parameters.
+    /// 2. The intent owner has signed a tuple of (executor, intent). This authorizes the intent to be filled by the
+    /// executor.
+    function validatePublicIntentAuthorization(
+        SettlementBundle calldata settlementBundle,
+        mapping(bytes32 => uint256) storage openPublicIntents
+    )
+        internal
+    {
         // Decode the intent data
         IntentBundle memory intentBundle = settlementBundle.intent;
         PublicIntentAuthBundle memory auth = abi.decode(intentBundle.data, (PublicIntentAuthBundle));
-
-        // Verify the signature - intent owner must sign
-        bytes memory intentBytes = abi.encode(auth.permit.executor, auth.permit.intent);
-        bytes32 intentHash = EfficientHashLib.hash(intentBytes);
-        bool sigValid = ECDSALib.verify(intentHash, auth.intentSignature, auth.permit.intent.owner);
-        if (!sigValid) revert InvalidIntentSignature();
 
         // Verify that the executor has signed the settlement obligation
         bytes memory obligationBytes = abi.encode(settlementBundle.obligation);
         bytes32 obligationHash = EfficientHashLib.hash(obligationBytes);
         bool executorValid = ECDSALib.verify(obligationHash, auth.executorSignature, auth.permit.executor);
         if (!executorValid) revert InvalidExecutorSignature();
+
+        // If the intent is already in the mapping, we need not check its owner's signature
+        bytes memory intentBytes = abi.encode(auth.permit.executor, auth.permit.intent);
+        bytes32 intentHash = EfficientHashLib.hash(intentBytes);
+        uint256 amountRemaining = openPublicIntents[intentHash];
+        if (amountRemaining > 0) {
+            return;
+        }
+
+        // If the intent is not in the mapping, this is its first fill, and we must verify the signature
+        bool sigValid = ECDSALib.verify(intentHash, auth.intentSignature, auth.permit.intent.owner);
+        if (!sigValid) revert InvalidIntentSignature();
+
+        // Now that we've authorized the intent, update the amount remaining mapping
+        openPublicIntents[intentHash] = auth.permit.intent.amountIn;
     }
 
     // --- Obligation Constraints --- //

@@ -16,6 +16,7 @@ import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { SettlementLib } from "darkpoolv2-libraries/SettlementLib.sol";
 import { FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
@@ -24,6 +25,9 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     Vm.Wallet internal intentOwner;
     Vm.Wallet internal executor;
     Vm.Wallet internal wrongSigner;
+
+    // Storage for open public intents
+    mapping(bytes32 => uint256) internal openPublicIntents;
 
     function setUp() public override {
         super.setUp();
@@ -37,6 +41,16 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     // -----------
     // | Helpers |
     // -----------
+
+    /// @notice Wrapper to convert memory to calldata for library call
+    function _authorizeIntentCalldata(SettlementBundle calldata bundle) external {
+        SettlementLib.authorizeIntent(bundle, openPublicIntents);
+    }
+
+    /// @notice Helper that accepts memory and calls library with calldata
+    function authorizeIntentHelper(SettlementBundle memory bundle) internal {
+        this._authorizeIntentCalldata(bundle);
+    }
 
     /// @notice Helper to create a sample intent
     function createSampleIntent() internal view returns (Intent memory) {
@@ -82,10 +96,10 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     // | Tests |
     // ---------
 
-    function test_validSignatures() public view {
+    function test_validSignatures() public {
         // Should not revert
         SettlementBundle memory bundle = createSampleBundle();
-        SettlementLib.authorizeIntent(bundle);
+        authorizeIntentHelper(bundle);
     }
 
     function test_invalidIntentSignature_wrongSigner() public {
@@ -99,7 +113,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
         // Should revert with InvalidIntentSignature
         vm.expectRevert(SettlementLib.InvalidIntentSignature.selector);
-        SettlementLib.authorizeIntent(bundle);
+        authorizeIntentHelper(bundle);
     }
 
     function test_invalidIntentSignature_modifiedBytes() public {
@@ -111,7 +125,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
         // Should revert with InvalidIntentSignature
         vm.expectRevert(SettlementLib.InvalidIntentSignature.selector);
-        SettlementLib.authorizeIntent(bundle);
+        authorizeIntentHelper(bundle);
     }
 
     function test_invalidExecutorSignature_wrongSigner() public {
@@ -124,6 +138,43 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
         // Should revert with InvalidExecutorSignature
         vm.expectRevert(SettlementLib.InvalidExecutorSignature.selector);
-        SettlementLib.authorizeIntent(bundle);
+        authorizeIntentHelper(bundle);
+    }
+
+    function test_cachedIntentSignature() public {
+        // Create bundle and authorize it once
+        SettlementBundle memory bundle = createSampleBundle();
+        authorizeIntentHelper(bundle);
+
+        // Verify the intent was cached in the mapping
+        PublicIntentAuthBundle memory authBundle = abi.decode(bundle.intent.data, (PublicIntentAuthBundle));
+        bytes memory intentBytes = abi.encode(authBundle.permit.executor, authBundle.permit.intent);
+        bytes32 intentHash = EfficientHashLib.hash(intentBytes);
+        uint256 amountRemaining = openPublicIntents[intentHash];
+        assertEq(amountRemaining, authBundle.permit.intent.amountIn, "Intent not cached");
+
+        // Now create a second bundle with the same intent but invalid owner signature
+        // This should still pass because we skip signature verification for cached intents
+        PublicIntentAuthBundle memory authBundle2 = authBundle;
+        authBundle2.intentSignature = hex"deadbeef"; // Invalid signature
+
+        // Create new obligation and executor signature for second fill
+        SettlementObligation memory obligation2 = SettlementObligation({
+            inputToken: address(baseToken),
+            outputToken: address(quoteToken),
+            amountIn: 50,
+            amountOut: 100
+        });
+        ObligationBundle memory obligationBundle2 =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation2) });
+        authBundle2.executorSignature = signObligation(obligationBundle2, executor.privateKey);
+
+        SettlementBundle memory bundle2 = SettlementBundle({
+            obligation: obligationBundle2,
+            intent: IntentBundle({ intentType: IntentType.PUBLIC, data: abi.encode(authBundle2) })
+        });
+
+        // Should not revert even with invalid intent signature because it's cached
+        authorizeIntentHelper(bundle2);
     }
 }
