@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import { DarkpoolV2TestBase } from "../../DarkpoolV2TestBase.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { ObligationBundle } from "darkpoolv2-types/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { Vm } from "forge-std/Vm.sol";
 
-library SettlementTestUtils {
+contract SettlementTestUtils is DarkpoolV2TestBase {
     /// @dev Sign an intent permit
     function signIntentPermit(
         Intent memory intent,
@@ -22,8 +23,25 @@ library SettlementTestUtils {
         bytes32 permitHash = EfficientHashLib.hash(permitBytes);
 
         // Sign with the private key
-        (uint8 v, bytes32 r, bytes32 s) =
-            Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).sign(signerPrivateKey, permitHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, permitHash);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /// @dev Sign an obligation bundle
+    function signObligation(
+        ObligationBundle memory obligation,
+        uint256 signerPrivateKey
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // Create the message hash
+        bytes memory obligationBytes = abi.encode(obligation);
+        bytes32 obligationHash = EfficientHashLib.hash(obligationBytes);
+
+        // Sign with the private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, obligationHash);
         return abi.encodePacked(r, s, v);
     }
 

@@ -6,11 +6,10 @@ import { WethMock } from "test-contracts/WethMock.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
-
-import { CalldataUtils } from "darkpoolv1-test/utils/CalldataUtils.sol";
+import { TestUtils } from "test-utils/TestUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
-
+import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -25,8 +24,13 @@ import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 // solhint-disable-next-line max-states-count
-contract DarkpoolV2TestBase is CalldataUtils {
+contract DarkpoolV2TestBase is TestUtils {
     using NullifierLib for NullifierLib.NullifierSet;
+
+    /// @notice The protocol fee rate used for testing
+    /// @dev This is the fixed point representation of 0.0001 (1bp)
+    /// @dev computed as `floor(0.0001 * 2 ** 63)`
+    uint256 public constant TEST_PROTOCOL_FEE = 922_337_203_685_477;
 
     IDarkpoolV2 public darkpool;
     IHasher public hasher;
@@ -136,13 +140,22 @@ contract DarkpoolV2TestBase is CalldataUtils {
         vm.deal(address(gasSponsor), 10 ether);
     }
 
-    /**
-     * @dev Creates a signature for gas sponsorship using the stored private key
-     * @param nonce The nonce to use for the signature
-     * @param refundAddress The refund address
-     * @param refundAmount The refund amount
-     * @return signature The signed sponsorship payload
-     */
+    // -----------
+    // | Helpers |
+    // -----------
+
+    /// @notice Generate a random encryption key
+    /// @dev For our purposes, this key does not need to be on the curve,
+    /// @dev no curve arithmetic is performed on it
+    function randomEncryptionKey() internal returns (EncryptionKey memory key) {
+        key = EncryptionKey({ point: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }) });
+    }
+
+    /// @dev Creates a signature for gas sponsorship using the stored private key
+    /// @param nonce The nonce to use for the signature
+    /// @param refundAddress The refund address
+    /// @param refundAmount The refund amount
+    /// @return signature The signed sponsorship payload
     function signGasSponsorshipPayload(
         uint256 nonce,
         address refundAddress,
