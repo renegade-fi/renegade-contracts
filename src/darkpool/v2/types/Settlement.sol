@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache
+/* solhint-disable one-contract-per-file */
 pragma solidity ^0.8.24;
 
 import { Intent } from "darkpoolv2-types/Intent.sol";

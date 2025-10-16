@@ -6,41 +6,17 @@ pragma solidity ^0.8.24;
 import {
     SettlementBundle,
     SettlementBundleType,
-    ObligationBundle,
-    ObligationType,
     PublicIntentPublicBalanceBundle,
     PublicIntentAuthBundle,
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/Settlement.sol";
-import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/SettlementObligation.sol";
 import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-libraries/settlement/NativeSettledPublicIntent.sol";
-import { FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { Vm } from "forge-std/Vm.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract IntentAuthorizationTest is SettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
-
-    // Test wallets
-    Vm.Wallet internal intentOwner;
-    Vm.Wallet internal executor;
-    Vm.Wallet internal wrongSigner;
-
-    // Storage for open public intents
-    mapping(bytes32 => uint256) internal openPublicIntents;
-
-    function setUp() public override {
-        super.setUp();
-
-        // Create test wallets
-        intentOwner = vm.createWallet("intent_owner");
-        executor = vm.createWallet("executor");
-        wrongSigner = vm.createWallet("wrong_signer");
-    }
 
     // -----------
     // | Helpers |
@@ -54,52 +30,6 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     /// @notice Helper that accepts memory and calls library with calldata
     function authorizeIntentHelper(SettlementBundle memory bundle) internal {
         this._validateSettlementBundleCalldata(bundle);
-    }
-
-    /// @notice Helper to create a sample intent
-    function createSampleIntent() internal view returns (Intent memory) {
-        return Intent({
-            inToken: address(baseToken),
-            outToken: address(quoteToken),
-            owner: intentOwner.addr,
-            minPrice: FixedPointLib.wrap(2e18), // 2:1 ratio
-            amountIn: 100
-        });
-    }
-
-    /// @notice Helper to create a sample settlement bundle
-    function createSampleBundle() internal view returns (SettlementBundle memory) {
-        // Create obligation
-        SettlementObligation memory obligation = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: 100,
-            amountOut: 200
-        });
-        ObligationBundle memory obligationBundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
-
-        // Create intent and signatures
-        Intent memory intent = createSampleIntent();
-        PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
-        bytes memory intentSignature = signIntentPermit(permit, intentOwner.privateKey);
-        bytes memory executorSignature = signObligation(obligationBundle, executor.privateKey);
-
-        // Create the auth bundle
-        PublicIntentAuthBundle memory authBundle = PublicIntentAuthBundle({
-            permit: PublicIntentPermit({ intent: intent, executor: executor.addr }),
-            intentSignature: intentSignature,
-            executorSignature: executorSignature
-        });
-
-        // Create the public intent public balance bundle
-        PublicIntentPublicBalanceBundle memory bundleData = PublicIntentPublicBalanceBundle({ auth: authBundle });
-
-        return SettlementBundle({
-            obligation: obligationBundle,
-            bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
-            data: abi.encode(bundleData)
-        });
     }
 
     // ---------
@@ -136,8 +66,8 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
 
-        // Should revert with InvalidIntentSignature
-        vm.expectRevert(NativeSettledPublicIntentLib.InvalidIntentSignature.selector);
+        // Should revert with ECDSAInvalidSignature (from OpenZeppelin ECDSA library)
+        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignature()"));
         authorizeIntentHelper(bundle);
     }
 

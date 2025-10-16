@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-
 import {
-    SettlementBundle,
-    SettlementBundleType,
-    ObligationBundle,
-    ObligationType,
-    PublicIntentPermit
+    SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
 } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";

@@ -3,18 +3,12 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import {
-    SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
-} from "darkpoolv2-types/Settlement.sol";
+import { ObligationBundle, ObligationType } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is SettlementTestUtils {
-    function setUp() public override {
-        super.setUp();
-    }
-
     function test_compatibleObligations() public view {
         // Create compatible obligations
         (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =

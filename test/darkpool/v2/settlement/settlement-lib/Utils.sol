@@ -1,22 +1,52 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import { Vm } from "forge-std/Vm.sol";
 import { DarkpoolV2TestBase } from "../../DarkpoolV2TestBase.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/SettlementObligation.sol";
 import {
     SettlementBundle,
+    SettlementBundleType,
     ObligationBundle,
+    ObligationType,
+    PublicIntentPublicBalanceBundle,
+    PublicIntentAuthBundle,
     PublicIntentPermit,
     ObligationLib,
     PublicIntentPermitLib
 } from "darkpoolv2-types/Settlement.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 contract SettlementTestUtils is DarkpoolV2TestBase {
     using ObligationLib for ObligationBundle;
     using PublicIntentPermitLib for PublicIntentPermit;
+    using FixedPointLib for FixedPoint;
+
+    // ----------------------------
+    // | State and Initialization |
+    // ----------------------------
+
+    // Test wallets
+    Vm.Wallet internal intentOwner;
+    Vm.Wallet internal executor;
+    Vm.Wallet internal wrongSigner;
+
+    // Storage for open public intents
+    mapping(bytes32 => uint256) internal openPublicIntents;
+
+    function setUp() public override {
+        super.setUp();
+
+        // Create test wallets
+        intentOwner = vm.createWallet("intent_owner");
+        executor = vm.createWallet("executor");
+        wrongSigner = vm.createWallet("wrong_signer");
+    }
+
+    // ---------
+    // | Utils |
+    // ---------
 
     /// @dev Sign an intent permit
     function signIntentPermit(
@@ -79,5 +109,67 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
             SettlementObligation({ inputToken: quoteToken, outputToken: baseToken, amountIn: 200, amountOut: 100 });
 
         return (party0Obligation, party1Obligation);
+    }
+
+    /// @dev Create a dummy intent with specified tokens and amounts
+    function createSampleIntent() internal view returns (Intent memory) {
+        return Intent({
+            inToken: address(baseToken),
+            outToken: address(quoteToken),
+            owner: intentOwner.addr,
+            minPrice: FixedPointLib.wrap(2 << FixedPointLib.FIXED_POINT_PRECISION_BITS), // 1:1 price for simplicity
+            amountIn: 100
+        });
+    }
+
+    /// @dev Helper to create a sample settlement bundle
+    function createSampleBundle() internal returns (SettlementBundle memory) {
+        // Create obligation
+        Intent memory intent = createSampleIntent();
+        uint256 amountIn = vm.randomUint(1, intent.amountIn);
+        uint256 amountOut = intent.minPrice.unsafeFixedPointMul(amountIn);
+
+        SettlementObligation memory obligation = SettlementObligation({
+            inputToken: intent.inToken,
+            outputToken: intent.outToken,
+            amountIn: amountIn,
+            amountOut: amountOut
+        });
+
+        return createSettlementBundle(intent, obligation);
+    }
+
+    /// @dev Create a complete settlement bundle given an intent and an obligation
+    function createSettlementBundle(
+        Intent memory intent,
+        SettlementObligation memory obligation
+    )
+        internal
+        view
+        returns (SettlementBundle memory)
+    {
+        // Create the permit and sign it with the owner key
+        PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
+        bytes memory intentSignature = signIntentPermit(permit, intentOwner.privateKey);
+
+        // Create obligation bundle and sign it with the executor key
+        ObligationBundle memory obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
+        bytes memory executorSignature = signObligation(obligationBundle, executor.privateKey);
+
+        // Create auth bundle
+        PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
+            permit: permit,
+            intentSignature: intentSignature,
+            executorSignature: executorSignature
+        });
+        PublicIntentPublicBalanceBundle memory bundleData = PublicIntentPublicBalanceBundle({ auth: auth });
+
+        // Create the complete settlement bundle
+        return SettlementBundle({
+            obligation: obligationBundle,
+            bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
+            data: abi.encode(bundleData)
+        });
     }
 }
