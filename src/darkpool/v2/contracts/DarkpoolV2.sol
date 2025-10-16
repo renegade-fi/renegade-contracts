@@ -19,7 +19,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
-import { SettlementLib } from "darkpoolv2-libraries/SettlementLib.sol";
+import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
 
 /// @title DarkpoolV2
 /// @author Renegade Eng
@@ -180,12 +180,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 
         // 2. Authorize the intents in the settlement bundles
-        SettlementLib.authorizeIntent(party0SettlementBundle, openPublicIntents);
-        SettlementLib.authorizeIntent(party1SettlementBundle, openPublicIntents);
-
-        // 3. Validate the intent and balance constraints on the obligations
-        SettlementLib.validateObligationConstraints(party0SettlementBundle);
-        SettlementLib.validateObligationConstraints(party1SettlementBundle);
+        SettlementLib.validateSettlementBundle(party0SettlementBundle, openPublicIntents);
+        SettlementLib.validateSettlementBundle(party1SettlementBundle, openPublicIntents);
 
         // 4. Settle the match by updating the balances for each party
         // TODO: Settlement logic
