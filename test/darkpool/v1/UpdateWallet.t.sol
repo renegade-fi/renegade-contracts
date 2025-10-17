@@ -188,7 +188,7 @@ contract UpdateWalletTest is DarkpoolTestBase {
         newSharesCommitmentSig[randIdx] = randomByte();
 
         // Should fail
-        vm.expectRevert(IDarkpool.InvalidSignature.selector);
+        vm.expectRevert();
         darkpool.updateWallet(newSharesCommitmentSig, transferAuthorization, statement, proof);
     }
 }

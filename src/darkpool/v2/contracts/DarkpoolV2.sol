@@ -19,6 +19,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
+import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 
 /// @title DarkpoolV2
@@ -176,6 +177,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     )
         public
     {
+        // 1. Allocate a settlement context
+        SettlementTransfers memory settlementTransfers =
+            SettlementLib.allocateSettlementTransfers(party0SettlementBundle, party1SettlementBundle);
+
         // 1. Validate that the settlement obligations are compatible with one another
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 

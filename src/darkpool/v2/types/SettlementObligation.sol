@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { ExternalTransferLib } from "darkpoolv2-lib/Transfers.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/Transfers.sol";
 
 /// @notice A settlement obligation for a user
 struct SettlementObligation {
@@ -38,13 +38,13 @@ library SettlementObligationLib {
     )
         internal
         pure
-        returns (ExternalTransferLib.SimpleTransfer memory)
+        returns (SimpleTransfer memory)
     {
-        return ExternalTransferLib.SimpleTransfer({
+        return SimpleTransfer({
             account: owner,
             mint: obligation.inputToken,
             amount: obligation.amountIn,
-            transferType: ExternalTransferLib.SimpleTransferType.Permit2AllowanceDeposit
+            transferType: SimpleTransferType.Permit2AllowanceDeposit
         });
     }
 
@@ -58,13 +58,13 @@ library SettlementObligationLib {
     )
         internal
         pure
-        returns (ExternalTransferLib.SimpleTransfer memory)
+        returns (SimpleTransfer memory)
     {
-        return ExternalTransferLib.SimpleTransfer({
+        return SimpleTransfer({
             account: owner,
             mint: obligation.outputToken,
             amount: obligation.amountOut,
-            transferType: ExternalTransferLib.SimpleTransferType.Withdrawal
+            transferType: SimpleTransferType.Withdrawal
         });
     }
 }

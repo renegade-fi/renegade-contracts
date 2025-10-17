@@ -7,6 +7,7 @@ import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/Transfers.sol";
 
 /// @title ExternalTransferLib
 /// @author Renegade Eng
@@ -26,7 +27,7 @@ library ExternalTransferLib {
     /// @notice Execute a single ERC20 transfer
     /// @param transfer The transfer to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
-    function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
+    function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
         // If the amount is zero, do nothing
         if (transfer.amount == 0) {
             return;
@@ -40,10 +41,10 @@ library ExternalTransferLib {
             executeSimpleWithdrawal(transfer, wrapper);
             expectedBalance = balanceBefore - transfer.amount;
         } else if (transferType == SimpleTransferType.Permit2AllowanceDeposit) {
-            executePermit2AllowanceDeposit(transfer, wrapper);
+            executePermit2AllowanceDeposit(transfer, permit2);
             expectedBalance = balanceBefore + transfer.amount;
         } else {
-            executeErc20ApprovalDeposit(transfer, wrapper);
+            executeDirectErc20Deposit(transfer, wrapper);
             expectedBalance = balanceBefore + transfer.amount;
         }
 
@@ -55,9 +56,9 @@ library ExternalTransferLib {
     /// @notice Execute a batch of simple ERC20 transfers
     /// @param transfers The batch of transfers to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
-    function executeTransfers(SimpleTransfer[] memory transfers, IWETH9 wrapper) internal {
+    function executeTransfers(SimpleTransfer[] memory transfers, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
         for (uint256 i = 0; i < transfers.length; ++i) {
-            executeTransfer(transfers[i], wrapper);
+            executeTransfer(transfers[i], wrapper, permit2);
         }
     }
 
@@ -82,10 +83,12 @@ library ExternalTransferLib {
 
     /// @notice Execute a permit2 allowance deposit
     /// @param transfer The transfer to execute
-    /// @param wrapper The WETH9 wrapper contract for native token handling
+    /// @param permit2 The permit2 contract instance
     /// TODO: Allow this method to register a previously unused permit2 allowance
     function executePermit2AllowanceDeposit(SimpleTransfer memory transfer, IAllowanceTransfer permit2) internal {
-        permit2.transferFrom(transfer.account, address(this), transfer.amount, transfer.mint);
+        address to = address(this);
+        uint160 amount = uint160(transfer.amount);
+        permit2.transferFrom(transfer.account, to, amount, transfer.mint);
     }
 
     // --- Withdrawal --- //

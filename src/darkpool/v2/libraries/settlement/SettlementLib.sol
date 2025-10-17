@@ -5,20 +5,49 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import {
     SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
 } from "darkpoolv2-types/Settlement.sol";
+import { SettlementBundleLib } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
-import { SettlementTransfersLib } from "./SettlementTransfers.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
 /// @notice Library for settlement operations
 library SettlementLib {
+    using SettlementBundleLib for SettlementBundle;
+
     /// @notice Error thrown when the obligation types are not compatible
     error IncompatibleObligationTypes();
     /// @notice Error thrown when the obligation tokens are not compatible
     error IncompatiblePairs();
     /// @notice Error thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
+
+    // --- Allocation --- //
+
+    /// @notice Allocate a settlement transfers list for the match settlement
+    /// @dev This list allows further settlement logic to dynamically push transfers to the list
+    /// as they execute. We execute all transfers at the end in a single pass, and dynamically pushing
+    /// transfers to this list allows handlers to stay specific to the type of `SettlementBundle` they
+    /// are operating on.
+    /// @param party0SettlementBundle The settlement bundle for the first party
+    /// @param party1SettlementBundle The settlement bundle for the second party
+    /// @return The allocated settlement transfers list
+    /// TODO: Generalize this method to allocate a "settlement context" which will store all data that
+    /// the transaction needs to verify after type-specific logic. This will include the transfers list,
+    /// as well as a proofs list which will store all proofs that the transaction needs to verify for settlement.
+    function allocateSettlementTransfers(
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle
+    )
+        internal
+        pure
+        returns (SettlementTransfers memory)
+    {
+        uint256 capacity = SettlementBundleLib.getNumTransfers(party0SettlementBundle)
+            + SettlementBundleLib.getNumTransfers(party1SettlementBundle);
+        return SettlementTransfersLib.newList(capacity);
+    }
 
     // --- Obligation Compatibility --- //
 
@@ -111,6 +140,6 @@ library SettlementLib {
         public
     {
         // First, execute any ERC20 transfers necessary for the settlement bundles
-        SettlementTransfersLib.executeTransfers(party0SettlementBundle, party1SettlementBundle, weth);
+        // TODO: Settle transfers
     }
 }
