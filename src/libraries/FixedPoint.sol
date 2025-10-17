@@ -16,12 +16,51 @@ library FixedPointLib {
     /// @notice The fixed point precision used in the darkpool
     /// @dev This implies that the representation of a real number is floor(x * 2^{FIXED_POINT_PRECISION})
     uint256 internal constant FIXED_POINT_PRECISION_BITS = 63;
+    /// @notice The maximum integer part bit-width that we can represent
+    /// @dev This is done to match circuit logic where we limit bit width to prevent overflow
+    uint256 internal constant MAX_INTEGER_PART_BITS = 63;
+
+    // --- Conversions --- //
 
     /// @notice Wrap a uint256 into a FixedPoint
     /// @param x The uint256 to wrap
     /// @return A FixedPoint with the given representation
     function wrap(uint256 x) public pure returns (FixedPoint memory) {
         return FixedPoint({ repr: x });
+    }
+
+    /// @notice Generate a fixed point representation of a natural number
+    /// @param x The integer to convert to a fixed point representation
+    /// @return The fixed point representation of the integer
+    function integerToFixedPoint(uint256 x) public pure returns (FixedPoint memory) {
+        return FixedPoint({ repr: x * (1 << FIXED_POINT_PRECISION_BITS) });
+    }
+
+    /// @notice Convert a fixed point representation to an integer
+    /// @param x The fixed point representation to convert
+    /// @return The integer representation of the fixed point
+    function fixedPointToInteger(FixedPoint memory x) public pure returns (uint256) {
+        return x.repr / (1 << FIXED_POINT_PRECISION_BITS);
+    }
+
+    // --- Arithmetic --- //
+
+    /// @notice Divide two fixed points and return the truncated result
+    /// @param x The first fixed point to divide
+    /// @param y The second fixed point to divide
+    /// @return The truncated result of the division
+    function div(FixedPoint memory x, FixedPoint memory y) public pure returns (FixedPoint memory) {
+        uint256 repr = (x.repr * (1 << FIXED_POINT_PRECISION_BITS)) / y.repr;
+        return FixedPoint({ repr: repr });
+    }
+
+    /// @notice Divide a fixed point by a scalar and return the truncated result
+    /// @param x The fixed point to divide
+    /// @param scalar The scalar to divide by
+    /// @return The truncated result of the division
+    function divByInteger(FixedPoint memory x, uint256 scalar) public pure returns (FixedPoint memory) {
+        uint256 repr = x.repr / scalar;
+        return FixedPoint({ repr: repr });
     }
 
     /// @notice Multiply a fixed point by a scalar and return the truncated result

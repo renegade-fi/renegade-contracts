@@ -30,6 +30,10 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
 
     // Test wallets
     Vm.Wallet internal intentOwner;
+    // Party 0 in a simulated trade
+    Vm.Wallet internal party0;
+    // Party 1 in a simulated trade
+    Vm.Wallet internal party1;
     Vm.Wallet internal executor;
     Vm.Wallet internal wrongSigner;
 
@@ -41,6 +45,8 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
 
         // Create test wallets
         intentOwner = vm.createWallet("intent_owner");
+        party0 = vm.createWallet("party0");
+        party1 = vm.createWallet("party1");
         executor = vm.createWallet("executor");
         wrongSigner = vm.createWallet("wrong_signer");
     }
@@ -100,7 +106,7 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
     // --- Dummy Data --- //
 
     /// @dev Create a dummy `SettlementTransfers` list for the test
-    function _createSettlementTransfers() internal returns (SettlementTransfers memory transfers) {
+    function _createSettlementTransfers() internal pure returns (SettlementTransfers memory transfers) {
         transfers = SettlementTransfersLib.newList(1);
     }
 
@@ -158,14 +164,28 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
         view
         returns (SettlementBundle memory)
     {
+        return createSettlementBundleWithSigners(intent, obligation, intentOwner.privateKey, executor.privateKey);
+    }
+
+    /// @dev Create a complete settlement bundle with custom signers
+    function createSettlementBundleWithSigners(
+        Intent memory intent,
+        SettlementObligation memory obligation,
+        uint256 intentOwnerPrivateKey,
+        uint256 executorPrivateKey
+    )
+        internal
+        view
+        returns (SettlementBundle memory)
+    {
         // Create the permit and sign it with the owner key
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
-        bytes memory intentSignature = signIntentPermit(permit, intentOwner.privateKey);
+        bytes memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
         // Create obligation bundle and sign it with the executor key
         ObligationBundle memory obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
-        bytes memory executorSignature = signObligation(obligationBundle, executor.privateKey);
+        bytes memory executorSignature = signObligation(obligationBundle, executorPrivateKey);
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({

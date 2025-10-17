@@ -22,10 +22,12 @@ import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 // solhint-disable-next-line max-states-count
 contract DarkpoolV2TestBase is TestUtils {
     using NullifierLib for NullifierLib.NullifierSet;
+    using FixedPointLib for FixedPoint;
 
     /// @notice The protocol fee rate used for testing
     /// @dev This is the fixed point representation of 0.0001 (1bp)
@@ -144,12 +146,44 @@ contract DarkpoolV2TestBase is TestUtils {
     // | Helpers |
     // -----------
 
+    // --- Fuzzing Helpers --- //
+
+    /// @notice Generate a random price for a trade
+    function randomPrice() internal returns (FixedPoint memory price) {
+        // Min price of 0.01
+        FixedPoint memory minPrice = FixedPointLib.integerToFixedPoint(1);
+        minPrice = minPrice.divByInteger(100);
+        FixedPoint memory maxPrice = FixedPointLib.integerToFixedPoint(1e12);
+
+        price = randomFixedPoint(minPrice, maxPrice);
+    }
+
+    /// @notice Generate a random fixed point between two fixed point values
+    /// @dev This is inclusive of the bounds, so [min, max]
+    /// @param min The minimum fixed point value
+    /// @param max The maximum fixed point value
+    /// @return result The random fixed point value
+    function randomFixedPoint(
+        FixedPoint memory min,
+        FixedPoint memory max
+    )
+        internal
+        returns (FixedPoint memory result)
+    {
+        uint256 minRepr = min.repr;
+        uint256 maxRepr = max.repr;
+        uint256 randomRepr = vm.randomUint(minRepr, maxRepr);
+        result = FixedPointLib.wrap(randomRepr);
+    }
+
     /// @notice Generate a random encryption key
     /// @dev For our purposes, this key does not need to be on the curve,
     /// @dev no curve arithmetic is performed on it
     function randomEncryptionKey() internal returns (EncryptionKey memory key) {
         key = EncryptionKey({ point: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }) });
     }
+
+    // --- Signatures --- //
 
     /// @dev Creates a signature for gas sponsorship using the stored private key
     /// @param nonce The nonce to use for the signature
@@ -172,6 +206,8 @@ contract DarkpoolV2TestBase is TestUtils {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(gasSponsorAuthPrivateKey, messageHash);
         return abi.encodePacked(r, s, v);
     }
+
+    // --- Balances --- //
 
     /// @dev Get the base and quote token amounts for an address
     function baseQuoteBalances(address addr) public view returns (uint256 baseAmt, uint256 quoteAmt) {
