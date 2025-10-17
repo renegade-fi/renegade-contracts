@@ -40,7 +40,7 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
     // Storage for open public intents
     mapping(bytes32 => uint256) internal openPublicIntents;
 
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
 
         // Create test wallets

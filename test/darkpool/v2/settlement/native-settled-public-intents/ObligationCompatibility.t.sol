@@ -9,7 +9,37 @@ import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is SettlementTestUtils {
-    function test_compatibleObligations() public view {
+    // -----------
+    // | Helpers |
+    // -----------
+
+    /// @notice Wrapper to convert memory to calldata for library call
+    function _checkObligationCompatibility(
+        ObligationBundle calldata bundle0,
+        ObligationBundle calldata bundle1
+    )
+        public
+        pure
+    {
+        SettlementLib.checkObligationCompatibility(bundle0, bundle1);
+    }
+
+    /// @notice Helper that accepts memory and calls library with calldata
+    function checkObligationCompatibilityHelper(
+        ObligationBundle memory bundle0,
+        ObligationBundle memory bundle1
+    )
+        internal
+        view
+    {
+        this._checkObligationCompatibility(bundle0, bundle1);
+    }
+
+    // ---------
+    // | Tests |
+    // ---------
+
+    function test_compatibleObligations() public {
         // Create compatible obligations
         (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
             createCompatibleObligations(address(baseToken), address(quoteToken));
@@ -20,7 +50,7 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party1Obligation) });
 
         // Should not revert
-        SettlementLib.checkObligationCompatibility(party0Bundle, party1Bundle);
+        checkObligationCompatibilityHelper(party0Bundle, party1Bundle);
     }
 
     function test_incompatiblePairs() public {
@@ -42,7 +72,7 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
 
         // Should revert with IncompatiblePairs
         vm.expectRevert(SettlementLib.IncompatiblePairs.selector);
-        SettlementLib.checkObligationCompatibility(party0Bundle, party1Bundle);
+        checkObligationCompatibilityHelper(party0Bundle, party1Bundle);
     }
 
     function test_incompatibleAmounts() public {
@@ -63,6 +93,6 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
 
         // Should revert with IncompatibleAmounts
         vm.expectRevert(SettlementLib.IncompatibleAmounts.selector);
-        SettlementLib.checkObligationCompatibility(party0Bundle, party1Bundle);
+        checkObligationCompatibilityHelper(party0Bundle, party1Bundle);
     }
 }
