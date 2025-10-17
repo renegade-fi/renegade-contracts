@@ -21,6 +21,7 @@ library SettlementTransfersLib {
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
     /// @param weth The WETH9 contract instance used for depositing/withdrawing native tokens
+    /// TODO: Allow a permit2 allowance to be registered *within* this transfer execution
     function executeTransfers(
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle,

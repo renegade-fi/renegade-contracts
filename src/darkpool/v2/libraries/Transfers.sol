@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { IAllowanceTransfer } from "permit2-lib/interfaces/IAllowanceTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
@@ -19,30 +20,6 @@ library ExternalTransferLib {
     error BalanceMismatch();
     /// @notice Thrown when the deposit amount does not match the msg.value for a native token deposit
     error InvalidDepositAmount();
-
-    // --- Types --- //
-
-    /// @notice A simple ERC20 transfer
-    struct SimpleTransfer {
-        /// @dev The address to withdraw to or deposit from
-        address account;
-        /// @dev The ERC20 token to transfer
-        address mint;
-        /// @dev The amount of tokens to transfer
-        uint256 amount;
-        /// @dev The type of transfer
-        SimpleTransferType transferType;
-    }
-
-    /// @notice The type of a simple ERC20 transfer
-    enum SimpleTransferType {
-        /// @dev A withdrawal
-        Withdrawal,
-        /// @dev A deposit using an permit2 allowance transfer
-        Permit2AllowanceDeposit,
-        /// @dev A deposit using an ERC20 approval directly
-        ERC20ApprovalDeposit
-    }
 
     // --- Interface --- //
 
@@ -63,7 +40,8 @@ library ExternalTransferLib {
             executeSimpleWithdrawal(transfer, wrapper);
             expectedBalance = balanceBefore - transfer.amount;
         } else if (transferType == SimpleTransferType.Permit2AllowanceDeposit) {
-            revert("unimplemented");
+            executePermit2AllowanceDeposit(transfer, wrapper);
+            expectedBalance = balanceBefore + transfer.amount;
         } else {
             executeErc20ApprovalDeposit(transfer, wrapper);
             expectedBalance = balanceBefore + transfer.amount;
@@ -100,6 +78,14 @@ library ExternalTransferLib {
         IERC20 token = IERC20(transfer.mint);
         address self = address(this);
         SafeERC20.safeTransferFrom(token, transfer.account, self, transfer.amount);
+    }
+
+    /// @notice Execute a permit2 allowance deposit
+    /// @param transfer The transfer to execute
+    /// @param wrapper The WETH9 wrapper contract for native token handling
+    /// TODO: Allow this method to register a previously unused permit2 allowance
+    function executePermit2AllowanceDeposit(SimpleTransfer memory transfer, IAllowanceTransfer permit2) internal {
+        permit2.transferFrom(transfer.account, address(this), transfer.amount, transfer.mint);
     }
 
     // --- Withdrawal --- //
