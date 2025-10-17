@@ -2,10 +2,12 @@
 pragma solidity ^0.8.24;
 
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { IAllowanceTransfer } from "permit2-lib/interfaces/IAllowanceTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/Transfers.sol";
 
 /// @title ExternalTransferLib
 /// @author Renegade Eng
@@ -20,36 +22,13 @@ library ExternalTransferLib {
     /// @notice Thrown when the deposit amount does not match the msg.value for a native token deposit
     error InvalidDepositAmount();
 
-    // --- Types --- //
-
-    /// @notice A simple ERC20 transfer
-    struct SimpleTransfer {
-        /// @dev The address to withdraw to or deposit from
-        address account;
-        /// @dev The ERC20 token to transfer
-        address mint;
-        /// @dev The amount of tokens to transfer
-        uint256 amount;
-        /// @dev The type of transfer
-        SimpleTransferType transferType;
-    }
-
-    /// @notice The type of a simple ERC20 transfer
-    enum SimpleTransferType {
-        /// @dev A withdrawal
-        Withdrawal,
-        /// @dev A deposit using an permit2 allowance transfer
-        Permit2AllowanceDeposit,
-        /// @dev A deposit using an ERC20 approval directly
-        ERC20ApprovalDeposit
-    }
-
     // --- Interface --- //
 
     /// @notice Execute a single ERC20 transfer
     /// @param transfer The transfer to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
-    function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper) internal {
+    /// @param permit2 The permit2 contract instance
+    function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
         // If the amount is zero, do nothing
         if (transfer.amount == 0) {
             return;
@@ -63,9 +42,10 @@ library ExternalTransferLib {
             executeSimpleWithdrawal(transfer, wrapper);
             expectedBalance = balanceBefore - transfer.amount;
         } else if (transferType == SimpleTransferType.Permit2AllowanceDeposit) {
-            revert("unimplemented");
+            executePermit2AllowanceDeposit(transfer, permit2);
+            expectedBalance = balanceBefore + transfer.amount;
         } else {
-            executeErc20ApprovalDeposit(transfer, wrapper);
+            executeDirectErc20Deposit(transfer, wrapper);
             expectedBalance = balanceBefore + transfer.amount;
         }
 
@@ -77,9 +57,10 @@ library ExternalTransferLib {
     /// @notice Execute a batch of simple ERC20 transfers
     /// @param transfers The batch of transfers to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
-    function executeTransfers(SimpleTransfer[] memory transfers, IWETH9 wrapper) internal {
+    /// @param permit2 The permit2 contract instance
+    function executeTransfers(SimpleTransfer[] memory transfers, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
         for (uint256 i = 0; i < transfers.length; ++i) {
-            executeTransfer(transfers[i], wrapper);
+            executeTransfer(transfers[i], wrapper, permit2);
         }
     }
 
@@ -100,6 +81,16 @@ library ExternalTransferLib {
         IERC20 token = IERC20(transfer.mint);
         address self = address(this);
         SafeERC20.safeTransferFrom(token, transfer.account, self, transfer.amount);
+    }
+
+    /// @notice Execute a permit2 allowance deposit
+    /// @param transfer The transfer to execute
+    /// @param permit2 The permit2 contract instance
+    /// TODO: Allow this method to register a previously unused permit2 allowance
+    function executePermit2AllowanceDeposit(SimpleTransfer memory transfer, IAllowanceTransfer permit2) internal {
+        address to = address(this);
+        uint160 amount = uint160(transfer.amount);
+        permit2.transferFrom(transfer.account, to, amount, transfer.mint);
     }
 
     // --- Withdrawal --- //

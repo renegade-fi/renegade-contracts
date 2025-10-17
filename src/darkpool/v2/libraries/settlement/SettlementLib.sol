@@ -2,23 +2,56 @@
 pragma solidity ^0.8.24;
 
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import {
     SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
 } from "darkpoolv2-types/Settlement.sol";
+import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
+import { SettlementBundleLib } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
-import { SettlementTransfersLib } from "./SettlementTransfers.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
+import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
 /// @notice Library for settlement operations
 library SettlementLib {
+    using SettlementBundleLib for SettlementBundle;
+    using SettlementTransfersLib for SettlementTransfers;
+
     /// @notice Error thrown when the obligation types are not compatible
     error IncompatibleObligationTypes();
     /// @notice Error thrown when the obligation tokens are not compatible
     error IncompatiblePairs();
     /// @notice Error thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
+
+    // --- Allocation --- //
+
+    /// @notice Allocate a settlement transfers list for the match settlement
+    /// @dev This list allows settlement validation logic to dynamically register transfers in this list.
+    /// We execute all transfers at the end in a single pass.
+    /// Dynamically pushing transfers to this list allows handlers to stay specific to the
+    /// type of `SettlementBundle` they are operating on.
+    /// @param party0SettlementBundle The settlement bundle for the first party
+    /// @param party1SettlementBundle The settlement bundle for the second party
+    /// @return The allocated settlement transfers list
+    /// TODO: Generalize this method to allocate a "settlement context" which will store all data that
+    /// the transaction needs to verify after type-specific logic. This will include the transfers list,
+    /// as well as a proofs list which will store all proofs that the transaction needs to verify for settlement.
+    function allocateSettlementTransfers(
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle
+    )
+        internal
+        pure
+        returns (SettlementTransfers memory)
+    {
+        uint256 capacity = SettlementBundleLib.getNumTransfers(party0SettlementBundle)
+            + SettlementBundleLib.getNumTransfers(party1SettlementBundle);
+        return SettlementTransfersLib.newList(capacity);
+    }
 
     // --- Obligation Compatibility --- //
 
@@ -97,20 +130,24 @@ library SettlementLib {
         }
     }
 
-    // --- State Updates --- //
+    // --- Transfers Execution --- //
 
-    /// @notice Update darkpool state for a pair of settlement bundles
-    /// @param party0SettlementBundle The settlement bundle for the first party
-    /// @param party1SettlementBundle The settlement bundle for the second party
-    /// @param weth The WETH9 contract instance used for depositing/withdrawing native tokens
-    function updateDarkpoolState(
-        SettlementBundle calldata party0SettlementBundle,
-        SettlementBundle calldata party1SettlementBundle,
-        IWETH9 weth
-    )
-        public
-    {
-        // First, execute any ERC20 transfers necessary for the settlement bundles
-        SettlementTransfersLib.executeTransfers(party0SettlementBundle, party1SettlementBundle, weth);
+    /// @notice Execute the transfers necessary for settlement
+    /// @param settlementTransfers The settlement transfers to execute
+    /// @param weth The WETH9 contract instance
+    /// @param permit2 The permit2 contract instance
+    function executeTransfers(SettlementTransfers memory settlementTransfers, IWETH9 weth, IPermit2 permit2) internal {
+        // First, execute the deposits
+        // We execute deposits first to ensure the darkpool is capitalized for withdrawals
+        for (uint256 i = 0; i < settlementTransfers.numDeposits(); ++i) {
+            SimpleTransfer memory deposit = settlementTransfers.deposits.transfers[i];
+            ExternalTransferLib.executeTransfer(deposit, weth, permit2);
+        }
+
+        // Second, execute the withdrawals
+        for (uint256 i = 0; i < settlementTransfers.numWithdrawals(); ++i) {
+            SimpleTransfer memory withdrawal = settlementTransfers.withdrawals.transfers[i];
+            ExternalTransferLib.executeTransfer(withdrawal, weth, permit2);
+        }
     }
 }

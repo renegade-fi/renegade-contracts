@@ -19,6 +19,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
+import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 
 /// @title DarkpoolV2
@@ -176,18 +177,20 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     )
         public
     {
-        // 1. Validate that the settlement obligations are compatible with one another
+        // 1. Allocate a settlement context
+        SettlementTransfers memory settlementTransfers =
+            SettlementLib.allocateSettlementTransfers(party0SettlementBundle, party1SettlementBundle);
+
+        // 2. Validate that the settlement obligations are compatible with one another
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 
-        // 2. Authorize the intents in the settlement bundles
+        // 3. Authorize the intents in the settlement bundles
         SettlementLib.validateSettlementBundle(party0SettlementBundle, openPublicIntents);
         SettlementLib.validateSettlementBundle(party1SettlementBundle, openPublicIntents);
 
-        // 3. After the settlement bundles are validated, update the darkpool's state
-        // TODO: In this step, we re-decode the settlement bundles to operate on data. We mostly do
-        // this to handle both bundles simultaneously for e.g. ERC20 transfers. We could defer transfers
-        // to the end of the method like we do proofs, and operate on the decoded data all at once.
-        SettlementLib.updateDarkpoolState(party0SettlementBundle, party1SettlementBundle, weth);
+        // 4. Execute the transfers necessary for settlement
+        // The helpers above will push transfers to the settlement transfers list if necessary
+        SettlementLib.executeTransfers(settlementTransfers, weth, permit2);
 
         // TODO: Verify proofs necessary for each step here
     }
