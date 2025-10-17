@@ -7,7 +7,7 @@ import { SettlementBundle, PublicIntentPermit, PublicIntentPermitLib } from "dar
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { NativeSettledPublicIntentLib } from "darkpoolv2-libraries/settlement/NativeSettledPublicIntent.sol";
+import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract IntentConstraintsTest is SettlementTestUtils {

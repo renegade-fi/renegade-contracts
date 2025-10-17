@@ -41,6 +41,9 @@ library NativeSettledPublicIntentLib {
     error InvalidObligationPrice(uint256 amountOut, uint256 minAmountOut);
 
     /// @notice Validate a public intent and public balance settlement bundle
+    /// @dev Note that in contrast to other settlement bundle types, no balance obligation
+    /// constraints are checked here. The balance constraint is implicitly checked by transferring
+    /// into the darkpool.
     /// @param settlementBundle The settlement bundle to validate
     /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
     /// If an intent's hash is already in the mapping, we need not check its owner's signature.
@@ -123,7 +126,7 @@ library NativeSettledPublicIntentLib {
         internal
         pure
     {
-        // Verify that the pair
+        // Verify that the pair matches the intent
         bool pairValid = intent.inToken == obligation.inputToken && intent.outToken == obligation.outputToken;
         if (!pairValid) revert InvalidObligationPair();
 

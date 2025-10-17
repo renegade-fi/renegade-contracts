@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import {
     SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
 } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
+import { SettlementTransfersLib } from "./SettlementTransfers.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
@@ -93,5 +95,22 @@ library SettlementLib {
         } else {
             revert("Not implemented");
         }
+    }
+
+    // --- State Updates --- //
+
+    /// @notice Update darkpool state for a pair of settlement bundles
+    /// @param party0SettlementBundle The settlement bundle for the first party
+    /// @param party1SettlementBundle The settlement bundle for the second party
+    /// @param weth The WETH9 contract instance used for depositing/withdrawing native tokens
+    function updateDarkpoolState(
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle,
+        IWETH9 weth
+    )
+        public
+    {
+        // First, execute any ERC20 transfers necessary for the settlement bundles
+        SettlementTransfersLib.executeTransfers(party0SettlementBundle, party1SettlementBundle, weth);
     }
 }

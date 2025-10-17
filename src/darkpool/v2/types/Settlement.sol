@@ -59,6 +59,30 @@ library SettlementBundleLib {
     /// @notice The error type emitted when a settlement bundle type check fails
     error InvalidSettlementBundleType();
 
+    /// @notice Return whether a settlement bundle is natively settled; i.e. is
+    /// capitalized by an EOA balance
+    /// @param bundle The settlement bundle to check
+    /// @return Whether the settlement bundle is natively settled
+    function isNativelySettled(SettlementBundle calldata bundle) internal pure returns (bool) {
+        return bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT
+            || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+    }
+
+    // forge-lint: disable-next-item(mixed-case-function)
+    /// @notice Return the EOA address of a natively settled bundle
+    /// @param bundle The settlement bundle to return the EOA address for
+    /// @return The EOA address of the natively settled bundle
+    function getEOAAddress(SettlementBundle calldata bundle) internal pure returns (address) {
+        require(isNativelySettled(bundle), InvalidSettlementBundleType());
+
+        if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            PublicIntentPublicBalanceBundle memory bundleData = decodePublicBundleData(bundle);
+            return bundleData.auth.permit.intent.owner;
+        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+            revert("Not implemented");
+        }
+    }
+
     /// @notice Decode a public settlement bundle
     /// @param bundle The settlement bundle to decode
     /// @return bundleData The decoded bundle data
