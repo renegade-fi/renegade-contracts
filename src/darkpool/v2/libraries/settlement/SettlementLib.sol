@@ -111,20 +111,22 @@ library SettlementLib {
 
     // --- Settlement Bundle Validation --- //
 
-    /// @notice Validate a settlement bundle
+    /// @notice Execute a settlement bundle
     /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementTransfers The settlement transfers to execute, this method will append transfers to this list.
     /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
-    /// @dev This function validates the settlement bundle based on the bundle type
-    /// @dev See the library files in this directory for type-specific validation logic.
-    function validateSettlementBundle(
+    /// @dev This function validates and executes the settlement bundle based on the bundle type
+    /// @dev See the library files in this directory for type-specific execution & validation logic.
+    function executeSettlementBundle(
         SettlementBundle calldata settlementBundle,
+        SettlementTransfers memory settlementTransfers,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
         public
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            NativeSettledPublicIntentLib.validate(settlementBundle, openPublicIntents);
+            NativeSettledPublicIntentLib.execute(settlementBundle, settlementTransfers, openPublicIntents);
         } else {
             revert("Not implemented");
         }

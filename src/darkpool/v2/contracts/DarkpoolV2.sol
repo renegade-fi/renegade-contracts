@@ -184,9 +184,9 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         // 2. Validate that the settlement obligations are compatible with one another
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 
-        // 3. Authorize the intents in the settlement bundles
-        SettlementLib.validateSettlementBundle(party0SettlementBundle, openPublicIntents);
-        SettlementLib.validateSettlementBundle(party1SettlementBundle, openPublicIntents);
+        // 3. Validate and authorize the settlement bundles
+        SettlementLib.executeSettlementBundle(party0SettlementBundle, settlementTransfers, openPublicIntents);
+        SettlementLib.executeSettlementBundle(party1SettlementBundle, settlementTransfers, openPublicIntents);
 
         // 4. Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement transfers list if necessary

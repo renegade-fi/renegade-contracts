@@ -16,6 +16,7 @@ import {
     ObligationLib,
     PublicIntentPermitLib
 } from "darkpoolv2-types/Settlement.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 contract SettlementTestUtils is DarkpoolV2TestBase {
@@ -47,6 +48,8 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
     // ---------
     // | Utils |
     // ---------
+
+    // --- Signatures --- //
 
     /// @dev Sign an intent permit
     function signIntentPermit(
@@ -92,6 +95,13 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
         // Sign with the private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, obligationHash);
         return abi.encodePacked(r, s, v);
+    }
+
+    // --- Dummy Data --- //
+
+    /// @dev Create a dummy `SettlementTransfers` list for the test
+    function _createSettlementTransfers() internal returns (SettlementTransfers memory transfers) {
+        transfers = SettlementTransfersLib.newList(1);
     }
 
     /// @dev Create two dummy obligations which are compatible with one another

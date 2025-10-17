@@ -11,25 +11,31 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/Settlement.sol";
+import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
+import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 contract IntentAuthorizationTest is SettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
+    using FixedPointLib for FixedPoint;
 
     // -----------
     // | Helpers |
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _validateSettlementBundleCalldata(SettlementBundle calldata bundle) external {
-        SettlementLib.validateSettlementBundle(bundle, openPublicIntents);
+    function _executeSettlementBundle(SettlementBundle calldata bundle) external returns (SettlementTransfers memory) {
+        SettlementTransfers memory settlementTransfers = _createSettlementTransfers();
+        SettlementLib.executeSettlementBundle(bundle, settlementTransfers, openPublicIntents);
+        return settlementTransfers;
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
-    function authorizeIntentHelper(SettlementBundle memory bundle) internal {
-        this._validateSettlementBundleCalldata(bundle);
+    function authorizeIntentHelper(SettlementBundle memory bundle) internal returns (SettlementTransfers memory) {
+        this._executeSettlementBundle(bundle);
     }
 
     // ---------
@@ -92,23 +98,30 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         authorizeIntentHelper(bundle);
 
         // Verify the intent was cached in the mapping
+        SettlementObligation memory obligation = abi.decode(bundle.obligation.data, (SettlementObligation));
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
+
         bytes32 intentHash = authBundle.permit.computeHash();
         uint256 amountRemaining = openPublicIntents[intentHash];
-        assertEq(amountRemaining, authBundle.permit.intent.amountIn, "Intent not cached");
+        uint256 expectedAmountRemaining = authBundle.permit.intent.amountIn - obligation.amountIn;
+        assertEq(amountRemaining, expectedAmountRemaining, "Intent not cached");
 
         // Now create a second bundle with the same intent but invalid owner signature
         // This should still pass because we skip signature verification for cached intents
         PublicIntentAuthBundle memory authBundle2 = authBundle;
         authBundle2.intentSignature = hex"deadbeef"; // Invalid signature
 
-        // Create new executor signature for second fill
+        // Setup an obligation for a smaller amount
+        obligation.amountIn = randomUint(1, amountRemaining);
+        uint256 minAmountOut = authBundle2.permit.intent.minPrice.unsafeFixedPointMul(obligation.amountIn);
+        obligation.amountOut = minAmountOut + 1;
+
+        bundle.obligation.data = abi.encode(obligation);
         authBundle2.executorSignature = signObligation(bundle.obligation, executor.privateKey);
 
         // Create the second bundle
         PublicIntentPublicBalanceBundle memory bundleData2 = PublicIntentPublicBalanceBundle({ auth: authBundle2 });
-
         SettlementBundle memory bundle2 = SettlementBundle({
             obligation: bundle.obligation,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
