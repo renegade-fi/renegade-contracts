@@ -60,15 +60,14 @@ library SettlementBundleLib {
     error InvalidSettlementBundleType();
 
     /// @notice Get the number of transfers a settlement bundle will require in order to settle
+    /// @notice A transfer is both a deposit and a subsequent withdrawal from the darkpool.
     /// @param bundle The settlement bundle to get the number of transfers for
-    /// @dev If the bundle is natively settled, it will require 2 transfers:
-    /// 1. A deposit from the EOA to the darkpool
-    /// 2. A withdrawal from the darkpool to the EOA
+    /// @dev If the bundle is natively settled, it will require 1 transfer.
     /// If the bundle is Renegade settled, no transfers are required.
     /// @return The number of transfers required to settle the bundle
     function getNumTransfers(SettlementBundle calldata bundle) internal pure returns (uint256) {
         if (isNativelySettled(bundle)) {
-            return 2; // One deposit and one withdrawal
+            return 1; // One transfer: a deposit and a subsequent withdrawal
         }
 
         // All balance updates are Merklized

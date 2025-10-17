@@ -27,6 +27,7 @@ library ExternalTransferLib {
     /// @notice Execute a single ERC20 transfer
     /// @param transfer The transfer to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
+    /// @param permit2 The permit2 contract instance
     function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
         // If the amount is zero, do nothing
         if (transfer.amount == 0) {
@@ -56,6 +57,7 @@ library ExternalTransferLib {
     /// @notice Execute a batch of simple ERC20 transfers
     /// @param transfers The batch of transfers to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
+    /// @param permit2 The permit2 contract instance
     function executeTransfers(SimpleTransfer[] memory transfers, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
         for (uint256 i = 0; i < transfers.length; ++i) {
             executeTransfer(transfers[i], wrapper, permit2);

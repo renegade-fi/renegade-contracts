@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+/* solhint-disable one-contract-per-file */
 pragma solidity ^0.8.24;
 
 // ---------
@@ -43,6 +44,8 @@ struct SettlementTransfersList {
     uint256 nextIndex;
 }
 
+/// @title Settlement Transfers List Library
+/// @author Renegade Eng
 /// @notice A library implementing vector-like operations on the settlement transfers list
 library SettlementTransfersListLib {
     // --- Errors --- //
@@ -70,11 +73,11 @@ library SettlementTransfersListLib {
     /// @param list The list to push to
     /// @param transfer The transfer to push
     function push(SettlementTransfersList memory list, SimpleTransfer memory transfer) internal pure {
-        if (list.nextIndex >= list.transfers.length) {
+        if (list.nextIndex > list.transfers.length - 1) {
             revert CapacityExceeded();
         }
         list.transfers[list.nextIndex] = transfer;
-        list.nextIndex++;
+        ++list.nextIndex;
     }
 }
 
@@ -90,6 +93,8 @@ struct SettlementTransfers {
 /// @notice A library implementing vector-like semantics for the `SettlementTransfers` type
 /// @author Renegade Eng
 library SettlementTransfersLib {
+    using SettlementTransfersListLib for SettlementTransfersList;
+
     /// @notice Create a new settlement transfers list
     /// @param capacity The initial capacity of the list
     /// @return The new settlement transfers list
@@ -98,6 +103,20 @@ library SettlementTransfersLib {
             deposits: SettlementTransfersListLib.newList(capacity),
             withdrawals: SettlementTransfersListLib.newList(capacity)
         });
+    }
+
+    /// @notice Get the length of the deposits list
+    /// @param transfers The transfers to get the length of
+    /// @return The length of the deposits list
+    function numDeposits(SettlementTransfers memory transfers) internal pure returns (uint256) {
+        return transfers.deposits.length();
+    }
+
+    /// @notice Get the length of the withdrawals list
+    /// @param transfers The transfers to get the length of
+    /// @return The length of the withdrawals list
+    function numWithdrawals(SettlementTransfers memory transfers) internal pure returns (uint256) {
+        return transfers.withdrawals.length();
     }
 
     /// @notice Push a deposit to the list
