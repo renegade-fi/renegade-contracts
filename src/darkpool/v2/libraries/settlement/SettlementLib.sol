@@ -2,17 +2,16 @@
 pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { ECDSALib } from "renegade-lib/ECDSA.sol";
 
 import {
     SettlementBundle,
-    IntentBundle,
+    SettlementBundleType,
     ObligationBundle,
     ObligationType,
-    IntentType,
-    PublicIntentAuthBundle
+    PublicIntentPermit
 } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
@@ -24,10 +23,6 @@ library SettlementLib {
     error IncompatiblePairs();
     /// @notice Error thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
-    /// @notice Error thrown when an intent signature is invalid
-    error InvalidIntentSignature();
-    /// @notice Error thrown when an executor signature is invalid
-    error InvalidExecutorSignature();
 
     // --- Obligation Compatibility --- //
 
@@ -85,71 +80,34 @@ library SettlementLib {
         }
     }
 
-    // --- Intent Authorization --- //
+    // --- Settlement Bundle Validation --- //
 
-    /// @notice Authorize an intent bundle
-    /// @param settlementBundle The settlement bundle to authorize
+    /// @notice Validate a settlement bundle
+    /// @param settlementBundle The settlement bundle to validate
     /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
-    function authorizeIntent(
+    /// @dev This function validates the settlement bundle based on the bundle type
+    /// @dev See the library files in this directory for type-specific validation logic.
+    function validateSettlementBundle(
         SettlementBundle calldata settlementBundle,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
-        internal
+        public
     {
-        IntentBundle calldata intentBundle = settlementBundle.intent;
-        IntentType intentType = intentBundle.intentType;
-        if (intentType == IntentType.PUBLIC) {
-            validatePublicIntentAuthorization(settlementBundle, openPublicIntents);
+        SettlementBundleType bundleType = settlementBundle.bundleType;
+        if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            NativeSettledPublicIntentLib.validate(settlementBundle, openPublicIntents);
         } else {
             revert("Not implemented");
         }
     }
 
-    /// @notice Validate the authorization of a public intent
-    /// @param settlementBundle The settlement bundle to validate
-    /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
-    /// If an intent's hash is already in the mapping, we need not check its owner's signature.
-    /// @dev We require two checks to pass for a public intent to be authorized:
-    /// 1. The executor has signed the settlement obligation. This authorizes the individual fill parameters.
-    /// 2. The intent owner has signed a tuple of (executor, intent). This authorizes the intent to be filled by the
-    /// executor.
-    function validatePublicIntentAuthorization(
-        SettlementBundle calldata settlementBundle,
-        mapping(bytes32 => uint256) storage openPublicIntents
-    )
-        internal
-    {
-        // Decode the intent data
-        IntentBundle memory intentBundle = settlementBundle.intent;
-        PublicIntentAuthBundle memory auth = abi.decode(intentBundle.data, (PublicIntentAuthBundle));
+    // --- Helpers --- //
 
-        // Verify that the executor has signed the settlement obligation
-        bytes memory obligationBytes = abi.encode(settlementBundle.obligation);
-        bytes32 obligationHash = EfficientHashLib.hash(obligationBytes);
-        bool executorValid = ECDSALib.verify(obligationHash, auth.executorSignature, auth.permit.executor);
-        if (!executorValid) revert InvalidExecutorSignature();
-
-        // If the intent is already in the mapping, we need not check its owner's signature
-        bytes memory intentBytes = abi.encode(auth.permit.executor, auth.permit.intent);
-        bytes32 intentHash = EfficientHashLib.hash(intentBytes);
-        uint256 amountRemaining = openPublicIntents[intentHash];
-        if (amountRemaining > 0) {
-            return;
-        }
-
-        // If the intent is not in the mapping, this is its first fill, and we must verify the signature
-        bool sigValid = ECDSALib.verify(intentHash, auth.intentSignature, auth.permit.intent.owner);
-        if (!sigValid) revert InvalidIntentSignature();
-
-        // Now that we've authorized the intent, update the amount remaining mapping
-        openPublicIntents[intentHash] = auth.permit.intent.amountIn;
-    }
-
-    // --- Obligation Constraints --- //
-
-    /// @notice Validate the intent and balance constraints on a settlement obligation
-    /// @param settlementBundle The settlement bundle to validate
-    function validateObligationConstraints(SettlementBundle calldata settlementBundle) public {
-        // TODO: Implement the obligation constraint validation logic
+    /// @notice Compute the intent hash for a given intent permit
+    /// @param permit The intent permit to compute the hash for
+    /// @return The hash of the intent permit
+    function computeIntentHash(PublicIntentPermit memory permit) internal pure returns (bytes32) {
+        bytes memory intentBytes = abi.encode(permit);
+        return EfficientHashLib.hash(intentBytes);
     }
 }

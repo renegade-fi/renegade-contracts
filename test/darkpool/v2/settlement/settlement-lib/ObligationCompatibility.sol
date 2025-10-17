@@ -3,9 +3,11 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import { ObligationBundle, ObligationType } from "darkpoolv2-types/Settlement.sol";
+import {
+    SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
+} from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
-import { SettlementLib } from "darkpoolv2-libraries/SettlementLib.sol";
+import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is SettlementTestUtils {

@@ -4,25 +4,24 @@ pragma solidity ^0.8.24;
 import { DarkpoolV2TestBase } from "../../DarkpoolV2TestBase.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
-import { ObligationBundle } from "darkpoolv2-types/Settlement.sol";
+import { SettlementBundle, ObligationBundle, PublicIntentPermit } from "darkpoolv2-types/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
 
 contract SettlementTestUtils is DarkpoolV2TestBase {
+    using SettlementLib for PublicIntentPermit;
+
     /// @dev Sign an intent permit
     function signIntentPermit(
-        Intent memory intent,
-        address executorAddr,
+        PublicIntentPermit memory permit,
         uint256 signerPrivateKey
     )
         internal
         pure
         returns (bytes memory)
     {
-        // Create the message hash
-        bytes memory permitBytes = abi.encode(executorAddr, intent);
-        bytes32 permitHash = EfficientHashLib.hash(permitBytes);
-
         // Sign with the private key
+        bytes32 permitHash = permit.computeIntentHash();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, permitHash);
         return abi.encodePacked(r, s, v);
     }
