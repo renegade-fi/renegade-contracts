@@ -1,3 +1,20 @@
+[lint]
+exclude_lints = ["incorrect-shift"]
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "all"
+quote_style = "double"
+number_underscore = "thousands"
+wrap_comments = true
+ignore = [
+    "src/darkpool/v1/libraries/VerificationKeys.sol",
+    "src/libraries/merkle/MerkleZeros.sol",
+]
+
 [profile.default]
 evm_version = "cancun"
 src = "src"
@@ -30,17 +47,3 @@ remappings = ["forge-std/=lib/forge-std/src/"]
 via_ir = true
 optimizer = true
 optimizer_runs = 100_000
-
-[fmt]
-line_length = 120
-tab_width = 4
-bracket_spacing = true
-int_types = "long"
-multiline_func_header = "all"
-quote_style = "double"
-number_underscore = "thousands"
-wrap_comments = true
-ignore = [
-    "src/darkpool/v1/libraries/VerificationKeys.sol",
-    "src/libraries/merkle/MerkleZeros.sol",
-]

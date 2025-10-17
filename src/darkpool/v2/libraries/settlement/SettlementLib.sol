@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-
 import {
-    SettlementBundle,
-    SettlementBundleType,
-    ObligationBundle,
-    ObligationType,
-    PublicIntentPermit
+    SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
 } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
@@ -99,15 +93,5 @@ library SettlementLib {
         } else {
             revert("Not implemented");
         }
-    }
-
-    // --- Helpers --- //
-
-    /// @notice Compute the intent hash for a given intent permit
-    /// @param permit The intent permit to compute the hash for
-    /// @return The hash of the intent permit
-    function computeIntentHash(PublicIntentPermit memory permit) internal pure returns (bytes32) {
-        bytes memory intentBytes = abi.encode(permit);
-        return EfficientHashLib.hash(intentBytes);
     }
 }
