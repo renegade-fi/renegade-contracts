@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
+import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 
 /// @title IDarkpoolV2
 /// @author Renegade Eng

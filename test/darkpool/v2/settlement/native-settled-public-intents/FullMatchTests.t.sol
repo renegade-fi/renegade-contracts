@@ -5,8 +5,9 @@ pragma solidity ^0.8.24;
 
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementBundle, PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/Settlement.sol";
-import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 

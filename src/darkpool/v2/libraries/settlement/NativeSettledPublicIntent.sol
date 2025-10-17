@@ -4,14 +4,15 @@ pragma solidity ^0.8.24;
 import {
     SettlementBundle,
     PublicIntentPublicBalanceBundle,
+    SettlementBundleLib
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import {
     PublicIntentAuthBundle,
-    ObligationBundle,
     PublicIntentPermit,
-    SettlementBundleLib,
-    ObligationLib,
     PublicIntentPermitLib
-} from "darkpoolv2-types/Settlement.sol";
-import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/SettlementObligation.sol";
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";

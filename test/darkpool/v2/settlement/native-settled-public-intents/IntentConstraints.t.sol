@@ -3,9 +3,10 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import { SettlementBundle, PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/Settlement.sol";
+import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";

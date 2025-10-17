@@ -4,18 +4,18 @@ pragma solidity ^0.8.24;
 import { Vm } from "forge-std/Vm.sol";
 import { DarkpoolV2TestBase } from "../../DarkpoolV2TestBase.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/SettlementObligation.sol";
+import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import {
     SettlementBundle,
     SettlementBundleType,
-    ObligationBundle,
-    ObligationType,
-    PublicIntentPublicBalanceBundle,
+    PublicIntentPublicBalanceBundle
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import {
     PublicIntentAuthBundle,
     PublicIntentPermit,
-    ObligationLib,
     PublicIntentPermitLib
-} from "darkpoolv2-types/Settlement.sol";
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 

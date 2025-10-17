@@ -4,11 +4,13 @@ pragma solidity ^0.8.24;
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import {
-    SettlementBundle, SettlementBundleType, ObligationBundle, ObligationType
-} from "darkpoolv2-types/Settlement.sol";
+    SettlementBundle,
+    SettlementBundleType,
+    SettlementBundleLib
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
-import { SettlementBundleLib } from "darkpoolv2-types/Settlement.sol";
-import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";

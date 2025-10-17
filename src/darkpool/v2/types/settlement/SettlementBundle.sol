@@ -2,9 +2,8 @@
 /* solhint-disable one-contract-per-file */
 pragma solidity ^0.8.24;
 
-import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { PublicIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -108,81 +107,5 @@ library SettlementBundleLib {
     {
         require(bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
-    }
-}
-
-// --------------------
-// | Obligation Types |
-// --------------------
-
-/// @notice The settlement obligation bundle for a user
-/// @dev This data represents the following based on the obligation type:
-/// 1. *Public Obligation*: A plaintext settlement obligation
-/// 2. TODO: Add private obligation data here
-struct ObligationBundle {
-    /// @dev The type of obligation
-    ObligationType obligationType;
-    /// @dev The data validating the obligation
-    bytes data;
-}
-
-/// @notice The types of obligations possible in the darkpool
-enum ObligationType {
-    PUBLIC,
-    PRIVATE
-}
-
-/// @title Obligation Library
-/// @author Renegade Eng
-/// @notice Library for decoding and hashing obligation data
-library ObligationLib {
-    /// @notice The error type emitted when an obligation type check fails
-    error InvalidObligationType();
-
-    /// @notice Decode a public obligation
-    /// @param bundle The obligation bundle to decode
-    /// @return obligation The decoded obligation
-    function decodePublicObligation(ObligationBundle calldata bundle)
-        internal
-        pure
-        returns (SettlementObligation memory obligation)
-    {
-        require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
-        obligation = abi.decode(bundle.data, (SettlementObligation));
-    }
-}
-
-// ------------------------------
-// | Intent Authorization Types |
-// ------------------------------
-
-/// @notice The public intent authorization payload with signature attached
-struct PublicIntentAuthBundle {
-    /// @dev The intent authorization permit
-    PublicIntentPermit permit;
-    /// @dev The signature of the intent
-    bytes intentSignature;
-    /// @dev The signature of the settlement obligation by the authorized executor
-    /// @dev This authorizes the fields of the obligation, and importantly implicitly authorizes the price
-    bytes executorSignature;
-}
-
-/// @notice Intent authorization data for a public intent
-struct PublicIntentPermit {
-    /// @dev The intent to authorize
-    Intent intent;
-    /// @dev The authorized executor of the intent
-    address executor;
-}
-
-/// @title Public Intent Permit Library
-/// @author Renegade Eng
-/// @notice Library for computing the hash of a public intent permit
-library PublicIntentPermitLib {
-    /// @notice Compute the hash of a public intent permit
-    /// @param permit The public intent permit to compute the hash for
-    /// @return The hash of the public intent permit
-    function computeHash(PublicIntentPermit memory permit) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(abi.encode(permit));
     }
 }

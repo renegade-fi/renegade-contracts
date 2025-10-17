@@ -18,7 +18,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
-import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
+import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 
