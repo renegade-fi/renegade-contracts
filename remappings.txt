@@ -24,7 +24,7 @@ darkpoolv1-test/=test/darkpool/v1
 
 darkpoolv2-contracts/=src/darkpool/v2/contracts
 darkpoolv2-interfaces/=src/darkpool/v2/interfaces
-darkpoolv2-libraries/=src/darkpool/v2/libraries
+darkpoolv2-lib/=src/darkpool/v2/libraries
 darkpoolv2-types/=src/darkpool/v2/types
 
 renegade-lib/=src/libraries

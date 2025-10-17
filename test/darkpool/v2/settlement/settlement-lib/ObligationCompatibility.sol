@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/Settlement.sol";
 import { SettlementObligation } from "darkpoolv2-types/SettlementObligation.sol";
-import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
+import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is SettlementTestUtils {

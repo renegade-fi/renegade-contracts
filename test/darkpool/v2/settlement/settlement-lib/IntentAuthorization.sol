@@ -11,8 +11,8 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/Settlement.sol";
-import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
-import { NativeSettledPublicIntentLib } from "darkpoolv2-libraries/settlement/NativeSettledPublicIntent.sol";
+import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract IntentAuthorizationTest is SettlementTestUtils {

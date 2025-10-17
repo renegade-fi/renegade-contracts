@@ -19,7 +19,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/Settlement.sol";
-import { SettlementLib } from "darkpoolv2-libraries/settlement/SettlementLib.sol";
+import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 
 /// @title DarkpoolV2
 /// @author Renegade Eng
@@ -183,7 +183,12 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         SettlementLib.validateSettlementBundle(party0SettlementBundle, openPublicIntents);
         SettlementLib.validateSettlementBundle(party1SettlementBundle, openPublicIntents);
 
-        // 4. Settle the match by updating the balances for each party
-        // TODO: Settlement logic
+        // 3. After the settlement bundles are validated, update the darkpool's state
+        // TODO: In this step, we re-decode the settlement bundles to operate on data. We mostly do
+        // this to handle both bundles simultaneously for e.g. ERC20 transfers. We could defer transfers
+        // to the end of the method like we do proofs, and operate on the decoded data all at once.
+        SettlementLib.updateDarkpoolState(party0SettlementBundle, party1SettlementBundle, weth);
+
+        // TODO: Verify proofs necessary for each step here
     }
 }

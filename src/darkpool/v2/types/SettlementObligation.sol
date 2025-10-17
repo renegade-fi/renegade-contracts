@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ExternalTransferLib } from "darkpoolv2-lib/Transfers.sol";
 
 /// @notice A settlement obligation for a user
 struct SettlementObligation {
@@ -25,5 +26,45 @@ library SettlementObligationLib {
     function computeObligationHash(SettlementObligation memory obligation) internal pure returns (bytes32) {
         bytes memory obligationBytes = abi.encode(obligation);
         return EfficientHashLib.hash(obligationBytes);
+    }
+
+    /// @notice Get the deposit transfer for a settlement obligation
+    /// @param obligation The settlement obligation to get the deposit transfer for
+    /// @param owner The owner of the settlement obligation
+    /// @return The deposit transfer
+    function buildPermit2AllowanceDeposit(
+        SettlementObligation memory obligation,
+        address owner
+    )
+        internal
+        pure
+        returns (ExternalTransferLib.SimpleTransfer memory)
+    {
+        return ExternalTransferLib.SimpleTransfer({
+            account: owner,
+            mint: obligation.inputToken,
+            amount: obligation.amountIn,
+            transferType: ExternalTransferLib.SimpleTransferType.Permit2AllowanceDeposit
+        });
+    }
+
+    /// @notice Get the withdrawal transfer for a settlement obligation
+    /// @param obligation The settlement obligation to get the withdrawal transfer for
+    /// @param owner The owner of the settlement obligation
+    /// @return The withdrawal transfer
+    function buildWithdrawalTransfer(
+        SettlementObligation memory obligation,
+        address owner
+    )
+        internal
+        pure
+        returns (ExternalTransferLib.SimpleTransfer memory)
+    {
+        return ExternalTransferLib.SimpleTransfer({
+            account: owner,
+            mint: obligation.outputToken,
+            amount: obligation.amountOut,
+            transferType: ExternalTransferLib.SimpleTransferType.Withdrawal
+        });
     }
 }
