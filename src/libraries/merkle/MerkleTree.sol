@@ -65,6 +65,20 @@ library MerkleTreeLib {
         return BN254.ScalarField.wrap(MerkleZeros.getZeroValue(height));
     }
 
+    /// @notice Whether the Merkle tree is full
+    /// @param tree The tree to check if it is full
+    /// @return full Whether the Merkle tree is full
+    function isFull(MerkleTree storage tree) internal view returns (bool full) {
+        full = tree.nextIndex == (1 << tree.config.depth);
+    }
+
+    /// @notice Whether the Merkle tree has been initialized
+    /// @param tree The tree to check if it has been initialized
+    /// @return initialized Whether the Merkle tree has been initialized
+    function isInitialized(MerkleTree storage tree) internal view returns (bool initialized) {
+        initialized = tree.config.depth != 0;
+    }
+
     /// @notice Initialize the Merkle tree
     /// @param tree The tree to initialize
     /// @param config_ The config to use for the Merkle tree
