@@ -25,6 +25,14 @@ library MerkleMountainLib {
         mapping(uint256 => MerkleTreeLib.MerkleTree) activeSubTrees;
     }
 
+    /// @notice Get the root of the active sub-tree at the given depth
+    /// @param mountain The Merkle mountain range to get the root of
+    /// @param depth The depth of the sub-tree to get the root of
+    /// @return The root of the active sub-tree at the given depth
+    function getRoot(MerkleMountainRange storage mountain, uint256 depth) internal view returns (BN254.ScalarField) {
+        return mountain.activeSubTrees[depth].getRoot();
+    }
+
     /// @notice Check if a root is in the historical roots
     /// @param mountain The Merkle mountain range to check the root in
     /// @param root The root to check

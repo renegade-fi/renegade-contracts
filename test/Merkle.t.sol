@@ -19,7 +19,7 @@ contract MerkleTest is TestUtils {
     MerkleTreeLib.MerkleTree private tree;
 
     /// @dev Deploy the MerklePoseidon contract
-    function setUp() public {
+    function setUp() public virtual {
         // Sample a Merkle tree depth to test with
         merkleDepth = randomUint(10, 32);
 
