@@ -13,7 +13,7 @@ contract MerkleTest is TestUtils {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
     /// @dev The Merkle depth
-    uint256 constant MERKLE_DEPTH = 32;
+    uint256 public MERKLE_DEPTH;
 
     /// @dev The MerklePoseidon contract
     IHasher public hasher;
@@ -21,8 +21,13 @@ contract MerkleTest is TestUtils {
 
     /// @dev Deploy the MerklePoseidon contract
     function setUp() public {
+        // Sample a Merkle tree depth to test with
+        MERKLE_DEPTH = randomUint(10, 32);
+
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
-        tree.initialize();
+        MerkleTreeLib.MerkleTreeConfig memory config =
+            MerkleTreeLib.MerkleTreeConfig({ storeRoots: true, depth: MERKLE_DEPTH });
+        tree.initialize(config);
     }
 
     // --- Hasher Contract Tests --- //
@@ -36,8 +41,8 @@ contract MerkleTest is TestUtils {
             sisterLeaves[i] = randomFelt();
         }
         uint256[] memory results = hasher.merkleHash(idx, input, sisterLeaves);
-        uint256[] memory expected = runMerkleReferenceImpl(idx, input, sisterLeaves);
         assertEq(results.length, MERKLE_DEPTH + 1, "Expected 32 results");
+        uint256[] memory expected = runMerkleReferenceImpl(MERKLE_DEPTH, idx, input, sisterLeaves);
         assertEq(results[0], input);
 
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
@@ -63,7 +68,7 @@ contract MerkleTest is TestUtils {
     /// @notice Test that the root and root history are initialized correctly
     function test_rootAfterInitialization() public view {
         // Test that the root is the default zero valued root
-        uint256 expectedRoot = MerkleZeros.ZERO_VALUE_ROOT;
+        uint256 expectedRoot = MerkleZeros.getZeroValue(MERKLE_DEPTH);
         uint256 actualRoot = BN254.ScalarField.unwrap(tree.getRoot());
         assertEq(actualRoot, expectedRoot);
 
@@ -78,7 +83,7 @@ contract MerkleTest is TestUtils {
         uint256 root = BN254.ScalarField.unwrap(tree.getRoot());
 
         uint256 currLeaf = MerkleZeros.getZeroValue(0);
-        for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; i++) {
+        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
             uint256[] memory inputs = new uint256[](2);
             inputs[0] = currLeaf;
             inputs[1] = currLeaf;
@@ -93,12 +98,11 @@ contract MerkleTest is TestUtils {
         uint256 nInserts = randomUint(1, 20);
         uint256[] memory inputs = new uint256[](nInserts);
         for (uint256 i = 0; i < nInserts; i++) {
-            // inputs[i] = randomFelt();
-            inputs[i] = i;
+            inputs[i] = randomFelt();
         }
 
         // Run the reference implementation
-        uint256 expectedRoot = runMerkleRootReferenceImpl(inputs);
+        uint256 expectedRoot = runMerkleRootReferenceImpl(MERKLE_DEPTH, inputs);
 
         // Insert into the solidity Merkle tree
         for (uint256 i = 0; i < nInserts; i++) {
@@ -187,6 +191,7 @@ contract MerkleTest is TestUtils {
 
     /// @dev Helper to run the reference implementation
     function runMerkleReferenceImpl(
+        uint256 depth,
         uint256 idx,
         uint256 input,
         uint256[] memory sisterLeaves
@@ -198,36 +203,39 @@ contract MerkleTest is TestUtils {
         compileRustBinary("test/rust-reference-impls/merkle/Cargo.toml");
 
         // Prepare arguments for the binary
-        string[] memory args = new string[](36); // program name + idx + input + 32 sister leaves
+        uint256 argsLength = 5 + depth; // program name + command + depth + idx + input + depth sister nodes
+        string[] memory args = new string[](argsLength);
         args[0] = "./test/rust-reference-impls/target/debug/merkle";
         args[1] = "merkle-hash";
-        args[2] = vm.toString(idx);
-        args[3] = vm.toString(input);
+        args[2] = vm.toString(depth);
+        args[3] = vm.toString(idx);
+        args[4] = vm.toString(input);
 
         // Pass sister leaves as individual arguments
         for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
-            args[i + 4] = vm.toString(sisterLeaves[i]);
+            args[i + 5] = vm.toString(sisterLeaves[i]);
         }
 
         // Run binary and parse space-separated array output
         uint256[] memory result = runBinaryGetArray(args, " ");
-        require(result.length == MERKLE_DEPTH, "Expected 32 values");
+        require(result.length == depth, "Expected depth values");
         return result;
     }
 
     /// @dev Helper to run the Merkle root reference implementation
-    function runMerkleRootReferenceImpl(uint256[] memory inputs) internal returns (uint256) {
+    function runMerkleRootReferenceImpl(uint256 depth, uint256[] memory inputs) internal returns (uint256) {
         // First compile the binary
         compileRustBinary("test/rust-reference-impls/merkle/Cargo.toml");
 
         // Prepare arguments for the binary
-        string[] memory args = new string[](inputs.length + 2);
+        string[] memory args = new string[](inputs.length + 3);
         args[0] = "./test/rust-reference-impls/target/debug/merkle";
         args[1] = "insert-and-get-root";
+        args[2] = vm.toString(depth);
 
         // Pass sister leaves as individual arguments
         for (uint256 i = 0; i < inputs.length; i++) {
-            args[i + 2] = vm.toString(inputs[i]);
+            args[i + 3] = vm.toString(inputs[i]);
         }
 
         // Run binary and parse space-separated array output

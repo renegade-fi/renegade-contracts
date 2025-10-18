@@ -2,14 +2,14 @@
 use renegade_constants::Scalar;
 use renegade_crypto::fields::scalar_to_biguint;
 
-use crate::{util, MerkleHashArgs, TREE_HEIGHT};
+use crate::{util, MerkleHashArgs};
 
 /// Handle the Merkle hash operation
 pub(crate) fn handle_merkle_hash(args: MerkleHashArgs) {
-    if args.sister_leaves.len() != TREE_HEIGHT {
+    if args.sister_leaves.len() != args.depth as usize {
         eprintln!(
             "Expected {} sister leaves, got {}",
-            TREE_HEIGHT,
+            args.depth,
             args.sister_leaves.len()
         );
         std::process::exit(1);

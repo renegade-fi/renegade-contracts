@@ -80,6 +80,7 @@ library MerkleZeros {
 			case 29 { result := ZERO_VALUE_29 }
 			case 30 { result := ZERO_VALUE_30 }
 			case 31 { result := ZERO_VALUE_31 }
+			case 32 { result := ZERO_VALUE_ROOT }
 		}
 	}
 }

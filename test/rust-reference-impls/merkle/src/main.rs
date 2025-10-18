@@ -5,9 +5,6 @@ pub mod util;
 
 use clap::{Parser, Subcommand};
 
-/// The height of the Merkle tree
-const TREE_HEIGHT: usize = 32;
-
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -29,14 +26,13 @@ enum Commands {
 
 #[derive(Parser)]
 struct MerkleHashArgs {
+    /// The depth of the Merkle tree
+    depth: u64,
     /// Index in the Merkle tree
     idx: u64,
-
     /// Input value
     input: String,
-
-    /// Sister leaves (32 values required)
-    #[arg(num_args = 32)]
+    /// Sister leaves
     sister_leaves: Vec<String>,
 }
 
@@ -49,6 +45,8 @@ struct SpongeHashArgs {
 
 #[derive(Parser)]
 struct InsertAndGetRootArgs {
+    /// The depth of the Merkle tree
+    depth: u64,
     /// Input values to insert sequentially (starting from index 0)
     #[arg(required = true)]
     inputs: Vec<String>,

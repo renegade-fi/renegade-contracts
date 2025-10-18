@@ -109,7 +109,6 @@ contract TestUtils is Test {
     function runBinaryGetResponse(string[] memory args) internal virtual returns (string memory) {
         bytes memory res = vm.ffi(args);
         string memory str = string(res);
-
         // Strip the "RES:" prefix and parse
         // We prefix here to avoid the FFI interface interpreting the output as either raw bytes or a string
         require(

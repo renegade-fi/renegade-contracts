@@ -5,7 +5,7 @@ use renegade_crypto::hash::compute_poseidon_hash;
 
 use crate::{
     util::{get_merkle_zero, print_scalar_result},
-    InsertAndGetRootArgs, TREE_HEIGHT,
+    InsertAndGetRootArgs,
 };
 
 // We want to be able to test the following:
@@ -23,7 +23,7 @@ pub(crate) fn handle_insert_get_root(args: InsertAndGetRootArgs) {
         .map(|s| Scalar::from_decimal_string(s).unwrap())
         .collect();
 
-    let tree = TestMerkleTree::new(TREE_HEIGHT as u64, inputs);
+    let tree = TestMerkleTree::new(args.depth, inputs);
     let root = tree.root();
     print_scalar_result(root);
 }

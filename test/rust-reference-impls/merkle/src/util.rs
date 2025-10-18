@@ -12,8 +12,6 @@ use rand::{thread_rng, Rng};
 use renegade_constants::{Scalar, ScalarField};
 use renegade_crypto::hash::compute_poseidon_hash;
 
-use crate::TREE_HEIGHT;
-
 // --- Hashing --- //
 
 /// Get the merkle tree zero value for a given height
@@ -30,7 +28,7 @@ pub fn get_merkle_zero(height: usize) -> Scalar {
 ///
 /// Returns the incremental results at each level, representing the updated values to the insertion path
 pub fn hash_merkle(idx: u64, input: Scalar, sister_leaves: &[Scalar]) -> Vec<Scalar> {
-    let mut results = Vec::with_capacity(TREE_HEIGHT);
+    let mut results = Vec::new();
     let mut current = input;
     let mut current_idx = idx;
 

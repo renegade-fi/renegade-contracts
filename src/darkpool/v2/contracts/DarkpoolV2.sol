@@ -150,7 +150,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         permit2 = permit2_;
         weth = weth_;
         transferExecutor = transferExecutor_;
-        merkleTree.initialize();
+
+        // TODO: Replace with a Merkle mountain range
+        MerkleTreeLib.MerkleTreeConfig memory config = MerkleTreeLib.MerkleTreeConfig({ storeRoots: true, depth: 10 });
+        merkleTree.initialize(config);
     }
 
     // -----------------
