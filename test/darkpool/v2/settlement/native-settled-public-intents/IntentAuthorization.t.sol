@@ -34,8 +34,11 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
-    function authorizeIntentHelper(SettlementBundle memory bundle) internal returns (SettlementTransfers memory) {
-        this._executeSettlementBundle(bundle);
+    function authorizeIntentHelper(SettlementBundle memory bundle)
+        internal
+        returns (SettlementTransfers memory transfers)
+    {
+        transfers = this._executeSettlementBundle(bundle);
     }
 
     // ---------

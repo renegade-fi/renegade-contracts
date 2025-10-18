@@ -57,7 +57,7 @@ library NativeSettledPublicIntentLib {
         SettlementTransfers memory settlementTransfers,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
-        public
+        internal
     {
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();

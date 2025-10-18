@@ -13,6 +13,11 @@ interface IDarkpoolV2 {
     /// @return True if the nullifier has been spent, false otherwise
     function nullifierSpent(BN254.ScalarField nullifier) external view returns (bool);
 
+    /// @notice Get the amount remaining for an open public intent
+    /// @param intentHash The hash of the intent
+    /// @return The amount remaining for the intent
+    function openPublicIntents(bytes32 intentHash) external view returns (uint256);
+
     /// @notice Settle a trade
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party

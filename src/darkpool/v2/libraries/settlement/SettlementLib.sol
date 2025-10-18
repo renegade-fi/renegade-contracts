@@ -62,7 +62,7 @@ library SettlementLib {
         ObligationBundle calldata party0Bundle,
         ObligationBundle calldata party1Bundle
     )
-        public
+        internal
         pure
     {
         // Parties must have the same obligation type; in that both trades must either settle privately or publicly
@@ -87,7 +87,7 @@ library SettlementLib {
         ObligationBundle calldata party0Bundle,
         ObligationBundle calldata party1Bundle
     )
-        public
+        internal
         pure
     {
         // Decode the obligations
@@ -122,7 +122,7 @@ library SettlementLib {
         SettlementTransfers memory settlementTransfers,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
-        public
+        internal
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {

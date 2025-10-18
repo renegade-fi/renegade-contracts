@@ -93,7 +93,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @dev This maps the intent hash to the amount remaining.
     /// @dev An intent hash is a hash of the tuple (executor, intent),
     /// where executor is the address of the party allowed to fill the intent.
-    mapping(bytes32 => uint256) private openPublicIntents;
+    mapping(bytes32 => uint256) public openPublicIntents;
     /// @notice The Merkle tree for wallet commitments
     MerkleTreeLib.MerkleTree private merkleTree;
     /// @notice The nullifier set for the darkpool
