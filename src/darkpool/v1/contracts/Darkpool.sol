@@ -172,7 +172,11 @@ contract Darkpool is Initializable, Ownable2Step, Pausable {
         permit2 = permit2_;
         weth = weth_;
         transferExecutor = transferExecutor_;
-        merkleTree.initialize();
+
+        // Setup the Merkle tree
+        MerkleTreeLib.MerkleTreeConfig memory config =
+            MerkleTreeLib.MerkleTreeConfig({ storeRoots: true, depth: DarkpoolConstants.MERKLE_DEPTH });
+        merkleTree.initialize(config);
     }
 
     /// @notice Allows the contract to receive ETH transfers

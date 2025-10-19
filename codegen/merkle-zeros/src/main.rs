@@ -2,9 +2,9 @@
 //!
 //! This tool generates a Solidity file with predefined Merkle tree zero values.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::Parser;
-use common::merkle_helpers::{generate_zero_values, LEAF_KECCAK_PREIMAGE};
+use common::merkle_helpers::{LEAF_KECCAK_PREIMAGE, generate_zero_values};
 use renegade_constants::MERKLE_HEIGHT;
 use std::fs::File;
 use std::io::Write;
@@ -67,11 +67,11 @@ fn generate_solidity_contract() -> Result<String> {
 
     // Generate all the assembly cases with direct constant values
     for i in 0..MERKLE_HEIGHT {
-        contract.push_str(&format!(
-            "\t\t\tcase {} {{ result := ZERO_VALUE_{} }}\n",
-            i, i
-        ));
+        contract.push_str(&format!("\t\t\tcase {i} {{ result := ZERO_VALUE_{i} }}\n",));
     }
+    contract.push_str(&format!(
+        "\t\t\tcase {MERKLE_HEIGHT} {{ result := ZERO_VALUE_ROOT }}\n"
+    ));
 
     // Remove the default case for assembly since require will handle invalid values
     contract.push_str("\t\t}\n");

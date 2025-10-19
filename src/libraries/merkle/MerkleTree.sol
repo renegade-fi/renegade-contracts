@@ -5,18 +5,38 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { MerkleZeros } from "./MerkleZeros.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 
 /// @title MerkleTreeLib
 /// @author Renegade Eng
 /// @notice Library for Merkle tree operations
-
 library MerkleTreeLib {
+    // --- Errors --- //
+
     /// @notice Error thrown when the Merkle tree is full
     error MerkleTreeFull();
+    /// @notice Error thrown when the Merkle tree does not support historical roots
+    error RootHistoryDisabled();
+
+    // --- Events --- //
+
+    /// @notice Emitted when an internal Merkle node is updated
+    /// @param depth The depth at which the node is updated
+    /// @param index The index of the node in the Merkle tree
+    /// @param new_value The new value of the node
+    /// forge-lint: disable-next-line(mixed-case-variable)
+    event MerkleOpeningNode(uint8 indexed depth, uint128 indexed index, uint256 new_value); // solhint-disable-line
+    /// @notice Emitted when a Merkle leaf is inserted into the tree
+    /// @param index The leaf index
+    /// @param value The value of the leaf
+    /// forge-lint: disable-next-line(mixed-case-variable)
+    event MerkleInsertion(uint128 indexed index, uint256 indexed value);
+
+    // --- Structs --- //
 
     /// @notice Structure containing Merkle tree state
     struct MerkleTree {
+        /// @notice The config for the Merkle tree
+        MerkleTreeConfig config;
         /// @notice The next available leaf index
         uint64 nextIndex;
         /// @notice The current root of the tree
@@ -26,6 +46,16 @@ library MerkleTreeLib {
         /// @notice The root history, mapping from historic roots to a boolean
         mapping(BN254.ScalarField => bool) rootHistory;
     }
+
+    /// @notice The config for the Merkle tree
+    struct MerkleTreeConfig {
+        /// @notice Whether the Merkle tree should store historical roots
+        bool storeRoots;
+        /// @notice The depth of the Merkle tree
+        uint256 depth;
+    }
+
+    // --- Implementation --- //
 
     /// @notice Get the zero value for a given height in the Merkle tree
     /// @param height The height in the Merkle tree
@@ -37,14 +67,18 @@ library MerkleTreeLib {
 
     /// @notice Initialize the Merkle tree
     /// @param tree The tree to initialize
-    function initialize(MerkleTree storage tree) internal {
+    /// @param config_ The config to use for the Merkle tree
+    function initialize(MerkleTree storage tree, MerkleTreeConfig memory config_) internal {
+        tree.config = config_;
         tree.nextIndex = 0;
-        tree.root = BN254.ScalarField.wrap(MerkleZeros.ZERO_VALUE_ROOT);
-        tree.rootHistory[tree.root] = true;
+        tree.root = BN254.ScalarField.wrap(MerkleZeros.getZeroValue(tree.config.depth));
+        if (tree.config.storeRoots) {
+            tree.rootHistory[tree.root] = true;
+        }
 
         // Initialize the sibling path array
-        tree.siblingPath = new BN254.ScalarField[](DarkpoolConstants.MERKLE_DEPTH);
-        for (uint256 i = 0; i < DarkpoolConstants.MERKLE_DEPTH; ++i) {
+        tree.siblingPath = new BN254.ScalarField[](tree.config.depth);
+        for (uint256 i = 0; i < tree.config.depth; ++i) {
             tree.siblingPath[i] = zeroValue(i);
         }
     }
@@ -61,9 +95,11 @@ library MerkleTreeLib {
     /// @param historicalRoot The root to check
     /// @return Whether the root is in the history of the tree
     function rootInHistory(MerkleTree storage tree, BN254.ScalarField historicalRoot) internal view returns (bool) {
+        require(tree.config.storeRoots, RootHistoryDisabled());
         return tree.rootHistory[historicalRoot];
     }
 
+    /* solhint-disable function-max-lines */
     /// @notice Insert a leaf into the tree
     /// @param tree The tree to insert the leaf into
     /// @param leaf The leaf to insert
@@ -84,13 +120,15 @@ library MerkleTreeLib {
         ++tree.nextIndex;
         BN254.ScalarField newRoot = BN254.ScalarField.wrap(hashes[hashes.length - 1]);
         tree.root = newRoot;
-        tree.rootHistory[newRoot] = true;
+        if (tree.config.storeRoots) {
+            tree.rootHistory[newRoot] = true;
+        }
 
         // Update the sibling paths, switching between left and right nodes as appropriate
         // `subtreeFilled` maintains whether the subtree rooted at the current node is full
         // This is initially true, as the current node is the leaf being inserted
         bool subtreeFilled = true;
-        for (uint256 height = 0; height < DarkpoolConstants.MERKLE_DEPTH; ++height) {
+        for (uint256 height = 0; height < tree.config.depth; ++height) {
             // Compute the insertion coordinates at the current height
             uint256 idxAtHeight = idx >> height;
             uint256 idxBit = idxAtHeight & 1;
@@ -114,10 +152,11 @@ library MerkleTreeLib {
             // Emit an event for indexers to track the opening of the current insertion
             uint256 siblingIdx = isRightChild ? idxAtHeight - 1 : idxAtHeight + 1;
             uint8 depth = uint8(DarkpoolConstants.MERKLE_DEPTH - height);
-            emit IDarkpool.MerkleOpeningNode(depth, uint128(siblingIdx), sisterLeaves[height]);
+            emit MerkleOpeningNode(depth, uint128(siblingIdx), sisterLeaves[height]);
         }
 
         // Log the updates to the Merkle tree after an insertion
-        emit IDarkpool.MerkleInsertion(uint128(idx), leafUint);
+        emit MerkleInsertion(uint128(idx), leafUint);
     }
+    /* solhint-enable function-max-lines */
 }
