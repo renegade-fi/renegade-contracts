@@ -14,3 +14,21 @@ struct PrivateIntentPublicBalanceStatement {
     /// @dev A commitment to the intent
     BN254.ScalarField intentCommitment;
 }
+
+/// @title Public Inputs Library
+/// @author Renegade Eng
+/// @notice Library for operating on proof public inputs
+library PublicInputsLib {
+    /// @notice Serialize the public inputs for a proof
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(PrivateIntentPublicBalanceStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        publicInputs = new BN254.ScalarField[](2);
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.intentOwner)));
+        publicInputs[1] = statement.intentCommitment;
+    }
+}

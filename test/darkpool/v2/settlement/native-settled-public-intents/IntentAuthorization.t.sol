@@ -13,7 +13,7 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
-import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
+import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
@@ -29,18 +29,18 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _executeSettlementBundle(SettlementBundle calldata bundle) external returns (SettlementTransfers memory) {
-        SettlementTransfers memory settlementTransfers = _createSettlementTransfers();
-        SettlementLib.executeSettlementBundle(bundle, settlementTransfers, openPublicIntents);
-        return settlementTransfers;
+    function _executeSettlementBundle(SettlementBundle calldata bundle) external returns (SettlementContext memory) {
+        SettlementContext memory settlementContext = _createSettlementContext();
+        SettlementLib.executeSettlementBundle(bundle, settlementContext, openPublicIntents);
+        return settlementContext;
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
     function authorizeIntentHelper(SettlementBundle memory bundle)
         internal
-        returns (SettlementTransfers memory transfers)
+        returns (SettlementContext memory context)
     {
-        transfers = this._executeSettlementBundle(bundle);
+        context = this._executeSettlementBundle(bundle);
     }
 
     // ---------

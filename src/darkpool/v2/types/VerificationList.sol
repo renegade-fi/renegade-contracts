@@ -51,7 +51,9 @@ library VerificationListLib {
 
     /// @notice Push a proof to the list
     /// @param list The list to push to
+    /// @param publicInputs The public inputs to the proof
     /// @param proof The proof to push
+    /// @param vk The verification key to use
     function push(
         VerificationList memory list,
         BN254.ScalarField[] memory publicInputs,

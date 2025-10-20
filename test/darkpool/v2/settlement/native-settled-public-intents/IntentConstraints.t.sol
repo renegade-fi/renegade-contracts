@@ -10,7 +10,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";
-import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
+import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 
 contract IntentConstraintsTest is SettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
@@ -21,13 +21,9 @@ contract IntentConstraintsTest is SettlementTestUtils {
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _validateSettlementBundleCalldata(SettlementBundle calldata bundle)
-        external
-        returns (SettlementTransfers memory)
-    {
-        SettlementTransfers memory settlementTransfers = _createSettlementTransfers();
-        NativeSettledPublicIntentLib.execute(bundle, settlementTransfers, openPublicIntents);
-        return settlementTransfers;
+    function _validateSettlementBundleCalldata(SettlementBundle calldata bundle) external {
+        SettlementContext memory settlementContext = _createSettlementContext();
+        NativeSettledPublicIntentLib.execute(bundle, settlementContext, openPublicIntents);
     }
 
     // ---------

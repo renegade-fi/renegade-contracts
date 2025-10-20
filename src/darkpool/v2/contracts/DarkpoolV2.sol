@@ -19,7 +19,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { SettlementTransfers } from "darkpoolv2-types/Transfers.sol";
+import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 
 /// @title DarkpoolV2
@@ -181,19 +181,19 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         public
     {
         // 1. Allocate a settlement context
-        SettlementTransfers memory settlementTransfers =
+        SettlementContext memory settlementContext =
             SettlementLib.allocateSettlementTransfers(party0SettlementBundle, party1SettlementBundle);
 
         // 2. Validate that the settlement obligations are compatible with one another
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 
         // 3. Validate and authorize the settlement bundles
-        SettlementLib.executeSettlementBundle(party0SettlementBundle, settlementTransfers, openPublicIntents);
-        SettlementLib.executeSettlementBundle(party1SettlementBundle, settlementTransfers, openPublicIntents);
+        SettlementLib.executeSettlementBundle(party0SettlementBundle, settlementContext, openPublicIntents);
+        SettlementLib.executeSettlementBundle(party1SettlementBundle, settlementContext, openPublicIntents);
 
         // 4. Execute the transfers necessary for settlement
-        // The helpers above will push transfers to the settlement transfers list if necessary
-        SettlementLib.executeTransfers(settlementTransfers, weth, permit2);
+        // The helpers above will push transfers to the settlement context if necessary
+        SettlementLib.executeTransfers(settlementContext, weth, permit2);
 
         // TODO: Verify proofs necessary for each step here
     }
