@@ -15,6 +15,7 @@ import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/
 import { PrivateIntentAuthBundle, PrivateIntentAuthBundleLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { PublicInputsLib, PrivateIntentPublicBalanceStatement } from "darkpoolv2-lib/PublicInputs.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ECDSALib } from "renegade-lib/ECDSA.sol";
@@ -41,12 +42,19 @@ library NativeSettledPrivateIntentLib {
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    function execute(SettlementBundle calldata settlementBundle, SettlementContext memory settlementContext) internal {
+    /// @param state The darkpool state containing all storage references
+    function execute(
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
+    )
+        internal
+    {
         // Decode the bundle data
         PrivateIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePrivateIntentBundleData();
 
         // 1. Validate the intent authorization
-        validatePrivateIntentAuthorization(bundleData.auth, settlementContext);
+        validatePrivateIntentAuthorization(bundleData.auth, settlementContext, state);
     }
 
     // ------------------------
@@ -56,6 +64,7 @@ library NativeSettledPrivateIntentLib {
     /// @notice Authorize a private intent
     /// @param auth The authorization bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
     /// @dev The checks here depend on whether this is the first fill of the intent or not
     /// 1. If this is the first fill, we check that the intent owner has signed the intent's commitment.
     /// 2. If this is not the first fill, the presence of the intent in the Merkle tree implies that the
@@ -63,7 +72,8 @@ library NativeSettledPrivateIntentLib {
     /// verify the proof attached to the bundle.
     function validatePrivateIntentAuthorization(
         PrivateIntentAuthBundle memory auth,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
     {
@@ -83,7 +93,7 @@ library NativeSettledPrivateIntentLib {
     /// @notice Verify the signature of the intent commitment by its owner
     /// @param authBundle The authorization bundle to verify the signature for
     function verifyIntentCommitmentSignature(PrivateIntentAuthBundle memory authBundle) internal {
-        bytes32 intentCommitmentBytes = bytes32(BN254.ScalarField.unwrap(authBundle.statement.intentCommitment));
+        bytes32 intentCommitmentBytes = bytes32(BN254.ScalarField.unwrap(authBundle.statement.newIntentCommitment));
         bytes32 commitmentHash = EfficientHashLib.hash(abi.encode(intentCommitmentBytes));
         address intentOwner = authBundle.extractIntentOwner();
         bool valid = ECDSALib.verify(commitmentHash, authBundle.intentSignature, intentOwner);

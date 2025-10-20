@@ -12,7 +12,9 @@ struct PrivateIntentPublicBalanceStatement {
     /// it anyway.
     address intentOwner;
     /// @dev A commitment to the intent
-    BN254.ScalarField intentCommitment;
+    BN254.ScalarField newIntentCommitment;
+    /// @dev A nullifier for the previous version of the intent
+    BN254.ScalarField nullifier;
 }
 
 /// @title Public Inputs Library
@@ -27,8 +29,9 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        publicInputs = new BN254.ScalarField[](2);
+        publicInputs = new BN254.ScalarField[](3);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.intentOwner)));
-        publicInputs[1] = statement.intentCommitment;
+        publicInputs[1] = statement.newIntentCommitment;
+        publicInputs[2] = statement.nullifier;
     }
 }

@@ -31,7 +31,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     /// @notice Wrapper to convert memory to calldata for library call
     function _executeSettlementBundle(SettlementBundle calldata bundle) external returns (SettlementContext memory) {
         SettlementContext memory settlementContext = _createSettlementContext();
-        SettlementLib.executeSettlementBundle(bundle, settlementContext, openPublicIntents);
+        SettlementLib.executeSettlementBundle(bundle, settlementContext, darkpoolState);
         return settlementContext;
     }
 
@@ -108,7 +108,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
 
         bytes32 intentHash = authBundle.permit.computeHash();
-        uint256 amountRemaining = openPublicIntents[intentHash];
+        uint256 amountRemaining = darkpoolState.openPublicIntents[intentHash];
         uint256 expectedAmountRemaining = authBundle.permit.intent.amountIn - obligation.amountIn;
         assertEq(amountRemaining, expectedAmountRemaining, "Intent not cached");
 
