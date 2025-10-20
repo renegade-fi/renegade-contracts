@@ -195,6 +195,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         // The helpers above will push transfers to the settlement context if necessary
         SettlementLib.executeTransfers(settlementContext, weth, permit2);
 
-        // TODO: Verify proofs necessary for each step here
+        // 5. Verify the proofs necessary for settlement
+        // The helpers above will push proofs to the settlement context if necessary
+        SettlementLib.verifySettlementProofs(settlementContext);
     }
 }
