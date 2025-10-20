@@ -2,9 +2,9 @@
 //!
 //! This tool generates a Solidity file with predefined Merkle tree zero values.
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use clap::Parser;
-use common::merkle_helpers::{LEAF_KECCAK_PREIMAGE, generate_zero_values};
+use common::merkle_helpers::{generate_zero_values, LEAF_KECCAK_PREIMAGE};
 use renegade_constants::MERKLE_HEIGHT;
 use std::fs::File;
 use std::io::Write;
@@ -60,7 +60,7 @@ fn generate_solidity_contract() -> Result<String> {
         "\tfunction getZeroValue(uint256 height) internal pure returns (uint256 result) {\n",
     );
     contract.push_str("\t\t// Require height to be within valid range\n");
-    contract.push_str("\t\trequire(height <= 31, \"MerkleZeros: height must be <= 31\");\n\n");
+    contract.push_str("\t\trequire(height <= 32, \"MerkleZeros: height must be <= 32\");\n\n");
 
     contract.push_str("\t\tassembly {\n");
     contract.push_str("\t\t\tswitch height\n");

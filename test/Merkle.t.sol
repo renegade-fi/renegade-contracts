@@ -7,13 +7,12 @@ import { TestUtils } from "./utils/TestUtils.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { MerkleZeros } from "renegade-lib/merkle/MerkleZeros.sol";
-import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 
 contract MerkleTest is TestUtils {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
     /// @dev The Merkle depth
-    uint256 public MERKLE_DEPTH;
+    uint256 public merkleDepth;
 
     /// @dev The MerklePoseidon contract
     IHasher public hasher;
@@ -22,11 +21,11 @@ contract MerkleTest is TestUtils {
     /// @dev Deploy the MerklePoseidon contract
     function setUp() public {
         // Sample a Merkle tree depth to test with
-        MERKLE_DEPTH = randomUint(10, 32);
+        merkleDepth = randomUint(10, 32);
 
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         MerkleTreeLib.MerkleTreeConfig memory config =
-            MerkleTreeLib.MerkleTreeConfig({ storeRoots: true, depth: MERKLE_DEPTH });
+            MerkleTreeLib.MerkleTreeConfig({ storeRoots: true, depth: merkleDepth });
         tree.initialize(config);
     }
 
@@ -36,16 +35,16 @@ contract MerkleTest is TestUtils {
     function test_HashMerkle() public {
         uint256 input = randomFelt();
         uint256 idx = randomIdx();
-        uint256[] memory sisterLeaves = new uint256[](MERKLE_DEPTH);
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+        uint256[] memory sisterLeaves = new uint256[](merkleDepth);
+        for (uint256 i = 0; i < merkleDepth; i++) {
             sisterLeaves[i] = randomFelt();
         }
         uint256[] memory results = hasher.merkleHash(idx, input, sisterLeaves);
-        assertEq(results.length, MERKLE_DEPTH + 1, "Expected 32 results");
-        uint256[] memory expected = runMerkleReferenceImpl(MERKLE_DEPTH, idx, input, sisterLeaves);
+        assertEq(results.length, merkleDepth + 1, "Expected 32 results");
+        uint256[] memory expected = runMerkleReferenceImpl(merkleDepth, idx, input, sisterLeaves);
         assertEq(results[0], input);
 
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+        for (uint256 i = 0; i < merkleDepth; i++) {
             assertEq(results[i + 1], expected[i], string(abi.encodePacked("Result mismatch at index ", vm.toString(i))));
         }
     }
@@ -68,7 +67,7 @@ contract MerkleTest is TestUtils {
     /// @notice Test that the root and root history are initialized correctly
     function test_rootAfterInitialization() public view {
         // Test that the root is the default zero valued root
-        uint256 expectedRoot = MerkleZeros.getZeroValue(MERKLE_DEPTH);
+        uint256 expectedRoot = MerkleZeros.getZeroValue(merkleDepth);
         uint256 actualRoot = BN254.ScalarField.unwrap(tree.getRoot());
         assertEq(actualRoot, expectedRoot);
 
@@ -83,7 +82,7 @@ contract MerkleTest is TestUtils {
         uint256 root = BN254.ScalarField.unwrap(tree.getRoot());
 
         uint256 currLeaf = MerkleZeros.getZeroValue(0);
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+        for (uint256 i = 0; i < merkleDepth; i++) {
             uint256[] memory inputs = new uint256[](2);
             inputs[0] = currLeaf;
             inputs[1] = currLeaf;
@@ -102,7 +101,7 @@ contract MerkleTest is TestUtils {
         }
 
         // Run the reference implementation
-        uint256 expectedRoot = runMerkleRootReferenceImpl(MERKLE_DEPTH, inputs);
+        uint256 expectedRoot = runMerkleRootReferenceImpl(merkleDepth, inputs);
 
         // Insert into the solidity Merkle tree
         for (uint256 i = 0; i < nInserts; i++) {
@@ -132,8 +131,8 @@ contract MerkleTest is TestUtils {
         }
 
         // Now fetch the sibling path, this will be the opening for the next insert
-        uint256[] memory siblingPath = new uint256[](MERKLE_DEPTH);
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+        uint256[] memory siblingPath = new uint256[](merkleDepth);
+        for (uint256 i = 0; i < merkleDepth; i++) {
             siblingPath[i] = BN254.ScalarField.unwrap(tree.siblingPath[i]);
         }
 
@@ -145,7 +144,7 @@ contract MerkleTest is TestUtils {
         uint256 idx = nInserts;
         uint256 expectedRoot = BN254.ScalarField.unwrap(tree.getRoot());
         uint256 openedRoot = nextInput;
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+        for (uint256 i = 0; i < merkleDepth; i++) {
             uint256[] memory hashTwoInputs = new uint256[](2);
             uint256 ithBit = (idx >> i) & 1;
             if (ithBit == 0) {
@@ -167,7 +166,7 @@ contract MerkleTest is TestUtils {
 
     /// @dev Generate a random index in the Merkle tree
     function randomIdx() internal returns (uint256) {
-        return vm.randomUint() % (2 ** MERKLE_DEPTH);
+        return vm.randomUint() % (2 ** merkleDepth);
     }
 
     /// @dev Helper to run the sponge hash reference implementation
@@ -212,7 +211,7 @@ contract MerkleTest is TestUtils {
         args[4] = vm.toString(input);
 
         // Pass sister leaves as individual arguments
-        for (uint256 i = 0; i < MERKLE_DEPTH; i++) {
+        for (uint256 i = 0; i < merkleDepth; i++) {
             args[i + 5] = vm.toString(sisterLeaves[i]);
         }
 

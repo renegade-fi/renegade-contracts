@@ -44,7 +44,7 @@ library MerkleZeros {
 	/// @return result the zero value for the given height
 	function getZeroValue(uint256 height) internal pure returns (uint256 result) {
 		// Require height to be within valid range
-		require(height <= 31, "MerkleZeros: height must be <= 31");
+		require(height <= 32, "MerkleZeros: height must be <= 32");
 
 		assembly {
 			switch height
