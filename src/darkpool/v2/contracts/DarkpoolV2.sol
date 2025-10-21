@@ -176,6 +176,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         return _state.nullifierSet.isSpent(nullifier);
     }
 
+    /// @notice Check if a root is in the Merkle mountain range history
+    /// @param root The root to check
+    /// @return Whether the root is in the history
+    function rootInHistory(BN254.ScalarField root) public view returns (bool) {
+        return _state.merkleMountainRange.rootInHistory(root);
+    }
+
     // --------------
     // | Settlement |
     // --------------
