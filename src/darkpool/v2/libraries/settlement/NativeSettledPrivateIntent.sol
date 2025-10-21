@@ -20,7 +20,11 @@ import {
 } from "darkpoolv2-lib/PublicInputs.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 
+import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
+import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { CommitmentNullifierLib } from "darkpoolv2-types/CommitNullify.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ECDSALib } from "renegade-lib/ECDSA.sol";
@@ -35,6 +39,8 @@ library NativeSettledPrivateIntentLib {
     using SettlementObligationLib for SettlementObligation;
     using PrivateIntentAuthBundleLib for PrivateIntentAuthBundle;
     using SettlementContextLib for SettlementContext;
+    using NullifierLib for NullifierLib.NullifierSet;
+    using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using PublicInputsLib for IntentOnlyValidityStatement;
     using PublicInputsLib for SingleIntentMatchSettlementStatement;
 
@@ -42,6 +48,8 @@ library NativeSettledPrivateIntentLib {
 
     /// @notice Error thrown when an intent commitment signature is invalid
     error InvalidIntentCommitmentSignature();
+    /// @notice Error thrown when the Merkle depth is invalid
+    error InvalidMerkleDepthRequested();
 
     // --- Implementation --- //
 
@@ -68,10 +76,13 @@ library NativeSettledPrivateIntentLib {
         BN254.ScalarField newIntentCommitment = computeFullIntentCommitment(bundleData, hasher);
 
         // 1. Validate the intent authorization
-        validatePrivateIntentAuthorization(newIntentCommitment, bundleData.auth, settlementContext, state);
+        validatePrivateIntentAuthorization(newIntentCommitment, bundleData.auth, settlementContext);
 
         // 2. Validate the intent constraints on the obligation
         validateObligationIntentConstraints(bundleData, settlementContext);
+
+        // 3. Execute state updates for the bundle
+        executeStateUpdates(newIntentCommitment, bundleData, obligation, settlementContext, state, hasher);
     }
 
     /// @notice Compute the full commitment to the updated intent
@@ -101,7 +112,6 @@ library NativeSettledPrivateIntentLib {
     /// @param newIntentCommitment The full commitment to the updated intent
     /// @param auth The authorization bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param state The darkpool state containing all storage references
     /// @dev The checks here depend on whether this is the first fill of the intent or not
     /// 1. If this is the first fill, we check that the intent owner has signed the intent's commitment.
     /// 2. If this is not the first fill, the presence of the intent in the Merkle tree implies that the
@@ -110,11 +120,15 @@ library NativeSettledPrivateIntentLib {
     function validatePrivateIntentAuthorization(
         BN254.ScalarField newIntentCommitment,
         PrivateIntentAuthBundle memory auth,
-        SettlementContext memory settlementContext,
-        DarkpoolState storage state
+        SettlementContext memory settlementContext
     )
         internal
+        pure
     {
+        // Validate the Merkle depth
+        // TODO: Allow for dynamic Merkle depth
+        if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert InvalidMerkleDepthRequested();
+
         // If this is the first fill, we check that the intent owner has signed the intent's commitment
         if (auth.isFirstFill) {
             // Verify that the intent owner has signed the intent's commitment
@@ -168,6 +182,48 @@ library NativeSettledPrivateIntentLib {
         VerificationKey memory vk = dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
     }
+
+    // -----------------
+    // | State Updates |
+    // -----------------
+
+    /// @notice Execute the state updates necessary to settle the bundle
+    /// @param newIntentCommitment The full commitment to the updated intent
+    /// @param bundleData The bundle data to execute the state updates for
+    /// @param obligation The settlement obligation to settle
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
+    function executeStateUpdates(
+        BN254.ScalarField newIntentCommitment,
+        PrivateIntentPublicBalanceBundle memory bundleData,
+        SettlementObligation memory obligation,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher hasher
+    )
+        internal
+    {
+        // 1. Spend the nullifier for the previous version of the intent
+        BN254.ScalarField nullifier = bundleData.auth.statement.nullifier;
+        state.nullifierSet.spend(nullifier);
+
+        // 2. Insert a commitment to the updated intent into the Merkle tree
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        state.merkleMountainRange.insertLeaf(merkleDepth, newIntentCommitment, hasher);
+
+        // 3. Allocate transfers to settle the obligation in the settlement context
+        // Deposit the input token into the darkpool
+        address intentOwner = bundleData.auth.extractIntentOwner();
+        SimpleTransfer memory deposit = obligation.buildPermit2AllowanceDeposit(intentOwner);
+        settlementContext.pushDeposit(deposit);
+
+        // Withdraw the output token from the darkpool
+        SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(intentOwner);
+        settlementContext.pushWithdrawal(withdrawal);
+    }
+
+    // --- Helpers --- //
 
     /// @notice Build a dummy verification key
     /// @return The dummy verification key

@@ -54,6 +54,8 @@ struct PrivateIntentAuthBundle {
     bool isFirstFill;
     /// @dev The signature of the intent by its owner
     bytes intentSignature;
+    /// @dev The depth of the Merkle tree to insert the intent into
+    uint256 merkleDepth;
     /// @dev The statement for the proof of `PrivateIntentPublicBalance`
     IntentOnlyValidityStatement statement;
     /// @dev The proof of `PrivateIntentPublicBalance`
