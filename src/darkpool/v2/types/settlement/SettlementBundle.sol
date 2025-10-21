@@ -3,8 +3,15 @@
 pragma solidity ^0.8.24;
 
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PublicIntentAuthBundle, PrivateIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
-import { SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import {
+    PublicIntentAuthBundle,
+    PrivateIntentAuthBundle,
+    PrivateIntentPrivateBalanceAuthBundle
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
+import {
+    SingleIntentMatchSettlementStatement,
+    RenegadeSettledPrivateIntentPublicSettlementStatement
+} from "darkpoolv2-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // ---------------------------
@@ -46,19 +53,29 @@ enum SettlementBundleType {
     RENEGADE_SETTLED_INTENT
 }
 
-/// @notice The settlement bundle data for a `PUBLIC_INTENT_PUBLIC_BALANCE` bundle
+/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PUBLIC_INTENT` bundle
 struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
 }
 
-/// @notice The settlement bundle data for a `PRIVATE_INTENT_PUBLIC_BALANCE` bundle
+/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle
 struct PrivateIntentPublicBalanceBundle {
     /// @dev The private intent authorization payload with signature attached
     PrivateIntentAuthBundle auth;
     /// @dev The statement of single-intent match settlement
     SingleIntentMatchSettlementStatement settlementStatement;
     /// @dev The proof of single-intent match settlement
+    PlonkProof settlementProof;
+}
+
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle
+struct RenegadeSettledPrivateIntentBundle {
+    /// @dev The private intent authorization payload with signature attached
+    PrivateIntentPrivateBalanceAuthBundle auth;
+    /// @dev The statement of renegade settled private intent public settlement
+    RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
+    /// @dev The proof of renegade settled private intent public settlement
     PlonkProof settlementProof;
 }
 
@@ -145,5 +162,17 @@ library SettlementBundleLib {
             bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT, InvalidSettlementBundleType()
         );
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
+    }
+
+    /// @notice Decode a renegade settled private intent settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledPrivateIntentBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledPrivateIntentBundle memory bundleData)
+    {
+        require(bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT, InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateIntentBundle));
     }
 }
