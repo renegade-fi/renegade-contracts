@@ -31,7 +31,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     /// @notice Wrapper to convert memory to calldata for library call
     function _executeSettlementBundle(SettlementBundle calldata bundle) external returns (SettlementContext memory) {
         SettlementContext memory settlementContext = _createSettlementContext();
-        SettlementLib.executeSettlementBundle(bundle, settlementContext, darkpoolState);
+        SettlementLib.executeSettlementBundle(bundle, settlementContext, darkpoolState, hasher);
         return settlementContext;
     }
 

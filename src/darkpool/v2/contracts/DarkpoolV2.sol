@@ -28,10 +28,16 @@ import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 struct DarkpoolState {
     /// @notice The mapping of open public intents
     /// @dev This maps the intent hash to the amount remaining.
+    /// @dev An intent hash is a hash of the tuple (executor, intent),
+    /// where executor is the address of the party allowed to fill the intent.
     mapping(bytes32 => uint256) openPublicIntents;
     /// @notice The Merkle tree for wallet commitments
     MerkleTreeLib.MerkleTree merkleTree;
     /// @notice The nullifier set for the darkpool
+    /// @dev Each time a state element is updated a nullifier is spent.
+    /// @dev The nullifier set ensures that a pre-update state element cannot create two separate post-update state
+    /// elements in the Merkle state
+    /// @dev The nullifier is computed deterministically from the shares of the pre-update state element
     NullifierLib.NullifierSet nullifierSet;
 }
 
@@ -104,11 +110,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
 
     /// @notice Bundled core darkpool state
     /// @dev Contains: openPublicIntents mapping, merkleTree, and nullifierSet
-    /// @dev An intent hash is a hash of the tuple (executor, intent),
-    /// where executor is the address of the party allowed to fill the intent.
-    /// @dev Each time a wallet is updated (placing an order, settling a match, depositing, etc) a nullifier is spent.
-    /// @dev This ensures that a pre-update wallet cannot create two separate post-update wallets in the Merkle state
-    /// @dev The nullifier is computed deterministically from the shares of the pre-update wallet
     DarkpoolState private _state;
 
     // ---------------------------------
@@ -200,8 +201,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
 
         // 3. Validate and authorize the settlement bundles
-        SettlementLib.executeSettlementBundle(party0SettlementBundle, settlementContext, _state);
-        SettlementLib.executeSettlementBundle(party1SettlementBundle, settlementContext, _state);
+        SettlementLib.executeSettlementBundle(party0SettlementBundle, settlementContext, _state, hasher);
+        SettlementLib.executeSettlementBundle(party1SettlementBundle, settlementContext, _state, hasher);
 
         // 4. Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary

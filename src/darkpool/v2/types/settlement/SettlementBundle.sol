@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PublicIntentAuthBundle, PrivateIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -54,6 +56,10 @@ struct PublicIntentPublicBalanceBundle {
 struct PrivateIntentPublicBalanceBundle {
     /// @dev The private intent authorization payload with signature attached
     PrivateIntentAuthBundle auth;
+    /// @dev The statement of single-intent match settlement
+    SingleIntentMatchSettlementStatement settlementStatement;
+    /// @dev The proof of single-intent match settlement
+    PlonkProof settlementProof;
 }
 
 /// @title Settlement Bundle Library

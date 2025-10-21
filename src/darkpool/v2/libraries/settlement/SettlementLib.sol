@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+
 import {
     SettlementBundle,
     SettlementBundleType,
@@ -129,12 +131,14 @@ library SettlementLib {
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing commitments
     /// @dev This function validates and executes the settlement bundle based on the bundle type
     /// @dev See the library files in this directory for type-specific execution & validation logic.
     function executeSettlementBundle(
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state
+        DarkpoolState storage state,
+        IHasher hasher
     )
         internal
     {
@@ -142,7 +146,7 @@ library SettlementLib {
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             NativeSettledPublicIntentLib.execute(settlementBundle, settlementContext, state);
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            NativeSettledPrivateIntentLib.execute(settlementBundle, settlementContext, state);
+            NativeSettledPrivateIntentLib.execute(settlementBundle, settlementContext, state, hasher);
         } else {
             revert("Not implemented");
         }
@@ -173,7 +177,7 @@ library SettlementLib {
 
     /// @notice Verify the proofs necessary for settlement
     /// @param settlementContext The settlement context to verify the proofs from
-    function verifySettlementProofs(SettlementContext memory settlementContext) internal {
+    function verifySettlementProofs(SettlementContext memory settlementContext) internal view {
         if (settlementContext.numProofs() == 0) {
             return;
         }
