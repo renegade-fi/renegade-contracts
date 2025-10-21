@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 
 import {
     SettlementBundle,
@@ -20,7 +21,6 @@ import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Tr
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
-import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { emptyOpeningElements } from "renegade-lib/verifier/Types.sol";
 
 /// @title SettlementLib
@@ -177,13 +177,14 @@ library SettlementLib {
 
     /// @notice Verify the proofs necessary for settlement
     /// @param settlementContext The settlement context to verify the proofs from
-    function verifySettlementProofs(SettlementContext memory settlementContext) internal view {
+    /// @param verifier The verifier to use for verification
+    function verifySettlementProofs(SettlementContext memory settlementContext, IVerifier verifier) internal view {
         if (settlementContext.numProofs() == 0) {
             return;
         }
 
         // Call the core verifier
-        bool valid = VerifierCore.batchVerify(
+        bool valid = verifier.batchVerify(
             settlementContext.verifications.proofs,
             settlementContext.verifications.publicInputs,
             settlementContext.verifications.vks,

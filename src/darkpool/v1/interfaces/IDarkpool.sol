@@ -7,7 +7,7 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IVerifier } from "darkpoolv1-interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import {
     ValidWalletCreateStatement,

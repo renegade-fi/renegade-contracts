@@ -19,7 +19,7 @@ import {
     MatchAtomicProofs, MatchAtomicLinkingProofs, MalleableMatchAtomicProofs
 } from "darkpoolv1-types/Settlement.sol";
 import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
-import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IVerifier } from "darkpoolv1-interfaces/IVerifier.sol";
 import { Verifier } from "darkpoolv1-contracts/Verifier.sol";
 
 /// @title Test Verifier Implementation

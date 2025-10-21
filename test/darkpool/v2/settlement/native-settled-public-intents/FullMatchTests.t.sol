@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -18,20 +17,6 @@ contract FullMatchTests is SettlementTestUtils {
     // -----------
     // | Helpers |
     // -----------
-
-    /// @dev Capitalize a party for an obligation
-    function _capitalizeParty(address eoa, Intent memory intent) internal {
-        // Mint the tokens to the party
-        ERC20Mock token = ERC20Mock(intent.inToken);
-        token.mint(eoa, intent.amountIn);
-
-        // Approve the permit2 contract to spend tokens and generate a permit2 approval for the darkpool
-        vm.startPrank(eoa);
-        token.approve(address(permit2), type(uint256).max);
-        uint48 expiration = uint48(block.timestamp + 1 days);
-        permit2.approve(address(token), address(darkpool), type(uint160).max, expiration);
-        vm.stopPrank();
-    }
 
     /// @dev Create match data for a simulated trade
     function _createMatchData()
@@ -93,8 +78,8 @@ contract FullMatchTests is SettlementTestUtils {
         });
 
         // Capitalize the parties for their obligations
-        _capitalizeParty(party0.addr, intent0);
-        _capitalizeParty(party1.addr, intent1);
+        capitalizeParty(party0.addr, intent0);
+        capitalizeParty(party1.addr, intent1);
     }
 
     // ---------

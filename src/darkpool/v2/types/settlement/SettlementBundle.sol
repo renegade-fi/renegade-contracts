@@ -91,7 +91,7 @@ library SettlementBundleLib {
         if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             numProofs = 0;
         } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            numProofs = 1;
+            numProofs = 2;
         } else if (bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             revert("Not implemented");
         }

@@ -26,7 +26,7 @@ library VerificationListLib {
     // --- Errors --- //
 
     /// @notice Thrown when attempting to push to a list that has reached its capacity
-    error CapacityExceeded();
+    error ProofListCapacityExceeded();
 
     // --- Interface --- //
 
@@ -64,7 +64,7 @@ library VerificationListLib {
         pure
     {
         if (list.nextIndex > list.proofs.length - 1) {
-            revert CapacityExceeded();
+            revert ProofListCapacityExceeded();
         }
         list.proofs[list.nextIndex] = proof;
         list.publicInputs[list.nextIndex] = publicInputs;

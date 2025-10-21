@@ -3,21 +3,21 @@ pragma solidity ^0.8.24;
 
 import { TransparentUpgradeableProxy } from "oz-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IVerifier } from "darkpoolv1-interfaces/IVerifier.sol";
+import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
-/// @title DarkpoolProxy
+/// @title DarkpoolV2Proxy
 /// @author Renegade Eng
-/// @notice This contract is a TransparentUpgradeableProxy for the Darkpool contract.
-/// It simplifies deployment by accepting Darkpool-specific initialization parameters
+/// @notice This contract is a TransparentUpgradeableProxy for the DarkpoolV2 contract.
+/// It simplifies deployment by accepting DarkpoolV2-specific initialization parameters
 /// and encoding them appropriately.
-contract DarkpoolProxy is TransparentUpgradeableProxy {
-    /// @notice Initializes a TransparentUpgradeableProxy for a Darkpool implementation.
-    /// @param implementation The Darkpool implementation address
-    /// @param admin The admin address - serves as both ProxyAdmin owner and Darkpool owner
+contract DarkpoolV2Proxy is TransparentUpgradeableProxy {
+    /// @notice Initializes a TransparentUpgradeableProxy for a DarkpoolV2 implementation.
+    /// @param implementation The DarkpoolV2 implementation address
+    /// @param admin The admin address - serves as both ProxyAdmin owner and DarkpoolV2 owner
     /// @param protocolFeeRate The protocol fee rate for the darkpool
     /// @param protocolFeeRecipient The address to receive protocol fees
     /// @param protocolFeeKey The encryption key for protocol fees
@@ -29,7 +29,7 @@ contract DarkpoolProxy is TransparentUpgradeableProxy {
     constructor(
         address implementation,
         address admin,
-        // Darkpool-specific initialization parameters
+        // DarkpoolV2-specific initialization parameters
         uint256 protocolFeeRate,
         address protocolFeeRecipient,
         EncryptionKey memory protocolFeeKey,
@@ -44,8 +44,8 @@ contract DarkpoolProxy is TransparentUpgradeableProxy {
             implementation,
             admin,
             abi.encodeWithSelector(
-                IDarkpool.initialize.selector,
-                admin, // Use the same admin address for Darkpool owner
+                IDarkpoolV2.initialize.selector,
+                admin, // Use the same admin address for DarkpoolV2 owner
                 protocolFeeRate,
                 protocolFeeRecipient,
                 protocolFeeKey,

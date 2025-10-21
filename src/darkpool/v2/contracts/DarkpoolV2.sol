@@ -8,7 +8,7 @@ import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -206,6 +206,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
 
         // 5. Verify the proofs necessary for settlement
         // The helpers above will push proofs to the settlement context if necessary
-        SettlementLib.verifySettlementProofs(settlementContext);
+        SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }
 }

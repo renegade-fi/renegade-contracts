@@ -51,7 +51,7 @@ library SettlementTransfersListLib {
     // --- Errors --- //
 
     /// @notice Thrown when attempting to push to a list that has reached its capacity
-    error CapacityExceeded();
+    error TransferListCapacityExceeded();
 
     // --- Interface --- //
 
@@ -74,7 +74,7 @@ library SettlementTransfersListLib {
     /// @param transfer The transfer to push
     function push(SettlementTransfersList memory list, SimpleTransfer memory transfer) internal pure {
         if (list.nextIndex > list.transfers.length - 1) {
-            revert CapacityExceeded();
+            revert TransferListCapacityExceeded();
         }
         list.transfers[list.nextIndex] = transfer;
         ++list.nextIndex;
