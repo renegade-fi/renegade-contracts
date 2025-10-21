@@ -54,10 +54,10 @@ library PublicInputsLib {
         publicInputs[2] = statement.nullifier;
 
         // Add the settlement obligation
-        publicInputs[4] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.inputToken)));
-        publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
-        publicInputs[6] = BN254.ScalarField.wrap(statement.obligation.amountIn);
-        publicInputs[7] = BN254.ScalarField.wrap(statement.obligation.amountOut);
+        publicInputs[3] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.inputToken)));
+        publicInputs[4] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
+        publicInputs[5] = BN254.ScalarField.wrap(statement.obligation.amountIn);
+        publicInputs[6] = BN254.ScalarField.wrap(statement.obligation.amountOut);
     }
 
     /// @notice Serialize the public inputs for a proof of single-intent match settlement
