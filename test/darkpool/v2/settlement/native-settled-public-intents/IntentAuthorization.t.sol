@@ -20,6 +20,7 @@ import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 contract IntentAuthorizationTest is SettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
@@ -51,6 +52,16 @@ contract IntentAuthorizationTest is SettlementTestUtils {
     function test_validSignatures() public {
         // Should not revert
         SettlementBundle memory bundle = createSampleBundle();
+        authorizeIntentHelper(bundle);
+    }
+
+    function test_intentReplay() public {
+        // Create bundle and authorize it once
+        SettlementBundle memory bundle = createSampleBundle();
+        authorizeIntentHelper(bundle);
+
+        // Try settling the same bundle again, the intent should be replayed
+        vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
         authorizeIntentHelper(bundle);
     }
 
