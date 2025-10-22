@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import {
     SettlementBundle,
+    SettlementBundleLib,
     PrivateIntentPublicBalanceBundleFirstFill
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SignatureWithNonce, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -18,6 +19,8 @@ import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 
 contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
+    using SettlementBundleLib for PrivateIntentPublicBalanceBundleFirstFill;
+
     // -----------
     // | Helpers |
     // -----------
@@ -74,9 +77,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Compute the full intent commitment
-        BN254.ScalarField fullCommitment = computeFullIntentCommitment(
-            authBundle.statement.newIntentPartialCommitment, bundleData.settlementStatement.newIntentAmountPublicShare
-        );
+        BN254.ScalarField fullCommitment = bundleData.computeFullIntentCommitment(hasher);
 
         // Sign with wrong signer
         SignatureWithNonce memory wrongSig = signIntentCommitment(fullCommitment, wrongSigner.privateKey);

@@ -122,6 +122,11 @@ struct RenegadeSettledPrivateIntentPublicSettlementStatement {
 /// @author Renegade Eng
 /// @notice Library for operating on proof public inputs
 library PublicInputsLib {
+    /// @notice The number of modified balance shares in a match
+    uint256 public constant N_MODIFIED_BALANCE_SHARES = 3;
+    /// @notice The number of modified intent shares in a match
+    uint256 public constant N_MODIFIED_INTENT_SHARES = 1;
+
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs

@@ -26,7 +26,6 @@ import {
     SingleIntentMatchSettlementStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { CommitmentNullifierLib } from "darkpoolv2-types/CommitNullify.sol";
 
 contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
@@ -193,21 +192,5 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT,
             data: abi.encode(bundleData)
         });
-    }
-
-    // --- Commitment Computation --- //
-
-    /// @dev Compute the full intent commitment from partial commitment and public share
-    function computeFullIntentCommitment(
-        BN254.ScalarField partialCommitment,
-        BN254.ScalarField amountPublicShare
-    )
-        internal
-        view
-        returns (BN254.ScalarField)
-    {
-        BN254.ScalarField[] memory remainingShares = new BN254.ScalarField[](1);
-        remainingShares[0] = amountPublicShare;
-        return CommitmentNullifierLib.computeFullCommitment(partialCommitment, remainingShares, hasher);
     }
 }

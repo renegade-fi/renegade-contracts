@@ -6,7 +6,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PrivateIntentPublicBalanceBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PrivateIntentPublicBalanceBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
@@ -16,6 +16,7 @@ import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 contract FullMatchTests is PrivateIntentSettlementTestUtils {
     using ObligationLib for ObligationBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
@@ -128,14 +129,8 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
 
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents
-        BN254.ScalarField commitment0 = computeFullIntentCommitment(
-            bundleData0.auth.statement.newIntentPartialCommitment,
-            bundleData0.settlementStatement.newIntentAmountPublicShare
-        );
-        BN254.ScalarField commitment1 = computeFullIntentCommitment(
-            bundleData1.auth.statement.newIntentPartialCommitment,
-            bundleData1.settlementStatement.newIntentAmountPublicShare
-        );
+        BN254.ScalarField commitment0 = bundleData0.computeFullIntentCommitment(hasher);
+        BN254.ScalarField commitment1 = bundleData1.computeFullIntentCommitment(hasher);
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =

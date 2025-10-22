@@ -35,6 +35,8 @@ import {
 library RenegadeSettledPrivateIntentLib {
     using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
+    using SettlementBundleLib for RenegadeSettledIntentBundleFirstFill;
+    using SettlementBundleLib for RenegadeSettledIntentBundle;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
     using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
@@ -65,7 +67,7 @@ library RenegadeSettledPrivateIntentLib {
         internal
     {
         if (isFirstFill) {
-            executeFirstFill(settlementBundle, settlementContext, state);
+            executeFirstFill(settlementBundle, settlementContext, state, hasher);
         } else {
             executeSubsequentFill(settlementBundle, settlementContext, state, hasher);
         }
@@ -75,10 +77,12 @@ library RenegadeSettledPrivateIntentLib {
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
     function executeFirstFill(
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state
+        DarkpoolState storage state,
+        IHasher hasher
     )
         internal
     {
@@ -94,6 +98,9 @@ library RenegadeSettledPrivateIntentLib {
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
         VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+
+        // 3. Execute state updates for the bundle
+        executeStateUpdatesFirstFill(bundleData, state, hasher);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -120,6 +127,9 @@ library RenegadeSettledPrivateIntentLib {
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
         VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+
+        // 3. Execute state updates for the bundle
+        executeStateUpdates(bundleData, state, hasher);
     }
 
     // ------------------------
@@ -184,5 +194,58 @@ library RenegadeSettledPrivateIntentLib {
         BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
         VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
+    }
+
+    // -----------------
+    // | State Updates |
+    // -----------------
+
+    /// @notice Execute the state updates necessary to settle the bundle for a first fill
+    /// @param bundleData The bundle data to execute the state updates for
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
+    /// @dev On the first fill, no intent state needs to be nullified, however the balance state must be.
+    function executeStateUpdatesFirstFill(
+        RenegadeSettledIntentBundleFirstFill memory bundleData,
+        DarkpoolState storage state,
+        IHasher hasher
+    )
+        internal
+    {
+        // 1. Nullify the balance state
+        BN254.ScalarField nullifier = bundleData.auth.statement.balanceNullifier;
+        state.spendNullifier(nullifier);
+
+        // 2. Insert commitments to the updated intent and balance into the Merkle tree
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
+        BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);
+        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+    }
+
+    /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
+    /// @param bundleData The bundle data to execute the state updates for
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
+    function executeStateUpdates(
+        RenegadeSettledIntentBundle memory bundleData,
+        DarkpoolState storage state,
+        IHasher hasher
+    )
+        internal
+    {
+        // 1. Nullify both the balance and intent states
+        BN254.ScalarField balanceNullifier = bundleData.auth.statement.balanceNullifier;
+        BN254.ScalarField intentNullifier = bundleData.auth.statement.intentNullifier;
+        state.spendNullifier(balanceNullifier);
+        state.spendNullifier(intentNullifier);
+
+        // 2. Insert commitments to the updated intent and balance into the Merkle tree
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
+        BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);
+        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
     }
 }
