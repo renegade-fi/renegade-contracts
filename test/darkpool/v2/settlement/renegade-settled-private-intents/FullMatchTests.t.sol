@@ -1,0 +1,209 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+/* solhint-disable func-name-mixedcase */
+
+import { BN254 } from "solidity-bn254/BN254.sol";
+
+import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import {
+    RenegadeSettledIntentBundle,
+    RenegadeSettledIntentBundleFirstFill,
+    SettlementBundleLib
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { RenegadeSettledPrivateIntentTestUtils } from "./Utils.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
+import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
+import { NullifierLib } from "renegade-lib/NullifierSet.sol";
+import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+
+contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
+    using ObligationLib for ObligationBundle;
+    using SettlementBundleLib for RenegadeSettledIntentBundle;
+    using SettlementBundleLib for RenegadeSettledIntentBundleFirstFill;
+    using FixedPointLib for FixedPoint;
+    using MerkleTreeLib for MerkleTreeLib.MerkleTree;
+
+    MerkleTreeLib.MerkleTree private testTree;
+
+    // -----------
+    // | Helpers |
+    // -----------
+
+    /// @dev Create match data for a simulated trade
+    function _createMatchData(bool isFirstFill)
+        internal
+        returns (SettlementBundle memory bundle0, SettlementBundle memory bundle1)
+    {
+        // Create two settlement obligations
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
+
+        // Create two settlement bundles
+        bundle0 = createSettlementBundle(isFirstFill, obligation0, party0);
+        bundle1 = createSettlementBundle(isFirstFill, obligation1, party1);
+    }
+
+    // ---------
+    // | Tests |
+    // ---------
+
+    // --- Valid Test Cases --- //
+
+    /// @notice Test a basic full match settlement
+    function test_fullMatch_twoRenegadeSettledPrivateIntents() public {
+        bool isFirstFill = vm.randomBool();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(isFirstFill);
+        darkpool.settleMatch(bundle0, bundle1);
+    }
+
+    /// @notice Test mixing first fill and subsequent fill bundles
+    function test_fullMatch_mixedFillTypes() public {
+        // Create two settlement obligations
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
+
+        // Create two settlement bundles
+        SettlementBundle memory bundle0 = createSettlementBundle(true, obligation0, party0);
+        SettlementBundle memory bundle1 = createSettlementBundle(false, obligation1, party1);
+        darkpool.settleMatch(bundle0, bundle1);
+    }
+
+    /// @notice Check the Merkle mountain range roots and nullifiers after a full match settlement (first fill)
+    function test_fullMatch_merkleRootsAndNullifiers_firstFill() public {
+        // Create match data (first fill)
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
+        RenegadeSettledIntentBundleFirstFill memory bundleData0 =
+            abi.decode(bundle0.data, (RenegadeSettledIntentBundleFirstFill));
+        RenegadeSettledIntentBundleFirstFill memory bundleData1 =
+            abi.decode(bundle1.data, (RenegadeSettledIntentBundleFirstFill));
+
+        // Settle the match
+        darkpool.settleMatch(bundle0, bundle1);
+
+        // 1. Check that the balance nullifiers are spent (first fill only nullifies balance, not intent)
+        bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.balanceNullifier);
+        bool balanceNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.balanceNullifier);
+        assertTrue(balanceNullifier0Spent, "balance nullifier0 not spent");
+        assertTrue(balanceNullifier1Spent, "balance nullifier1 not spent");
+
+        // 2. Check that the Merkle root matches the expected root
+        // Compute the commitments to the updated intents and balances
+        BN254.ScalarField intentCommitment0 = bundleData0.computeFullIntentCommitment(hasher);
+        BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
+        BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
+        BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
+
+        // Validate against a single Merkle tree
+        MerkleTreeLib.MerkleTreeConfig memory config =
+            MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
+        MerkleTreeLib.initialize(testTree, config);
+        testTree.insertLeaf(intentCommitment0, hasher);
+        testTree.insertLeaf(balanceCommitment0, hasher);
+        testTree.insertLeaf(intentCommitment1, hasher);
+        testTree.insertLeaf(balanceCommitment1, hasher);
+
+        // Get the root of the tree and check that it's in the Merkle mountain range history
+        BN254.ScalarField root = testTree.getRoot();
+        bool rootInHistory = darkpool.rootInHistory(root);
+        assertTrue(rootInHistory, "root not in history");
+    }
+
+    /// @notice Check the Merkle mountain range roots and nullifiers after a full match settlement (subsequent fill)
+    function test_fullMatch_merkleRootsAndNullifiers_subsequentFill() public {
+        // Create match data (subsequent fill)
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
+        RenegadeSettledIntentBundle memory bundleData0 = abi.decode(bundle0.data, (RenegadeSettledIntentBundle));
+        RenegadeSettledIntentBundle memory bundleData1 = abi.decode(bundle1.data, (RenegadeSettledIntentBundle));
+
+        // Settle the match
+        darkpool.settleMatch(bundle0, bundle1);
+
+        // 1. Check that both intent and balance nullifiers are spent
+        bool intentNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.intentNullifier);
+        bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.balanceNullifier);
+        bool intentNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.intentNullifier);
+        bool balanceNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.balanceNullifier);
+
+        assertTrue(intentNullifier0Spent, "intent nullifier0 not spent");
+        assertTrue(balanceNullifier0Spent, "balance nullifier0 not spent");
+        assertTrue(intentNullifier1Spent, "intent nullifier1 not spent");
+        assertTrue(balanceNullifier1Spent, "balance nullifier1 not spent");
+
+        // 2. Check that the Merkle root matches the expected root
+        // Compute the commitments to the updated intents and balances
+        BN254.ScalarField intentCommitment0 = bundleData0.computeFullIntentCommitment(hasher);
+        BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
+        BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
+        BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
+
+        // Validate against a single Merkle tree
+        MerkleTreeLib.MerkleTreeConfig memory config =
+            MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
+        MerkleTreeLib.initialize(testTree, config);
+        testTree.insertLeaf(intentCommitment0, hasher);
+        testTree.insertLeaf(balanceCommitment0, hasher);
+        testTree.insertLeaf(intentCommitment1, hasher);
+        testTree.insertLeaf(balanceCommitment1, hasher);
+
+        // Get the root of the tree and check that it's in the Merkle mountain range history
+        BN254.ScalarField root = testTree.getRoot();
+        bool rootInHistory = darkpool.rootInHistory(root);
+        assertTrue(rootInHistory, "root not in history");
+    }
+
+    // --- Invalid Test Cases --- //
+
+    /// @notice Test a full match settlement with an invalid proof
+    function test_fullMatch_invalidProof() public {
+        // Create match data
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
+        vm.expectRevert(VerifierCore.InvalidPublicInputLength.selector);
+        darkpoolRealVerifier.settleMatch(bundle0, bundle1);
+    }
+
+    /// @notice Test a replay attack on a user's intent (first fill)
+    function test_fullMatch_ownerSignatureReplay_firstFill() public {
+        // Create match data (first fill)
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
+        darkpool.settleMatch(bundle0, bundle1);
+
+        // Try settling the same match again, the owner signature nonce should be replayed
+        vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
+        darkpool.settleMatch(bundle0, bundle1);
+    }
+
+    /// @notice Test the case in which a balance nullifier is already spent on a settlement bundle (first fill)
+    function test_fullMatch_balanceNullifierAlreadySpent_firstFill() public {
+        // Create match data and settle
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
+        darkpool.settleMatch(bundle0, bundle1);
+
+        // Create new match data with the same parties but different obligations
+        (SettlementBundle memory bundle2, SettlementBundle memory bundle3) = _createMatchData(true);
+
+        // Replace the balance nullifier in bundle2 with the one from bundle0 (already spent)
+        RenegadeSettledIntentBundleFirstFill memory bundleData0 =
+            abi.decode(bundle0.data, (RenegadeSettledIntentBundleFirstFill));
+        RenegadeSettledIntentBundleFirstFill memory bundleData2 =
+            abi.decode(bundle2.data, (RenegadeSettledIntentBundleFirstFill));
+        bundleData2.auth.statement.balanceNullifier = bundleData0.auth.statement.balanceNullifier;
+        bundle2.data = abi.encode(bundleData2);
+
+        // Try settling the new match, the balance nullifier should already be spent
+        vm.expectRevert(NullifierLib.NullifierAlreadySpent.selector);
+        darkpool.settleMatch(bundle2, bundle3);
+    }
+
+    /// @notice Test the case in which an intent nullifier is already spent (subsequent fill)
+    function test_fullMatch_intentNullifierAlreadySpent_subsequentFill() public {
+        // Create match data and settle
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
+        darkpool.settleMatch(bundle0, bundle1);
+
+        // Try settling the same match again, the intent nullifier should be spent
+        vm.expectRevert(NullifierLib.NullifierAlreadySpent.selector);
+        darkpool.settleMatch(bundle0, bundle1);
+    }
+}

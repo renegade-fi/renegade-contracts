@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/* solhint-disable func-name-mixedcase */
+
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
@@ -32,21 +34,7 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         returns (SettlementBundle memory bundle0, SettlementBundle memory bundle1)
     {
         // Create two settlement obligations
-        FixedPoint memory price = randomPrice();
-        uint256 baseAmount = randomAmount();
-        uint256 quoteAmount = price.unsafeFixedPointMul(baseAmount);
-        SettlementObligation memory obligation0 = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: baseAmount,
-            amountOut: quoteAmount
-        });
-        SettlementObligation memory obligation1 = SettlementObligation({
-            inputToken: address(quoteToken),
-            outputToken: address(baseToken),
-            amountIn: quoteAmount,
-            amountOut: baseAmount
-        });
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
 
         // Create two settlement bundles
         bundle0 = createSettlementBundle(isFirstFill, obligation0, party0);

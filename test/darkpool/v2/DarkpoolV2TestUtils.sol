@@ -129,21 +129,33 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         return (intent, obligation);
     }
 
-    /// @dev Create two dummy obligations which are compatible with one another
-    function createCompatibleObligations(
-        address baseToken,
-        address quoteToken
-    )
+    /// @dev Create two obligations for a simulated trade with random price and amount
+    /// @return obligation0 The first party's obligation (selling base, buying quote)
+    /// @return obligation1 The second party's obligation (selling quote, buying base)
+    function createTradeObligations()
         internal
-        pure
-        returns (SettlementObligation memory, SettlementObligation memory)
+        returns (
+            SettlementObligation memory obligation0,
+            SettlementObligation memory obligation1,
+            FixedPoint memory price
+        )
     {
-        SettlementObligation memory party0Obligation =
-            SettlementObligation({ inputToken: baseToken, outputToken: quoteToken, amountIn: 100, amountOut: 200 });
-        SettlementObligation memory party1Obligation =
-            SettlementObligation({ inputToken: quoteToken, outputToken: baseToken, amountIn: 200, amountOut: 100 });
+        price = randomPrice();
+        uint256 baseAmount = randomAmount();
+        uint256 quoteAmount = price.unsafeFixedPointMul(baseAmount);
 
-        return (party0Obligation, party1Obligation);
+        obligation0 = SettlementObligation({
+            inputToken: address(baseToken),
+            outputToken: address(quoteToken),
+            amountIn: baseAmount,
+            amountOut: quoteAmount
+        });
+        obligation1 = SettlementObligation({
+            inputToken: address(quoteToken),
+            outputToken: address(baseToken),
+            amountIn: quoteAmount,
+            amountOut: baseAmount
+        });
     }
 
     /// @dev Create a dummy PlonkProof

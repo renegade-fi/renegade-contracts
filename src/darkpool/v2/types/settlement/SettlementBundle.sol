@@ -146,7 +146,8 @@ library SettlementBundleLib {
             bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT
                 || bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL
         ) {
-            revert("Not implemented");
+            // TODO: Change this when we share a settlement proof for two ring-2 orders
+            numProofs = 2;
         }
     }
 

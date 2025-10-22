@@ -28,10 +28,15 @@ contract FullMatchTests is SettlementTestUtils {
             SettlementObligation memory obligation1
         )
     {
-        // Sample a trade size
-        FixedPoint memory price = randomPrice();
-        uint256 baseAmount = randomAmount();
-        uint256 quoteAmount = price.unsafeFixedPointMul(baseAmount);
+        // Create obligations for the trade
+        FixedPoint memory price;
+        (obligation0, obligation1, price) = createTradeObligations();
+        uint256 baseAmount = obligation0.amountIn;
+        uint256 quoteAmount = obligation0.amountOut;
+
+        // Calculate price from obligations
+        FixedPoint memory baseAmtFixed = FixedPointLib.integerToFixedPoint(baseAmount);
+        FixedPoint memory quoteAmtFixed = FixedPointLib.integerToFixedPoint(quoteAmount);
 
         // Create intent 0, sell the base for the quote
         uint256 minPriceRepr = price.repr / 2;
@@ -48,8 +53,6 @@ contract FullMatchTests is SettlementTestUtils {
         // Create intent 1, buy the base for the quote
         uint256 minIntentSize1 = price.unsafeFixedPointMul(intentSize0);
         uint256 intentSize1 = vm.randomUint(minIntentSize1, minIntentSize1 * 2);
-        FixedPoint memory baseAmtFixed = FixedPointLib.integerToFixedPoint(baseAmount);
-        FixedPoint memory quoteAmtFixed = FixedPointLib.integerToFixedPoint(quoteAmount);
         FixedPoint memory minPriceFixed = baseAmtFixed.div(quoteAmtFixed);
         uint256 minPriceRepr1 = minPriceFixed.repr / 2;
         Intent memory intent1 = Intent({
@@ -60,22 +63,6 @@ contract FullMatchTests is SettlementTestUtils {
             amountIn: intentSize1
         });
         permit1 = PublicIntentPermit({ intent: intent1, executor: executor.addr });
-
-        // Create obligation 0, sell the base for the quote
-        obligation0 = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: baseAmount,
-            amountOut: quoteAmount
-        });
-
-        // Create obligation 1, buy the base for the quote
-        obligation1 = SettlementObligation({
-            inputToken: address(quoteToken),
-            outputToken: address(baseToken),
-            amountIn: quoteAmount,
-            amountOut: baseAmount
-        });
 
         // Capitalize the parties for their obligations
         capitalizeParty(party0.addr, intent0);
