@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
+import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 // -------------------
@@ -58,14 +60,14 @@ struct IntentAndBalanceValidityStatementFirstFill {
     address oneTimeAuthorizingAddress;
     /// @dev The hash of the new one-time key
     BN254.ScalarField newOneTimeKeyHash;
+    /// @dev A commitment to the initial version of the intent
+    BN254.ScalarField initialIntentCommitment;
+    /// @dev A partial commitment to the new intent
+    BN254.ScalarField newIntentPartialCommitment;
     /// @dev A partial commitment to the new balance
     BN254.ScalarField balancePartialCommitment;
-    /// @dev A partial commitment to the new intent
-    BN254.ScalarField intentPartialCommitment;
     /// @dev The nullifier for the previous version of the balance
     BN254.ScalarField balanceNullifier;
-    /// @dev The nullifier for the previous version of the intent
-    BN254.ScalarField intentNullifier;
 }
 
 // --- Settlement Statements --- //
@@ -150,10 +152,10 @@ library PublicInputsLib {
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.oneTimeAuthorizingAddress)));
         publicInputs[1] = statement.newOneTimeKeyHash;
-        publicInputs[2] = statement.balancePartialCommitment;
-        publicInputs[3] = statement.intentPartialCommitment;
-        publicInputs[4] = statement.balanceNullifier;
-        publicInputs[5] = statement.intentNullifier;
+        publicInputs[2] = statement.initialIntentCommitment;
+        publicInputs[3] = statement.newIntentPartialCommitment;
+        publicInputs[4] = statement.balancePartialCommitment;
+        publicInputs[5] = statement.balanceNullifier;
     }
 
     /// @notice Serialize the public inputs for a proof of single-intent match settlement
@@ -197,5 +199,35 @@ library PublicInputsLib {
         publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
         publicInputs[6] = BN254.ScalarField.wrap(statement.obligation.amountIn);
         publicInputs[7] = BN254.ScalarField.wrap(statement.obligation.amountOut);
+    }
+
+    /// @notice Get a dummy verification key for testing
+    /// @return A dummy verification key
+    /// @dev TODO: Replace with real verification key
+    function dummyVkey() internal pure returns (VerificationKey memory) {
+        return VerificationKey({
+            n: 0,
+            l: 0,
+            k: [BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO],
+            qComms: [
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1()
+            ],
+            sigmaComms: [BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1()],
+            g: BN254.P1(),
+            h: BN254.P2(),
+            xH: BN254.P2()
+        });
     }
 }

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import {
     SettlementBundle,
@@ -28,6 +27,7 @@ import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 import { CommitmentNullifierLib } from "darkpoolv2-types/CommitNullify.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 
 /// @title Native Settled Private Intent Library
 /// @author Renegade Eng
@@ -48,8 +48,6 @@ library NativeSettledPrivateIntentLib {
 
     /// @notice Error thrown when an intent commitment signature is invalid
     error InvalidIntentCommitmentSignature();
-    /// @notice Error thrown when the Merkle depth is invalid
-    error InvalidMerkleDepthRequested();
 
     // --- Implementation --- //
 
@@ -103,7 +101,7 @@ library NativeSettledPrivateIntentLib {
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = dummyVkey();
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
@@ -136,7 +134,7 @@ library NativeSettledPrivateIntentLib {
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = dummyVkey();
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
@@ -161,7 +159,7 @@ library NativeSettledPrivateIntentLib {
     {
         // Validate the Merkle depth
         // TODO: Allow for dynamic Merkle depth
-        if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert InvalidMerkleDepthRequested();
+        if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert IDarkpool.InvalidMerkleDepthRequested();
 
         // On the first fill, we verify that the intent owner has signed the intent's commitment
         verifyIntentCommitmentSignature(auth, state);
@@ -169,7 +167,7 @@ library NativeSettledPrivateIntentLib {
         // Append a proof to the settlement context
         // TODO: Fetch a real verification key
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(auth.statement);
-        VerificationKey memory vk = dummyVkey();
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, auth.validityProof, vk);
     }
 
@@ -188,12 +186,12 @@ library NativeSettledPrivateIntentLib {
     {
         // Validate the Merkle depth
         // TODO: Allow for dynamic Merkle depth
-        if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert InvalidMerkleDepthRequested();
+        if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert IDarkpool.InvalidMerkleDepthRequested();
 
         // Append a proof to the settlement context
         // TODO: Fetch a real verification key
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(auth.statement);
-        VerificationKey memory vk = dummyVkey();
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, auth.validityProof, vk);
     }
 
@@ -322,37 +320,5 @@ library NativeSettledPrivateIntentLib {
         // Withdraw the output token from the darkpool
         SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(owner);
         settlementContext.pushWithdrawal(withdrawal);
-    }
-
-    // --- Helpers --- //
-
-    /// @notice Build a dummy verification key
-    /// @return The dummy verification key
-    /// TODO: Remove this once we have a real verification key
-    function dummyVkey() internal pure returns (VerificationKey memory) {
-        return VerificationKey({
-            n: 0,
-            l: 0,
-            k: [BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO],
-            qComms: [
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1()
-            ],
-            sigmaComms: [BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1()],
-            g: BN254.P1(),
-            h: BN254.P2(),
-            xH: BN254.P2()
-        });
     }
 }

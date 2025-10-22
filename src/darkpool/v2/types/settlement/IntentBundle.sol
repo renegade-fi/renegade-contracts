@@ -116,58 +116,39 @@ struct PrivateIntentAuthBundle {
 
 // --- Private Intent, Private Balance Authorization --- //
 
-/// @notice The Renegade settled private intent auth bundle
-/// @dev The bundle is verified differently depending on whether this is the first fill or not.
-/// For this reason, we don't attach a statement type directly to the bundle. Rather, we build
-/// a statement type on the fly depending on the value of `isFirstFill`, using the fields of the bundle.
-struct PrivateIntentPrivateBalanceAuthBundle {
-    // --- First Fill Authorization --- //
-    /// @dev Whether this is the first fill or not
-    bool isFirstFill;
-    /// @dev The one time authorizing address for the balance
-    /// @dev This is unconstrained if this is not the first fill, allowing
-    /// clients to set the value arbitrarily to hide the address
-    address oneTimeAuthorizingAddress;
-    /// @dev The hash of the new one time key for the balance
-    BN254.ScalarField newBalanceOneTimeKeyHash;
+/// @notice The private intent authorization payload for a first fill
+struct RenegadeSettledIntentAuthBundleFirstFill {
+    /// @dev The depth of the Merkle tree to insert the intent into
+    uint256 merkleDepth;
     /// @dev The signature of the intent and an updated balance one time key hash
     /// @dev In specific, we sign:
     ///     H(intentCommitment || updatedBalanceOneTimeKeyHash)
     /// under the previous, now leaked, one time key. This authorizes the intent to be capitalized by
     /// the balance which the owner (hidden) has deposited in the darkpool. This signature also
     /// authorizes the one time key to be rotated to the new one time key.
-    /// @dev When `isFirstFill` is false, this field may be omitted
-    bytes ownerSignature;
-    // --- Commit Nullify Fields --- //
-    /// @dev The nullifier for the previous version of the intent
-    BN254.ScalarField intentNullifier;
-    /// @dev The nullifier for the previous version of the balance
-    BN254.ScalarField balanceNullifier;
-    /// @dev The partial commitment to the new balance
-    BN254.ScalarField balancePartialCommitment;
-    /// @dev The partial commitment to the new intent
-    BN254.ScalarField intentPartialCommitment;
+    SignatureWithNonce ownerSignature;
+    /// @dev The statement for the proof intent and balance validity
+    IntentAndBalanceValidityStatementFirstFill statement;
+    /// @dev The proof of intent and balance validity
+    PlonkProof validityProof;
 }
 
 /// @title Private Intent, Private Balance Auth Bundle Library
 /// @author Renegade Eng
 /// @notice Library for decoding private intent, private balance auth bundle data
 library PrivateIntentPrivateBalanceAuthBundleLib {
-    /// @notice Build a statement for a first fill validity proof
-    /// @param bundle The private intent, private balance auth bundle to build the statement for
-    /// @return statement The statement for the first fill validity proof
-    function buildFirstFillValidityStatement(PrivateIntentPrivateBalanceAuthBundle memory bundle)
+    /// @notice Get the digest for the owner signature
+    /// @param bundleData The bundle data to get the digest for
+    /// @return digest The digest for the owner signature
+    /// @dev The digest is computed as:
+    ///     H(intentCommitment || updatedBalanceOneTimeKeyHash)
+    function getOwnerSignatureDigest(RenegadeSettledIntentAuthBundleFirstFill memory bundleData)
         internal
         pure
-        returns (IntentAndBalanceValidityStatementFirstFill memory statement)
+        returns (bytes32 digest)
     {
-        statement = IntentAndBalanceValidityStatementFirstFill({
-            oneTimeAuthorizingAddress: bundle.oneTimeAuthorizingAddress,
-            newOneTimeKeyHash: bundle.newBalanceOneTimeKeyHash,
-            balancePartialCommitment: bundle.balancePartialCommitment,
-            intentPartialCommitment: bundle.intentPartialCommitment,
-            balanceNullifier: bundle.balanceNullifier,
-            intentNullifier: bundle.intentNullifier
-        });
+        uint256 commitment = BN254.ScalarField.unwrap(bundleData.statement.initialIntentCommitment);
+        uint256 newOneTimeKeyHash = BN254.ScalarField.unwrap(bundleData.statement.newOneTimeKeyHash);
+        digest = EfficientHashLib.hash(bytes32(commitment), bytes32(newOneTimeKeyHash));
     }
 }

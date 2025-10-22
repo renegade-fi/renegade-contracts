@@ -14,6 +14,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPrivateIntent.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 
 contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
@@ -103,7 +104,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         SettlementBundle memory bundle = createSettlementBundleSubsequentFill(invalidDepth, obligation, intentOwner);
 
         // Should revert with InvalidMerkleDepthRequested
-        vm.expectRevert(NativeSettledPrivateIntentLib.InvalidMerkleDepthRequested.selector);
+        vm.expectRevert(IDarkpool.InvalidMerkleDepthRequested.selector);
         authorizeIntentHelper(bundle);
     }
 }
