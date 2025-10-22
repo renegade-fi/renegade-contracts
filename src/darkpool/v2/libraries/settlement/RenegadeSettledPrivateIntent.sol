@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { RenegadeSettledPrivateIntentBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-
 import { SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
@@ -16,6 +14,7 @@ library RenegadeSettledPrivateIntentLib {
     using SettlementBundleLib for SettlementBundle;
 
     /// @notice Execute a renegade settled private intent bundle
+    /// @param isFirstFill Whether the settlement bundle is a first fill
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references

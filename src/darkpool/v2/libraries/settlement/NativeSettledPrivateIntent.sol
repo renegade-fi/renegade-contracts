@@ -56,6 +56,7 @@ library NativeSettledPrivateIntentLib {
     // --- Implementation --- //
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance
+    /// @param isFirstFill Whether the settlement bundle is a first fill
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
@@ -297,6 +298,7 @@ library NativeSettledPrivateIntentLib {
     }
 
     /// @notice Allocate transfers to settle the obligation into the settlement context
+    /// @param owner The owner of the intent
     /// @param obligation The settlement obligation to settle
     /// @param settlementContext The settlement context to which we append post-validation updates.
     function allocateTransfers(

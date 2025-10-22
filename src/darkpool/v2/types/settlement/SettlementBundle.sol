@@ -121,9 +121,15 @@ library SettlementBundleLib {
     function getNumProofs(SettlementBundle calldata bundle) internal pure returns (uint256 numProofs) {
         if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             numProofs = 0;
-        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+        } else if (
+            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT
+                || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL
+        ) {
             numProofs = 2;
-        } else if (bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
+        } else if (
+            bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT
+                || bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL
+        ) {
             revert("Not implemented");
         }
     }
@@ -134,6 +140,7 @@ library SettlementBundleLib {
     /// @return Whether the settlement bundle is natively settled
     function isNativelySettled(SettlementBundle calldata bundle) internal pure returns (bool) {
         return bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT
+            || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL
             || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
     }
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
-import { IAllowanceTransfer } from "permit2/src/interfaces/IAllowanceTransfer.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
@@ -26,7 +25,10 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
     // -----------
 
     /// @dev Create match data for a simulated trade
-    function _createMatchData() internal returns (SettlementBundle memory bundle0, SettlementBundle memory bundle1) {
+    function _createMatchData(bool isFirstFill)
+        internal
+        returns (SettlementBundle memory bundle0, SettlementBundle memory bundle1)
+    {
         // Create two settlement obligations
         FixedPoint memory price = randomPrice();
         uint256 baseAmount = randomAmount();
@@ -45,8 +47,8 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         });
 
         // Create two settlement bundles
-        bundle0 = createSettlementBundle(obligation0, party0);
-        bundle1 = createSettlementBundle(obligation1, party1);
+        bundle0 = createSettlementBundle(isFirstFill, obligation0, party0);
+        bundle1 = createSettlementBundle(isFirstFill, obligation1, party1);
         capitalizeParty(party0.addr, obligation0);
         capitalizeParty(party1.addr, obligation1);
     }
@@ -60,7 +62,7 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
     /// @notice Test a basic full match settlement
     function test_fullMatch_twoNativeSettledPrivateIntents() public {
         // Create match data
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
         SettlementObligation memory obligation0 = abi.decode(bundle0.obligation.data, (SettlementObligation));
         SettlementObligation memory obligation1 = abi.decode(bundle1.obligation.data, (SettlementObligation));
 
@@ -84,13 +86,9 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
     /// @notice Test a full match settlement that is not the first fill for one intent
     function test_fullMatch_notFirstFill() public {
         // Create match data
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
         SettlementObligation memory obligation0 = abi.decode(bundle0.obligation.data, (SettlementObligation));
         SettlementObligation memory obligation1 = abi.decode(bundle1.obligation.data, (SettlementObligation));
-        PrivateIntentPublicBalanceBundle memory bundleData0 =
-            abi.decode(bundle0.data, (PrivateIntentPublicBalanceBundle));
-        bundleData0.auth.isFirstFill = false;
-        bundle0.data = abi.encode(bundleData0);
 
         // Check balances before settlement
         (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
@@ -112,7 +110,7 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
     /// @notice Check the Merkle mountain range roots after a full match settlement
     function test_fullMatch_merkleRootsAndNullifiers() public {
         // Create match data
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
         PrivateIntentPublicBalanceBundle memory bundleData0 =
             abi.decode(bundle0.data, (PrivateIntentPublicBalanceBundle));
         PrivateIntentPublicBalanceBundle memory bundleData1 =
@@ -156,15 +154,17 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
     /// @notice Test a full match settlement with a mismatched bundle type
     function test_fullMatch_invalidProof() public {
         // Create match data
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
         vm.expectRevert(VerifierCore.InvalidPublicInputLength.selector);
         darkpoolRealVerifier.settleMatch(bundle0, bundle1);
     }
 
+    // TODO: Add a test for re-submitting a first fill twice once the `spentSignatures` map is in place
+
     /// @notice Test the case in which a nullifier is already spent on a settlement bundle
     function test_fullMatch_nullifierAlreadySpent() public {
         // Create match data and spend the nullifier
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
         darkpool.settleMatch(bundle0, bundle1);
 
         // Try settling the same match again, the nullifier should be spent
@@ -175,7 +175,7 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
     /// @notice Test the case in which a permit is revoked before the settlement
     function test_fullMatch_permitRevoked() public {
         // Create match data
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData();
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
         SettlementObligation memory obligation0 = abi.decode(bundle0.obligation.data, (SettlementObligation));
 
         vm.startPrank(party0.addr);
