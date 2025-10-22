@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PublicIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { PublicIntentAuthBundle, PrivateIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -45,10 +45,15 @@ enum SettlementBundleType {
 }
 
 /// @notice The settlement bundle data for a `PUBLIC_INTENT_PUBLIC_BALANCE` bundle
-/// TODO: Add balance information here
 struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
+}
+
+/// @notice The settlement bundle data for a `PRIVATE_INTENT_PUBLIC_BALANCE` bundle
+struct PrivateIntentPublicBalanceBundle {
+    /// @dev The private intent authorization payload with signature attached
+    PrivateIntentAuthBundle auth;
 }
 
 /// @title Settlement Bundle Library
@@ -107,5 +112,19 @@ library SettlementBundleLib {
     {
         require(bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
+    }
+
+    /// @notice Decode a private settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodePrivateIntentBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (PrivateIntentPublicBalanceBundle memory bundleData)
+    {
+        require(
+            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT, InvalidSettlementBundleType()
+        );
+        bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
     }
 }
