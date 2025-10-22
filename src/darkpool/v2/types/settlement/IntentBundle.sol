@@ -9,7 +9,8 @@ import { Intent } from "darkpoolv2-types/Intent.sol";
 import {
     IntentOnlyValidityStatement,
     IntentOnlyValidityStatementFirstFill,
-    IntentAndBalanceValidityStatementFirstFill
+    IntentAndBalanceValidityStatementFirstFill,
+    IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
@@ -133,6 +134,16 @@ struct RenegadeSettledIntentAuthBundleFirstFill {
     PlonkProof validityProof;
 }
 
+/// @notice The private intent authorization payload for a subsequent fill
+struct RenegadeSettledIntentAuthBundle {
+    /// @dev The depth of the Merkle tree to insert the intent into
+    uint256 merkleDepth;
+    /// @dev The statement for the proof intent and balance validity
+    IntentAndBalanceValidityStatement statement;
+    /// @dev The proof of intent and balance validity
+    PlonkProof validityProof;
+}
+
 /// @title Private Intent, Private Balance Auth Bundle Library
 /// @author Renegade Eng
 /// @notice Library for decoding private intent, private balance auth bundle data
@@ -149,6 +160,6 @@ library PrivateIntentPrivateBalanceAuthBundleLib {
     {
         uint256 commitment = BN254.ScalarField.unwrap(bundleData.statement.initialIntentCommitment);
         uint256 newOneTimeKeyHash = BN254.ScalarField.unwrap(bundleData.statement.newOneTimeKeyHash);
-        digest = EfficientHashLib.hash(bytes32(commitment), bytes32(newOneTimeKeyHash));
+        digest = EfficientHashLib.hash(commitment, newOneTimeKeyHash);
     }
 }

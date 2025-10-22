@@ -5,13 +5,18 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import {
     SettlementBundle,
     SettlementBundleLib,
-    RenegadeSettledIntentBundleFirstFill
+    RenegadeSettledIntentBundleFirstFill,
+    RenegadeSettledIntentBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
-import { PublicInputsLib, IntentAndBalanceValidityStatementFirstFill } from "darkpoolv2-lib/PublicInputs.sol";
+import {
+    PublicInputsLib,
+    IntentAndBalanceValidityStatementFirstFill,
+    IntentAndBalanceValidityStatement
+} from "darkpoolv2-lib/PublicInputs.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
@@ -19,6 +24,7 @@ import {
     SignatureWithNonce,
     SignatureWithNonceLib,
     RenegadeSettledIntentAuthBundleFirstFill,
+    RenegadeSettledIntentAuthBundle,
     PrivateIntentPrivateBalanceAuthBundleLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
@@ -32,6 +38,7 @@ library RenegadeSettledPrivateIntentLib {
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
     using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
+    using PublicInputsLib for IntentAndBalanceValidityStatement;
 
     // --- Errors --- //
 
@@ -96,7 +103,11 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // TODO: Implement
+        // Decode the bundle data
+        RenegadeSettledIntentBundle memory bundleData = settlementBundle.decodeRenegadeSettledIntentBundleData();
+
+        // 1. Validate the intent authorization
+        validateIntentAuthorization(bundleData.auth, settlementContext);
     }
 
     // ------------------------
@@ -132,7 +143,33 @@ library RenegadeSettledPrivateIntentLib {
 
         // Register a proof of validity for the intent and balance
         // TODO: Fetch a real verification key
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.statement);
+        BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
+    }
+
+    /// @notice Execute the state updates necessary to authorize the intent for a subsequent fill
+    /// @param bundleData The bundle data to execute the state updates for
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @dev On a subsequent fill, we need not verify the owner signature. The presence of the intent in the Merkle tree
+    /// implies that the owner's signature has already been verified (in a previous fill). So in this case, we need only
+    /// verify the proof attached to the bundle.
+    function validateIntentAuthorization(
+        RenegadeSettledIntentAuthBundle memory bundleData,
+        SettlementContext memory settlementContext
+    )
+        internal
+        pure
+    {
+        // Validate the Merkle depth
+        // TODO: Allow for dynamic Merkle depth
+        if (bundleData.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
+            revert IDarkpool.InvalidMerkleDepthRequested();
+        }
+
+        // Register a proof of validity for the intent and balance
+        // TODO: Fetch a real verification key
+        BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
         VerificationKey memory vk = PublicInputsLib.dummyVkey();
         settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
     }

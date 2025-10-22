@@ -70,6 +70,18 @@ struct IntentAndBalanceValidityStatementFirstFill {
     BN254.ScalarField balanceNullifier;
 }
 
+/// @notice A statement for a proof of intent and balance validity
+struct IntentAndBalanceValidityStatement {
+    /// @dev A commitment to the intent
+    BN254.ScalarField newIntentPartialCommitment;
+    /// @dev A partial commitment to the new balance
+    BN254.ScalarField balancePartialCommitment;
+    /// @dev The nullifier for the previous version of the intent
+    BN254.ScalarField intentNullifier;
+    /// @dev The nullifier for the previous version of the balance
+    BN254.ScalarField balanceNullifier;
+}
+
 // --- Settlement Statements --- //
 // Settlement proofs verify that:
 // 1. A settlement obligation is well capitalized by the balance
@@ -199,6 +211,22 @@ library PublicInputsLib {
         publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
         publicInputs[6] = BN254.ScalarField.wrap(statement.obligation.amountIn);
         publicInputs[7] = BN254.ScalarField.wrap(statement.obligation.amountOut);
+    }
+
+    /// @notice Serialize the public inputs for a proof of intent and balance validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(IntentAndBalanceValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 4;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.newIntentPartialCommitment;
+        publicInputs[1] = statement.balancePartialCommitment;
+        publicInputs[2] = statement.intentNullifier;
+        publicInputs[3] = statement.balanceNullifier;
     }
 
     /// @notice Get a dummy verification key for testing

@@ -7,7 +7,8 @@ import {
     PublicIntentAuthBundle,
     PrivateIntentAuthBundleFirstFill,
     PrivateIntentAuthBundle,
-    RenegadeSettledIntentAuthBundleFirstFill
+    RenegadeSettledIntentAuthBundleFirstFill,
+    RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
     SingleIntentMatchSettlementStatement,
@@ -87,6 +88,16 @@ struct PrivateIntentPublicBalanceBundle {
 struct RenegadeSettledIntentBundleFirstFill {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundleFirstFill auth;
+    /// @dev The statement of renegade settled private intent public settlement
+    RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
+    /// @dev The proof of renegade settled private intent public settlement
+    PlonkProof settlementProof;
+}
+
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle
+struct RenegadeSettledIntentBundle {
+    /// @dev The private intent authorization payload with signature attached
+    RenegadeSettledIntentAuthBundle auth;
     /// @dev The statement of renegade settled private intent public settlement
     RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
     /// @dev The proof of renegade settled private intent public settlement
@@ -213,5 +224,17 @@ library SettlementBundleLib {
             InvalidSettlementBundleType()
         );
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundleFirstFill));
+    }
+
+    /// @notice Decode a renegade settled private intent settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledIntentBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledIntentBundle memory bundleData)
+    {
+        require(bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT, InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundle));
     }
 }
