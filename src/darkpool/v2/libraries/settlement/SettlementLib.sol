@@ -11,6 +11,7 @@ import {
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
@@ -49,11 +50,14 @@ library SettlementLib {
     )
         internal
         pure
-        returns (SettlementTransfers memory)
+        returns (SettlementContext memory)
     {
-        uint256 capacity = SettlementBundleLib.getNumTransfers(party0SettlementBundle)
+        uint256 transferCapacity = SettlementBundleLib.getNumTransfers(party0SettlementBundle)
             + SettlementBundleLib.getNumTransfers(party1SettlementBundle);
-        return SettlementTransfersLib.newList(capacity);
+        uint256 proofCapacity = SettlementBundleLib.getNumProofs(party0SettlementBundle)
+            + SettlementBundleLib.getNumProofs(party1SettlementBundle);
+
+        return SettlementContextLib.newContext(transferCapacity, proofCapacity);
     }
 
     // --- Obligation Compatibility --- //
@@ -116,22 +120,22 @@ library SettlementLib {
 
     /// @notice Execute a settlement bundle
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementTransfers The settlement transfers to execute, this method will append transfers to this list.
+    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
     /// @dev This function validates and executes the settlement bundle based on the bundle type
     /// @dev See the library files in this directory for type-specific execution & validation logic.
     function executeSettlementBundle(
         SettlementBundle calldata settlementBundle,
-        SettlementTransfers memory settlementTransfers,
+        SettlementContext memory settlementContext,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
         internal
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            NativeSettledPublicIntentLib.execute(settlementBundle, settlementTransfers, openPublicIntents);
+            NativeSettledPublicIntentLib.execute(settlementBundle, settlementContext, openPublicIntents);
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            NativeSettledPrivateIntentLib.execute(settlementBundle, settlementTransfers);
+            NativeSettledPrivateIntentLib.execute(settlementBundle, settlementContext);
         } else {
             revert("Not implemented");
         }
@@ -140,20 +144,20 @@ library SettlementLib {
     // --- Transfers Execution --- //
 
     /// @notice Execute the transfers necessary for settlement
-    /// @param settlementTransfers The settlement transfers to execute
+    /// @param settlementContext The settlement context to execute the transfers from
     /// @param weth The WETH9 contract instance
     /// @param permit2 The permit2 contract instance
-    function executeTransfers(SettlementTransfers memory settlementTransfers, IWETH9 weth, IPermit2 permit2) internal {
+    function executeTransfers(SettlementContext memory settlementContext, IWETH9 weth, IPermit2 permit2) internal {
         // First, execute the deposits
         // We execute deposits first to ensure the darkpool is capitalized for withdrawals
-        for (uint256 i = 0; i < settlementTransfers.numDeposits(); ++i) {
-            SimpleTransfer memory deposit = settlementTransfers.deposits.transfers[i];
+        for (uint256 i = 0; i < settlementContext.transfers.numDeposits(); ++i) {
+            SimpleTransfer memory deposit = settlementContext.transfers.deposits.transfers[i];
             ExternalTransferLib.executeTransfer(deposit, weth, permit2);
         }
 
         // Second, execute the withdrawals
-        for (uint256 i = 0; i < settlementTransfers.numWithdrawals(); ++i) {
-            SimpleTransfer memory withdrawal = settlementTransfers.withdrawals.transfers[i];
+        for (uint256 i = 0; i < settlementContext.transfers.numWithdrawals(); ++i) {
+            SimpleTransfer memory withdrawal = settlementContext.transfers.withdrawals.transfers[i];
             ExternalTransferLib.executeTransfer(withdrawal, weth, permit2);
         }
     }

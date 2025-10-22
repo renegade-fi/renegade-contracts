@@ -16,7 +16,7 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
-import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
+import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 contract SettlementTestUtils is DarkpoolV2TestBase {
@@ -106,8 +106,8 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
     // --- Dummy Data --- //
 
     /// @dev Create a dummy `SettlementTransfers` list for the test
-    function _createSettlementTransfers() internal pure returns (SettlementTransfers memory transfers) {
-        transfers = SettlementTransfersLib.newList(1);
+    function _createSettlementContext() internal pure returns (SettlementContext memory context) {
+        context = SettlementContextLib.newContext(1, /* transferCapacity */ 1 /* verificationCapacity */ );
     }
 
     /// @dev Create two dummy obligations which are compatible with one another

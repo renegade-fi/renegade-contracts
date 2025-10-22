@@ -78,6 +78,19 @@ library SettlementBundleLib {
         return 0;
     }
 
+    /// @notice Get the number of proofs which need to be verified for a settlement bundle
+    /// @param bundle The settlement bundle to get the number of proofs for
+    /// @return numProofs The number of proofs required to settle the bundle
+    function getNumProofs(SettlementBundle calldata bundle) internal pure returns (uint256 numProofs) {
+        if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            numProofs = 0;
+        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+            numProofs = 1;
+        } else if (bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
+            revert("Not implemented");
+        }
+    }
+
     /// @notice Return whether a settlement bundle is natively settled; i.e. is
     /// capitalized by an EOA balance
     /// @param bundle The settlement bundle to check

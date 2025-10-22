@@ -14,7 +14,7 @@ import {
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
+import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
@@ -30,7 +30,7 @@ library NativeSettledPublicIntentLib {
     using ObligationLib for ObligationBundle;
     using SettlementObligationLib for SettlementObligation;
     using PublicIntentPermitLib for PublicIntentPermit;
-    using SettlementTransfersLib for SettlementTransfers;
+    using SettlementContextLib for SettlementContext;
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
@@ -49,13 +49,13 @@ library NativeSettledPublicIntentLib {
     /// constraints are checked here. The balance constraint is implicitly checked by transferring
     /// into the darkpool.
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementTransfers The settlement transfers to execute, this method will append transfers to this list.
+    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
     /// If an intent's hash is already in the mapping, we need not check its owner's signature.
     /// TODO: Add bounds checks on the amounts in the intent and obligation
     function execute(
         SettlementBundle calldata settlementBundle,
-        SettlementTransfers memory settlementTransfers,
+        SettlementContext memory settlementContext,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
         internal
@@ -73,7 +73,7 @@ library NativeSettledPublicIntentLib {
         validateObligationIntentConstraints(amountRemaining, intent, obligation);
 
         // 3. Execute the state updates necessary to settle the bundle
-        executeStateUpdates(intentHash, intent, obligation, settlementTransfers, openPublicIntents);
+        executeStateUpdates(intentHash, intent, obligation, settlementContext, openPublicIntents);
     }
 
     // ------------------------
@@ -160,13 +160,13 @@ library NativeSettledPublicIntentLib {
     /// @param intentHash The hash of the intent
     /// @param intent The intent to update
     /// @param obligation The settlement obligation to update
-    /// @param settlementTransfers The settlement transfers to execute, this method will append transfers to this list.
+    /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
     function executeStateUpdates(
         bytes32 intentHash,
         Intent memory intent,
         SettlementObligation memory obligation,
-        SettlementTransfers memory settlementTransfers,
+        SettlementContext memory settlementContext,
         mapping(bytes32 => uint256) storage openPublicIntents
     )
         internal
@@ -174,11 +174,11 @@ library NativeSettledPublicIntentLib {
         // Add transfers to settle the obligation
         // Deposit the input token into the darkpool
         SimpleTransfer memory deposit = obligation.buildPermit2AllowanceDeposit(intent.owner);
-        settlementTransfers.pushDeposit(deposit);
+        settlementContext.pushDeposit(deposit);
 
         // Withdraw the output token from the darkpool
         SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(intent.owner);
-        settlementTransfers.pushWithdrawal(withdrawal);
+        settlementContext.pushWithdrawal(withdrawal);
 
         // Update the amount remaining on the intent
         openPublicIntents[intentHash] -= obligation.amountIn;
