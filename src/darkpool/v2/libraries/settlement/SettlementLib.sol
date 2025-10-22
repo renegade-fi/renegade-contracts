@@ -17,11 +17,15 @@ import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol"
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
+import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
+import { emptyOpeningElements } from "renegade-lib/verifier/Types.sol";
+
 /// @title SettlementLib
 /// @author Renegade Eng
 /// @notice Library for settlement operations
 library SettlementLib {
     using SettlementBundleLib for SettlementBundle;
+    using SettlementContextLib for SettlementContext;
     using SettlementTransfersLib for SettlementTransfers;
 
     /// @notice Error thrown when the obligation types are not compatible
@@ -30,6 +34,8 @@ library SettlementLib {
     error IncompatiblePairs();
     /// @notice Error thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
+    /// @notice Error thrown when verification fails for a settlement
+    error SettlementVerificationFailed();
 
     // --- Allocation --- //
 
@@ -159,6 +165,29 @@ library SettlementLib {
         for (uint256 i = 0; i < settlementContext.transfers.numWithdrawals(); ++i) {
             SimpleTransfer memory withdrawal = settlementContext.transfers.withdrawals.transfers[i];
             ExternalTransferLib.executeTransfer(withdrawal, weth, permit2);
+        }
+    }
+
+    // --- Proof Verification --- //
+
+    /// @notice Verify the proofs necessary for settlement
+    /// @param settlementContext The settlement context to verify the proofs from
+    function verifySettlementProofs(SettlementContext memory settlementContext) internal {
+        if (settlementContext.numProofs() == 0) {
+            return;
+        }
+
+        // Call the core verifier
+        bool valid = VerifierCore.batchVerify(
+            settlementContext.verifications.proofs,
+            settlementContext.verifications.publicInputs,
+            settlementContext.verifications.vks,
+            // TODO: Add proof linking instances here
+            emptyOpeningElements()
+        );
+
+        if (!valid) {
+            revert SettlementVerificationFailed();
         }
     }
 }
