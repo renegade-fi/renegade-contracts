@@ -16,10 +16,10 @@ import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
-import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { ECDSALib } from "renegade-lib/ECDSA.sol";
+import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
 /// @title Native Settled Public Intent Library
 /// @author Renegade Eng
@@ -27,11 +27,13 @@ import { ECDSALib } from "renegade-lib/ECDSA.sol";
 /// @dev A natively settled public intent is a public intent with a public (EOA) balance.
 library NativeSettledPublicIntentLib {
     using FixedPointLib for FixedPoint;
+    using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
     using ObligationLib for ObligationBundle;
     using SettlementObligationLib for SettlementObligation;
     using PublicIntentPermitLib for PublicIntentPermit;
     using SettlementContextLib for SettlementContext;
+    using DarkpoolStateLib for DarkpoolState;
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
@@ -100,23 +102,25 @@ library NativeSettledPublicIntentLib {
     {
         // Verify that the executor has signed the settlement obligation
         bytes32 obligationHash = obligation.computeObligationHash();
-        bool executorValid = ECDSALib.verify(obligationHash, auth.executorSignature, auth.permit.executor);
+        bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, obligationHash);
         if (!executorValid) revert InvalidExecutorSignature();
+        state.spendNonce(auth.executorSignature.nonce);
 
         // If the intent is already in the mapping, we need not check its owner's signature
         intentHash = auth.permit.computeHash();
-        amountRemaining = state.openPublicIntents[intentHash];
+        amountRemaining = state.getOpenIntentAmountRemaining(intentHash);
         if (amountRemaining > 0) {
             return (amountRemaining, intentHash);
         }
 
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
-        bool sigValid = ECDSALib.verify(intentHash, auth.intentSignature, auth.permit.intent.owner);
+        bool sigValid = auth.intentSignature.verifyPrehashed(auth.permit.intent.owner, intentHash);
         if (!sigValid) revert InvalidIntentSignature();
+        state.spendNonce(auth.intentSignature.nonce);
 
         // Now that we've authorized the intent, update the amount remaining mapping
         amountRemaining = auth.permit.intent.amountIn;
-        state.openPublicIntents[intentHash] = amountRemaining;
+        state.setOpenIntentAmountRemaining(intentHash, amountRemaining);
         return (amountRemaining, intentHash);
     }
 
@@ -180,6 +184,6 @@ library NativeSettledPublicIntentLib {
         settlementContext.pushWithdrawal(withdrawal);
 
         // Update the amount remaining on the intent
-        state.openPublicIntents[intentHash] -= obligation.amountIn;
+        state.decrementOpenIntentAmountRemaining(intentHash, obligation.amountIn);
     }
 }

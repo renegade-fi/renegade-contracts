@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import {
     SettlementBundle,
@@ -11,6 +12,7 @@ import {
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
+    SignatureWithNonce,
     PublicIntentAuthBundle,
     PublicIntentPermit,
     PublicIntentPermitLib
@@ -35,13 +37,15 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         uint256 signerPrivateKey
     )
         internal
-        pure
-        returns (bytes memory)
+        returns (SignatureWithNonce memory)
     {
         // Sign with the private key
+        uint256 nonce = randomUint();
         bytes32 permitHash = permit.computeHash();
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, permitHash);
-        return abi.encodePacked(r, s, v);
+        bytes32 signatureDigest = EfficientHashLib.hash(permitHash, bytes32(nonce));
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
+        return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
     /// @dev Sign an obligation bundle (memory version)
@@ -50,8 +54,7 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         uint256 signerPrivateKey
     )
         internal
-        view
-        returns (bytes memory)
+        returns (SignatureWithNonce memory)
     {
         // Use the calldata version via external call for memory-to-calldata conversion
         return this._signObligationCalldata(obligationBundle, signerPrivateKey);
@@ -63,16 +66,17 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         uint256 signerPrivateKey
     )
         external
-        pure
-        returns (bytes memory)
+        returns (SignatureWithNonce memory)
     {
         // Decode and hash the obligation using the new library methods
+        uint256 nonce = randomUint();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation();
         bytes32 obligationHash = SettlementObligationLib.computeObligationHash(obligation);
+        bytes32 signatureDigest = EfficientHashLib.hash(obligationHash, bytes32(nonce));
 
         // Sign with the private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, obligationHash);
-        return abi.encodePacked(r, s, v);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
+        return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
     // --- Dummy Data --- //
@@ -94,7 +98,6 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         SettlementObligation memory obligation
     )
         internal
-        view
         returns (SettlementBundle memory)
     {
         return createSettlementBundleWithSigners(intent, obligation, intentOwner.privateKey, executor.privateKey);
@@ -108,17 +111,16 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         uint256 executorPrivateKey
     )
         internal
-        view
         returns (SettlementBundle memory)
     {
         // Create the permit and sign it with the owner key
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
-        bytes memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
+        SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
         // Create obligation bundle and sign it with the executor key
         ObligationBundle memory obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
-        bytes memory executorSignature = signObligation(obligationBundle, executorPrivateKey);
+        SignatureWithNonce memory executorSignature = signObligation(obligationBundle, executorPrivateKey);
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({

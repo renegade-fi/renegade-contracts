@@ -21,25 +21,7 @@ import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
-
-/// @title Darkpool State
-/// @notice Storage struct bundling core darkpool state
-/// @dev Used to pass storage references as a single parameter
-struct DarkpoolState {
-    /// @notice The mapping of open public intents
-    /// @dev This maps the intent hash to the amount remaining.
-    /// @dev An intent hash is a hash of the tuple (executor, intent),
-    /// where executor is the address of the party allowed to fill the intent.
-    mapping(bytes32 => uint256) openPublicIntents;
-    /// @notice The Merkle mountain range for state element commitments
-    MerkleMountainLib.MerkleMountainRange merkleMountainRange;
-    /// @notice The nullifier set for the darkpool
-    /// @dev Each time a state element is updated a nullifier is spent.
-    /// @dev The nullifier set ensures that a pre-update state element cannot create two separate post-update state
-    /// elements in the Merkle state
-    /// @dev The nullifier is computed deterministically from the shares of the pre-update state element
-    NullifierLib.NullifierSet nullifierSet;
-}
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 /// @title DarkpoolV2
 /// @author Renegade Eng
@@ -47,6 +29,7 @@ struct DarkpoolState {
 contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using NullifierLib for NullifierLib.NullifierSet;
+    using DarkpoolStateLib for DarkpoolState;
 
     // ----------
     // | Events |
@@ -109,7 +92,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     // --- Protocol Level State Storage --- //
 
     /// @notice Bundled core darkpool state
-    /// @dev Contains: openPublicIntents mapping, merkleTree, and nullifierSet
+    /// @dev Contains: openPublicIntents mapping, spentNonces mapping, merkleTree, and nullifierSet
     DarkpoolState private _state;
 
     // ---------------------------------
@@ -166,21 +149,21 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     /// @param intentHash The hash of the intent
     /// @return The remaining amount for the intent
     function openPublicIntents(bytes32 intentHash) public view returns (uint256) {
-        return _state.openPublicIntents[intentHash];
+        return _state.getOpenIntentAmountRemaining(intentHash);
     }
 
     /// @notice Check if a nullifier has been spent
     /// @param nullifier The nullifier to check
     /// @return Whether the nullifier has been spent
     function nullifierSpent(BN254.ScalarField nullifier) public view returns (bool) {
-        return _state.nullifierSet.isSpent(nullifier);
+        return _state.nullifierSpent(nullifier);
     }
 
     /// @notice Check if a root is in the Merkle mountain range history
     /// @param root The root to check
     /// @return Whether the root is in the history
     function rootInHistory(BN254.ScalarField root) public view returns (bool) {
-        return _state.merkleMountainRange.rootInHistory(root);
+        return _state.rootInHistory(root);
     }
 
     // --------------
