@@ -23,7 +23,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
     /// @notice Wrapper to convert memory to calldata for library call
     function _validateSettlementBundleCalldata(SettlementBundle calldata bundle) external {
         SettlementContext memory settlementContext = _createSettlementContext();
-        NativeSettledPublicIntentLib.execute(bundle, settlementContext, openPublicIntents);
+        NativeSettledPublicIntentLib.execute(bundle, settlementContext, darkpoolState);
     }
 
     // ---------

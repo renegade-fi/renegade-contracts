@@ -16,6 +16,7 @@ import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
+import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { ECDSALib } from "renegade-lib/ECDSA.sol";
@@ -50,13 +51,12 @@ library NativeSettledPublicIntentLib {
     /// into the darkpool.
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
-    /// If an intent's hash is already in the mapping, we need not check its owner's signature.
+    /// @param state The darkpool state containing all storage references
     /// TODO: Add bounds checks on the amounts in the intent and obligation
     function execute(
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        mapping(bytes32 => uint256) storage openPublicIntents
+        DarkpoolState storage state
     )
         internal
     {
@@ -66,14 +66,14 @@ library NativeSettledPublicIntentLib {
 
         // 1. Validate the intent authorization
         (uint256 amountRemaining, bytes32 intentHash) =
-            validatePublicIntentAuthorization(bundleData.auth, obligation, openPublicIntents);
+            validatePublicIntentAuthorization(bundleData.auth, obligation, state);
 
         // 2. Validate the intent and balance constraints on the obligation
         Intent memory intent = bundleData.auth.permit.intent;
         validateObligationIntentConstraints(amountRemaining, intent, obligation);
 
         // 3. Execute the state updates necessary to settle the bundle
-        executeStateUpdates(intentHash, intent, obligation, settlementContext, openPublicIntents);
+        executeStateUpdates(intentHash, intent, obligation, settlementContext, state);
     }
 
     // ------------------------
@@ -83,8 +83,7 @@ library NativeSettledPublicIntentLib {
     /// @notice Validate the authorization of a public intent
     /// @param auth The public intent authorization bundle to validate
     /// @param obligation The settlement obligation to validate
-    /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
-    /// If an intent's hash is already in the mapping, we need not check its owner's signature.
+    /// @param state The darkpool state containing all storage references
     /// @dev We require two checks to pass for a public intent to be authorized:
     /// 1. The executor has signed the settlement obligation. This authorizes the individual fill parameters.
     /// 2. The intent owner has signed a tuple of (executor, intent). This authorizes the intent to be filled by the
@@ -94,7 +93,7 @@ library NativeSettledPublicIntentLib {
     function validatePublicIntentAuthorization(
         PublicIntentAuthBundle memory auth,
         SettlementObligation memory obligation,
-        mapping(bytes32 => uint256) storage openPublicIntents
+        DarkpoolState storage state
     )
         internal
         returns (uint256 amountRemaining, bytes32 intentHash)
@@ -106,7 +105,7 @@ library NativeSettledPublicIntentLib {
 
         // If the intent is already in the mapping, we need not check its owner's signature
         intentHash = auth.permit.computeHash();
-        amountRemaining = openPublicIntents[intentHash];
+        amountRemaining = state.openPublicIntents[intentHash];
         if (amountRemaining > 0) {
             return (amountRemaining, intentHash);
         }
@@ -117,7 +116,7 @@ library NativeSettledPublicIntentLib {
 
         // Now that we've authorized the intent, update the amount remaining mapping
         amountRemaining = auth.permit.intent.amountIn;
-        openPublicIntents[intentHash] = amountRemaining;
+        state.openPublicIntents[intentHash] = amountRemaining;
         return (amountRemaining, intentHash);
     }
 
@@ -161,13 +160,13 @@ library NativeSettledPublicIntentLib {
     /// @param intent The intent to update
     /// @param obligation The settlement obligation to update
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param openPublicIntents Mapping of open public intents, this maps the intent hash to the amount remaining.
+    /// @param state The darkpool state containing all storage references
     function executeStateUpdates(
         bytes32 intentHash,
         Intent memory intent,
         SettlementObligation memory obligation,
         SettlementContext memory settlementContext,
-        mapping(bytes32 => uint256) storage openPublicIntents
+        DarkpoolState storage state
     )
         internal
     {
@@ -181,6 +180,6 @@ library NativeSettledPublicIntentLib {
         settlementContext.pushWithdrawal(withdrawal);
 
         // Update the amount remaining on the intent
-        openPublicIntents[intentHash] -= obligation.amountIn;
+        state.openPublicIntents[intentHash] -= obligation.amountIn;
     }
 }

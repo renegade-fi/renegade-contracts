@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { Intent } from "darkpoolv2-types/Intent.sol";
-import { PrivateIntentPublicBalanceStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { IntentOnlyValidityStatement } from "darkpoolv2-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
@@ -55,9 +55,9 @@ struct PrivateIntentAuthBundle {
     /// @dev The signature of the intent by its owner
     bytes intentSignature;
     /// @dev The statement for the proof of `PrivateIntentPublicBalance`
-    PrivateIntentPublicBalanceStatement statement;
+    IntentOnlyValidityStatement statement;
     /// @dev The proof of `PrivateIntentPublicBalance`
-    PlonkProof proof;
+    PlonkProof validityProof;
 }
 
 /// @title Private Intent Auth Bundle Library

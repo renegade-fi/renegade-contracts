@@ -18,6 +18,7 @@ import {
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 contract SettlementTestUtils is DarkpoolV2TestBase {
     using ObligationLib for ObligationBundle;
@@ -37,8 +38,8 @@ contract SettlementTestUtils is DarkpoolV2TestBase {
     Vm.Wallet internal executor;
     Vm.Wallet internal wrongSigner;
 
-    // Storage for open public intents
-    mapping(bytes32 => uint256) internal openPublicIntents;
+    // Bundled darkpool state for testing
+    DarkpoolState internal darkpoolState;
 
     function setUp() public virtual override {
         super.setUp();
