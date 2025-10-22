@@ -23,6 +23,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
+        bool isFirstFill,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -30,9 +31,6 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // Decode the bundle data
-        RenegadeSettledPrivateIntentBundle memory bundle =
-            settlementBundle.decodeRenegadeSettledPrivateIntentBundleData();
         // TODO: Implement
     }
 }
