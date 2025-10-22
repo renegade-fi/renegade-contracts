@@ -88,6 +88,12 @@ library RenegadeSettledPrivateIntentLib {
 
         // 1. Validate the intent authorization
         validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
+
+        // 2. Validate the intent constraints on the obligation
+        // This is done in the settlement proof
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -108,6 +114,12 @@ library RenegadeSettledPrivateIntentLib {
 
         // 1. Validate the intent authorization
         validateIntentAuthorization(bundleData.auth, settlementContext);
+
+        // 2. Validate the intent constraints on the obligation
+        // This is done in the settlement proof
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
     }
 
     // ------------------------
