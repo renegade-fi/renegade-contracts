@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -52,9 +53,13 @@ interface IDarkpoolV2 {
     function openPublicIntents(bytes32 intentHash) external view returns (uint256);
 
     /// @notice Settle a trade
+    /// @param obligationBundle The obligation bundle for the trade. In the case of a public trade, this
+    /// encodes the settlement obligations for each party in the trade. If the trade is private, this bundle holds
+    /// a proof attesting to the validity of the settlement.
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
     function settleMatch(
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )

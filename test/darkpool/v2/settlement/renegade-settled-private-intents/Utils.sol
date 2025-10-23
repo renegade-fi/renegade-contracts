@@ -105,16 +105,16 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Helper to create a sample settlement bundle
-    function createSampleBundle(bool isFirstFill) internal returns (SettlementBundle memory) {
+    function createSampleBundle(bool isFirstFill)
+        internal
+        returns (ObligationBundle memory obligationBundle, SettlementBundle memory bundle)
+    {
         // Create obligation
-        SettlementObligation memory obligation = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: 100,
-            amountOut: 200
-        });
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
+        obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
-        return createSettlementBundle(isFirstFill, obligation, intentOwner);
+        bundle = createSettlementBundle(isFirstFill, obligation0, intentOwner);
     }
 
     /// @dev Create a complete settlement bundle given an obligation
@@ -168,10 +168,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         });
 
         // Encode the obligation and bundle
-        ObligationBundle memory obligationBundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
         return SettlementBundle({
-            obligation: obligationBundle,
             bundleType: SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL,
             data: abi.encode(bundleData)
         });
@@ -203,12 +200,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         });
 
         // Encode the obligation and bundle
-        ObligationBundle memory obligationBundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
-        return SettlementBundle({
-            obligation: obligationBundle,
-            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
-            data: abi.encode(bundleData)
-        });
+        return
+            SettlementBundle({ bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT, data: abi.encode(bundleData) });
     }
 }

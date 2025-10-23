@@ -18,7 +18,8 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 
-import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -171,9 +172,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     // --------------
 
     /// @notice Settle a trade
+    /// @param obligationBundle The obligation bundle for the trade. In the case of a public trade, this
+    /// encodes the settlement obligations for each party in the trade. If the trade is private, this bundle holds
+    /// a proof attesting to the validity of the settlement.
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
     function settleMatch(
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )
@@ -184,11 +189,15 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
             SettlementLib.allocateSettlementTransfers(party0SettlementBundle, party1SettlementBundle);
 
         // 2. Validate that the settlement obligations are compatible with one another
-        SettlementLib.checkObligationCompatibility(party0SettlementBundle.obligation, party1SettlementBundle.obligation);
+        SettlementLib.validateObligationBundle(obligationBundle);
 
         // 3. Validate and authorize the settlement bundles
-        SettlementLib.executeSettlementBundle(party0SettlementBundle, settlementContext, _state, hasher);
-        SettlementLib.executeSettlementBundle(party1SettlementBundle, settlementContext, _state, hasher);
+        SettlementLib.executeSettlementBundle(
+            PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, _state, hasher
+        );
+        SettlementLib.executeSettlementBundle(
+            PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, _state, hasher
+        );
 
         // 4. Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary

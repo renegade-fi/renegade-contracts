@@ -48,29 +48,28 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
-    /// @dev Sign an obligation bundle (memory version)
+    /// @dev Sign an obligation (memory version)
     function signObligation(
-        ObligationBundle memory obligationBundle,
+        SettlementObligation memory obligation,
         uint256 signerPrivateKey
     )
         internal
         returns (SignatureWithNonce memory)
     {
         // Use the calldata version via external call for memory-to-calldata conversion
-        return this._signObligationCalldata(obligationBundle, signerPrivateKey);
+        return this._signObligationCalldata(obligation, signerPrivateKey);
     }
 
-    /// @dev Sign an obligation bundle (calldata version)
+    /// @dev Sign an obligation (calldata version)
     function _signObligationCalldata(
-        ObligationBundle calldata obligationBundle,
+        SettlementObligation memory obligation,
         uint256 signerPrivateKey
     )
         external
         returns (SignatureWithNonce memory)
     {
-        // Decode and hash the obligation using the new library methods
+        // Hash the obligation
         uint256 nonce = randomUint();
-        SettlementObligation memory obligation = obligationBundle.decodePublicObligation();
         bytes32 obligationHash = SettlementObligationLib.computeObligationHash(obligation);
         bytes32 signatureDigest = EfficientHashLib.hash(obligationHash, bytes32(nonce));
 
@@ -87,9 +86,15 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Helper to create a sample settlement bundle
-    function createSampleBundle() internal returns (SettlementBundle memory) {
-        (Intent memory intent, SettlementObligation memory obligation) = createSampleIntentAndObligation();
-        return createSettlementBundle(intent, obligation);
+    function createSampleBundle()
+        internal
+        returns (SettlementBundle memory settlementBundle, ObligationBundle memory obligationBundle)
+    {
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
+        Intent memory intent0 = createIntentForObligation(obligation0);
+        settlementBundle = createSettlementBundle(intent0, obligation0);
+        obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
     }
 
     /// @dev Create a complete settlement bundle given an intent and an obligation
@@ -117,10 +122,8 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
-        // Create obligation bundle and sign it with the executor key
-        ObligationBundle memory obligationBundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
-        SignatureWithNonce memory executorSignature = signObligation(obligationBundle, executorPrivateKey);
+        // Sign the obligation with the executor key
+        SignatureWithNonce memory executorSignature = signObligation(obligation, executorPrivateKey);
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
@@ -132,7 +135,6 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
 
         // Create the complete settlement bundle
         return SettlementBundle({
-            obligation: obligationBundle,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
             data: abi.encode(bundleData)
         });

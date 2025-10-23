@@ -3,11 +3,13 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import {
+    PartyId,
     SettlementBundle,
     SettlementBundleLib,
     RenegadeSettledIntentBundleFirstFill,
     RenegadeSettledIntentBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -51,6 +53,8 @@ library RenegadeSettledPrivateIntentLib {
 
     /// @notice Execute a renegade settled private intent bundle
     /// @param isFirstFill Whether the settlement bundle is a first fill
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
@@ -59,6 +63,8 @@ library RenegadeSettledPrivateIntentLib {
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
         bool isFirstFill,
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -67,18 +73,24 @@ library RenegadeSettledPrivateIntentLib {
         internal
     {
         if (isFirstFill) {
-            executeFirstFill(settlementBundle, settlementContext, state, hasher);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
         } else {
-            executeSubsequentFill(settlementBundle, settlementContext, state, hasher);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
         }
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a first fill
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// TODO: Proof link into the obligation bundle's settlement proof
+    /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
     function executeFirstFill(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -104,11 +116,17 @@ library RenegadeSettledPrivateIntentLib {
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// TODO: Proof link into the obligation bundle's settlement proof
+    /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
     function executeSubsequentFill(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,

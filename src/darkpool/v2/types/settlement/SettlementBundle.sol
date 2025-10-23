@@ -3,7 +3,6 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     PublicIntentAuthBundle,
     PrivateIntentAuthBundleFirstFill,
@@ -23,16 +22,17 @@ import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 // | Settlement Bundle Types |
 // ---------------------------
 
+/// @notice The party IDs in a trade
+enum PartyId {
+    PARTY_0,
+    PARTY_1
+}
+
 /// @notice A settlement bundle for a user
 /// @dev This type encapsulates all the data required to validate a user's obligation to a trade
 /// @dev and settle the trade. The fields themselves are tagged unions of different data types representing
 /// @dev the different privacy configurations for each side of the trade.
 struct SettlementBundle {
-    /// @dev The settlement obligation
-    /// @dev Note that the settlement obligation may vary independently of the settlement bundle type.
-    /// For example, a renegade settled intent may have a public obligation. So we encode the obligation
-    /// separately from the settlement bundle data.
-    ObligationBundle obligation;
     /// @dev The type of settlement bundle
     SettlementBundleType bundleType;
     /// @dev The data validating the settlement bundle

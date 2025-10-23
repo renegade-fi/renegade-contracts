@@ -8,6 +8,7 @@ import { DarkpoolV2TestBase } from "./DarkpoolV2TestBase.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 
+import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
@@ -100,33 +101,22 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
 
     // --- Dummy Data --- //
 
-    /// @dev Create a dummy intent
-    function createSampleIntent() internal returns (Intent memory) {
-        (Intent memory intent,) = createSampleIntentAndObligation();
-        return intent;
-    }
+    /// @dev Create an intent for an obligation
+    function createIntentForObligation(SettlementObligation memory obligation) internal returns (Intent memory) {
+        // Compute the min price
+        FixedPoint memory outAmtFixed = FixedPointLib.integerToFixedPoint(obligation.amountOut);
+        FixedPoint memory inAmtFixed = FixedPointLib.integerToFixedPoint(obligation.amountIn);
+        FixedPoint memory minPrice = outAmtFixed.div(inAmtFixed).divByInteger(2);
 
-    /// @dev Create a sample intent and settlement obligation
-    function createSampleIntentAndObligation() internal returns (Intent memory, SettlementObligation memory) {
-        Intent memory intent = Intent({
-            inToken: address(baseToken),
-            outToken: address(quoteToken),
+        // Compute the input amount
+        uint256 amountIn = randomUint(obligation.amountIn, 2 ** 100);
+        return Intent({
+            inToken: obligation.inputToken,
+            outToken: obligation.outputToken,
             owner: intentOwner.addr,
-            minPrice: FixedPointLib.wrap(2 << FixedPointLib.FIXED_POINT_PRECISION_BITS), // 1:1 price for simplicity
-            amountIn: 100
+            minPrice: minPrice,
+            amountIn: amountIn
         });
-
-        // Sample an obligation
-        uint256 amountIn = vm.randomUint(1, intent.amountIn);
-        uint256 amountOut = intent.minPrice.unsafeFixedPointMul(amountIn);
-        SettlementObligation memory obligation = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: amountIn,
-            amountOut: amountOut
-        });
-
-        return (intent, obligation);
     }
 
     /// @dev Create two obligations for a simulated trade with random price and amount
@@ -156,6 +146,17 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
             amountIn: quoteAmount,
             amountOut: baseAmount
         });
+    }
+
+    /// @dev Build an obligation bundle from two obligations
+    function buildObligationBundle(
+        SettlementObligation memory obligation0,
+        SettlementObligation memory obligation1
+    )
+        internal
+        returns (ObligationBundle memory)
+    {
+        return ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
     }
 
     /// @dev Create a dummy PlonkProof

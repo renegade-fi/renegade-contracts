@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
@@ -83,6 +84,8 @@ contract FullMatchTests is SettlementTestUtils {
             SettlementObligation memory obligation1
         ) = _createMatchData();
 
+        ObligationBundle memory obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
         SettlementBundle memory party0Bundle =
             createSettlementBundleWithSigners(permit0.intent, obligation0, party0.privateKey, executor.privateKey);
         SettlementBundle memory party1Bundle =
@@ -93,7 +96,7 @@ contract FullMatchTests is SettlementTestUtils {
         (uint256 party1BaseBefore, uint256 party1QuoteBefore) = baseQuoteBalances(party1.addr);
 
         // Settle the match
-        darkpool.settleMatch(party0Bundle, party1Bundle);
+        darkpool.settleMatch(obligationBundle, party0Bundle, party1Bundle);
 
         // Check balances after settlement
         (uint256 party0BaseAfter, uint256 party0QuoteAfter) = baseQuoteBalances(party0.addr);
@@ -129,6 +132,10 @@ contract FullMatchTests is SettlementTestUtils {
             FixedPointLib.wrap(trade1Obligation0.amountOut), FixedPointLib.wrap(trade1Obligation0.amountIn)
         );
 
+        ObligationBundle memory obligationBundle = ObligationBundle({
+            obligationType: ObligationType.PUBLIC,
+            data: abi.encode(trade1Obligation0, trade1Obligation1)
+        });
         SettlementBundle memory party0Bundle =
             createSettlementBundleWithSigners(permit0.intent, trade1Obligation0, party0.privateKey, executor.privateKey);
         SettlementBundle memory party1Bundle =
@@ -139,7 +146,7 @@ contract FullMatchTests is SettlementTestUtils {
         (uint256 party1BaseBefore, uint256 party1QuoteBefore) = baseQuoteBalances(party1.addr);
 
         // Settle an initial match
-        darkpool.settleMatch(party0Bundle, party1Bundle);
+        darkpool.settleMatch(obligationBundle, party0Bundle, party1Bundle);
 
         // --- Second Fill --- //
 
@@ -161,6 +168,10 @@ contract FullMatchTests is SettlementTestUtils {
             amountIn: party0Output,
             amountOut: party0Input
         });
+        ObligationBundle memory obligationBundle2 = ObligationBundle({
+            obligationType: ObligationType.PUBLIC,
+            data: abi.encode(trade2Obligation0, trade2Obligation1)
+        });
 
         SettlementBundle memory party0Bundle2 =
             createSettlementBundleWithSigners(permit0.intent, trade2Obligation0, party0.privateKey, executor.privateKey);
@@ -168,7 +179,7 @@ contract FullMatchTests is SettlementTestUtils {
             createSettlementBundleWithSigners(permit1.intent, trade2Obligation1, party1.privateKey, executor.privateKey);
 
         // Execute the second match
-        darkpool.settleMatch(party0Bundle2, party1Bundle2);
+        darkpool.settleMatch(obligationBundle2, party0Bundle2, party1Bundle2);
 
         // --- Verify State Updates --- //
 

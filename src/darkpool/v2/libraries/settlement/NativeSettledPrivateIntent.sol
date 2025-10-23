@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import {
+    PartyId,
     SettlementBundle,
     SettlementBundleLib,
     PrivateIntentPublicBalanceBundle,
@@ -54,6 +55,8 @@ library NativeSettledPrivateIntentLib {
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance
     /// @param isFirstFill Whether the settlement bundle is a first fill
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
@@ -62,6 +65,8 @@ library NativeSettledPrivateIntentLib {
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
         bool isFirstFill,
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -70,13 +75,15 @@ library NativeSettledPrivateIntentLib {
         internal
     {
         if (isFirstFill) {
-            executeFirstFill(settlementBundle, settlementContext, state, hasher);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
         } else {
-            executeSubsequentFill(settlementBundle, settlementContext, state, hasher);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
         }
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a first fill
+    /// @param partyId The party ID to validate the obligation for
+    /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
@@ -84,6 +91,8 @@ library NativeSettledPrivateIntentLib {
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function executeFirstFill(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -94,7 +103,7 @@ library NativeSettledPrivateIntentLib {
         // Decode the bundle data
         PrivateIntentPublicBalanceBundleFirstFill memory bundleData =
             settlementBundle.decodePrivateIntentBundleDataFirstFill();
-        SettlementObligation memory obligation = settlementBundle.obligation.decodePublicObligation();
+        SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
         validatePrivateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
@@ -111,13 +120,17 @@ library NativeSettledPrivateIntentLib {
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a subsequent
     /// fill; i.e. not the first fill
+    /// @param partyId The party ID to validate the obligation for
+    /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
-    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function executeSubsequentFill(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -127,7 +140,7 @@ library NativeSettledPrivateIntentLib {
     {
         // Decode the bundle data
         PrivateIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePrivateIntentBundleData();
-        SettlementObligation memory obligation = settlementBundle.obligation.decodePublicObligation();
+        SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
         validatePrivateIntentAuthorization(bundleData.auth, settlementContext);
