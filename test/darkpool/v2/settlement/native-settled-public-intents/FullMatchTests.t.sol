@@ -35,10 +35,6 @@ contract FullMatchTests is SettlementTestUtils {
         uint256 baseAmount = obligation0.amountIn;
         uint256 quoteAmount = obligation0.amountOut;
 
-        // Calculate price from obligations
-        FixedPoint memory baseAmtFixed = FixedPointLib.integerToFixedPoint(baseAmount);
-        FixedPoint memory quoteAmtFixed = FixedPointLib.integerToFixedPoint(quoteAmount);
-
         // Create intent 0, sell the base for the quote
         uint256 minPriceRepr = price.repr / 2;
         uint256 intentSize0 = vm.randomUint(baseAmount, baseAmount * 2);
@@ -54,7 +50,7 @@ contract FullMatchTests is SettlementTestUtils {
         // Create intent 1, buy the base for the quote
         uint256 minIntentSize1 = price.unsafeFixedPointMul(intentSize0);
         uint256 intentSize1 = vm.randomUint(minIntentSize1, minIntentSize1 * 2);
-        FixedPoint memory minPriceFixed = baseAmtFixed.div(quoteAmtFixed);
+        FixedPoint memory minPriceFixed = FixedPointLib.divIntegers(baseAmount, quoteAmount);
         uint256 minPriceRepr1 = minPriceFixed.repr / 2;
         Intent memory intent1 = Intent({
             inToken: address(quoteToken),

@@ -104,9 +104,8 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     /// @dev Create an intent for an obligation
     function createIntentForObligation(SettlementObligation memory obligation) internal returns (Intent memory) {
         // Compute the min price
-        FixedPoint memory outAmtFixed = FixedPointLib.integerToFixedPoint(obligation.amountOut);
-        FixedPoint memory inAmtFixed = FixedPointLib.integerToFixedPoint(obligation.amountIn);
-        FixedPoint memory minPrice = outAmtFixed.div(inAmtFixed).divByInteger(2);
+        FixedPoint memory minPrice =
+            FixedPointLib.divIntegers(obligation.amountOut, obligation.amountIn).divByInteger(2);
 
         // Compute the input amount
         uint256 amountIn = randomUint(obligation.amountIn, 2 ** 100);
@@ -154,6 +153,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         SettlementObligation memory obligation1
     )
         internal
+        pure
         returns (ObligationBundle memory)
     {
         return ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });

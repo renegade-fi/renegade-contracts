@@ -149,9 +149,8 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         obligation0.amountIn = randomUint(1, amountRemaining);
         uint256 minAmountOut = authBundle2.permit.intent.minPrice.unsafeFixedPointMul(obligation0.amountIn);
         obligation0.amountOut = minAmountOut + 1;
-
-        ObligationBundle memory obligationBundle2 = buildObligationBundle(obligation0, obligation1);
         authBundle2.executorSignature = signObligation(obligation0, executor.privateKey);
+        ObligationBundle memory obligationBundle2 = buildObligationBundle(obligation0, obligation1);
 
         // Create the second bundle
         PublicIntentPublicBalanceBundle memory bundleData2 = PublicIntentPublicBalanceBundle({ auth: authBundle2 });
@@ -161,6 +160,6 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         });
 
         // Should not revert even with invalid intent signature because it's cached
-        authorizeIntentHelper(obligationBundle, bundle2);
+        authorizeIntentHelper(obligationBundle2, bundle2);
     }
 }

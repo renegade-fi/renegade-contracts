@@ -54,7 +54,7 @@ library ObligationLib {
         pure
         returns (SettlementObligation memory obligation0, SettlementObligation memory obligation1)
     {
-        require(bundle.obligationType == ObligationType.PRIVATE, InvalidObligationType());
+        require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
         (obligation0, obligation1) = abi.decode(bundle.data, (SettlementObligation, SettlementObligation));
     }
 
@@ -94,7 +94,7 @@ library ObligationLib {
         pure
         returns (SettlementObligation memory obligation)
     {
-        require(bundle.obligationType == ObligationType.PRIVATE, InvalidObligationType());
+        require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
             abi.decode(bundle.data, (SettlementObligation, SettlementObligation));
         if (partyId == PartyId.PARTY_0) {

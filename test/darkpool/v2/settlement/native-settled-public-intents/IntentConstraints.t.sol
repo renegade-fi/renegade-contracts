@@ -63,9 +63,13 @@ contract IntentConstraintsTest is SettlementTestUtils {
         obligation0.outputToken = outputToken;
         ObligationBundle memory corruptedObligationBundle = buildObligationBundle(obligation0, obligation1);
 
+        PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
+        Intent memory intent = bundleData.auth.permit.intent;
+        SettlementBundle memory newBundle = createSettlementBundle(intent, obligation0);
+
         // Expect the validation to revert with InvalidObligationPair
         vm.expectRevert(NativeSettledPublicIntentLib.InvalidObligationPair.selector);
-        this._validateSettlementBundleCalldata(PartyId.PARTY_0, corruptedObligationBundle, bundle);
+        this._validateSettlementBundleCalldata(PartyId.PARTY_0, corruptedObligationBundle, newBundle);
     }
 
     /// @notice Test that validation fails when the input amount is larger than the intent amount
@@ -76,8 +80,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
         Intent memory intent = bundleData.auth.permit.intent;
 
         // Decode and corrupt the obligation
-        (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
-            obligationBundle.decodePublicObligationsMemory();
+        (, SettlementObligation memory obligation1) = obligationBundle.decodePublicObligationsMemory();
         SettlementObligation memory corruptObligation0 = SettlementObligation({
             inputToken: address(baseToken),
             outputToken: address(quoteToken),
@@ -85,6 +88,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
             amountOut: 200
         });
         ObligationBundle memory corruptedObligationBundle = buildObligationBundle(corruptObligation0, obligation1);
+        SettlementBundle memory newBundle = createSettlementBundle(intent, corruptObligation0);
 
         // Expect the validation to revert with InvalidObligationAmountIn
         vm.expectRevert(
@@ -94,7 +98,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
                 intent.amountIn + 1 // amountIn (from obligation)
             )
         );
-        this._validateSettlementBundleCalldata(PartyId.PARTY_0, corruptedObligationBundle, bundle);
+        this._validateSettlementBundleCalldata(PartyId.PARTY_0, corruptedObligationBundle, newBundle);
     }
 
     /// TODO: Add a test which fills a public intent multiple times, overfilling the intent
@@ -107,8 +111,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
         (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         Intent memory intent = bundleData.auth.permit.intent;
-        (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
-            obligationBundle.decodePublicObligationsMemory();
+        (, SettlementObligation memory obligation1) = obligationBundle.decodePublicObligationsMemory();
 
         // Corrupt the obligation
         uint256 amountIn = vm.randomUint(1, intent.amountIn);
@@ -120,7 +123,8 @@ contract IntentConstraintsTest is SettlementTestUtils {
             amountIn: amountIn,
             amountOut: amountOut
         });
-        ObligationBundle memory corruptedObligationBundle = buildObligationBundle(obligation0, obligation1);
+        ObligationBundle memory corruptedObligationBundle = buildObligationBundle(obligation, obligation1);
+        SettlementBundle memory newBundle = createSettlementBundle(intent, obligation);
 
         // Expect the validation to revert with InvalidObligationPrice
         vm.expectRevert(
@@ -128,6 +132,6 @@ contract IntentConstraintsTest is SettlementTestUtils {
                 NativeSettledPublicIntentLib.InvalidObligationPrice.selector, amountOut, minAmountOut
             )
         );
-        this._validateSettlementBundleCalldata(PartyId.PARTY_0, corruptedObligationBundle, bundle);
+        this._validateSettlementBundleCalldata(PartyId.PARTY_0, corruptedObligationBundle, newBundle);
     }
 }
