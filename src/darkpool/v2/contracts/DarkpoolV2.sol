@@ -172,11 +172,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     // --------------
 
     /// @notice Settle a trade
-    /// @param obligationBundle The obligation bundle for the trade. In the case of a public trade, this
-    /// encodes the settlement obligations for each party in the trade. If the trade is private, this bundle holds
-    /// a proof attesting to the validity of the settlement.
-    /// @param party0SettlementBundle The settlement bundle for the first party
-    /// @param party1SettlementBundle The settlement bundle for the second party
+    /// @param obligationBundle The obligation bundle for the trade. This type encodes the result of the trade.
+    /// In the case of a public trade, this value encodes the settlement obligations for each party in the trade.
+    /// If the trade is private, this bundle holds a proof attesting to the validity of the settlement.
+    /// @param party0SettlementBundle The settlement bundle for the first party. This type validates the first user's
+    /// state elements which are input to the trade.
+    /// @param party1SettlementBundle The settlement bundle for the second party. This type validates the second user's
+    /// state elements which are input to the trade.
     function settleMatch(
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,

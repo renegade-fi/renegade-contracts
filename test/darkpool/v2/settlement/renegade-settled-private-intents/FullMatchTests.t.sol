@@ -10,7 +10,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     RenegadeSettledIntentBundle,
-    RenegadeSettledIntentBundleFirstFill,
+    RenegadeSettledIntentFirstFillBundle,
     SettlementBundleLib
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { RenegadeSettledPrivateIntentTestUtils } from "./Utils.sol";
@@ -23,7 +23,7 @@ import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     using ObligationLib for ObligationBundle;
     using SettlementBundleLib for RenegadeSettledIntentBundle;
-    using SettlementBundleLib for RenegadeSettledIntentBundleFirstFill;
+    using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
@@ -84,10 +84,10 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         // Create match data (first fill)
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
             _createMatchData(true);
-        RenegadeSettledIntentBundleFirstFill memory bundleData0 =
-            abi.decode(bundle0.data, (RenegadeSettledIntentBundleFirstFill));
-        RenegadeSettledIntentBundleFirstFill memory bundleData1 =
-            abi.decode(bundle1.data, (RenegadeSettledIntentBundleFirstFill));
+        RenegadeSettledIntentFirstFillBundle memory bundleData0 =
+            abi.decode(bundle0.data, (RenegadeSettledIntentFirstFillBundle));
+        RenegadeSettledIntentFirstFillBundle memory bundleData1 =
+            abi.decode(bundle1.data, (RenegadeSettledIntentFirstFillBundle));
 
         // Settle the match
         darkpool.settleMatch(obligationBundle, bundle0, bundle1);
@@ -199,10 +199,10 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
             _createMatchData(true);
 
         // Replace the balance nullifier in bundle2 with the one from bundle0 (already spent)
-        RenegadeSettledIntentBundleFirstFill memory bundleData0 =
-            abi.decode(bundle0.data, (RenegadeSettledIntentBundleFirstFill));
-        RenegadeSettledIntentBundleFirstFill memory bundleData2 =
-            abi.decode(bundle2.data, (RenegadeSettledIntentBundleFirstFill));
+        RenegadeSettledIntentFirstFillBundle memory bundleData0 =
+            abi.decode(bundle0.data, (RenegadeSettledIntentFirstFillBundle));
+        RenegadeSettledIntentFirstFillBundle memory bundleData2 =
+            abi.decode(bundle2.data, (RenegadeSettledIntentFirstFillBundle));
         bundleData2.auth.statement.balanceNullifier = bundleData0.auth.statement.balanceNullifier;
         bundle2.data = abi.encode(bundleData2);
 

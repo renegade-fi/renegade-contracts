@@ -8,7 +8,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import {
     SettlementBundle,
     SettlementBundleType,
-    RenegadeSettledIntentBundleFirstFill,
+    RenegadeSettledIntentFirstFillBundle,
     RenegadeSettledIntentBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
@@ -161,7 +161,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        RenegadeSettledIntentBundleFirstFill memory bundleData = RenegadeSettledIntentBundleFirstFill({
+        RenegadeSettledIntentFirstFillBundle memory bundleData = RenegadeSettledIntentFirstFillBundle({
             auth: auth,
             settlementStatement: settlementStatement,
             settlementProof: createDummyProof()

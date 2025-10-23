@@ -9,7 +9,7 @@ import {
     PartyId,
     SettlementBundle,
     SettlementBundleLib,
-    PrivateIntentPublicBalanceBundleFirstFill
+    PrivateIntentPublicBalanceFirstFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SignatureWithNonce, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -21,7 +21,7 @@ import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 
 contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
-    using SettlementBundleLib for PrivateIntentPublicBalanceBundleFirstFill;
+    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
 
     // -----------
     // | Helpers |
@@ -83,8 +83,8 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
             createSampleBundle(true /* isFirstFill */ );
-        PrivateIntentPublicBalanceBundleFirstFill memory bundleData =
-            abi.decode(bundle.data, (PrivateIntentPublicBalanceBundleFirstFill));
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
+            abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Compute the full intent commitment
