@@ -52,7 +52,6 @@ library RenegadeSettledPrivateIntentLib {
     // --- Implementation --- //
 
     /// @notice Execute a renegade settled private intent bundle
-    /// @param isFirstFill Whether the settlement bundle is a first fill
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
@@ -62,7 +61,6 @@ library RenegadeSettledPrivateIntentLib {
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
-        bool isFirstFill,
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
@@ -72,7 +70,7 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        if (isFirstFill) {
+        if (settlementBundle.isFirstFill) {
             executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
         } else {
             executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);

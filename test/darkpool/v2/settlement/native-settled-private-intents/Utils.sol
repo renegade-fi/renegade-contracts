@@ -147,7 +147,8 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
 
         // Encode the obligation and bundle
         return SettlementBundle({
-            bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL,
+            isFirstFill: true,
+            bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT,
             data: abi.encode(bundleData)
         });
     }
@@ -183,6 +184,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
 
         // Encode the obligation and bundle
         return SettlementBundle({
+            isFirstFill: false,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT,
             data: abi.encode(bundleData)
         });

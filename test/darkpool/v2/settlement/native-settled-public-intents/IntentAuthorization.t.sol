@@ -155,6 +155,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         // Create the second bundle
         PublicIntentPublicBalanceBundle memory bundleData2 = PublicIntentPublicBalanceBundle({ auth: authBundle2 });
         SettlementBundle memory bundle2 = SettlementBundle({
+            isFirstFill: false,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
             data: abi.encode(bundleData2)
         });

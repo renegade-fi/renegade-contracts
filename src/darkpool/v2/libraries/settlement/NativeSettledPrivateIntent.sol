@@ -54,7 +54,6 @@ library NativeSettledPrivateIntentLib {
     // --- Implementation --- //
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance
-    /// @param isFirstFill Whether the settlement bundle is a first fill
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
@@ -64,7 +63,6 @@ library NativeSettledPrivateIntentLib {
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
-        bool isFirstFill,
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
@@ -74,7 +72,7 @@ library NativeSettledPrivateIntentLib {
     )
         internal
     {
-        if (isFirstFill) {
+        if (settlementBundle.isFirstFill) {
             executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
         } else {
             executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);

@@ -186,7 +186,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     {
         // 1. Allocate a settlement context
         SettlementContext memory settlementContext =
-            SettlementLib.allocateSettlementTransfers(party0SettlementBundle, party1SettlementBundle);
+            SettlementLib.allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
 
         // 2. Validate that the settlement obligations are compatible with one another
         SettlementLib.validateObligationBundle(obligationBundle);

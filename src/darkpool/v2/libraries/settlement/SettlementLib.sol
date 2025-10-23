@@ -40,6 +40,8 @@ library SettlementLib {
     error IncompatiblePairs();
     /// @notice Error thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
+    /// @notice Error thrown when the settlement bundle type is invalid
+    error InvalidSettlementBundleType();
     /// @notice Error thrown when verification fails for a settlement
     error SettlementVerificationFailed();
 
@@ -53,10 +55,7 @@ library SettlementLib {
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
     /// @return The allocated settlement transfers list
-    /// TODO: Generalize this method to allocate a "settlement context" which will store all data that
-    /// the transaction needs to verify after type-specific logic. This will include the transfers list,
-    /// as well as a proofs list which will store all proofs that the transaction needs to verify for settlement.
-    function allocateSettlementTransfers(
+    function allocateSettlementContext(
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )
@@ -131,22 +130,16 @@ library SettlementLib {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             NativeSettledPublicIntentLib.execute(partyId, obligationBundle, settlementBundle, settlementContext, state);
-        } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL) {
-            NativeSettledPrivateIntentLib.execute(
-                true, partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
-            );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.execute(
-                false, partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
-        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL) {
+        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             RenegadeSettledPrivateIntentLib.execute(
-                true, partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
         } else {
-            RenegadeSettledPrivateIntentLib.execute(
-                false, partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
-            );
+            revert InvalidSettlementBundleType();
         }
     }
 

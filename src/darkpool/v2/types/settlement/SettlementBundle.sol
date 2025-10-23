@@ -33,6 +33,8 @@ enum PartyId {
 /// @dev and settle the trade. The fields themselves are tagged unions of different data types representing
 /// @dev the different privacy configurations for each side of the trade.
 struct SettlementBundle {
+    /// @dev Whether this is the first fill or subsequent fill
+    bool isFirstFill;
     /// @dev The type of settlement bundle
     SettlementBundleType bundleType;
     /// @dev The data validating the settlement bundle
@@ -55,9 +57,7 @@ struct SettlementBundle {
 /// Separately, bundle shapes for the latter two cases change for the first fill and subsequent fills.
 enum SettlementBundleType {
     NATIVELY_SETTLED_PUBLIC_INTENT,
-    NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL,
     NATIVELY_SETTLED_PRIVATE_INTENT,
-    RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL,
     RENEGADE_SETTLED_INTENT
 }
 
@@ -67,7 +67,7 @@ struct PublicIntentPublicBalanceBundle {
     PublicIntentAuthBundle auth;
 }
 
-/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL` bundle
+/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle on the first fill
 struct PrivateIntentPublicBalanceBundleFirstFill {
     /// @dev The private intent authorization payload with signature attached
     PrivateIntentAuthBundleFirstFill auth;
@@ -87,7 +87,7 @@ struct PrivateIntentPublicBalanceBundle {
     PlonkProof settlementProof;
 }
 
-/// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL` bundle
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_INTENT` bundle on the first fill
 struct RenegadeSettledIntentBundleFirstFill {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundleFirstFill auth;
@@ -137,16 +137,7 @@ library SettlementBundleLib {
     function getNumProofs(SettlementBundle calldata bundle) internal pure returns (uint256 numProofs) {
         if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             numProofs = 0;
-        } else if (
-            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT
-                || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL
-        ) {
-            numProofs = 2;
-        } else if (
-            bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT
-                || bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL
-        ) {
-            // TODO: Change this when we share a settlement proof for two ring-2 orders
+        } else {
             numProofs = 2;
         }
     }
@@ -159,7 +150,6 @@ library SettlementBundleLib {
     /// @return Whether the settlement bundle is natively settled
     function isNativelySettled(SettlementBundle calldata bundle) internal pure returns (bool) {
         return bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT
-            || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL
             || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
     }
 
@@ -307,7 +297,8 @@ library SettlementBundleLib {
         pure
         returns (PublicIntentPublicBalanceBundle memory bundleData)
     {
-        require(bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT, InvalidSettlementBundleType());
+        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT;
+        require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
     }
 
@@ -319,10 +310,8 @@ library SettlementBundleLib {
         pure
         returns (PrivateIntentPublicBalanceBundleFirstFill memory bundleData)
     {
-        require(
-            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL,
-            InvalidSettlementBundleType()
-        );
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundleFirstFill));
     }
 
@@ -334,9 +323,9 @@ library SettlementBundleLib {
         pure
         returns (PrivateIntentPublicBalanceBundle memory bundleData)
     {
-        require(
-            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT, InvalidSettlementBundleType()
-        );
+        bool validType =
+            !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
     }
 
@@ -348,10 +337,8 @@ library SettlementBundleLib {
         pure
         returns (RenegadeSettledIntentBundleFirstFill memory bundleData)
     {
-        require(
-            bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL,
-            InvalidSettlementBundleType()
-        );
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
+        require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundleFirstFill));
     }
 
@@ -363,7 +350,8 @@ library SettlementBundleLib {
         pure
         returns (RenegadeSettledIntentBundle memory bundleData)
     {
-        require(bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT, InvalidSettlementBundleType());
+        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
+        require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundle));
     }
 }

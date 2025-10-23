@@ -169,7 +169,8 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
 
         // Encode the obligation and bundle
         return SettlementBundle({
-            bundleType: SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL,
+            isFirstFill: true,
+            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
             data: abi.encode(bundleData)
         });
     }
@@ -200,7 +201,10 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         });
 
         // Encode the obligation and bundle
-        return
-            SettlementBundle({ bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT, data: abi.encode(bundleData) });
+        return SettlementBundle({
+            isFirstFill: false,
+            bundleType: SettlementBundleType.RENEGADE_SETTLED_INTENT,
+            data: abi.encode(bundleData)
+        });
     }
 }

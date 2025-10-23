@@ -135,6 +135,7 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
 
         // Create the complete settlement bundle
         return SettlementBundle({
+            isFirstFill: false,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,
             data: abi.encode(bundleData)
         });
