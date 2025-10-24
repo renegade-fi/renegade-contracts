@@ -13,7 +13,7 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
-import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
+import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
@@ -31,8 +31,8 @@ struct DarkpoolState {
     /// @dev An intent hash is a hash of the tuple (executor, intent),
     /// where executor is the address of the party allowed to fill the intent.
     mapping(bytes32 => uint256) openPublicIntents;
-    /// @notice The Merkle tree for wallet commitments
-    MerkleTreeLib.MerkleTree merkleTree;
+    /// @notice The Merkle mountain range for state element commitments
+    MerkleMountainLib.MerkleMountainRange merkleMountainRange;
     /// @notice The nullifier set for the darkpool
     /// @dev Each time a state element is updated a nullifier is spent.
     /// @dev The nullifier set ensures that a pre-update state element cannot create two separate post-update state
@@ -45,7 +45,7 @@ struct DarkpoolState {
 /// @author Renegade Eng
 /// @notice V2 of the Renegade darkpool contract for private trading
 contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
-    using MerkleTreeLib for MerkleTreeLib.MerkleTree;
+    using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using NullifierLib for NullifierLib.NullifierSet;
 
     // ----------
@@ -156,10 +156,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         permit2 = permit2_;
         weth = weth_;
         transferExecutor = transferExecutor_;
-
-        // TODO: Replace with a Merkle mountain range
-        MerkleTreeLib.MerkleTreeConfig memory config = MerkleTreeLib.MerkleTreeConfig({ storeRoots: true, depth: 10 });
-        _state.merkleTree.initialize(config);
     }
 
     // -----------------

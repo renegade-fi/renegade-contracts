@@ -8,6 +8,8 @@ library DarkpoolConstants {
     /// @notice The address used for native tokens in trade settlement
     /// @dev This is currently just ETH, but intentionally written abstractly
     address internal constant NATIVE_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    /// @notice The default depth Merkle tree to insert state elements into
+    uint256 internal constant DEFAULT_MERKLE_DEPTH = 10;
 
     /// @notice Check whether an address is the native token address
     /// @param addr The address to check
