@@ -6,39 +6,39 @@ import {
     PartyId,
     SettlementBundle,
     SettlementBundleLib,
-    RenegadeSettledIntentFirstFillBundle,
+    RenegadeSettledPrivateFirstFillBundle,
     RenegadeSettledPrivateFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import {
+    ObligationBundle, ObligationLib, PrivateObligationBundle
+} from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import {
     PublicInputsLib,
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
-import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
-import {
-    SignatureWithNonce,
-    SignatureWithNonceLib,
-    RenegadeSettledIntentAuthBundleFirstFill,
-    RenegadeSettledIntentAuthBundle,
-    PrivateIntentPrivateBalanceAuthBundleLib
-} from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
+
+import { RenegadeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/RenegadeSettledPrivateIntent.sol";
 
 /// @title Renegade Settled Private Fill Library
 /// @author Renegade Eng
 /// @notice Library for validating renegade settled private fills
 /// @dev A renegade settled private fill is a private intent with a private (darkpool) balance where
 /// the settlement obligation itself is private.
+/// @dev Because the only difference between this settlement bundle type and the `RENEGADE_SETTLED_INTENT` bundle is
+/// that the obligations are private, much of the handler logic is the same between the two cases.
+/// In particular, intent authorization is the exact same, and state updates are the same except that we pull
+/// shares from a different statement type.
 library RenegadeSettledPrivateFillLib {
     using SignatureWithNonceLib for SignatureWithNonce;
+    using ObligationLib for ObligationBundle;
     using SettlementBundleLib for SettlementBundle;
-    using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
+    using SettlementBundleLib for RenegadeSettledPrivateFirstFillBundle;
     using SettlementBundleLib for RenegadeSettledPrivateFillBundle;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
@@ -83,7 +83,6 @@ library RenegadeSettledPrivateFillLib {
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
-    /// TODO: Proof link into the obligation bundle's settlement proof
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -94,7 +93,19 @@ library RenegadeSettledPrivateFillLib {
     )
         internal
     {
-        // TODO: Implement
+        RenegadeSettledPrivateFirstFillBundle memory bundleData =
+            settlementBundle.decodeRenegadeSettledPrivateFirstFillBundle();
+        PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
+
+        // 1. Validate the intent authorization
+        // Uses the same logic as the `RENEGADE_SETTLED_INTENT` bundle
+        RenegadeSettledPrivateIntentLib.validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
+
+        // 2. Validate the obligation constraints
+        validateObligationConstraintsFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state);
+
+        // 3. Execute state updates
+        executeStateUpdatesFirstFill(partyId, obligation, bundleData, state, hasher);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -104,7 +115,6 @@ library RenegadeSettledPrivateFillLib {
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
-    /// TODO: Proof link into the obligation bundle's settlement proof
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -115,43 +125,62 @@ library RenegadeSettledPrivateFillLib {
     )
         internal
     {
-        // TODO: Implement
+        RenegadeSettledPrivateFillBundle memory bundleData = settlementBundle.decodeRenegadeSettledPrivateBundle();
+        PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
+
+        // 1. Validate the intent authorization
+        // Uses the same logic as the `RENEGADE_SETTLED_INTENT` bundle
+        RenegadeSettledPrivateIntentLib.validateIntentAuthorization(bundleData.auth, settlementContext);
+
+        // 2. Validate the obligation constraints
+        validateObligationConstraints(partyId, obligationBundle, settlementBundle, settlementContext, state);
+
+        // 3. Execute state updates
+        executeStateUpdates(partyId, obligation, bundleData, state, hasher);
     }
 
-    // ------------------------
-    // | Intent Authorization |
-    // ------------------------
+    // --------------------------
+    // | Obligation Constraints |
+    // --------------------------
 
-    /// @notice Execute the state updates necessary to authorize the intent for a first fill
-    /// @param bundleData The bundle data to execute the state updates for
+    /// @notice Validate the obligation constraints for a renegade settled private fill bundle on the first fill
+    /// @param partyId The party ID to validate the obligation for
+    /// @param obligationBundle The obligation bundle to validate
+    /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
-    /// @dev On the first fill, we verify that the balance-leaked one-time key has signed the initial
-    /// intent commitment as well as the rotated one-time key.
-    function validateIntentAuthorizationFirstFill(
-        RenegadeSettledIntentAuthBundleFirstFill memory bundleData,
+    /// @dev The obligation constraints are validated in the settlement proofs. So, we only need to proof-link the
+    /// validation proof into the obligation bundle's settlement proof.
+    function validateObligationConstraintsFirstFill(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
+        SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state
     )
         internal
     {
-        // TODO: Implement
+        // TODO: Proof link into the obligation bundle's settlement proof
     }
 
-    /// @notice Execute the state updates necessary to authorize the intent for a subsequent fill
-    /// @param bundleData The bundle data to execute the state updates for
+    /// @notice Validate the obligation constraints for a renegade settled private fill bundle
+    /// @param partyId The party ID to validate the obligation for
+    /// @param obligationBundle The obligation bundle to validate
+    /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @dev On a subsequent fill, we need not verify the owner signature. The presence of the intent in the Merkle tree
-    /// implies that the owner's signature has already been verified (in a previous fill). So in this case, we need only
-    /// verify the proof attached to the bundle.
-    function validateIntentAuthorization(
-        RenegadeSettledIntentAuthBundle memory bundleData,
-        SettlementContext memory settlementContext
+    /// @param state The darkpool state containing all storage references
+    /// @dev The obligation constraints are validated in the settlement proofs. So, we only need to proof-link the
+    /// validation proof into the obligation bundle's settlement proof.
+    function validateObligationConstraints(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
-        pure
     {
-        // TODO: Implement
+        // TODO: Proof link into the obligation bundle's settlement proof
     }
 
     // -----------------
@@ -159,33 +188,87 @@ library RenegadeSettledPrivateFillLib {
     // -----------------
 
     /// @notice Execute the state updates necessary to settle the bundle for a first fill
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligation The obligation to execute the state updates for
     /// @param bundleData The bundle data to execute the state updates for
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
     /// @dev On the first fill, no intent state needs to be nullified, however the balance state must be.
     /// @dev Note: For private fills, commitment computation happens in the obligation bundle proof
     function executeStateUpdatesFirstFill(
-        RenegadeSettledIntentFirstFillBundle memory bundleData,
+        PartyId partyId,
+        PrivateObligationBundle memory obligation,
+        RenegadeSettledPrivateFirstFillBundle memory bundleData,
         DarkpoolState storage state,
         IHasher hasher
     )
         internal
     {
-        // TODO: Implement
+        // 1. Nullify the balance state
+        BN254.ScalarField balanceNullifier = bundleData.auth.statement.balanceNullifier;
+        state.spendNullifier(balanceNullifier);
+
+        // 2. Insert commitments to the updated balance and intent into the Merkle tree
+        BN254.ScalarField newIntentAmountPublicShare;
+        BN254.ScalarField[3] memory newBalanceShares;
+        if (partyId == PartyId.PARTY_0) {
+            newIntentAmountPublicShare = obligation.statement.party0NewIntentAmountPublicShare;
+            newBalanceShares = obligation.statement.party0NewBalancePublicShares;
+        } else if (partyId == PartyId.PARTY_1) {
+            newIntentAmountPublicShare = obligation.statement.party1NewIntentAmountPublicShare;
+            newBalanceShares = obligation.statement.party1NewBalancePublicShares;
+        }
+
+        BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(newBalanceShares, hasher);
+        BN254.ScalarField newIntentCommitment =
+            bundleData.computeFullIntentCommitment(newIntentAmountPublicShare, hasher);
+
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligation The obligation to execute the state updates for
     /// @param bundleData The bundle data to execute the state updates for
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
     /// @dev Note: For private fills, commitment computation happens in the obligation bundle proof
     function executeStateUpdates(
+        PartyId partyId,
+        PrivateObligationBundle memory obligation,
         RenegadeSettledPrivateFillBundle memory bundleData,
         DarkpoolState storage state,
         IHasher hasher
     )
         internal
     {
-        // TODO: Implement
+        // 1. Nullify the balance and intent states
+        BN254.ScalarField balanceNullifier = bundleData.auth.statement.balanceNullifier;
+        BN254.ScalarField intentNullifier = bundleData.auth.statement.intentNullifier;
+        state.spendNullifier(balanceNullifier);
+        state.spendNullifier(intentNullifier);
+
+        // 2. Insert commitments to the updated balance and intent into the Merkle tree
+        BN254.ScalarField newIntentAmountPublicShare;
+        BN254.ScalarField[3] memory newBalanceShares;
+        if (partyId == PartyId.PARTY_0) {
+            newIntentAmountPublicShare = obligation.statement.party0NewIntentAmountPublicShare;
+            newBalanceShares = obligation.statement.party0NewBalancePublicShares;
+        } else if (partyId == PartyId.PARTY_1) {
+            newIntentAmountPublicShare = obligation.statement.party1NewIntentAmountPublicShare;
+            newBalanceShares = obligation.statement.party1NewBalancePublicShares;
+        }
+
+        // Compute the commitments to the updated balance and intent
+        BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(newBalanceShares, hasher);
+        BN254.ScalarField newIntentCommitment =
+            bundleData.computeFullIntentCommitment(newIntentAmountPublicShare, hasher);
+
+        // Insert at the configured depth
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
     }
 }

@@ -4,6 +4,9 @@ pragma solidity ^0.8.24;
 import { PartyId } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
+import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+
 // --------------------
 // | Obligation Types |
 // --------------------
@@ -25,6 +28,14 @@ struct ObligationBundle {
 enum ObligationType {
     PUBLIC,
     PRIVATE
+}
+
+/// @notice The data for a private obligation
+struct PrivateObligationBundle {
+    /// @dev The statement for the proof of private fill settlement
+    RenegadeSettledPrivateFillSettlementStatement statement;
+    /// @dev The proof of the obligation
+    PlonkProof proof;
 }
 
 /// @title Obligation Library
@@ -106,5 +117,17 @@ library ObligationLib {
         } else {
             revert InvalidObligationType();
         }
+    }
+
+    /// @notice Decode a private obligation
+    /// @param bundle The obligation bundle to decode
+    /// @return obligation The decoded obligation
+    function decodePrivateObligation(ObligationBundle calldata bundle)
+        internal
+        pure
+        returns (PrivateObligationBundle memory obligation)
+    {
+        require(bundle.obligationType == ObligationType.PRIVATE, InvalidObligationType());
+        obligation = abi.decode(bundle.data, (PrivateObligationBundle));
     }
 }

@@ -114,6 +114,19 @@ struct RenegadeSettledPrivateIntentPublicSettlementStatement {
     SettlementObligation obligation;
 }
 
+/// @notice A statement for a proof of Renegade settled private fill settlement
+/// @dev This statement type hides the obligations and emits updated shares for both parties' balances and intents
+struct RenegadeSettledPrivateFillSettlementStatement {
+    /// @dev The first party's updated public intent shares
+    BN254.ScalarField party0NewIntentAmountPublicShare;
+    /// @dev The first party's updated public balance shares
+    BN254.ScalarField[3] party0NewBalancePublicShares;
+    /// @dev The second party's updated public intent shares
+    BN254.ScalarField party1NewIntentAmountPublicShare;
+    /// @dev The second party's updated public balance shares
+    BN254.ScalarField[3] party1NewBalancePublicShares;
+}
+
 // -------------------------
 // | Public Inputs Library |
 // -------------------------
