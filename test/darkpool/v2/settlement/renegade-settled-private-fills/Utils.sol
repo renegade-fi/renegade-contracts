@@ -123,11 +123,11 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
         obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PRIVATE, data: abi.encode(privateObligation) });
 
-        bundle = createSettlementBundle(isFirstFill, oneTimeOwner);
+        bundle = createRenegadeSettledPrivateFillBundle(isFirstFill, oneTimeOwner);
     }
 
     /// @dev Create a complete settlement bundle given an owner
-    function createSettlementBundle(
+    function createRenegadeSettledPrivateFillBundle(
         bool isFirstFill,
         Vm.Wallet memory owner
     )
@@ -136,14 +136,14 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
     {
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         if (isFirstFill) {
-            return createSettlementBundleFirstFill(merkleDepth, owner);
+            return createRenegadeSettledPrivateFillBundleFirstFill(merkleDepth, owner);
         } else {
-            return createSettlementBundleSubsequentFill(merkleDepth);
+            return createRenegadeSettledPrivateFillBundleSubsequentFill(merkleDepth);
         }
     }
 
     /// @dev Create a complete settlement bundle for the first fill
-    function createSettlementBundleFirstFill(
+    function createRenegadeSettledPrivateFillBundleFirstFill(
         uint256 merkleDepth,
         Vm.Wallet memory oneTimeKey
     )
@@ -177,7 +177,10 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Create a complete settlement bundle for a subsequent fill
-    function createSettlementBundleSubsequentFill(uint256 merkleDepth) internal returns (SettlementBundle memory) {
+    function createRenegadeSettledPrivateFillBundleSubsequentFill(uint256 merkleDepth)
+        internal
+        returns (SettlementBundle memory)
+    {
         // Create the statement
         IntentAndBalanceValidityStatement memory validityStatement = createSampleStatement();
 

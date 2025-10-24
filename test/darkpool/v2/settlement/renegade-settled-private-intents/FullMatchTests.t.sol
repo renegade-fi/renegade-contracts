@@ -48,8 +48,8 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
         // Create two settlement bundles
-        bundle0 = createSettlementBundle(isFirstFill, obligation0, party0);
-        bundle1 = createSettlementBundle(isFirstFill, obligation1, party1);
+        bundle0 = createRenegadeSettledBundle(isFirstFill, obligation0, party0);
+        bundle1 = createRenegadeSettledBundle(isFirstFill, obligation1, party1);
     }
 
     // ---------
@@ -74,8 +74,8 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
         // Create two settlement bundles
-        SettlementBundle memory bundle0 = createSettlementBundle(true, obligation0, party0);
-        SettlementBundle memory bundle1 = createSettlementBundle(false, obligation1, party1);
+        SettlementBundle memory bundle0 = createRenegadeSettledBundle(true, obligation0, party0);
+        SettlementBundle memory bundle1 = createRenegadeSettledBundle(false, obligation1, party1);
         darkpool.settleMatch(obligationBundle, bundle0, bundle1);
     }
 

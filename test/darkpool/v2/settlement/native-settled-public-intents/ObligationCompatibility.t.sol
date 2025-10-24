@@ -7,9 +7,9 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementTestUtils } from "./Utils.sol";
+import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 
-contract ObligationCompatibilityTest is SettlementTestUtils {
+contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
     // -----------
     // | Helpers |
     // -----------

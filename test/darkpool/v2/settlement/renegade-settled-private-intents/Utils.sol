@@ -61,7 +61,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     // --- Dummy Data --- //
 
     /// @dev Create a dummy `SettlementContext` for the test
-    function _createSettlementContext() internal pure returns (SettlementContext memory context) {
+    function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(2, /* transferCapacity */ 2 /* verificationCapacity */ );
     }
 
@@ -87,8 +87,8 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         });
     }
 
-    /// @dev Create a dummy settlement statement
-    function createSampleSettlementStatement(SettlementObligation memory obligation)
+    /// @dev Create a dummy settlement statement for renegade settled
+    function createSampleRenegadeSettlementStatement(SettlementObligation memory obligation)
         internal
         returns (RenegadeSettledPrivateIntentPublicSettlementStatement memory)
     {
@@ -105,7 +105,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Helper to create a sample settlement bundle
-    function createSampleBundle(bool isFirstFill)
+    function createSampleRenegadeSettledBundle(bool isFirstFill)
         internal
         returns (ObligationBundle memory obligationBundle, SettlementBundle memory bundle)
     {
@@ -114,11 +114,11 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
-        bundle = createSettlementBundle(isFirstFill, obligation0, oneTimeOwner);
+        bundle = createRenegadeSettledBundle(isFirstFill, obligation0, oneTimeOwner);
     }
 
     /// @dev Create a complete settlement bundle given an obligation
-    function createSettlementBundle(
+    function createRenegadeSettledBundle(
         bool isFirstFill,
         SettlementObligation memory obligation,
         Vm.Wallet memory owner
@@ -128,14 +128,14 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     {
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         if (isFirstFill) {
-            return createSettlementBundleFirstFill(merkleDepth, obligation, owner);
+            return createRenegadeSettledBundleFirstFill(merkleDepth, obligation, owner);
         } else {
-            return createSettlementBundleSubsequentFill(merkleDepth, obligation);
+            return createRenegadeSettledBundleSubsequentFill(merkleDepth, obligation);
         }
     }
 
     /// @dev Create a complete settlement bundle with custom signer for the first fill
-    function createSettlementBundleFirstFill(
+    function createRenegadeSettledBundleFirstFill(
         uint256 merkleDepth,
         SettlementObligation memory obligation,
         Vm.Wallet memory oneTimeKey
@@ -147,7 +147,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         IntentAndBalanceValidityStatementFirstFill memory validityStatement = createSampleStatementFirstFill();
         validityStatement.oneTimeAuthorizingAddress = oneTimeKey.addr;
         RenegadeSettledPrivateIntentPublicSettlementStatement memory settlementStatement =
-            createSampleSettlementStatement(obligation);
+            createSampleRenegadeSettlementStatement(obligation);
 
         // Sign the owner signature digest
         SignatureWithNonce memory ownerSignature = createOwnerSignature(
@@ -176,7 +176,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Create a complete settlement bundle with custom signer and parameters
-    function createSettlementBundleSubsequentFill(
+    function createRenegadeSettledBundleSubsequentFill(
         uint256 merkleDepth,
         SettlementObligation memory obligation
     )
@@ -186,7 +186,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         // Create the statement types
         IntentAndBalanceValidityStatement memory validityStatement = createSampleStatement();
         RenegadeSettledPrivateIntentPublicSettlementStatement memory settlementStatement =
-            createSampleSettlementStatement(obligation);
+            createSampleRenegadeSettlementStatement(obligation);
 
         // Create auth bundle (no signature needed for subsequent fills)
         RenegadeSettledIntentAuthBundle memory auth = RenegadeSettledIntentAuthBundle({

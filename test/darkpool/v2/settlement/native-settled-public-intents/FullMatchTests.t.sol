@@ -9,9 +9,9 @@ import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/Ob
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { SettlementTestUtils } from "./Utils.sol";
+import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 
-contract FullMatchTests is SettlementTestUtils {
+contract FullMatchTests is PublicIntentSettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
     using FixedPointLib for FixedPoint;
 
@@ -82,10 +82,12 @@ contract FullMatchTests is SettlementTestUtils {
 
         ObligationBundle memory obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
-        SettlementBundle memory party0Bundle =
-            createSettlementBundleWithSigners(permit0.intent, obligation0, party0.privateKey, executor.privateKey);
-        SettlementBundle memory party1Bundle =
-            createSettlementBundleWithSigners(permit1.intent, obligation1, party1.privateKey, executor.privateKey);
+        SettlementBundle memory party0Bundle = createPublicIntentSettlementBundleWithSigners(
+            permit0.intent, obligation0, party0.privateKey, executor.privateKey
+        );
+        SettlementBundle memory party1Bundle = createPublicIntentSettlementBundleWithSigners(
+            permit1.intent, obligation1, party1.privateKey, executor.privateKey
+        );
 
         // Record balances before settlement
         (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
@@ -132,10 +134,12 @@ contract FullMatchTests is SettlementTestUtils {
             obligationType: ObligationType.PUBLIC,
             data: abi.encode(trade1Obligation0, trade1Obligation1)
         });
-        SettlementBundle memory party0Bundle =
-            createSettlementBundleWithSigners(permit0.intent, trade1Obligation0, party0.privateKey, executor.privateKey);
-        SettlementBundle memory party1Bundle =
-            createSettlementBundleWithSigners(permit1.intent, trade1Obligation1, party1.privateKey, executor.privateKey);
+        SettlementBundle memory party0Bundle = createPublicIntentSettlementBundleWithSigners(
+            permit0.intent, trade1Obligation0, party0.privateKey, executor.privateKey
+        );
+        SettlementBundle memory party1Bundle = createPublicIntentSettlementBundleWithSigners(
+            permit1.intent, trade1Obligation1, party1.privateKey, executor.privateKey
+        );
 
         // Check balances before first settlement
         (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
@@ -169,10 +173,12 @@ contract FullMatchTests is SettlementTestUtils {
             data: abi.encode(trade2Obligation0, trade2Obligation1)
         });
 
-        SettlementBundle memory party0Bundle2 =
-            createSettlementBundleWithSigners(permit0.intent, trade2Obligation0, party0.privateKey, executor.privateKey);
-        SettlementBundle memory party1Bundle2 =
-            createSettlementBundleWithSigners(permit1.intent, trade2Obligation1, party1.privateKey, executor.privateKey);
+        SettlementBundle memory party0Bundle2 = createPublicIntentSettlementBundleWithSigners(
+            permit0.intent, trade2Obligation0, party0.privateKey, executor.privateKey
+        );
+        SettlementBundle memory party1Bundle2 = createPublicIntentSettlementBundleWithSigners(
+            permit1.intent, trade2Obligation1, party1.privateKey, executor.privateKey
+        );
 
         // Execute the second match
         darkpool.settleMatch(obligationBundle2, party0Bundle2, party1Bundle2);

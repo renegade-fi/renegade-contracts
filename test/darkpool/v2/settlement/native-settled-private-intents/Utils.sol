@@ -59,7 +59,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     // --- Dummy Data --- //
 
     /// @dev Create a dummy `SettlementContext` for the test
-    function _createSettlementContext() internal pure returns (SettlementContext memory context) {
+    function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(2, /* transferCapacity */ 2 /* verificationCapacity */ );
     }
 
@@ -82,7 +82,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Helper to create a sample settlement bundle
-    function createSampleBundle(bool isFirstFill)
+    function createSamplePrivateIntentBundle(bool isFirstFill)
         internal
         returns (ObligationBundle memory obligationBundle, SettlementBundle memory bundle)
     {
@@ -91,11 +91,11 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
-        bundle = createSettlementBundle(isFirstFill, obligation0, intentOwner);
+        bundle = createPrivateIntentSettlementBundle(isFirstFill, obligation0, intentOwner);
     }
 
     /// @dev Create a complete settlement bundle given an obligation
-    function createSettlementBundle(
+    function createPrivateIntentSettlementBundle(
         bool isFirstFill,
         SettlementObligation memory obligation,
         Vm.Wallet memory owner
@@ -105,14 +105,14 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     {
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         if (isFirstFill) {
-            return createSettlementBundleFirstFill(merkleDepth, obligation, owner);
+            return createPrivateIntentSettlementBundleFirstFill(merkleDepth, obligation, owner);
         } else {
-            return createSettlementBundleSubsequentFill(merkleDepth, obligation, owner);
+            return createPrivateIntentSettlementBundleSubsequentFill(merkleDepth, obligation, owner);
         }
     }
 
     /// @dev Create a complete settlement bundle with custom signer for the first fill
-    function createSettlementBundleFirstFill(
+    function createPrivateIntentSettlementBundleFirstFill(
         uint256 merkleDepth,
         SettlementObligation memory obligation,
         Vm.Wallet memory owner
@@ -154,7 +154,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Create a complete settlement bundle with custom signer and parameters
-    function createSettlementBundleSubsequentFill(
+    function createPrivateIntentSettlementBundleSubsequentFill(
         uint256 merkleDepth,
         SettlementObligation memory obligation,
         Vm.Wallet memory owner

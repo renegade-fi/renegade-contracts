@@ -132,7 +132,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         )
     {
         price = randomPrice();
-        uint256 baseAmount = randomAmount();
+        uint256 baseAmount = randomUint(0, 2 ** 50);
         uint256 quoteAmount = price.unsafeFixedPointMul(baseAmount);
 
         obligation0 = SettlementObligation({
@@ -141,11 +141,19 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
             amountIn: baseAmount,
             amountOut: quoteAmount
         });
-        obligation1 = SettlementObligation({
-            inputToken: address(quoteToken),
-            outputToken: address(baseToken),
-            amountIn: quoteAmount,
-            amountOut: baseAmount
+        obligation1 = createMatchingObligation(obligation0);
+    }
+
+    /// @dev Create a matching obligation for a given obligation
+    function createMatchingObligation(SettlementObligation memory obligation)
+        internal
+        returns (SettlementObligation memory)
+    {
+        return SettlementObligation({
+            inputToken: obligation.outputToken,
+            outputToken: obligation.inputToken,
+            amountIn: obligation.amountOut,
+            amountOut: obligation.amountIn
         });
     }
 
