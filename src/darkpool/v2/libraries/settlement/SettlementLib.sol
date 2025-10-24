@@ -19,6 +19,7 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
+import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -79,8 +80,11 @@ library SettlementLib {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
             // Validate a public obligation bundle
             validatePublicObligationBundle(obligationBundle);
+        } else if (obligationBundle.obligationType == ObligationType.PRIVATE) {
+            // TODO: Implement validation logic for private bundles
+            return;
         } else {
-            revert("Not implemented");
+            revert InvalidSettlementBundleType();
         }
     }
 
@@ -139,7 +143,7 @@ library SettlementLib {
                 partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL) {
-            RenegadeSettledPrivateIntentLib.execute(
+            RenegadeSettledPrivateFillLib.execute(
                 partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
         } else {

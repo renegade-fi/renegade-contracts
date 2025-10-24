@@ -21,6 +21,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
 
     // Test wallets
     Vm.Wallet internal intentOwner;
+    Vm.Wallet internal oneTimeOwner;
     // Party 0 in a simulated trade
     Vm.Wallet internal party0;
     // Party 1 in a simulated trade
@@ -36,6 +37,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
 
         // Create test wallets
         intentOwner = vm.createWallet("intent_owner");
+        oneTimeOwner = vm.createWallet("one_time_owner");
         party0 = vm.createWallet("party0");
         party1 = vm.createWallet("party1");
         executor = vm.createWallet("executor");
