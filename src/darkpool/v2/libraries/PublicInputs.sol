@@ -247,6 +247,26 @@ library PublicInputsLib {
         publicInputs[3] = statement.balanceNullifier;
     }
 
+    /// @notice Serialize the public inputs for a proof of Renegade settled private fill settlement
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(RenegadeSettledPrivateFillSettlementStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 8;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.party0NewIntentAmountPublicShare;
+        publicInputs[1] = statement.party0NewBalancePublicShares[0];
+        publicInputs[2] = statement.party0NewBalancePublicShares[1];
+        publicInputs[3] = statement.party0NewBalancePublicShares[2];
+        publicInputs[4] = statement.party1NewIntentAmountPublicShare;
+        publicInputs[5] = statement.party1NewBalancePublicShares[0];
+        publicInputs[6] = statement.party1NewBalancePublicShares[1];
+        publicInputs[7] = statement.party1NewBalancePublicShares[2];
+    }
+
     /// @notice Get a dummy verification key for testing
     /// @return A dummy verification key
     /// @dev TODO: Replace with real verification key
