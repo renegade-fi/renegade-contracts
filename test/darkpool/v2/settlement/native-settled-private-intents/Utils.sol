@@ -12,7 +12,11 @@ import {
     PrivateIntentPublicBalanceBundleFirstFill
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import {
+    SignatureWithNonce,
+    PrivateIntentAuthBundle,
+    PrivateIntentAuthBundleFirstFill
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
@@ -40,16 +44,17 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         uint256 signerPrivateKey
     )
         internal
-        pure
-        returns (bytes memory)
+        returns (SignatureWithNonce memory)
     {
-        // Hash the intent commitment
+        // Hash the intent commitment with a random nonce
+        uint256 nonce = randomUint();
         bytes32 intentCommitmentBytes = bytes32(BN254.ScalarField.unwrap(intentCommitment));
         bytes32 commitmentHash = EfficientHashLib.hash(abi.encode(intentCommitmentBytes));
+        bytes32 signatureDigest = EfficientHashLib.hash(commitmentHash, bytes32(nonce));
 
         // Sign with the private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, commitmentHash);
-        return abi.encodePacked(r, s, v);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
+        return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
     // --- Dummy Data --- //
@@ -125,7 +130,8 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
         // Sign the pre-update intent commitment
-        bytes memory intentSignature = signIntentCommitment(validityStatement.initialIntentCommitment, owner.privateKey);
+        SignatureWithNonce memory intentSignature =
+            signIntentCommitment(validityStatement.initialIntentCommitment, owner.privateKey);
 
         // Create auth bundle
         PrivateIntentAuthBundleFirstFill memory auth = PrivateIntentAuthBundleFirstFill({

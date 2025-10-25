@@ -11,7 +11,8 @@ import {
 import {
     PublicIntentAuthBundle,
     PublicIntentPermit,
-    PublicIntentPermitLib
+    PublicIntentPermitLib,
+    SignatureWithNonce
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
@@ -19,6 +20,7 @@ import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 contract IntentAuthorizationTest is SettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
@@ -53,12 +55,22 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         authorizeIntentHelper(bundle);
     }
 
+    function test_intentReplay() public {
+        // Create bundle and authorize it once
+        SettlementBundle memory bundle = createSampleBundle();
+        authorizeIntentHelper(bundle);
+
+        // Try settling the same bundle again, the intent should be replayed
+        vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
+        authorizeIntentHelper(bundle);
+    }
+
     function test_invalidIntentSignature_wrongSigner() public {
         // Create bundle and replace the intent signature with a wrong signature
         SettlementBundle memory bundle = createSampleBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
-        bytes memory sig = signIntentPermit(authBundle.permit, wrongSigner.privateKey);
+        SignatureWithNonce memory sig = signIntentPermit(authBundle.permit, wrongSigner.privateKey);
         authBundle.intentSignature = sig;
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
@@ -73,7 +85,8 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         SettlementBundle memory bundle = createSampleBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
-        authBundle.intentSignature[0] = bytes1(uint8(authBundle.intentSignature[0]) ^ 0xFF); // Modify signature
+        authBundle.intentSignature.signature[0] = bytes1(uint8(authBundle.intentSignature.signature[0]) ^ 0xFF); // Modify
+            // signature
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
 
@@ -87,7 +100,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         SettlementBundle memory bundle = createSampleBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
-        bytes memory sig = signObligation(bundle.obligation, wrongSigner.privateKey);
+        SignatureWithNonce memory sig = signObligation(bundle.obligation, wrongSigner.privateKey);
         authBundle.executorSignature = sig;
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
@@ -115,7 +128,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         // Now create a second bundle with the same intent but invalid owner signature
         // This should still pass because we skip signature verification for cached intents
         PublicIntentAuthBundle memory authBundle2 = authBundle;
-        authBundle2.intentSignature = hex"deadbeef"; // Invalid signature
+        authBundle2.intentSignature.signature = hex"deadbeef"; // Invalid signature
 
         // Setup an obligation for a smaller amount
         obligation.amountIn = randomUint(1, amountRemaining);

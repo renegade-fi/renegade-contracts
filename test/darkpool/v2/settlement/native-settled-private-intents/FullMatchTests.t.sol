@@ -12,6 +12,7 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
+import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 contract FullMatchTests is PrivateIntentSettlementTestUtils {
     using ObligationLib for ObligationBundle;
@@ -159,7 +160,16 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         darkpoolRealVerifier.settleMatch(bundle0, bundle1);
     }
 
-    // TODO: Add a test for re-submitting a first fill twice once the `spentSignatures` map is in place
+    /// @notice Test a replay attack on a user's intent
+    function test_fullMatch_intentReplay() public {
+        // Create match data
+        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
+        darkpool.settleMatch(bundle0, bundle1);
+
+        // Try settling the same match again, the intent should be replayed
+        vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
+        darkpool.settleMatch(bundle0, bundle1);
+    }
 
     /// @notice Test the case in which a nullifier is already spent on a settlement bundle
     function test_fullMatch_nullifierAlreadySpent() public {

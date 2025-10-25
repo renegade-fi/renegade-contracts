@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 
 /// @title Renegade Settled Private Intent Library
@@ -12,6 +12,7 @@ import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 /// @dev A renegade settled private intent is a private intent with a private (darkpool) balance.
 library RenegadeSettledPrivateIntentLib {
     using SettlementBundleLib for SettlementBundle;
+    using DarkpoolStateLib for DarkpoolState;
 
     /// @notice Execute a renegade settled private intent bundle
     /// @param isFirstFill Whether the settlement bundle is a first fill

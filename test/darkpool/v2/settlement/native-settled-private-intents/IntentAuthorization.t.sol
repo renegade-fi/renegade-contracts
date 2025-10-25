@@ -8,7 +8,7 @@ import {
     SettlementBundle,
     PrivateIntentPublicBalanceBundleFirstFill
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
@@ -78,7 +78,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         );
 
         // Sign with wrong signer
-        bytes memory wrongSig = signIntentCommitment(fullCommitment, wrongSigner.privateKey);
+        SignatureWithNonce memory wrongSig = signIntentCommitment(fullCommitment, wrongSigner.privateKey);
         authBundle.intentSignature = wrongSig;
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);

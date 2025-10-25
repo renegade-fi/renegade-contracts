@@ -20,7 +20,7 @@ import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol"
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
-import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
+import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements } from "renegade-lib/verifier/Types.sol";
 
