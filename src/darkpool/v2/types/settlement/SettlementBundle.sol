@@ -7,7 +7,8 @@ import {
     PublicIntentAuthBundle,
     PrivateIntentAuthBundleFirstFill,
     PrivateIntentAuthBundle,
-    PrivateIntentPrivateBalanceAuthBundle
+    RenegadeSettledIntentAuthBundleFirstFill,
+    RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
     SingleIntentMatchSettlementStatement,
@@ -83,10 +84,20 @@ struct PrivateIntentPublicBalanceBundle {
     PlonkProof settlementProof;
 }
 
-/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle
-struct RenegadeSettledPrivateIntentBundle {
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL` bundle
+struct RenegadeSettledIntentBundleFirstFill {
     /// @dev The private intent authorization payload with signature attached
-    PrivateIntentPrivateBalanceAuthBundle auth;
+    RenegadeSettledIntentAuthBundleFirstFill auth;
+    /// @dev The statement of renegade settled private intent public settlement
+    RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
+    /// @dev The proof of renegade settled private intent public settlement
+    PlonkProof settlementProof;
+}
+
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle
+struct RenegadeSettledIntentBundle {
+    /// @dev The private intent authorization payload with signature attached
+    RenegadeSettledIntentAuthBundle auth;
     /// @dev The statement of renegade settled private intent public settlement
     RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
     /// @dev The proof of renegade settled private intent public settlement
@@ -203,12 +214,27 @@ library SettlementBundleLib {
     /// @notice Decode a renegade settled private intent settlement bundle
     /// @param bundle The settlement bundle to decode
     /// @return bundleData The decoded bundle data
-    function decodeRenegadeSettledPrivateIntentBundleData(SettlementBundle calldata bundle)
+    function decodeRenegadeSettledIntentBundleDataFirstFill(SettlementBundle calldata bundle)
         internal
         pure
-        returns (RenegadeSettledPrivateIntentBundle memory bundleData)
+        returns (RenegadeSettledIntentBundleFirstFill memory bundleData)
+    {
+        require(
+            bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL,
+            InvalidSettlementBundleType()
+        );
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundleFirstFill));
+    }
+
+    /// @notice Decode a renegade settled private intent settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledIntentBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledIntentBundle memory bundleData)
     {
         require(bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT, InvalidSettlementBundleType());
-        bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateIntentBundle));
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundle));
     }
 }
