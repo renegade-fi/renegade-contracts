@@ -22,7 +22,7 @@ import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -188,8 +188,24 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     }
 
     /// @inheritdoc IDarkpoolV2
-    function depositNewBalance(address token, uint256 amount, address from) public {
-        // TODO: Implement
+    function depositNewBalance(
+        DepositAuth memory auth,
+        NewBalanceDepositProofBundle calldata newBalanceProofBundle
+    )
+        public
+    {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyNewBalanceDepositValidity(newBalanceProofBundle);
+        if (!valid) revert DepositVerificationFailed();
+
+        // 2. Execute the deposit
+        Deposit memory depositInfo = newBalanceProofBundle.statement.deposit;
+        BN254.ScalarField newBalanceCommitment = newBalanceProofBundle.statement.newBalanceCommitment;
+        TransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
+
+        // 3. Update the state; nullify the previous balance and insert the new balance
+        uint256 merkleDepth = newBalanceProofBundle.statement.merkleDepth;
+        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
     }
 
     // --- Withdrawal --- //
