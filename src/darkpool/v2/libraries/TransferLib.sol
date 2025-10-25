@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IAllowanceTransfer } from "permit2-lib/interfaces/IAllowanceTransfer.sol";
+import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.sol";
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import {
+    Deposit,
+    DepositAuth,
+    DepositWitness,
+    DepositLib,
+    DEPOSIT_WITNESS_TYPE_STRING
+} from "darkpoolv2-types/transfers/Deposit.sol";
 
 /// @title ExternalTransferLib
 /// @author Renegade Eng
@@ -16,8 +25,10 @@ import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/S
 /// @dev This library handles both ERC20 transfers that from native settlements as well as
 /// individual deposit/withdrawals into/from Merklized balances.
 library ExternalTransferLib {
+    using DepositLib for DepositWitness;
     // --- Errors --- //
     /// @notice Thrown when balance after transfer does not match expected balance
+
     error BalanceMismatch();
     /// @notice Thrown when the deposit amount does not match the msg.value for a native token deposit
     error InvalidDepositAmount();
@@ -91,6 +102,44 @@ library ExternalTransferLib {
         address to = address(this);
         uint160 amount = uint160(transfer.amount);
         permit2.transferFrom(transfer.account, to, amount, transfer.mint);
+    }
+
+    /// @notice Execute a permit2 signature deposit with witness
+    /// @dev Deposits flow through the permit2 contract, which allows us to attach the new balance commitment
+    /// @dev to the deposit's witness. This provides a link between the on-chain deposit and the updated
+    /// @dev Merklized balance, ensuring the deposit is bound to a _specific_ balance update.
+    /// @param deposit The deposit to execute
+    /// @param newBalanceCommitment The commitment to the updated balance after deposit
+    /// @param auth The authorization for the deposit
+    /// @param permit2 The permit2 signature transfer contract
+    function executePermit2SignatureDeposit(
+        Deposit memory deposit,
+        BN254.ScalarField newBalanceCommitment,
+        DepositAuth memory auth,
+        ISignatureTransfer permit2
+    )
+        internal
+    {
+        // Build the permit
+        ISignatureTransfer.TokenPermissions memory tokenPermissions =
+            ISignatureTransfer.TokenPermissions({ token: deposit.token, amount: deposit.amount });
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: tokenPermissions,
+            nonce: auth.permit2Nonce,
+            deadline: auth.permit2Deadline
+        });
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({ to: address(this), requestedAmount: deposit.amount });
+
+        // Hash the witness
+        uint256 newBalanceCommitmentUint = BN254.ScalarField.unwrap(newBalanceCommitment);
+        DepositWitness memory witness = DepositWitness({ newBalanceCommitment: newBalanceCommitmentUint });
+        bytes32 witnessHash = witness.hashWitness();
+
+        // Execute the permit witness transfer
+        permit2.permitWitnessTransferFrom(
+            permit, transferDetails, deposit.from, witnessHash, DEPOSIT_WITNESS_TYPE_STRING, auth.permit2Signature
+        );
     }
 
     // --- Withdrawal --- //

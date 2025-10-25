@@ -15,6 +15,8 @@ import { Deposit } from "darkpoolv2-types/transfers/Deposit.sol";
 
 /// @notice A statement proving validity of a deposit into an existing balance
 struct ExistingBalanceDepositValidityStatement {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
     /// @dev The deposit to execute
     Deposit deposit;
     /// @dev The nullifier of the previous version of the balance

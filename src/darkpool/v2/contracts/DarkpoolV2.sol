@@ -23,13 +23,15 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { ExternalTransferLib as TransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title DarkpoolV2
 /// @author Renegade Eng
 /// @notice V2 of the Renegade darkpool contract for private trading
-contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
+contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using NullifierLib for NullifierLib.NullifierSet;
     using DarkpoolStateLib for DarkpoolState;
@@ -168,16 +170,21 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     // --- Deposit --- //
 
     /// @inheritdoc IDarkpoolV2
-    function deposit(DepositProofBundle calldata depositProofBundle) public {
+    function deposit(DepositAuth memory auth, DepositProofBundle calldata depositProofBundle) public {
         // 1. Verify the proof bundle
         bool valid = verifier.verifyExistingBalanceDepositValidity(depositProofBundle);
         if (!valid) revert DepositVerificationFailed();
 
         // 2. Execute the deposit
-        // TODO: Implement
+        Deposit memory depositInfo = depositProofBundle.statement.deposit;
+        BN254.ScalarField newBalanceCommitment = depositProofBundle.statement.newBalanceCommitment;
+        TransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
 
-        // 3. Update the state
-        // TODO: Implement
+        // 3. Update the state; nullify the previous balance and insert the new balance
+        uint256 merkleDepth = depositProofBundle.statement.merkleDepth;
+        BN254.ScalarField balanceNullifier = depositProofBundle.statement.balanceNullifier;
+        _state.spendNullifier(balanceNullifier);
+        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
     }
 
     /// @inheritdoc IDarkpoolV2

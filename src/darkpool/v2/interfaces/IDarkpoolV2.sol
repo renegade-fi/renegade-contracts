@@ -5,6 +5,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
@@ -54,8 +55,9 @@ interface IDarkpoolV2 {
     function openPublicIntents(bytes32 intentHash) external view returns (uint256);
 
     /// @notice Deposit into an existing balance in the darkpool
+    /// @param auth The authorization for the deposit
     /// @param depositProofBundle The proof bundle for the deposit
-    function deposit(DepositProofBundle calldata depositProofBundle) external;
+    function deposit(DepositAuth memory auth, DepositProofBundle calldata depositProofBundle) external;
 
     /// @notice Deposit a new balance into the darkpool
     /// @param token The token to deposit
