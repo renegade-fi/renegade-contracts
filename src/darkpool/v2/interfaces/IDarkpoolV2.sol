@@ -41,6 +41,11 @@ interface IDarkpoolV2 {
     /// @return True if the nullifier has been spent, false otherwise
     function nullifierSpent(BN254.ScalarField nullifier) external view returns (bool);
 
+    /// @notice Check if a root is in the Merkle mountain range history
+    /// @param root The root to check
+    /// @return True if the root is in the history, false otherwise
+    function rootInHistory(BN254.ScalarField root) external view returns (bool);
+
     /// @notice Get the amount remaining for an open public intent
     /// @param intentHash The hash of the intent
     /// @return The amount remaining for the intent
