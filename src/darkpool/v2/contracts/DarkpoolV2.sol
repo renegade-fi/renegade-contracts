@@ -8,6 +8,7 @@ import { Pausable } from "oz-contracts/utils/Pausable.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
@@ -21,6 +22,7 @@ import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
@@ -31,6 +33,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using NullifierLib for NullifierLib.NullifierSet;
     using DarkpoolStateLib for DarkpoolState;
+
+    // ----------
+    // | Errors |
+    // ----------
+
+    /// @notice Thrown when a deposit verification fails
+    error DepositVerificationFailed();
 
     // ----------
     // | Events |
@@ -106,16 +115,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
         _disableInitializers();
     }
 
-    /// @notice Initialize the darkpool
-    /// @param initialOwner The address that will own the contract
-    /// @param protocolFeeRate_ The protocol fee rate for the darkpool
-    /// @param protocolFeeRecipient_ The address to receive protocol fees
-    /// @param protocolFeeKey_ The encryption key for protocol fees
-    /// @param weth_ The WETH9 contract instance
-    /// @param hasher_ The hasher for the darkpool
-    /// @param verifier_ The verifier for the darkpool
-    /// @param permit2_ The Permit2 contract instance for handling deposits
-    /// @param transferExecutor_ The TransferExecutor contract address
+    /// @inheritdoc IDarkpoolV2
     function initialize(
         address initialOwner,
         uint256 protocolFeeRate_,
@@ -146,39 +146,64 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable {
     // | State Getters |
     // -----------------
 
-    /// @notice Get the remaining amount for an open public intent
-    /// @param intentHash The hash of the intent
-    /// @return The remaining amount for the intent
+    /// @inheritdoc IDarkpoolV2
     function openPublicIntents(bytes32 intentHash) public view returns (uint256) {
         return _state.getOpenIntentAmountRemaining(intentHash);
     }
 
-    /// @notice Check if a nullifier has been spent
-    /// @param nullifier The nullifier to check
-    /// @return Whether the nullifier has been spent
+    /// @inheritdoc IDarkpoolV2
     function nullifierSpent(BN254.ScalarField nullifier) public view returns (bool) {
         return _state.nullifierSpent(nullifier);
     }
 
-    /// @notice Check if a root is in the Merkle mountain range history
-    /// @param root The root to check
-    /// @return Whether the root is in the history
+    /// @inheritdoc IDarkpoolV2
     function rootInHistory(BN254.ScalarField root) public view returns (bool) {
         return _state.rootInHistory(root);
+    }
+
+    // -----------------
+    // | State Updates |
+    // -----------------
+
+    // --- Deposit --- //
+
+    /// @inheritdoc IDarkpoolV2
+    function deposit(DepositProofBundle calldata depositProofBundle) public {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyExistingBalanceDepositValidity(depositProofBundle);
+        if (!valid) revert DepositVerificationFailed();
+
+        // 2. Execute the deposit
+        // TODO: Implement
+
+        // 3. Update the state
+        // TODO: Implement
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function depositNewBalance(address token, uint256 amount, address from) public {
+        // TODO: Implement
+    }
+
+    // --- Withdrawal --- //
+
+    /// @inheritdoc IDarkpoolV2
+    function withdraw(address token, uint256 amount, address to) public {
+        // TODO: Implement
+    }
+
+    // --- Fees --- //
+
+    /// @inheritdoc IDarkpoolV2
+    function payFees(address token, uint256 amount, address from) public {
+        // TODO: Implement
     }
 
     // --------------
     // | Settlement |
     // --------------
 
-    /// @notice Settle a trade
-    /// @param obligationBundle The obligation bundle for the trade. This type encodes the result of the trade.
-    /// In the case of a public trade, this value encodes the settlement obligations for each party in the trade.
-    /// If the trade is private, this bundle holds a proof attesting to the validity of the settlement.
-    /// @param party0SettlementBundle The settlement bundle for the first party. This type validates the first user's
-    /// state elements which are input to the trade.
-    /// @param party1SettlementBundle The settlement bundle for the second party. This type validates the second user's
-    /// state elements which are input to the trade.
+    /// @inheritdoc IDarkpoolV2
     function settleMatch(
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,

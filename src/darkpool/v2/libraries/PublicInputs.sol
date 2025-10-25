@@ -5,10 +5,23 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { Deposit } from "darkpoolv2-types/transfers/Deposit.sol";
 
 // -------------------
 // | Statement Types |
 // -------------------
+
+// --- Deposit Statements --- //
+
+/// @notice A statement proving validity of a deposit into an existing balance
+struct ExistingBalanceDepositValidityStatement {
+    /// @dev The deposit to execute
+    Deposit deposit;
+    /// @dev The nullifier of the previous version of the balance
+    BN254.ScalarField balanceNullifier;
+    /// @dev A commitment to the updated balance
+    BN254.ScalarField newBalanceCommitment;
+}
 
 // --- Validity Statements --- //
 // Validity proofs verify that:
@@ -139,6 +152,23 @@ library PublicInputsLib {
     uint256 public constant N_MODIFIED_BALANCE_SHARES = 3;
     /// @notice The number of modified intent shares in a match
     uint256 public constant N_MODIFIED_INTENT_SHARES = 1;
+
+    /// @notice Serialize the public inputs for a proof of existing balance deposit validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ExistingBalanceDepositValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 5;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.from)));
+        publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
+        publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
+        publicInputs[3] = statement.balanceNullifier;
+        publicInputs[4] = statement.newBalanceCommitment;
+    }
 
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)
     /// @param statement The statement to serialize
