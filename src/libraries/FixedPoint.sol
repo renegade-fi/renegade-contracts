@@ -54,6 +54,16 @@ library FixedPointLib {
         return FixedPoint({ repr: repr });
     }
 
+    /// @notice Divide two integers and return a fixed point result
+    /// @dev This avoids the overflow that occurs when converting both integers to fixed point first
+    /// @param x The numerator (as an integer)
+    /// @param y The denominator (as an integer)
+    /// @return The fixed point result of x / y
+    function divIntegers(uint256 x, uint256 y) public pure returns (FixedPoint memory) {
+        uint256 repr = (x * (1 << FIXED_POINT_PRECISION_BITS)) / y;
+        return FixedPoint({ repr: repr });
+    }
+
     /// @notice Divide a fixed point by a scalar and return the truncated result
     /// @param x The fixed point to divide
     /// @param scalar The scalar to divide by

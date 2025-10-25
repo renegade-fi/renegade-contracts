@@ -7,11 +7,12 @@ import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 
 import {
+    PartyId,
     SettlementBundle,
     SettlementBundleType,
     SettlementBundleLib
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -28,6 +29,7 @@ import { emptyOpeningElements } from "renegade-lib/verifier/Types.sol";
 /// @author Renegade Eng
 /// @notice Library for settlement operations
 library SettlementLib {
+    using ObligationLib for ObligationBundle;
     using SettlementBundleLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
     using SettlementTransfersLib for SettlementTransfers;
@@ -38,6 +40,8 @@ library SettlementLib {
     error IncompatiblePairs();
     /// @notice Error thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
+    /// @notice Error thrown when the settlement bundle type is invalid
+    error InvalidSettlementBundleType();
     /// @notice Error thrown when verification fails for a settlement
     error SettlementVerificationFailed();
 
@@ -51,10 +55,7 @@ library SettlementLib {
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
     /// @return The allocated settlement transfers list
-    /// TODO: Generalize this method to allocate a "settlement context" which will store all data that
-    /// the transaction needs to verify after type-specific logic. This will include the transfers list,
-    /// as well as a proofs list which will store all proofs that the transaction needs to verify for settlement.
-    function allocateSettlementTransfers(
+    function allocateSettlementContext(
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )
@@ -72,55 +73,34 @@ library SettlementLib {
 
     // --- Obligation Compatibility --- //
 
-    /// @notice Check that two settlement obligations are compatible with one another
-    /// @param party0Bundle The obligation bundle for the first party
-    /// @param party1Bundle The obligation bundle for the second party
-    function checkObligationCompatibility(
-        ObligationBundle calldata party0Bundle,
-        ObligationBundle calldata party1Bundle
-    )
-        internal
-        pure
-    {
-        // Parties must have the same obligation type; in that both trades must either settle privately or publicly
-        // Regardless of the intent or balance types
-        if (party0Bundle.obligationType != party1Bundle.obligationType) {
-            revert IncompatibleObligationTypes();
-        }
-
-        ObligationType ty = party0Bundle.obligationType;
-        if (ty == ObligationType.PUBLIC) {
-            // Validate a public obligation
-            validatePublicObligationCompatibility(party0Bundle, party1Bundle);
+    /// @notice Validate an obligation bundle
+    /// @param obligationBundle The obligation bundle to validate
+    function validateObligationBundle(ObligationBundle calldata obligationBundle) internal pure {
+        if (obligationBundle.obligationType == ObligationType.PUBLIC) {
+            // Validate a public obligation bundle
+            validatePublicObligationBundle(obligationBundle);
         } else {
             revert("Not implemented");
         }
     }
 
-    /// @notice Validate compatibility of two public obligations
-    /// @param party0Bundle The settlement bundle for the first party
-    /// @param party1Bundle The settlement bundle for the second party
-    function validatePublicObligationCompatibility(
-        ObligationBundle calldata party0Bundle,
-        ObligationBundle calldata party1Bundle
-    )
-        internal
-        pure
-    {
+    /// @notice Validate a public obligation bundle
+    /// @param obligationBundle The obligation bundle to validate
+    function validatePublicObligationBundle(ObligationBundle calldata obligationBundle) internal pure {
         // Decode the obligations
-        SettlementObligation memory party0Obligation = abi.decode(party0Bundle.data, (SettlementObligation));
-        SettlementObligation memory party1Obligation = abi.decode(party1Bundle.data, (SettlementObligation));
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
+            obligationBundle.decodePublicObligations();
 
         // 1. The input and output tokens must correspond to the same pair
-        bool tokenCompatible = party0Obligation.inputToken == party1Obligation.outputToken
-            && party0Obligation.outputToken == party1Obligation.inputToken;
+        bool tokenCompatible =
+            obligation0.inputToken == obligation1.outputToken && obligation0.outputToken == obligation1.inputToken;
         if (!tokenCompatible) {
             revert IncompatiblePairs();
         }
 
         // 2. The input and output amounts must correspond
-        bool amountCompatible = party0Obligation.amountIn == party1Obligation.amountOut
-            && party0Obligation.amountOut == party1Obligation.amountIn;
+        bool amountCompatible =
+            obligation0.amountIn == obligation1.amountOut && obligation0.amountOut == obligation1.amountIn;
         if (!amountCompatible) {
             revert IncompatibleAmounts();
         }
@@ -129,6 +109,8 @@ library SettlementLib {
     // --- Settlement Bundle Validation --- //
 
     /// @notice Execute a settlement bundle
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle for the trade
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
@@ -136,6 +118,8 @@ library SettlementLib {
     /// @dev This function validates and executes the settlement bundle based on the bundle type
     /// @dev See the library files in this directory for type-specific execution & validation logic.
     function executeSettlementBundle(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -145,15 +129,17 @@ library SettlementLib {
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            NativeSettledPublicIntentLib.execute(settlementBundle, settlementContext, state);
-        } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL) {
-            NativeSettledPrivateIntentLib.execute(true, settlementBundle, settlementContext, state, hasher);
+            NativeSettledPublicIntentLib.execute(partyId, obligationBundle, settlementBundle, settlementContext, state);
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            NativeSettledPrivateIntentLib.execute(false, settlementBundle, settlementContext, state, hasher);
-        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL) {
-            RenegadeSettledPrivateIntentLib.execute(true, settlementBundle, settlementContext, state, hasher);
+            NativeSettledPrivateIntentLib.execute(
+                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+            );
+        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
+            RenegadeSettledPrivateIntentLib.execute(
+                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+            );
         } else {
-            RenegadeSettledPrivateIntentLib.execute(false, settlementBundle, settlementContext, state, hasher);
+            revert InvalidSettlementBundleType();
         }
     }
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementTestUtils } from "./Utils.sol";
@@ -14,25 +14,13 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _checkObligationCompatibility(
-        ObligationBundle calldata bundle0,
-        ObligationBundle calldata bundle1
-    )
-        public
-        pure
-    {
-        SettlementLib.checkObligationCompatibility(bundle0, bundle1);
+    function _validateObligationBundle(ObligationBundle calldata bundle) public pure {
+        SettlementLib.validateObligationBundle(bundle);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
-    function checkObligationCompatibilityHelper(
-        ObligationBundle memory bundle0,
-        ObligationBundle memory bundle1
-    )
-        internal
-        view
-    {
-        this._checkObligationCompatibility(bundle0, bundle1);
+    function validateObligationBundleHelper(ObligationBundle memory bundle) internal view {
+        this._validateObligationBundle(bundle);
     }
 
     // ---------
@@ -43,14 +31,10 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
         // Create compatible obligations
         (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation,) =
             createTradeObligations();
-
-        ObligationBundle memory party0Bundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party0Obligation) });
-        ObligationBundle memory party1Bundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party1Obligation) });
+        ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
 
         // Should not revert
-        checkObligationCompatibilityHelper(party0Bundle, party1Bundle);
+        validateObligationBundleHelper(obligationBundle);
     }
 
     function test_incompatiblePairs() public {
@@ -65,14 +49,10 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
             party1Obligation.inputToken = address(weth);
         }
 
-        ObligationBundle memory party0Bundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party0Obligation) });
-        ObligationBundle memory party1Bundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party1Obligation) });
-
         // Should revert with IncompatiblePairs
+        ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
         vm.expectRevert(SettlementLib.IncompatiblePairs.selector);
-        checkObligationCompatibilityHelper(party0Bundle, party1Bundle);
+        validateObligationBundleHelper(obligationBundle);
     }
 
     function test_incompatibleAmounts() public {
@@ -86,13 +66,9 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
             party1Obligation.amountIn *= 2;
         }
 
-        ObligationBundle memory party0Bundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party0Obligation) });
-        ObligationBundle memory party1Bundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party1Obligation) });
-
         // Should revert with IncompatibleAmounts
+        ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
         vm.expectRevert(SettlementLib.IncompatibleAmounts.selector);
-        checkObligationCompatibilityHelper(party0Bundle, party1Bundle);
+        validateObligationBundleHelper(obligationBundle);
     }
 }

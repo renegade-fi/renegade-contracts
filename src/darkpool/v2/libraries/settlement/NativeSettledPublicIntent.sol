@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {
+    PartyId,
     SettlementBundle,
     PublicIntentPublicBalanceBundle,
     SettlementBundleLib
@@ -51,11 +52,15 @@ library NativeSettledPublicIntentLib {
     /// @dev Note that in contrast to other settlement bundle types, no balance obligation
     /// constraints are checked here. The balance constraint is implicitly checked by transferring
     /// into the darkpool.
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     /// TODO: Add bounds checks on the amounts in the intent and obligation
     function execute(
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state
@@ -64,7 +69,7 @@ library NativeSettledPublicIntentLib {
     {
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
-        SettlementObligation memory obligation = settlementBundle.obligation.decodePublicObligation();
+        SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
         (uint256 amountRemaining, bytes32 intentHash) =

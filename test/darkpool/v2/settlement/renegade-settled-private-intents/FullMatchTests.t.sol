@@ -7,7 +7,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
-import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     RenegadeSettledIntentBundle,
     RenegadeSettledIntentBundleFirstFill,
@@ -36,10 +36,16 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     /// @dev Create match data for a simulated trade
     function _createMatchData(bool isFirstFill)
         internal
-        returns (SettlementBundle memory bundle0, SettlementBundle memory bundle1)
+        returns (
+            ObligationBundle memory obligationBundle,
+            SettlementBundle memory bundle0,
+            SettlementBundle memory bundle1
+        )
     {
-        // Create two settlement obligations
+        // Create two settlement obligations and obligation bundle
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
+        obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
         // Create two settlement bundles
         bundle0 = createSettlementBundle(isFirstFill, obligation0, party0);
@@ -55,32 +61,36 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     /// @notice Test a basic full match settlement
     function test_fullMatch_twoRenegadeSettledPrivateIntents() public {
         bool isFirstFill = vm.randomBool();
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(isFirstFill);
-        darkpool.settleMatch(bundle0, bundle1);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(isFirstFill);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
     }
 
     /// @notice Test mixing first fill and subsequent fill bundles
     function test_fullMatch_mixedFillTypes() public {
-        // Create two settlement obligations
+        // Create two settlement obligations and obligation bundle
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
+        ObligationBundle memory obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
         // Create two settlement bundles
         SettlementBundle memory bundle0 = createSettlementBundle(true, obligation0, party0);
         SettlementBundle memory bundle1 = createSettlementBundle(false, obligation1, party1);
-        darkpool.settleMatch(bundle0, bundle1);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
     }
 
     /// @notice Check the Merkle mountain range roots and nullifiers after a full match settlement (first fill)
     function test_fullMatch_merkleRootsAndNullifiers_firstFill() public {
         // Create match data (first fill)
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(true);
         RenegadeSettledIntentBundleFirstFill memory bundleData0 =
             abi.decode(bundle0.data, (RenegadeSettledIntentBundleFirstFill));
         RenegadeSettledIntentBundleFirstFill memory bundleData1 =
             abi.decode(bundle1.data, (RenegadeSettledIntentBundleFirstFill));
 
         // Settle the match
-        darkpool.settleMatch(bundle0, bundle1);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // 1. Check that the balance nullifiers are spent (first fill only nullifies balance, not intent)
         bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.balanceNullifier);
@@ -113,12 +123,13 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     /// @notice Check the Merkle mountain range roots and nullifiers after a full match settlement (subsequent fill)
     function test_fullMatch_merkleRootsAndNullifiers_subsequentFill() public {
         // Create match data (subsequent fill)
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(false);
         RenegadeSettledIntentBundle memory bundleData0 = abi.decode(bundle0.data, (RenegadeSettledIntentBundle));
         RenegadeSettledIntentBundle memory bundleData1 = abi.decode(bundle1.data, (RenegadeSettledIntentBundle));
 
         // Settle the match
-        darkpool.settleMatch(bundle0, bundle1);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // 1. Check that both intent and balance nullifiers are spent
         bool intentNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.intentNullifier);
@@ -158,30 +169,34 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     /// @notice Test a full match settlement with an invalid proof
     function test_fullMatch_invalidProof() public {
         // Create match data
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(false);
         vm.expectRevert(VerifierCore.InvalidPublicInputLength.selector);
-        darkpoolRealVerifier.settleMatch(bundle0, bundle1);
+        darkpoolRealVerifier.settleMatch(obligationBundle, bundle0, bundle1);
     }
 
     /// @notice Test a replay attack on a user's intent (first fill)
     function test_fullMatch_ownerSignatureReplay_firstFill() public {
         // Create match data (first fill)
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
-        darkpool.settleMatch(bundle0, bundle1);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(true);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // Try settling the same match again, the owner signature nonce should be replayed
         vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
-        darkpool.settleMatch(bundle0, bundle1);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
     }
 
     /// @notice Test the case in which a balance nullifier is already spent on a settlement bundle (first fill)
     function test_fullMatch_balanceNullifierAlreadySpent_firstFill() public {
         // Create match data and settle
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(true);
-        darkpool.settleMatch(bundle0, bundle1);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(true);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // Create new match data with the same parties but different obligations
-        (SettlementBundle memory bundle2, SettlementBundle memory bundle3) = _createMatchData(true);
+        (ObligationBundle memory obligationBundle2, SettlementBundle memory bundle2, SettlementBundle memory bundle3) =
+            _createMatchData(true);
 
         // Replace the balance nullifier in bundle2 with the one from bundle0 (already spent)
         RenegadeSettledIntentBundleFirstFill memory bundleData0 =
@@ -193,17 +208,18 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
 
         // Try settling the new match, the balance nullifier should already be spent
         vm.expectRevert(NullifierLib.NullifierAlreadySpent.selector);
-        darkpool.settleMatch(bundle2, bundle3);
+        darkpool.settleMatch(obligationBundle2, bundle2, bundle3);
     }
 
     /// @notice Test the case in which an intent nullifier is already spent (subsequent fill)
     function test_fullMatch_intentNullifierAlreadySpent_subsequentFill() public {
         // Create match data and settle
-        (SettlementBundle memory bundle0, SettlementBundle memory bundle1) = _createMatchData(false);
-        darkpool.settleMatch(bundle0, bundle1);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(false);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // Try settling the same match again, the intent nullifier should be spent
         vm.expectRevert(NullifierLib.NullifierAlreadySpent.selector);
-        darkpool.settleMatch(bundle0, bundle1);
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
     }
 }
