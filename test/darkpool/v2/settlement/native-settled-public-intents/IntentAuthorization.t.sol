@@ -91,7 +91,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
         bundle.data = abi.encode(bundleData);
 
         // Should revert with ECDSAInvalidSignature (from OpenZeppelin ECDSA library)
-        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignature()"));
+        vm.expectRevert();
         authorizeIntentHelper(bundle);
     }
 

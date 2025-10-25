@@ -24,7 +24,6 @@ import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.so
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 
-import { CommitmentNullifierLib } from "darkpoolv2-types/CommitNullify.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
@@ -36,6 +35,8 @@ import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 library NativeSettledPrivateIntentLib {
     using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceBundleFirstFill;
     using ObligationLib for ObligationBundle;
     using SettlementObligationLib for SettlementObligation;
     using SettlementContextLib for SettlementContext;
@@ -235,11 +236,7 @@ library NativeSettledPrivateIntentLib {
         internal
     {
         // 1. Insert a commitment to the updated intent into the Merkle tree
-        BN254.ScalarField newIntentCommitment = computeFullIntentCommitment(
-            bundleData.auth.statement.newIntentPartialCommitment,
-            bundleData.settlementStatement.newIntentAmountPublicShare,
-            hasher
-        );
+        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
 
@@ -268,37 +265,13 @@ library NativeSettledPrivateIntentLib {
         state.spendNullifier(nullifier);
 
         // 2. Insert a commitment to the updated intent into the Merkle tree
-        BN254.ScalarField newIntentCommitment = computeFullIntentCommitment(
-            bundleData.auth.statement.newIntentPartialCommitment,
-            bundleData.settlementStatement.newIntentAmountPublicShare,
-            hasher
-        );
+        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
 
         // 3. Allocate transfers to settle the obligation in the settlement context
         address owner = bundleData.auth.statement.intentOwner;
         allocateTransfers(owner, obligation, settlementContext);
-    }
-
-    /// @notice Compute the full commitment to the updated intent
-    /// @param partialCommitment The partial commitment to the intent
-    /// @param amountPublicShare The public share of the intent's amount
-    /// @param hasher The hasher to use for hashing
-    /// @return newIntentCommitment The full commitment to the intent
-    function computeFullIntentCommitment(
-        BN254.ScalarField partialCommitment,
-        BN254.ScalarField amountPublicShare,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newIntentCommitment)
-    {
-        // Compute the full commitment to the updated intent
-        BN254.ScalarField[] memory remainingShares = new BN254.ScalarField[](1);
-        remainingShares[0] = amountPublicShare;
-        newIntentCommitment = CommitmentNullifierLib.computeFullCommitment(partialCommitment, remainingShares, hasher);
     }
 
     /// @notice Allocate transfers to settle the obligation into the settlement context

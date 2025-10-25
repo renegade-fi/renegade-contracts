@@ -2,6 +2,7 @@
 /* solhint-disable one-contract-per-file */
 pragma solidity ^0.8.24;
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     PublicIntentAuthBundle,
@@ -14,6 +15,8 @@ import {
     SingleIntentMatchSettlementStatement,
     RenegadeSettledPrivateIntentPublicSettlementStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // ---------------------------
@@ -111,6 +114,8 @@ library SettlementBundleLib {
     /// @notice The error type emitted when a settlement bundle type check fails
     error InvalidSettlementBundleType();
 
+    // --- Context Allocation --- //
+
     /// @notice Get the number of transfers a settlement bundle will require in order to settle
     /// @notice A transfer is both a deposit and a subsequent withdrawal from the darkpool.
     /// @param bundle The settlement bundle to get the number of transfers for
@@ -145,6 +150,8 @@ library SettlementBundleLib {
         }
     }
 
+    // --- Field Access --- //
+
     /// @notice Return whether a settlement bundle is natively settled; i.e. is
     /// capitalized by an EOA balance
     /// @param bundle The settlement bundle to check
@@ -169,6 +176,127 @@ library SettlementBundleLib {
             revert("Not implemented");
         }
     }
+
+    // --- Commitments --- //
+
+    /// @notice Compute the full commitment to the updated intent for a natively settled public intent bundle
+    /// on its first fill
+    /// @param bundleData The bundle data to compute the commitment for
+    /// @param hasher The hasher to use for hashing
+    /// @return newIntentCommitment The full commitment to the updated intent
+    function computeFullIntentCommitment(
+        PrivateIntentPublicBalanceBundleFirstFill memory bundleData,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newIntentCommitment)
+    {
+        uint256[] memory hashInputs = new uint256[](2);
+        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.newIntentPartialCommitment);
+        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newIntentAmountPublicShare);
+        newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+    }
+
+    /// @notice Compute the full commitment to the updated intent for a natively settled private intent bundle
+    /// @param bundleData The bundle data to compute the commitment for
+    /// @param hasher The hasher to use for hashing
+    /// @return newIntentCommitment The full commitment to the updated intent
+    function computeFullIntentCommitment(
+        PrivateIntentPublicBalanceBundle memory bundleData,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newIntentCommitment)
+    {
+        uint256[] memory hashInputs = new uint256[](2);
+        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.newIntentPartialCommitment);
+        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newIntentAmountPublicShare);
+        newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+    }
+
+    /// @notice Compute the full commitment to the updated intent for a renegade settled private intent bundle
+    /// on its first fill
+    /// @param bundleData The bundle data to compute the commitment for
+    /// @param hasher The hasher to use for hashing
+    /// @return newIntentCommitment The full commitment to the updated intent
+    function computeFullIntentCommitment(
+        RenegadeSettledIntentBundleFirstFill memory bundleData,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newIntentCommitment)
+    {
+        uint256[] memory hashInputs = new uint256[](2);
+        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.newIntentPartialCommitment);
+        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newIntentAmountPublicShare);
+        newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+    }
+
+    /// @notice Compute the full commitment to the updated balance for a renegade settled private intent bundle
+    /// on its first fill
+    /// @param bundleData The bundle data to compute the commitment for
+    /// @param hasher The hasher to use for hashing
+    /// @return newBalanceCommitment The full commitment to the updated balance
+    function computeFullBalanceCommitment(
+        RenegadeSettledIntentBundleFirstFill memory bundleData,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newBalanceCommitment)
+    {
+        uint256[] memory hashInputs = new uint256[](PublicInputsLib.N_MODIFIED_BALANCE_SHARES + 1);
+        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.balancePartialCommitment);
+        for (uint256 i = 1; i < PublicInputsLib.N_MODIFIED_BALANCE_SHARES + 1; ++i) {
+            hashInputs[i] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newBalancePublicShares[i - 1]);
+        }
+        newBalanceCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+    }
+
+    /// @notice Compute the full commitment to the updated intent for a renegade settled private intent bundle
+    /// on its subsequent fill
+    /// @param bundleData The bundle data to compute the commitment for
+    /// @param hasher The hasher to use for hashing
+    /// @return newIntentCommitment The full commitment to the updated intent
+    function computeFullIntentCommitment(
+        RenegadeSettledIntentBundle memory bundleData,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newIntentCommitment)
+    {
+        uint256[] memory hashInputs = new uint256[](2);
+        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.newIntentPartialCommitment);
+        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newIntentAmountPublicShare);
+        newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+    }
+
+    /// @notice Compute the full commitment to the updated balance for a renegade settled private intent bundle
+    /// on its subsequent fill
+    /// @param bundleData The bundle data to compute the commitment for
+    /// @param hasher The hasher to use for hashing
+    /// @return newBalanceCommitment The full commitment to the updated balance
+    function computeFullBalanceCommitment(
+        RenegadeSettledIntentBundle memory bundleData,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newBalanceCommitment)
+    {
+        uint256[] memory hashInputs = new uint256[](PublicInputsLib.N_MODIFIED_BALANCE_SHARES + 1);
+        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.balancePartialCommitment);
+        for (uint256 i = 1; i < PublicInputsLib.N_MODIFIED_BALANCE_SHARES + 1; ++i) {
+            hashInputs[i] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newBalancePublicShares[i - 1]);
+        }
+        newBalanceCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+    }
+
+    // --- Bundle Decoding --- //
 
     /// @notice Decode a public settlement bundle
     /// @param bundle The settlement bundle to decode
