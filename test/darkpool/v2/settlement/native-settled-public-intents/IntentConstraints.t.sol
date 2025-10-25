@@ -13,11 +13,11 @@ import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
-import { SettlementTestUtils } from "./Utils.sol";
+import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 
-contract IntentConstraintsTest is SettlementTestUtils {
+contract IntentConstraintsTest is PublicIntentSettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
     using FixedPointLib for FixedPoint;
     using ObligationLib for ObligationBundle;
@@ -45,7 +45,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
     /// @notice Test that validation fails when intent and obligation have mismatched token pairs
     function test_validateObligationIntentConstraints_InvalidPair() public {
         // Create an intent for base -> quote
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
             obligationBundle.decodePublicObligationsMemory();
 
@@ -65,7 +65,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
 
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         Intent memory intent = bundleData.auth.permit.intent;
-        SettlementBundle memory newBundle = createSettlementBundle(intent, obligation0);
+        SettlementBundle memory newBundle = createPublicIntentSettlementBundle(intent, obligation0);
 
         // Expect the validation to revert with InvalidObligationPair
         vm.expectRevert(NativeSettledPublicIntentLib.InvalidObligationPair.selector);
@@ -75,7 +75,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
     /// @notice Test that validation fails when the input amount is larger than the intent amount
     function test_validateObligationIntentConstraints_InvalidAmountIn() public {
         // Create an intent and an obligation which is too large
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         Intent memory intent = bundleData.auth.permit.intent;
 
@@ -88,7 +88,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
             amountOut: 200
         });
         ObligationBundle memory corruptedObligationBundle = buildObligationBundle(corruptObligation0, obligation1);
-        SettlementBundle memory newBundle = createSettlementBundle(intent, corruptObligation0);
+        SettlementBundle memory newBundle = createPublicIntentSettlementBundle(intent, corruptObligation0);
 
         // Expect the validation to revert with InvalidObligationAmountIn
         vm.expectRevert(
@@ -108,7 +108,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
     /// price
     function test_validateObligationIntentConstraints_InvalidPrice() public {
         // Create an intent and an obligation which has a bad price
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         Intent memory intent = bundleData.auth.permit.intent;
         (, SettlementObligation memory obligation1) = obligationBundle.decodePublicObligationsMemory();
@@ -124,7 +124,7 @@ contract IntentConstraintsTest is SettlementTestUtils {
             amountOut: amountOut
         });
         ObligationBundle memory corruptedObligationBundle = buildObligationBundle(obligation, obligation1);
-        SettlementBundle memory newBundle = createSettlementBundle(intent, obligation);
+        SettlementBundle memory newBundle = createPublicIntentSettlementBundle(intent, obligation);
 
         // Expect the validation to revert with InvalidObligationPrice
         vm.expectRevert(

@@ -19,11 +19,11 @@ import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/Obl
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
-import { SettlementTestUtils } from "./Utils.sol";
+import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
-contract IntentAuthorizationTest is SettlementTestUtils {
+contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
     using FixedPointLib for FixedPoint;
     using ObligationLib for ObligationBundle;
@@ -64,13 +64,13 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
     function test_validSignatures() public {
         // Should not revert
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         authorizeIntentHelper(obligationBundle, bundle);
     }
 
     function test_intentReplay() public {
         // Create bundle and authorize it once
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         authorizeIntentHelper(obligationBundle, bundle);
 
         // Try settling the same bundle again, the intent should be replayed
@@ -80,7 +80,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
     function test_invalidIntentSignature_wrongSigner() public {
         // Create bundle and replace the intent signature with a wrong signature
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
         SignatureWithNonce memory sig = signIntentPermit(authBundle.permit, wrongSigner.privateKey);
@@ -95,7 +95,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
     function test_invalidIntentSignature_modifiedBytes() public {
         // Create bundle with modified intent signature
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
         authBundle.intentSignature.signature[0] = bytes1(uint8(authBundle.intentSignature.signature[0]) ^ 0xFF); // Modify
@@ -110,7 +110,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
     function test_invalidExecutorSignature_wrongSigner() public {
         // Create bundle with executor signature from wrong signer
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         SettlementObligation memory obligation0 = obligationBundle.decodePublicObligationMemory(PartyId.PARTY_0);
 
@@ -126,7 +126,7 @@ contract IntentAuthorizationTest is SettlementTestUtils {
 
     function test_cachedIntentSignature() public {
         // Create bundle and authorize it once
-        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSampleBundle();
+        (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         authorizeIntentHelper(obligationBundle, bundle);
 
         // Verify the intent was cached in the mapping

@@ -43,8 +43,8 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
 
         // Create two settlement bundles
-        bundle0 = createSettlementBundle(isFirstFill, obligation0, party0);
-        bundle1 = createSettlementBundle(isFirstFill, obligation1, party1);
+        bundle0 = createPrivateIntentSettlementBundle(isFirstFill, obligation0, party0);
+        bundle1 = createPrivateIntentSettlementBundle(isFirstFill, obligation1, party1);
         capitalizeParty(party0.addr, obligation0);
         capitalizeParty(party1.addr, obligation1);
     }

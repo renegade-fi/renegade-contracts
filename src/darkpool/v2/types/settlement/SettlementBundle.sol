@@ -174,21 +174,6 @@ library SettlementBundleLib {
             || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
     }
 
-    // forge-lint: disable-next-item(mixed-case-function)
-    /// @notice Return the EOA address of a natively settled bundle
-    /// @param bundle The settlement bundle to return the EOA address for
-    /// @return eoa The EOA address of the natively settled bundle
-    function getEOAAddress(SettlementBundle calldata bundle) internal pure returns (address eoa) {
-        require(isNativelySettled(bundle), InvalidSettlementBundleType());
-
-        if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            PublicIntentPublicBalanceBundle memory bundleData = decodePublicBundleData(bundle);
-            eoa = bundleData.auth.permit.intent.owner;
-        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            revert("Not implemented");
-        }
-    }
-
     // --- Commitments --- //
 
     /// @notice Compute the full commitment to the updated intent for a natively settled public intent bundle

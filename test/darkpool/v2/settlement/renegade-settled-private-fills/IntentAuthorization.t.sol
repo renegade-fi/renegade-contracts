@@ -91,7 +91,7 @@ contract RenegadeSettledPrivateFillAuthorizationTest is RenegadeSettledPrivateFi
     function test_invalidMerkleDepth() public {
         // Create bundle with invalid Merkle depth (not the default)
         uint256 invalidDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH + 1;
-        SettlementBundle memory bundle = createSettlementBundleSubsequentFill(invalidDepth);
+        SettlementBundle memory bundle = createRenegadeSettledPrivateFillBundleSubsequentFill(invalidDepth);
 
         ObligationBundle memory obligationBundle;
         obligationBundle.obligationType = ObligationType.PRIVATE;

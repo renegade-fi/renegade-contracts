@@ -62,7 +62,8 @@ contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivate
     function test_validSignature() public {
         // Should not revert
         bool isFirstFill = vm.randomBool();
-        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) = createSampleBundle(isFirstFill);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
+            createSampleRenegadeSettledBundle(isFirstFill);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 
@@ -70,7 +71,7 @@ contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivate
     function test_invalidOwnerSignature_wrongSigner() public {
         // Create bundle and replace the owner signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSampleBundle(true /* isFirstFill */ );
+            createSampleRenegadeSettledBundle(true /* isFirstFill */ );
         RenegadeSettledIntentFirstFillBundle memory bundleData =
             abi.decode(bundle.data, (RenegadeSettledIntentFirstFillBundle));
         RenegadeSettledIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
@@ -96,7 +97,7 @@ contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivate
 
         // Use an invalid Merkle depth (not the default)
         uint256 invalidDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH + 1;
-        SettlementBundle memory bundle = createSettlementBundleSubsequentFill(invalidDepth, obligation0);
+        SettlementBundle memory bundle = createRenegadeSettledBundleSubsequentFill(invalidDepth, obligation0);
 
         // Should revert with InvalidMerkleDepthRequested
         vm.expectRevert(IDarkpool.InvalidMerkleDepthRequested.selector);

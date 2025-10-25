@@ -20,7 +20,7 @@ import {
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
-contract SettlementTestUtils is DarkpoolV2TestUtils {
+contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
     using PublicIntentPermitLib for PublicIntentPermit;
     using FixedPointLib for FixedPoint;
@@ -81,35 +81,37 @@ contract SettlementTestUtils is DarkpoolV2TestUtils {
     // --- Dummy Data --- //
 
     /// @dev Create a dummy `SettlementTransfers` list for the test
-    function _createSettlementContext() internal pure returns (SettlementContext memory context) {
+    function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(1, /* transferCapacity */ 1 /* verificationCapacity */ );
     }
 
     /// @dev Helper to create a sample settlement bundle
-    function createSampleBundle()
+    function createSamplePublicIntentBundle()
         internal
         returns (SettlementBundle memory settlementBundle, ObligationBundle memory obligationBundle)
     {
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
         Intent memory intent0 = createIntentForObligation(obligation0);
-        settlementBundle = createSettlementBundle(intent0, obligation0);
+        settlementBundle = createPublicIntentSettlementBundle(intent0, obligation0);
         obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
     }
 
     /// @dev Create a complete settlement bundle given an intent and an obligation
-    function createSettlementBundle(
+    function createPublicIntentSettlementBundle(
         Intent memory intent,
         SettlementObligation memory obligation
     )
-        internal
+        public
         returns (SettlementBundle memory)
     {
-        return createSettlementBundleWithSigners(intent, obligation, intentOwner.privateKey, executor.privateKey);
+        return createPublicIntentSettlementBundleWithSigners(
+            intent, obligation, intentOwner.privateKey, executor.privateKey
+        );
     }
 
     /// @dev Create a complete settlement bundle with custom signers
-    function createSettlementBundleWithSigners(
+    function createPublicIntentSettlementBundleWithSigners(
         Intent memory intent,
         SettlementObligation memory obligation,
         uint256 intentOwnerPrivateKey,

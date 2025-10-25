@@ -61,7 +61,8 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_validSignature() public {
         // Should not revert
         bool isFirstFill = vm.randomBool();
-        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) = createSampleBundle(isFirstFill);
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
+            createSamplePrivateIntentBundle(isFirstFill);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 
@@ -72,7 +73,8 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
         ObligationBundle memory obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
-        SettlementBundle memory bundle = createSettlementBundle(false, /* isFirstFill */ obligation0, intentOwner);
+        SettlementBundle memory bundle =
+            createPrivateIntentSettlementBundle(false, /* isFirstFill */ obligation0, intentOwner);
 
         // Should not revert even though we're not checking the signature
         authorizeIntentHelper(obligationBundle, bundle);
@@ -82,7 +84,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidIntentCommitmentSignature_wrongSigner() public {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSampleBundle(true /* isFirstFill */ );
+            createSamplePrivateIntentBundle(true /* isFirstFill */ );
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
             abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
@@ -110,7 +112,8 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
 
         // Use an invalid Merkle depth (not the default)
         uint256 invalidDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH + 1;
-        SettlementBundle memory bundle = createSettlementBundleSubsequentFill(invalidDepth, obligation0, intentOwner);
+        SettlementBundle memory bundle =
+            createPrivateIntentSettlementBundleSubsequentFill(invalidDepth, obligation0, intentOwner);
 
         // Should revert with InvalidMerkleDepthRequested
         vm.expectRevert(IDarkpool.InvalidMerkleDepthRequested.selector);
