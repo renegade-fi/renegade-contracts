@@ -39,10 +39,10 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
     // | Tests |
     // ---------
 
-    function test_compatibleObligations() public view {
+    function test_compatibleObligations() public {
         // Create compatible obligations
-        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
-            createCompatibleObligations(address(baseToken), address(quoteToken));
+        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation,) =
+            createTradeObligations();
 
         ObligationBundle memory party0Bundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(party0Obligation) });
@@ -54,9 +54,9 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
     }
 
     function test_incompatiblePairs() public {
-        // Party 0: Selling 100 base for 200 quote
-        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
-            createCompatibleObligations(address(baseToken), address(quoteToken));
+        // Party 0: Selling base for quote
+        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation,) =
+            createTradeObligations();
 
         // Corrupt one of the obligations
         if (vm.randomBool()) {
@@ -76,8 +76,8 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
     }
 
     function test_incompatibleAmounts() public {
-        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation) =
-            createCompatibleObligations(address(baseToken), address(quoteToken));
+        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation,) =
+            createTradeObligations();
 
         // Corrupt one of the obligations
         if (vm.randomBool()) {
