@@ -55,21 +55,21 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Create a dummy intent validity statement
-    function createSampleIntentValidityStatement(SettlementObligation memory obligation)
-        internal
-        returns (IntentOnlyValidityStatement memory)
-    {
+    function createSampleIntentValidityStatement() internal returns (IntentOnlyValidityStatement memory) {
         return IntentOnlyValidityStatement({
             intentOwner: intentOwner.addr,
             newIntentPartialCommitment: randomScalar(),
-            nullifier: randomScalar(),
-            obligation: obligation
+            nullifier: randomScalar()
         });
     }
 
     /// @dev Create a dummy settlement statement
-    function createSampleSettlementStatement() internal returns (SingleIntentMatchSettlementStatement memory) {
-        return SingleIntentMatchSettlementStatement({ newIntentAmountPublicShare: randomScalar() });
+    function createSampleSettlementStatement(SettlementObligation memory obligation)
+        internal
+        returns (SingleIntentMatchSettlementStatement memory)
+    {
+        return
+            SingleIntentMatchSettlementStatement({ newIntentAmountPublicShare: randomScalar(), obligation: obligation });
     }
 
     /// @dev Helper to create a sample settlement bundle
@@ -115,12 +115,11 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
             intentOwner: owner.addr,
             newIntentPartialCommitment: randomScalar(),
-            nullifier: randomScalar(),
-            obligation: obligation
+            nullifier: randomScalar()
         });
 
         // Create settlement statement
-        SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement();
+        SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
         // Compute the full intent commitment and sign it
         BN254.ScalarField fullCommitment = computeFullIntentCommitment(

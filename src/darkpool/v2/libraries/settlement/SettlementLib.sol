@@ -17,6 +17,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
+import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
@@ -148,7 +149,7 @@ library SettlementLib {
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.execute(settlementBundle, settlementContext, state, hasher);
         } else {
-            revert("Not implemented");
+            RenegadeSettledPrivateIntentLib.execute(settlementBundle, settlementContext, state, hasher);
         }
     }
 
