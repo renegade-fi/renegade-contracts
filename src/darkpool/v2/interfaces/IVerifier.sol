@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PlonkProof, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
 
-import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title IVerifier
 /// @author Renegade Eng
@@ -14,6 +14,14 @@ interface IVerifier {
     /// @param depositProofBundle The proof bundle for the deposit
     /// @return True if the proof is valid, false otherwise
     function verifyExistingBalanceDepositValidity(DepositProofBundle calldata depositProofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `NEW BALANCE DEPOSIT VALIDITY`
+    /// @param newBalanceProofBundle The proof bundle for the new balance deposit
+    /// @return True if the proof is valid, false otherwise
+    function verifyNewBalanceDepositValidity(NewBalanceDepositProofBundle calldata newBalanceProofBundle)
         external
         view
         returns (bool);

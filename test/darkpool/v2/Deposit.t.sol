@@ -8,12 +8,15 @@ import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.so
 
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
-import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import {
     Deposit, DepositAuth, DepositWitness, DEPOSIT_WITNESS_TYPE_STRING
 } from "darkpoolv2-types/transfers/Deposit.sol";
-import { ExistingBalanceDepositValidityStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import {
+    ExistingBalanceDepositValidityStatement,
+    NewBalanceDepositValidityStatement
+} from "darkpoolv2-lib/PublicInputs.sol";
 
 /// @title DepositTest
 /// @notice Tests for the deposit functionality in DarkpoolV2
@@ -137,12 +140,14 @@ contract DepositTest is DarkpoolV2TestUtils {
     function createDepositProofBundle(Deposit memory deposit) internal returns (DepositProofBundle memory) {
         BN254.ScalarField balanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();
+        BN254.ScalarField newAmountPublicShare = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         ExistingBalanceDepositValidityStatement memory statement = ExistingBalanceDepositValidityStatement({
             merkleDepth: merkleDepth,
             deposit: deposit,
             balanceNullifier: balanceNullifier,
-            newBalanceCommitment: newBalanceCommitment
+            newBalanceCommitment: newBalanceCommitment,
+            newAmountPublicShare: newAmountPublicShare
         });
 
         return DepositProofBundle({ statement: statement, proof: createDummyProof() });
@@ -156,9 +161,49 @@ contract DepositTest is DarkpoolV2TestUtils {
         depositToken.approve(address(permit2), deposit.amount);
     }
 
-    // ---------
-    // | Tests |
-    // ---------
+    // --- New Balance Deposit Helpers --- //
+
+    /// @notice Generate random new balance deposit calldata (auth + proof bundle)
+    /// @return deposit The deposit struct
+    /// @return auth The deposit authorization
+    /// @return proofBundle The new balance deposit proof bundle
+    function generateRandomNewBalanceDepositCalldata()
+        internal
+        returns (Deposit memory deposit, DepositAuth memory auth, NewBalanceDepositProofBundle memory proofBundle)
+    {
+        deposit = createTestDeposit();
+        proofBundle = createNewBalanceDepositProofBundle(deposit);
+        auth = createDepositAuth(deposit, proofBundle.statement.newBalanceCommitment);
+        capitalizeDepositor(deposit);
+    }
+
+    /// @notice Create a new balance deposit proof bundle for testing
+    function createNewBalanceDepositProofBundle(Deposit memory deposit)
+        internal
+        returns (NewBalanceDepositProofBundle memory)
+    {
+        BN254.ScalarField newBalanceCommitment = randomScalar();
+        uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
+
+        // Generate 6 random public shares for the new balance
+        BN254.ScalarField[6] memory newBalancePublicShares;
+        for (uint256 i = 0; i < 6; i++) {
+            newBalancePublicShares[i] = randomScalar();
+        }
+
+        NewBalanceDepositValidityStatement memory statement = NewBalanceDepositValidityStatement({
+            merkleDepth: merkleDepth,
+            deposit: deposit,
+            newBalanceCommitment: newBalanceCommitment,
+            newBalancePublicShares: newBalancePublicShares
+        });
+
+        return NewBalanceDepositProofBundle({ statement: statement, proof: createDummyProof() });
+    }
+
+    // ----------------------------------
+    // | Existing Balance Deposit Tests |
+    // ----------------------------------
 
     /// @notice Test a successful deposit
     function test_deposit_success() public {
@@ -230,5 +275,78 @@ contract DepositTest is DarkpoolV2TestUtils {
         vm.prank(depositor.addr);
         vm.expectRevert();
         darkpool.deposit(auth, proofBundle);
+    }
+
+    // -----------------------------
+    // | New Balance Deposit Tests |
+    // -----------------------------
+
+    /// @notice Test a successful new balance deposit
+    function test_depositNewBalance_success() public {
+        // Generate test data
+        (Deposit memory deposit, DepositAuth memory auth, NewBalanceDepositProofBundle memory proofBundle) =
+            generateRandomNewBalanceDepositCalldata();
+        uint256 depositAmount = deposit.amount;
+
+        // Record balances before
+        uint256 depositorBalanceBefore = depositToken.balanceOf(depositor.addr);
+        uint256 darkpoolBalanceBefore = depositToken.balanceOf(address(darkpool));
+
+        // Execute the deposit
+        darkpool.depositNewBalance(auth, proofBundle);
+
+        // Check balances after
+        uint256 depositorBalanceAfter = depositToken.balanceOf(depositor.addr);
+        uint256 darkpoolBalanceAfter = depositToken.balanceOf(address(darkpool));
+
+        assertEq(depositorBalanceAfter, depositorBalanceBefore - depositAmount, "Depositor balance should decrease");
+        assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore + depositAmount, "Darkpool balance should increase");
+    }
+
+    /// @notice Test the Merkle root after a new balance deposit
+    function test_depositNewBalance_merkleRoot() public {
+        // Generate test data
+        (Deposit memory deposit, DepositAuth memory auth, NewBalanceDepositProofBundle memory proofBundle) =
+            generateRandomNewBalanceDepositCalldata();
+
+        // Execute the deposit
+        darkpool.depositNewBalance(auth, proofBundle);
+
+        // Check that the Merkle root is in the history
+        // Build a parallel merkle tree with the same operation
+        uint256 depth = proofBundle.statement.merkleDepth;
+        testMountain.insertLeaf(depth, proofBundle.statement.newBalanceCommitment, hasher);
+        BN254.ScalarField root = testMountain.getRoot(depth);
+
+        // The root should be in the darkpool's history
+        bool rootInHistory = darkpool.rootInHistory(root);
+        assertTrue(rootInHistory, "Merkle root should be in history");
+    }
+
+    /// @notice Test new balance deposit with zero amount
+    function test_depositNewBalance_zeroAmount() public {
+        // Generate test data
+        Deposit memory deposit = Deposit({ from: depositor.addr, token: address(depositToken), amount: 0 });
+        NewBalanceDepositProofBundle memory proofBundle = createNewBalanceDepositProofBundle(deposit);
+        DepositAuth memory auth = createDepositAuth(deposit, proofBundle.statement.newBalanceCommitment);
+
+        // Should succeed with zero amount
+        vm.prank(depositor.addr);
+        darkpool.depositNewBalance(auth, proofBundle);
+    }
+
+    /// @notice Test new balance deposit with insufficient balance
+    function test_depositNewBalance_insufficientBalance_reverts() public {
+        // Generate test data
+        (Deposit memory deposit, DepositAuth memory auth, NewBalanceDepositProofBundle memory proofBundle) =
+            generateRandomNewBalanceDepositCalldata();
+
+        // Burn the balance of the depositor
+        depositToken.burn(depositor.addr, deposit.amount);
+
+        // Should revert due to insufficient balance
+        vm.prank(depositor.addr);
+        vm.expectRevert();
+        darkpool.depositNewBalance(auth, proofBundle);
     }
 }

@@ -22,7 +22,25 @@ struct ExistingBalanceDepositValidityStatement {
     /// @dev The nullifier of the previous version of the balance
     BN254.ScalarField balanceNullifier;
     /// @dev A commitment to the updated balance
+    /// TODO: Decide whether this should be a partial commitment or a full commitment
     BN254.ScalarField newBalanceCommitment;
+    /// @dev The new amount public share of the balance
+    /// @dev This is verified in the proof and placed here to leak it in calldata for recovery logic
+    BN254.ScalarField newAmountPublicShare;
+}
+
+/// @notice A statement proving validity of a deposit into a new balance
+struct NewBalanceDepositValidityStatement {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
+    /// @dev The deposit to execute
+    Deposit deposit;
+    /// @dev A commitment to the updated balance
+    /// TODO: Decide whether this should be a partial commitment or a full commitment
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev The public shares of the new balance
+    /// @dev These shares represent an entire balance
+    BN254.ScalarField[6] newBalancePublicShares;
 }
 
 // --- Validity Statements --- //
@@ -163,13 +181,36 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 5;
+        uint256 nPublicInputs = 6;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.from)));
         publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
         publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
         publicInputs[3] = statement.balanceNullifier;
         publicInputs[4] = statement.newBalanceCommitment;
+        publicInputs[5] = statement.newAmountPublicShare;
+    }
+
+    /// @notice Serialize the public inputs for a proof of new balance deposit validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(NewBalanceDepositValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 10;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.from)));
+        publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
+        publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
+        publicInputs[3] = statement.newBalanceCommitment;
+        publicInputs[4] = statement.newBalancePublicShares[0];
+        publicInputs[5] = statement.newBalancePublicShares[1];
+        publicInputs[6] = statement.newBalancePublicShares[2];
+        publicInputs[7] = statement.newBalancePublicShares[3];
+        publicInputs[8] = statement.newBalancePublicShares[4];
+        publicInputs[9] = statement.newBalancePublicShares[5];
     }
 
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)

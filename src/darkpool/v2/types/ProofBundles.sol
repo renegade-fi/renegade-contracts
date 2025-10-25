@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ExistingBalanceDepositValidityStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import {
+    ExistingBalanceDepositValidityStatement,
+    NewBalanceDepositValidityStatement
+} from "darkpoolv2-lib/PublicInputs.sol";
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
@@ -13,5 +16,13 @@ struct DepositProofBundle {
     /// @dev The statement of the deposit validity
     ExistingBalanceDepositValidityStatement statement;
     /// @dev The proof of the deposit validity
+    PlonkProof proof;
+}
+
+/// @notice A bundle of proofs for _new_ balance deposit validity
+struct NewBalanceDepositProofBundle {
+    /// @dev The statement of the new balance deposit validity
+    NewBalanceDepositValidityStatement statement;
+    /// @dev The proof of the new balance deposit validity
     PlonkProof proof;
 }

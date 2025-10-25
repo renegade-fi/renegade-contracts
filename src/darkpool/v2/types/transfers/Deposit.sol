@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+
 /// @dev The type hash for the DepositWitness struct
 // solhint-disable-next-line gas-small-strings
 bytes32 constant DEPOSIT_WITNESS_TYPEHASH = keccak256("DepositWitness(uint256 newBalanceCommitment)");
@@ -56,6 +58,6 @@ library DepositLib {
     /// @param witness The deposit witness to hash
     /// @return The hash of the deposit witness
     function hashWitness(DepositWitness memory witness) internal pure returns (bytes32) {
-        return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, witness.newBalanceCommitment));
+        return EfficientHashLib.hash(DEPOSIT_WITNESS_TYPEHASH, bytes32(witness.newBalanceCommitment));
     }
 }
