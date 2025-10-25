@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is SettlementTestUtils {
@@ -15,7 +16,8 @@ contract ObligationCompatibilityTest is SettlementTestUtils {
 
     /// @notice Wrapper to convert memory to calldata for library call
     function _validateObligationBundle(ObligationBundle calldata bundle) public pure {
-        SettlementLib.validateObligationBundle(bundle);
+        SettlementContext memory settlementContext = _createSettlementContext();
+        SettlementLib.validateObligationBundle(bundle, settlementContext);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata

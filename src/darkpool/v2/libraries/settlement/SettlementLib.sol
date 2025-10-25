@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { BN254 } from "solidity-bn254/BN254.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -12,7 +13,12 @@ import {
     SettlementBundleType,
     SettlementBundleLib
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import {
+    ObligationBundle,
+    ObligationType,
+    ObligationLib,
+    PrivateObligationBundle
+} from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -24,7 +30,9 @@ import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Tr
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
-import { emptyOpeningElements } from "renegade-lib/verifier/Types.sol";
+import { emptyOpeningElements, VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/PublicInputs.sol";
+import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
@@ -34,6 +42,7 @@ library SettlementLib {
     using SettlementBundleLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
     using SettlementTransfersLib for SettlementTransfers;
+    using PublicInputsLib for RenegadeSettledPrivateFillSettlementStatement;
 
     /// @notice Error thrown when the obligation types are not compatible
     error IncompatibleObligationTypes();
@@ -76,13 +85,19 @@ library SettlementLib {
 
     /// @notice Validate an obligation bundle
     /// @param obligationBundle The obligation bundle to validate
-    function validateObligationBundle(ObligationBundle calldata obligationBundle) internal pure {
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    function validateObligationBundle(
+        ObligationBundle calldata obligationBundle,
+        SettlementContext memory settlementContext
+    )
+        internal
+        pure
+    {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
             // Validate a public obligation bundle
             validatePublicObligationBundle(obligationBundle);
         } else if (obligationBundle.obligationType == ObligationType.PRIVATE) {
-            // TODO: Implement validation logic for private bundles
-            return;
+            validatePrivateObligationBundle(obligationBundle, settlementContext);
         } else {
             revert InvalidSettlementBundleType();
         }
@@ -108,6 +123,25 @@ library SettlementLib {
         if (!amountCompatible) {
             revert IncompatibleAmounts();
         }
+    }
+
+    /// @notice Validate a private obligation bundle
+    /// @param obligationBundle The obligation bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    function validatePrivateObligationBundle(
+        ObligationBundle calldata obligationBundle,
+        SettlementContext memory settlementContext
+    )
+        internal
+        pure
+    {
+        // Decode the obligations
+        PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
+
+        // TODO: Fetch a real vkey
+        BN254.ScalarField[] memory publicInputs = obligation.statement.statementSerialize();
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        settlementContext.pushProof(publicInputs, obligation.proof, vk);
     }
 
     // --- Settlement Bundle Validation --- //
