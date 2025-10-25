@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -7,7 +7,7 @@ import {
     SettlementBundle,
     SettlementBundleLib,
     RenegadeSettledIntentFirstFillBundle,
-    RenegadeSettledIntentBundle
+    RenegadeSettledPrivateFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -30,15 +30,16 @@ import {
     PrivateIntentPrivateBalanceAuthBundleLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
-/// @title Renegade Settled Private Intent Library
+/// @title Renegade Settled Private Fill Library
 /// @author Renegade Eng
-/// @notice Library for validating a renegade settled private intents
-/// @dev A renegade settled private intent is a private intent with a private (darkpool) balance.
-library RenegadeSettledPrivateIntentLib {
+/// @notice Library for validating renegade settled private fills
+/// @dev A renegade settled private fill is a private intent with a private (darkpool) balance where
+/// the settlement obligation itself is private.
+library RenegadeSettledPrivateFillLib {
     using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
     using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
-    using SettlementBundleLib for RenegadeSettledIntentBundle;
+    using SettlementBundleLib for RenegadeSettledPrivateFillBundle;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
     using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
@@ -51,15 +52,13 @@ library RenegadeSettledPrivateIntentLib {
 
     // --- Implementation --- //
 
-    /// @notice Execute a renegade settled private intent bundle
+    /// @notice Execute a renegade settled private fill bundle
     /// @param partyId The party ID to execute the settlement bundle for
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
-    /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
-    /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -84,7 +83,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
-    /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
+    /// TODO: Proof link into the obligation bundle's settlement proof
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -95,21 +94,7 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // Decode the bundle data
-        RenegadeSettledIntentFirstFillBundle memory bundleData =
-            settlementBundle.decodeRenegadeSettledIntentBundleDataFirstFill();
-
-        // 1. Validate the intent authorization
-        validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
-
-        // 2. Validate the intent constraints on the obligation
-        // This is done in the settlement proof
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
-        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
-
-        // 3. Execute state updates for the bundle
-        executeStateUpdatesFirstFill(bundleData, state, hasher);
+        // TODO: Implement
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -119,7 +104,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
-    /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
+    /// TODO: Proof link into the obligation bundle's settlement proof
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -130,20 +115,7 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // Decode the bundle data
-        RenegadeSettledIntentBundle memory bundleData = settlementBundle.decodeRenegadeSettledIntentBundleData();
-
-        // 1. Validate the intent authorization
-        validateIntentAuthorization(bundleData.auth, settlementContext);
-
-        // 2. Validate the intent constraints on the obligation
-        // This is done in the settlement proof
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
-        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
-
-        // 3. Execute state updates for the bundle
-        executeStateUpdates(bundleData, state, hasher);
+        // TODO: Implement
     }
 
     // ------------------------
@@ -163,25 +135,7 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // Validate the Merkle depth
-        // TODO: Allow for dynamic Merkle depth
-        if (bundleData.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
-            revert IDarkpool.InvalidMerkleDepthRequested();
-        }
-
-        // Verify the owner signature and spend the nonce
-        bytes32 digest = PrivateIntentPrivateBalanceAuthBundleLib.getOwnerSignatureDigest(bundleData);
-        address signer = bundleData.statement.oneTimeAuthorizingAddress;
-
-        bool valid = bundleData.ownerSignature.verifyPrehashed(signer, digest);
-        if (!valid) revert InvalidOwnerSignature();
-        state.spendNonce(bundleData.ownerSignature.nonce);
-
-        // Register a proof of validity for the intent and balance
-        // TODO: Fetch a real verification key
-        BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
-        settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
+        // TODO: Implement
     }
 
     /// @notice Execute the state updates necessary to authorize the intent for a subsequent fill
@@ -197,17 +151,7 @@ library RenegadeSettledPrivateIntentLib {
         internal
         pure
     {
-        // Validate the Merkle depth
-        // TODO: Allow for dynamic Merkle depth
-        if (bundleData.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
-            revert IDarkpool.InvalidMerkleDepthRequested();
-        }
-
-        // Register a proof of validity for the intent and balance
-        // TODO: Fetch a real verification key
-        BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
-        settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
+        // TODO: Implement
     }
 
     // -----------------
@@ -219,6 +163,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
     /// @dev On the first fill, no intent state needs to be nullified, however the balance state must be.
+    /// @dev Note: For private fills, commitment computation happens in the obligation bundle proof
     function executeStateUpdatesFirstFill(
         RenegadeSettledIntentFirstFillBundle memory bundleData,
         DarkpoolState storage state,
@@ -226,40 +171,21 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // 1. Nullify the balance state
-        BN254.ScalarField nullifier = bundleData.auth.statement.balanceNullifier;
-        state.spendNullifier(nullifier);
-
-        // 2. Insert commitments to the updated intent and balance into the Merkle tree
-        uint256 merkleDepth = bundleData.auth.merkleDepth;
-        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
-        BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);
-        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
-        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        // TODO: Implement
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
     /// @param bundleData The bundle data to execute the state updates for
     /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @dev Note: For private fills, commitment computation happens in the obligation bundle proof
     function executeStateUpdates(
-        RenegadeSettledIntentBundle memory bundleData,
+        RenegadeSettledPrivateFillBundle memory bundleData,
         DarkpoolState storage state,
         IHasher hasher
     )
         internal
     {
-        // 1. Nullify both the balance and intent states
-        BN254.ScalarField balanceNullifier = bundleData.auth.statement.balanceNullifier;
-        BN254.ScalarField intentNullifier = bundleData.auth.statement.intentNullifier;
-        state.spendNullifier(balanceNullifier);
-        state.spendNullifier(intentNullifier);
-
-        // 2. Insert commitments to the updated intent and balance into the Merkle tree
-        uint256 merkleDepth = bundleData.auth.merkleDepth;
-        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
-        BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);
-        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
-        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        // TODO: Implement
     }
 }

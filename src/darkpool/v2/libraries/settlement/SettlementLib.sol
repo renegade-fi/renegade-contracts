@@ -138,6 +138,10 @@ library SettlementLib {
             RenegadeSettledPrivateIntentLib.execute(
                 partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
+        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL) {
+            RenegadeSettledPrivateIntentLib.execute(
+                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+            );
         } else {
             revert InvalidSettlementBundleType();
         }

@@ -9,7 +9,7 @@ import {
     SettlementBundle,
     SettlementBundleType,
     PrivateIntentPublicBalanceBundle,
-    PrivateIntentPublicBalanceBundleFirstFill
+    PrivateIntentPublicBalanceFirstFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
@@ -139,7 +139,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        PrivateIntentPublicBalanceBundleFirstFill memory bundleData = PrivateIntentPublicBalanceBundleFirstFill({
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData = PrivateIntentPublicBalanceFirstFillBundle({
             auth: auth,
             settlementStatement: settlementStatement,
             settlementProof: createDummyProof()

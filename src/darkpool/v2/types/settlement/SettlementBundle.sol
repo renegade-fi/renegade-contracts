@@ -29,9 +29,8 @@ enum PartyId {
 }
 
 /// @notice A settlement bundle for a user
-/// @dev This type encapsulates all the data required to validate a user's obligation to a trade
-/// @dev and settle the trade. The fields themselves are tagged unions of different data types representing
-/// @dev the different privacy configurations for each side of the trade.
+/// @dev This type encapsulates all the data required to validate a user's state elements input to a trade
+/// and settle the trade.
 struct SettlementBundle {
     /// @dev Whether this is the first fill or subsequent fill
     bool isFirstFill;
@@ -49,16 +48,20 @@ struct SettlementBundle {
 /// 2. Public intent and private balance
 /// 3. Private intent and public balance
 /// 4. Private intent and private balance
-/// However, we currently have no use for a private balance with a public intent, so we remove that use case.
-/// We term these the following:
+/// As well, the settlement obligation itself may be public or private. A private obligation only makes sense
+/// when two private intent, private balances cross.
+///
+/// We currently have no use for a private balance with a public intent, so we remove that use case.
+/// This leaves us with the following settlement bundle types:
 /// 1. *Natively Settled Public Intent*: A public intent with a public (EOA) balance
 /// 2. *Natively Settled Private Intent*: A private intent with a public (EOA) balance
 /// 3. *Renegade Settled Intent*: A private intent with a private (darkpool) balance
-/// Separately, bundle shapes for the latter two cases change for the first fill and subsequent fills.
+/// 4. *Renegade Settled Private Fill*: A private intent with a private (darkpool) balance settling a private obligation
 enum SettlementBundleType {
     NATIVELY_SETTLED_PUBLIC_INTENT,
     NATIVELY_SETTLED_PRIVATE_INTENT,
-    RENEGADE_SETTLED_INTENT
+    RENEGADE_SETTLED_INTENT,
+    RENEGADE_SETTLED_PRIVATE_FILL
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PUBLIC_INTENT` bundle
@@ -68,7 +71,7 @@ struct PublicIntentPublicBalanceBundle {
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle on the first fill
-struct PrivateIntentPublicBalanceBundleFirstFill {
+struct PrivateIntentPublicBalanceFirstFillBundle {
     /// @dev The private intent authorization payload with signature attached
     PrivateIntentAuthBundleFirstFill auth;
     /// @dev The statement of single-intent match settlement
@@ -88,7 +91,7 @@ struct PrivateIntentPublicBalanceBundle {
 }
 
 /// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_INTENT` bundle on the first fill
-struct RenegadeSettledIntentBundleFirstFill {
+struct RenegadeSettledIntentFirstFillBundle {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundleFirstFill auth;
     /// @dev The statement of renegade settled private intent public settlement
@@ -105,6 +108,24 @@ struct RenegadeSettledIntentBundle {
     RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
     /// @dev The proof of renegade settled private intent public settlement
     PlonkProof settlementProof;
+}
+
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle on the first fill
+/// @dev Note that this is the same as the `RENEGADE_SETTLED_INTENT` bundle, but without the settlement statement and
+/// proof
+/// These proofs are attached to the obligation bundle, as the proof unifies the two settlement bundles
+struct RenegadeSettledPrivateFirstFillBundle {
+    /// @dev The private intent authorization payload with signature attached
+    RenegadeSettledIntentAuthBundleFirstFill auth;
+}
+
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_FILL` bundle on subsequent fills
+/// @dev Note that this is the same as the `RENEGADE_SETTLED_INTENT` bundle, but without the settlement statement and
+/// proof
+/// These proofs are attached to the obligation bundle, as the proof unifies the two settlement bundles
+struct RenegadeSettledPrivateFillBundle {
+    /// @dev The private intent authorization payload with signature attached
+    RenegadeSettledIntentAuthBundle auth;
 }
 
 /// @title Settlement Bundle Library
@@ -176,7 +197,7 @@ library SettlementBundleLib {
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
     function computeFullIntentCommitment(
-        PrivateIntentPublicBalanceBundleFirstFill memory bundleData,
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         IHasher hasher
     )
         internal
@@ -213,7 +234,7 @@ library SettlementBundleLib {
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
     function computeFullIntentCommitment(
-        RenegadeSettledIntentBundleFirstFill memory bundleData,
+        RenegadeSettledIntentFirstFillBundle memory bundleData,
         IHasher hasher
     )
         internal
@@ -232,7 +253,7 @@ library SettlementBundleLib {
     /// @param hasher The hasher to use for hashing
     /// @return newBalanceCommitment The full commitment to the updated balance
     function computeFullBalanceCommitment(
-        RenegadeSettledIntentBundleFirstFill memory bundleData,
+        RenegadeSettledIntentFirstFillBundle memory bundleData,
         IHasher hasher
     )
         internal
@@ -308,11 +329,11 @@ library SettlementBundleLib {
     function decodePrivateIntentBundleDataFirstFill(SettlementBundle calldata bundle)
         internal
         pure
-        returns (PrivateIntentPublicBalanceBundleFirstFill memory bundleData)
+        returns (PrivateIntentPublicBalanceFirstFillBundle memory bundleData)
     {
         bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, InvalidSettlementBundleType());
-        bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundleFirstFill));
+        bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
     }
 
     /// @notice Decode a private settlement bundle
@@ -335,11 +356,11 @@ library SettlementBundleLib {
     function decodeRenegadeSettledIntentBundleDataFirstFill(SettlementBundle calldata bundle)
         internal
         pure
-        returns (RenegadeSettledIntentBundleFirstFill memory bundleData)
+        returns (RenegadeSettledIntentFirstFillBundle memory bundleData)
     {
         bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
         require(validType, InvalidSettlementBundleType());
-        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundleFirstFill));
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentFirstFillBundle));
     }
 
     /// @notice Decode a renegade settled private intent settlement bundle
@@ -353,5 +374,31 @@ library SettlementBundleLib {
         bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
         require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundle));
+    }
+
+    /// @notice Decode a renegade settled private fill settlement bundle for a first fill
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledPrivateFirstFillBundle(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledIntentFirstFillBundle memory bundleData)
+    {
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        require(validType, InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentFirstFillBundle));
+    }
+
+    /// @notice Decode a renegade settled private fill settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledPrivateBundle(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledPrivateFillBundle memory bundleData)
+    {
+        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        require(validType, InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }
 }

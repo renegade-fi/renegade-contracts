@@ -7,7 +7,7 @@ import {
     PartyId,
     SettlementBundle,
     SettlementBundleLib,
-    RenegadeSettledIntentBundleFirstFill
+    RenegadeSettledIntentFirstFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
@@ -22,7 +22,7 @@ import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { RenegadeSettledPrivateIntentTestUtils } from "./Utils.sol";
 
 contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivateIntentTestUtils {
-    using SettlementBundleLib for RenegadeSettledIntentBundleFirstFill;
+    using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
 
     // -----------
     // | Helpers |
@@ -71,8 +71,8 @@ contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivate
         // Create bundle and replace the owner signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
             createSampleBundle(true /* isFirstFill */ );
-        RenegadeSettledIntentBundleFirstFill memory bundleData =
-            abi.decode(bundle.data, (RenegadeSettledIntentBundleFirstFill));
+        RenegadeSettledIntentFirstFillBundle memory bundleData =
+            abi.decode(bundle.data, (RenegadeSettledIntentFirstFillBundle));
         RenegadeSettledIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Sign with wrong signer

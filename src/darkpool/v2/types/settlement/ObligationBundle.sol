@@ -12,6 +12,8 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 /// @dev This data represents the following based on the obligation type:
 /// 1. *Public Obligation*: A plaintext settlement obligation for each party in the trade
 /// 2. *Private Obligation* A proof attesting to the validity of the _private_ settlement obligations in the trade.
+/// @dev In essence, this type captures the result of a trade and hides it behind a ZKP in the case of a private
+/// obligation.
 struct ObligationBundle {
     /// @dev The type of obligation
     ObligationType obligationType;

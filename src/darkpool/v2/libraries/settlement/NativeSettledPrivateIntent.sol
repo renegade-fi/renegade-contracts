@@ -8,7 +8,7 @@ import {
     SettlementBundle,
     SettlementBundleLib,
     PrivateIntentPublicBalanceBundle,
-    PrivateIntentPublicBalanceBundleFirstFill
+    PrivateIntentPublicBalanceFirstFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
@@ -37,7 +37,7 @@ library NativeSettledPrivateIntentLib {
     using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
     using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
-    using SettlementBundleLib for PrivateIntentPublicBalanceBundleFirstFill;
+    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
     using ObligationLib for ObligationBundle;
     using SettlementObligationLib for SettlementObligation;
     using SettlementContextLib for SettlementContext;
@@ -99,7 +99,7 @@ library NativeSettledPrivateIntentLib {
         internal
     {
         // Decode the bundle data
-        PrivateIntentPublicBalanceBundleFirstFill memory bundleData =
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
             settlementBundle.decodePrivateIntentBundleDataFirstFill();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
@@ -238,7 +238,7 @@ library NativeSettledPrivateIntentLib {
     /// @dev On the first fill, no state needs to be nullified. We must only insert the new intent commitment and
     /// allocate the transfers.
     function executeStateUpdatesFirstFill(
-        PrivateIntentPublicBalanceBundleFirstFill memory bundleData,
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         SettlementObligation memory obligation,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
