@@ -23,7 +23,7 @@ contract Verifier is IVerifier {
         returns (bool)
     {
         VerificationKey memory vk = PublicInputsLib.dummyVkey();
-        BN254.ScalarField[] memory publicInputs = depositProofBundle.statement.scalarSerialize();
+        BN254.ScalarField[] memory publicInputs = depositProofBundle.statement.statementSerialize();
         return VerifierCore.verify(depositProofBundle.proof, publicInputs, vk);
     }
 

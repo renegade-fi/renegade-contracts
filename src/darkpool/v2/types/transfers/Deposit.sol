@@ -47,3 +47,15 @@ struct DepositWitness {
     /// @dev The commitment to the updated balance element after the deposit is executed
     uint256 newBalanceCommitment;
 }
+
+/// @title DepositLib
+/// @author Renegade Eng
+/// @notice Library for deposit-related operations
+library DepositLib {
+    /// @notice Hash a deposit witness for permit2 signature transfer
+    /// @param witness The deposit witness to hash
+    /// @return The hash of the deposit witness
+    function hashWitness(DepositWitness memory witness) internal pure returns (bytes32) {
+        return keccak256(abi.encode(DEPOSIT_WITNESS_TYPEHASH, witness.newBalanceCommitment));
+    }
+}
