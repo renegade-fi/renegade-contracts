@@ -7,7 +7,7 @@ import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/Transfers.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
 /// @title ExternalTransferLib
 /// @author Renegade Eng

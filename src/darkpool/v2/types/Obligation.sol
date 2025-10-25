@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/Transfers.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
 /// @notice A settlement obligation for a user
 struct SettlementObligation {

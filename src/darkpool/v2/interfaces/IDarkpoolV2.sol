@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { DepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
@@ -51,6 +52,28 @@ interface IDarkpoolV2 {
     /// @param intentHash The hash of the intent
     /// @return The amount remaining for the intent
     function openPublicIntents(bytes32 intentHash) external view returns (uint256);
+
+    /// @notice Deposit into an existing balance in the darkpool
+    /// @param depositProofBundle The proof bundle for the deposit
+    function deposit(DepositProofBundle calldata depositProofBundle) external;
+
+    /// @notice Deposit a new balance into the darkpool
+    /// @param token The token to deposit
+    /// @param amount The amount to deposit
+    /// @param from The address from which to deposit
+    function depositNewBalance(address token, uint256 amount, address from) external;
+
+    /// @notice Withdraw from a balance in the darkpool
+    /// @param token The token to withdraw
+    /// @param amount The amount to withdraw
+    /// @param to The address to which to withdraw
+    function withdraw(address token, uint256 amount, address to) external;
+
+    /// @notice Pay fees on a balance
+    /// @param token The token to pay fees on
+    /// @param amount The amount to pay fees on
+    /// @param from The address from which to pay fees
+    function payFees(address token, uint256 amount, address from) external;
 
     /// @notice Settle a trade
     /// @param obligationBundle The obligation bundle for the trade. This type encodes the result of the trade.

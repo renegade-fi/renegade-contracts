@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PlonkProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
-import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
-import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/Transfers.sol";
+import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { VerificationList, VerificationListLib } from "darkpoolv2-types/VerificationList.sol";
 
 /// @title Settlement Context

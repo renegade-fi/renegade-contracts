@@ -23,7 +23,7 @@ import {
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { SimpleTransfer } from "darkpoolv2-types/Transfers.sol";
+import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
