@@ -58,8 +58,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         // Create a bundle with isFirstFill = false
         SettlementBundle memory bundle = createSettlementBundleWithSigner(
             obligation,
-            intentOwner.addr,
-            intentOwner.privateKey,
+            intentOwner,
             false, // isFirstFill = false
             DarkpoolConstants.DEFAULT_MERKLE_DEPTH
         );
@@ -106,8 +105,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         // Create a bundle with isFirstFill = false
         SettlementBundle memory bundle = createSettlementBundleWithSigner(
             obligation,
-            intentOwner.addr,
-            intentOwner.privateKey,
+            intentOwner,
             false, // isFirstFill = false
             DarkpoolConstants.DEFAULT_MERKLE_DEPTH
         );
@@ -135,8 +133,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         uint256 invalidDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH + 1;
         SettlementBundle memory bundle = createSettlementBundleWithSigner(
             obligation,
-            intentOwner.addr,
-            intentOwner.privateKey,
+            intentOwner,
             true, // isFirstFill
             invalidDepth
         );

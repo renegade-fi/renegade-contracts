@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
+import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
 import { DarkpoolV2TestBase } from "./DarkpoolV2TestBase.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -38,6 +39,63 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         party1 = vm.createWallet("party1");
         executor = vm.createWallet("executor");
         wrongSigner = vm.createWallet("wrong_signer");
+    }
+
+    // --- ERC20 Balances --- //
+
+    /// @dev Capitalize a party for an intent
+    function capitalizeParty(address addr, Intent memory intent) public {
+        capitalizeParty(addr, intent.inToken, intent.amountIn);
+    }
+
+    /// @dev Capitalize a party for an obligation
+    function capitalizeParty(address addr, SettlementObligation memory obligation) public {
+        capitalizeParty(addr, obligation.inputToken, obligation.amountIn);
+    }
+
+    /// @dev Capitalize a party for a given token and amount
+    function capitalizeParty(address addr, address token, uint256 amount) public {
+        // Mint the tokens to the party
+        ERC20Mock erc20 = ERC20Mock(token);
+        erc20.mint(addr, amount);
+
+        // Approve the permit2 contract to spend tokens and generate a permit2 approval for the darkpool
+        vm.startPrank(addr);
+        erc20.approve(address(permit2), type(uint256).max);
+        uint48 expiration = uint48(block.timestamp + 1 days);
+        permit2.approve(token, address(darkpool), type(uint160).max, expiration);
+        permit2.approve(token, address(darkpoolRealVerifier), type(uint160).max, expiration);
+        vm.stopPrank();
+    }
+
+    // --- Fuzzing Helpers --- //
+
+    /// @notice Generate a random price for a trade
+    function randomPrice() internal returns (FixedPoint memory price) {
+        // Min price of 0.01
+        FixedPoint memory minPrice = FixedPointLib.integerToFixedPoint(1);
+        minPrice = minPrice.divByInteger(100);
+        FixedPoint memory maxPrice = FixedPointLib.integerToFixedPoint(1e12);
+
+        price = randomFixedPoint(minPrice, maxPrice);
+    }
+
+    /// @notice Generate a random fixed point between two fixed point values
+    /// @dev This is inclusive of the bounds, so [min, max]
+    /// @param min The minimum fixed point value
+    /// @param max The maximum fixed point value
+    /// @return result The random fixed point value
+    function randomFixedPoint(
+        FixedPoint memory min,
+        FixedPoint memory max
+    )
+        internal
+        returns (FixedPoint memory result)
+    {
+        uint256 minRepr = min.repr;
+        uint256 maxRepr = max.repr;
+        uint256 randomRepr = vm.randomUint(minRepr, maxRepr);
+        result = FixedPointLib.wrap(randomRepr);
     }
 
     // --- Dummy Data --- //

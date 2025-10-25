@@ -11,18 +11,20 @@ import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
-import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";
+import { DarkpoolV2Proxy } from "darkpoolv2-proxies/DarkpoolV2Proxy.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { Verifier } from "darkpoolv2-contracts/Verifier.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { TestVerifierV2 } from "test-contracts/TestVerifierV2.sol";
 
 // solhint-disable-next-line max-states-count
 contract DarkpoolV2TestBase is TestUtils {
@@ -35,6 +37,8 @@ contract DarkpoolV2TestBase is TestUtils {
     uint256 public constant TEST_PROTOCOL_FEE = 922_337_203_685_477;
 
     IDarkpoolV2 public darkpool;
+    /// @dev A separate instance of the darkpool contract without a verifier mock
+    IDarkpoolV2 public darkpoolRealVerifier;
     IHasher public hasher;
     NullifierLib.NullifierSet private testNullifierSet;
     IPermit2 public permit2;
@@ -54,6 +58,7 @@ contract DarkpoolV2TestBase is TestUtils {
 
     // Implementation contracts (for reference)
     DarkpoolV2 public darkpoolImpl;
+    DarkpoolV2 public darkpoolRealVerifierImpl;
     GasSponsor public gasSponsorImpl;
 
     function setUp() public virtual {
@@ -85,7 +90,8 @@ contract DarkpoolV2TestBase is TestUtils {
     function deployDarkpool() internal {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
-        IVerifier verifier = IVerifier(vm.randomAddress()); // TODO: Add verifier
+        IVerifier verifier = new TestVerifierV2();
+        IVerifier realVerifier = new Verifier();
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
         // Deploy TransferExecutor
@@ -97,9 +103,10 @@ contract DarkpoolV2TestBase is TestUtils {
 
         // Deploy implementation contracts
         darkpoolImpl = new DarkpoolV2();
+        darkpoolRealVerifierImpl = new DarkpoolV2();
 
         // Deploy the darkpool with a fake verifier
-        DarkpoolProxy darkpoolProxy = new DarkpoolProxy(
+        DarkpoolV2Proxy darkpoolProxy = new DarkpoolV2Proxy(
             address(darkpoolImpl),
             darkpoolOwner,
             TEST_PROTOCOL_FEE,
@@ -112,6 +119,21 @@ contract DarkpoolV2TestBase is TestUtils {
             address(transferExecutor)
         );
         darkpool = IDarkpoolV2(address(darkpoolProxy));
+
+        // Deploy the darkpool with the real verifier
+        DarkpoolV2Proxy darkpoolRealVerifierProxy = new DarkpoolV2Proxy(
+            address(darkpoolRealVerifierImpl),
+            darkpoolOwner,
+            TEST_PROTOCOL_FEE,
+            protocolFeeAddr,
+            protocolFeeKey,
+            IWETH9(address(weth)),
+            hasher,
+            realVerifier,
+            permit2,
+            address(transferExecutor)
+        );
+        darkpoolRealVerifier = IDarkpoolV2(address(darkpoolRealVerifierProxy));
     }
 
     /**
@@ -147,34 +169,6 @@ contract DarkpoolV2TestBase is TestUtils {
     // -----------
 
     // --- Fuzzing Helpers --- //
-
-    /// @notice Generate a random price for a trade
-    function randomPrice() internal returns (FixedPoint memory price) {
-        // Min price of 0.01
-        FixedPoint memory minPrice = FixedPointLib.integerToFixedPoint(1);
-        minPrice = minPrice.divByInteger(100);
-        FixedPoint memory maxPrice = FixedPointLib.integerToFixedPoint(1e12);
-
-        price = randomFixedPoint(minPrice, maxPrice);
-    }
-
-    /// @notice Generate a random fixed point between two fixed point values
-    /// @dev This is inclusive of the bounds, so [min, max]
-    /// @param min The minimum fixed point value
-    /// @param max The maximum fixed point value
-    /// @return result The random fixed point value
-    function randomFixedPoint(
-        FixedPoint memory min,
-        FixedPoint memory max
-    )
-        internal
-        returns (FixedPoint memory result)
-    {
-        uint256 minRepr = min.repr;
-        uint256 maxRepr = max.repr;
-        uint256 randomRepr = vm.randomUint(minRepr, maxRepr);
-        result = FixedPointLib.wrap(randomRepr);
-    }
 
     /// @notice Generate a random encryption key
     /// @dev For our purposes, this key does not need to be on the curve,

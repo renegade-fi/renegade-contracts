@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
@@ -81,13 +82,13 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             amountOut: 200
         });
 
-        return createSettlementBundle(obligation, intentOwner.addr);
+        return createSettlementBundle(obligation, intentOwner);
     }
 
     /// @dev Create a complete settlement bundle given an obligation
     function createSettlementBundle(
         SettlementObligation memory obligation,
-        address owner
+        Vm.Wallet memory owner
     )
         internal
         returns (SettlementBundle memory)
@@ -95,7 +96,6 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         return createSettlementBundleWithSigner(
             obligation,
             owner,
-            intentOwner.privateKey,
             true, // isFirstFill
             DarkpoolConstants.DEFAULT_MERKLE_DEPTH
         );
@@ -104,8 +104,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     /// @dev Create a complete settlement bundle with custom signer and parameters
     function createSettlementBundleWithSigner(
         SettlementObligation memory obligation,
-        address owner,
-        uint256 ownerPrivateKey,
+        Vm.Wallet memory owner,
         bool isFirstFill,
         uint256 merkleDepth
     )
@@ -114,7 +113,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     {
         // Create validity statement
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
-            intentOwner: owner,
+            intentOwner: owner.addr,
             newIntentPartialCommitment: randomScalar(),
             nullifier: randomScalar(),
             obligation: obligation
@@ -127,7 +126,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         BN254.ScalarField fullCommitment = computeFullIntentCommitment(
             validityStatement.newIntentPartialCommitment, settlementStatement.newIntentAmountPublicShare
         );
-        bytes memory intentSignature = signIntentCommitment(fullCommitment, ownerPrivateKey);
+        bytes memory intentSignature = signIntentCommitment(fullCommitment, owner.privateKey);
 
         // Create auth bundle
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({

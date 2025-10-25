@@ -31,7 +31,7 @@ import {
     MalleableMatchAtomicProofs
 } from "darkpoolv1-types/Settlement.sol";
 import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
-import { IVerifier } from "renegade-lib/interfaces/IVerifier.sol";
+import { IVerifier } from "darkpoolv1-interfaces/IVerifier.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
