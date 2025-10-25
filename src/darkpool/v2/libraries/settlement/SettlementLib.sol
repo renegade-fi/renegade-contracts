@@ -146,10 +146,14 @@ library SettlementLib {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             NativeSettledPublicIntentLib.execute(settlementBundle, settlementContext, state);
+        } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL) {
+            NativeSettledPrivateIntentLib.execute(true, settlementBundle, settlementContext, state, hasher);
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
-            NativeSettledPrivateIntentLib.execute(settlementBundle, settlementContext, state, hasher);
+            NativeSettledPrivateIntentLib.execute(false, settlementBundle, settlementContext, state, hasher);
+        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL) {
+            RenegadeSettledPrivateIntentLib.execute(true, settlementBundle, settlementContext, state, hasher);
         } else {
-            RenegadeSettledPrivateIntentLib.execute(settlementBundle, settlementContext, state, hasher);
+            RenegadeSettledPrivateIntentLib.execute(false, settlementBundle, settlementContext, state, hasher);
         }
     }
 

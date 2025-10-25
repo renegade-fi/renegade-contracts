@@ -8,14 +8,19 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import {
     SettlementBundle,
     SettlementBundleType,
-    PrivateIntentPublicBalanceBundle
+    PrivateIntentPublicBalanceBundle,
+    PrivateIntentPublicBalanceBundleFirstFill
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PrivateIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { IntentOnlyValidityStatement, SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import {
+    IntentOnlyValidityStatement,
+    IntentOnlyValidityStatementFirstFill,
+    SingleIntentMatchSettlementStatement
+} from "darkpoolv2-lib/PublicInputs.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { CommitmentNullifierLib } from "darkpoolv2-types/CommitNullify.sol";
 
@@ -73,7 +78,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Helper to create a sample settlement bundle
-    function createSampleBundle() internal returns (SettlementBundle memory) {
+    function createSampleBundle(bool isFirstFill) internal returns (SettlementBundle memory) {
         // Create obligation
         SettlementObligation memory obligation = SettlementObligation({
             inputToken: address(baseToken),
@@ -82,55 +87,88 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             amountOut: 200
         });
 
-        return createSettlementBundle(obligation, intentOwner);
+        return createSettlementBundle(isFirstFill, obligation, intentOwner);
     }
 
     /// @dev Create a complete settlement bundle given an obligation
     function createSettlementBundle(
+        bool isFirstFill,
         SettlementObligation memory obligation,
         Vm.Wallet memory owner
     )
         internal
         returns (SettlementBundle memory)
     {
-        return createSettlementBundleWithSigner(
-            obligation,
-            owner,
-            true, // isFirstFill
-            DarkpoolConstants.DEFAULT_MERKLE_DEPTH
-        );
+        uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
+        if (isFirstFill) {
+            return createSettlementBundleFirstFill(merkleDepth, obligation, owner);
+        } else {
+            return createSettlementBundleSubsequentFill(merkleDepth, obligation, owner);
+        }
     }
 
-    /// @dev Create a complete settlement bundle with custom signer and parameters
-    function createSettlementBundleWithSigner(
+    /// @dev Create a complete settlement bundle with custom signer for the first fill
+    function createSettlementBundleFirstFill(
+        uint256 merkleDepth,
         SettlementObligation memory obligation,
-        Vm.Wallet memory owner,
-        bool isFirstFill,
-        uint256 merkleDepth
+        Vm.Wallet memory owner
     )
         internal
         returns (SettlementBundle memory)
     {
-        // Create validity statement
+        // Create the statement types
+        IntentOnlyValidityStatementFirstFill memory validityStatement = IntentOnlyValidityStatementFirstFill({
+            intentOwner: owner.addr,
+            initialIntentCommitment: randomScalar(),
+            newIntentPartialCommitment: randomScalar()
+        });
+        SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
+
+        // Sign the pre-update intent commitment
+        bytes memory intentSignature = signIntentCommitment(validityStatement.initialIntentCommitment, owner.privateKey);
+
+        // Create auth bundle
+        PrivateIntentAuthBundleFirstFill memory auth = PrivateIntentAuthBundleFirstFill({
+            intentSignature: intentSignature,
+            merkleDepth: merkleDepth,
+            statement: validityStatement,
+            validityProof: createDummyProof()
+        });
+        PrivateIntentPublicBalanceBundleFirstFill memory bundleData = PrivateIntentPublicBalanceBundleFirstFill({
+            auth: auth,
+            settlementStatement: settlementStatement,
+            settlementProof: createDummyProof()
+        });
+
+        // Encode the obligation and bundle
+        ObligationBundle memory obligationBundle =
+            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
+        return SettlementBundle({
+            obligation: obligationBundle,
+            bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL,
+            data: abi.encode(bundleData)
+        });
+    }
+
+    /// @dev Create a complete settlement bundle with custom signer and parameters
+    function createSettlementBundleSubsequentFill(
+        uint256 merkleDepth,
+        SettlementObligation memory obligation,
+        Vm.Wallet memory owner
+    )
+        internal
+        returns (SettlementBundle memory)
+    {
+        // Create the statement types
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
             intentOwner: owner.addr,
             newIntentPartialCommitment: randomScalar(),
             nullifier: randomScalar()
         });
-
-        // Create settlement statement
         SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
-
-        // Compute the full intent commitment and sign it
-        BN254.ScalarField fullCommitment = computeFullIntentCommitment(
-            validityStatement.newIntentPartialCommitment, settlementStatement.newIntentAmountPublicShare
-        );
-        bytes memory intentSignature = signIntentCommitment(fullCommitment, owner.privateKey);
 
         // Create auth bundle
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({
-            isFirstFill: isFirstFill,
-            intentSignature: intentSignature,
             merkleDepth: merkleDepth,
             statement: validityStatement,
             validityProof: createDummyProof()
@@ -141,7 +179,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             settlementProof: createDummyProof()
         });
 
-        // Create and encode the obligation bundle
+        // Encode the obligation and bundle
         ObligationBundle memory obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation) });
         return SettlementBundle({

@@ -4,8 +4,11 @@ pragma solidity ^0.8.24;
 /* solhint-disable func-name-mixedcase */
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { SettlementBundle, PrivateIntentPublicBalanceBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { PrivateIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import {
+    SettlementBundle,
+    PrivateIntentPublicBalanceBundleFirstFill
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
@@ -40,7 +43,8 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     /// @dev Test a basic bundle verification case with a valid bundle
     function test_validSignature() public {
         // Should not revert
-        SettlementBundle memory bundle = createSampleBundle();
+        bool isFirstFill = vm.randomBool();
+        SettlementBundle memory bundle = createSampleBundle(isFirstFill);
         authorizeIntentHelper(bundle);
     }
 
@@ -54,14 +58,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
             amountIn: 100,
             amountOut: 200
         });
-
-        // Create a bundle with isFirstFill = false
-        SettlementBundle memory bundle = createSettlementBundleWithSigner(
-            obligation,
-            intentOwner,
-            false, // isFirstFill = false
-            DarkpoolConstants.DEFAULT_MERKLE_DEPTH
-        );
+        SettlementBundle memory bundle = createSettlementBundle(false, /* isFirstFill */ obligation, intentOwner);
 
         // Should not revert even though we're not checking the signature
         authorizeIntentHelper(bundle);
@@ -70,9 +67,10 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     /// @dev Test a bundle verification case with an invalid intent commitment signature
     function test_invalidIntentCommitmentSignature_wrongSigner() public {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
-        SettlementBundle memory bundle = createSampleBundle();
-        PrivateIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
-        PrivateIntentAuthBundle memory authBundle = bundleData.auth;
+        SettlementBundle memory bundle = createSampleBundle(true /* isFirstFill */ );
+        PrivateIntentPublicBalanceBundleFirstFill memory bundleData =
+            abi.decode(bundle.data, (PrivateIntentPublicBalanceBundleFirstFill));
+        PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Compute the full intent commitment
         BN254.ScalarField fullCommitment = computeFullIntentCommitment(
@@ -90,35 +88,6 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         authorizeIntentHelper(bundle);
     }
 
-    /// @dev Test a bundle verification case with an invalid signature when `isFirstFill = false`
-    /// This should succeed because signature verification is skipped when `isFirstFill = false`
-    function test_invalidSignature_notFirstFill() public {
-        // When isFirstFill is false, even an invalid signature should pass
-        // because signature verification is skipped
-        SettlementObligation memory obligation = SettlementObligation({
-            inputToken: address(baseToken),
-            outputToken: address(quoteToken),
-            amountIn: 100,
-            amountOut: 200
-        });
-
-        // Create a bundle with isFirstFill = false
-        SettlementBundle memory bundle = createSettlementBundleWithSigner(
-            obligation,
-            intentOwner,
-            false, // isFirstFill = false
-            DarkpoolConstants.DEFAULT_MERKLE_DEPTH
-        );
-
-        // Replace with an invalid signature
-        PrivateIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
-        bundleData.auth.intentSignature = hex"deadbeef";
-        bundle.data = abi.encode(bundleData);
-
-        // Should not revert because signature verification is skipped when isFirstFill = false
-        authorizeIntentHelper(bundle);
-    }
-
     /// @dev Test a bundle verification case with an invalid Merkle depth
     function test_invalidMerkleDepth() public {
         // Create bundle with invalid Merkle depth
@@ -131,12 +100,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
 
         // Use an invalid Merkle depth (not the default)
         uint256 invalidDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH + 1;
-        SettlementBundle memory bundle = createSettlementBundleWithSigner(
-            obligation,
-            intentOwner,
-            true, // isFirstFill
-            invalidDepth
-        );
+        SettlementBundle memory bundle = createSettlementBundleSubsequentFill(invalidDepth, obligation, intentOwner);
 
         // Should revert with InvalidMerkleDepthRequested
         vm.expectRevert(NativeSettledPrivateIntentLib.InvalidMerkleDepthRequested.selector);

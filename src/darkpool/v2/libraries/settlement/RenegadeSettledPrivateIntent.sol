@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { RenegadeSettledPrivateIntentBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-
 import { SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
@@ -16,6 +14,7 @@ library RenegadeSettledPrivateIntentLib {
     using SettlementBundleLib for SettlementBundle;
 
     /// @notice Execute a renegade settled private intent bundle
+    /// @param isFirstFill Whether the settlement bundle is a first fill
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param state The darkpool state containing all storage references
@@ -23,6 +22,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
+        bool isFirstFill,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
@@ -30,9 +30,6 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // Decode the bundle data
-        RenegadeSettledPrivateIntentBundle memory bundle =
-            settlementBundle.decodeRenegadeSettledPrivateIntentBundleData();
         // TODO: Implement
     }
 }

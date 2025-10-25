@@ -5,7 +5,9 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import {
-    IntentOnlyValidityStatement, IntentAndBalanceValidityStatementFirstFill
+    IntentOnlyValidityStatement,
+    IntentOnlyValidityStatementFirstFill,
+    IntentAndBalanceValidityStatementFirstFill
 } from "darkpoolv2-lib/PublicInputs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
@@ -52,29 +54,26 @@ library PublicIntentPermitLib {
 
 /// @notice The private intent authorization payload
 /// TODO: Update names in comments once circuit spec is defined
-struct PrivateIntentAuthBundle {
-    /// @dev Whether this is the first fill or not
-    bool isFirstFill;
+struct PrivateIntentAuthBundleFirstFill {
     /// @dev The signature of the intent by its owner
     bytes intentSignature;
+    /// @dev The depth of the Merkle tree to insert the intent into
+    uint256 merkleDepth;
+    /// @dev The statement for the proof of `PrivateIntentPublicBalance`
+    IntentOnlyValidityStatementFirstFill statement;
+    /// @dev The proof of `PrivateIntentPublicBalance`
+    PlonkProof validityProof;
+}
+
+/// @notice The private intent authorization payload
+/// TODO: Update names in comments once circuit spec is defined
+struct PrivateIntentAuthBundle {
     /// @dev The depth of the Merkle tree to insert the intent into
     uint256 merkleDepth;
     /// @dev The statement for the proof of `PrivateIntentPublicBalance`
     IntentOnlyValidityStatement statement;
     /// @dev The proof of `PrivateIntentPublicBalance`
     PlonkProof validityProof;
-}
-
-/// @title Private Intent Auth Bundle Library
-/// @author Renegade Eng
-/// @notice Library for decoding private intent auth bundle data
-library PrivateIntentAuthBundleLib {
-    /// @notice Extract the intent owner from a private intent auth bundle
-    /// @param bundle The private intent auth bundle to extract the intent owner from
-    /// @return intentOwner The intent owner
-    function extractIntentOwner(PrivateIntentAuthBundle memory bundle) internal pure returns (address intentOwner) {
-        intentOwner = bundle.statement.intentOwner;
-    }
 }
 
 // --- Private Intent, Private Balance Authorization --- //

@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     PublicIntentAuthBundle,
+    PrivateIntentAuthBundleFirstFill,
     PrivateIntentAuthBundle,
     PrivateIntentPrivateBalanceAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -47,9 +48,12 @@ struct SettlementBundle {
 /// 1. *Natively Settled Public Intent*: A public intent with a public (EOA) balance
 /// 2. *Natively Settled Private Intent*: A private intent with a public (EOA) balance
 /// 3. *Renegade Settled Intent*: A private intent with a private (darkpool) balance
+/// Separately, bundle shapes for the latter two cases change for the first fill and subsequent fills.
 enum SettlementBundleType {
     NATIVELY_SETTLED_PUBLIC_INTENT,
+    NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL,
     NATIVELY_SETTLED_PRIVATE_INTENT,
+    RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL,
     RENEGADE_SETTLED_INTENT
 }
 
@@ -57,6 +61,16 @@ enum SettlementBundleType {
 struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
+}
+
+/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL` bundle
+struct PrivateIntentPublicBalanceBundleFirstFill {
+    /// @dev The private intent authorization payload with signature attached
+    PrivateIntentAuthBundleFirstFill auth;
+    /// @dev The statement of single-intent match settlement
+    SingleIntentMatchSettlementStatement settlementStatement;
+    /// @dev The proof of single-intent match settlement
+    PlonkProof settlementProof;
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle
@@ -107,9 +121,15 @@ library SettlementBundleLib {
     function getNumProofs(SettlementBundle calldata bundle) internal pure returns (uint256 numProofs) {
         if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             numProofs = 0;
-        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+        } else if (
+            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT
+                || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL
+        ) {
             numProofs = 2;
-        } else if (bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
+        } else if (
+            bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT
+                || bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_INTENT_FIRST_FILL
+        ) {
             revert("Not implemented");
         }
     }
@@ -120,6 +140,7 @@ library SettlementBundleLib {
     /// @return Whether the settlement bundle is natively settled
     function isNativelySettled(SettlementBundle calldata bundle) internal pure returns (bool) {
         return bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT
+            || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL
             || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
     }
 
@@ -148,6 +169,21 @@ library SettlementBundleLib {
     {
         require(bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
+    }
+
+    /// @notice Decode a private settlement bundle for a first fill
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodePrivateIntentBundleDataFirstFill(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (PrivateIntentPublicBalanceBundleFirstFill memory bundleData)
+    {
+        require(
+            bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT_FIRST_FILL,
+            InvalidSettlementBundleType()
+        );
+        bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundleFirstFill));
     }
 
     /// @notice Decode a private settlement bundle
