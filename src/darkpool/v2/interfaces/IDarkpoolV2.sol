@@ -4,8 +4,11 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import {
+    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+} from "darkpoolv2-types/ProofBundles.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
+import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
@@ -69,10 +72,9 @@ interface IDarkpoolV2 {
         external;
 
     /// @notice Withdraw from a balance in the darkpool
-    /// @param token The token to withdraw
-    /// @param amount The amount to withdraw
-    /// @param to The address to which to withdraw
-    function withdraw(address token, uint256 amount, address to) external;
+    /// @param auth The authorization for the withdrawal
+    /// @param withdrawalProofBundle The proof bundle for the withdrawal
+    function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) external;
 
     /// @notice Pay fees on a balance
     /// @param token The token to pay fees on

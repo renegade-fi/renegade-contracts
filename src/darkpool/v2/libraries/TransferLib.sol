@@ -8,6 +8,8 @@ import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.so
 import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "oz-contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ECDSALib } from "renegade-lib/ECDSA.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import {
@@ -17,6 +19,7 @@ import {
     DepositLib,
     DEPOSIT_WITNESS_TYPE_STRING
 } from "darkpoolv2-types/transfers/Deposit.sol";
+import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 
 /// @title ExternalTransferLib
 /// @author Renegade Eng
@@ -32,6 +35,8 @@ library ExternalTransferLib {
     error BalanceMismatch();
     /// @notice Thrown when the deposit amount does not match the msg.value for a native token deposit
     error InvalidDepositAmount();
+    /// @notice Thrown when the withdrawal signature is invalid
+    error InvalidWithdrawalSignature();
 
     // --- Interface --- //
 
@@ -157,6 +162,28 @@ library ExternalTransferLib {
 
         IERC20 token = IERC20(transfer.mint);
         SafeERC20.safeTransfer(token, transfer.account, transfer.amount);
+    }
+
+    /// @notice Execute a signed withdrawal
+    /// @param newBalanceCommitment The commitment to the updated balance after the withdrawal executes
+    /// @param auth The authorization for the withdrawal
+    /// @param withdrawal The withdrawal to execute
+    function executeSignedWithdrawal(
+        BN254.ScalarField newBalanceCommitment,
+        WithdrawalAuth memory auth,
+        Withdrawal memory withdrawal
+    )
+        internal
+    {
+        // 1. Verify the signature over the new balance commitment by the owner
+        // The `withdrawal.to` address is constrained to be the owner of the balance in-circuit
+        bytes32 withdrawalHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment));
+        bool sigValid = ECDSALib.verify(withdrawalHash, auth.signature, withdrawal.to);
+        if (!sigValid) revert InvalidWithdrawalSignature();
+
+        // 2. Execute the withdrawal as a direct ERC20 transfer
+        IERC20 token = IERC20(withdrawal.token);
+        SafeERC20.safeTransfer(token, withdrawal.to, withdrawal.amount);
     }
 
     // --- Helpers --- //
