@@ -62,6 +62,30 @@ struct WithdrawalValidityStatement {
     BN254.ScalarField newAmountPublicShare;
 }
 
+// --- Fee Payment Statements --- //
+
+/// @notice A statement proving validity of a fee payment
+/// TODO: Add note ciphertext here
+struct FeePaymentValidityStatement {
+    /// @dev The Merkle depth at which to re-commit the balance
+    uint256 merkleDepth;
+    /// @dev The nullifier of the previous version of the balance
+    BN254.ScalarField balanceNullifier;
+    /// @dev The commitment to the updated balance after the fee payment
+    /// TODO: Decide whether this should be a partial commitment or a full commitment
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev A commitment to the note emitted for the fee payment
+    BN254.ScalarField noteCommitment;
+    /// @dev The new balance public shares
+    /// @dev These shares include:
+    /// - Relayer fee
+    /// - Protocol fee
+    /// - Amount
+    /// Only one of the fee shares is updated, but we re-blind all the following shares and emit them here
+    /// to aid recovery logic.
+    BN254.ScalarField[3] newBalancePublicShares;
+}
+
 // --- Validity Statements --- //
 // Validity proofs verify that:
 // 1. The owner of all new state elements has authorized their creation
@@ -248,6 +272,24 @@ library PublicInputsLib {
         publicInputs[3] = statement.balanceNullifier;
         publicInputs[4] = statement.newBalanceCommitment;
         publicInputs[5] = statement.newAmountPublicShare;
+    }
+
+    /// @notice Serialize the public inputs for a proof of fee payment validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(FeePaymentValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 6;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.balanceNullifier;
+        publicInputs[1] = statement.newBalanceCommitment;
+        publicInputs[2] = statement.noteCommitment;
+        publicInputs[3] = statement.newBalancePublicShares[0];
+        publicInputs[4] = statement.newBalancePublicShares[1];
+        publicInputs[5] = statement.newBalancePublicShares[2];
     }
 
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)

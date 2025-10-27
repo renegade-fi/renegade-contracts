@@ -147,6 +147,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     /// @dev Create a matching obligation for a given obligation
     function createMatchingObligation(SettlementObligation memory obligation)
         internal
+        pure
         returns (SettlementObligation memory)
     {
         return SettlementObligation({

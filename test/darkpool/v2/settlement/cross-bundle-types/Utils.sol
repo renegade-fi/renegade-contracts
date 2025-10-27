@@ -133,7 +133,7 @@ contract CrossBundleTypesTestUtils is
     // --- General Helpers --- //
 
     /// @dev Get the wallet for a given party ID
-    function _getPartyWallet(PartyId partyId) internal returns (Vm.Wallet memory wallet) {
+    function _getPartyWallet(PartyId partyId) internal view returns (Vm.Wallet memory wallet) {
         if (partyId == PartyId.PARTY_0) {
             return party0;
         } else {
@@ -142,7 +142,7 @@ contract CrossBundleTypesTestUtils is
     }
 
     /// @dev Get the opposite party ID
-    function _getOppositePartyId(PartyId partyId) internal returns (PartyId oppositePartyId) {
+    function _getOppositePartyId(PartyId partyId) internal pure returns (PartyId oppositePartyId) {
         if (partyId == PartyId.PARTY_0) {
             return PartyId.PARTY_1;
         } else {
@@ -168,6 +168,7 @@ contract CrossBundleTypesTestUtils is
         SettlementObligation memory obligation
     )
         internal
+        view
         returns (uint256 inputBalance, uint256 outputBalance)
     {
         ERC20Mock inputToken = ERC20Mock(obligation.inputToken);
