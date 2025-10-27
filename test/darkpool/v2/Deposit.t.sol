@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
+import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.sol";
 
@@ -17,6 +18,7 @@ import {
     ExistingBalanceDepositValidityStatement,
     NewBalanceDepositValidityStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
+import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title DepositTest
 /// @notice Tests for the deposit functionality in DarkpoolV2
@@ -273,6 +275,35 @@ contract DepositTest is DarkpoolV2TestUtils {
         vm.prank(depositor.addr);
         vm.expectRevert();
         darkpool.deposit(auth, proofBundle);
+    }
+
+    /// @notice Test deposit with balance mismatch (after balance is incorrect)
+    function test_deposit_balanceMismatch_reverts() public {
+        // Generate test data
+        (Deposit memory deposit, DepositAuth memory auth, DepositProofBundle memory proofBundle) =
+            generateRandomDepositCalldata();
+
+        // Get the current darkpool balance
+        uint256 darkpoolBalanceBefore = depositToken.balanceOf(address(darkpool));
+
+        // Mock the second balanceOf call to return an incorrect value (less than expected)
+        // The first call will return the real balance, but we need to mock subsequent calls
+        // We'll use vm.mockCall to make balanceOf return the wrong value after the deposit
+        uint256 incorrectBalance = darkpoolBalanceBefore + deposit.amount - 1; // Off by 1
+
+        // Set up mock to return incorrect balance after the transfer
+        vm.mockCall(
+            address(depositToken),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(darkpool)),
+            abi.encode(incorrectBalance)
+        );
+
+        // Should revert due to balance mismatch
+        vm.expectRevert(ExternalTransferLib.BalanceMismatch.selector);
+        darkpool.deposit(auth, proofBundle);
+
+        // Clear the mock
+        vm.clearMockedCalls();
     }
 
     // -----------------------------
