@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import {
     ExistingBalanceDepositValidityStatement,
     NewBalanceDepositValidityStatement,
-    WithdrawalValidityStatement
+    WithdrawalValidityStatement,
+    FeePaymentValidityStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
@@ -33,5 +34,13 @@ struct WithdrawalProofBundle {
     /// @dev The statement of the withdrawal validity
     WithdrawalValidityStatement statement;
     /// @dev The proof of the withdrawal validity
+    PlonkProof proof;
+}
+
+/// @notice A bundle of proofs for a fee payment validity
+struct FeePaymentProofBundle {
+    /// @dev The statement of the fee payment validity
+    FeePaymentValidityStatement statement;
+    /// @dev The proof of the fee payment validity
     PlonkProof proof;
 }

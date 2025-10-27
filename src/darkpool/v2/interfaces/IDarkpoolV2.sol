@@ -5,7 +5,10 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+    DepositProofBundle,
+    NewBalanceDepositProofBundle,
+    WithdrawalProofBundle,
+    FeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
@@ -77,10 +80,8 @@ interface IDarkpoolV2 {
     function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) external;
 
     /// @notice Pay fees on a balance
-    /// @param token The token to pay fees on
-    /// @param amount The amount to pay fees on
-    /// @param from The address from which to pay fees
-    function payFees(address token, uint256 amount, address from) external;
+    /// @param feePaymentProofBundle The proof bundle for the fee payment
+    function payFees(FeePaymentProofBundle calldata feePaymentProofBundle) external;
 
     /// @notice Settle a trade
     /// @param obligationBundle The obligation bundle for the trade. This type encodes the result of the trade.

@@ -8,12 +8,16 @@ import { PlonkProof, VerificationKey, OpeningElements } from "renegade-lib/verif
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 
 import {
-    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+    DepositProofBundle,
+    NewBalanceDepositProofBundle,
+    WithdrawalProofBundle,
+    FeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import {
     ExistingBalanceDepositValidityStatement,
     NewBalanceDepositValidityStatement,
     WithdrawalValidityStatement,
+    FeePaymentValidityStatement,
     PublicInputsLib
 } from "darkpoolv2-lib/PublicInputs.sol";
 
@@ -24,6 +28,7 @@ contract Verifier is IVerifier {
     using PublicInputsLib for ExistingBalanceDepositValidityStatement;
     using PublicInputsLib for NewBalanceDepositValidityStatement;
     using PublicInputsLib for WithdrawalValidityStatement;
+    using PublicInputsLib for FeePaymentValidityStatement;
 
     /// @inheritdoc IVerifier
     function verifyExistingBalanceDepositValidity(DepositProofBundle calldata depositProofBundle)
@@ -56,6 +61,17 @@ contract Verifier is IVerifier {
         VerificationKey memory vk = PublicInputsLib.dummyVkey();
         BN254.ScalarField[] memory publicInputs = withdrawalProofBundle.statement.statementSerialize();
         return VerifierCore.verify(withdrawalProofBundle.proof, publicInputs, vk);
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyFeePaymentValidity(FeePaymentProofBundle calldata feePaymentProofBundle)
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        BN254.ScalarField[] memory publicInputs = feePaymentProofBundle.statement.statementSerialize();
+        return VerifierCore.verify(feePaymentProofBundle.proof, publicInputs, vk);
     }
 
     /// @inheritdoc IVerifier

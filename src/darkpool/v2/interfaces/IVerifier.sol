@@ -5,7 +5,10 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { PlonkProof, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
 
 import {
-    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+    DepositProofBundle,
+    NewBalanceDepositProofBundle,
+    WithdrawalProofBundle,
+    FeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title IVerifier
@@ -32,6 +35,14 @@ interface IVerifier {
     /// @param withdrawalProofBundle The proof bundle for the withdrawal
     /// @return True if the proof is valid, false otherwise
     function verifyWithdrawalValidity(WithdrawalProofBundle calldata withdrawalProofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `FEE PAYMENT VALIDITY`
+    /// @param feePaymentProofBundle The proof bundle for the fee payment
+    /// @return True if the proof is valid, false otherwise
+    function verifyFeePaymentValidity(FeePaymentProofBundle calldata feePaymentProofBundle)
         external
         view
         returns (bool);

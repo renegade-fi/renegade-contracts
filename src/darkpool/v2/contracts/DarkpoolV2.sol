@@ -23,7 +23,10 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import {
-    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+    DepositProofBundle,
+    NewBalanceDepositProofBundle,
+    WithdrawalProofBundle,
+    FeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
@@ -47,6 +50,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     error DepositVerificationFailed();
     /// @notice Thrown when a withdrawal verification fails
     error WithdrawalVerificationFailed();
+    /// @notice Thrown when a fee payment verification fails
+    error FeePaymentVerificationFailed();
 
     // ----------
     // | Events |
@@ -236,8 +241,19 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Fees --- //
 
     /// @inheritdoc IDarkpoolV2
-    function payFees(address token, uint256 amount, address from) public {
-        // TODO: Implement
+    function payFees(FeePaymentProofBundle calldata feePaymentProofBundle) public {
+        // Verify the proof bundle
+        bool valid = verifier.verifyFeePaymentValidity(feePaymentProofBundle);
+        if (!valid) revert FeePaymentVerificationFailed();
+
+        // Update the state; nullify the previous balance and commit to the new balance and the note
+        uint256 merkleDepth = feePaymentProofBundle.statement.merkleDepth;
+        BN254.ScalarField balanceNullifier = feePaymentProofBundle.statement.balanceNullifier;
+        BN254.ScalarField newBalanceCommitment = feePaymentProofBundle.statement.newBalanceCommitment;
+        BN254.ScalarField noteCommitment = feePaymentProofBundle.statement.noteCommitment;
+        _state.spendNullifier(balanceNullifier);
+        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        _state.insertMerkleLeaf(merkleDepth, noteCommitment, hasher);
     }
 
     // --------------
