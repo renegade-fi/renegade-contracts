@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
 import { ERC20Mock } from "oz-contracts/mocks/token/ERC20Mock.sol";
+import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
@@ -12,6 +13,7 @@ import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { WithdrawalValidityStatement } from "darkpoolv2-lib/PublicInputs.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title WithdrawalTest
 /// @notice Tests for the withdrawal functionality in DarkpoolV2
@@ -172,5 +174,32 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
         // Should revert because the nullifier is already spent
         vm.expectRevert();
         darkpool.withdraw(auth, proofBundle);
+    }
+
+    /// @notice Test withdrawal with balance mismatch (after balance is incorrect)
+    function test_withdrawal_balanceMismatch_reverts() public {
+        // Generate test data
+        (Withdrawal memory withdrawal, WithdrawalAuth memory auth, WithdrawalProofBundle memory proofBundle) =
+            generateRandomWithdrawalCalldata();
+
+        // Add extra tokens to darkpool to avoid underflow issues in the mock
+        uint256 extraAmount = withdrawal.amount * 2;
+        withdrawalToken.mint(address(darkpool), extraAmount);
+        uint256 darkpoolBalanceBefore = withdrawalToken.balanceOf(address(darkpool));
+
+        // Set up mock to return incorrect balance
+        uint256 incorrectBalance = darkpoolBalanceBefore;
+        vm.mockCall(
+            address(withdrawalToken),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(darkpool)),
+            abi.encode(incorrectBalance)
+        );
+
+        // Should revert due to balance mismatch
+        vm.expectRevert(ExternalTransferLib.BalanceMismatch.selector);
+        darkpool.withdraw(auth, proofBundle);
+
+        // Clear the mock
+        vm.clearMockedCalls();
     }
 }

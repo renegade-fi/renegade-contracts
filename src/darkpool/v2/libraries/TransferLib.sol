@@ -125,7 +125,10 @@ library ExternalTransferLib {
     )
         internal
     {
-        // Build the permit
+        // 1. Record the balance before the deposit
+        uint256 balanceBefore = getDarkpoolBalance(deposit.token);
+
+        // 2. Build the permit
         ISignatureTransfer.TokenPermissions memory tokenPermissions =
             ISignatureTransfer.TokenPermissions({ token: deposit.token, amount: deposit.amount });
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
@@ -141,10 +144,14 @@ library ExternalTransferLib {
         DepositWitness memory witness = DepositWitness({ newBalanceCommitment: newBalanceCommitmentUint });
         bytes32 witnessHash = witness.hashWitness();
 
-        // Execute the permit witness transfer
+        // 3. Execute the permit witness transfer
         permit2.permitWitnessTransferFrom(
             permit, transferDetails, deposit.from, witnessHash, DEPOSIT_WITNESS_TYPE_STRING, auth.permit2Signature
         );
+
+        // 4. Check that the balance after the deposit equals the expected balance
+        uint256 balanceAfter = getDarkpoolBalance(deposit.token);
+        if (balanceAfter != balanceBefore + deposit.amount) revert BalanceMismatch();
     }
 
     // --- Withdrawal --- //
@@ -175,15 +182,22 @@ library ExternalTransferLib {
     )
         internal
     {
-        // 1. Verify the signature over the new balance commitment by the owner
+        // 1. Record the balance before the withdrawal
+        uint256 balanceBefore = getDarkpoolBalance(withdrawal.token);
+
+        // 2. Verify the signature over the new balance commitment by the owner
         // The `withdrawal.to` address is constrained to be the owner of the balance in-circuit
         bytes32 withdrawalHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment));
         bool sigValid = ECDSALib.verify(withdrawalHash, auth.signature, withdrawal.to);
         if (!sigValid) revert InvalidWithdrawalSignature();
 
-        // 2. Execute the withdrawal as a direct ERC20 transfer
+        // 3. Execute the withdrawal as a direct ERC20 transfer
         IERC20 token = IERC20(withdrawal.token);
         SafeERC20.safeTransfer(token, withdrawal.to, withdrawal.amount);
+
+        // 4. Check that the balance after the withdrawal equals the expected balance
+        uint256 balanceAfter = getDarkpoolBalance(withdrawal.token);
+        if (balanceAfter != balanceBefore - withdrawal.amount) revert BalanceMismatch();
     }
 
     // --- Helpers --- //
