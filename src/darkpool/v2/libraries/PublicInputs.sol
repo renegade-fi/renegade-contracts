@@ -6,6 +6,7 @@ import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { Deposit } from "darkpoolv2-types/transfers/Deposit.sol";
+import { Withdrawal } from "darkpoolv2-types/transfers/Withdrawal.sol";
 
 // -------------------
 // | Statement Types |
@@ -41,6 +42,24 @@ struct NewBalanceDepositValidityStatement {
     /// @dev The public shares of the new balance
     /// @dev These shares represent an entire balance
     BN254.ScalarField[6] newBalancePublicShares;
+}
+
+// --- Withdrawal Statements --- //
+
+/// @notice A statement proving validity of a withdrawal from a balance
+struct WithdrawalValidityStatement {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
+    /// @dev The withdrawal to execute
+    Withdrawal withdrawal;
+    /// @dev The nullifier of the previous version of the balance
+    BN254.ScalarField balanceNullifier;
+    /// @dev The commitment to the updated balance after the withdrawal executes
+    /// TODO: Decide whether this should be a partial commitment or a full commitment
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev The new amount public share of the balance
+    /// @dev This is verified in the proof and placed here to leak it in calldata for recovery logic
+    BN254.ScalarField newAmountPublicShare;
 }
 
 // --- Validity Statements --- //
@@ -211,6 +230,24 @@ library PublicInputsLib {
         publicInputs[7] = statement.newBalancePublicShares[3];
         publicInputs[8] = statement.newBalancePublicShares[4];
         publicInputs[9] = statement.newBalancePublicShares[5];
+    }
+
+    /// @notice Serialize the public inputs for a proof of withdrawal validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(WithdrawalValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 6;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.withdrawal.to)));
+        publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.withdrawal.token)));
+        publicInputs[2] = BN254.ScalarField.wrap(statement.withdrawal.amount);
+        publicInputs[3] = statement.balanceNullifier;
+        publicInputs[4] = statement.newBalanceCommitment;
+        publicInputs[5] = statement.newAmountPublicShare;
     }
 
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)

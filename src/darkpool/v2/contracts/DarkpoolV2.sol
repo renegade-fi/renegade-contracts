@@ -22,8 +22,11 @@ import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
+import {
+    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+} from "darkpoolv2-types/ProofBundles.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
+import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { ExternalTransferLib as TransferLib } from "darkpoolv2-lib/TransferLib.sol";
@@ -42,6 +45,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @notice Thrown when a deposit verification fails
     error DepositVerificationFailed();
+    /// @notice Thrown when a withdrawal verification fails
+    error WithdrawalVerificationFailed();
 
     // ----------
     // | Events |
@@ -211,8 +216,21 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Withdrawal --- //
 
     /// @inheritdoc IDarkpoolV2
-    function withdraw(address token, uint256 amount, address to) public {
-        // TODO: Implement
+    function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyWithdrawalValidity(withdrawalProofBundle);
+        if (!valid) revert WithdrawalVerificationFailed();
+
+        // 2. Execute the withdrawal
+        Withdrawal memory withdrawal = withdrawalProofBundle.statement.withdrawal;
+        BN254.ScalarField newBalanceCommitment = withdrawalProofBundle.statement.newBalanceCommitment;
+        TransferLib.executeSignedWithdrawal(newBalanceCommitment, auth, withdrawal);
+
+        // 3. Update the state; nullify the previous balance and insert the new balance
+        uint256 merkleDepth = withdrawalProofBundle.statement.merkleDepth;
+        BN254.ScalarField balanceNullifier = withdrawalProofBundle.statement.balanceNullifier;
+        _state.spendNullifier(balanceNullifier);
+        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
     }
 
     // --- Fees --- //
