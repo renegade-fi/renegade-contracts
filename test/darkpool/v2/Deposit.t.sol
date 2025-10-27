@@ -78,7 +78,6 @@ contract DepositTest is DarkpoolV2TestUtils {
         ISignatureTransfer.PermitTransferFrom memory permit =
             ISignatureTransfer.PermitTransferFrom({ permitted: tokenPermissions, nonce: nonce, deadline: deadline });
         uint256 commitment = BN254.ScalarField.unwrap(newBalanceCommitment);
-        DepositWitness memory witness = DepositWitness({ newBalanceCommitment: commitment });
 
         // Sign the permit with witness
         bytes32 witnessHash =
@@ -233,8 +232,7 @@ contract DepositTest is DarkpoolV2TestUtils {
     /// @notice Test the Merkle root after a deposit
     function test_deposit_merkleRoot() public {
         // Generate test data
-        (Deposit memory deposit, DepositAuth memory auth, DepositProofBundle memory proofBundle) =
-            generateRandomDepositCalldata();
+        (, DepositAuth memory auth, DepositProofBundle memory proofBundle) = generateRandomDepositCalldata();
 
         // Execute the deposit
         darkpool.deposit(auth, proofBundle);
@@ -306,7 +304,7 @@ contract DepositTest is DarkpoolV2TestUtils {
     /// @notice Test the Merkle root after a new balance deposit
     function test_depositNewBalance_merkleRoot() public {
         // Generate test data
-        (Deposit memory deposit, DepositAuth memory auth, NewBalanceDepositProofBundle memory proofBundle) =
+        (, DepositAuth memory auth, NewBalanceDepositProofBundle memory proofBundle) =
             generateRandomNewBalanceDepositCalldata();
 
         // Execute the deposit

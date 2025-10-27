@@ -65,6 +65,7 @@ struct WithdrawalValidityStatement {
 // --- Fee Payment Statements --- //
 
 /// @notice A statement proving validity of a fee payment
+/// TODO: Add note ciphertext here
 struct FeePaymentValidityStatement {
     /// @dev The Merkle depth at which to re-commit the balance
     uint256 merkleDepth;

@@ -57,7 +57,11 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
 
     /// @notice Create a withdrawal auth for testing
     /// @param newBalanceCommitment The new balance commitment to sign
-    function createWithdrawalAuth(BN254.ScalarField newBalanceCommitment) internal returns (WithdrawalAuth memory) {
+    function createWithdrawalAuth(BN254.ScalarField newBalanceCommitment)
+        internal
+        view
+        returns (WithdrawalAuth memory)
+    {
         // Sign the new balance commitment
         // The signature must be from the owner (withdrawal.to address)
         bytes32 commitmentHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(newBalanceCommitment));
@@ -125,8 +129,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     /// @notice Test the Merkle root after a withdrawal
     function test_withdrawal_merkleRoot() public {
         // Generate test data
-        (Withdrawal memory withdrawal, WithdrawalAuth memory auth, WithdrawalProofBundle memory proofBundle) =
-            generateRandomWithdrawalCalldata();
+        (, WithdrawalAuth memory auth, WithdrawalProofBundle memory proofBundle) = generateRandomWithdrawalCalldata();
 
         // Execute the withdrawal
         darkpool.withdraw(auth, proofBundle);

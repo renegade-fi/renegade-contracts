@@ -6,7 +6,10 @@ import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PlonkProof, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
 import {
-    DepositProofBundle, NewBalanceDepositProofBundle, WithdrawalProofBundle
+    DepositProofBundle,
+    NewBalanceDepositProofBundle,
+    WithdrawalProofBundle,
+    FeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title Test Verifier Implementation
@@ -25,6 +28,11 @@ contract TestVerifierV2 is IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyWithdrawalValidity(WithdrawalProofBundle calldata) external pure returns (bool) {
+        return true;
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyFeePaymentValidity(FeePaymentProofBundle calldata) external pure returns (bool) {
         return true;
     }
 
