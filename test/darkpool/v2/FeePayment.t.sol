@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";

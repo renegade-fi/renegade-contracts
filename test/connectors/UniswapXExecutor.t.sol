@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { DarkpoolExecutor } from "darkpoolv1-executor/DarkpoolExecutor.sol";
+import { DarkpoolUniswapExecutor } from "renegade-connectors/DarkpoolUniswapExecutor.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { UniswapXExecutorProxy } from "darkpoolv1-proxies/UniswapXExecutorProxy.sol";
-import { IDarkpoolExecutor } from "darkpoolv1-interfaces/IDarkpoolExecutor.sol";
+import { IDarkpoolUniswapExecutor } from "darkpoolv1-interfaces/IDarkpoolUniswapExecutor.sol";
 import { IReactorCallback } from "uniswapx/interfaces/IReactorCallback.sol";
 import { ResolvedOrder, SignedOrder } from "uniswapx/base/ReactorStructs.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
@@ -37,10 +37,10 @@ import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.so
 import { TypesLib } from "darkpoolv1-types/TypesLib.sol";
 import { FeeTake } from "darkpoolv1-types/Fees.sol";
 
-/// @title DarkpoolExecutorTest
-/// @notice Test contract for the DarkpoolExecutor
-/// @dev This contract tests the DarkpoolExecutor contract
-contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
+/// @title DarkpoolUniswapExecutorTest
+/// @notice Test contract for the DarkpoolUniswapExecutor
+/// @dev This contract tests the DarkpoolUniswapExecutor contract
+contract DarkpoolUniswapExecutorTest is DarkpoolTestBase, PermitSignature {
     using Permit2Lib for ResolvedOrder;
     using PriorityOrderLib for PriorityOrder;
     using PriorityFeeLib for PriorityInput;
@@ -49,7 +49,7 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
     using TypesLib for FeeTake;
 
     PriorityOrderReactor reactor;
-    IDarkpoolExecutor executor;
+    IDarkpoolUniswapExecutor executor;
 
     /// @notice Sets up the test environment
     /// @dev For now we test against a `PriorityOrderReactor`, which is the flavor deployed on Base
@@ -62,10 +62,10 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
         reactor = new PriorityOrderReactor(permit2, protocolFeeOwner);
 
         // Initialize the UniswapXExecutorProxy
-        DarkpoolExecutor executorImpl = new DarkpoolExecutor();
+        DarkpoolUniswapExecutor executorImpl = new DarkpoolUniswapExecutor();
         UniswapXExecutorProxy executorProxy =
             new UniswapXExecutorProxy(address(executorImpl), darkpoolOwner, address(darkpool), address(reactor));
-        executor = IDarkpoolExecutor(address(executorProxy));
+        executor = IDarkpoolUniswapExecutor(address(executorProxy));
 
         // Whitelist this test contract as a solver for execution tests
         vm.prank(darkpoolOwner);
@@ -86,7 +86,7 @@ contract DarkpoolExecutorTest is DarkpoolTestBase, PermitSignature {
 
         ResolvedOrder[] memory resolvedOrders = new ResolvedOrder[](0);
 
-        vm.expectRevert(DarkpoolExecutor.UnauthorizedCaller.selector);
+        vm.expectRevert(DarkpoolUniswapExecutor.UnauthorizedCaller.selector);
         IReactorCallback(address(executor)).reactorCallback(resolvedOrders, callbackData);
     }
 
