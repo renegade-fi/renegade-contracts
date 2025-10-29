@@ -11,9 +11,7 @@ import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
 import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
-import {
-    Deposit, DepositAuth, DepositWitness, DEPOSIT_WITNESS_TYPE_STRING
-} from "darkpoolv2-types/transfers/Deposit.sol";
+import { Deposit, DepositAuth, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv2-types/transfers/Deposit.sol";
 import {
     ExistingBalanceDepositValidityStatement,
     NewBalanceDepositValidityStatement

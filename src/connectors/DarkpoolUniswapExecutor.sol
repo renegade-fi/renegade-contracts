@@ -27,13 +27,13 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { ERC20 } from "solmate/src/tokens/ERC20.sol";
 
 /**
- * @title DarkpoolExecutor
+ * @title DarkpoolUniswapExecutor
  * @author Renegade Eng
  * @notice A wrapper contract that acts as a UniswapX executor for the darkpool
  * @dev This contract implements IReactorCallback to handle order execution callbacks from UniswapX
  * and routes them to the darkpool for settlement
  */
-contract DarkpoolExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable, AccessControl {
+contract DarkpoolUniswapExecutor is IReactorCallback, Initializable, Ownable2Step, Pausable, AccessControl {
     using SafeTransferLib for ERC20;
 
     // --- State Variables --- //

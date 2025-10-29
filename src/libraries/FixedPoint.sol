@@ -86,4 +86,14 @@ library FixedPointLib {
         /// forge-lint: disable-next-line(incorrect-shift)
         return (self.repr * scalar) / (1 << FIXED_POINT_PRECISION_BITS);
     }
+
+    /// @notice Divide an integer by a fixed point number and return the truncated integer result
+    /// @dev Computes `(x * 2^FIXED_POINT_PRECISION_BITS) / y.repr`
+    /// @dev Since y.repr = y_real * 2^FIXED_POINT_PRECISION_BITS, this gives us x / y_real
+    /// @param x The integer numerator
+    /// @param y The fixed point denominator
+    /// @return The truncated integer result of x / y
+    function divIntegerByFixedPoint(uint256 x, FixedPoint memory y) public pure returns (uint256) {
+        return (x * (1 << FIXED_POINT_PRECISION_BITS)) / y.repr;
+    }
 }

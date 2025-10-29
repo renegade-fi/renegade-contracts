@@ -13,15 +13,15 @@ import {
     ValidMatchSettleAtomicStatement, ValidMalleableMatchSettleAtomicStatement
 } from "darkpoolv1-lib/PublicInputs.sol";
 
-/// @title IDarkpoolExecutor
+/// @title IDarkpoolUniswapExecutor
 /// @author Renegade Eng
-/// @notice Interface for the DarkpoolExecutor contract
-interface IDarkpoolExecutor is IReactorCallback {
+/// @notice Interface for the DarkpoolUniswapExecutor contract
+interface IDarkpoolUniswapExecutor is IReactorCallback {
     /// @notice Returns the address of the current owner
     /// @return The address of the current owner
     function owner() external view returns (address);
 
-    /// @notice Initializes the DarkpoolExecutor
+    /// @notice Initializes the DarkpoolUniswapExecutor
     /// @param initialOwner The address that will own the contract
     /// @param darkpool_ The darkpool address
     /// @param uniswapXReactor_ The UniswapX reactor address
