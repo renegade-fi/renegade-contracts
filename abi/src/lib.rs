@@ -3,7 +3,7 @@ use alloy::{
     sol,
 };
 
-// We use a combined ABI between the darkpool, gas sponsor, and darkpool executor as the sol macro currently requires all
+// We use a combined ABI between the darkpool, gas sponsor, darkpool executor, and malleable match connector as the sol macro currently requires all
 // types to be present in the same macro invocation.
 sol! {
     #[allow(missing_docs, clippy::too_many_arguments)]
@@ -202,15 +202,15 @@ pub mod relayer_types {
     // | Application Types |
     // ---------------------
 
-    /// Convert a relayer [`ExternalTransfer`] to a contract [`ExternalTransfer`]
-    impl From<CircuitExternalTransfer> for ExternalTransfer {
+    /// Convert a relayer [`ExternalTransfer`] to a contract [`ExternalTransferStruct`]
+    impl From<CircuitExternalTransfer> for ExternalTransferStruct {
         fn from(transfer: CircuitExternalTransfer) -> Self {
             let transfer_type = match transfer.direction {
                 ExternalTransferDirection::Deposit => 0,
                 ExternalTransferDirection::Withdrawal => 1,
             };
 
-            ExternalTransfer {
+            ExternalTransferStruct {
                 account: biguint_to_address(transfer.account_addr),
                 mint: biguint_to_address(transfer.mint),
                 amount: U256::from(transfer.amount),
