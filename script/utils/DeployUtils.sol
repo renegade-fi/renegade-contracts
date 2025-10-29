@@ -18,6 +18,8 @@ import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
+import { MalleableMatchConnector } from "renegade-connectors/MalleableMatchConnector.sol";
+import { MalleableMatchConnectorProxy } from "renegade-connectors/MalleableMatchConnectorProxy.sol";
 import { JsonUtils } from "./JsonUtils.sol";
 
 /// @title DeployUtils
@@ -198,6 +200,46 @@ library DeployUtils {
         writeDeployment(vm, "Darkpool", address(darkpool));
         console.log("Darkpool implementation deployed at:", address(darkpool));
         return address(darkpool);
+    }
+
+    /// @notice Deploy the MalleableMatchConnector contract behind a proxy
+    /// @param admin The admin address - serves as proxy admin
+    /// @param gasSponsorAddress The address of the gas sponsor contract
+    /// @param vm The VM to run the commands with
+    /// @return connectorProxyAddr The deployed MalleableMatchConnector proxy address
+    function deployMalleableMatchConnector(
+        address admin,
+        address gasSponsorAddress,
+        Vm vm
+    )
+        internal
+        returns (address connectorProxyAddr)
+    {
+        // Deploy the MalleableMatchConnector implementation
+        address connectorAddr = deployMalleableMatchConnectorImplementation(vm);
+
+        // Deploy the MalleableMatchConnectorProxy
+        MalleableMatchConnectorProxy connectorProxy =
+            new MalleableMatchConnectorProxy(connectorAddr, admin, gasSponsorAddress);
+        writeDeployment(vm, "MalleableMatchConnectorProxy", address(connectorProxy));
+        console.log("MalleableMatchConnectorProxy deployed at:", address(connectorProxy));
+
+        // Extract and save the ProxyAdmin address
+        address proxyAdmin = getProxyAdmin(address(connectorProxy), vm);
+        writeDeployment(vm, "MalleableMatchConnectorProxyAdmin", proxyAdmin);
+        console.log("MalleableMatchConnectorProxyAdmin deployed at:", proxyAdmin);
+
+        return address(connectorProxy);
+    }
+
+    /// @notice Deploy only the MalleableMatchConnector implementation contract for proxy upgrades
+    /// @param vm The VM to write deployments
+    /// @return implAddr The deployed implementation address
+    function deployMalleableMatchConnectorImplementation(Vm vm) internal returns (address implAddr) {
+        MalleableMatchConnector connector = new MalleableMatchConnector();
+        writeDeployment(vm, "MalleableMatchConnector", address(connector));
+        console.log("MalleableMatchConnector implementation deployed at:", address(connector));
+        return address(connector);
     }
 
     /// @notice Write a deployment address to the deployments.json file
