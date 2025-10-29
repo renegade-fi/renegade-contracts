@@ -72,6 +72,7 @@ contract MalleableMatchConnector is Initializable {
         returns (uint256)
     {
         // Calculate the amounts based on direction
+        address resolvedReceiver = receiver == address(0) ? msg.sender : receiver;
         ExternalMatchDirection direction = malleableMatchSettleStatement.matchResult.direction;
         FixedPoint memory price = malleableMatchSettleStatement.matchResult.price;
 
@@ -94,7 +95,7 @@ contract MalleableMatchConnector is Initializable {
         return gasSponsor.sponsorMalleableAtomicMatchSettle{ value: msg.value }(
             quoteAmount,
             baseAmount,
-            receiver,
+            resolvedReceiver,
             internalPartyMatchPayload,
             malleableMatchSettleStatement,
             matchProofs,

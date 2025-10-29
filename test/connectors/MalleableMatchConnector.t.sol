@@ -109,6 +109,95 @@ contract MalleableMatchConnectorTest is DarkpoolTestBase {
         );
     }
 
+    /// @notice Test that when receiver is address(0), tokens go to msg.sender (externalPartyAddr)
+    function test_receiverZeroAddress_usesMsgSender() public {
+        // Setup the malleable match with external party buy side
+        (
+            uint256 baseAmount,
+            PartyMatchPayload memory internalPartyPayload,
+            ValidMalleableMatchSettleAtomicStatement memory statement,
+            MalleableMatchAtomicProofs memory proofs,
+            MatchAtomicLinkingProofs memory linkingProofs
+        ) = setupMalleableMatch(ExternalMatchDirection.InternalPartySell);
+
+        // Input amount is quote amount for buy side
+        uint256 expectedQuoteAmount = statement.matchResult.price.unsafeFixedPointMul(baseAmount);
+        uint256 expectedBaseAmount = baseAmount;
+        uint256 inputAmount = expectedQuoteAmount;
+
+        // Fund and approve tokens for the external party
+        fundAndApprove(statement.matchResult.direction, expectedQuoteAmount, expectedBaseAmount);
+
+        // Get balances after funding (before executing transaction)
+        (uint256 senderBase1, uint256 senderQuote1) = baseQuoteBalances(externalPartyAddr);
+        (uint256 receiverBase1, uint256 receiverQuote1) = baseQuoteBalances(receiver);
+
+        // Execute through connector with address(0) as receiver
+        vm.startBroadcast(externalPartyAddr);
+        SponsorshipParams memory params = createSponsorshipParams();
+        uint256 receivedAmount = connector.executeMalleableAtomicMatchWithInput(
+            inputAmount,
+            address(0), // Pass address(0) as receiver
+            internalPartyPayload,
+            statement,
+            proofs,
+            linkingProofs,
+            params.refundAddress,
+            params.refundNativeEth,
+            REFUND_AMT,
+            params.nonce,
+            params.signature
+        );
+        vm.stopBroadcast();
+
+        // Get balances after - should be on externalPartyAddr (msg.sender), not receiver
+        (uint256 senderBase2, uint256 senderQuote2) = baseQuoteBalances(externalPartyAddr);
+        (uint256 receiverBase2, uint256 receiverQuote2) = baseQuoteBalances(receiver);
+
+        // Build match result for verification
+        ExternalMatchResult memory matchResult =
+            TypesLib.buildExternalMatchResult(expectedQuoteAmount, expectedBaseAmount, statement.matchResult);
+
+        // Calculate fees
+        (, uint256 tradeRecv) = matchResult.externalPartyBuyMintAmount();
+        FeeTake memory fees = statement.externalFeeRates.computeFeeTake(tradeRecv);
+
+        // When receiver is address(0), trade tokens go to msg.sender, refund goes to refundAddress
+        // The return value is the sum: tradeRecv - fees + refundAmount
+        uint256 expectedTradeReceived = tradeRecv - fees.total();
+        uint256 expectedTotalReceived = expectedTradeReceived + REFUND_AMT;
+        assertApproxEqAbs(receivedAmount, expectedTotalReceived, 1, "Received amount incorrect");
+
+        // Verify token balances go to msg.sender (externalPartyAddr) for trade tokens
+        // Refund goes to refundAddress (receiver)
+        bool receivingBase = matchResult.direction == ExternalMatchDirection.InternalPartySell;
+        if (receivingBase) {
+            // External party sells quote tokens (pays expectedQuoteAmount) and receives base tokens
+            uint256 expectedSenderBase = senderBase1 + expectedTradeReceived;
+            uint256 expectedSenderQuote = senderQuote1 - expectedQuoteAmount;
+            assertApproxEqAbs(senderBase2, expectedSenderBase, 1, "Msg.sender base balance incorrect");
+            assertApproxEqAbs(
+                senderQuote2, expectedSenderQuote, 1, "Msg.sender quote balance should decrease by amount paid"
+            );
+            // Refund goes to refundAddress (receiver)
+            uint256 expectedReceiverBase = receiverBase1 + REFUND_AMT;
+            assertApproxEqAbs(receiverBase2, expectedReceiverBase, 1, "Receiver should receive refund");
+            assertEq(receiverQuote2, receiverQuote1, "Receiver quote balance should not change");
+        } else {
+            // External party sells base tokens (pays expectedBaseAmount) and receives quote tokens
+            uint256 expectedSenderQuote = senderQuote1 + expectedTradeReceived;
+            uint256 expectedSenderBase = senderBase1 - expectedBaseAmount;
+            assertApproxEqAbs(
+                senderBase2, expectedSenderBase, 1, "Msg.sender base balance should decrease by amount paid"
+            );
+            assertApproxEqAbs(senderQuote2, expectedSenderQuote, 1, "Msg.sender quote balance incorrect");
+            // Refund goes to refundAddress (receiver)
+            uint256 expectedReceiverQuote = receiverQuote1 + REFUND_AMT;
+            assertEq(receiverBase2, receiverBase1, "Receiver base balance should not change");
+            assertApproxEqAbs(receiverQuote2, expectedReceiverQuote, 1, "Receiver should receive refund");
+        }
+    }
+
     // --- Calculation Verification Tests --- //
 
     /// @notice Test that connector calculations match expected formulas for buy side

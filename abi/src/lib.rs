@@ -277,26 +277,26 @@ pub mod relayer_types {
         fn from(proof: CircuitPlonkProof) -> Self {
             let evals = proof.poly_evals;
             Self {
-                wire_comms: size_vec(
+                wireComms: size_vec(
                     proof
                         .wires_poly_comms
                         .into_iter()
                         .map(convert_jf_commitment)
                         .collect(),
                 ),
-                z_comm: convert_jf_commitment(proof.prod_perm_poly_comm),
-                quotient_comms: size_vec(
+                zComm: convert_jf_commitment(proof.prod_perm_poly_comm),
+                quotientComms: size_vec(
                     proof
                         .split_quot_poly_comms
                         .into_iter()
                         .map(convert_jf_commitment)
                         .collect(),
                 ),
-                w_zeta: convert_jf_commitment(proof.opening_proof),
-                w_zeta_omega: convert_jf_commitment(proof.shifted_opening_proof),
-                wire_evals: size_vec(evals.wires_evals.into_iter().map(fr_to_u256).collect()),
-                sigma_evals: size_vec(evals.wire_sigma_evals.into_iter().map(fr_to_u256).collect()),
-                z_bar: fr_to_u256(evals.perm_next_eval),
+                wZeta: convert_jf_commitment(proof.opening_proof),
+                wZetaOmega: convert_jf_commitment(proof.shifted_opening_proof),
+                wireEvals: size_vec(evals.wires_evals.into_iter().map(fr_to_u256).collect()),
+                sigmaEvals: size_vec(evals.wire_sigma_evals.into_iter().map(fr_to_u256).collect()),
+                zBar: fr_to_u256(evals.perm_next_eval),
             }
         }
     }
@@ -304,8 +304,8 @@ pub mod relayer_types {
     impl From<CircuitPlonkLinkProof> for LinkingProof {
         fn from(proof: CircuitPlonkLinkProof) -> Self {
             Self {
-                linking_quotient_poly_comm: convert_jf_commitment(proof.quotient_commitment),
-                linking_poly_opening: convert_g1_point(proof.opening_proof.proof),
+                linkingQuotientPolyComm: convert_jf_commitment(proof.quotient_commitment),
+                linkingPolyOpening: convert_g1_point(proof.opening_proof.proof),
             }
         }
     }

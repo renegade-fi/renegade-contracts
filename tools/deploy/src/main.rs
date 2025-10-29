@@ -38,6 +38,16 @@ const GAS_SPONSOR_RUN_SIGNATURE: &str = "run(address,address,address)";
 /// The signature of the `run` function in the `DeployGasSponsorImplementationScript` contract
 const GAS_SPONSOR_IMPLEMENTATION_RUN_SIGNATURE: &str = "run()";
 
+/// The signature of the `run` function in the `DeployMalleableMatchConnectorScript` contract
+///
+/// Args are:
+/// - admin (proxy admin address)
+/// - gasSponsorAddress (address of gas sponsor)
+const MALLEABLE_MATCH_CONNECTOR_RUN_SIGNATURE: &str = "run(address,address)";
+
+/// The signature of the `run` function in the `DeployMalleableMatchConnectorImplementationScript` contract
+const MALLEABLE_MATCH_CONNECTOR_IMPLEMENTATION_RUN_SIGNATURE: &str = "run()";
+
 /// The path to which we write the decryption key
 const DECRYPTION_KEY_PATH: &str = "fee_decryption_key.txt";
 
@@ -89,6 +99,14 @@ enum Commands {
     /// Deploy only the GasSponsor implementation contract (for proxy upgrades)
     #[command(name = "deploy-gas-sponsor-implementation")]
     DeployGasSponsorImplementation(DeployGasSponsorImplementationArgs),
+
+    /// Deploy the MalleableMatchConnector contract
+    #[command(name = "deploy-malleable-match-connector")]
+    DeployMalleableMatchConnector(DeployMalleableMatchConnectorArgs),
+
+    /// Deploy only the MalleableMatchConnector implementation contract (for proxy upgrades)
+    #[command(name = "deploy-malleable-match-connector-implementation")]
+    DeployMalleableMatchConnectorImplementation(DeployMalleableMatchConnectorImplementationArgs),
 }
 
 /// Arguments for deploying Darkpool contracts
@@ -159,6 +177,30 @@ struct DeployGasSponsorImplementationArgs {
     common: CommonArgs,
 }
 
+/// Arguments for deploying MalleableMatchConnector contract
+#[derive(Parser, Debug)]
+struct DeployMalleableMatchConnectorArgs {
+    /// Common arguments
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Admin address - serves as proxy admin
+    #[arg(long)]
+    admin: Option<String>,
+
+    /// Gas sponsor contract address
+    #[arg(long)]
+    gas_sponsor: Option<String>,
+}
+
+/// Arguments for deploying only the MalleableMatchConnector implementation contract
+#[derive(Parser, Debug)]
+struct DeployMalleableMatchConnectorImplementationArgs {
+    /// Common arguments
+    #[command(flatten)]
+    common: CommonArgs,
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -167,6 +209,10 @@ fn main() -> Result<()> {
         Commands::DeployGasSponsor(args) => deploy_gas_sponsor(args),
         Commands::DeployDarkpoolImplementation(args) => deploy_darkpool_implementation(args),
         Commands::DeployGasSponsorImplementation(args) => deploy_gas_sponsor_implementation(args),
+        Commands::DeployMalleableMatchConnector(args) => deploy_malleable_match_connector(args),
+        Commands::DeployMalleableMatchConnectorImplementation(args) => {
+            deploy_malleable_match_connector_implementation(args)
+        }
     }
 }
 
@@ -317,6 +363,74 @@ fn deploy_gas_sponsor_implementation(args: DeployGasSponsorImplementationArgs) -
     Ok(())
 }
 
+/// Deploy the MalleableMatchConnector contract
+fn deploy_malleable_match_connector(mut args: DeployMalleableMatchConnectorArgs) -> Result<()> {
+    // Prompt for required arguments if not provided
+    prompt_for_malleable_match_connector_args(&mut args)?;
+
+    // Unwrap the Option values now that we're sure they're present and valid
+    let admin = args.admin.unwrap();
+    let gas_sponsor = args.gas_sponsor.unwrap();
+
+    println!(
+        "Deploying MalleableMatchConnector to RPC URL: {}",
+        args.common.rpc_url
+    );
+    println!("\tAdmin address: {}", admin);
+    println!("\tGas Sponsor address: {}", gas_sponsor);
+
+    // Build the forge script command
+    let mut cmd = Command::new("forge");
+    cmd.arg("script")
+        .arg("script/DeployMalleableMatchConnector.s.sol:DeployMalleableMatchConnectorScript")
+        .arg("--rpc-url")
+        .arg(&args.common.rpc_url)
+        .arg("--sig")
+        .arg(MALLEABLE_MATCH_CONNECTOR_RUN_SIGNATURE)
+        .arg(&admin)
+        .arg(&gas_sponsor)
+        .arg("--broadcast") // Always use broadcast
+        .arg("--private-key")
+        .arg(&args.common.private_key)
+        .arg(format!("-{}", args.common.verbosity));
+
+    // Execute the command
+    run_command(cmd)?;
+
+    println!("\nMalleableMatchConnector deployment completed successfully!");
+    Ok(())
+}
+
+/// Deploy only the MalleableMatchConnector implementation contract (no proxy)
+fn deploy_malleable_match_connector_implementation(
+    args: DeployMalleableMatchConnectorImplementationArgs,
+) -> Result<()> {
+    println!(
+        "Deploying MalleableMatchConnector implementation to RPC URL: {}",
+        args.common.rpc_url
+    );
+
+    // Build the forge script command
+    let mut cmd = Command::new("forge");
+    cmd.arg("script")
+        .arg(
+            "script/DeployMalleableMatchConnectorImplementation.sol:DeployMalleableMatchConnectorImplementationScript",
+        )
+        .arg("--rpc-url")
+        .arg(&args.common.rpc_url)
+        .arg("--sig")
+        .arg(MALLEABLE_MATCH_CONNECTOR_IMPLEMENTATION_RUN_SIGNATURE)
+        .arg("--broadcast") // Always use broadcast
+        .arg("--private-key")
+        .arg(&args.common.private_key)
+        .arg(format!("-{}", args.common.verbosity));
+
+    // Execute the command
+    run_command(cmd)?;
+    println!("\nMalleableMatchConnector implementation deployment completed successfully!");
+    Ok(())
+}
+
 // -----------
 // | Helpers |
 // -----------
@@ -371,6 +485,23 @@ fn prompt_for_gas_sponsor_args(args: &mut DeployGasSponsorArgs) -> Result<()> {
     } else if !is_valid_eth_address(args.auth_address.as_ref().unwrap()) {
         let addr = prompt_for_address("Enter auth address for gas sponsorship")?;
         args.auth_address = Some(addr);
+    }
+
+    Ok(())
+}
+
+/// Prompt for missing MalleableMatchConnector arguments
+fn prompt_for_malleable_match_connector_args(
+    args: &mut DeployMalleableMatchConnectorArgs,
+) -> Result<()> {
+    if args.admin.is_none() || !is_valid_eth_address(args.admin.as_ref().unwrap()) {
+        let addr = prompt_for_address("Enter admin address (proxy admin)")?;
+        args.admin = Some(addr);
+    }
+
+    if args.gas_sponsor.is_none() || !is_valid_eth_address(args.gas_sponsor.as_ref().unwrap()) {
+        let addr = prompt_for_address("Enter Gas Sponsor contract address")?;
+        args.gas_sponsor = Some(addr);
     }
 
     Ok(())
