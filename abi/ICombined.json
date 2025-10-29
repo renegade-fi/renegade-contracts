@@ -193,7 +193,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -210,7 +210,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -227,7 +227,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -244,7 +244,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -261,7 +261,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -278,17 +278,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -300,7 +300,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -317,7 +317,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -334,7 +334,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -351,7 +351,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -368,7 +368,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -385,17 +385,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -407,7 +407,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -424,7 +424,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -441,7 +441,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -458,7 +458,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -475,7 +475,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -492,17 +492,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -521,7 +521,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -538,7 +538,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -562,7 +562,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -579,7 +579,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -845,7 +845,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -862,7 +862,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -879,7 +879,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -896,7 +896,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -913,7 +913,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -930,17 +930,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -952,7 +952,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -969,7 +969,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -986,7 +986,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -1003,7 +1003,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1020,7 +1020,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1037,17 +1037,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -1059,7 +1059,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -1076,7 +1076,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1093,7 +1093,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -1110,7 +1110,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1127,7 +1127,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1144,17 +1144,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -1173,7 +1173,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1190,7 +1190,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1214,7 +1214,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1231,7 +1231,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1313,7 +1313,7 @@
         "internalType": "struct PlonkProof",
         "components": [
           {
-            "name": "wire_comms",
+            "name": "wireComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -1330,7 +1330,7 @@
             ]
           },
           {
-            "name": "z_comm",
+            "name": "zComm",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -1347,7 +1347,7 @@
             ]
           },
           {
-            "name": "quotient_comms",
+            "name": "quotientComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -1364,7 +1364,7 @@
             ]
           },
           {
-            "name": "w_zeta",
+            "name": "wZeta",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -1381,7 +1381,7 @@
             ]
           },
           {
-            "name": "w_zeta_omega",
+            "name": "wZetaOmega",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -1398,17 +1398,17 @@
             ]
           },
           {
-            "name": "wire_evals",
+            "name": "wireEvals",
             "type": "uint256[5]",
             "internalType": "BN254.ScalarField[5]"
           },
           {
-            "name": "sigma_evals",
+            "name": "sigmaEvals",
             "type": "uint256[4]",
             "internalType": "BN254.ScalarField[4]"
           },
           {
-            "name": "z_bar",
+            "name": "zBar",
             "type": "uint256",
             "internalType": "BN254.ScalarField"
           }
@@ -1650,7 +1650,7 @@
     "name": "perTokenFeeOverrides",
     "inputs": [
       {
-        "name": "",
+        "name": "asset",
         "type": "address",
         "internalType": "address"
       }
@@ -1848,7 +1848,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -1865,7 +1865,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1882,7 +1882,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -1899,7 +1899,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1916,7 +1916,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1933,17 +1933,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -1955,7 +1955,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -1972,7 +1972,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -1989,7 +1989,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2006,7 +2006,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2023,7 +2023,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2040,17 +2040,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -2062,7 +2062,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2079,7 +2079,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2096,7 +2096,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2113,7 +2113,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2130,7 +2130,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2147,17 +2147,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -2176,7 +2176,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2193,7 +2193,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2217,7 +2217,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2234,7 +2234,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2445,7 +2445,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2462,7 +2462,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2479,7 +2479,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2496,7 +2496,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2513,7 +2513,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2530,17 +2530,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -2552,7 +2552,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2569,7 +2569,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2586,7 +2586,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2603,7 +2603,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2620,7 +2620,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2637,17 +2637,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -2659,7 +2659,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2676,7 +2676,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2693,7 +2693,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -2710,7 +2710,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2727,7 +2727,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2744,17 +2744,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -2773,7 +2773,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2790,7 +2790,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2814,7 +2814,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -2831,7 +2831,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3066,7 +3066,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3083,7 +3083,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3100,7 +3100,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3117,7 +3117,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3134,7 +3134,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3151,17 +3151,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3173,7 +3173,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3190,7 +3190,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3207,7 +3207,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3224,7 +3224,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3241,7 +3241,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3258,17 +3258,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3280,7 +3280,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3297,7 +3297,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3314,7 +3314,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3331,7 +3331,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3348,7 +3348,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3365,17 +3365,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3394,7 +3394,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3411,7 +3411,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3435,7 +3435,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3452,7 +3452,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3679,7 +3679,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3696,7 +3696,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3713,7 +3713,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3730,7 +3730,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3747,7 +3747,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3764,17 +3764,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3786,7 +3786,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3803,7 +3803,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3820,7 +3820,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3837,7 +3837,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3854,7 +3854,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3871,17 +3871,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3893,7 +3893,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3910,7 +3910,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3927,7 +3927,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -3944,7 +3944,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3961,7 +3961,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -3978,17 +3978,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -4000,7 +4000,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4017,7 +4017,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4034,7 +4034,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4051,7 +4051,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4068,7 +4068,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4085,17 +4085,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -4107,7 +4107,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4124,7 +4124,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4141,7 +4141,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4158,7 +4158,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4175,7 +4175,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4192,17 +4192,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -4221,7 +4221,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4238,7 +4238,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4262,7 +4262,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4279,7 +4279,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4303,7 +4303,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4320,7 +4320,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4344,7 +4344,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4361,7 +4361,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4602,7 +4602,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4619,7 +4619,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4636,7 +4636,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4653,7 +4653,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4670,7 +4670,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4687,17 +4687,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -4709,7 +4709,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4726,7 +4726,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4743,7 +4743,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4760,7 +4760,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4777,7 +4777,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4794,17 +4794,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -4816,7 +4816,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4833,7 +4833,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4850,7 +4850,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4867,7 +4867,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4884,7 +4884,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4901,17 +4901,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -4923,7 +4923,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4940,7 +4940,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4957,7 +4957,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -4974,7 +4974,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -4991,7 +4991,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5008,17 +5008,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -5030,7 +5030,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -5047,7 +5047,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5064,7 +5064,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -5081,7 +5081,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5098,7 +5098,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5115,17 +5115,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -5144,7 +5144,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5161,7 +5161,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5185,7 +5185,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5202,7 +5202,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5226,7 +5226,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5243,7 +5243,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5267,7 +5267,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5284,7 +5284,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -5454,7 +5454,7 @@
         "internalType": "struct PlonkProof",
         "components": [
           {
-            "name": "wire_comms",
+            "name": "wireComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -5471,7 +5471,7 @@
             ]
           },
           {
-            "name": "z_comm",
+            "name": "zComm",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -5488,7 +5488,7 @@
             ]
           },
           {
-            "name": "quotient_comms",
+            "name": "quotientComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -5505,7 +5505,7 @@
             ]
           },
           {
-            "name": "w_zeta",
+            "name": "wZeta",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -5522,7 +5522,7 @@
             ]
           },
           {
-            "name": "w_zeta_omega",
+            "name": "wZetaOmega",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -5539,17 +5539,17 @@
             ]
           },
           {
-            "name": "wire_evals",
+            "name": "wireEvals",
             "type": "uint256[5]",
             "internalType": "BN254.ScalarField[5]"
           },
           {
-            "name": "sigma_evals",
+            "name": "sigmaEvals",
             "type": "uint256[4]",
             "internalType": "BN254.ScalarField[4]"
           },
           {
-            "name": "z_bar",
+            "name": "zBar",
             "type": "uint256",
             "internalType": "BN254.ScalarField"
           }
@@ -5753,7 +5753,7 @@
         "internalType": "struct PlonkProof",
         "components": [
           {
-            "name": "wire_comms",
+            "name": "wireComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -5770,7 +5770,7 @@
             ]
           },
           {
-            "name": "z_comm",
+            "name": "zComm",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -5787,7 +5787,7 @@
             ]
           },
           {
-            "name": "quotient_comms",
+            "name": "quotientComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -5804,7 +5804,7 @@
             ]
           },
           {
-            "name": "w_zeta",
+            "name": "wZeta",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -5821,7 +5821,7 @@
             ]
           },
           {
-            "name": "w_zeta_omega",
+            "name": "wZetaOmega",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -5838,17 +5838,17 @@
             ]
           },
           {
-            "name": "wire_evals",
+            "name": "wireEvals",
             "type": "uint256[5]",
             "internalType": "BN254.ScalarField[5]"
           },
           {
-            "name": "sigma_evals",
+            "name": "sigmaEvals",
             "type": "uint256[4]",
             "internalType": "BN254.ScalarField[4]"
           },
           {
-            "name": "z_bar",
+            "name": "zBar",
             "type": "uint256",
             "internalType": "BN254.ScalarField"
           }
@@ -5929,7 +5929,7 @@
           {
             "name": "externalTransfer",
             "type": "tuple",
-            "internalType": "struct ExternalTransfer",
+            "internalType": "struct ExternalTransferStruct",
             "components": [
               {
                 "name": "account",
@@ -5978,7 +5978,7 @@
         "internalType": "struct PlonkProof",
         "components": [
           {
-            "name": "wire_comms",
+            "name": "wireComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -5995,7 +5995,7 @@
             ]
           },
           {
-            "name": "z_comm",
+            "name": "zComm",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -6012,7 +6012,7 @@
             ]
           },
           {
-            "name": "quotient_comms",
+            "name": "quotientComms",
             "type": "tuple[5]",
             "internalType": "struct BN254.G1Point[5]",
             "components": [
@@ -6029,7 +6029,7 @@
             ]
           },
           {
-            "name": "w_zeta",
+            "name": "wZeta",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -6046,7 +6046,7 @@
             ]
           },
           {
-            "name": "w_zeta_omega",
+            "name": "wZetaOmega",
             "type": "tuple",
             "internalType": "struct BN254.G1Point",
             "components": [
@@ -6063,17 +6063,17 @@
             ]
           },
           {
-            "name": "wire_evals",
+            "name": "wireEvals",
             "type": "uint256[5]",
             "internalType": "BN254.ScalarField[5]"
           },
           {
-            "name": "sigma_evals",
+            "name": "sigmaEvals",
             "type": "uint256[4]",
             "internalType": "BN254.ScalarField[4]"
           },
           {
-            "name": "z_bar",
+            "name": "zBar",
             "type": "uint256",
             "internalType": "BN254.ScalarField"
           }
@@ -6108,6 +6108,37 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ExternalTransfer",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "mint",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "isWithdrawal",
+        "type": "bool",
+        "indexed": true,
+        "internalType": "bool"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -6155,6 +6186,19 @@
   },
   {
     "type": "event",
+    "name": "NotePosted",
+    "inputs": [
+      {
+        "name": "noteCommitment",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "NullifierSpent",
     "inputs": [
       {
@@ -6178,6 +6222,56 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AddressCannotBeZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FeeCannotBeZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidETHValue",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMerkleDepthRequested",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidOrderSettlementIndices",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPrivateShareCommitment",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidProtocolEncryptionKey",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidProtocolFeeRate",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VerificationFailed",
+    "inputs": []
   },
   {
     "type": "function",
@@ -6362,7 +6456,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -6379,7 +6473,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6396,7 +6490,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -6413,7 +6507,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6430,7 +6524,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6447,17 +6541,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -6469,7 +6563,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -6486,7 +6580,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6503,7 +6597,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -6520,7 +6614,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6537,7 +6631,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6554,17 +6648,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -6576,7 +6670,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -6593,7 +6687,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6610,7 +6704,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -6627,7 +6721,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6644,7 +6738,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6661,17 +6755,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -6690,7 +6784,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6707,7 +6801,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6731,7 +6825,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6748,7 +6842,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -6995,7 +7089,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -7012,7 +7106,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7029,7 +7123,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -7046,7 +7140,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7063,7 +7157,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7080,17 +7174,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -7102,7 +7196,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -7119,7 +7213,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7136,7 +7230,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -7153,7 +7247,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7170,7 +7264,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7187,17 +7281,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -7209,7 +7303,7 @@
             "internalType": "struct PlonkProof",
             "components": [
               {
-                "name": "wire_comms",
+                "name": "wireComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -7226,7 +7320,7 @@
                 ]
               },
               {
-                "name": "z_comm",
+                "name": "zComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7243,7 +7337,7 @@
                 ]
               },
               {
-                "name": "quotient_comms",
+                "name": "quotientComms",
                 "type": "tuple[5]",
                 "internalType": "struct BN254.G1Point[5]",
                 "components": [
@@ -7260,7 +7354,7 @@
                 ]
               },
               {
-                "name": "w_zeta",
+                "name": "wZeta",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7277,7 +7371,7 @@
                 ]
               },
               {
-                "name": "w_zeta_omega",
+                "name": "wZetaOmega",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7294,17 +7388,17 @@
                 ]
               },
               {
-                "name": "wire_evals",
+                "name": "wireEvals",
                 "type": "uint256[5]",
                 "internalType": "BN254.ScalarField[5]"
               },
               {
-                "name": "sigma_evals",
+                "name": "sigmaEvals",
                 "type": "uint256[4]",
                 "internalType": "BN254.ScalarField[4]"
               },
               {
-                "name": "z_bar",
+                "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -7323,7 +7417,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7340,7 +7434,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7364,7 +7458,7 @@
             "internalType": "struct LinkingProof",
             "components": [
               {
-                "name": "linking_quotient_poly_comm",
+                "name": "linkingQuotientPolyComm",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7381,7 +7475,7 @@
                 ]
               },
               {
-                "name": "linking_poly_opening",
+                "name": "linkingPolyOpening",
                 "type": "tuple",
                 "internalType": "struct BN254.G1Point",
                 "components": [
@@ -7560,5 +7654,652 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "executeMalleableAtomicMatchWithInput",
+    "inputs": [
+      {
+        "name": "inputAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "internalPartyMatchPayload",
+        "type": "tuple",
+        "internalType": "struct PartyMatchPayload",
+        "components": [
+          {
+            "name": "validCommitmentsStatement",
+            "type": "tuple",
+            "internalType": "struct ValidCommitmentsStatement",
+            "components": [
+              {
+                "name": "indices",
+                "type": "tuple",
+                "internalType": "struct OrderSettlementIndices",
+                "components": [
+                  {
+                    "name": "balanceSend",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "balanceReceive",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "order",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "validReblindStatement",
+            "type": "tuple",
+            "internalType": "struct ValidReblindStatement",
+            "components": [
+              {
+                "name": "originalSharesNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newPrivateShareCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "malleableMatchSettleStatement",
+        "type": "tuple",
+        "internalType": "struct ValidMalleableMatchSettleAtomicStatement",
+        "components": [
+          {
+            "name": "matchResult",
+            "type": "tuple",
+            "internalType": "struct BoundedMatchResult",
+            "components": [
+              {
+                "name": "quoteMint",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "baseMint",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "price",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "minBaseAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "maxBaseAmount",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "direction",
+                "type": "uint8",
+                "internalType": "enum ExternalMatchDirection"
+              }
+            ]
+          },
+          {
+            "name": "externalFeeRates",
+            "type": "tuple",
+            "internalType": "struct FeeTakeRate",
+            "components": [
+              {
+                "name": "relayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "protocolFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "internalFeeRates",
+            "type": "tuple",
+            "internalType": "struct FeeTakeRate",
+            "components": [
+              {
+                "name": "relayerFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "protocolFeeRate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "internalPartyPublicShares",
+            "type": "uint256[]",
+            "internalType": "BN254.ScalarField[]"
+          },
+          {
+            "name": "relayerFeeAddress",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "matchProofs",
+        "type": "tuple",
+        "internalType": "struct MalleableMatchAtomicProofs",
+        "components": [
+          {
+            "name": "validCommitments",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "validReblind",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "validMalleableMatchSettleAtomic",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "matchLinkingProofs",
+        "type": "tuple",
+        "internalType": "struct MatchAtomicLinkingProofs",
+        "components": [
+          {
+            "name": "validReblindCommitments",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "validCommitmentsMatchSettleAtomic",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "refundAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "refundNativeEth",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "refundAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
   }
 ]
