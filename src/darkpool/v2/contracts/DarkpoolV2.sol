@@ -191,7 +191,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         TransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
 
         // 3. Update the state; nullify the previous balance and insert the new balance
-        uint256 merkleDepth = depositProofBundle.statement.merkleDepth;
+        uint256 merkleDepth = depositProofBundle.merkleDepth;
         BN254.ScalarField balanceNullifier = depositProofBundle.statement.balanceNullifier;
         _state.spendNullifier(balanceNullifier);
         _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
@@ -214,7 +214,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         TransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
 
         // 3. Update the state; nullify the previous balance and insert the new balance
-        uint256 merkleDepth = newBalanceProofBundle.statement.merkleDepth;
+        uint256 merkleDepth = newBalanceProofBundle.merkleDepth;
         _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
     }
 
@@ -232,7 +232,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         TransferLib.executeSignedWithdrawal(newBalanceCommitment, auth, withdrawal);
 
         // 3. Update the state; nullify the previous balance and insert the new balance
-        uint256 merkleDepth = withdrawalProofBundle.statement.merkleDepth;
+        uint256 merkleDepth = withdrawalProofBundle.merkleDepth;
         BN254.ScalarField balanceNullifier = withdrawalProofBundle.statement.balanceNullifier;
         _state.spendNullifier(balanceNullifier);
         _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
@@ -247,7 +247,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         if (!valid) revert FeePaymentVerificationFailed();
 
         // Update the state; nullify the previous balance and commit to the new balance and the note
-        uint256 merkleDepth = feePaymentProofBundle.statement.merkleDepth;
+        uint256 merkleDepth = feePaymentProofBundle.merkleDepth;
         BN254.ScalarField balanceNullifier = feePaymentProofBundle.statement.balanceNullifier;
         BN254.ScalarField newBalanceCommitment = feePaymentProofBundle.statement.newBalanceCommitment;
         BN254.ScalarField noteCommitment = feePaymentProofBundle.statement.noteCommitment;

@@ -142,14 +142,13 @@ contract DepositTest is DarkpoolV2TestUtils {
         BN254.ScalarField newAmountPublicShare = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         ExistingBalanceDepositValidityStatement memory statement = ExistingBalanceDepositValidityStatement({
-            merkleDepth: merkleDepth,
             deposit: deposit,
             balanceNullifier: balanceNullifier,
             newBalanceCommitment: newBalanceCommitment,
             newAmountPublicShare: newAmountPublicShare
         });
 
-        return DepositProofBundle({ statement: statement, proof: createDummyProof() });
+        return DepositProofBundle({ merkleDepth: merkleDepth, statement: statement, proof: createDummyProof() });
     }
 
     /// @notice Capitalize the depositor's balance
@@ -191,13 +190,13 @@ contract DepositTest is DarkpoolV2TestUtils {
         }
 
         NewBalanceDepositValidityStatement memory statement = NewBalanceDepositValidityStatement({
-            merkleDepth: merkleDepth,
             deposit: deposit,
             newBalanceCommitment: newBalanceCommitment,
             newBalancePublicShares: newBalancePublicShares
         });
 
-        return NewBalanceDepositProofBundle({ statement: statement, proof: createDummyProof() });
+        return
+            NewBalanceDepositProofBundle({ merkleDepth: merkleDepth, statement: statement, proof: createDummyProof() });
     }
 
     // ----------------------------------
@@ -239,7 +238,7 @@ contract DepositTest is DarkpoolV2TestUtils {
 
         // Check that the Merkle root is in the history
         // Build a parallel merkle tree with the same operation
-        uint256 depth = proofBundle.statement.merkleDepth;
+        uint256 depth = proofBundle.merkleDepth;
         testMountain.insertLeaf(depth, proofBundle.statement.newBalanceCommitment, hasher);
         BN254.ScalarField root = testMountain.getRoot(depth);
 
@@ -341,7 +340,7 @@ contract DepositTest is DarkpoolV2TestUtils {
 
         // Check that the Merkle root is in the history
         // Build a parallel merkle tree with the same operation
-        uint256 depth = proofBundle.statement.merkleDepth;
+        uint256 depth = proofBundle.merkleDepth;
         testMountain.insertLeaf(depth, proofBundle.statement.newBalanceCommitment, hasher);
         BN254.ScalarField root = testMountain.getRoot(depth);
 

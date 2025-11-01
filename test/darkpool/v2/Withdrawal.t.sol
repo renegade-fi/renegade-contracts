@@ -84,14 +84,13 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
 
         WithdrawalValidityStatement memory statement = WithdrawalValidityStatement({
-            merkleDepth: merkleDepth,
             withdrawal: withdrawal,
             balanceNullifier: balanceNullifier,
             newBalanceCommitment: newBalanceCommitment,
             newAmountPublicShare: newAmountPublicShare
         });
 
-        return WithdrawalProofBundle({ statement: statement, proof: createDummyProof() });
+        return WithdrawalProofBundle({ merkleDepth: merkleDepth, statement: statement, proof: createDummyProof() });
     }
 
     /// @notice Capitalize the darkpool's balance so it can fulfill withdrawals
@@ -138,7 +137,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
 
         // Check that the Merkle root is in the history
         // Build a parallel merkle tree with the same operation
-        uint256 depth = proofBundle.statement.merkleDepth;
+        uint256 depth = proofBundle.merkleDepth;
         testMountain.insertLeaf(depth, proofBundle.statement.newBalanceCommitment, hasher);
         BN254.ScalarField root = testMountain.getRoot(depth);
 

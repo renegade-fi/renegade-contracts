@@ -15,6 +15,8 @@ import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 /// @notice A bundle of proofs for a deposit
 struct DepositProofBundle {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
     /// @dev The statement of the deposit validity
     ExistingBalanceDepositValidityStatement statement;
     /// @dev The proof of the deposit validity
@@ -23,6 +25,8 @@ struct DepositProofBundle {
 
 /// @notice A bundle of proofs for _new_ balance deposit validity
 struct NewBalanceDepositProofBundle {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
     /// @dev The statement of the new balance deposit validity
     NewBalanceDepositValidityStatement statement;
     /// @dev The proof of the new balance deposit validity
@@ -31,6 +35,8 @@ struct NewBalanceDepositProofBundle {
 
 /// @notice A bundle of proofs for a withdrawal validity
 struct WithdrawalProofBundle {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
     /// @dev The statement of the withdrawal validity
     WithdrawalValidityStatement statement;
     /// @dev The proof of the withdrawal validity
@@ -39,6 +45,8 @@ struct WithdrawalProofBundle {
 
 /// @notice A bundle of proofs for a fee payment validity
 struct FeePaymentProofBundle {
+    /// @dev The Merkle depth at which to re-commit the balance
+    uint256 merkleDepth;
     /// @dev The statement of the fee payment validity
     FeePaymentValidityStatement statement;
     /// @dev The proof of the fee payment validity
