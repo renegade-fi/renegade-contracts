@@ -16,8 +16,6 @@ import { Withdrawal } from "darkpoolv2-types/transfers/Withdrawal.sol";
 
 /// @notice A statement proving validity of a deposit into an existing balance
 struct ExistingBalanceDepositValidityStatement {
-    /// @dev The Merkle depth of the balance
-    uint256 merkleDepth;
     /// @dev The deposit to execute
     Deposit deposit;
     /// @dev The nullifier of the previous version of the balance
@@ -32,8 +30,6 @@ struct ExistingBalanceDepositValidityStatement {
 
 /// @notice A statement proving validity of a deposit into a new balance
 struct NewBalanceDepositValidityStatement {
-    /// @dev The Merkle depth of the balance
-    uint256 merkleDepth;
     /// @dev The deposit to execute
     Deposit deposit;
     /// @dev A commitment to the updated balance
@@ -48,8 +44,6 @@ struct NewBalanceDepositValidityStatement {
 
 /// @notice A statement proving validity of a withdrawal from a balance
 struct WithdrawalValidityStatement {
-    /// @dev The Merkle depth of the balance
-    uint256 merkleDepth;
     /// @dev The withdrawal to execute
     Withdrawal withdrawal;
     /// @dev The nullifier of the previous version of the balance
@@ -67,8 +61,6 @@ struct WithdrawalValidityStatement {
 /// @notice A statement proving validity of a fee payment
 /// TODO: Add note ciphertext here
 struct FeePaymentValidityStatement {
-    /// @dev The Merkle depth at which to re-commit the balance
-    uint256 merkleDepth;
     /// @dev The nullifier of the previous version of the balance
     BN254.ScalarField balanceNullifier;
     /// @dev The commitment to the updated balance after the fee payment

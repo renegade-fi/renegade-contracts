@@ -41,14 +41,13 @@ contract FeePaymentTest is DarkpoolV2TestUtils {
         BN254.ScalarField[3] memory newBalancePublicShares = [randomScalar(), randomScalar(), randomScalar()];
 
         FeePaymentValidityStatement memory statement = FeePaymentValidityStatement({
-            merkleDepth: merkleDepth,
             balanceNullifier: balanceNullifier,
             newBalanceCommitment: newBalanceCommitment,
             noteCommitment: noteCommitment,
             newBalancePublicShares: newBalancePublicShares
         });
 
-        return FeePaymentProofBundle({ statement: statement, proof: createDummyProof() });
+        return FeePaymentProofBundle({ merkleDepth: merkleDepth, statement: statement, proof: createDummyProof() });
     }
 
     // ---------
@@ -73,7 +72,7 @@ contract FeePaymentTest is DarkpoolV2TestUtils {
 
         // Check that the Merkle root is in the history
         // Build a parallel merkle tree with the same operations
-        uint256 depth = proofBundle.statement.merkleDepth;
+        uint256 depth = proofBundle.merkleDepth;
         testMountain.insertLeaf(depth, proofBundle.statement.newBalanceCommitment, hasher);
         testMountain.insertLeaf(depth, proofBundle.statement.noteCommitment, hasher);
         BN254.ScalarField root = testMountain.getRoot(depth);
