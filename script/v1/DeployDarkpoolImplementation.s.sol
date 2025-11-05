@@ -2,16 +2,16 @@
 pragma solidity ^0.8.24;
 
 import { Script } from "forge-std/Script.sol";
-import { DeployUtils } from "./utils/DeployUtils.sol";
+import { DeployV1Utils } from "./DeployV1Utils.sol";
 
 /// @title DeployDarkpoolImplementationScript
 /// @author Renegade Eng
 /// @notice Deploys only the Darkpool implementation contract. Use this when upgrading the proxy.
-contract DeployDarkpoolImplementationScript is Script {
+contract DeployDarkpoolImplementationScript is Script, DeployV1Utils {
     /// @notice Deploy the Darkpool implementation contract
     function run() public {
         vm.startBroadcast();
-        DeployUtils.deployDarkpoolImplementation(vm);
+        deployDarkpoolImplementation(vm);
         vm.stopBroadcast();
     }
 }

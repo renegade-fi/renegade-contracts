@@ -3,11 +3,12 @@ pragma solidity ^0.8.24;
 
 import { Script } from "forge-std/Script.sol";
 import { console } from "forge-std/console.sol";
-import { DeployUtils } from "./utils/DeployUtils.sol";
-import { Permit2Utils } from "./utils/Permit2Utils.sol";
+import { DeployUtils } from "../utils/DeployUtils.sol";
+import { DeployV2Utils } from "./DeployV2Utils.sol";
+import { Permit2Utils } from "../utils/Permit2Utils.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
-import { WethMock } from "../test/test-contracts/WethMock.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
+import { WethMock } from "test-contracts/WethMock.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -16,7 +17,7 @@ import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol"
 /// @title DeployDevScript
 /// @author Renegade Eng
 /// @notice Development deployment script with mock tokens and Permit2
-contract DeployDevScript is Script {
+contract DeployDevScript is Script, DeployV2Utils {
     /// @notice Deploy all contracts for local development
     function run() public {
         // Start broadcast for the actual deployments
@@ -50,7 +51,7 @@ contract DeployDevScript is Script {
         // Call the shared deployment logic
         uint256 dummyProtocolFee = 1;
         address dummyExternalFeeRecipient = address(0x42);
-        DeployUtils.deployCore(
+        deployCore(
             msg.sender, // Use deployer as owner
             dummyProtocolFee,
             dummyExternalFeeRecipient,

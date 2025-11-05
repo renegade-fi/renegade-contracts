@@ -11,12 +11,12 @@ pragma solidity ^0.8.24;
  */
 import { Script } from "forge-std/Script.sol";
 import { console } from "forge-std/console.sol";
-import { DeployUtils } from "./utils/DeployUtils.sol";
+import { DeployV1Utils } from "./DeployV1Utils.sol";
 
 /// @title DeployMalleableMatchConnectorScript
 /// @author Renegade Eng
 /// @notice Deployment script for the MalleableMatchConnector contract
-contract DeployMalleableMatchConnectorScript is Script {
+contract DeployMalleableMatchConnectorScript is Script, DeployV1Utils {
     /**
      * @notice Deploy the MalleableMatchConnector contract behind a proxy
      * @param admin The admin address - serves as proxy admin
@@ -28,7 +28,7 @@ contract DeployMalleableMatchConnectorScript is Script {
         console.log("Gas Sponsor Address:", gasSponsorAddress);
 
         vm.startBroadcast();
-        address connectorProxy = DeployUtils.deployMalleableMatchConnector(admin, gasSponsorAddress, vm);
+        address connectorProxy = deployMalleableMatchConnector(admin, gasSponsorAddress, vm);
         console.log("MalleableMatchConnector deployment complete. Proxy address:", connectorProxy);
         vm.stopBroadcast();
     }
