@@ -1,7 +1,8 @@
 [package]
 name = "integration-tests"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.86.0"
 
 [dependencies]
 # === Cryptography Dependencies === #
@@ -11,7 +12,7 @@ ark-bn254 = "0.4"
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 
 # === Renegade Dependencies === #
-abi = { path = "../abi", features = ["relayer-types"] }
+abi = { path = "../../abi", features = ["relayer-types"] }
 renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", features = [
     "test_helpers",
 ] }
