@@ -12,6 +12,7 @@ cache/
 out/
 **/target
 **/Cargo.lock
+**/rustc-ice*
 
 # Ignores development broadcast logs
 !/broadcast
@@ -24,3 +25,4 @@ docs/
 
 # Dotenv file
 .env
+
