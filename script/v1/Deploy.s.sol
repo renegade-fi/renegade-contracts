@@ -12,12 +12,12 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { BabyJubJubPoint, EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { DeployUtils } from "./utils/DeployUtils.sol";
+import { DeployV1Utils } from "./DeployV1Utils.sol";
 
 /// @title DeployScript
 /// @author Renegade Eng
 /// @notice Deployment script for the Renegade darkpool
-contract DeployScript is Script {
+contract DeployScript is Script, DeployV1Utils {
     /// @notice Deploy the darkpool with the given parameters
     /// @param owner The owner of the darkpool
     /// @param protocolFeeKeyX The X coordinate of the protocol fee encryption key
@@ -42,7 +42,7 @@ contract DeployScript is Script {
             point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(protocolFeeKeyX), y: BN254.ScalarField.wrap(protocolFeeKeyY) })
         });
 
-        DeployUtils.deployCore(
+        deployCore(
             owner, protocolFeeRate, protocolFeeAddr, protocolFeeKey, IPermit2(permit2Address), IWETH9(wethAddress), vm
         );
         vm.stopBroadcast();

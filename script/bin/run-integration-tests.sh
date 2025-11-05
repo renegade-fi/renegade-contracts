@@ -93,7 +93,7 @@ sleep 2
 
 # Run the deployment script
 echo "Running deployment script..."
-if ! forge script script/DeployDev.s.sol \
+if ! forge script script/v1/DeployDev.s.sol \
     --ffi \
     --rpc-url http://localhost:8545 \
     --private-key $ANVIL_PKEY \

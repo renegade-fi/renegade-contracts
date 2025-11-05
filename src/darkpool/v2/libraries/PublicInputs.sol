@@ -76,8 +76,6 @@ struct FeePaymentValidityStatement {
     /// Only one of the fee shares is updated, but we re-blind all the following shares and emit them here
     /// to aid recovery logic.
     BN254.ScalarField[3] newBalancePublicShares;
-    /// @dev Whether the fee is paid to the protocol or the relayer
-    bool isProtocolFee;
 }
 
 // --- Validity Statements --- //

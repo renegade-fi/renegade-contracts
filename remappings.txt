@@ -23,6 +23,7 @@ renegade-connectors/=src/connectors
 darkpoolv1-test/=test/darkpool/v1
 
 darkpoolv2-contracts/=src/darkpool/v2/contracts
+darkpoolv2-proxies/=src/darkpool/v2/proxies
 darkpoolv2-interfaces/=src/darkpool/v2/interfaces
 darkpoolv2-proxies/=src/darkpool/v2/proxies
 darkpoolv2-lib/=src/darkpool/v2/libraries

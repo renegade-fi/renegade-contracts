@@ -247,7 +247,7 @@ fn deploy_darkpool(mut args: DeployDarkpoolArgs) -> Result<()> {
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/Deploy.s.sol:DeployScript") // Specify contract name with path
+        .arg("script/v1/Deploy.s.sol:DeployScript") // Specify contract name with path
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -290,7 +290,7 @@ fn deploy_gas_sponsor(mut args: DeployGasSponsorArgs) -> Result<()> {
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/DeployGasSponsor.s.sol:DeployGasSponsorScript") // Specify contract name with path
+        .arg("script/v1/DeployGasSponsor.s.sol:DeployGasSponsorScript") // Specify contract name with path
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -320,7 +320,7 @@ fn deploy_darkpool_implementation(args: DeployDarkpoolImplementationArgs) -> Res
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/DeployDarkpoolImplementation.s.sol:DeployDarkpoolImplementationScript")
+        .arg("script/v1/DeployDarkpoolImplementation.s.sol:DeployDarkpoolImplementationScript")
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -347,7 +347,7 @@ fn deploy_gas_sponsor_implementation(args: DeployGasSponsorImplementationArgs) -
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/DeployGasSponsorImplementation.sol:DeployGasSponsorImplementationScript")
+        .arg("script/v1/DeployGasSponsorImplementation.sol:DeployGasSponsorImplementationScript")
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -382,7 +382,7 @@ fn deploy_malleable_match_connector(mut args: DeployMalleableMatchConnectorArgs)
     // Build the forge script command
     let mut cmd = Command::new("forge");
     cmd.arg("script")
-        .arg("script/DeployMalleableMatchConnector.s.sol:DeployMalleableMatchConnectorScript")
+        .arg("script/v1/DeployMalleableMatchConnector.s.sol:DeployMalleableMatchConnectorScript")
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)
         .arg("--sig")
@@ -414,7 +414,7 @@ fn deploy_malleable_match_connector_implementation(
     let mut cmd = Command::new("forge");
     cmd.arg("script")
         .arg(
-            "script/DeployMalleableMatchConnectorImplementation.sol:DeployMalleableMatchConnectorImplementationScript",
+            "script/v1/DeployMalleableMatchConnectorImplementation.sol:DeployMalleableMatchConnectorImplementationScript",
         )
         .arg("--rpc-url")
         .arg(&args.common.rpc_url)

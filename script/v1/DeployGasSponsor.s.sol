@@ -11,12 +11,12 @@ pragma solidity ^0.8.24;
  */
 import { Script } from "forge-std/Script.sol";
 import { console } from "forge-std/console.sol";
-import { DeployUtils } from "./utils/DeployUtils.sol";
+import { DeployV1Utils } from "./DeployV1Utils.sol";
 
 /// @title DeployGasSponsorScript
 /// @author Renegade Eng
 /// @notice Deployment script for the GasSponsor contract
-contract DeployGasSponsorScript is Script {
+contract DeployGasSponsorScript is Script, DeployV1Utils {
     /**
      * @notice Deploy the GasSponsor contract behind a proxy
      * @param owner The owner address - serves as both proxy admin and GasSponsor contract owner
@@ -30,7 +30,7 @@ contract DeployGasSponsorScript is Script {
         console.log("Auth Address:", authAddress);
 
         vm.startBroadcast();
-        address gasSponsorProxy = DeployUtils.deployGasSponsor(owner, darkpoolAddress, authAddress, vm);
+        address gasSponsorProxy = deployGasSponsor(owner, darkpoolAddress, authAddress, vm);
         console.log("Gas Sponsor deployment complete. Proxy address:", gasSponsorProxy);
         vm.stopBroadcast();
     }
