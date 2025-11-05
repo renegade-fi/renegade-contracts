@@ -18,6 +18,8 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { Verifier } from "darkpoolv2-contracts/Verifier.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
+import { VKeys } from "darkpoolv2-contracts/VKeys.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
@@ -91,7 +93,8 @@ contract DarkpoolV2TestBase is TestUtils {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifierV2();
-        IVerifier realVerifier = new Verifier();
+        IVkeys vkeys = new VKeys();
+        IVerifier realVerifier = new Verifier(vkeys);
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
         // Deploy TransferExecutor

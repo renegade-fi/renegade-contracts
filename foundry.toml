@@ -12,6 +12,7 @@ number_underscore = "thousands"
 wrap_comments = true
 ignore = [
     "src/darkpool/v1/libraries/VerificationKeys.sol",
+    "src/darkpool/v2/libraries/VerificationKeys.sol",
     "src/libraries/merkle/MerkleZeros.sol",
 ]
 

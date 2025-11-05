@@ -10,9 +10,10 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolV2Proxy } from "darkpoolv2-proxies/DarkpoolV2Proxy.sol";
 import { Verifier } from "darkpoolv2-contracts/Verifier.sol";
+import { VKeys } from "darkpoolv2-contracts/VKeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
-import { IVKeys } from "darkpoolv1-interfaces/IVKeys.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
@@ -39,8 +40,14 @@ contract DeployV2Utils {
     /// @param vm The VM to write deployments
     /// @return The deployed VKeys contract
     /// @return The deployed Verifier contract
-    function deployVKeysAndVerifier(Vm vm) internal returns (IVKeys, IVerifier) {
-        // TODO: Implement
+    function deployVKeysAndVerifier(Vm vm) internal returns (IVkeys, IVerifier) {
+        VKeys vkeys = new VKeys();
+        IVerifier verifier = new Verifier(vkeys);
+        DeployUtils.writeDeployment(vm, "VKeys", address(vkeys));
+        DeployUtils.writeDeployment(vm, "Verifier", address(verifier));
+        console.log("VKeys deployed at:", address(vkeys));
+        console.log("Verifier deployed at:", address(verifier));
+        return (vkeys, verifier);
     }
 
     /// @notice Get the ProxyAdmin address for a TransparentUpgradeableProxy

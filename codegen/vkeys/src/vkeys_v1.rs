@@ -2,9 +2,10 @@
 
 use std::fmt::{self, Display};
 
+use crate::{NamedLinkingVkey, NamedVkey};
 use reference_impl_common::abi_types::{ProofLinkingVK, VerificationKey};
-use renegade_circuit_types::traits::SingleProverCircuit;
-use renegade_circuits::zk_circuits::{
+use renegade_circuit_types_v1::traits::SingleProverCircuit;
+use renegade_circuits_v1::zk_circuits::{
     proof_linking::{
         get_commitments_match_settle_group_layout, get_reblind_commitments_group_layout,
     },
@@ -20,12 +21,12 @@ use renegade_circuits::zk_circuits::{
     valid_wallet_create::SizedValidWalletCreate,
     valid_wallet_update::SizedValidWalletUpdate,
 };
-use renegade_constants::{MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT};
+use renegade_constants_v1::{MAX_BALANCES, MAX_ORDERS, MERKLE_HEIGHT};
 
 /// The circuit to generate a verification key for
 #[derive(Debug, Clone, Copy)]
 #[allow(clippy::enum_variant_names)]
-pub(super) enum Circuit {
+enum V1Circuit {
     /// The `VALID WALLET CREATE` circuit
     ValidWalletCreate,
     /// The `VALID WALLET UPDATE` circuit
@@ -49,13 +50,13 @@ pub(super) enum Circuit {
     /// The `VALID FEE REDEMPTION` circuit
     ValidFeeRedemption,
 }
-impl Display for Circuit {
+impl Display for V1Circuit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
     }
 }
 
-impl Circuit {
+impl V1Circuit {
     /// Generate the verification key for the circuit
     ///
     /// `SingleProverCircuit` cannot be a trait object, so we must handle each
@@ -125,7 +126,7 @@ impl Circuit {
 
 /// Represents all the linking instances in the Renegade circuits
 #[derive(Debug, Clone, Copy)]
-pub enum LinkingInstance {
+pub enum V1LinkingInstance {
     /// The proof link between `VALID REBLIND` and `VALID COMMITMENTS`
     ValidReblindCommitments,
     /// The proof link between `VALID COMMITMENTS` and `VALID MATCH SETTLE` for the first party
@@ -134,7 +135,7 @@ pub enum LinkingInstance {
     ValidCommitmentsMatchSettle1,
 }
 
-impl LinkingInstance {
+impl V1LinkingInstance {
     /// Generate a verification key for the linking instance
     pub fn vkey(&self) -> ProofLinkingVK {
         match self {
@@ -168,6 +169,27 @@ impl LinkingInstance {
 }
 
 // --- Helpers --- //
+
+/// Generate all verification keys and linking instances for v1
+pub fn gen_all_vkeys() -> (Vec<NamedVkey>, Vec<NamedLinkingVkey>) {
+    let circuits: Vec<NamedVkey> = V1Circuit::all()
+        .into_iter()
+        .map(|circuit| NamedVkey {
+            name: circuit.name().to_string(),
+            vkey: circuit.vkey(),
+        })
+        .collect();
+
+    let linking_instances: Vec<NamedLinkingVkey> = V1LinkingInstance::all()
+        .into_iter()
+        .map(|instance| NamedLinkingVkey {
+            name: instance.name().to_string(),
+            vkey: instance.vkey(),
+        })
+        .collect();
+
+    (circuits, linking_instances)
+}
 
 /// Generate the verification keys for all circuits
 ///
