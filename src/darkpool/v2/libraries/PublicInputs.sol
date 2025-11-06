@@ -29,15 +29,17 @@ struct ExistingBalanceDepositValidityStatement {
 }
 
 /// @notice A statement proving validity of a deposit into a new balance
-struct NewBalanceDepositValidityStatement {
+struct ValidBalanceCreateStatement {
     /// @dev The deposit to execute
     Deposit deposit;
     /// @dev A commitment to the updated balance
     /// TODO: Decide whether this should be a partial commitment or a full commitment
     BN254.ScalarField newBalanceCommitment;
+    /// @dev the recovery id of the balance
+    uint256 recoveryId;
     /// @dev The public shares of the new balance
     /// @dev These shares represent an entire balance
-    BN254.ScalarField[6] newBalancePublicShares;
+    BN254.ScalarField[7] newBalancePublicShares;
 }
 
 // --- Withdrawal Statements --- //
@@ -229,23 +231,25 @@ library PublicInputsLib {
     /// @notice Serialize the public inputs for a proof of new balance deposit validity
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    function statementSerialize(NewBalanceDepositValidityStatement memory statement)
+    function statementSerialize(ValidBalanceCreateStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 10;
+        uint256 nPublicInputs = 12;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.from)));
         publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
         publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
         publicInputs[3] = statement.newBalanceCommitment;
-        publicInputs[4] = statement.newBalancePublicShares[0];
-        publicInputs[5] = statement.newBalancePublicShares[1];
-        publicInputs[6] = statement.newBalancePublicShares[2];
-        publicInputs[7] = statement.newBalancePublicShares[3];
-        publicInputs[8] = statement.newBalancePublicShares[4];
-        publicInputs[9] = statement.newBalancePublicShares[5];
+        publicInputs[4] = BN254.ScalarField.wrap(statement.recoveryId);
+        publicInputs[5] = statement.newBalancePublicShares[0];
+        publicInputs[6] = statement.newBalancePublicShares[1];
+        publicInputs[7] = statement.newBalancePublicShares[2];
+        publicInputs[8] = statement.newBalancePublicShares[3];
+        publicInputs[9] = statement.newBalancePublicShares[4];
+        publicInputs[10] = statement.newBalancePublicShares[5];
+        publicInputs[11] = statement.newBalancePublicShares[6];
     }
 
     /// @notice Serialize the public inputs for a proof of withdrawal validity

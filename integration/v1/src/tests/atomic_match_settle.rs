@@ -1,6 +1,6 @@
 //! Integration tests for atomic match settlement
 
-use abi::IDarkpool::{
+use abi::v1::IDarkpool::{
     MatchAtomicLinkingProofs, MatchAtomicProofs, PartyMatchPayload,
     ValidMatchSettleAtomicStatement as ContractValidMatchSettleAtomicStatement,
 };

@@ -16,7 +16,7 @@ import {
 } from "darkpoolv2-types/ProofBundles.sol";
 import {
     ExistingBalanceDepositValidityStatement,
-    NewBalanceDepositValidityStatement,
+    ValidBalanceCreateStatement,
     WithdrawalValidityStatement,
     FeePaymentValidityStatement,
     PublicInputsLib
@@ -27,7 +27,7 @@ import {
 /// @notice Implementation of the IVerifier interface for the DarkpoolV2 contract
 contract Verifier is IVerifier {
     using PublicInputsLib for ExistingBalanceDepositValidityStatement;
-    using PublicInputsLib for NewBalanceDepositValidityStatement;
+    using PublicInputsLib for ValidBalanceCreateStatement;
     using PublicInputsLib for WithdrawalValidityStatement;
     using PublicInputsLib for FeePaymentValidityStatement;
 

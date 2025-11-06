@@ -4,9 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# === Blockchain === #
+alloy = "1.0"
+
 # === Renegade Dependencies === #
+renegade-abi = { package = "abi", path = "../../abi", features = [
+    "v2",
+    "v2-relayer-types",
+    "permit2",
+] }
 renegade-circuit-types = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/circuit-types" }
-renegade-circuits = { package = "circuits", path = "/Users/joeykraut/work/renegade/circuits" }
+renegade-circuits = { package = "circuits", path = "/Users/joeykraut/work/renegade/circuits", features = [
+    "test_helpers",
+] }
+renegade-constants = { package = "constants", path = "/Users/joeykraut/work/renegade/constants" }
+renegade-crypto = { path = "/Users/joeykraut/work/renegade/renegade-crypto" }
 renegade-util = { package = "util", path = "/Users/joeykraut/work/renegade/util", default-features = false, features = [
     "blockchain",
 ] }
@@ -18,3 +30,7 @@ colored = "3"
 eyre = "0.6"
 inventory = "0.3"
 tokio = { version = "1.36", features = ["full"] }
+
+# === Misc Dependencies === #
+rand = "0.8"
+serde_json = "1.0"

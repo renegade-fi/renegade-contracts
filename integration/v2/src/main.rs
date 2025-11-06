@@ -3,11 +3,12 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use eyre::Result;
 use test_args::TestArgs;
-use test_helpers::{integration_test_async, integration_test_main, types::TestVerbosity};
+use test_helpers::{integration_test_main, types::TestVerbosity};
 
 mod test_args;
+mod tests;
+mod util;
 
 /// The default private key for the tests, the first default account in an Anvil node
 const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -16,7 +17,7 @@ const DEFAULT_PKEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 #[derive(Debug, Clone, Parser)]
 struct CliArgs {
     /// The path to the deployments.json file
-    #[clap(long, default_value = "../deployments.devnet.json")]
+    #[clap(long, default_value = "../../deployments.devnet.json")]
     deployments: PathBuf,
     /// The private key to use for testing
     #[clap(short = 'p', long, default_value = DEFAULT_PKEY)]
@@ -39,11 +40,3 @@ struct CliArgs {
 // --------------
 
 integration_test_main!(CliArgs, TestArgs);
-
-/// A basic test that prints a message
-async fn basic_test(args: TestArgs) -> Result<()> {
-    println!("Running basic test!");
-    println!("Test passed successfully!");
-    Ok(())
-}
-integration_test_async!(basic_test);

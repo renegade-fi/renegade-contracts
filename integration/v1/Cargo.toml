@@ -12,7 +12,7 @@ ark-bn254 = "0.4"
 jf-primitives = { git = "https://github.com/renegade-fi/mpc-jellyfish.git" }
 
 # === Renegade Dependencies === #
-abi = { path = "../../abi", features = ["relayer-types"] }
+abi = { path = "../../abi", features = ["v1", "relayer-types"] }
 renegade-circuits = { package = "circuits", git = "https://github.com/renegade-fi/renegade", features = [
     "test_helpers",
 ] }

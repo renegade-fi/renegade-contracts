@@ -1,6 +1,6 @@
 //! Tests for settling internal matches
 
-use abi::{
+use abi::v1::{
     relayer_types::{address_to_biguint, biguint_to_address, u256_to_scalar},
     IDarkpool::{
         MatchLinkingProofs, MatchProofs, PartyMatchPayload,
