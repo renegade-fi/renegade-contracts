@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {
-    ExistingBalanceDepositValidityStatement,
+    ValidDepositStatement,
     ValidBalanceCreateStatement,
     WithdrawalValidityStatement,
     FeePaymentValidityStatement
@@ -18,7 +18,7 @@ struct DepositProofBundle {
     /// @dev The Merkle depth of the balance
     uint256 merkleDepth;
     /// @dev The statement of the deposit validity
-    ExistingBalanceDepositValidityStatement statement;
+    ValidDepositStatement statement;
     /// @dev The proof of the deposit validity
     PlonkProof proof;
 }

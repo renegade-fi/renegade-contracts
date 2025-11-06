@@ -22,6 +22,23 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 /// @author Renegade Eng
 /// @notice Interface for the DarkpoolV2 contract
 interface IDarkpoolV2 {
+    // --- Events --- //
+
+    /// @notice Emitted when an internal Merkle node is updated
+    /// @param depth The depth at which the node is updated
+    /// @param index The index of the node in the Merkle tree
+    /// @param new_value The new value of the node
+    /// forge-lint: disable-next-line(mixed-case-variable)
+    event MerkleOpeningNode(uint8 indexed depth, uint128 indexed index, uint256 new_value);
+    /// @notice Emitted when a Merkle leaf is inserted into the tree
+    /// @param index The leaf index
+    /// @param value The value of the leaf
+    /// forge-lint: disable-next-line(mixed-case-variable)
+    event MerkleInsertion(uint128 indexed index, uint256 indexed value);
+    /// @notice Emitted when a nullifier is spent
+    /// @param nullifier The nullifier that was spent
+    event NullifierSpent(BN254.ScalarField nullifier);
+
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract
     /// @param protocolFeeRate_ The protocol fee rate

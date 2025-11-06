@@ -192,7 +192,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
         // 3. Update the state; nullify the previous balance and insert the new balance
         uint256 merkleDepth = depositProofBundle.merkleDepth;
-        BN254.ScalarField balanceNullifier = depositProofBundle.statement.balanceNullifier;
+        BN254.ScalarField balanceNullifier = depositProofBundle.statement.oldBalanceNullifier;
         _state.spendNullifier(balanceNullifier);
         _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
     }

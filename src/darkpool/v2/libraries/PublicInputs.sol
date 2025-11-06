@@ -15,17 +15,21 @@ import { Withdrawal } from "darkpoolv2-types/transfers/Withdrawal.sol";
 // --- Deposit Statements --- //
 
 /// @notice A statement proving validity of a deposit into an existing balance
-struct ExistingBalanceDepositValidityStatement {
+struct ValidDepositStatement {
     /// @dev The deposit to execute
     Deposit deposit;
+    /// @dev The Merkle root to which the old balance opens
+    BN254.ScalarField merkleRoot;
     /// @dev The nullifier of the previous version of the balance
-    BN254.ScalarField balanceNullifier;
+    BN254.ScalarField oldBalanceNullifier;
     /// @dev A commitment to the updated balance
-    /// TODO: Decide whether this should be a partial commitment or a full commitment
     BN254.ScalarField newBalanceCommitment;
-    /// @dev The new amount public share of the balance
-    /// @dev This is verified in the proof and placed here to leak it in calldata for recovery logic
-    BN254.ScalarField newAmountPublicShare;
+    /// @dev The new recovery identifier of the balance
+    /// @dev This value is emitted as an event for chain indexers to track the balance's update
+    BN254.ScalarField recoveryId;
+    /// @dev The new public share of the amount field on the balance
+    /// @dev We only leak the public shares of the updated fields in each state transition
+    BN254.ScalarField newAmountShare;
 }
 
 /// @notice A statement proving validity of a deposit into a new balance
@@ -36,7 +40,7 @@ struct ValidBalanceCreateStatement {
     /// TODO: Decide whether this should be a partial commitment or a full commitment
     BN254.ScalarField newBalanceCommitment;
     /// @dev the recovery id of the balance
-    uint256 recoveryId;
+    BN254.ScalarField recoveryId;
     /// @dev The public shares of the new balance
     /// @dev These shares represent an entire balance
     BN254.ScalarField[7] newBalancePublicShares;
@@ -213,19 +217,21 @@ library PublicInputsLib {
     /// @notice Serialize the public inputs for a proof of existing balance deposit validity
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    function statementSerialize(ExistingBalanceDepositValidityStatement memory statement)
+    function statementSerialize(ValidDepositStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 6;
+        uint256 nPublicInputs = 8;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.from)));
         publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
         publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
-        publicInputs[3] = statement.balanceNullifier;
-        publicInputs[4] = statement.newBalanceCommitment;
-        publicInputs[5] = statement.newAmountPublicShare;
+        publicInputs[3] = statement.merkleRoot;
+        publicInputs[4] = statement.oldBalanceNullifier;
+        publicInputs[5] = statement.newBalanceCommitment;
+        publicInputs[6] = statement.recoveryId;
+        publicInputs[7] = statement.newAmountShare;
     }
 
     /// @notice Serialize the public inputs for a proof of new balance deposit validity
@@ -242,7 +248,7 @@ library PublicInputsLib {
         publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
         publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
         publicInputs[3] = statement.newBalanceCommitment;
-        publicInputs[4] = BN254.ScalarField.wrap(statement.recoveryId);
+        publicInputs[4] = statement.recoveryId;
         publicInputs[5] = statement.newBalancePublicShares[0];
         publicInputs[6] = statement.newBalancePublicShares[1];
         publicInputs[7] = statement.newBalancePublicShares[2];

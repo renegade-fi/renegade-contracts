@@ -12,7 +12,7 @@ import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
 import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Deposit, DepositAuth, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv2-types/transfers/Deposit.sol";
-import { ExistingBalanceDepositValidityStatement, ValidBalanceCreateStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { ValidDepositStatement, ValidBalanceCreateStatement } from "darkpoolv2-lib/PublicInputs.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title DepositTest
@@ -134,15 +134,19 @@ contract DepositTest is DarkpoolV2TestUtils {
 
     /// @notice Create a deposit proof bundle for testing
     function createDepositProofBundle(Deposit memory deposit) internal returns (DepositProofBundle memory) {
-        BN254.ScalarField balanceNullifier = randomScalar();
+        BN254.ScalarField oldBalanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();
-        BN254.ScalarField newAmountPublicShare = randomScalar();
+        BN254.ScalarField newAmountShare = randomScalar();
+        BN254.ScalarField merkleRoot = randomScalar();
+        BN254.ScalarField recoveryId = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
-        ExistingBalanceDepositValidityStatement memory statement = ExistingBalanceDepositValidityStatement({
+        ValidDepositStatement memory statement = ValidDepositStatement({
             deposit: deposit,
-            balanceNullifier: balanceNullifier,
+            merkleRoot: merkleRoot,
+            oldBalanceNullifier: oldBalanceNullifier,
             newBalanceCommitment: newBalanceCommitment,
-            newAmountPublicShare: newAmountPublicShare
+            recoveryId: recoveryId,
+            newAmountShare: newAmountShare
         });
 
         return DepositProofBundle({ merkleDepth: merkleDepth, statement: statement, proof: createDummyProof() });
@@ -189,8 +193,8 @@ contract DepositTest is DarkpoolV2TestUtils {
         ValidBalanceCreateStatement memory statement = ValidBalanceCreateStatement({
             deposit: deposit,
             newBalanceCommitment: newBalanceCommitment,
-            newBalancePublicShares: newBalancePublicShares,
-            recoveryId: randomUint()
+            recoveryId: randomScalar(),
+            newBalancePublicShares: newBalancePublicShares
         });
 
         return
@@ -223,7 +227,9 @@ contract DepositTest is DarkpoolV2TestUtils {
         assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore + depositAmount, "Darkpool balance should increase");
 
         // Check that the nullifier was spent
-        assertTrue(darkpool.nullifierSpent(proofBundle.statement.balanceNullifier), "Balance nullifier should be spent");
+        assertTrue(
+            darkpool.nullifierSpent(proofBundle.statement.oldBalanceNullifier), "Balance nullifier should be spent"
+        );
     }
 
     /// @notice Test the Merkle root after a deposit

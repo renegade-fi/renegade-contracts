@@ -38,7 +38,7 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct ExistingBalanceDepositValidityStatement",
+            "internalType": "struct ValidDepositStatement",
             "components": [
               {
                 "name": "deposit",
@@ -63,7 +63,12 @@
                 ]
               },
               {
-                "name": "balanceNullifier",
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -73,7 +78,12 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newAmountPublicShare",
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newAmountShare",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -263,7 +273,7 @@
               {
                 "name": "recoveryId",
                 "type": "uint256",
-                "internalType": "uint256"
+                "internalType": "BN254.ScalarField"
               },
               {
                 "name": "newBalancePublicShares",
@@ -921,6 +931,63 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "event",
+    "name": "MerkleInsertion",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint128",
+        "indexed": true,
+        "internalType": "uint128"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MerkleOpeningNode",
+    "inputs": [
+      {
+        "name": "depth",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "index",
+        "type": "uint128",
+        "indexed": true,
+        "internalType": "uint128"
+      },
+      {
+        "name": "new_value",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NullifierSpent",
+    "inputs": [
+      {
+        "name": "nullifier",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "BN254.ScalarField"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "function",
     "name": "batchVerify",
     "inputs": [
@@ -1236,7 +1303,7 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct ExistingBalanceDepositValidityStatement",
+            "internalType": "struct ValidDepositStatement",
             "components": [
               {
                 "name": "deposit",
@@ -1261,7 +1328,12 @@
                 ]
               },
               {
-                "name": "balanceNullifier",
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -1271,7 +1343,12 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newAmountPublicShare",
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newAmountShare",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -1605,7 +1682,7 @@
               {
                 "name": "recoveryId",
                 "type": "uint256",
-                "internalType": "uint256"
+                "internalType": "BN254.ScalarField"
               },
               {
                 "name": "newBalancePublicShares",
