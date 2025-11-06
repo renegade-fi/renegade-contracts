@@ -16,8 +16,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::util::deployments::read_deployment;
-use abi::relayer_types::scalar_to_u256;
-use abi::IDarkpool::IDarkpoolInstance;
+use abi::v1::relayer_types::scalar_to_u256;
+use abi::v1::IDarkpool::IDarkpoolInstance;
 use alloy::network::Ethereum;
 use alloy::primitives::{Address, U256};
 use alloy::providers::{DynProvider, Provider, ProviderBuilder};

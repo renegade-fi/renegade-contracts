@@ -1,6 +1,6 @@
 //! Wallet update tests
 
-use abi::{
+use abi::v1::{
     relayer_types::{address_to_biguint, biguint_to_address},
     IDarkpool::{
         ExternalTransfer as ContractTransfer, PlonkProof as ContractPlonkProof,

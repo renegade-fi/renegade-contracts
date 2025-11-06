@@ -1,6 +1,6 @@
 //! Utils for fetching and operating on Merkle openings
 
-use abi::{
+use abi::v1::{
     relayer_types::{scalar_to_u256, size_vec, u256_to_scalar},
     IDarkpool::MerkleOpeningNode,
 };

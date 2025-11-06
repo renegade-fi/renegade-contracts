@@ -12,10 +12,7 @@ import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
 import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Deposit, DepositAuth, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv2-types/transfers/Deposit.sol";
-import {
-    ExistingBalanceDepositValidityStatement,
-    NewBalanceDepositValidityStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+import { ExistingBalanceDepositValidityStatement, ValidBalanceCreateStatement } from "darkpoolv2-lib/PublicInputs.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title DepositTest
@@ -183,16 +180,17 @@ contract DepositTest is DarkpoolV2TestUtils {
         BN254.ScalarField newBalanceCommitment = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
 
-        // Generate 6 random public shares for the new balance
-        BN254.ScalarField[6] memory newBalancePublicShares;
-        for (uint256 i = 0; i < 6; i++) {
+        // Generate 7 random public shares for the new balance
+        BN254.ScalarField[7] memory newBalancePublicShares;
+        for (uint256 i = 0; i < 7; i++) {
             newBalancePublicShares[i] = randomScalar();
         }
 
-        NewBalanceDepositValidityStatement memory statement = NewBalanceDepositValidityStatement({
+        ValidBalanceCreateStatement memory statement = ValidBalanceCreateStatement({
             deposit: deposit,
             newBalanceCommitment: newBalanceCommitment,
-            newBalancePublicShares: newBalancePublicShares
+            newBalancePublicShares: newBalancePublicShares,
+            recoveryId: randomUint()
         });
 
         return
