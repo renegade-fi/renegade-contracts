@@ -1,7 +1,7 @@
 use alloy::sol;
 
-#[cfg(feature = "permit2")]
-pub mod permit2;
+#[cfg(feature = "transfer-auth")]
+pub mod transfer_auth;
 
 // We use a combined ABI between the darkpool v2, verifier, and vkeys interfaces as the sol macro currently requires all
 // types to be present in the same macro invocation.

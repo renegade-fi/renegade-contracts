@@ -49,17 +49,21 @@ struct ValidBalanceCreateStatement {
 // --- Withdrawal Statements --- //
 
 /// @notice A statement proving validity of a withdrawal from a balance
-struct WithdrawalValidityStatement {
+struct ValidWithdrawalStatement {
     /// @dev The withdrawal to execute
     Withdrawal withdrawal;
+    /// @dev The Merkle root to which the old balance opens
+    BN254.ScalarField merkleRoot;
     /// @dev The nullifier of the previous version of the balance
-    BN254.ScalarField balanceNullifier;
+    BN254.ScalarField oldBalanceNullifier;
     /// @dev The commitment to the updated balance after the withdrawal executes
-    /// TODO: Decide whether this should be a partial commitment or a full commitment
     BN254.ScalarField newBalanceCommitment;
-    /// @dev The new amount public share of the balance
+    /// @dev The new recovery identifier of the balance
+    /// @dev This value is emitted as an event for chain indexers to track the balance's update
+    BN254.ScalarField recoveryId;
+    /// @dev The new public share of the amount field on the balance
     /// @dev This is verified in the proof and placed here to leak it in calldata for recovery logic
-    BN254.ScalarField newAmountPublicShare;
+    BN254.ScalarField newAmountShare;
 }
 
 // --- Fee Payment Statements --- //
@@ -261,19 +265,21 @@ library PublicInputsLib {
     /// @notice Serialize the public inputs for a proof of withdrawal validity
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    function statementSerialize(WithdrawalValidityStatement memory statement)
+    function statementSerialize(ValidWithdrawalStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 6;
+        uint256 nPublicInputs = 8;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.withdrawal.to)));
         publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.withdrawal.token)));
         publicInputs[2] = BN254.ScalarField.wrap(statement.withdrawal.amount);
-        publicInputs[3] = statement.balanceNullifier;
-        publicInputs[4] = statement.newBalanceCommitment;
-        publicInputs[5] = statement.newAmountPublicShare;
+        publicInputs[3] = statement.merkleRoot;
+        publicInputs[4] = statement.oldBalanceNullifier;
+        publicInputs[5] = statement.newBalanceCommitment;
+        publicInputs[6] = statement.recoveryId;
+        publicInputs[7] = statement.newAmountShare;
     }
 
     /// @notice Serialize the public inputs for a proof of fee payment validity

@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 v1 = []
 v2 = []
-permit2 = ["alloy/rand"]
+transfer-auth = ["alloy/rand"]
 relayer-types = [
     "dep:ark-bn254",
     "dep:ark-ec",

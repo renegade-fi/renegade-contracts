@@ -8,6 +8,7 @@ use crate::v2::BN254;
 
 pub mod deposit;
 pub mod proof_bundles;
+pub mod withdrawal;
 
 // ----------------------
 // | Conversion Helpers |

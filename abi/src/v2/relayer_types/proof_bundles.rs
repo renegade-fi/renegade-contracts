@@ -6,6 +6,7 @@ use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
     valid_balance_create::ValidBalanceCreateStatement, valid_deposit::ValidDepositStatement,
+    valid_withdrawal::ValidWithdrawalStatement,
 };
 use renegade_crypto_v2::fields::scalar_to_u256;
 
@@ -44,6 +45,19 @@ impl IDarkpoolV2::DepositProofBundle {
     }
 }
 
+impl IDarkpoolV2::WithdrawalProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(statement: ValidWithdrawalStatement, proof: PlonkProof) -> Self {
+        let merkle_depth = U256::from(MERKLE_HEIGHT);
+        Self {
+            // We use the default merkle height for now
+            merkleDepth: merkle_depth,
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -70,6 +84,19 @@ impl From<ValidDepositStatement> for IDarkpoolV2::ValidDepositStatement {
     fn from(statement: ValidDepositStatement) -> Self {
         Self {
             deposit: statement.deposit.into(),
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+            newAmountShare: scalar_to_u256(&statement.new_amount_share),
+        }
+    }
+}
+
+impl From<ValidWithdrawalStatement> for IDarkpoolV2::ValidWithdrawalStatement {
+    fn from(statement: ValidWithdrawalStatement) -> Self {
+        Self {
+            withdrawal: statement.withdrawal.into(),
             merkleRoot: scalar_to_u256(&statement.merkle_root),
             oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
             newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),

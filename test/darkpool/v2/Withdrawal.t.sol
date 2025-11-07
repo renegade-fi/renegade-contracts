@@ -11,7 +11,7 @@ import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
 import { WithdrawalProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
-import { WithdrawalValidityStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { ValidWithdrawalStatement } from "darkpoolv2-lib/PublicInputs.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
@@ -78,16 +78,20 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
         internal
         returns (WithdrawalProofBundle memory)
     {
-        BN254.ScalarField balanceNullifier = randomScalar();
+        BN254.ScalarField merkleRoot = randomScalar();
+        BN254.ScalarField oldBalanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();
-        BN254.ScalarField newAmountPublicShare = randomScalar();
+        BN254.ScalarField recoveryId = randomScalar();
+        BN254.ScalarField newAmountShare = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
 
-        WithdrawalValidityStatement memory statement = WithdrawalValidityStatement({
+        ValidWithdrawalStatement memory statement = ValidWithdrawalStatement({
             withdrawal: withdrawal,
-            balanceNullifier: balanceNullifier,
+            merkleRoot: merkleRoot,
+            oldBalanceNullifier: oldBalanceNullifier,
             newBalanceCommitment: newBalanceCommitment,
-            newAmountPublicShare: newAmountPublicShare
+            recoveryId: recoveryId,
+            newAmountShare: newAmountShare
         });
 
         return WithdrawalProofBundle({ merkleDepth: merkleDepth, statement: statement, proof: createDummyProof() });
@@ -124,7 +128,9 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
         assertEq(darkpoolBalanceAfter, darkpoolBalanceBefore - withdrawalAmount, "Darkpool balance should decrease");
 
         // Check that the nullifier was spent
-        assertTrue(darkpool.nullifierSpent(proofBundle.statement.balanceNullifier), "Balance nullifier should be spent");
+        assertTrue(
+            darkpool.nullifierSpent(proofBundle.statement.oldBalanceNullifier), "Balance nullifier should be spent"
+        );
     }
 
     /// @notice Test the Merkle root after a withdrawal
