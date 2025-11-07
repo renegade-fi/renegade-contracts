@@ -998,6 +998,19 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "RecoveryIdRegistered",
+    "inputs": [
+      {
+        "name": "recoveryId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "BN254.ScalarField"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "function",
     "name": "batchVerify",
     "inputs": [

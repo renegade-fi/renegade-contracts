@@ -38,6 +38,9 @@ interface IDarkpoolV2 {
     /// @notice Emitted when a nullifier is spent
     /// @param nullifier The nullifier that was spent
     event NullifierSpent(BN254.ScalarField nullifier);
+    /// @notice Emitted when a new recovery ID is registered on-chain
+    /// @param recoveryId The recovery ID that was registered
+    event RecoveryIdRegistered(BN254.ScalarField indexed recoveryId);
 
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract
