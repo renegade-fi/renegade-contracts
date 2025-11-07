@@ -2,7 +2,7 @@
 
 use eyre::Result;
 use renegade_abi::v2::{
-    permit2::create_deposit_permit,
+    transfer_auth::deposit::create_deposit_permit,
     IDarkpoolV2::{Deposit, DepositAuth},
 };
 use renegade_constants::Scalar;

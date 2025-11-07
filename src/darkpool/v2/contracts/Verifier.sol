@@ -17,7 +17,7 @@ import {
 import {
     ValidDepositStatement,
     ValidBalanceCreateStatement,
-    WithdrawalValidityStatement,
+    ValidWithdrawalStatement,
     FeePaymentValidityStatement,
     PublicInputsLib
 } from "darkpoolv2-lib/PublicInputs.sol";
@@ -28,7 +28,7 @@ import {
 contract Verifier is IVerifier {
     using PublicInputsLib for ValidDepositStatement;
     using PublicInputsLib for ValidBalanceCreateStatement;
-    using PublicInputsLib for WithdrawalValidityStatement;
+    using PublicInputsLib for ValidWithdrawalStatement;
     using PublicInputsLib for FeePaymentValidityStatement;
 
     /// @notice The verification keys contract

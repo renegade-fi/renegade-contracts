@@ -776,7 +776,7 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct WithdrawalValidityStatement",
+            "internalType": "struct ValidWithdrawalStatement",
             "components": [
               {
                 "name": "withdrawal",
@@ -801,7 +801,12 @@
                 ]
               },
               {
-                "name": "balanceNullifier",
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -811,7 +816,12 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newAmountPublicShare",
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newAmountShare",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -1827,7 +1837,7 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct WithdrawalValidityStatement",
+            "internalType": "struct ValidWithdrawalStatement",
             "components": [
               {
                 "name": "withdrawal",
@@ -1852,7 +1862,12 @@
                 ]
               },
               {
-                "name": "balanceNullifier",
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -1862,7 +1877,12 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newAmountPublicShare",
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newAmountShare",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }

@@ -3,7 +3,9 @@
 use crate::test_args::TestArgs;
 use alloy::primitives::U256;
 use eyre::Result;
-use renegade_abi::v2::IDarkpoolV2::Deposit;
+use rand::{thread_rng, Rng};
+use renegade_abi::v2::IDarkpoolV2::{Deposit, Withdrawal};
+use renegade_circuit_types::Amount;
 
 pub mod circuit_helpers;
 pub mod darkpool;
@@ -29,5 +31,19 @@ pub fn random_deposit(args: &TestArgs) -> Result<Deposit> {
         from: args.wallet_addr(),
         token: args.base_addr()?,
         amount: random_amount(),
+    })
+}
+
+/// Create a random withdrawal
+pub fn random_withdrawal(
+    max_amount: Amount,
+    args: &TestArgs,
+) -> Result<renegade_abi::v2::IDarkpoolV2::Withdrawal> {
+    let mut rng = thread_rng();
+    let amount = rng.gen_range(0..max_amount);
+    Ok(Withdrawal {
+        to: args.wallet_addr(),
+        token: args.base_addr()?,
+        amount: U256::from(amount),
     })
 }

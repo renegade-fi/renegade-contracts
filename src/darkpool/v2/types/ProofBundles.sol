@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {
     ValidDepositStatement,
     ValidBalanceCreateStatement,
-    WithdrawalValidityStatement,
+    ValidWithdrawalStatement,
     FeePaymentValidityStatement
 } from "darkpoolv2-lib/PublicInputs.sol";
 
@@ -38,7 +38,7 @@ struct WithdrawalProofBundle {
     /// @dev The Merkle depth of the balance
     uint256 merkleDepth;
     /// @dev The statement of the withdrawal validity
-    WithdrawalValidityStatement statement;
+    ValidWithdrawalStatement statement;
     /// @dev The proof of the withdrawal validity
     PlonkProof proof;
 }

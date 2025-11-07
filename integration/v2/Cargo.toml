@@ -11,7 +11,7 @@ alloy = "1.0"
 renegade-abi = { package = "abi", path = "../../abi", features = [
     "v2",
     "v2-relayer-types",
-    "permit2",
+    "transfer-auth",
 ] }
 renegade-circuit-types = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/circuit-types" }
 renegade-circuits = { package = "circuits", path = "/Users/joeykraut/work/renegade/circuits", features = [
