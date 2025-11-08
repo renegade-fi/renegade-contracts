@@ -6,6 +6,7 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
 import {
     PartyId,
@@ -123,6 +124,11 @@ library SettlementLib {
         if (!amountCompatible) {
             revert IncompatibleAmounts();
         }
+
+        // 3. The input and output amounts must be valid
+        // We only need to validate the input and output of one party as the checks above ensure they're symmetric
+        DarkpoolConstants.validateAmount(obligation0.amountIn);
+        DarkpoolConstants.validateAmount(obligation0.amountOut);
     }
 
     /// @notice Validate a private obligation bundle
