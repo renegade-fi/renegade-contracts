@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
@@ -71,6 +72,29 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
         // Should revert with IncompatibleAmounts
         ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
         vm.expectRevert(SettlementLib.IncompatibleAmounts.selector);
+        validateObligationBundleHelper(obligationBundle);
+    }
+
+    /// @notice Test that validation fails when the input or output amount is too large
+    function test_invalidAmounts() public {
+        (SettlementObligation memory party0Obligation, SettlementObligation memory party1Obligation,) =
+            createTradeObligations();
+
+        // Corrupt one of the obligations
+        uint256 invalidAmount = 2 ** DarkpoolConstants.AMOUNT_BITS;
+        if (vm.randomBool()) {
+            party0Obligation.amountIn = invalidAmount;
+            party1Obligation.amountOut = invalidAmount;
+        } else {
+            party0Obligation.amountIn = invalidAmount;
+            party1Obligation.amountOut = invalidAmount;
+        }
+
+        // Should revert with AmountTooLarge
+        ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
+        vm.expectRevert(
+            abi.encodeWithSelector(DarkpoolConstants.AmountTooLarge.selector, 2 ** DarkpoolConstants.AMOUNT_BITS)
+        );
         validateObligationBundleHelper(obligationBundle);
     }
 }
