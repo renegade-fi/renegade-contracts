@@ -272,7 +272,7 @@ library NativeSettledPrivateIntentLib {
         internal
     {
         // 1. Spend the nullifier for the previous version of the intent
-        BN254.ScalarField nullifier = bundleData.auth.statement.nullifier;
+        BN254.ScalarField nullifier = bundleData.auth.statement.oldIntentNullifier;
         state.spendNullifier(nullifier);
 
         // 2. Insert a commitment to the updated intent into the Merkle tree

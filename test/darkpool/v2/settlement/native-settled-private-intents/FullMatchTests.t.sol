@@ -120,8 +120,8 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // 1. Check that the nullifier are spent
-        bool nullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.nullifier);
-        bool nullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.nullifier);
+        bool nullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.oldIntentNullifier);
+        bool nullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.oldIntentNullifier);
         assertTrue(nullifier0Spent, "nullifier0 not spent");
         assertTrue(nullifier1Spent, "nullifier1 not spent");
 

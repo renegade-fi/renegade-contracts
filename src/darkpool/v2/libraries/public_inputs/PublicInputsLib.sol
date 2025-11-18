@@ -220,11 +220,16 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 3;
+        uint256 nPublicInputs = 8;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.intentOwner)));
         publicInputs[1] = statement.initialIntentCommitment;
         publicInputs[2] = statement.newIntentPartialCommitment;
+        publicInputs[3] = statement.intentPublicShare[0];
+        publicInputs[4] = statement.intentPublicShare[1];
+        publicInputs[5] = statement.intentPublicShare[2];
+        publicInputs[6] = statement.intentPublicShare[3];
+        publicInputs[7] = statement.intentPublicShare[4];
     }
 
     /// @notice Serialize the public inputs for a proof
@@ -235,11 +240,15 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 3;
+        uint256 nPublicInputs = 7;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.intentOwner)));
-        publicInputs[1] = statement.newIntentPartialCommitment;
-        publicInputs[2] = statement.nullifier;
+        publicInputs[1] = statement.merkleRoot;
+        publicInputs[2] = statement.oldIntentNullifier;
+        publicInputs[3] = statement.newAmountShare;
+        publicInputs[4] = statement.newIntentPartialCommitment.privateCommitment;
+        publicInputs[5] = statement.newIntentPartialCommitment.partialPublicCommitment;
+        publicInputs[6] = statement.recoveryId;
     }
 
     /// @notice Serialize the public inputs for a proof of intent and balance validity
@@ -250,14 +259,22 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 6;
+        uint256 nPublicInputs = 14;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.oneTimeAuthorizingAddress)));
-        publicInputs[1] = statement.newOneTimeKeyHash;
-        publicInputs[2] = statement.initialIntentCommitment;
-        publicInputs[3] = statement.newIntentPartialCommitment;
-        publicInputs[4] = statement.balancePartialCommitment;
-        publicInputs[5] = statement.balanceNullifier;
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.intentAndAuthorizingAddressCommitment;
+        publicInputs[2] = statement.intentPublicShare[0];
+        publicInputs[3] = statement.intentPublicShare[1];
+        publicInputs[4] = statement.intentPublicShare[2];
+        publicInputs[5] = statement.intentPublicShare[3];
+        publicInputs[6] = statement.intentPrivateShareCommitment;
+        publicInputs[7] = statement.intentRecoveryId;
+        publicInputs[8] = statement.balancePartialCommitment.privateCommitment;
+        publicInputs[9] = statement.balancePartialCommitment.partialPublicCommitment;
+        publicInputs[10] = statement.newOneTimeAddressPublicShare;
+        publicInputs[11] = statement.oldBalanceNullifier;
+        publicInputs[12] = statement.balanceRecoveryId;
+        publicInputs[13] = BN254.ScalarField.wrap(uint256(uint160(statement.oneTimeAuthorizingAddress)));
     }
 
     /// @notice Serialize the public inputs for a proof of single-intent match settlement
@@ -311,12 +328,20 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 4;
+        uint256 nPublicInputs = 10;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.newIntentPartialCommitment;
-        publicInputs[1] = statement.balancePartialCommitment;
-        publicInputs[2] = statement.intentNullifier;
-        publicInputs[3] = statement.balanceNullifier;
+        // Intent fields
+        publicInputs[0] = statement.intentMerkleRoot;
+        publicInputs[1] = statement.oldIntentNullifier;
+        publicInputs[2] = statement.newIntentPartialCommitment.privateCommitment;
+        publicInputs[3] = statement.newIntentPartialCommitment.partialPublicCommitment;
+        publicInputs[4] = statement.intentRecoveryId;
+        // Balance fields
+        publicInputs[5] = statement.balanceMerkleRoot;
+        publicInputs[6] = statement.oldBalanceNullifier;
+        publicInputs[7] = statement.balancePartialCommitment.privateCommitment;
+        publicInputs[8] = statement.balancePartialCommitment.partialPublicCommitment;
+        publicInputs[9] = statement.balanceRecoveryId;
     }
 
     /// @notice Serialize the public inputs for a proof of Renegade settled private fill settlement
@@ -369,4 +394,3 @@ library PublicInputsLib {
         });
     }
 }
-

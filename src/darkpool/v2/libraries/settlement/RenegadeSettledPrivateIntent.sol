@@ -227,7 +227,7 @@ library RenegadeSettledPrivateIntentLib {
         internal
     {
         // 1. Nullify the balance state
-        BN254.ScalarField nullifier = bundleData.auth.statement.balanceNullifier;
+        BN254.ScalarField nullifier = bundleData.auth.statement.oldBalanceNullifier;
         state.spendNullifier(nullifier);
 
         // 2. Insert commitments to the updated intent and balance into the Merkle tree
@@ -250,8 +250,8 @@ library RenegadeSettledPrivateIntentLib {
         internal
     {
         // 1. Nullify both the balance and intent states
-        BN254.ScalarField balanceNullifier = bundleData.auth.statement.balanceNullifier;
-        BN254.ScalarField intentNullifier = bundleData.auth.statement.intentNullifier;
+        BN254.ScalarField balanceNullifier = bundleData.auth.statement.oldBalanceNullifier;
+        BN254.ScalarField intentNullifier = bundleData.auth.statement.oldIntentNullifier;
         state.spendNullifier(balanceNullifier);
         state.spendNullifier(intentNullifier);
 

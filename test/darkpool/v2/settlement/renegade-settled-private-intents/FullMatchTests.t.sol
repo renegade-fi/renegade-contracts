@@ -93,8 +93,8 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // 1. Check that the balance nullifiers are spent (first fill only nullifies balance, not intent)
-        bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.balanceNullifier);
-        bool balanceNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.balanceNullifier);
+        bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.oldBalanceNullifier);
+        bool balanceNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.oldBalanceNullifier);
         assertTrue(balanceNullifier0Spent, "balance nullifier0 not spent");
         assertTrue(balanceNullifier1Spent, "balance nullifier1 not spent");
 
@@ -132,10 +132,10 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         darkpool.settleMatch(obligationBundle, bundle0, bundle1);
 
         // 1. Check that both intent and balance nullifiers are spent
-        bool intentNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.intentNullifier);
-        bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.balanceNullifier);
-        bool intentNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.intentNullifier);
-        bool balanceNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.balanceNullifier);
+        bool intentNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.oldIntentNullifier);
+        bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.oldBalanceNullifier);
+        bool intentNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.oldIntentNullifier);
+        bool balanceNullifier1Spent = darkpool.nullifierSpent(bundleData1.auth.statement.oldBalanceNullifier);
 
         assertTrue(intentNullifier0Spent, "intent nullifier0 not spent");
         assertTrue(balanceNullifier0Spent, "balance nullifier0 not spent");
@@ -203,7 +203,7 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
             abi.decode(bundle0.data, (RenegadeSettledIntentFirstFillBundle));
         RenegadeSettledIntentFirstFillBundle memory bundleData2 =
             abi.decode(bundle2.data, (RenegadeSettledIntentFirstFillBundle));
-        bundleData2.auth.statement.balanceNullifier = bundleData0.auth.statement.balanceNullifier;
+        bundleData2.auth.statement.oldBalanceNullifier = bundleData0.auth.statement.oldBalanceNullifier;
         bundle2.data = abi.encode(bundleData2);
 
         // Try settling the new match, the balance nullifier should already be spent

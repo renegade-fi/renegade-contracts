@@ -38,19 +38,20 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     // --- Signatures --- //
 
     /// @dev Sign the owner signature digest for a renegade settled private intent
+    /// @dev The signature is over intentAndAuthorizingAddressCommitment which combines
+    /// the intent commitment and the new one-time key hash
     function createOwnerSignature(
-        BN254.ScalarField intentCommitment,
-        BN254.ScalarField newOneTimeKeyHash,
+        BN254.ScalarField intentAndAuthorizingAddressCommitment,
         uint256 signerPrivateKey
     )
         internal
         returns (SignatureWithNonce memory)
     {
-        // Hash the intent commitment and new one-time key hash with a random nonce
+        // Hash the intent and authorizing address commitment with a random nonce
+        // This matches getOwnerSignatureDigest which hashes the single commitment
         uint256 nonce = randomUint();
-        uint256 commitment = BN254.ScalarField.unwrap(intentCommitment);
-        uint256 oneTimeKeyHash = BN254.ScalarField.unwrap(newOneTimeKeyHash);
-        bytes32 digest = EfficientHashLib.hash(commitment, oneTimeKeyHash);
+        uint256 commitment = BN254.ScalarField.unwrap(intentAndAuthorizingAddressCommitment);
+        bytes32 digest = EfficientHashLib.hash(commitment);
         bytes32 signatureDigest = EfficientHashLib.hash(digest, bytes32(nonce));
 
         // Sign with the private key
@@ -67,23 +68,36 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy intent and balance validity statement (first fill)
     function createSampleStatementFirstFill() internal returns (IntentAndBalanceValidityStatementFirstFill memory) {
+        BN254.ScalarField[4] memory intentPublicShare;
+        for (uint256 i = 0; i < 4; ++i) {
+            intentPublicShare[i] = randomScalar();
+        }
+
         return IntentAndBalanceValidityStatementFirstFill({
-            oneTimeAuthorizingAddress: oneTimeOwner.addr,
-            newOneTimeKeyHash: randomScalar(),
-            initialIntentCommitment: randomScalar(),
-            newIntentPartialCommitment: randomScalar(),
-            balancePartialCommitment: randomScalar(),
-            balanceNullifier: randomScalar()
+            merkleRoot: randomScalar(),
+            intentAndAuthorizingAddressCommitment: randomScalar(),
+            intentPublicShare: intentPublicShare,
+            intentPrivateShareCommitment: randomScalar(),
+            intentRecoveryId: randomScalar(),
+            balancePartialCommitment: randomPartialCommitment(),
+            newOneTimeAddressPublicShare: randomScalar(),
+            oldBalanceNullifier: randomScalar(),
+            balanceRecoveryId: randomScalar(),
+            oneTimeAuthorizingAddress: oneTimeOwner.addr
         });
     }
 
     /// @dev Create a dummy intent and balance validity statement (subsequent fill)
     function createSampleStatement() internal returns (IntentAndBalanceValidityStatement memory) {
         return IntentAndBalanceValidityStatement({
-            newIntentPartialCommitment: randomScalar(),
-            balancePartialCommitment: randomScalar(),
-            intentNullifier: randomScalar(),
-            balanceNullifier: randomScalar()
+            intentMerkleRoot: randomScalar(),
+            oldIntentNullifier: randomScalar(),
+            newIntentPartialCommitment: randomPartialCommitment(),
+            intentRecoveryId: randomScalar(),
+            balanceMerkleRoot: randomScalar(),
+            oldBalanceNullifier: randomScalar(),
+            balancePartialCommitment: randomPartialCommitment(),
+            balanceRecoveryId: randomScalar()
         });
     }
 
@@ -150,9 +164,10 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
             createSampleRenegadeSettlementStatement(obligation);
 
         // Sign the owner signature digest
-        SignatureWithNonce memory ownerSignature = createOwnerSignature(
-            validityStatement.initialIntentCommitment, validityStatement.newOneTimeKeyHash, oneTimeKey.privateKey
-        );
+        // The signature is over intentAndAuthorizingAddressCommitment which combines
+        // the intent commitment and the new one-time key hash
+        SignatureWithNonce memory ownerSignature =
+            createOwnerSignature(validityStatement.intentAndAuthorizingAddressCommitment, oneTimeKey.privateKey);
 
         // Create auth bundle
         RenegadeSettledIntentAuthBundleFirstFill memory auth = RenegadeSettledIntentAuthBundleFirstFill({
