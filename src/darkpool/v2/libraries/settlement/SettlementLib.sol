@@ -32,8 +32,8 @@ import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements, VerificationKey } from "renegade-lib/verifier/Types.sol";
-import { PublicInputsLib } from "darkpoolv2-lib/PublicInputs.sol";
-import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
+import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng

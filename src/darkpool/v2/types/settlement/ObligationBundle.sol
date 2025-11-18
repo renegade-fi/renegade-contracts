@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { PartyId } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
-import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // --------------------

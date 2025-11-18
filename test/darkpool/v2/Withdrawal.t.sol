@@ -11,7 +11,7 @@ import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
 import { WithdrawalProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
-import { ValidWithdrawalStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { ValidWithdrawalStatement } from "darkpoolv2-lib/public_inputs/Transfers.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 

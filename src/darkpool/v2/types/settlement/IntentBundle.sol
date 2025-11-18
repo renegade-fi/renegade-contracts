@@ -11,7 +11,7 @@ import {
     IntentOnlyValidityStatementFirstFill,
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+} from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // ------------------------------

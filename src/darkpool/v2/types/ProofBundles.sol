@@ -4,12 +4,14 @@ pragma solidity ^0.8.24;
 import {
     ValidDepositStatement,
     ValidBalanceCreateStatement,
-    ValidWithdrawalStatement,
+    ValidWithdrawalStatement
+} from "darkpoolv2-lib/public_inputs/Transfers.sol";
+import {
     ValidPublicProtocolFeePaymentStatement,
     ValidPublicRelayerFeePaymentStatement,
     ValidPrivateProtocolFeePaymentStatement,
     ValidPrivateRelayerFeePaymentStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+} from "darkpoolv2-lib/public_inputs/Fees.sol";
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
