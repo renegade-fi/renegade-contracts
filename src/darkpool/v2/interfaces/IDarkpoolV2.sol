@@ -8,11 +8,14 @@ import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
     WithdrawalProofBundle,
-    FeePaymentProofBundle
+    PublicProtocolFeePaymentProofBundle,
+    PublicRelayerFeePaymentProofBundle,
+    PrivateProtocolFeePaymentProofBundle,
+    PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
@@ -99,9 +102,21 @@ interface IDarkpoolV2 {
     /// @param withdrawalProofBundle The proof bundle for the withdrawal
     function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) external;
 
-    /// @notice Pay fees on a balance
-    /// @param feePaymentProofBundle The proof bundle for the fee payment
-    function payFees(FeePaymentProofBundle calldata feePaymentProofBundle) external;
+    /// @notice Pay protocol fees publicly on a balance
+    /// @param proofBundle The proof bundle for the public protocol fee payment
+    function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) external;
+
+    /// @notice Pay relayer fees publicly on a balance
+    /// @param proofBundle The proof bundle for the public relayer fee payment
+    function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) external;
+
+    /// @notice Pay protocol fees privately on a balance
+    /// @param proofBundle The proof bundle for the private protocol fee payment
+    function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) external;
+
+    /// @notice Pay relayer fees privately on a balance
+    /// @param proofBundle The proof bundle for the private relayer fee payment
+    function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) external;
 
     /// @notice Settle a trade
     /// @param obligationBundle The obligation bundle for the trade. This type encodes the result of the trade.

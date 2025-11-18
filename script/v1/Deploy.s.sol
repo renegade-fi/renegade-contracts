@@ -9,7 +9,7 @@ pragma solidity ^0.8.24;
 import { Script } from "forge-std/Script.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BabyJubJubPoint, EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { BabyJubJubPoint, EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { DeployV1Utils } from "./DeployV1Utils.sol";

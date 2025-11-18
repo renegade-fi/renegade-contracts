@@ -9,7 +9,7 @@ import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
 import { TestUtils } from "test-utils/TestUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolV2Proxy } from "darkpoolv2-proxies/DarkpoolV2Proxy.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -24,7 +24,6 @@ import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { TestVerifierV2 } from "test-contracts/TestVerifierV2.sol";
 

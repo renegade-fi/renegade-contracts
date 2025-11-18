@@ -12,13 +12,19 @@ import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
     WithdrawalProofBundle,
-    FeePaymentProofBundle
+    PublicProtocolFeePaymentProofBundle,
+    PublicRelayerFeePaymentProofBundle,
+    PrivateProtocolFeePaymentProofBundle,
+    PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import {
     ValidDepositStatement,
     ValidBalanceCreateStatement,
     ValidWithdrawalStatement,
-    FeePaymentValidityStatement,
+    ValidPublicProtocolFeePaymentStatement,
+    ValidPublicRelayerFeePaymentStatement,
+    ValidPrivateProtocolFeePaymentStatement,
+    ValidPrivateRelayerFeePaymentStatement,
     PublicInputsLib
 } from "darkpoolv2-lib/PublicInputs.sol";
 
@@ -29,7 +35,10 @@ contract Verifier is IVerifier {
     using PublicInputsLib for ValidDepositStatement;
     using PublicInputsLib for ValidBalanceCreateStatement;
     using PublicInputsLib for ValidWithdrawalStatement;
-    using PublicInputsLib for FeePaymentValidityStatement;
+    using PublicInputsLib for ValidPublicProtocolFeePaymentStatement;
+    using PublicInputsLib for ValidPublicRelayerFeePaymentStatement;
+    using PublicInputsLib for ValidPrivateProtocolFeePaymentStatement;
+    using PublicInputsLib for ValidPrivateRelayerFeePaymentStatement;
 
     /// @notice The verification keys contract
     IVkeys public immutable VKEYS;
@@ -74,14 +83,47 @@ contract Verifier is IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyFeePaymentValidity(FeePaymentProofBundle calldata feePaymentProofBundle)
+    function verifyPublicProtocolFeePaymentValidity(PublicProtocolFeePaymentProofBundle calldata proofBundle)
         external
         view
         returns (bool)
     {
-        VerificationKey memory vk = VKEYS.noteRedemptionKeys();
-        BN254.ScalarField[] memory publicInputs = feePaymentProofBundle.statement.statementSerialize();
-        return VerifierCore.verify(feePaymentProofBundle.proof, publicInputs, vk);
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
+        return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyPublicRelayerFeePaymentValidity(PublicRelayerFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
+        return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyPrivateProtocolFeePaymentValidity(PrivateProtocolFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
+        return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyPrivateRelayerFeePaymentValidity(PrivateRelayerFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
+        return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
     }
 
     /// @inheritdoc IVerifier

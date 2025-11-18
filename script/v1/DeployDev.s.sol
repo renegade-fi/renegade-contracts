@@ -12,7 +12,7 @@ import { WethMock } from "test-contracts/WethMock.sol";
 import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { EncryptionKey, BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 
 /// @title DeployDevScript
 /// @author Renegade Eng
