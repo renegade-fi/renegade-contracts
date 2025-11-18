@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ExternalTransfer, DepositWitness } from "./Transfers.sol";
-import { EncryptionKey } from "./Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from "./Settlement.sol";
 import { FeeTake, FeeTakeRate } from "./Fees.sol";
 import { ExternalMatchDirection } from "./Settlement.sol";

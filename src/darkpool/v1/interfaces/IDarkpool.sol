@@ -29,7 +29,7 @@ import {
     MalleableMatchAtomicProofs
 } from "darkpoolv1-types/Settlement.sol";
 import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
 /// @title IDarkpool
 /// @author Renegade Eng

@@ -6,7 +6,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { PublicKeychain } from "darkpoolv1-types/Keychain.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
 // This file contains types for operating on wallet shares
 

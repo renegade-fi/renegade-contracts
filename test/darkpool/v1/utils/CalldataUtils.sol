@@ -25,8 +25,7 @@ import {
     OrderSettlementIndices
 } from "darkpoolv1-types/Settlement.sol";
 import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
-import { EncryptionKey, ElGamalCiphertext } from "darkpoolv1-types/Ciphertext.sol";
-import { BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey, ElGamalCiphertext, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { uintToScalarWords, WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
 import {

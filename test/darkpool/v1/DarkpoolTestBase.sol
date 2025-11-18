@@ -10,7 +10,7 @@ import { DeployPermit2 } from "permit2-test/utils/DeployPermit2.sol";
 import { CalldataUtils } from "darkpoolv1-test/utils/CalldataUtils.sol";
 import { HuffDeployer } from "foundry-huff/HuffDeployer.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { TestVerifier } from "test-contracts/TestVerifierV1.sol";
 import { Darkpool } from "darkpoolv1-contracts/Darkpool.sol";
 import { DarkpoolProxy } from "darkpoolv1-proxies/DarkpoolProxy.sol";

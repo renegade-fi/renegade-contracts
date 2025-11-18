@@ -7,7 +7,7 @@ import { DarkpoolTestBase } from "./DarkpoolTestBase.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { NullifierLib as NullifierSetLib } from "renegade-lib/NullifierSet.sol";
 import { WalletOperations } from "darkpoolv1-lib/WalletOperations.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { PlonkProof } from "src/libraries/verifier/Types.sol";
 import {

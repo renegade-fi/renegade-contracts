@@ -17,7 +17,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
@@ -26,7 +26,10 @@ import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
     WithdrawalProofBundle,
-    FeePaymentProofBundle
+    PublicProtocolFeePaymentProofBundle,
+    PublicRelayerFeePaymentProofBundle,
+    PrivateProtocolFeePaymentProofBundle,
+    PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
@@ -241,19 +244,23 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Fees --- //
 
     /// @inheritdoc IDarkpoolV2
-    function payFees(FeePaymentProofBundle calldata feePaymentProofBundle) public {
-        // Verify the proof bundle
-        bool valid = verifier.verifyFeePaymentValidity(feePaymentProofBundle);
-        if (!valid) revert FeePaymentVerificationFailed();
+    function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) public {
+        revert("todo");
+    }
 
-        // Update the state; nullify the previous balance and commit to the new balance and the note
-        uint256 merkleDepth = feePaymentProofBundle.merkleDepth;
-        BN254.ScalarField balanceNullifier = feePaymentProofBundle.statement.balanceNullifier;
-        BN254.ScalarField newBalanceCommitment = feePaymentProofBundle.statement.newBalanceCommitment;
-        BN254.ScalarField noteCommitment = feePaymentProofBundle.statement.noteCommitment;
-        _state.spendNullifier(balanceNullifier);
-        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
-        _state.insertMerkleLeaf(merkleDepth, noteCommitment, hasher);
+    /// @inheritdoc IDarkpoolV2
+    function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) public {
+        revert("todo");
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) public {
+        revert("todo");
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) public {
+        revert("todo");
     }
 
     // --------------

@@ -7,7 +7,7 @@ import { ExternalTransfer } from "darkpoolv1-types/Transfers.sol";
 import { PublicRootKey } from "darkpoolv1-types/Keychain.sol";
 import { OrderSettlementIndices, ExternalMatchResult, BoundedMatchResult } from "darkpoolv1-types/Settlement.sol";
 import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
-import { ElGamalCiphertext, EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { ElGamalCiphertext, EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
 // This file represents the public inputs (statements) for various proofs used by the darkpool
 

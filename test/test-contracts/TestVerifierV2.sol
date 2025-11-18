@@ -9,10 +9,14 @@ import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
     WithdrawalProofBundle,
-    FeePaymentProofBundle
+    PublicProtocolFeePaymentProofBundle,
+    PublicRelayerFeePaymentProofBundle,
+    PrivateProtocolFeePaymentProofBundle,
+    PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title Test Verifier Implementation
+/// @author Renegade Eng
 /// @notice This is a test implementation of the `IVerifier` interface that always returns true
 /// @notice even if verification fails
 contract TestVerifierV2 is IVerifier {
@@ -32,7 +36,38 @@ contract TestVerifierV2 is IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyFeePaymentValidity(FeePaymentProofBundle calldata) external pure returns (bool) {
+    function verifyPublicProtocolFeePaymentValidity(PublicProtocolFeePaymentProofBundle calldata)
+        external
+        pure
+        returns (bool)
+    {
+        return true;
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyPublicRelayerFeePaymentValidity(PublicRelayerFeePaymentProofBundle calldata)
+        external
+        pure
+        returns (bool)
+    {
+        return true;
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyPrivateProtocolFeePaymentValidity(PrivateProtocolFeePaymentProofBundle calldata)
+        external
+        pure
+        returns (bool)
+    {
+        return true;
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyPrivateRelayerFeePaymentValidity(PrivateRelayerFeePaymentProofBundle calldata)
+        external
+        pure
+        returns (bool)
+    {
         return true;
     }
 

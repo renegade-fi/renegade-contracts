@@ -44,11 +44,10 @@ import {
 } from "darkpoolv1-types/Settlement.sol";
 import { TransferAuthorization } from "darkpoolv1-types/Transfers.sol";
 import { FeeTake, FeeTakeRate } from "darkpoolv1-types/Fees.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { DarkpoolConstants } from "darkpoolv1-lib/Constants.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
-import { BabyJubJubPoint } from "darkpoolv1-types/Ciphertext.sol";
 
 /// @title Darkpool
 /// @author Renegade Eng

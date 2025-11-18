@@ -7,6 +7,8 @@ import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { Deposit } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal } from "darkpoolv2-types/transfers/Withdrawal.sol";
+import { Note } from "darkpoolv2-types/Note.sol";
+import { ElGamalCiphertext, EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
 // -------------------
 // | Statement Types |
@@ -67,6 +69,93 @@ struct ValidWithdrawalStatement {
 }
 
 // --- Fee Payment Statements --- //
+
+/// @notice A statement proving validity of a public payment of a balance's protocol fee
+/// @dev Public here implies that the fee is paid directly to the protocol fee collection address rather than committed
+/// through a note
+struct ValidPublicProtocolFeePaymentStatement {
+    /// @dev The Merkle root to which the old balance opens
+    BN254.ScalarField merkleRoot;
+    /// @dev The nullifier of the previous balance
+    BN254.ScalarField oldBalanceNullifier;
+    /// @dev The commitment to the new balance
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev The new recovery identifier of the balance
+    /// @dev This value is emitted as an event for chain indexers to track the balance's update
+    BN254.ScalarField recoveryId;
+    /// @dev The new encrypted protocol fee balance (public share) of the balance
+    BN254.ScalarField newProtocolFeeBalanceShare;
+    /// @dev The note which is being created
+    Note note;
+}
+
+/// @notice A statement proving validity of a public payment of a balance's relayer fee
+/// @dev Public here implies that the fee is paid directly to the relayer fee collection address rather than committed
+/// through a note
+struct ValidPublicRelayerFeePaymentStatement {
+    /// @dev The Merkle root to which the old balance opens
+    BN254.ScalarField merkleRoot;
+    /// @dev The nullifier of the previous balance
+    BN254.ScalarField oldBalanceNullifier;
+    /// @dev The commitment to the new balance
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev The new recovery identifier of the balance
+    /// @dev This value is emitted as an event for chain indexers to track the balance's update
+    BN254.ScalarField recoveryId;
+    /// @dev The new encrypted relayer fee balance (public share) of the balance
+    BN254.ScalarField newRelayerFeeBalanceShare;
+    /// @dev The note which is being created
+    Note note;
+}
+
+/// @notice A statement proving validity of a private payment of a balance's protocol fee
+/// @dev Private here implies that the fee is committed through a note encrypted under the protocol encryption key
+struct ValidPrivateProtocolFeePaymentStatement {
+    /// @dev The Merkle root to which the old balance opens
+    BN254.ScalarField merkleRoot;
+    /// @dev The nullifier of the previous balance
+    BN254.ScalarField oldBalanceNullifier;
+    /// @dev The commitment to the new balance
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev The new recovery identifier of the balance
+    /// @dev This value is emitted as an event for chain indexers to track the balance's update
+    BN254.ScalarField recoveryId;
+    /// @dev The new encrypted protocol fee balance (public share) of the balance
+    BN254.ScalarField newProtocolFeeBalanceShare;
+    /// @dev The protocol fee receiver
+    address protocolFeeReceiver;
+    /// @dev The commitment to the note
+    BN254.ScalarField noteCommitment;
+    /// @dev The note ciphertext
+    /// @dev This will be verified to be encrypted under the protocol key
+    ElGamalCiphertext noteCiphertext;
+    /// @dev The key under which the note is claimed to be encrypted
+    EncryptionKey protocolEncryptionKey;
+}
+
+/// @notice A statement proving validity of a private payment of a balance's relayer fee
+/// @dev Private here implies that the fee is committed through a note
+/// @dev The relayer fee receiver is constrained to be the same as the address on the balance itself.
+/// @dev We leak this value in-circuit so that the contracts may check that the fee receiver has signed the note
+/// encryption.
+struct ValidPrivateRelayerFeePaymentStatement {
+    /// @dev The Merkle root to which the old balance opens
+    BN254.ScalarField merkleRoot;
+    /// @dev The nullifier of the previous balance
+    BN254.ScalarField oldBalanceNullifier;
+    /// @dev The commitment to the new balance
+    BN254.ScalarField newBalanceCommitment;
+    /// @dev The new recovery identifier of the balance
+    /// @dev This value is emitted as an event for chain indexers to track the balance's update
+    BN254.ScalarField recoveryId;
+    /// @dev The new encrypted relayer fee balance (public share) of the balance
+    BN254.ScalarField newRelayerFeeBalanceShare;
+    /// @dev The relayer fee receiver
+    /// @dev This is constrained to be the same as the address on the balance itself
+    address relayerFeeReceiver;
+    /// @dev The commitment to the note
+    BN254.ScalarField noteCommitment;
+}
 
 /// @notice A statement proving validity of a fee payment
 /// TODO: Add note ciphertext here
@@ -217,6 +306,8 @@ library PublicInputsLib {
     uint256 public constant N_MODIFIED_BALANCE_SHARES = 3;
     /// @notice The number of modified intent shares in a match
     uint256 public constant N_MODIFIED_INTENT_SHARES = 1;
+    /// @notice The size of the note ciphertext array
+    uint256 public constant NOTE_CIPHERTEXT_SIZE = 3;
 
     /// @notice Serialize the public inputs for a proof of existing balance deposit validity
     /// @param statement The statement to serialize
@@ -280,6 +371,97 @@ library PublicInputsLib {
         publicInputs[5] = statement.newBalanceCommitment;
         publicInputs[6] = statement.recoveryId;
         publicInputs[7] = statement.newAmountShare;
+    }
+
+    /// @notice Serialize the public inputs for a proof of public protocol fee payment validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ValidPublicProtocolFeePaymentStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 9;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.oldBalanceNullifier;
+        publicInputs[2] = statement.newBalanceCommitment;
+        publicInputs[3] = statement.recoveryId;
+        publicInputs[4] = statement.newProtocolFeeBalanceShare;
+        // Serialize the note fields
+        publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.note.mint)));
+        publicInputs[6] = BN254.ScalarField.wrap(statement.note.amount);
+        publicInputs[7] = BN254.ScalarField.wrap(uint256(uint160(statement.note.receiver)));
+        publicInputs[8] = statement.note.blinder;
+    }
+
+    /// @notice Serialize the public inputs for a proof of public relayer fee payment validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ValidPublicRelayerFeePaymentStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 9;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.oldBalanceNullifier;
+        publicInputs[2] = statement.newBalanceCommitment;
+        publicInputs[3] = statement.recoveryId;
+        publicInputs[4] = statement.newRelayerFeeBalanceShare;
+        // Serialize the note fields
+        publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.note.mint)));
+        publicInputs[6] = BN254.ScalarField.wrap(statement.note.amount);
+        publicInputs[7] = BN254.ScalarField.wrap(uint256(uint160(statement.note.receiver)));
+        publicInputs[8] = statement.note.blinder;
+    }
+
+    /// @notice Serialize the public inputs for a proof of private protocol fee payment validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ValidPrivateProtocolFeePaymentStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 14;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.oldBalanceNullifier;
+        publicInputs[2] = statement.newBalanceCommitment;
+        publicInputs[3] = statement.recoveryId;
+        publicInputs[4] = statement.newProtocolFeeBalanceShare;
+        publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.protocolFeeReceiver)));
+        publicInputs[6] = statement.noteCommitment;
+        // Serialize the note ciphertext: ephemeral key (x, y) + ciphertext array (3 elements)
+        publicInputs[7] = statement.noteCiphertext.ephemeralKey.x;
+        publicInputs[8] = statement.noteCiphertext.ephemeralKey.y;
+        publicInputs[9] = statement.noteCiphertext.ciphertext[0];
+        publicInputs[10] = statement.noteCiphertext.ciphertext[1];
+        publicInputs[11] = statement.noteCiphertext.ciphertext[2];
+        // Serialize the protocol encryption key
+        publicInputs[12] = statement.protocolEncryptionKey.point.x;
+        publicInputs[13] = statement.protocolEncryptionKey.point.y;
+    }
+
+    /// @notice Serialize the public inputs for a proof of private relayer fee payment validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ValidPrivateRelayerFeePaymentStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 7;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.oldBalanceNullifier;
+        publicInputs[2] = statement.newBalanceCommitment;
+        publicInputs[3] = statement.recoveryId;
+        publicInputs[4] = statement.newRelayerFeeBalanceShare;
+        publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeReceiver)));
+        publicInputs[6] = statement.noteCommitment;
     }
 
     /// @notice Serialize the public inputs for a proof of fee payment validity

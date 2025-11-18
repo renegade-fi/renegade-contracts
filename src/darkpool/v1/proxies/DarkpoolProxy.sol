@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { TransparentUpgradeableProxy } from "oz-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { EncryptionKey } from "darkpoolv1-types/Ciphertext.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv1-interfaces/IVerifier.sol";

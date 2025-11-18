@@ -8,7 +8,10 @@ import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
     WithdrawalProofBundle,
-    FeePaymentProofBundle
+    PublicProtocolFeePaymentProofBundle,
+    PublicRelayerFeePaymentProofBundle,
+    PrivateProtocolFeePaymentProofBundle,
+    PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title IVerifier
@@ -39,10 +42,34 @@ interface IVerifier {
         view
         returns (bool);
 
-    /// @notice Verify a proof of `FEE PAYMENT VALIDITY`
-    /// @param feePaymentProofBundle The proof bundle for the fee payment
+    /// @notice Verify a proof of `VALID PUBLIC PROTOCOL FEE PAYMENT`
+    /// @param proofBundle The proof bundle for the public protocol fee payment
     /// @return True if the proof is valid, false otherwise
-    function verifyFeePaymentValidity(FeePaymentProofBundle calldata feePaymentProofBundle)
+    function verifyPublicProtocolFeePaymentValidity(PublicProtocolFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID PUBLIC RELAYER FEE PAYMENT`
+    /// @param proofBundle The proof bundle for the public relayer fee payment
+    /// @return True if the proof is valid, false otherwise
+    function verifyPublicRelayerFeePaymentValidity(PublicRelayerFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID PRIVATE PROTOCOL FEE PAYMENT`
+    /// @param proofBundle The proof bundle for the private protocol fee payment
+    /// @return True if the proof is valid, false otherwise
+    function verifyPrivateProtocolFeePaymentValidity(PrivateProtocolFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID PRIVATE RELAYER FEE PAYMENT`
+    /// @param proofBundle The proof bundle for the private relayer fee payment
+    /// @return True if the proof is valid, false otherwise
+    function verifyPrivateRelayerFeePaymentValidity(PrivateRelayerFeePaymentProofBundle calldata proofBundle)
         external
         view
         returns (bool);
