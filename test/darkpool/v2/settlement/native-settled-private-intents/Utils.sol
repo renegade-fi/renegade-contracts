@@ -67,8 +67,11 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     function createSampleIntentValidityStatement() internal returns (IntentOnlyValidityStatement memory) {
         return IntentOnlyValidityStatement({
             intentOwner: intentOwner.addr,
-            newIntentPartialCommitment: randomScalar(),
-            nullifier: randomScalar()
+            merkleRoot: randomScalar(),
+            oldIntentNullifier: randomScalar(),
+            newAmountShare: randomScalar(),
+            newIntentPartialCommitment: randomPartialCommitment(),
+            recoveryId: randomScalar()
         });
     }
 
@@ -124,7 +127,8 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         IntentOnlyValidityStatementFirstFill memory validityStatement = IntentOnlyValidityStatementFirstFill({
             intentOwner: owner.addr,
             initialIntentCommitment: randomScalar(),
-            newIntentPartialCommitment: randomScalar()
+            newIntentPartialCommitment: randomScalar(),
+            intentPublicShare: randomIntentShares()
         });
         SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
@@ -165,8 +169,11 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         // Create the statement types
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
             intentOwner: owner.addr,
-            newIntentPartialCommitment: randomScalar(),
-            nullifier: randomScalar()
+            merkleRoot: randomScalar(),
+            oldIntentNullifier: randomScalar(),
+            newAmountShare: randomScalar(),
+            newIntentPartialCommitment: randomPartialCommitment(),
+            recoveryId: randomScalar()
         });
         SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 

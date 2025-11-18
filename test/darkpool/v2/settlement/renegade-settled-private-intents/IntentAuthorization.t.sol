@@ -77,9 +77,8 @@ contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivate
         RenegadeSettledIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Sign with wrong signer
-        SignatureWithNonce memory wrongSig = createOwnerSignature(
-            authBundle.statement.initialIntentCommitment, authBundle.statement.newOneTimeKeyHash, wrongSigner.privateKey
-        );
+        SignatureWithNonce memory wrongSig =
+            createOwnerSignature(authBundle.statement.intentAndAuthorizingAddressCommitment, wrongSigner.privateKey);
         authBundle.ownerSignature = wrongSig;
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);

@@ -11,6 +11,7 @@ import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
+import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
@@ -99,6 +100,21 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         uint256 maxRepr = max.repr;
         uint256 randomRepr = vm.randomUint(minRepr, maxRepr);
         result = FixedPointLib.wrap(randomRepr);
+    }
+
+    /// @dev Generate a random set of intent shares
+    /// @dev This is a set of 5 shares for the intent
+    function randomIntentShares() internal returns (BN254.ScalarField[5] memory) {
+        BN254.ScalarField[5] memory shares;
+        for (uint256 i = 0; i < 5; ++i) {
+            shares[i] = randomScalar();
+        }
+        return shares;
+    }
+
+    /// @dev Generate a random partial commitment
+    function randomPartialCommitment() internal returns (PartialCommitment memory) {
+        return PartialCommitment({ privateCommitment: randomScalar(), partialPublicCommitment: randomScalar() });
     }
 
     // --- Dummy Data --- //

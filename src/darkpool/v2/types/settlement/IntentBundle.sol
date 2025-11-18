@@ -158,8 +158,7 @@ library PrivateIntentPrivateBalanceAuthBundleLib {
         pure
         returns (bytes32 digest)
     {
-        uint256 commitment = BN254.ScalarField.unwrap(bundleData.statement.initialIntentCommitment);
-        uint256 newOneTimeKeyHash = BN254.ScalarField.unwrap(bundleData.statement.newOneTimeKeyHash);
-        digest = EfficientHashLib.hash(commitment, newOneTimeKeyHash);
+        uint256 commitment = BN254.ScalarField.unwrap(bundleData.statement.intentAndAuthorizingAddressCommitment);
+        digest = EfficientHashLib.hash(commitment);
     }
 }
