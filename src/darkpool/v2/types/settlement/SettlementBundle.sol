@@ -8,7 +8,8 @@ import {
     PrivateIntentAuthBundleFirstFill,
     PrivateIntentAuthBundle,
     RenegadeSettledIntentAuthBundleFirstFill,
-    RenegadeSettledIntentAuthBundle
+    RenegadeSettledIntentAuthBundle,
+    RfqAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
     SingleIntentMatchSettlementStatement,
@@ -58,19 +59,24 @@ struct SettlementBundle {
 /// 3. *Renegade Settled Intent*: A private intent with a private (darkpool) balance
 /// 4. *Renegade Settled Private Fill*: A private intent with a private (darkpool) balance settling a private obligation
 enum SettlementBundleType {
-    // Exact bundle types
     NATIVELY_SETTLED_PUBLIC_INTENT,
     NATIVELY_SETTLED_PRIVATE_INTENT,
     RENEGADE_SETTLED_INTENT,
     RENEGADE_SETTLED_PRIVATE_FILL,
-    // Externally signed, bounded bundle types
-    SOLVER_RFQ
+    // Taker
+    RFQ
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PUBLIC_INTENT` bundle
 struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
+}
+
+/// @notice The settlement bundle data for a `RFQ` bundle
+struct RfqBundle {
+    /// @dev The RFQ authorization payload with signature attached
+    RfqAuthBundle auth;
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle on the first fill
@@ -394,9 +400,19 @@ library SettlementBundleLib {
         pure
         returns (PublicIntentPublicBalanceBundle memory bundleData)
     {
-        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT;
+        bool validType =
+            !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT;
         require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
+    }
+
+    /// @notice Decode a RFQ settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRfqBundleData(SettlementBundle calldata bundle) internal pure returns (RfqBundle memory bundleData) {
+        bool validType = bundle.bundleType == SettlementBundleType.RFQ;
+        require(validType, InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RfqBundle));
     }
 
     /// @notice Decode a private settlement bundle for a first fill
@@ -407,7 +423,8 @@ library SettlementBundleLib {
         pure
         returns (PrivateIntentPublicBalanceFirstFillBundle memory bundleData)
     {
-        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        bool validType =
+            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
     }
@@ -460,7 +477,8 @@ library SettlementBundleLib {
         pure
         returns (RenegadeSettledPrivateFirstFillBundle memory bundleData)
     {
-        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        bool validType =
+            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
         require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFirstFillBundle));
     }
@@ -473,7 +491,8 @@ library SettlementBundleLib {
         pure
         returns (RenegadeSettledPrivateFillBundle memory bundleData)
     {
-        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        bool validType =
+            !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
         require(validType, InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }

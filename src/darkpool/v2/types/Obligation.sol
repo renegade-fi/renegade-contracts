@@ -121,6 +121,28 @@ library BoundedSettlementObligationLib {
         });
     }
 
+    /// @notice Get the deposit transfer for a bounded settlement obligation using an ERC20 approval
+    /// @param obligation The bounded settlement obligation to get the deposit transfer for
+    /// @param inputAmount The amount of the input token to deposit, which must be within the bounds of the obligation
+    /// @param owner The owner of the bounded settlement obligation
+    /// @return The deposit transfer
+    function buildERC20ApprovalDeposit(
+        BoundedSettlementObligation memory obligation,
+        uint256 inputAmount,
+        address owner
+    )
+        internal
+        pure
+        returns (SimpleTransfer memory)
+    {
+        return SimpleTransfer({
+            account: owner,
+            mint: obligation.inputToken,
+            amount: inputAmount,
+            transferType: SimpleTransferType.ERC20ApprovalDeposit
+        });
+    }
+
     /// @notice Get the withdrawal transfer for a bounded settlement obligation
     /// @param obligation The bounded settlement obligation to get the withdrawal transfer for
     /// @param outputAmount The amount of the output token to withdraw, derived from the obligation price and input

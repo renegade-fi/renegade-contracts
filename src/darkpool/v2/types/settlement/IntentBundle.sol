@@ -89,6 +89,15 @@ library PublicIntentPermitLib {
     }
 }
 
+/// @notice The RFQ authorization payload with signature attached
+struct RfqAuthBundle {
+    /// @dev The intent authorization permit
+    PublicIntentPermit permit;
+    /// @dev The signature of the settlement obligation by the authorized executor
+    /// @dev This authorizes the fields of the obligation, and importantly implicitly authorizes the price
+    SignatureWithNonce executorSignature;
+}
+
 // --- Private Intent Authorization --- //
 
 /// @notice The private intent authorization payload
