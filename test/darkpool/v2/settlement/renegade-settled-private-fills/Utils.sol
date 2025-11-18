@@ -26,9 +26,9 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import {
     IntentAndBalanceValidityStatementFirstFill,
-    IntentAndBalanceValidityStatement,
-    RenegadeSettledPrivateFillSettlementStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+    IntentAndBalanceValidityStatement
+} from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {

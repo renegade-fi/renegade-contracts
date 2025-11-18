@@ -22,9 +22,9 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import {
     IntentOnlyValidityStatement,
-    IntentOnlyValidityStatementFirstFill,
-    SingleIntentMatchSettlementStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+    IntentOnlyValidityStatementFirstFill
+} from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {

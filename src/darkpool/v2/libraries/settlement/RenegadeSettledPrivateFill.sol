@@ -15,11 +15,11 @@ import {
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
-    PublicInputsLib,
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+} from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 

@@ -12,7 +12,7 @@ import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
 import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Deposit, DepositAuth, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv2-types/transfers/Deposit.sol";
-import { ValidDepositStatement, ValidBalanceCreateStatement } from "darkpoolv2-lib/PublicInputs.sol";
+import { ValidDepositStatement, ValidBalanceCreateStatement } from "darkpoolv2-lib/public_inputs/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title DepositTest

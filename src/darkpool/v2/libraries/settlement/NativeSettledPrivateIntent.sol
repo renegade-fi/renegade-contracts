@@ -14,12 +14,12 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
-    PublicInputsLib,
     IntentOnlyValidityStatement,
-    IntentOnlyValidityStatementFirstFill,
-    SingleIntentMatchSettlementStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+    IntentOnlyValidityStatementFirstFill
+} from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";

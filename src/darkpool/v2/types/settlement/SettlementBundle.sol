@@ -13,9 +13,9 @@ import {
 import {
     SingleIntentMatchSettlementStatement,
     RenegadeSettledPrivateIntentPublicSettlementStatement
-} from "darkpoolv2-lib/PublicInputs.sol";
+} from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { PublicInputsLib } from "darkpoolv2-lib/PublicInputs.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // ---------------------------

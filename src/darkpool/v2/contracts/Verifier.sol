@@ -20,13 +20,15 @@ import {
 import {
     ValidDepositStatement,
     ValidBalanceCreateStatement,
-    ValidWithdrawalStatement,
+    ValidWithdrawalStatement
+} from "darkpoolv2-lib/public_inputs/Transfers.sol";
+import {
     ValidPublicProtocolFeePaymentStatement,
     ValidPublicRelayerFeePaymentStatement,
     ValidPrivateProtocolFeePaymentStatement,
-    ValidPrivateRelayerFeePaymentStatement,
-    PublicInputsLib
-} from "darkpoolv2-lib/PublicInputs.sol";
+    ValidPrivateRelayerFeePaymentStatement
+} from "darkpoolv2-lib/public_inputs/Fees.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 
 /// @title Verifier
 /// @author Renegade Eng
