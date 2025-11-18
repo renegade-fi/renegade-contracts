@@ -132,4 +132,17 @@ interface IDarkpoolV2 {
         SettlementBundle calldata party1SettlementBundle
     )
         external;
+
+    /// @notice Settle a bounded trade
+    /// @param inputAmount The input amount for the trade
+    /// @param obligationBundle TODO: Add description
+    /// @param party0SettlementBundle TODO: Add description
+    /// @param party1SettlementBundle TODO: Add description
+    function settleBoundedMatch(
+        uint256 inputAmount,
+        ObligationBundle calldata obligationBundle,
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle
+    )
+        external;
 }

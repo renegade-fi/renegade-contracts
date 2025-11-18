@@ -298,4 +298,37 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         // The helpers above will push proofs to the settlement context if necessary
         SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }
+
+    /// @inheritdoc IDarkpoolV2
+    function settleBoundedMatch(
+        uint256 inputAmount,
+        ObligationBundle calldata obligationBundle,
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle
+    )
+        public
+    {
+        // 1. Allocate a settlement context
+        SettlementContext memory settlementContext =
+            SettlementLib.allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
+
+        // 2. Validate that the settlement obligations are compatible with one another
+        SettlementLib.validateBoundedPublicObligationBundle(obligationBundle, settlementContext);
+
+        // 3. Validate and authorize the settlement bundles
+        SettlementLib.executeBoundedSettlementBundle(
+            inputAmount, PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, _state, hasher
+        );
+        SettlementLib.executeBoundedSettlementBundle(
+            inputAmount, PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, _state, hasher
+        );
+
+        // 4. Execute the transfers necessary for settlement
+        // The helpers above will push transfers to the settlement context if necessary
+        SettlementLib.executeTransfers(settlementContext, weth, permit2);
+
+        // 5. Verify the proofs necessary for settlement
+        // The helpers above will push proofs to the settlement context if necessary
+        SettlementLib.verifySettlementProofs(settlementContext, verifier);
+    }
 }

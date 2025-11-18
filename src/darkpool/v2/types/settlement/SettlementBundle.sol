@@ -58,10 +58,13 @@ struct SettlementBundle {
 /// 3. *Renegade Settled Intent*: A private intent with a private (darkpool) balance
 /// 4. *Renegade Settled Private Fill*: A private intent with a private (darkpool) balance settling a private obligation
 enum SettlementBundleType {
+    // Exact bundle types
     NATIVELY_SETTLED_PUBLIC_INTENT,
     NATIVELY_SETTLED_PRIVATE_INTENT,
     RENEGADE_SETTLED_INTENT,
-    RENEGADE_SETTLED_PRIVATE_FILL
+    RENEGADE_SETTLED_PRIVATE_FILL,
+    // Externally signed, bounded bundle types
+    SOLVER_RFQ
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PUBLIC_INTENT` bundle

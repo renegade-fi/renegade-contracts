@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
@@ -21,14 +21,14 @@ import {
     PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
-import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SettlementObligation, BoundedSettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol";
-import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements, VerificationKey } from "renegade-lib/verifier/Types.sol";
@@ -55,6 +55,8 @@ library SettlementLib {
     error InvalidSettlementBundleType();
     /// @notice Error thrown when verification fails for a settlement
     error SettlementVerificationFailed();
+    /// @notice Error thrown when an obligation has expired
+    error ObligationExpired();
 
     // --- Allocation --- //
 
@@ -150,6 +152,36 @@ library SettlementLib {
         settlementContext.pushProof(publicInputs, obligation.proof, vk);
     }
 
+    /// @notice Validate a bounded public obligation bundle
+    /// @param obligationBundle The obligation bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @dev Public bounded obligations imply a match between an external intent and a Native Public Intent (Ring 0).
+    /// Therefore, obligations can be validated in the clear.
+    function validateBoundedPublicObligationBundle(
+        ObligationBundle calldata obligationBundle,
+        SettlementContext memory settlementContext
+    )
+        internal
+        view
+    {
+        // 1. Decode the obligations
+        (BoundedSettlementObligation memory obligation0, BoundedSettlementObligation memory obligation1) =
+            obligationBundle.decodeBoundedPublicObligations();
+
+        // 2. Validate a public obligation bundle.
+        // Uses the same logic as a public obligation bundle.
+        validatePublicObligationBundle(obligationBundle);
+
+        // 3. Valdiate block deadline
+        // Check the stricter of the two deadlines
+        uint256 obligationDeadline = obligation0.blockDeadline < obligation1.blockDeadline
+            ? obligation0.blockDeadline
+            : obligation1.blockDeadline;
+        if (obligationDeadline > block.number) {
+            revert ObligationExpired();
+        }
+    }
+
     // --- Settlement Bundle Validation --- //
 
     /// @notice Execute a settlement bundle
@@ -187,6 +219,38 @@ library SettlementLib {
                 partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
         } else {
+            revert InvalidSettlementBundleType();
+        }
+    }
+
+    /// @notice Execute a bounded settlement bundle
+    /// @param inputAmount The amount of the input token to trade
+    /// @param partyId The party ID to execute the settlement bundle for
+    /// @param obligationBundle The obligation bundle to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
+    /// @dev This function validates and executes the settlement bundle based on the bundle type
+    /// @dev See the library files in this directory for type-specific execution & validation logic.
+    function executeBoundedSettlementBundle(
+        uint256 inputAmount,
+        PartyId partyId,
+        ObligationBundle calldata obligationBundle,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher hasher
+    )
+        internal
+    {
+        SettlementBundleType bundleType = settlementBundle.bundleType;
+        if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            NativeSettledPublicIntentLib.executeBounded(
+                inputAmount, partyId, obligationBundle, settlementBundle, settlementContext, state
+            );
+        } else {
+            // TODO: Add other settlement bundle types
             revert InvalidSettlementBundleType();
         }
     }

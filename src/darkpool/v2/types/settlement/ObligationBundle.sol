@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { PartyId } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SettlementObligation, BoundedSettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
@@ -58,6 +58,19 @@ library ObligationLib {
         (obligation0, obligation1) = abi.decode(bundle.data, (SettlementObligation, SettlementObligation));
     }
 
+    /// @notice Decode both bounded public obligations for a bounded public obligation bundle
+    /// @param bundle The obligation bundle to decode
+    /// @return obligation0 The decoded obligation for the first party
+    /// @return obligation1 The decoded obligation for the second party
+    function decodeBoundedPublicObligations(ObligationBundle calldata bundle)
+        internal
+        pure
+        returns (BoundedSettlementObligation memory obligation0, BoundedSettlementObligation memory obligation1)
+    {
+        require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
+        (obligation0, obligation1) = abi.decode(bundle.data, (BoundedSettlementObligation, BoundedSettlementObligation));
+    }
+
     /// @notice Decode both public obligations from a memory-allocated bundle
     /// @param bundle The obligation bundle to decode
     /// @return obligation0 The decoded obligation for the first party
@@ -86,6 +99,30 @@ library ObligationLib {
         require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
             abi.decode(bundle.data, (SettlementObligation, SettlementObligation));
+        if (partyId == PartyId.PARTY_0) {
+            obligation = obligation0;
+        } else if (partyId == PartyId.PARTY_1) {
+            obligation = obligation1;
+        } else {
+            revert InvalidObligationType();
+        }
+    }
+
+    /// @notice Decode a bounded public obligation
+    /// @param bundle The obligation bundle to decode
+    /// @param partyId The party ID to decode the obligation for
+    /// @return obligation The decoded obligation for the given party ID
+    function decodeBoundedPublicObligation(
+        ObligationBundle calldata bundle,
+        PartyId partyId
+    )
+        internal
+        pure
+        returns (BoundedSettlementObligation memory obligation)
+    {
+        require(bundle.obligationType == ObligationType.PUBLIC, InvalidObligationType());
+        (BoundedSettlementObligation memory obligation0, BoundedSettlementObligation memory obligation1) =
+            abi.decode(bundle.data, (BoundedSettlementObligation, BoundedSettlementObligation));
         if (partyId == PartyId.PARTY_0) {
             obligation = obligation0;
         } else if (partyId == PartyId.PARTY_1) {
