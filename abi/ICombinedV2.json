@@ -507,12 +507,12 @@
   },
   {
     "type": "function",
-    "name": "payFees",
+    "name": "payPrivateProtocolFee",
     "inputs": [
       {
-        "name": "feePaymentProofBundle",
+        "name": "proofBundle",
         "type": "tuple",
-        "internalType": "struct FeePaymentProofBundle",
+        "internalType": "struct PrivateProtocolFeePaymentProofBundle",
         "components": [
           {
             "name": "merkleDepth",
@@ -522,10 +522,15 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct FeePaymentValidityStatement",
+            "internalType": "struct ValidPrivateProtocolFeePaymentStatement",
             "components": [
               {
-                "name": "balanceNullifier",
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -535,14 +540,618 @@
                 "internalType": "BN254.ScalarField"
               },
               {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newProtocolFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "protocolFeeReceiver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
                 "name": "noteCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "name": "noteCiphertext",
+                "type": "tuple",
+                "internalType": "struct ElGamalCiphertext",
+                "components": [
+                  {
+                    "name": "ephemeralKey",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "ciphertext",
+                    "type": "uint256[]",
+                    "internalType": "BN254.ScalarField[]"
+                  }
+                ]
+              },
+              {
+                "name": "protocolEncryptionKey",
+                "type": "tuple",
+                "internalType": "struct EncryptionKey",
+                "components": [
+                  {
+                    "name": "point",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "payPrivateRelayerFee",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct PrivateRelayerFeePaymentProofBundle",
+        "components": [
+          {
+            "name": "merkleDepth",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidPrivateRelayerFeePaymentStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newBalanceCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newRelayerFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "relayerFeeReceiver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "noteCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "payPublicProtocolFee",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct PublicProtocolFeePaymentProofBundle",
+        "components": [
+          {
+            "name": "merkleDepth",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidPublicProtocolFeePaymentStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newBalanceCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newProtocolFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "note",
+                "type": "tuple",
+                "internalType": "struct Note",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "blinder",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "payPublicRelayerFee",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct PublicRelayerFeePaymentProofBundle",
+        "components": [
+          {
+            "name": "merkleDepth",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidPublicRelayerFeePaymentStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newBalanceCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newRelayerFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "note",
+                "type": "tuple",
+                "internalType": "struct Note",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "blinder",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               }
             ]
           },
@@ -1498,12 +2107,12 @@
   },
   {
     "type": "function",
-    "name": "verifyFeePaymentValidity",
+    "name": "verifyNewBalanceDepositValidity",
     "inputs": [
       {
-        "name": "feePaymentProofBundle",
+        "name": "newBalanceProofBundle",
         "type": "tuple",
-        "internalType": "struct FeePaymentProofBundle",
+        "internalType": "struct NewBalanceDepositProofBundle",
         "components": [
           {
             "name": "merkleDepth",
@@ -1513,12 +2122,29 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct FeePaymentValidityStatement",
+            "internalType": "struct ValidBalanceCreateStatement",
             "components": [
               {
-                "name": "balanceNullifier",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
+                "name": "deposit",
+                "type": "tuple",
+                "internalType": "struct Deposit",
+                "components": [
+                  {
+                    "name": "from",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "token",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
               },
               {
                 "name": "newBalanceCommitment",
@@ -1526,14 +2152,14 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "noteCommitment",
+                "name": "recoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "newBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "uint256[7]",
+                "internalType": "BN254.ScalarField[7]"
               }
             ]
           },
@@ -1658,12 +2284,12 @@
   },
   {
     "type": "function",
-    "name": "verifyNewBalanceDepositValidity",
+    "name": "verifyPrivateProtocolFeePaymentValidity",
     "inputs": [
       {
-        "name": "newBalanceProofBundle",
+        "name": "proofBundle",
         "type": "tuple",
-        "internalType": "struct NewBalanceDepositProofBundle",
+        "internalType": "struct PrivateProtocolFeePaymentProofBundle",
         "components": [
           {
             "name": "merkleDepth",
@@ -1673,29 +2299,17 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct ValidBalanceCreateStatement",
+            "internalType": "struct ValidPrivateProtocolFeePaymentStatement",
             "components": [
               {
-                "name": "deposit",
-                "type": "tuple",
-                "internalType": "struct Deposit",
-                "components": [
-                  {
-                    "name": "from",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "token",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "amount",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  }
-                ]
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
               },
               {
                 "name": "newBalanceCommitment",
@@ -1708,9 +2322,631 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newBalancePublicShares",
-                "type": "uint256[7]",
-                "internalType": "BN254.ScalarField[7]"
+                "name": "newProtocolFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "protocolFeeReceiver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "noteCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "noteCiphertext",
+                "type": "tuple",
+                "internalType": "struct ElGamalCiphertext",
+                "components": [
+                  {
+                    "name": "ephemeralKey",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "ciphertext",
+                    "type": "uint256[]",
+                    "internalType": "BN254.ScalarField[]"
+                  }
+                ]
+              },
+              {
+                "name": "protocolEncryptionKey",
+                "type": "tuple",
+                "internalType": "struct EncryptionKey",
+                "components": [
+                  {
+                    "name": "point",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyPrivateRelayerFeePaymentValidity",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct PrivateRelayerFeePaymentProofBundle",
+        "components": [
+          {
+            "name": "merkleDepth",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidPrivateRelayerFeePaymentStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newBalanceCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newRelayerFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "relayerFeeReceiver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "noteCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyPublicProtocolFeePaymentValidity",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct PublicProtocolFeePaymentProofBundle",
+        "components": [
+          {
+            "name": "merkleDepth",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidPublicProtocolFeePaymentStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newBalanceCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newProtocolFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "note",
+                "type": "tuple",
+                "internalType": "struct Note",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "blinder",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyPublicRelayerFeePaymentValidity",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct PublicRelayerFeePaymentProofBundle",
+        "components": [
+          {
+            "name": "merkleDepth",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidPublicRelayerFeePaymentStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newBalanceCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "recoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newRelayerFeeBalanceShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "note",
+                "type": "tuple",
+                "internalType": "struct Note",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "blinder",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               }
             ]
           },
@@ -3206,12 +4442,39 @@
                 "internalType": "address"
               },
               {
-                "name": "newIntentPartialCommitment",
+                "name": "merkleRoot",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "nullifier",
+                "name": "oldIntentNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newAmountShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newIntentPartialCommitment",
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "recoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3349,12 +4612,39 @@
                 "internalType": "address"
               },
               {
-                "name": "newIntentPartialCommitment",
+                "name": "merkleRoot",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "nullifier",
+                "name": "oldIntentNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newAmountShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "newIntentPartialCommitment",
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "recoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -3522,6 +4812,11 @@
                 "name": "newIntentPartialCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "intentPublicShare",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
               }
             ]
           },
@@ -3682,6 +4977,11 @@
                 "name": "newIntentPartialCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "intentPublicShare",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
               }
             ]
           },
@@ -3827,12 +5127,39 @@
                     "internalType": "address"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "merkleRoot",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "nullifier",
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newAmountShare",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "recoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   }
@@ -3950,13 +5277,8 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct SingleIntentMatchSettlementStatement",
+            "internalType": "struct IntentOnlyPublicSettlementStatement",
             "components": [
-              {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
               {
                 "name": "obligation",
                 "type": "tuple",
@@ -3979,6 +5301,18 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -4123,12 +5457,39 @@
                     "internalType": "address"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "merkleRoot",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "nullifier",
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newAmountShare",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "recoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   }
@@ -4246,13 +5607,8 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct SingleIntentMatchSettlementStatement",
+            "internalType": "struct IntentOnlyPublicSettlementStatement",
             "components": [
-              {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
               {
                 "name": "obligation",
                 "type": "tuple",
@@ -4275,6 +5631,18 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -4449,6 +5817,11 @@
                     "name": "newIntentPartialCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentPublicShare",
+                    "type": "uint256[5]",
+                    "internalType": "BN254.ScalarField[5]"
                   }
                 ]
               },
@@ -4564,13 +5937,8 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct SingleIntentMatchSettlementStatement",
+            "internalType": "struct IntentOnlyPublicSettlementStatement",
             "components": [
-              {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
               {
                 "name": "obligation",
                 "type": "tuple",
@@ -4593,6 +5961,18 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -4762,6 +6142,11 @@
                     "name": "newIntentPartialCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentPublicShare",
+                    "type": "uint256[5]",
+                    "internalType": "BN254.ScalarField[5]"
                   }
                 ]
               },
@@ -4877,13 +6262,8 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct SingleIntentMatchSettlementStatement",
+            "internalType": "struct IntentOnlyPublicSettlementStatement",
             "components": [
-              {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
               {
                 "name": "obligation",
                 "type": "tuple",
@@ -4906,6 +6286,18 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -5037,27 +6429,73 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct RenegadeSettledPrivateFillSettlementStatement",
+            "internalType": "struct IntentAndBalancePrivateSettlementStatement",
             "components": [
               {
-                "name": "party0NewIntentAmountPublicShare",
+                "name": "newAmountPublicShare0",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "party0NewBalancePublicShares",
+                "name": "newInBalancePublicShares0",
                 "type": "uint256[3]",
                 "internalType": "BN254.ScalarField[3]"
               },
               {
-                "name": "party1NewIntentAmountPublicShare",
+                "name": "newOutBalancePublicShares0",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "newAmountPublicShare1",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "party1NewBalancePublicShares",
+                "name": "newInBalancePublicShares1",
                 "type": "uint256[3]",
                 "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "newOutBalancePublicShares1",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "relayerFee0",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFee1",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "protocolFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
               }
             ]
           },
@@ -5180,27 +6618,73 @@
           {
             "name": "statement",
             "type": "tuple",
-            "internalType": "struct RenegadeSettledPrivateFillSettlementStatement",
+            "internalType": "struct IntentAndBalancePrivateSettlementStatement",
             "components": [
               {
-                "name": "party0NewIntentAmountPublicShare",
+                "name": "newAmountPublicShare0",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "party0NewBalancePublicShares",
+                "name": "newInBalancePublicShares0",
                 "type": "uint256[3]",
                 "internalType": "BN254.ScalarField[3]"
               },
               {
-                "name": "party1NewIntentAmountPublicShare",
+                "name": "newOutBalancePublicShares0",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "newAmountPublicShare1",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "party1NewBalancePublicShares",
+                "name": "newInBalancePublicShares1",
                 "type": "uint256[3]",
                 "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "newOutBalancePublicShares1",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "relayerFee0",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "relayerFee1",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "protocolFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
               }
             ]
           },
@@ -5847,22 +7331,66 @@
             "internalType": "struct IntentAndBalanceValidityStatement",
             "components": [
               {
+                "name": "intentMerkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldIntentNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
                 "name": "newIntentPartialCommitment",
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "intentRecoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "balanceMerkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "balancePartialCommitment",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
-                "name": "intentNullifier",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "balanceNullifier",
+                "name": "balanceRecoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -5995,22 +7523,66 @@
             "internalType": "struct IntentAndBalanceValidityStatement",
             "components": [
               {
+                "name": "intentMerkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldIntentNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
                 "name": "newIntentPartialCommitment",
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "intentRecoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "balanceMerkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "balancePartialCommitment",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
-                "name": "intentNullifier",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "balanceNullifier",
+                "name": "balanceRecoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               }
@@ -6165,34 +7737,66 @@
             "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
             "components": [
               {
-                "name": "oneTimeAuthorizingAddress",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "newOneTimeKeyHash",
+                "name": "merkleRoot",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "initialIntentCommitment",
+                "name": "intentAndAuthorizingAddressCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newIntentPartialCommitment",
+                "name": "intentPublicShare",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "intentPrivateShareCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "intentRecoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "balancePartialCommitment",
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "newOneTimeAddressPublicShare",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "balanceNullifier",
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "balanceRecoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oneTimeAuthorizingAddress",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -6340,34 +7944,66 @@
             "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
             "components": [
               {
-                "name": "oneTimeAuthorizingAddress",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "newOneTimeKeyHash",
+                "name": "merkleRoot",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "initialIntentCommitment",
+                "name": "intentAndAuthorizingAddressCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newIntentPartialCommitment",
+                "name": "intentPublicShare",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "intentPrivateShareCommitment",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "intentRecoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "balancePartialCommitment",
+                "type": "tuple",
+                "internalType": "struct PartialCommitment",
+                "components": [
+                  {
+                    "name": "privateCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "partialPublicCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "newOneTimeAddressPublicShare",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "balanceNullifier",
+                "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "balanceRecoveryId",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oneTimeAuthorizingAddress",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -6508,22 +8144,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatement",
                 "components": [
                   {
+                    "name": "intentMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
                     "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "intentRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
-                    "name": "intentNullifier",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "balanceNullifier",
+                    "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   }
@@ -6641,20 +8321,10 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct RenegadeSettledPrivateIntentPublicSettlementStatement",
+            "internalType": "struct IntentAndBalancePublicSettlementStatement",
             "components": [
               {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "newBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
-              },
-              {
-                "name": "obligation",
+                "name": "settlementObligation",
                 "type": "tuple",
                 "internalType": "struct SettlementObligation",
                 "components": [
@@ -6675,6 +8345,33 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "amountPublicShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "inBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "outBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -6814,22 +8511,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatement",
                 "components": [
                   {
+                    "name": "intentMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
                     "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "intentRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
-                    "name": "intentNullifier",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "balanceNullifier",
+                    "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   }
@@ -6947,20 +8688,10 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct RenegadeSettledPrivateIntentPublicSettlementStatement",
+            "internalType": "struct IntentAndBalancePublicSettlementStatement",
             "components": [
               {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "newBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
-              },
-              {
-                "name": "obligation",
+                "name": "settlementObligation",
                 "type": "tuple",
                 "internalType": "struct SettlementObligation",
                 "components": [
@@ -6981,6 +8712,33 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "amountPublicShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "inBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "outBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -7142,34 +8900,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "newOneTimeKeyHash",
+                    "name": "merkleRoot",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "initialIntentCommitment",
+                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "intentPublicShare",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "intentPrivateShareCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "newOneTimeAddressPublicShare",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "balanceNullifier",
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oneTimeAuthorizingAddress",
+                    "type": "address",
+                    "internalType": "address"
                   }
                 ]
               },
@@ -7285,20 +9075,10 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct RenegadeSettledPrivateIntentPublicSettlementStatement",
+            "internalType": "struct IntentAndBalancePublicSettlementStatement",
             "components": [
               {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "newBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
-              },
-              {
-                "name": "obligation",
+                "name": "settlementObligation",
                 "type": "tuple",
                 "internalType": "struct SettlementObligation",
                 "components": [
@@ -7319,6 +9099,33 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "amountPublicShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "inBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "outBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -7475,34 +9282,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "newOneTimeKeyHash",
+                    "name": "merkleRoot",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "initialIntentCommitment",
+                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "intentPublicShare",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "intentPrivateShareCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "newOneTimeAddressPublicShare",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "balanceNullifier",
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oneTimeAuthorizingAddress",
+                    "type": "address",
+                    "internalType": "address"
                   }
                 ]
               },
@@ -7618,20 +9457,10 @@
           {
             "name": "settlementStatement",
             "type": "tuple",
-            "internalType": "struct RenegadeSettledPrivateIntentPublicSettlementStatement",
+            "internalType": "struct IntentAndBalancePublicSettlementStatement",
             "components": [
               {
-                "name": "newIntentAmountPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "newBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
-              },
-              {
-                "name": "obligation",
+                "name": "settlementObligation",
                 "type": "tuple",
                 "internalType": "struct SettlementObligation",
                 "components": [
@@ -7652,6 +9481,33 @@
                   },
                   {
                     "name": "amountOut",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "amountPublicShare",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "inBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "outBalancePublicShares",
+                "type": "uint256[3]",
+                "internalType": "BN254.ScalarField[3]"
+              },
+              {
+                "name": "relayerFee",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
                     "type": "uint256",
                     "internalType": "uint256"
                   }
@@ -7796,22 +9652,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatement",
                 "components": [
                   {
+                    "name": "intentMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
                     "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "intentRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
-                    "name": "intentNullifier",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "balanceNullifier",
+                    "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   }
@@ -7951,22 +9851,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatement",
                 "components": [
                   {
+                    "name": "intentMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldIntentNullifier",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
                     "name": "newIntentPartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "intentRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceMerkleRoot",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
-                    "name": "intentNullifier",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "balanceNullifier",
+                    "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   }
@@ -8128,34 +10072,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "newOneTimeKeyHash",
+                    "name": "merkleRoot",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "initialIntentCommitment",
+                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "intentPublicShare",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "intentPrivateShareCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "newOneTimeAddressPublicShare",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "balanceNullifier",
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oneTimeAuthorizingAddress",
+                    "type": "address",
+                    "internalType": "address"
                   }
                 ]
               },
@@ -8310,34 +10286,66 @@
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "newOneTimeKeyHash",
+                    "name": "merkleRoot",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "initialIntentCommitment",
+                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "intentPublicShare",
+                    "type": "uint256[4]",
+                    "internalType": "BN254.ScalarField[4]"
+                  },
+                  {
+                    "name": "intentPrivateShareCommitment",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "intentRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "balancePartialCommitment",
+                    "type": "tuple",
+                    "internalType": "struct PartialCommitment",
+                    "components": [
+                      {
+                        "name": "privateCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "partialPublicCommitment",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "newOneTimeAddressPublicShare",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "balanceNullifier",
+                    "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "balanceRecoveryId",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oneTimeAuthorizingAddress",
+                    "type": "address",
+                    "internalType": "address"
                   }
                 ]
               },
