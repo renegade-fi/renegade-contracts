@@ -21,6 +21,12 @@
 /// @return The first output of the sponge
 #define function spongeHash(uint256[] inputs) nonpayable returns(uint256)
 
+/// @notice Hash a series of inputs in a resumable fashion beginning with the given seed
+/// @dev A resumable commitment resets the hasher state in between each newly hashed element.
+/// This allows for the circuits to compute a partial commitment and for the contracts to "resume"
+/// the commitment with the remaining field elements.
+#define function computeResumableCommitment(uint256[] elements) nonpayable returns (uint256)
+
 // --- Constants --- //
 
 /// @notice The depth of the Merkle tree
@@ -42,12 +48,15 @@
     0x00 calldataload 0xe0 shr          // [selector]
     dup1 __FUNC_SIG(merkleHash) eq doMerkleHash jumpi
     dup1 __FUNC_SIG(spongeHash) eq doSpongeHash jumpi
+    dup1 __FUNC_SIG(computeResumableCommitment) eq doResumableCommitment jumpi
     invalidSelector jump 
 
     doMerkleHash:
         MERKLE_HASH()
     doSpongeHash:
         SPONGE_HASH()
+    doResumableCommitment:
+        COMPUTE_RESUMABLE_COMMITMENT()
     invalidSelector:
     0x00 revert
 }
@@ -191,6 +200,43 @@
     POSEIDON_SPONGE_ABSORB()                    // [state'[0], state'[1], state'[2]]
     POSEIDON_SPONGE_SQUEEZE()                   // [state'[1], state'[0], state'[1], state'[2]]
     RETURN_FIRST()
+}
+
+// ------------------------
+// | Resumable Commitment |
+// ------------------------
+
+/// @dev Hash the given inputs into a resumable commitment seeded by the first input
+/// @param seed A uint256 to seed the resumable commitment
+/// @param inputs A uint256 array to hash into the commitment
+/// @return The full commitment resumed from the seed
+#define macro COMPUTE_RESUMABLE_COMMITMENT() = takes(0) returns(0) {
+    // Load the inputs from calldata and setup the stack for the loop
+    0x04 calldataload                           // [&inputData]
+    0x04 add dup1 calldataload                  // [len(inputs), &inputs]
+    dup1 0x00 eq emptyInput jumpi               // [len(inputs), &inputs]
+    0x01 swap1 sub                              // [len(inputs) - 1, &inputs] 
+    swap1 0x20 add dup1 calldataload            // [inputs[0], &inputs, len(inputs) - 1]
+    swap1 0x20 add                              // [&inputs[1], inputs[0], len(inputs) - 1] 
+
+    // Loop body
+    loopStart:
+
+    dup3 0x00 eq loopEnd jumpi                  // [&elem[i], seed, len(inputs)]
+    dup1 calldataload                           // [elem[i], &elem[i], seed, len(inputs)]
+    swap1 0x20 add swap2                        // [seed, elem[i], &elem[i+1], len(inputs)]
+    POSEIDON_TWO_TO_ONE()                       // [hash, &elem[i+1], len(inputs)]
+    swap2 0x01 swap1 sub swap2                  // [hash, &elem[i+1], len(inputs) - 1]
+    swap1 loopStart jump                        // [&elem[i+1], hash, len(inputs) - 1]
+
+    // Loop end
+    loopEnd:                                    // [&elem[n], hash, 0]
+    RETURN_SECOND()
+
+    // Empty input
+    emptyInput:
+    0x00 RETURN_FIRST()
+
 }
 
 // -----------
