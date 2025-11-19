@@ -134,18 +134,15 @@ interface IDarkpoolV2 {
     )
         external;
 
-    /// @notice Settle a bounded trade
+    /// @notice Settle a trade with an external party who decides the trade size
     /// @param inputAmount The input amount for the trade
     /// @param matchResult The result of the trade with bounds on the input amount
-    /// @param party0SettlementBundle The settlement bundle for the first party. This type validates the first user's
-    /// state elements which are input to the trade.
-    /// @param party1SettlementBundle The settlement bundle for the second party. This type validates the second user's
-    /// state elements which are input to the trade.
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party. This type validates the
+    /// internal user's state elements which are input to the trade.
     function settleExternalMatch(
         uint256 inputAmount,
         BoundedMatchResult calldata matchResult,
-        SettlementBundle calldata party0SettlementBundle,
-        SettlementBundle calldata party1SettlementBundle
+        SettlementBundle calldata internalPartySettlementBundle
     )
         external;
 }

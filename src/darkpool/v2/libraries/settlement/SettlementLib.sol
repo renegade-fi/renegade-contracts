@@ -84,6 +84,22 @@ library SettlementLib {
         return SettlementContextLib.newContext(transferCapacity, proofCapacity);
     }
 
+    /// @notice Allocate a settlement context for an external match
+    /// @dev The number of transfers for the external party is known (1 deposit + 1 withdrawal) and does not need to
+    /// be dynamically determined.
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party
+    /// @return The allocated settlement context
+    function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
+        internal
+        pure
+        returns (SettlementContext memory)
+    {
+        uint256 transferCapacity = SettlementBundleLib.getNumTransfers(internalPartySettlementBundle) + 2;
+        uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
+
+        return SettlementContextLib.newContext(transferCapacity, proofCapacity);
+    }
+
     // --- Obligation Compatibility --- //
 
     /// @notice Validate an obligation bundle
@@ -198,12 +214,12 @@ library SettlementLib {
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
-    function executeSettlementBundle(
+    function executeExternalSettlementBundle(
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
-        IHasher hasher
+        IHasher _hasher
     )
         internal
     {

@@ -5,21 +5,18 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 /// @notice A bounded match result for a trade between an internal and external party.
-/// @dev A bounded match result used to derive settlement obligations once the trade size is known.
-/// @dev Fields are internal party-centric, i.e. the input token is the internal party's input token and the output
-/// token is the internal party's output token.
 struct BoundedMatchResult {
     /// @dev The input token of the match
-    address inputToken;
+    address internalPartyInputToken;
     /// @dev The output token of the match
-    address outputToken;
+    address internalPartyOutputToken;
     /// @dev The price of the match
     /// @dev This is in units of `outToken/inToken`
     FixedPoint price;
     /// @dev The minimum amount of the input token to trade
-    uint256 minAmountIn;
+    uint256 minInternalPartyAmountIn;
     /// @dev The maximum amount of the input token to trade
-    uint256 maxAmountIn;
+    uint256 maxInternalPartyAmountIn;
     /// @dev The block deadline for the match
     uint256 blockDeadline;
 }
@@ -31,38 +28,51 @@ library BoundedMatchResultLib {
     using FixedPointLib for FixedPoint;
 
     /// @notice Constructs two `SettlementObligation`s from a `BoundedMatchResult` and an input amount.
+    /// @dev A bounded match result is one in which the size is not known until transaction submission when
+    /// the settling (external) party chooses a size within the bounds defined by the match result.
     /// @param matchResult The `BoundedMatchResult` to construct the `SettlementObligation`s from
-    /// @param externalInputAmount From internal party's perspective, this is the output amount of the match.
-    /// @return obligation0 The first `SettlementObligation`
-    /// @return obligation1 The second `SettlementObligation`
+    /// @param externalPartyAmountIn The amount of the input token to trade for the external party
+    /// @return externalObligation The `SettlementObligation` for the external party
+    /// @return internalObligation The `SettlementObligation` for the internal party
     function buildObligations(
         BoundedMatchResult memory matchResult,
-        uint256 externalInputAmount
+        uint256 externalPartyAmountIn
     )
         internal
         pure
-        returns (SettlementObligation memory obligation0, SettlementObligation memory obligation1)
+        returns (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation)
     {
-        // `externalInputAmount`, from the perspective of the internal party, is the output amount of the match.
-        // So we divide by the price (outToken/inToken) to get the input amount for the internal party.
-        uint256 internalInputAmount = FixedPointLib.divIntegerByFixedPoint(externalInputAmount, matchResult.price);
+        // `externalPartyAmountIn`, from the perspective of the internal party, is the output amount of the match.
+        uint256 internalPartyAmountOut = externalPartyAmountIn;
 
-        // TODO: Dynamically determine internal / external party index based on settlement bundles in
-        // `settleExternalMatch`
-        // For now, obligation0 corresponds to the external party and obligation1 corresponds to the internal party.
-        obligation0 = SettlementObligation({
-            inputToken: matchResult.outputToken,
-            outputToken: matchResult.inputToken,
-            amountIn: externalInputAmount,
-            amountOut: internalInputAmount
+        // We divide by the price (outToken/inToken) to get the input amount for the internal party.
+        uint256 internalPartyAmountIn = FixedPointLib.divIntegerByFixedPoint(internalPartyAmountOut, matchResult.price);
+
+        internalObligation = SettlementObligation({
+            inputToken: matchResult.internalPartyInputToken,
+            outputToken: matchResult.internalPartyOutputToken,
+            amountIn: internalPartyAmountIn,
+            amountOut: internalPartyAmountOut
         });
-        obligation1 = SettlementObligation({
-            inputToken: matchResult.inputToken,
-            outputToken: matchResult.outputToken,
-            amountIn: internalInputAmount,
-            amountOut: externalInputAmount
+        externalObligation = buildMatchingExternalObligation(internalObligation);
+
+        return (externalObligation, internalObligation);
+    }
+
+    /// @notice Builds a `SettlementObligation` for the external party from a `SettlementObligation` for the internal
+    /// party. @param internalObligation The `SettlementObligation` for the internal party
+    /// @return externalObligation The `SettlementObligation` for the external party
+    function buildMatchingExternalObligation(SettlementObligation memory internalObligation)
+        internal
+        pure
+        returns (SettlementObligation memory externalObligation)
+    {
+        return SettlementObligation({
+            inputToken: internalObligation.outputToken,
+            outputToken: internalObligation.inputToken,
+            amountIn: internalObligation.amountOut,
+            amountOut: internalObligation.amountIn
         });
-        return (obligation0, obligation1);
     }
 
     /// @notice Validates a `BoundedMatchResult`
