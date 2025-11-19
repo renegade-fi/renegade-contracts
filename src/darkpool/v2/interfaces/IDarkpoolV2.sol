@@ -13,6 +13,7 @@ import {
     PrivateProtocolFeePaymentProofBundle,
     PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/settlement/BoundedMatchResult.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
@@ -135,12 +136,14 @@ interface IDarkpoolV2 {
 
     /// @notice Settle a bounded trade
     /// @param inputAmount The input amount for the trade
-    /// @param obligationBundle TODO: Add description
-    /// @param party0SettlementBundle TODO: Add description
-    /// @param party1SettlementBundle TODO: Add description
-    function settleBoundedMatch(
+    /// @param matchResult The result of the trade with bounds on the input amount
+    /// @param party0SettlementBundle The settlement bundle for the first party. This type validates the first user's
+    /// state elements which are input to the trade.
+    /// @param party1SettlementBundle The settlement bundle for the second party. This type validates the second user's
+    /// state elements which are input to the trade.
+    function settleExternalMatch(
         uint256 inputAmount,
-        ObligationBundle calldata obligationBundle,
+        BoundedMatchResult calldata matchResult,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )

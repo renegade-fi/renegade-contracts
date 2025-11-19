@@ -19,7 +19,9 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/settlement/BoundedMatchResult.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import {
@@ -300,9 +302,9 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     }
 
     /// @inheritdoc IDarkpoolV2
-    function settleBoundedMatch(
+    function settleExternalMatch(
         uint256 inputAmount,
-        ObligationBundle calldata obligationBundle,
+        BoundedMatchResult calldata matchResult,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )
@@ -312,22 +314,22 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         SettlementContext memory settlementContext =
             SettlementLib.allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
 
-        // 2. Validate that the settlement obligations are compatible with one another
-        SettlementLib.validateBoundedPublicObligationBundle(obligationBundle, settlementContext);
+        // 2. Validate the bounded match result
+        BoundedMatchResultLib.validate(matchResult, inputAmount);
 
-        // 3. Validate and authorize the settlement bundles
-        SettlementLib.executeBoundedSettlementBundle(
-            inputAmount, PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, _state, hasher
-        );
-        SettlementLib.executeBoundedSettlementBundle(
-            inputAmount, PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, _state, hasher
-        );
+        // 3. Build settlement obligations from the bounded match result and input amount
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
+            BoundedMatchResultLib.buildObligations(matchResult, inputAmount);
 
-        // 4. Execute the transfers necessary for settlement
+        // 4. Validate and authorize the settlement bundles
+        SettlementLib.executeSettlementBundle(obligation0, party0SettlementBundle, settlementContext, _state, hasher);
+        SettlementLib.executeSettlementBundle(obligation1, party1SettlementBundle, settlementContext, _state, hasher);
+
+        // 5. Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary
         SettlementLib.executeTransfers(settlementContext, weth, permit2);
 
-        // 5. Verify the proofs necessary for settlement
+        // 6. Verify the proofs necessary for settlement
         // The helpers above will push proofs to the settlement context if necessary
         SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }
