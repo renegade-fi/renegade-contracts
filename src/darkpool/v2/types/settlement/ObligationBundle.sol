@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { PartyId } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
-import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 // --------------------
@@ -32,8 +32,8 @@ enum ObligationType {
 
 /// @notice The data for a private obligation
 struct PrivateObligationBundle {
-    /// @dev The statement for the proof of private fill settlement
-    RenegadeSettledPrivateFillSettlementStatement statement;
+    /// @dev The statement for the proof of intent and balance private settlement
+    IntentAndBalancePrivateSettlementStatement statement;
     /// @dev The proof of the obligation
     PlonkProof proof;
 }

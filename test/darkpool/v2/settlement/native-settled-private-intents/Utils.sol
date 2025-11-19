@@ -24,7 +24,7 @@ import {
     IntentOnlyValidityStatement,
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
@@ -78,10 +78,9 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     /// @dev Create a dummy settlement statement
     function createSampleSettlementStatement(SettlementObligation memory obligation)
         internal
-        returns (SingleIntentMatchSettlementStatement memory)
+        returns (IntentOnlyPublicSettlementStatement memory)
     {
-        return
-            SingleIntentMatchSettlementStatement({ newIntentAmountPublicShare: randomScalar(), obligation: obligation });
+        return IntentOnlyPublicSettlementStatement({ obligation: obligation, relayerFee: randomFee() });
     }
 
     /// @dev Helper to create a sample settlement bundle
@@ -130,7 +129,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             newIntentPartialCommitment: randomScalar(),
             intentPublicShare: randomIntentShares()
         });
-        SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
+        IntentOnlyPublicSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
         // Sign the pre-update intent commitment
         SignatureWithNonce memory intentSignature =
@@ -175,7 +174,7 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
             newIntentPartialCommitment: randomPartialCommitment(),
             recoveryId: randomScalar()
         });
-        SingleIntentMatchSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
+        IntentOnlyPublicSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
         // Create auth bundle
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({

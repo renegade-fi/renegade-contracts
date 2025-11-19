@@ -24,7 +24,7 @@ import {
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { RenegadeSettledPrivateIntentPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
@@ -101,21 +101,28 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         });
     }
 
-    /// @dev Create a dummy settlement statement for renegade settled
+    /// @dev Create a dummy settlement statement for intent and balance public settlement
     function createSampleRenegadeSettlementStatement(SettlementObligation memory obligation)
         internal
-        returns (RenegadeSettledPrivateIntentPublicSettlementStatement memory)
+        returns (IntentAndBalancePublicSettlementStatement memory)
     {
-        BN254.ScalarField[3] memory newBalancePublicShares;
-        newBalancePublicShares[0] = randomScalar();
-        newBalancePublicShares[1] = randomScalar();
-        newBalancePublicShares[2] = randomScalar();
+        BN254.ScalarField[3] memory inBalancePublicShares;
+        inBalancePublicShares[0] = randomScalar();
+        inBalancePublicShares[1] = randomScalar();
+        inBalancePublicShares[2] = randomScalar();
 
-        return RenegadeSettledPrivateIntentPublicSettlementStatement({
-            newIntentAmountPublicShare: randomScalar(),
-            newBalancePublicShares: newBalancePublicShares,
-            obligation: obligation
-        });
+        BN254.ScalarField[3] memory outBalancePublicShares;
+        outBalancePublicShares[0] = randomScalar();
+        outBalancePublicShares[1] = randomScalar();
+        outBalancePublicShares[2] = randomScalar();
+
+        return IntentAndBalancePublicSettlementStatement({
+            settlementObligation: obligation,
+            amountPublicShare: randomScalar(),
+            inBalancePublicShares: inBalancePublicShares,
+            outBalancePublicShares: outBalancePublicShares,
+            relayerFee: FixedPointLib.integerToFixedPoint(100) // Dummy relayer fee
+         });
     }
 
     /// @dev Helper to create a sample settlement bundle
@@ -160,7 +167,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         // Create the statement types
         IntentAndBalanceValidityStatementFirstFill memory validityStatement = createSampleStatementFirstFill();
         validityStatement.oneTimeAuthorizingAddress = oneTimeKey.addr;
-        RenegadeSettledPrivateIntentPublicSettlementStatement memory settlementStatement =
+        IntentAndBalancePublicSettlementStatement memory settlementStatement =
             createSampleRenegadeSettlementStatement(obligation);
 
         // Sign the owner signature digest
@@ -200,7 +207,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     {
         // Create the statement types
         IntentAndBalanceValidityStatement memory validityStatement = createSampleStatement();
-        RenegadeSettledPrivateIntentPublicSettlementStatement memory settlementStatement =
+        IntentAndBalancePublicSettlementStatement memory settlementStatement =
             createSampleRenegadeSettlementStatement(obligation);
 
         // Create auth bundle (no signature needed for subsequent fills)

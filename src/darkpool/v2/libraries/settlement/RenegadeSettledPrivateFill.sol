@@ -212,11 +212,11 @@ library RenegadeSettledPrivateFillLib {
         BN254.ScalarField newIntentAmountPublicShare;
         BN254.ScalarField[3] memory newBalanceShares;
         if (partyId == PartyId.PARTY_0) {
-            newIntentAmountPublicShare = obligation.statement.party0NewIntentAmountPublicShare;
-            newBalanceShares = obligation.statement.party0NewBalancePublicShares;
+            newIntentAmountPublicShare = obligation.statement.newAmountPublicShare0;
+            newBalanceShares = obligation.statement.newOutBalancePublicShares0;
         } else if (partyId == PartyId.PARTY_1) {
-            newIntentAmountPublicShare = obligation.statement.party1NewIntentAmountPublicShare;
-            newBalanceShares = obligation.statement.party1NewBalancePublicShares;
+            newIntentAmountPublicShare = obligation.statement.newAmountPublicShare1;
+            newBalanceShares = obligation.statement.newOutBalancePublicShares1;
         }
 
         BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(newBalanceShares, hasher);
@@ -254,11 +254,11 @@ library RenegadeSettledPrivateFillLib {
         BN254.ScalarField newIntentAmountPublicShare;
         BN254.ScalarField[3] memory newBalanceShares;
         if (partyId == PartyId.PARTY_0) {
-            newIntentAmountPublicShare = obligation.statement.party0NewIntentAmountPublicShare;
-            newBalanceShares = obligation.statement.party0NewBalancePublicShares;
+            newIntentAmountPublicShare = obligation.statement.newAmountPublicShare0;
+            newBalanceShares = obligation.statement.newOutBalancePublicShares0;
         } else if (partyId == PartyId.PARTY_1) {
-            newIntentAmountPublicShare = obligation.statement.party1NewIntentAmountPublicShare;
-            newBalanceShares = obligation.statement.party1NewBalancePublicShares;
+            newIntentAmountPublicShare = obligation.statement.newAmountPublicShare1;
+            newBalanceShares = obligation.statement.newOutBalancePublicShares1;
         }
 
         // Compute the commitments to the updated balance and intent

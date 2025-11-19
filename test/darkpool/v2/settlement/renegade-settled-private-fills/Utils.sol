@@ -28,7 +28,7 @@ import {
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
@@ -107,21 +107,36 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy private obligation bundle for a private fill
     function createPrivateObligationBundle() internal returns (PrivateObligationBundle memory) {
-        BN254.ScalarField[3] memory party0BalanceShares;
-        party0BalanceShares[0] = randomScalar();
-        party0BalanceShares[1] = randomScalar();
-        party0BalanceShares[2] = randomScalar();
+        BN254.ScalarField[3] memory party0InBalanceShares;
+        party0InBalanceShares[0] = randomScalar();
+        party0InBalanceShares[1] = randomScalar();
+        party0InBalanceShares[2] = randomScalar();
 
-        BN254.ScalarField[3] memory party1BalanceShares;
-        party1BalanceShares[0] = randomScalar();
-        party1BalanceShares[1] = randomScalar();
-        party1BalanceShares[2] = randomScalar();
+        BN254.ScalarField[3] memory party0OutBalanceShares;
+        party0OutBalanceShares[0] = randomScalar();
+        party0OutBalanceShares[1] = randomScalar();
+        party0OutBalanceShares[2] = randomScalar();
 
-        RenegadeSettledPrivateFillSettlementStatement memory statement = RenegadeSettledPrivateFillSettlementStatement({
-            party0NewIntentAmountPublicShare: randomScalar(),
-            party0NewBalancePublicShares: party0BalanceShares,
-            party1NewIntentAmountPublicShare: randomScalar(),
-            party1NewBalancePublicShares: party1BalanceShares
+        BN254.ScalarField[3] memory party1InBalanceShares;
+        party1InBalanceShares[0] = randomScalar();
+        party1InBalanceShares[1] = randomScalar();
+        party1InBalanceShares[2] = randomScalar();
+
+        BN254.ScalarField[3] memory party1OutBalanceShares;
+        party1OutBalanceShares[0] = randomScalar();
+        party1OutBalanceShares[1] = randomScalar();
+        party1OutBalanceShares[2] = randomScalar();
+
+        IntentAndBalancePrivateSettlementStatement memory statement = IntentAndBalancePrivateSettlementStatement({
+            newAmountPublicShare0: randomScalar(),
+            newInBalancePublicShares0: party0InBalanceShares,
+            newOutBalancePublicShares0: party0OutBalanceShares,
+            newAmountPublicShare1: randomScalar(),
+            newInBalancePublicShares1: party1InBalanceShares,
+            newOutBalancePublicShares1: party1OutBalanceShares,
+            relayerFee0: randomFee(),
+            relayerFee1: randomFee(),
+            protocolFee: randomFee()
         });
 
         return PrivateObligationBundle({ statement: statement, proof: createDummyProof() });

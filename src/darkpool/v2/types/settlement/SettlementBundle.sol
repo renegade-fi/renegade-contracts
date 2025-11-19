@@ -11,8 +11,8 @@ import {
     RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
-    SingleIntentMatchSettlementStatement,
-    RenegadeSettledPrivateIntentPublicSettlementStatement
+    IntentOnlyPublicSettlementStatement,
+    IntentAndBalancePublicSettlementStatement
 } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
@@ -75,7 +75,7 @@ struct PrivateIntentPublicBalanceFirstFillBundle {
     /// @dev The private intent authorization payload with signature attached
     PrivateIntentAuthBundleFirstFill auth;
     /// @dev The statement of single-intent match settlement
-    SingleIntentMatchSettlementStatement settlementStatement;
+    IntentOnlyPublicSettlementStatement settlementStatement;
     /// @dev The proof of single-intent match settlement
     PlonkProof settlementProof;
 }
@@ -85,7 +85,7 @@ struct PrivateIntentPublicBalanceBundle {
     /// @dev The private intent authorization payload with signature attached
     PrivateIntentAuthBundle auth;
     /// @dev The statement of single-intent match settlement
-    SingleIntentMatchSettlementStatement settlementStatement;
+    IntentOnlyPublicSettlementStatement settlementStatement;
     /// @dev The proof of single-intent match settlement
     PlonkProof settlementProof;
 }
@@ -94,9 +94,9 @@ struct PrivateIntentPublicBalanceBundle {
 struct RenegadeSettledIntentFirstFillBundle {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundleFirstFill auth;
-    /// @dev The statement of renegade settled private intent public settlement
-    RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
-    /// @dev The proof of renegade settled private intent public settlement
+    /// @dev The statement of intent and balance public settlement
+    IntentAndBalancePublicSettlementStatement settlementStatement;
+    /// @dev The proof of intent and balance public settlement
     PlonkProof settlementProof;
 }
 
@@ -104,9 +104,9 @@ struct RenegadeSettledIntentFirstFillBundle {
 struct RenegadeSettledIntentBundle {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundle auth;
-    /// @dev The statement of renegade settled private intent public settlement
-    RenegadeSettledPrivateIntentPublicSettlementStatement settlementStatement;
-    /// @dev The proof of renegade settled private intent public settlement
+    /// @dev The statement of intent and balance public settlement
+    IntentAndBalancePublicSettlementStatement settlementStatement;
+    /// @dev The proof of intent and balance public settlement
     PlonkProof settlementProof;
 }
 
@@ -181,6 +181,7 @@ library SettlementBundleLib {
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
+    /// TODO: Compute this correctly
     function computeFullIntentCommitment(
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         IHasher hasher
@@ -191,7 +192,7 @@ library SettlementBundleLib {
     {
         uint256[] memory hashInputs = new uint256[](2);
         hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.newIntentPartialCommitment);
-        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newIntentAmountPublicShare);
+        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.auth.statement.intentPublicShare[4]);
         newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
     }
 
@@ -227,7 +228,7 @@ library SettlementBundleLib {
     {
         uint256[] memory hashInputs = new uint256[](2);
         hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.intentAndAuthorizingAddressCommitment);
-        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.newIntentAmountPublicShare);
+        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.amountPublicShare);
         newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
     }
 

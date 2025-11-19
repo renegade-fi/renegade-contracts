@@ -102,6 +102,15 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         result = FixedPointLib.wrap(randomRepr);
     }
 
+    /// @notice Generate a random fee
+    function randomFee() internal returns (FixedPoint memory fee) {
+        uint256 minRepr = 0;
+        uint256 maxRepr = 2 ** FixedPointLib.FIXED_POINT_PRECISION_BITS / 100; // 1%
+        FixedPoint memory min = FixedPointLib.wrap(minRepr);
+        FixedPoint memory max = FixedPointLib.wrap(maxRepr);
+        fee = randomFixedPoint(min, max);
+    }
+
     /// @dev Generate a random set of intent shares
     /// @dev This is a set of 5 shares for the intent
     function randomIntentShares() internal returns (BN254.ScalarField[5] memory) {

@@ -19,7 +19,7 @@ import {
     IntentOnlyValidityStatement,
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { SingleIntentMatchSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
@@ -44,7 +44,7 @@ library NativeSettledPrivateIntentLib {
     using DarkpoolStateLib for DarkpoolState;
     using PublicInputsLib for IntentOnlyValidityStatement;
     using PublicInputsLib for IntentOnlyValidityStatementFirstFill;
-    using PublicInputsLib for SingleIntentMatchSettlementStatement;
+    using PublicInputsLib for IntentOnlyPublicSettlementStatement;
 
     // --- Errors --- //
 
