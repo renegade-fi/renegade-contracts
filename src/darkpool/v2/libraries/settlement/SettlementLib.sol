@@ -33,7 +33,7 @@ import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements, VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
-import { RenegadeSettledPrivateFillSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
@@ -43,7 +43,7 @@ library SettlementLib {
     using SettlementBundleLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
     using SettlementTransfersLib for SettlementTransfers;
-    using PublicInputsLib for RenegadeSettledPrivateFillSettlementStatement;
+    using PublicInputsLib for IntentAndBalancePrivateSettlementStatement;
 
     /// @notice Error thrown when the obligation types are not compatible
     error IncompatibleObligationTypes();

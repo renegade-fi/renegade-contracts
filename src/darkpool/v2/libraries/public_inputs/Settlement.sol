@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 
 // --- Settlement Statements --- //
 // Settlement proofs verify that:
@@ -14,38 +15,91 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 /// @notice A statement for a proof of single-intent only match settlement
 /// @dev We only emit the updated public shares for updated fields for efficiency
-struct SingleIntentMatchSettlementStatement {
-    /// @dev The updated public share of the intent's amount
-    BN254.ScalarField newIntentAmountPublicShare;
+struct IntentOnlyPublicSettlementStatement {
     /// @dev The settlement obligation
     SettlementObligation obligation;
+    /// @dev The relayer fee charged for the match
+    FixedPoint relayerFee;
 }
 
-/// @notice A statement for a proof of Renegade settled private intent settlement
-/// @dev We only emit the updated public shares for updated fields for efficiency
-struct RenegadeSettledPrivateIntentPublicSettlementStatement {
-    /// @dev The updated public share of the intent's amount
-    BN254.ScalarField newIntentAmountPublicShare;
-    /// @dev The new public shares of the balance
+/// @notice A statement for a proof of intent and balance public settlement
+/// @dev The statement type for `INTENT AND BALANCE PUBLIC SETTLEMENT`
+/// @dev We leak the public shares so that the contracts can update them directly on-chain
+struct IntentAndBalancePublicSettlementStatement {
+    /// @dev The settlement obligation for the party
+    /// @dev Note that the contract is responsible for validating the constraints
+    /// which require only the obligation. For example, bitlengths on the
+    /// obligation's in and out amounts
+    SettlementObligation settlementObligation;
+    /// @dev The leaked pre-update amount public share of the intent
+    /// @dev Because this circuit represents a public settlement, we leak the public
+    /// share and allow the contracts to update it on-chain.
+    BN254.ScalarField amountPublicShare;
+    /// @dev The updated public shares of the post-match balance fields for the input
+    /// balance.
+    /// @dev This value is also leaked from the witness so that the contracts can
+    /// update it directly on-chain.
     /// These correspond to the updated:
     /// - Relayer fee
     /// - Protocol fee
     /// - Amount
-    BN254.ScalarField[3] newBalancePublicShares;
-    /// @dev The settlement obligation
-    SettlementObligation obligation;
+    BN254.ScalarField[3] inBalancePublicShares;
+    /// @dev The updated public shares of the post-match balance fields for the
+    /// output balance
+    /// @dev This value is also leaked from the witness so that the contracts can
+    /// update it directly on-chain.
+    /// These correspond to the updated:
+    /// - Relayer fee
+    /// - Protocol fee
+    /// - Amount
+    BN254.ScalarField[3] outBalancePublicShares;
+    /// @dev The relayer fee which is charged for the settlement
+    /// @dev We place this field in the statement so that it is included in the
+    /// Fiat-Shamir transcript and therefore is not malleable transaction
+    /// calldata. This allows the relayer to set the fee and be sure it cannot
+    /// be modified by mempool observers.
+    FixedPoint relayerFee;
 }
 
-/// @notice A statement for a proof of Renegade settled private fill settlement
-/// @dev This statement type hides the obligations and emits updated shares for both parties' balances and intents
-struct RenegadeSettledPrivateFillSettlementStatement {
-    /// @dev The first party's updated public intent shares
-    BN254.ScalarField party0NewIntentAmountPublicShare;
-    /// @dev The first party's updated public balance shares
-    BN254.ScalarField[3] party0NewBalancePublicShares;
-    /// @dev The second party's updated public intent shares
-    BN254.ScalarField party1NewIntentAmountPublicShare;
-    /// @dev The second party's updated public balance shares
-    BN254.ScalarField[3] party1NewBalancePublicShares;
+/// @notice A statement for a proof of intent and balance private settlement
+/// @dev The statement type for `INTENT AND BALANCE PRIVATE SETTLEMENT`
+struct IntentAndBalancePrivateSettlementStatement {
+    // --- First Party --- //
+    /// @dev The updated public share of the first party's intent amount
+    BN254.ScalarField newAmountPublicShare0;
+    /// @dev The updated public shares of the first party's input balance
+    /// These correspond to the updated:
+    /// - Relayer fee
+    /// - Protocol fee
+    /// - Amount
+    BN254.ScalarField[3] newInBalancePublicShares0;
+    /// @dev The updated public shares of the first party's output balance
+    /// These correspond to the updated:
+    /// - Relayer fee
+    /// - Protocol fee
+    /// - Amount
+    BN254.ScalarField[3] newOutBalancePublicShares0;
+    // --- Second Party --- //
+    /// @dev The updated public share of the second party's intent amount
+    BN254.ScalarField newAmountPublicShare1;
+    /// @dev The updated public shares of the second party's input balance
+    /// These correspond to the updated:
+    /// - Relayer fee
+    /// - Protocol fee
+    /// - Amount
+    BN254.ScalarField[3] newInBalancePublicShares1;
+    /// @dev The updated public shares of the second party's output balance
+    /// These correspond to the updated:
+    /// - Relayer fee
+    /// - Protocol fee
+    /// - Amount
+    BN254.ScalarField[3] newOutBalancePublicShares1;
+    // --- Fees --- //
+    /// @dev The relayer fee applied to the first party's match
+    FixedPoint relayerFee0;
+    /// @dev The relayer fee applied to the second party's match
+    FixedPoint relayerFee1;
+    /// @dev The protocol fee applied to the match
+    /// @dev This is the same for both parties
+    FixedPoint protocolFee;
 }
-

@@ -106,13 +106,13 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents and balances
         BN254.ScalarField intentCommitment0 =
-            bundleData0.computeFullIntentCommitment(obligation.statement.party0NewIntentAmountPublicShare, hasher);
+            bundleData0.computeFullIntentCommitment(obligation.statement.newAmountPublicShare0, hasher);
         BN254.ScalarField intentCommitment1 =
-            bundleData1.computeFullIntentCommitment(obligation.statement.party1NewIntentAmountPublicShare, hasher);
+            bundleData1.computeFullIntentCommitment(obligation.statement.newAmountPublicShare1, hasher);
         BN254.ScalarField balanceCommitment0 =
-            bundleData0.computeFullBalanceCommitment(obligation.statement.party0NewBalancePublicShares, hasher);
+            bundleData0.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares0, hasher);
         BN254.ScalarField balanceCommitment1 =
-            bundleData1.computeFullBalanceCommitment(obligation.statement.party1NewBalancePublicShares, hasher);
+            bundleData1.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares1, hasher);
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =
@@ -157,13 +157,13 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents and balances
         BN254.ScalarField intentCommitment0 =
-            bundleData0.computeFullIntentCommitment(obligation.statement.party0NewIntentAmountPublicShare, hasher);
+            bundleData0.computeFullIntentCommitment(obligation.statement.newAmountPublicShare0, hasher);
         BN254.ScalarField intentCommitment1 =
-            bundleData1.computeFullIntentCommitment(obligation.statement.party1NewIntentAmountPublicShare, hasher);
+            bundleData1.computeFullIntentCommitment(obligation.statement.newAmountPublicShare1, hasher);
         BN254.ScalarField balanceCommitment0 =
-            bundleData0.computeFullBalanceCommitment(obligation.statement.party0NewBalancePublicShares, hasher);
+            bundleData0.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares0, hasher);
         BN254.ScalarField balanceCommitment1 =
-            bundleData1.computeFullBalanceCommitment(obligation.statement.party1NewBalancePublicShares, hasher);
+            bundleData1.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares1, hasher);
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =

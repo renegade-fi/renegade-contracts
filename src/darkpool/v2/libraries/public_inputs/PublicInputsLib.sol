@@ -19,9 +19,9 @@ import {
     IntentAndBalanceValidityStatement
 } from "./ValidityProofs.sol";
 import {
-    SingleIntentMatchSettlementStatement,
-    RenegadeSettledPrivateIntentPublicSettlementStatement,
-    RenegadeSettledPrivateFillSettlementStatement
+    IntentOnlyPublicSettlementStatement,
+    IntentAndBalancePublicSettlementStatement,
+    IntentAndBalancePrivateSettlementStatement
 } from "./Settlement.sol";
 
 // -------------------------
@@ -280,44 +280,54 @@ library PublicInputsLib {
     /// @notice Serialize the public inputs for a proof of single-intent match settlement
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    function statementSerialize(SingleIntentMatchSettlementStatement memory statement)
+    function statementSerialize(IntentOnlyPublicSettlementStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
         uint256 nPublicInputs = 5;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.newIntentAmountPublicShare;
 
         // Add the settlement obligation
-        publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.inputToken)));
-        publicInputs[2] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
-        publicInputs[3] = BN254.ScalarField.wrap(statement.obligation.amountIn);
-        publicInputs[4] = BN254.ScalarField.wrap(statement.obligation.amountOut);
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.inputToken)));
+        publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
+        publicInputs[2] = BN254.ScalarField.wrap(statement.obligation.amountIn);
+        publicInputs[3] = BN254.ScalarField.wrap(statement.obligation.amountOut);
+        publicInputs[4] = BN254.ScalarField.wrap(statement.relayerFee.repr);
     }
 
-    /// @notice Serialize the public inputs for a proof of Renegade settled private intent settlement
+    /// @notice Serialize the public inputs for a proof of intent and balance public settlement
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    function statementSerialize(RenegadeSettledPrivateIntentPublicSettlementStatement memory statement)
+    function statementSerialize(IntentAndBalancePublicSettlementStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 8;
+        uint256 nPublicInputs = 12;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.newIntentAmountPublicShare;
 
-        // Add the new balance public shares
-        publicInputs[1] = statement.newBalancePublicShares[0];
-        publicInputs[2] = statement.newBalancePublicShares[1];
-        publicInputs[3] = statement.newBalancePublicShares[2];
+        // Add the leaked pre-update amount public share of the intent
+        publicInputs[0] = statement.amountPublicShare;
+
+        // Add the input balance public shares
+        publicInputs[1] = statement.inBalancePublicShares[0];
+        publicInputs[2] = statement.inBalancePublicShares[1];
+        publicInputs[3] = statement.inBalancePublicShares[2];
+
+        // Add the output balance public shares
+        publicInputs[4] = statement.outBalancePublicShares[0];
+        publicInputs[5] = statement.outBalancePublicShares[1];
+        publicInputs[6] = statement.outBalancePublicShares[2];
 
         // Add the settlement obligation
-        publicInputs[4] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.inputToken)));
-        publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.obligation.outputToken)));
-        publicInputs[6] = BN254.ScalarField.wrap(statement.obligation.amountIn);
-        publicInputs[7] = BN254.ScalarField.wrap(statement.obligation.amountOut);
+        publicInputs[7] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.inputToken)));
+        publicInputs[8] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.outputToken)));
+        publicInputs[9] = BN254.ScalarField.wrap(statement.settlementObligation.amountIn);
+        publicInputs[10] = BN254.ScalarField.wrap(statement.settlementObligation.amountOut);
+
+        // Add the relayer fee
+        publicInputs[11] = BN254.ScalarField.wrap(statement.relayerFee.repr);
     }
 
     /// @notice Serialize the public inputs for a proof of intent and balance validity
@@ -344,24 +354,47 @@ library PublicInputsLib {
         publicInputs[9] = statement.balanceRecoveryId;
     }
 
-    /// @notice Serialize the public inputs for a proof of Renegade settled private fill settlement
+    /// @notice Serialize the public inputs for a proof of intent and balance private settlement
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    function statementSerialize(RenegadeSettledPrivateFillSettlementStatement memory statement)
+    function statementSerialize(IntentAndBalancePrivateSettlementStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 8;
+        uint256 nPublicInputs = 17;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.party0NewIntentAmountPublicShare;
-        publicInputs[1] = statement.party0NewBalancePublicShares[0];
-        publicInputs[2] = statement.party0NewBalancePublicShares[1];
-        publicInputs[3] = statement.party0NewBalancePublicShares[2];
-        publicInputs[4] = statement.party1NewIntentAmountPublicShare;
-        publicInputs[5] = statement.party1NewBalancePublicShares[0];
-        publicInputs[6] = statement.party1NewBalancePublicShares[1];
-        publicInputs[7] = statement.party1NewBalancePublicShares[2];
+
+        // First party intent amount
+        publicInputs[0] = statement.newAmountPublicShare0;
+
+        // First party input balance shares
+        publicInputs[1] = statement.newInBalancePublicShares0[0];
+        publicInputs[2] = statement.newInBalancePublicShares0[1];
+        publicInputs[3] = statement.newInBalancePublicShares0[2];
+
+        // First party output balance shares
+        publicInputs[4] = statement.newOutBalancePublicShares0[0];
+        publicInputs[5] = statement.newOutBalancePublicShares0[1];
+        publicInputs[6] = statement.newOutBalancePublicShares0[2];
+
+        // Second party intent amount
+        publicInputs[7] = statement.newAmountPublicShare1;
+
+        // Second party input balance shares
+        publicInputs[8] = statement.newInBalancePublicShares1[0];
+        publicInputs[9] = statement.newInBalancePublicShares1[1];
+        publicInputs[10] = statement.newInBalancePublicShares1[2];
+
+        // Second party output balance shares
+        publicInputs[11] = statement.newOutBalancePublicShares1[0];
+        publicInputs[12] = statement.newOutBalancePublicShares1[1];
+        publicInputs[13] = statement.newOutBalancePublicShares1[2];
+
+        // Fees
+        publicInputs[14] = BN254.ScalarField.wrap(statement.relayerFee0.repr);
+        publicInputs[15] = BN254.ScalarField.wrap(statement.relayerFee1.repr);
+        publicInputs[16] = BN254.ScalarField.wrap(statement.protocolFee.repr);
     }
 
     /// @notice Get a dummy verification key for testing
