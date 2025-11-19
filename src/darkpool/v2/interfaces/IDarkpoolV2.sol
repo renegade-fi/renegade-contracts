@@ -14,6 +14,7 @@ import {
     PrivateProtocolFeePaymentProofBundle,
     PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/settlement/BoundedMatchResult.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
@@ -183,6 +184,18 @@ interface IDarkpoolV2 {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
+    )
+        external;
+
+    /// @notice Settle a trade with an external party who decides the trade size
+    /// @param inputAmount The input amount for the trade
+    /// @param matchResult The result of the trade with bounds on the input amount
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party. This type validates the
+    /// internal user's state elements which are input to the trade.
+    function settleExternalMatch(
+        uint256 inputAmount,
+        BoundedMatchResult calldata matchResult,
+        SettlementBundle calldata internalPartySettlementBundle
     )
         external;
 }

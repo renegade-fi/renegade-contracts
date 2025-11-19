@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -32,6 +32,7 @@ import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol"
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { ProofLinkingList, ProofLinkingListLib } from "darkpoolv2-types/VerificationList.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
@@ -125,6 +126,22 @@ library SettlementLib {
             + SettlementBundleLib.getNumProofLinkingArguments(party1SettlementBundle);
 
         return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
+    }
+
+    /// @notice Allocate a settlement context for an external match
+    /// @dev The number of transfers for the external party is known (1 deposit + 1 withdrawal) and does not need to
+    /// be dynamically determined.
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party
+    /// @return The allocated settlement context
+    function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
+        internal
+        pure
+        returns (SettlementContext memory)
+    {
+        uint256 transferCapacity = SettlementBundleLib.getNumTransfers(internalPartySettlementBundle) + 2;
+        uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
+
+        return SettlementContextLib.newContext(transferCapacity, proofCapacity);
     }
 
     // --- Obligation Compatibility --- //
@@ -239,6 +256,29 @@ library SettlementLib {
             );
         } else {
             revert IDarkpoolV2.InvalidSettlementBundleType();
+        }
+    }
+
+    /// @notice Execute a settlement bundle
+    /// @param obligation The settlement obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    function executeExternalSettlementBundle(
+        SettlementObligation memory obligation,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher _hasher
+    )
+        internal
+    {
+        SettlementBundleType bundleType = settlementBundle.bundleType;
+        if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            NativeSettledPublicIntentLib.execute(obligation, settlementBundle, settlementContext, state);
+        } else {
+            // TODO: Add support for other settlement bundle types
+            revert InvalidSettlementBundleType();
         }
     }
 

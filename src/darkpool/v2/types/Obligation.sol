@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache
+/* solhint-disable one-contract-per-file */
 pragma solidity ^0.8.24;
 
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
