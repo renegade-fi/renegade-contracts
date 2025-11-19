@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
@@ -27,8 +27,8 @@ import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol";
-import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements, VerificationKey } from "renegade-lib/verifier/Types.sol";
@@ -55,6 +55,8 @@ library SettlementLib {
     error InvalidSettlementBundleType();
     /// @notice Error thrown when verification fails for a settlement
     error SettlementVerificationFailed();
+    /// @notice Error thrown when an obligation has expired
+    error ObligationExpired();
 
     // --- Allocation --- //
 
@@ -78,6 +80,22 @@ library SettlementLib {
             + SettlementBundleLib.getNumTransfers(party1SettlementBundle);
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(party0SettlementBundle)
             + SettlementBundleLib.getNumProofs(party1SettlementBundle);
+
+        return SettlementContextLib.newContext(transferCapacity, proofCapacity);
+    }
+
+    /// @notice Allocate a settlement context for an external match
+    /// @dev The number of transfers for the external party is known (1 deposit + 1 withdrawal) and does not need to
+    /// be dynamically determined.
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party
+    /// @return The allocated settlement context
+    function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
+        internal
+        pure
+        returns (SettlementContext memory)
+    {
+        uint256 transferCapacity = SettlementBundleLib.getNumTransfers(internalPartySettlementBundle) + 2;
+        uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
 
         return SettlementContextLib.newContext(transferCapacity, proofCapacity);
     }
@@ -187,6 +205,29 @@ library SettlementLib {
                 partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
         } else {
+            revert InvalidSettlementBundleType();
+        }
+    }
+
+    /// @notice Execute a settlement bundle
+    /// @param obligation The settlement obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    function executeExternalSettlementBundle(
+        SettlementObligation memory obligation,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher _hasher
+    )
+        internal
+    {
+        SettlementBundleType bundleType = settlementBundle.bundleType;
+        if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            NativeSettledPublicIntentLib.execute(obligation, settlementBundle, settlementContext, state);
+        } else {
+            // TODO: Add support for other settlement bundle types
             revert InvalidSettlementBundleType();
         }
     }
