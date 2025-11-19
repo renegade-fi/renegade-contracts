@@ -68,8 +68,26 @@ library NativeSettledPublicIntentLib {
         internal
     {
         // Decode the settlement bundle data
-        PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
+
+        execute(obligation, settlementBundle, settlementContext, state);
+    }
+
+    /// @notice Validate and execute a public intent and public balance settlement bundle
+    /// @param obligation The settlement obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    function execute(
+        SettlementObligation memory obligation,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
+    )
+        internal
+    {
+        // Decode the settlement bundle data
+        PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
 
         // 1. Validate the intent authorization
         (uint256 amountRemaining, bytes32 intentHash) =
