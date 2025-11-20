@@ -90,10 +90,10 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Compute the full intent commitment
-        BN254.ScalarField fullCommitment = bundleData.computeFullIntentCommitment(hasher);
+        (BN254.ScalarField preMatchIntentCommitment,) = bundleData.computeIntentCommitments(hasher);
 
         // Sign with wrong signer
-        SignatureWithNonce memory wrongSig = signIntentCommitment(fullCommitment, wrongSigner.privateKey);
+        SignatureWithNonce memory wrongSig = signIntentCommitment(preMatchIntentCommitment, wrongSigner.privateKey);
         authBundle.intentSignature = wrongSig;
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
