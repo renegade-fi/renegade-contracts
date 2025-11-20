@@ -55,8 +55,6 @@ library SettlementLib {
     error InvalidSettlementBundleType();
     /// @notice Error thrown when verification fails for a settlement
     error SettlementVerificationFailed();
-    /// @notice Error thrown when an obligation has expired
-    error ObligationExpired();
 
     // --- Allocation --- //
 
@@ -85,8 +83,7 @@ library SettlementLib {
     }
 
     /// @notice Allocate a settlement context for an external match
-    /// @dev The number of transfers for the external party is known (1 deposit + 1 withdrawal) and does not need to
-    /// be dynamically determined.
+    /// @dev The number of transfers and proofs for the external party is known: (1 deposit + 1 withdrawal + 0 proofs)
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @return The allocated settlement context
     function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
@@ -209,7 +206,7 @@ library SettlementLib {
         }
     }
 
-    /// @notice Execute a settlement bundle
+    /// @notice Execute an external settlement bundle
     /// @param obligation The settlement obligation to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
