@@ -9,7 +9,7 @@ import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { MerkleZeros } from "renegade-lib/merkle/MerkleZeros.sol";
 
-contract MerkleTest is TestUtils {
+contract HasherTest is TestUtils {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
     /// @dev The Merkle depth
@@ -61,6 +61,46 @@ contract MerkleTest is TestUtils {
         uint256 expected = runSpongeHashReferenceImpl(inputs);
         uint256 result = hasher.spongeHash(inputs);
         assertEq(result, expected, "Sponge hash result does not match reference implementation");
+    }
+
+    // --- Resumable Commitment Tests --- //
+
+    /// @dev Test the resumable commitment function with empty inputs array
+    function test_ComputeResumableCommitmentEmpty() public {
+        uint256[] memory inputs = new uint256[](0);
+
+        uint256 result = hasher.computeResumableCommitment(inputs);
+        assertEq(result, 0, "Resumable commitment with empty inputs should return 0");
+    }
+
+    /// @dev Test the resumable commitment function with single input
+    function test_ComputeResumableCommitmentSingle() public {
+        uint256[] memory inputs = new uint256[](1);
+        inputs[0] = randomFelt();
+
+        uint256 result = hasher.computeResumableCommitment(inputs);
+        uint256 expected = inputs[0];
+
+        assertEq(result, expected, "Resumable commitment with single input does not match expected");
+    }
+
+    /// @dev Test the resumable commitment function
+    function test_ComputeResumableCommitment() public {
+        uint256 nInputs = randomUint(1, 20);
+        uint256[] memory inputs = new uint256[](nInputs);
+        for (uint256 i = 0; i < nInputs; ++i) {
+            inputs[i] = randomFelt();
+        }
+
+        uint256 result = hasher.computeResumableCommitment(inputs);
+
+        // Compute the expected result manually
+        uint256 expected = inputs[0];
+        for (uint256 i = 1; i < inputs.length; ++i) {
+            expected = _hashTwo(expected, inputs[i]);
+        }
+
+        assertEq(result, expected, "Resumable commitment result does not match expected");
     }
 
     // --- Merkle Tree Tests --- //
@@ -240,5 +280,13 @@ contract MerkleTest is TestUtils {
 
         // Run binary and parse space-separated array output
         return vm.parseUint(runBinaryGetResponse(args));
+    }
+
+    /// @dev Hash two inputs using Poseidon two-to-one hash
+    function _hashTwo(uint256 a, uint256 b) internal view returns (uint256) {
+        uint256[] memory inputs = new uint256[](2);
+        inputs[0] = a;
+        inputs[1] = b;
+        return hasher.spongeHash(inputs);
     }
 }

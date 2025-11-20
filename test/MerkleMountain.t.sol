@@ -3,10 +3,10 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { MerkleTest } from "./Merkle.t.sol";
+import { HasherTest } from "./Hasher.t.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 
-contract MerkleMountainTest is MerkleTest {
+contract MerkleMountainTest is HasherTest {
     MerkleMountainLib.MerkleMountainRange private mountain;
 
     /// @notice Test the root after a single insert

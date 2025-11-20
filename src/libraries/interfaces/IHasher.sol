@@ -23,4 +23,12 @@ interface IHasher {
     /// @param inputs The inputs to the sponge
     /// @return The hash of the inputs
     function spongeHash(uint256[] memory inputs) external view returns (uint256);
+
+    /// @notice Hash a series of inputs in a resumable fashion beginning with the given seed
+    /// @dev A resumable commitment resets the hasher state in between each newly hashed element.
+    /// This allows for the circuits to compute a partial commitment and for the contracts to "resume"
+    /// the commitment with the remaining field elements.
+    /// @param elements The elements to hash
+    /// @return The hash of the elements
+    function computeResumableCommitment(uint256[] memory elements) external view returns (uint256);
 }
