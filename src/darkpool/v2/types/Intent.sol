@@ -36,6 +36,9 @@ struct IntentPublicShare {
     BN254.ScalarField amountIn;
 }
 
+/// @title IntentPublicShareLib
+/// @author Renegade Eng
+/// @notice Library for operating on intent public shares
 library IntentPublicShareLib {
     /// @notice Serialize an intent public share to scalars for the prefix of a match
     /// @dev The prefix here is the fields which don't change in a match.
@@ -82,6 +85,9 @@ struct IntentPreMatchShare {
     BN254.ScalarField minPrice;
 }
 
+/// @title IntentPreMatchShareLib
+/// @author Renegade Eng
+/// @notice Library for operating on pre-match intent shares
 library IntentPreMatchShareLib {
     /// @notice Create an intent public share from a pre-match share and an `amountIn` share
     /// @param preMatchShare The pre-match share to create the intent public share from

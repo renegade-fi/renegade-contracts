@@ -161,9 +161,9 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
         BN254.ScalarField intentCommitment1 =
             bundleData1.computeFullIntentCommitment(obligation.statement.newAmountPublicShare1, hasher);
         BN254.ScalarField balanceCommitment0 =
-            bundleData0.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares0, hasher);
+            bundleData0.computeFullBalanceCommitment(obligation.statement.newInBalancePublicShares0, hasher);
         BN254.ScalarField balanceCommitment1 =
-            bundleData1.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares1, hasher);
+            bundleData1.computeFullBalanceCommitment(obligation.statement.newInBalancePublicShares1, hasher);
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =

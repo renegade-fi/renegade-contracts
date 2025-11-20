@@ -31,6 +31,7 @@ import {
 import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 
 contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
@@ -110,25 +111,10 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy private obligation bundle for a private fill
     function createPrivateObligationBundle() internal returns (PrivateObligationBundle memory) {
-        BN254.ScalarField[3] memory party0InBalanceShares;
-        party0InBalanceShares[0] = randomScalar();
-        party0InBalanceShares[1] = randomScalar();
-        party0InBalanceShares[2] = randomScalar();
-
-        BN254.ScalarField[3] memory party0OutBalanceShares;
-        party0OutBalanceShares[0] = randomScalar();
-        party0OutBalanceShares[1] = randomScalar();
-        party0OutBalanceShares[2] = randomScalar();
-
-        BN254.ScalarField[3] memory party1InBalanceShares;
-        party1InBalanceShares[0] = randomScalar();
-        party1InBalanceShares[1] = randomScalar();
-        party1InBalanceShares[2] = randomScalar();
-
-        BN254.ScalarField[3] memory party1OutBalanceShares;
-        party1OutBalanceShares[0] = randomScalar();
-        party1OutBalanceShares[1] = randomScalar();
-        party1OutBalanceShares[2] = randomScalar();
+        PostMatchBalanceShare memory party0InBalanceShares = randomPostMatchBalanceShare();
+        PostMatchBalanceShare memory party0OutBalanceShares = randomPostMatchBalanceShare();
+        PostMatchBalanceShare memory party1InBalanceShares = randomPostMatchBalanceShare();
+        PostMatchBalanceShare memory party1OutBalanceShares = randomPostMatchBalanceShare();
 
         IntentAndBalancePrivateSettlementStatement memory statement = IntentAndBalancePrivateSettlementStatement({
             newAmountPublicShare0: randomScalar(),

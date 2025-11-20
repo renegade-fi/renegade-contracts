@@ -369,27 +369,27 @@ library PublicInputsLib {
         publicInputs[0] = statement.newAmountPublicShare0;
 
         // First party input balance shares
-        publicInputs[1] = statement.newInBalancePublicShares0[0];
-        publicInputs[2] = statement.newInBalancePublicShares0[1];
-        publicInputs[3] = statement.newInBalancePublicShares0[2];
+        publicInputs[1] = statement.newInBalancePublicShares0.relayerFeeBalance;
+        publicInputs[2] = statement.newInBalancePublicShares0.protocolFeeBalance;
+        publicInputs[3] = statement.newInBalancePublicShares0.amount;
 
         // First party output balance shares
-        publicInputs[4] = statement.newOutBalancePublicShares0[0];
-        publicInputs[5] = statement.newOutBalancePublicShares0[1];
-        publicInputs[6] = statement.newOutBalancePublicShares0[2];
+        publicInputs[4] = statement.newOutBalancePublicShares0.relayerFeeBalance;
+        publicInputs[5] = statement.newOutBalancePublicShares0.protocolFeeBalance;
+        publicInputs[6] = statement.newOutBalancePublicShares0.amount;
 
         // Second party intent amount
         publicInputs[7] = statement.newAmountPublicShare1;
 
         // Second party input balance shares
-        publicInputs[8] = statement.newInBalancePublicShares1[0];
-        publicInputs[9] = statement.newInBalancePublicShares1[1];
-        publicInputs[10] = statement.newInBalancePublicShares1[2];
+        publicInputs[8] = statement.newInBalancePublicShares1.relayerFeeBalance;
+        publicInputs[9] = statement.newInBalancePublicShares1.protocolFeeBalance;
+        publicInputs[10] = statement.newInBalancePublicShares1.amount;
 
         // Second party output balance shares
-        publicInputs[11] = statement.newOutBalancePublicShares1[0];
-        publicInputs[12] = statement.newOutBalancePublicShares1[1];
-        publicInputs[13] = statement.newOutBalancePublicShares1[2];
+        publicInputs[11] = statement.newOutBalancePublicShares1.relayerFeeBalance;
+        publicInputs[12] = statement.newOutBalancePublicShares1.protocolFeeBalance;
+        publicInputs[13] = statement.newOutBalancePublicShares1.amount;
 
         // Fees
         publicInputs[14] = BN254.ScalarField.wrap(statement.relayerFee0.repr);

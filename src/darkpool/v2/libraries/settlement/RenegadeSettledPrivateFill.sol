@@ -21,6 +21,8 @@ import {
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 
+import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
+
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
 import { RenegadeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/RenegadeSettledPrivateIntent.sol";
@@ -210,7 +212,7 @@ library RenegadeSettledPrivateFillLib {
 
         // 2. Insert commitments to the updated balance and intent into the Merkle tree
         BN254.ScalarField newIntentAmountPublicShare;
-        BN254.ScalarField[3] memory newBalanceShares;
+        PostMatchBalanceShare memory newBalanceShares;
         if (partyId == PartyId.PARTY_0) {
             newIntentAmountPublicShare = obligation.statement.newAmountPublicShare0;
             newBalanceShares = obligation.statement.newOutBalancePublicShares0;
@@ -252,13 +254,13 @@ library RenegadeSettledPrivateFillLib {
 
         // 2. Insert commitments to the updated balance and intent into the Merkle tree
         BN254.ScalarField newIntentAmountPublicShare;
-        BN254.ScalarField[3] memory newBalanceShares;
+        PostMatchBalanceShare memory newBalanceShares;
         if (partyId == PartyId.PARTY_0) {
             newIntentAmountPublicShare = obligation.statement.newAmountPublicShare0;
-            newBalanceShares = obligation.statement.newOutBalancePublicShares0;
+            newBalanceShares = obligation.statement.newInBalancePublicShares0;
         } else if (partyId == PartyId.PARTY_1) {
             newIntentAmountPublicShare = obligation.statement.newAmountPublicShare1;
-            newBalanceShares = obligation.statement.newOutBalancePublicShares1;
+            newBalanceShares = obligation.statement.newInBalancePublicShares1;
         }
 
         // Compute the commitments to the updated balance and intent

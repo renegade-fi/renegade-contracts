@@ -65,13 +65,13 @@ struct IntentAndBalancePrivateSettlementStatement {
     /// - Relayer fee
     /// - Protocol fee
     /// - Amount
-    BN254.ScalarField[3] newInBalancePublicShares0;
+    PostMatchBalanceShare newInBalancePublicShares0;
     /// @dev The updated public shares of the first party's output balance
     /// These correspond to the updated:
     /// - Relayer fee
     /// - Protocol fee
     /// - Amount
-    BN254.ScalarField[3] newOutBalancePublicShares0;
+    PostMatchBalanceShare newOutBalancePublicShares0;
     // --- Second Party --- //
     /// @dev The updated public share of the second party's intent amount
     BN254.ScalarField newAmountPublicShare1;
@@ -80,13 +80,13 @@ struct IntentAndBalancePrivateSettlementStatement {
     /// - Relayer fee
     /// - Protocol fee
     /// - Amount
-    BN254.ScalarField[3] newInBalancePublicShares1;
+    PostMatchBalanceShare newInBalancePublicShares1;
     /// @dev The updated public shares of the second party's output balance
     /// These correspond to the updated:
     /// - Relayer fee
     /// - Protocol fee
     /// - Amount
-    BN254.ScalarField[3] newOutBalancePublicShares1;
+    PostMatchBalanceShare newOutBalancePublicShares1;
     // --- Fees --- //
     /// @dev The relayer fee applied to the first party's match
     FixedPoint relayerFee0;
