@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
+import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 
 // --- Settlement Statements --- //
 // Settlement proofs verify that:
@@ -39,20 +40,12 @@ struct IntentAndBalancePublicSettlementStatement {
     /// balance.
     /// @dev This value is also leaked from the witness so that the contracts can
     /// update it directly on-chain.
-    /// These correspond to the updated:
-    /// - Relayer fee
-    /// - Protocol fee
-    /// - Amount
-    BN254.ScalarField[3] inBalancePublicShares;
+    PostMatchBalanceShare inBalancePublicShares;
     /// @dev The updated public shares of the post-match balance fields for the
     /// output balance
     /// @dev This value is also leaked from the witness so that the contracts can
     /// update it directly on-chain.
-    /// These correspond to the updated:
-    /// - Relayer fee
-    /// - Protocol fee
-    /// - Amount
-    BN254.ScalarField[3] outBalancePublicShares;
+    PostMatchBalanceShare outBalancePublicShares;
     /// @dev The relayer fee which is charged for the settlement
     /// @dev We place this field in the statement so that it is included in the
     /// Fiat-Shamir transcript and therefore is not malleable transaction

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
-import { IntentPublicShare } from "darkpoolv2-types/Intent.sol";
+import { IntentPublicShare, IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 
 // --- Validity Statements --- //
 // Validity proofs verify that:
@@ -66,7 +66,7 @@ struct IntentAndBalanceValidityStatementFirstFill {
     /// @dev The public shares of the intent minus the `amount_in` field
     /// @dev The public share of the `amount_in` field is leaked after it's been
     /// updated by the settlement circuit.
-    BN254.ScalarField[4] intentPublicShare;
+    IntentPreMatchShare intentPublicShare;
     /// @dev The partial commitment to the original intent
     /// @dev This commitment commits to all fields except the public share of the
     /// `amount_in` field. The smart contracts will resume the commitment by

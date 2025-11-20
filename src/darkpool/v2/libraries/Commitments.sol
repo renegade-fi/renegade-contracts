@@ -32,11 +32,53 @@ library CommitmentLib {
         uint256 publicCommitmentHash = hasher.computeResumableCommitment(publicCommitmentInputs);
 
         // 2. Compute the full commitment: H(privateCommitment || publicCommitment)
-        uint256[] memory commitmentInputs = new uint256[](2);
-        commitmentInputs[0] = BN254.ScalarField.unwrap(partialComm.privateCommitment);
-        commitmentInputs[1] = publicCommitmentHash;
-        uint256 fullCommitment = hasher.spongeHash(commitmentInputs);
+        return computeCommitment(partialComm.privateCommitment, BN254.ScalarField.wrap(publicCommitmentHash), hasher);
+    }
 
+    /// @notice Compute a commitment to a state element given a private commitment and all public shares
+    /// @dev This differs from the method above in that there is no partial public commitment to resume from.
+    /// @param privateCommitment The private commitment to the state element
+    /// @param publicShares The public shares to hash with the private commitment
+    /// @param hasher The hasher to use for hashing
+    /// @return The full commitment
+    function computeCommitmentWithPublicShares(
+        BN254.ScalarField privateCommitment,
+        uint256[] memory publicShares,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField)
+    {
+        // Compute a commitment to the public shares
+        uint256[] memory publicCommitmentInputs = new uint256[](publicShares.length);
+        for (uint256 i = 0; i < publicShares.length; ++i) {
+            publicCommitmentInputs[i] = publicShares[i];
+        }
+        uint256 publicCommitment = hasher.computeResumableCommitment(publicCommitmentInputs);
+
+        // Compute the full commitment: H(privateCommitment || publicCommitment)
+        return computeCommitment(privateCommitment, BN254.ScalarField.wrap(publicCommitment), hasher);
+    }
+
+    /// @notice Compute a commitment to a state element given a private commitment and a public commitment
+    /// @param privateCommitment The private commitment to the state element
+    /// @param publicCommitment The public commitment to the state element
+    /// @param hasher The hasher to use for hashing
+    /// @return The full commitment
+    function computeCommitment(
+        BN254.ScalarField privateCommitment,
+        BN254.ScalarField publicCommitment,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField)
+    {
+        uint256[] memory commitmentInputs = new uint256[](2);
+        commitmentInputs[0] = BN254.ScalarField.unwrap(privateCommitment);
+        commitmentInputs[1] = BN254.ScalarField.unwrap(publicCommitment);
+        uint256 fullCommitment = hasher.spongeHash(commitmentInputs);
         return BN254.ScalarField.wrap(fullCommitment);
     }
 }

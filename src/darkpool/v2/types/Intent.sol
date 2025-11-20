@@ -66,3 +66,41 @@ library IntentPublicShareLib {
         scalars[4] = BN254.ScalarField.unwrap(share.amountIn);
     }
 }
+
+/// @notice A pre-match share of an intent
+/// @dev This is a secret share of all fields in an intent which don't change in a match
+/// @dev That is, all but the `amountIn` field.
+struct IntentPreMatchShare {
+    /// @dev The token to buy
+    BN254.ScalarField inToken;
+    /// @dev The token to sell
+    BN254.ScalarField outToken;
+    /// @dev The owner of the intent
+    BN254.ScalarField owner;
+    /// @dev The minimum price at which a party may settle a partial fill
+    /// @dev This is in units of `outToken/inToken`
+    BN254.ScalarField minPrice;
+}
+
+library IntentPreMatchShareLib {
+    /// @notice Create an intent public share from a pre-match share and an `amountIn` share
+    /// @param preMatchShare The pre-match share to create the intent public share from
+    /// @param amountInShare The `amountIn` share to create the intent public share from
+    /// @return intentPublicShare The intent public share
+    function toFullPublicShare(
+        IntentPreMatchShare memory preMatchShare,
+        BN254.ScalarField amountInShare
+    )
+        internal
+        pure
+        returns (IntentPublicShare memory intentPublicShare)
+    {
+        intentPublicShare = IntentPublicShare({
+            inToken: preMatchShare.inToken,
+            outToken: preMatchShare.outToken,
+            owner: preMatchShare.owner,
+            minPrice: preMatchShare.minPrice,
+            amountIn: amountInShare
+        });
+    }
+}
