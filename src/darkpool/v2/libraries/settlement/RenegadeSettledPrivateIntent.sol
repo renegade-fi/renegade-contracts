@@ -256,6 +256,7 @@ library RenegadeSettledPrivateIntentLib {
         state.spendNullifier(intentNullifier);
 
         // 2. Insert commitments to the updated intent and balance into the Merkle tree
+        // TODO: Add output balances
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
         BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);

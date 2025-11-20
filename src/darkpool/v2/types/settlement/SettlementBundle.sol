@@ -233,9 +233,8 @@ library SettlementBundleLib {
         // 3. Compute the full post-update commitment
         // To do so we must update the `amountIn` field in the intent public shares to reflect the settlement
         uint256[] memory postUpdateRemainingShares = new uint256[](1);
-        BN254.ScalarField newAmountInShare = authStatement.intentPublicShare.amountIn.sub(
-            BN254.ScalarField.wrap(settlementStatement.obligation.amountIn)
-        );
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.obligation.amountIn);
+        BN254.ScalarField newAmountInShare = authStatement.intentPublicShare.amountIn.sub(settlementAmount);
         postUpdateRemainingShares[0] = BN254.ScalarField.unwrap(newAmountInShare);
         postUpdateIntentCommitment =
             CommitmentLib.computeResumableCommitment(postUpdateRemainingShares, sharedPrefixPartialComm, hasher);
@@ -259,8 +258,8 @@ library SettlementBundleLib {
         IntentOnlyPublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
 
         // 1. Apply the settlement to the intent public share
-        BN254.ScalarField newAmountShareScalar =
-            authStatement.newAmountShare.sub(BN254.ScalarField.wrap(settlementStatement.obligation.amountIn));
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.obligation.amountIn);
+        BN254.ScalarField newAmountShareScalar = authStatement.newAmountShare.sub(settlementAmount);
 
         // 2. Compute the full commitment to the updated intent by resuming from the partial commitment
         uint256[] memory postUpdateRemainingShares = new uint256[](1);
@@ -291,8 +290,8 @@ library SettlementBundleLib {
 
         // 1. Compute the updated public share of the amount in field
         BN254.ScalarField newAmountInShare = settlementStatement.amountPublicShare;
-        newAmountInShare =
-            newAmountInShare.sub(BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn));
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
+        newAmountInShare = newAmountInShare.sub(settlementAmount);
 
         // 2. Create the full updated intent public share
         IntentPublicShare memory newIntentPublicShare =
@@ -329,9 +328,8 @@ library SettlementBundleLib {
         // 1. Compute the updated public shares of the balance
         // The fees don't update for the input balance, so we leave them as is
         PostMatchBalanceShare memory newInBalancePublicShares = settlementStatement.inBalancePublicShares;
-        newInBalancePublicShares.amount = newInBalancePublicShares.amount.sub(
-            BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn)
-        );
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
+        newInBalancePublicShares.amount = newInBalancePublicShares.amount.sub(settlementAmount);
 
         // 2. Resume the partial commitment with updated shares
         uint256[] memory remainingShares = newInBalancePublicShares.scalarSerialize();
@@ -341,10 +339,12 @@ library SettlementBundleLib {
 
     /// @notice Compute the full commitment to the updated intent for a renegade settled private intent bundle
     /// on its subsequent fill
+    /// @dev The partial commitment computed in the circuit is a commitment to all shares except the public share of the
+    /// `amountIn` field, which is updated in a match settlement. We must therefore apply the settlement to the
+    /// `amountIn` public share and resume the commitment.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
-    /// TODO: Compute this correctly
     function computeFullIntentCommitment(
         RenegadeSettledIntentBundle memory bundleData,
         IHasher hasher
@@ -353,15 +353,29 @@ library SettlementBundleLib {
         view
         returns (BN254.ScalarField newIntentCommitment)
     {
-        newIntentCommitment = bundleData.auth.statement.newIntentPartialCommitment.privateCommitment;
+        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
+        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+
+        // Compute the updated public share of the amount in field
+        BN254.ScalarField newAmountInShare = settlementStatement.amountPublicShare;
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
+        newAmountInShare = newAmountInShare.sub(settlementAmount);
+
+        // Resume the partial commitment with updated shares
+        uint256[] memory remainingShares = new uint256[](1);
+        remainingShares[0] = BN254.ScalarField.unwrap(newAmountInShare);
+        newIntentCommitment =
+            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.newIntentPartialCommitment, hasher);
     }
 
     /// @notice Compute the full commitment to the updated balance for a renegade settled private intent bundle
     /// on its subsequent fill
+    /// @dev The partial commitment computed in the circuit is a commitment to all shares except the public share of the
+    /// `amount` field, which is updated in a match settlement. We must therefore apply the settlement to the
+    /// `amount` public share and resume the commitment.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
     /// @return newBalanceCommitment The full commitment to the updated balance
-    /// TODO: Compute this correctly
     function computeFullBalanceCommitment(
         RenegadeSettledIntentBundle memory bundleData,
         IHasher hasher
@@ -370,7 +384,18 @@ library SettlementBundleLib {
         view
         returns (BN254.ScalarField newBalanceCommitment)
     {
-        newBalanceCommitment = bundleData.auth.statement.balancePartialCommitment.privateCommitment;
+        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
+        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+
+        // Compute the updated public shares of the balance
+        PostMatchBalanceShare memory newInBalancePublicShares = settlementStatement.inBalancePublicShares;
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
+        newInBalancePublicShares.amount = newInBalancePublicShares.amount.sub(settlementAmount);
+
+        // Resume the partial commitment with updated shares
+        uint256[] memory remainingShares = newInBalancePublicShares.scalarSerialize();
+        newBalanceCommitment =
+            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
     }
 
     /// @notice Compute the full commitment to the updated intent for a renegade settled private fill bundle
