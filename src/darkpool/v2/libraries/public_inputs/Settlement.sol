@@ -21,6 +21,8 @@ struct IntentOnlyPublicSettlementStatement {
     SettlementObligation obligation;
     /// @dev The relayer fee charged for the match
     FixedPoint relayerFee;
+    /// @dev The recipient of the relayer fee
+    address relayerFeeRecipient;
 }
 
 /// @notice A statement for a proof of intent and balance public settlement

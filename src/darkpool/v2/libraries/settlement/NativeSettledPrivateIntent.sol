@@ -24,6 +24,7 @@ import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -45,6 +46,8 @@ library NativeSettledPrivateIntentLib {
     using PublicInputsLib for IntentOnlyValidityStatement;
     using PublicInputsLib for IntentOnlyValidityStatementFirstFill;
     using PublicInputsLib for IntentOnlyPublicSettlementStatement;
+    using FeeRateLib for FeeRate;
+    using FeeTakeLib for FeeTake;
 
     // --- Errors --- //
 
@@ -266,7 +269,9 @@ library NativeSettledPrivateIntentLib {
 
         // 2. Allocate transfers to settle the obligation in the settlement context
         address owner = bundleData.auth.statement.intentOwner;
-        allocateTransfers(owner, obligation, settlementContext);
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
+            computeFeeTakes(obligation, bundleData.settlementStatement, state);
+        allocateTransfers(owner, relayerFeeTake, protocolFeeTake, obligation, settlementContext);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle
@@ -295,7 +300,9 @@ library NativeSettledPrivateIntentLib {
 
         // 3. Allocate transfers to settle the obligation in the settlement context
         address owner = bundleData.auth.statement.intentOwner;
-        allocateTransfers(owner, obligation, settlementContext);
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
+            computeFeeTakes(obligation, bundleData.settlementStatement, state);
+        allocateTransfers(owner, relayerFeeTake, protocolFeeTake, obligation, settlementContext);
     }
 
     /// @notice Allocate transfers to settle the obligation into the settlement context
@@ -304,6 +311,8 @@ library NativeSettledPrivateIntentLib {
     /// @param settlementContext The settlement context to which we append post-validation updates.
     function allocateTransfers(
         address owner,
+        FeeTake memory relayerFeeTake,
+        FeeTake memory protocolFeeTake,
         SettlementObligation memory obligation,
         SettlementContext memory settlementContext
     )
@@ -315,9 +324,39 @@ library NativeSettledPrivateIntentLib {
         settlementContext.pushDeposit(deposit);
 
         // Withdraw the output token from the darkpool
-        // TODO: Add in fees
-        uint256 totalFee = 0;
+        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
         SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(owner, totalFee);
         settlementContext.pushWithdrawal(withdrawal);
+
+        // Withdraw the relayer and protocol fees to their respective recipients
+        SimpleTransfer memory relayerWithdrawal = relayerFeeTake.buildWithdrawalTransfer();
+        SimpleTransfer memory protocolWithdrawal = protocolFeeTake.buildWithdrawalTransfer();
+        settlementContext.pushWithdrawal(relayerWithdrawal);
+        settlementContext.pushWithdrawal(protocolWithdrawal);
+    }
+
+    /// @notice Compute the fee takes for the match
+    /// @param obligation The settlement obligation to compute fee takes for
+    /// @param settlementStatement The settlement statement to compute fee takes for
+    /// @param state The darkpool state containing all storage references
+    function computeFeeTakes(
+        SettlementObligation memory obligation,
+        IntentOnlyPublicSettlementStatement memory settlementStatement,
+        DarkpoolState storage state
+    )
+        internal
+        view
+        returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
+    {
+        // Compute the fee rates
+        FeeRate memory relayerFeeRate =
+            FeeRate({ rate: settlementStatement.relayerFee, recipient: settlementStatement.relayerFeeRecipient });
+        FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
+
+        // Multiply the rates with the receive amount
+        uint256 receiveAmount = obligation.amountOut;
+        address receiveToken = obligation.outputToken;
+        relayerFeeTake = relayerFeeRate.computeFeeTake(receiveToken, receiveAmount);
+        protocolFeeTake = protocolFeeRate.computeFeeTake(receiveToken, receiveAmount);
     }
 }
