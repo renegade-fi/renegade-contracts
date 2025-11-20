@@ -313,26 +313,23 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         SettlementContext memory settlementContext =
             SettlementLib.allocateExternalSettlementContext(internalPartySettlementBundle);
 
-        // 2. Validate the bounded match result
-        BoundedMatchResultLib.validate(matchResult, inputAmount);
-
-        // 3. Build settlement obligations from the bounded match result and input amount
+        // 2. Build settlement obligations from the bounded match result and input amount
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
             BoundedMatchResultLib.buildObligations(matchResult, inputAmount);
 
-        // 4. Validate and authorize the settlement bundles
+        // 3. Validate and authorize the settlement bundles
         SettlementLib.executeExternalSettlementBundle(
             internalObligation, internalPartySettlementBundle, settlementContext, _state, hasher
         );
 
         // TODO: Allocate transfers for external party (authorization implied by virtue of external party being the one
-        // settling) size constrained by `BoundedMatchResult.validate()`.
+        // settling)
 
-        // 5. Execute the transfers necessary for settlement
+        // 4. Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary
         SettlementLib.executeTransfers(settlementContext, weth, permit2);
 
-        // 6. Verify the proofs necessary for settlement
+        // 5. Verify the proofs necessary for settlement
         // The helpers above will push proofs to the settlement context if necessary
         SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }
