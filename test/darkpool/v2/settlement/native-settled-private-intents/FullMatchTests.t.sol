@@ -8,7 +8,11 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationType, ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PrivateIntentPublicBalanceBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import {
+    PrivateIntentPublicBalanceBundle,
+    PrivateIntentPublicBalanceFirstFillBundle,
+    SettlementBundleLib
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
@@ -19,6 +23,7 @@ import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 contract FullMatchTests is PrivateIntentSettlementTestUtils {
     using ObligationLib for ObligationBundle;
     using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
@@ -136,6 +141,39 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         MerkleTreeLib.initialize(testTree, config);
         testTree.insertLeaf(commitment0, hasher);
         testTree.insertLeaf(commitment1, hasher);
+
+        // Get the root of the tree and check that it's in the Merkle mountain range history
+        BN254.ScalarField root = testTree.getRoot();
+        bool rootInHistory = darkpool.rootInHistory(root);
+        assertTrue(rootInHistory, "root not in history");
+    }
+
+    /// @notice Check the Merkle mountain range roots after a full match settlement for first fill
+    /// @dev For first fill, there are no nullifiers to check - nonces are used instead (tested in
+    /// test_fullMatch_intentReplay)
+    function test_firstFill_merkleRootsAndNonce() public {
+        // Create match data for first fill
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
+            _createMatchData(true);
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData0 =
+            abi.decode(bundle0.data, (PrivateIntentPublicBalanceFirstFillBundle));
+        PrivateIntentPublicBalanceFirstFillBundle memory bundleData1 =
+            abi.decode(bundle1.data, (PrivateIntentPublicBalanceFirstFillBundle));
+
+        // Settle the match
+        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
+
+        // Check that the Merkle root matches the expected root
+        // Compute the commitments to the updated intents (post-match commitments)
+        (, BN254.ScalarField postMatchCommitment0) = bundleData0.computeIntentCommitments(hasher);
+        (, BN254.ScalarField postMatchCommitment1) = bundleData1.computeIntentCommitments(hasher);
+
+        // Validate against a single Merkle tree
+        MerkleTreeLib.MerkleTreeConfig memory config =
+            MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
+        MerkleTreeLib.initialize(testTree, config);
+        testTree.insertLeaf(postMatchCommitment0, hasher);
+        testTree.insertLeaf(postMatchCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();
