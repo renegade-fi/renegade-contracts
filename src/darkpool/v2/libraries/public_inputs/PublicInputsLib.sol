@@ -223,13 +223,13 @@ library PublicInputsLib {
         uint256 nPublicInputs = 8;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.intentOwner)));
-        publicInputs[1] = statement.initialIntentCommitment;
-        publicInputs[2] = statement.newIntentPartialCommitment;
-        publicInputs[3] = statement.intentPublicShare[0];
-        publicInputs[4] = statement.intentPublicShare[1];
-        publicInputs[5] = statement.intentPublicShare[2];
-        publicInputs[6] = statement.intentPublicShare[3];
-        publicInputs[7] = statement.intentPublicShare[4];
+        publicInputs[1] = statement.intentPrivateCommitment;
+        publicInputs[2] = statement.recoveryId;
+        publicInputs[3] = statement.intentPublicShare.inToken;
+        publicInputs[4] = statement.intentPublicShare.outToken;
+        publicInputs[5] = statement.intentPublicShare.owner;
+        publicInputs[6] = statement.intentPublicShare.minPrice;
+        publicInputs[7] = statement.intentPublicShare.amountIn;
     }
 
     /// @notice Serialize the public inputs for a proof

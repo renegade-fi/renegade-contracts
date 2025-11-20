@@ -103,8 +103,14 @@ library NativeSettledPrivateIntentLib {
             settlementBundle.decodePrivateIntentBundleDataFirstFill();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
+        // Compute the pre- and post-update commitments to the intent
+        // We compute these upfront so that the helper may re-use their common share prefix to compute the pre- and
+        // post-match commitments
+        (BN254.ScalarField preMatchIntentCommitment, BN254.ScalarField postMatchIntentCommitment) =
+            bundleData.computeIntentCommitments(hasher);
+
         // 1. Validate the intent authorization
-        validatePrivateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
+        validatePrivateIntentAuthorizationFirstFill(preMatchIntentCommitment, bundleData.auth, settlementContext, state);
 
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
@@ -113,7 +119,9 @@ library NativeSettledPrivateIntentLib {
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
-        executeStateUpdatesFirstFill(bundleData, obligation, settlementContext, state, hasher);
+        executeStateUpdatesFirstFill(
+            postMatchIntentCommitment, bundleData, obligation, settlementContext, state, hasher
+        );
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a subsequent
@@ -158,11 +166,14 @@ library NativeSettledPrivateIntentLib {
     // ------------------------
 
     /// @notice Validate the authorization of a private intent for a first fill
+    /// @param preMatchIntentCommitment The pre-match commitment to the intent. The owner of the intent must authorize
+    /// this commitment with a signature.
     /// @param auth The authorization bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     /// @dev On the first fill, we verify that the intent owner has signed the intent's commitment.
     function validatePrivateIntentAuthorizationFirstFill(
+        BN254.ScalarField preMatchIntentCommitment,
         PrivateIntentAuthBundleFirstFill memory auth,
         SettlementContext memory settlementContext,
         DarkpoolState storage state
@@ -174,7 +185,7 @@ library NativeSettledPrivateIntentLib {
         if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert IDarkpool.InvalidMerkleDepthRequested();
 
         // On the first fill, we verify that the intent owner has signed the intent's commitment
-        verifyIntentCommitmentSignature(auth, state);
+        verifyIntentCommitmentSignature(preMatchIntentCommitment, auth, state);
 
         // Append a proof to the settlement context
         // TODO: Fetch a real verification key
@@ -208,16 +219,18 @@ library NativeSettledPrivateIntentLib {
     }
 
     /// @notice Verify the signature of the intent commitment by its owner
+    /// @param preMatchIntentCommitment The pre-match commitment to the intent
     /// @param authBundle The authorization bundle to verify the signature for
     /// @param state The darkpool state containing all storage references
     function verifyIntentCommitmentSignature(
+        BN254.ScalarField preMatchIntentCommitment,
         PrivateIntentAuthBundleFirstFill memory authBundle,
         DarkpoolState storage state
     )
         internal
     {
         address intentOwner = authBundle.statement.intentOwner;
-        uint256 commitment = BN254.ScalarField.unwrap(authBundle.statement.initialIntentCommitment);
+        uint256 commitment = BN254.ScalarField.unwrap(preMatchIntentCommitment);
 
         bytes32 commitmentHash = EfficientHashLib.hash(bytes32(commitment));
         bool valid = authBundle.intentSignature.verifyPrehashed(intentOwner, commitmentHash);
@@ -238,6 +251,7 @@ library NativeSettledPrivateIntentLib {
     /// @dev On the first fill, no state needs to be nullified. We must only insert the new intent commitment and
     /// allocate the transfers.
     function executeStateUpdatesFirstFill(
+        BN254.ScalarField postMatchIntentCommitment,
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         SettlementObligation memory obligation,
         SettlementContext memory settlementContext,
@@ -247,9 +261,8 @@ library NativeSettledPrivateIntentLib {
         internal
     {
         // 1. Insert a commitment to the updated intent into the Merkle tree
-        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
         uint256 merkleDepth = bundleData.auth.merkleDepth;
-        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
+        state.insertMerkleLeaf(merkleDepth, postMatchIntentCommitment, hasher);
 
         // 2. Allocate transfers to settle the obligation in the settlement context
         address owner = bundleData.auth.statement.intentOwner;

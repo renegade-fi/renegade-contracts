@@ -57,7 +57,7 @@ library NativeSettledPublicIntentLib {
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
-    /// TODO: Add bounds checks on the amounts in the intent and obligation
+    /// TODO: Add bounds checks on the amounts in the intent
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,

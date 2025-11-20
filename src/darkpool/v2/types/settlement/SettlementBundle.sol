@@ -14,9 +14,13 @@ import {
     IntentOnlyPublicSettlementStatement,
     IntentAndBalancePublicSettlementStatement
 } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentOnlyValidityStatementFirstFill } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+import { IntentPublicShareLib, IntentPublicShare } from "darkpoolv2-types/Intent.sol";
+import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
+import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -132,6 +136,8 @@ struct RenegadeSettledPrivateFillBundle {
 /// @author Renegade Eng
 /// @notice Library for decoding settlement bundle data
 library SettlementBundleLib {
+    using IntentPublicShareLib for IntentPublicShare;
+
     /// @notice The error type emitted when a settlement bundle type check fails
     error InvalidSettlementBundleType();
 
@@ -180,20 +186,45 @@ library SettlementBundleLib {
     /// on its first fill
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
-    /// @return newIntentCommitment The full commitment to the updated intent
-    /// TODO: Compute this correctly
-    function computeFullIntentCommitment(
+    /// @return preUpdateIntentCommitment The commitment to the pre-updated intent
+    /// @return postUpdateIntentCommitment The commitment to the post-updated intent
+    /// @dev Only the amount share in the intent changes between the pre- and post-update intent shares, so we can
+    /// compute the shared prefix of the two commitments and then resume the commitment for each of the amount shares.
+    function computeIntentCommitments(
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         IHasher hasher
     )
         internal
         view
-        returns (BN254.ScalarField newIntentCommitment)
+        returns (BN254.ScalarField preUpdateIntentCommitment, BN254.ScalarField postUpdateIntentCommitment)
     {
-        uint256[] memory hashInputs = new uint256[](2);
-        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.newIntentPartialCommitment);
-        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.auth.statement.intentPublicShare[4]);
-        newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+        IntentOnlyValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        IntentOnlyPublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+        IntentPublicShare memory intentPublicShare = authStatement.intentPublicShare;
+
+        // 1. Compute the shared prefix of the two commitments
+        uint256[] memory intentPublicShareScalars = intentPublicShare.scalarSerializeMatchPrefix();
+        uint256 prefixHash = hasher.computeResumableCommitment(intentPublicShareScalars);
+
+        // 2. Compute the full pre-update commitment; i.e. the commitment to the original shares
+        PartialCommitment memory sharedPrefixPartialComm = PartialCommitment({
+            privateCommitment: authStatement.intentPrivateCommitment,
+            partialPublicCommitment: BN254.ScalarField.wrap(prefixHash)
+        });
+
+        uint256[] memory preUpdateRemainingShares = new uint256[](1);
+        uint256 preUpdateAmountIn = BN254.ScalarField.unwrap(authStatement.intentPublicShare.amountIn);
+        preUpdateRemainingShares[0] = preUpdateAmountIn;
+        preUpdateIntentCommitment =
+            CommitmentLib.computeResumableCommitment(preUpdateRemainingShares, sharedPrefixPartialComm, hasher);
+
+        // 3. Compute the full post-update commitment
+        // To do so we must update the `amountIn` field in the intent public shares to reflect the settlement
+        uint256[] memory postUpdateRemainingShares = new uint256[](1);
+        uint256 newAmountIn = preUpdateAmountIn - settlementStatement.obligation.amountIn;
+        postUpdateRemainingShares[0] = newAmountIn;
+        postUpdateIntentCommitment =
+            CommitmentLib.computeResumableCommitment(postUpdateRemainingShares, sharedPrefixPartialComm, hasher);
     }
 
     /// @notice Compute the full commitment to the updated intent for a natively settled private intent bundle

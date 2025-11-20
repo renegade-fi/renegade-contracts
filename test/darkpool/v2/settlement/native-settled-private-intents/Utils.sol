@@ -25,17 +25,40 @@ import {
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { IntentPublicShare, IntentPublicShareLib } from "darkpoolv2-types/Intent.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
     using FixedPointLib for FixedPoint;
+    using IntentPublicShareLib for IntentPublicShare;
 
     // ---------
     // | Utils |
     // ---------
 
     // --- Signatures --- //
+
+    /// @dev Compute the full commitment to an intent's shares
+    function computeIntentSharesCommitment(
+        IntentPublicShare memory intentPublicShare,
+        BN254.ScalarField intentPrivateCommitment,
+        IHasher hasher
+    )
+        internal
+        returns (BN254.ScalarField commitment)
+    {
+        uint256[] memory intentPublicShareScalars = intentPublicShare.scalarSerialize();
+        uint256 commitmentHash = hasher.computeResumableCommitment(intentPublicShareScalars);
+
+        // Compute the full commitment: H(private commitment || public commitment)
+        uint256[] memory commitmentInputs = new uint256[](2);
+        commitmentInputs[0] = BN254.ScalarField.unwrap(intentPrivateCommitment);
+        commitmentInputs[1] = commitmentHash;
+        uint256 hashResult = hasher.spongeHash(commitmentInputs);
+        commitment = BN254.ScalarField.wrap(hashResult);
+    }
 
     /// @dev Sign an intent commitment
     function signIntentCommitment(
@@ -125,15 +148,17 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         // Create the statement types
         IntentOnlyValidityStatementFirstFill memory validityStatement = IntentOnlyValidityStatementFirstFill({
             intentOwner: owner.addr,
-            initialIntentCommitment: randomScalar(),
-            newIntentPartialCommitment: randomScalar(),
-            intentPublicShare: randomIntentShares()
+            intentPrivateCommitment: randomScalar(),
+            recoveryId: randomScalar(),
+            intentPublicShare: randomIntentPublicShare()
         });
         IntentOnlyPublicSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
         // Sign the pre-update intent commitment
-        SignatureWithNonce memory intentSignature =
-            signIntentCommitment(validityStatement.initialIntentCommitment, owner.privateKey);
+        BN254.ScalarField intentCommitment = computeIntentSharesCommitment(
+            validityStatement.intentPublicShare, validityStatement.intentPrivateCommitment, hasher
+        );
+        SignatureWithNonce memory intentSignature = signIntentCommitment(intentCommitment, owner.privateKey);
 
         // Create auth bundle
         PrivateIntentAuthBundleFirstFill memory auth = PrivateIntentAuthBundleFirstFill({
