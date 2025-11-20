@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 
@@ -19,6 +21,16 @@ struct DarkpoolState {
     /// @notice A store of spent signature nonces for user updates
     /// @dev This is used to prevent a relayer from submitting the same update twice
     mapping(uint256 => bool) spentNonces;
+    /// @notice The default protocol fee rate for the darkpool
+    FixedPoint defaultProtocolFeeRate;
+    /// @notice The address at which external parties pay protocol fees
+    /// @dev This is only used for external parties in atomic matches
+    address protocolFeeRecipient;
+    /// @notice A per-pair fee override for the darkpool
+    /// @dev This is used to set the protocol fee rate for atomic matches on a per-pair basis
+    /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
+    /// @dev Key is keccak256(abi.encodePacked(token0, token1)) where token0 < token1
+    mapping(bytes32 => FixedPoint) perPairFeeOverrides;
     /// @notice The Merkle mountain range for state element commitments
     MerkleMountainLib.MerkleMountainRange merkleMountainRange;
     /// @notice The nullifier set for the darkpool
@@ -40,6 +52,18 @@ library DarkpoolStateLib {
 
     /// @notice Error thrown when a signature nonce has already been spent
     error NonceAlreadySpent();
+
+    // --- Helpers --- //
+
+    /// @notice Compute a consistent key for a trading pair
+    /// @param asset0 The first asset in the pair
+    /// @param asset1 The second asset in the pair
+    /// @return The keccak256 hash of the ordered pair
+    /// @dev Ensures consistent ordering so getPair(A, B) == getPair(B, A)
+    function _getPairKey(address asset0, address asset1) internal pure returns (bytes32) {
+        (address token0, address token1) = asset0 < asset1 ? (asset0, asset1) : (asset1, asset0);
+        return keccak256(abi.encodePacked(token0, token1));
+    }
 
     // --- Getters --- //
 
@@ -74,6 +98,42 @@ library DarkpoolStateLib {
         return state.merkleMountainRange.rootInHistory(root);
     }
 
+    /// @notice Get the default protocol fee rate
+    /// @param state The darkpool state
+    /// @return The default protocol fee rate
+    function getDefaultProtocolFeeRate(DarkpoolState storage state) internal view returns (FixedPoint memory) {
+        return state.defaultProtocolFeeRate;
+    }
+
+    /// @notice Get the protocol fee recipient address
+    /// @param state The darkpool state
+    /// @return The protocol fee recipient address
+    function getProtocolFeeRecipient(DarkpoolState storage state) internal view returns (address) {
+        return state.protocolFeeRecipient;
+    }
+
+    /// @notice Get the protocol fee rate for a trading pair
+    /// @param state The darkpool state
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @return The protocol fee rate for the pair, including recipient address
+    function getProtocolFeeRate(
+        DarkpoolState storage state,
+        address asset0,
+        address asset1
+    )
+        internal
+        view
+        returns (FeeRate memory)
+    {
+        bytes32 pairKey = _getPairKey(asset0, asset1);
+        FixedPoint memory overrideFee = state.perPairFeeOverrides[pairKey];
+
+        // Use per-pair override if set, otherwise use default
+        FixedPoint memory rate = overrideFee.repr != 0 ? overrideFee : state.defaultProtocolFeeRate;
+        return FeeRate({ rate: rate, recipient: state.protocolFeeRecipient });
+    }
+
     // --- Setters --- //
 
     /// @notice Set the amount remaining for an open public intent
@@ -104,6 +164,23 @@ library DarkpoolStateLib {
     function spendNonce(DarkpoolState storage state, uint256 nonce) internal {
         if (state.spentNonces[nonce]) revert NonceAlreadySpent();
         state.spentNonces[nonce] = true;
+    }
+
+    /// @notice Set the per-pair fee override for a trading pair
+    /// @param state The darkpool state
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @param feeRate The fee rate to set for the pair
+    function setPerPairFeeOverride(
+        DarkpoolState storage state,
+        address asset0,
+        address asset1,
+        FixedPoint memory feeRate
+    )
+        internal
+    {
+        bytes32 pairKey = _getPairKey(asset0, asset1);
+        state.perPairFeeOverrides[pairKey] = feeRate;
     }
 
     /// @notice Spend a nullifier

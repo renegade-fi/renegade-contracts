@@ -21,7 +21,7 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { NativeSettledPublicIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPublicIntent.sol";
 import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { RelayerFeeRate } from "darkpoolv2-types/Fee.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
@@ -151,13 +151,13 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         obligation0.amountIn = randomUint(1, amountRemaining);
         uint256 minAmountOut = authBundle2.permit.intent.minPrice.unsafeFixedPointMul(obligation0.amountIn);
         obligation0.amountOut = minAmountOut + 1;
-        RelayerFeeRate memory relayerFeeRate2 = randomRelayerFeeRate();
-        authBundle2.executorSignature = createExecutorSignature(relayerFeeRate2, obligation0, executor.privateKey);
+        FeeRate memory feeRate2 = randomFeeRate();
+        authBundle2.executorSignature = createExecutorSignature(feeRate2, obligation0, executor.privateKey);
         ObligationBundle memory obligationBundle2 = buildObligationBundle(obligation0, obligation1);
 
         // Create the second bundle
         PublicIntentPublicBalanceBundle memory bundleData2 =
-            PublicIntentPublicBalanceBundle({ auth: authBundle2, relayerFeeRate: relayerFeeRate2 });
+            PublicIntentPublicBalanceBundle({ auth: authBundle2, relayerFeeRate: feeRate2 });
         SettlementBundle memory bundle2 = SettlementBundle({
             isFirstFill: false,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT,

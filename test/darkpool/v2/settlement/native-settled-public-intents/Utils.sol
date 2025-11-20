@@ -19,7 +19,7 @@ import {
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { RelayerFeeRate } from "darkpoolv2-types/Fee.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 
 contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
@@ -51,7 +51,7 @@ contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Sign an obligation (memory version)
     function createExecutorSignature(
-        RelayerFeeRate memory relayerFeeRate,
+        FeeRate memory feeRate,
         SettlementObligation memory obligation,
         uint256 signerPrivateKey
     )
@@ -59,20 +59,20 @@ contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
         returns (SignatureWithNonce memory)
     {
         // Use the calldata version via external call for memory-to-calldata conversion
-        return this._createExecutorSignatureCalldata(obligation, relayerFeeRate, signerPrivateKey);
+        return this._createExecutorSignatureCalldata(obligation, feeRate, signerPrivateKey);
     }
 
     /// @dev Sign an obligation (calldata version)
     function _createExecutorSignatureCalldata(
         SettlementObligation memory obligation,
-        RelayerFeeRate memory relayerFeeRate,
+        FeeRate memory feeRate,
         uint256 signerPrivateKey
     )
         external
         returns (SignatureWithNonce memory)
     {
         // Hash the fee with obligation
-        bytes memory encoded = abi.encode(relayerFeeRate, obligation);
+        bytes memory encoded = abi.encode(feeRate, obligation);
         bytes32 digest = EfficientHashLib.hash(encoded);
 
         // Sign with the private key
@@ -129,9 +129,8 @@ contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
         // Create relayer fee rate and sign the executor digest with the executor key
-        RelayerFeeRate memory relayerFeeRate = randomRelayerFeeRate();
-        SignatureWithNonce memory executorSignature =
-            createExecutorSignature(relayerFeeRate, obligation, executorPrivateKey);
+        FeeRate memory feeRate = randomFeeRate();
+        SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
@@ -140,7 +139,7 @@ contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
             executorSignature: executorSignature
         });
         PublicIntentPublicBalanceBundle memory bundleData =
-            PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: relayerFeeRate });
+            PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
 
         // Create the complete settlement bundle
         return SettlementBundle({

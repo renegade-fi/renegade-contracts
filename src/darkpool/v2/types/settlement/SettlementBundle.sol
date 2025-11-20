@@ -31,7 +31,7 @@ import {
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-types/Balance.sol";
-import { RelayerFeeRate } from "darkpoolv2-types/Fee.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
@@ -86,7 +86,7 @@ struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
     /// @dev The relayer's fee take for the match
-    RelayerFeeRate relayerFeeRate;
+    FeeRate relayerFeeRate;
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle on the first fill

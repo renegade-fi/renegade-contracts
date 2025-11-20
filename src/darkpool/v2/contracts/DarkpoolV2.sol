@@ -85,18 +85,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     // --- Fee Storage --- //
 
-    /// @notice The default protocol fee rate for the darkpool
-    FixedPoint public defaultProtocolFeeRate;
-    /// @notice The address at which external parties pay protocol fees
-    /// @dev This is only used for external parties in atomic matches, fees for internal matches
-    /// @dev and internal parties in atomic matches are paid via the `Note` mechanism.
-    address public protocolFeeRecipient;
     /// @notice The public encryption key for the protocol's fees
     EncryptionKey public protocolFeeKey;
-    /// @notice A per-asset fee override for the darkpool
-    /// @dev This is used to set the protocol fee rate for atomic matches on a per-token basis
-    /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
-    mapping(address => FixedPoint) public perAssetFeeOverrides;
 
     // --- Delegate Addresses --- //
 
@@ -114,7 +104,9 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Protocol Level State Storage --- //
 
     /// @notice Bundled core darkpool state
-    /// @dev Contains: openPublicIntents mapping, spentNonces mapping, merkleTree, and nullifierSet
+    /// @dev We bundle the state here to pass it as a single parameter to verification methods.
+    /// @dev Contains: openPublicIntents mapping, spentNonces mapping, perPairFeeOverrides mapping, merkleTree, and
+    /// nullifierSet
     DarkpoolState private _state;
 
     // ---------------------------------
@@ -144,8 +136,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     {
         _transferOwnership(initialOwner);
 
-        defaultProtocolFeeRate = FixedPointLib.wrap(defaultProtocolFeeRateRepr);
-        protocolFeeRecipient = protocolFeeRecipient_;
+        _state.defaultProtocolFeeRate = FixedPointLib.wrap(defaultProtocolFeeRateRepr);
+        _state.protocolFeeRecipient = protocolFeeRecipient_;
         protocolFeeKey = protocolFeeKey_;
         hasher = hasher_;
         verifier = verifier_;
@@ -174,12 +166,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     }
 
     /// @inheritdoc IDarkpoolV2
-    function getProtocolFeeRate(address asset) public view returns (FixedPoint memory) {
-        FixedPoint memory overrideFee = perAssetFeeOverrides[asset];
-        if (overrideFee.repr != 0) {
-            return overrideFee;
-        }
-        return defaultProtocolFeeRate;
+    function getProtocolFee(address asset0, address asset1) public view returns (FixedPoint memory) {
+        return _state.getProtocolFeeRate(asset0, asset1).rate;
     }
 
     // -----------------
