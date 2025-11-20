@@ -9,7 +9,9 @@ import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/Ob
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { FeeTake } from "darkpoolv2-types/Fee.sol";
 import { PublicIntentSettlementTestUtils } from "./Utils.sol";
+import { ExpectedDifferences, SettlementTestUtils } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is PublicIntentSettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
@@ -89,22 +91,23 @@ contract FullMatchTests is PublicIntentSettlementTestUtils {
             permit1.intent, obligation1, party1.privateKey, executor.privateKey
         );
 
-        // Record balances before settlement
-        (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseBefore, uint256 party1QuoteBefore) = baseQuoteBalances(party1.addr);
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
 
-        // Settle the match
-        darkpool.settleMatch(obligationBundle, party0Bundle, party1Bundle);
-
-        // Check balances after settlement
-        (uint256 party0BaseAfter, uint256 party0QuoteAfter) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseAfter, uint256 party1QuoteAfter) = baseQuoteBalances(party1.addr);
-
-        // Verify balance changes
-        assertEq(party0BaseBefore - party0BaseAfter, obligation0.amountIn, "party0 base sent");
-        assertEq(party0QuoteAfter - party0QuoteBefore, obligation0.amountOut, "party0 quote received");
-        assertEq(party1QuoteBefore - party1QuoteAfter, obligation1.amountIn, "party1 quote sent");
-        assertEq(party1BaseAfter - party1BaseBefore, obligation1.amountOut, "party1 base received");
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = -int256(obligation0.amountIn);
+        expectedDifferences.party0QuoteChange = int256(obligation0.amountOut) - int256(totalFee0);
+        expectedDifferences.party1BaseChange = int256(obligation1.amountOut) - int256(totalFee1);
+        expectedDifferences.party1QuoteChange = -int256(obligation1.amountIn);
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
+        expectedDifferences.darkpoolBaseChange = 0;
+        expectedDifferences.darkpoolQuoteChange = 0;
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, party0Bundle, party1Bundle, expectedDifferences);
 
         // Verify the amount remaining on the intents
         bytes32 intentHash0 = permit0.computeHash();
@@ -141,12 +144,25 @@ contract FullMatchTests is PublicIntentSettlementTestUtils {
             permit1.intent, trade1Obligation1, party1.privateKey, executor.privateKey
         );
 
-        // Check balances before first settlement
-        (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseBefore, uint256 party1QuoteBefore) = baseQuoteBalances(party1.addr);
+        // Compute fees for first trade
+        (FeeTake memory relayerFeeTake1_0, FeeTake memory protocolFeeTake1_0) = computeMatchFees(trade1Obligation0);
+        (FeeTake memory relayerFeeTake1_1, FeeTake memory protocolFeeTake1_1) = computeMatchFees(trade1Obligation1);
+        uint256 totalFee1_0 = relayerFeeTake1_0.fee + protocolFeeTake1_0.fee;
+        uint256 totalFee1_1 = relayerFeeTake1_1.fee + protocolFeeTake1_1.fee;
 
-        // Settle an initial match
-        darkpool.settleMatch(obligationBundle, party0Bundle, party1Bundle);
+        // Check balances for first settlement
+        ExpectedDifferences memory expectedDifferences1 = createEmptyExpectedDifferences();
+        expectedDifferences1.party0BaseChange = -int256(trade1Obligation0.amountIn);
+        expectedDifferences1.party0QuoteChange = int256(trade1Obligation0.amountOut) - int256(totalFee1_0);
+        expectedDifferences1.party1BaseChange = int256(trade1Obligation1.amountOut) - int256(totalFee1_1);
+        expectedDifferences1.party1QuoteChange = -int256(trade1Obligation1.amountIn);
+        expectedDifferences1.relayerFeeBaseChange = int256(relayerFeeTake1_1.fee);
+        expectedDifferences1.relayerFeeQuoteChange = int256(relayerFeeTake1_0.fee);
+        expectedDifferences1.protocolFeeBaseChange = int256(protocolFeeTake1_1.fee);
+        expectedDifferences1.protocolFeeQuoteChange = int256(protocolFeeTake1_0.fee);
+        expectedDifferences1.darkpoolBaseChange = 0;
+        expectedDifferences1.darkpoolQuoteChange = 0;
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, party0Bundle, party1Bundle, expectedDifferences1);
 
         // --- Second Fill --- //
 
@@ -180,8 +196,25 @@ contract FullMatchTests is PublicIntentSettlementTestUtils {
             permit1.intent, trade2Obligation1, party1.privateKey, executor.privateKey
         );
 
-        // Execute the second match
-        darkpool.settleMatch(obligationBundle2, party0Bundle2, party1Bundle2);
+        // Compute fees for second trade
+        (FeeTake memory relayerFeeTake2_0, FeeTake memory protocolFeeTake2_0) = computeMatchFees(trade2Obligation0);
+        (FeeTake memory relayerFeeTake2_1, FeeTake memory protocolFeeTake2_1) = computeMatchFees(trade2Obligation1);
+        uint256 totalFee2_0 = relayerFeeTake2_0.fee + protocolFeeTake2_0.fee;
+        uint256 totalFee2_1 = relayerFeeTake2_1.fee + protocolFeeTake2_1.fee;
+
+        // Check balances for second settlement
+        ExpectedDifferences memory expectedDifferences2 = createEmptyExpectedDifferences();
+        expectedDifferences2.party0BaseChange = -int256(trade2Obligation0.amountIn);
+        expectedDifferences2.party0QuoteChange = int256(trade2Obligation0.amountOut) - int256(totalFee2_0);
+        expectedDifferences2.party1BaseChange = int256(trade2Obligation1.amountOut) - int256(totalFee2_1);
+        expectedDifferences2.party1QuoteChange = -int256(trade2Obligation1.amountIn);
+        expectedDifferences2.relayerFeeBaseChange = int256(relayerFeeTake2_1.fee);
+        expectedDifferences2.relayerFeeQuoteChange = int256(relayerFeeTake2_0.fee);
+        expectedDifferences2.protocolFeeBaseChange = int256(protocolFeeTake2_1.fee);
+        expectedDifferences2.protocolFeeQuoteChange = int256(protocolFeeTake2_0.fee);
+        expectedDifferences2.darkpoolBaseChange = 0;
+        expectedDifferences2.darkpoolQuoteChange = 0;
+        checkBalancesBeforeAndAfterSettlement(obligationBundle2, party0Bundle2, party1Bundle2, expectedDifferences2);
 
         // --- Verify State Updates --- //
 
@@ -195,20 +228,5 @@ contract FullMatchTests is PublicIntentSettlementTestUtils {
 
         assertEq(party0Remaining2, expectedParty0Remaining, "party0 remaining");
         assertEq(party1Remaining2, expectedParty1Remaining, "party1 remaining");
-
-        // Check balances after second settlement
-        (uint256 party0BaseAfter, uint256 party0QuoteAfter) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseAfter, uint256 party1QuoteAfter) = baseQuoteBalances(party1.addr);
-
-        uint256 expectedParty0BaseAfter = party0BaseBefore - trade1Obligation0.amountIn - trade2Obligation0.amountIn;
-        uint256 expectedParty0QuoteAfter = party0QuoteBefore + trade1Obligation0.amountOut + trade2Obligation0.amountOut;
-        uint256 expectedParty1BaseAfter = party1BaseBefore + trade1Obligation1.amountOut + trade2Obligation1.amountOut;
-        uint256 expectedParty1QuoteAfter = party1QuoteBefore - trade1Obligation1.amountIn - trade2Obligation1.amountIn;
-
-        // Verify balance changes after second settlement
-        assertEq(party0BaseAfter, expectedParty0BaseAfter, "party0 base sent");
-        assertEq(party0QuoteAfter, expectedParty0QuoteAfter, "party0 quote received");
-        assertEq(party1BaseAfter, expectedParty1BaseAfter, "party1 base received");
-        assertEq(party1QuoteAfter, expectedParty1QuoteAfter, "party1 quote received");
     }
 }

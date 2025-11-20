@@ -86,36 +86,9 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         price = randomFixedPoint(minPrice, maxPrice);
     }
 
-    /// @notice Generate a random fixed point between two fixed point values
-    /// @dev This is inclusive of the bounds, so [min, max]
-    /// @param min The minimum fixed point value
-    /// @param max The maximum fixed point value
-    /// @return result The random fixed point value
-    function randomFixedPoint(
-        FixedPoint memory min,
-        FixedPoint memory max
-    )
-        internal
-        returns (FixedPoint memory result)
-    {
-        uint256 minRepr = min.repr;
-        uint256 maxRepr = max.repr;
-        uint256 randomRepr = vm.randomUint(minRepr, maxRepr);
-        result = FixedPointLib.wrap(randomRepr);
-    }
-
-    /// @notice Generate a random fee
-    function randomFee() internal returns (FixedPoint memory fee) {
-        uint256 minRepr = 0;
-        uint256 maxRepr = 2 ** FixedPointLib.FIXED_POINT_PRECISION_BITS / 100; // 1%
-        FixedPoint memory min = FixedPointLib.wrap(minRepr);
-        FixedPoint memory max = FixedPointLib.wrap(maxRepr);
-        fee = randomFixedPoint(min, max);
-    }
-
     /// @notice Generate a random relayer fee rate
-    function randomFeeRate() internal returns (FeeRate memory feeRate) {
-        feeRate = FeeRate({ rate: randomFee(), recipient: relayerFeeAddr });
+    function relayerFeeRate() internal view returns (FeeRate memory feeRate) {
+        feeRate = FeeRate({ rate: relayerFeeRateFixedPoint, recipient: relayerFeeAddr });
     }
 
     /// @dev Generate a random set of intent shares

@@ -151,7 +151,7 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         obligation0.amountIn = randomUint(1, amountRemaining);
         uint256 minAmountOut = authBundle2.permit.intent.minPrice.unsafeFixedPointMul(obligation0.amountIn);
         obligation0.amountOut = minAmountOut + 1;
-        FeeRate memory feeRate2 = randomFeeRate();
+        FeeRate memory feeRate2 = relayerFeeRate();
         authBundle2.executorSignature = createExecutorSignature(feeRate2, obligation0, executor.privateKey);
         ObligationBundle memory obligationBundle2 = buildObligationBundle(obligation0, obligation1);
 

@@ -18,7 +18,7 @@ import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { FeeRate } from "darkpoolv2-types/Fee.sol";
+import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -37,6 +37,8 @@ library NativeSettledPublicIntentLib {
     using PublicIntentPermitLib for PublicIntentPermit;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
+    using FeeRateLib for FeeRate;
+    using FeeTakeLib for FeeTake;
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
@@ -186,16 +188,48 @@ library NativeSettledPublicIntentLib {
     )
         internal
     {
+        // Compute the fee takes for the match
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
+            computeFeeTakes(obligation, relayerFeeRate, protocolFeeRate);
+
         // Add transfers to settle the obligation
         // Deposit the input token into the darkpool
         SimpleTransfer memory deposit = obligation.buildPermit2AllowanceDeposit(intent.owner);
         settlementContext.pushDeposit(deposit);
 
-        // Withdraw the output token from the darkpool
-        SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(intent.owner);
+        // Withdraw the output token from the darkpool to the intent owner
+        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
+        SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(intent.owner, totalFee);
         settlementContext.pushWithdrawal(withdrawal);
+
+        // Withdraw the relayer and protocol fees to their respective recipients
+        SimpleTransfer memory relayerWithdrawal = relayerFeeTake.buildWithdrawalTransfer();
+        SimpleTransfer memory protocolWithdrawal = protocolFeeTake.buildWithdrawalTransfer();
+        settlementContext.pushWithdrawal(relayerWithdrawal);
+        settlementContext.pushWithdrawal(protocolWithdrawal);
 
         // Update the amount remaining on the intent
         state.decrementOpenIntentAmountRemaining(intentHash, obligation.amountIn);
+    }
+
+    /// @notice Compute the fee takes for the match
+    /// @param obligation The settlement obligation to compute fee takes for
+    /// @param relayerFeeRate The relayer fee rate to compute fee takes for
+    /// @param protocolFeeRate The protocol fee rate to compute fee takes for
+    /// @return relayerFeeTake The relayer fee take
+    /// @return protocolFeeTake The protocol fee take
+    function computeFeeTakes(
+        SettlementObligation memory obligation,
+        FeeRate memory relayerFeeRate,
+        FeeRate memory protocolFeeRate
+    )
+        internal
+        pure
+        returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
+    {
+        uint256 receiveAmount = obligation.amountOut;
+        address receiveToken = obligation.outputToken;
+        relayerFeeTake = relayerFeeRate.computeFeeTake(receiveToken, receiveAmount);
+        protocolFeeTake = protocolFeeRate.computeFeeTake(receiveToken, receiveAmount);
     }
 }

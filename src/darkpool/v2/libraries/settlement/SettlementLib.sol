@@ -75,12 +75,14 @@ library SettlementLib {
         pure
         returns (SettlementContext memory)
     {
-        uint256 transferCapacity = SettlementBundleLib.getNumTransfers(party0SettlementBundle)
-            + SettlementBundleLib.getNumTransfers(party1SettlementBundle);
+        uint256 numDeposits = SettlementBundleLib.getNumDeposits(party0SettlementBundle)
+            + SettlementBundleLib.getNumDeposits(party1SettlementBundle);
+        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(party0SettlementBundle)
+            + SettlementBundleLib.getNumWithdrawals(party1SettlementBundle);
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(party0SettlementBundle)
             + SettlementBundleLib.getNumProofs(party1SettlementBundle);
 
-        return SettlementContextLib.newContext(transferCapacity, proofCapacity);
+        return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity);
     }
 
     // --- Obligation Compatibility --- //

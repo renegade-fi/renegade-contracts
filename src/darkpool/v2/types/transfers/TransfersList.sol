@@ -71,12 +71,13 @@ library SettlementTransfersLib {
     using SettlementTransfersListLib for SettlementTransfersList;
 
     /// @notice Create a new settlement transfers list
-    /// @param capacity The initial capacity of the list
+    /// @param numDeposits The initial number of deposits
+    /// @param numWithdrawals The initial number of withdrawals
     /// @return The new settlement transfers list
-    function newList(uint256 capacity) internal pure returns (SettlementTransfers memory) {
+    function newList(uint256 numDeposits, uint256 numWithdrawals) internal pure returns (SettlementTransfers memory) {
         return SettlementTransfers({
-            deposits: SettlementTransfersListLib.newList(capacity),
-            withdrawals: SettlementTransfersListLib.newList(capacity)
+            deposits: SettlementTransfersListLib.newList(numDeposits),
+            withdrawals: SettlementTransfersListLib.newList(numWithdrawals)
         });
     }
 
