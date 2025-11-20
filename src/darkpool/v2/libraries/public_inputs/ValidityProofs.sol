@@ -47,6 +47,7 @@ struct IntentOnlyValidityStatement {
     /// @dev The new public share of the amount field on the intent
     BN254.ScalarField newAmountShare;
     /// @dev A partial commitment to the intent
+    /// @dev This is a commitment to all shares except the public share of the amount field which changes post-match.
     PartialCommitment newIntentPartialCommitment;
     /// @dev The recovery ID for the intent
     BN254.ScalarField recoveryId;
