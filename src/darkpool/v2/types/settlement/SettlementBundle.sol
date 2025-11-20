@@ -31,6 +31,9 @@ import {
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-types/Balance.sol";
+import { RelayerFeeRate } from "darkpoolv2-types/Fee.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -82,6 +85,8 @@ enum SettlementBundleType {
 struct PublicIntentPublicBalanceBundle {
     /// @dev The public intent authorization payload with signature attached
     PublicIntentAuthBundle auth;
+    /// @dev The relayer's fee take for the match
+    RelayerFeeRate relayerFeeRate;
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle on the first fill
@@ -191,6 +196,27 @@ library SettlementBundleLib {
     function isNativelySettled(SettlementBundle calldata bundle) internal pure returns (bool) {
         return bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT
             || bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+    }
+
+    // --- Authorization Validation --- //
+
+    /// @notice Compute the digest which the executor must sign for a natively settled public intent bundle
+    /// @dev The digest is the hash of the relayer's fee take and the obligation. The executor authorizes both these
+    /// values through a signature.
+    /// @param bundleData The bundle data to compute the digest for
+    /// @param obligation The settlement obligation to compute the digest for
+    /// @return digest The digest which the executor must sign
+    function computeExecutorDigest(
+        PublicIntentPublicBalanceBundle memory bundleData,
+        SettlementObligation memory obligation
+    )
+        internal
+        pure
+        returns (bytes32 digest)
+    {
+        // Encode and hash the fee take with the obligation
+        bytes memory encoded = abi.encode(bundleData.relayerFeeRate, obligation);
+        digest = EfficientHashLib.hash(encoded);
     }
 
     // --- Commitments --- //

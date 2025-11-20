@@ -51,6 +51,7 @@ contract DarkpoolV2TestBase is TestUtils {
     IGasSponsor public gasSponsor;
 
     address public protocolFeeAddr;
+    address public relayerFeeAddr;
     address public darkpoolOwner;
     address public gasSponsorOwner;
     address public gasSponsorAuthAddress;
@@ -102,6 +103,7 @@ contract DarkpoolV2TestBase is TestUtils {
         // Set admin and protocol fee addresses
         darkpoolOwner = vm.randomAddress();
         protocolFeeAddr = vm.randomAddress();
+        relayerFeeAddr = vm.randomAddress();
 
         // Deploy implementation contracts
         darkpoolImpl = new DarkpoolV2();
