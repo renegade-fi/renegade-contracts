@@ -305,7 +305,7 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 12;
+        uint256 nPublicInputs = 13;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
 
         // Add the leaked pre-update amount public share of the intent
@@ -327,8 +327,9 @@ library PublicInputsLib {
         publicInputs[9] = BN254.ScalarField.wrap(statement.settlementObligation.amountIn);
         publicInputs[10] = BN254.ScalarField.wrap(statement.settlementObligation.amountOut);
 
-        // Add the relayer fee
+        // Add the relayer fee and recipient
         publicInputs[11] = BN254.ScalarField.wrap(statement.relayerFee.repr);
+        publicInputs[12] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeRecipient)));
     }
 
     /// @notice Serialize the public inputs for a proof of intent and balance validity

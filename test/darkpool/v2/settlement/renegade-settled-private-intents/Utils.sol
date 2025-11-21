@@ -28,8 +28,9 @@ import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 
-contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
+contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
     using ObligationLib for ObligationBundle;
     using FixedPointLib for FixedPoint;
 
@@ -66,7 +67,7 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context =
-            SettlementContextLib.newContext(0, /* numDeposits */ 0, /* numWithdrawals */ 2 /* verificationCapacity */ );
+            SettlementContextLib.newContext(0, /* numDeposits */ 2, /* numWithdrawals */ 2 /* verificationCapacity */ );
     }
 
     /// @dev Create a dummy intent and balance validity statement (first fill)
@@ -128,8 +129,9 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
             amountPublicShare: randomScalar(),
             inBalancePublicShares: inBalancePublicShares,
             outBalancePublicShares: outBalancePublicShares,
-            relayerFee: FixedPointLib.integerToFixedPoint(100) // Dummy relayer fee
-         });
+            relayerFee: relayerFeeRateFixedPoint,
+            relayerFeeRecipient: relayerFeeAddr
+        });
     }
 
     /// @dev Helper to create a sample settlement bundle

@@ -54,6 +54,8 @@ struct IntentAndBalancePublicSettlementStatement {
     /// calldata. This allows the relayer to set the fee and be sure it cannot
     /// be modified by mempool observers.
     FixedPoint relayerFee;
+    /// @dev The recipient of the relayer fee
+    address relayerFeeRecipient;
 }
 
 /// @notice A statement for a proof of intent and balance private settlement

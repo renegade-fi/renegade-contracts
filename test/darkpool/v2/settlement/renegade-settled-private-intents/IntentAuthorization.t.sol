@@ -24,6 +24,14 @@ import { RenegadeSettledPrivateIntentTestUtils } from "./Utils.sol";
 contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivateIntentTestUtils {
     using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
 
+    function setUp() public virtual override {
+        super.setUp();
+        // Mint max amounts of the base and quote tokens to the darkpool to capitalize fee payments
+        uint256 maxAmt = 2 ** DarkpoolConstants.AMOUNT_BITS - 1;
+        baseToken.mint(address(darkpool), maxAmt);
+        quoteToken.mint(address(darkpool), maxAmt);
+    }
+
     // -----------
     // | Helpers |
     // -----------
