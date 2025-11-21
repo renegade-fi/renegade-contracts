@@ -10,6 +10,7 @@ import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
+import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import {
     PartyId,
     SettlementBundle,
@@ -282,22 +283,26 @@ library SettlementLib {
     }
 
     /// @notice Execute an external settlement bundle
-    /// @param obligation The settlement obligation to validate
-    /// @param settlementBundle The settlement bundle to validate
+    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param internalObligation The settlement obligation to validate
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     function executeExternalSettlementBundle(
-        SettlementObligation memory obligation,
-        SettlementBundle calldata settlementBundle,
+        BoundedMatchResultBundle calldata matchBundle,
+        SettlementObligation memory internalObligation,
+        SettlementBundle calldata internalPartySettlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
         IHasher _hasher
     )
         internal
     {
-        SettlementBundleType bundleType = settlementBundle.bundleType;
+        SettlementBundleType bundleType = internalPartySettlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
-            NativeSettledPublicIntentLib.execute(obligation, settlementBundle, settlementContext, state);
+            NativeSettledPublicIntentLib.executeBoundedMatch(
+                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, state
+            );
         } else {
             // TODO: Add support for other settlement bundle types
             revert InvalidSettlementBundleType();

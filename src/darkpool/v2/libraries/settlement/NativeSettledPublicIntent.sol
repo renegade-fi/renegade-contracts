@@ -2,9 +2,14 @@
 pragma solidity ^0.8.24;
 
 import {
+    BoundedMatchResultBundle,
+    BoundedMatchResultPermit,
+    BoundedMatchResultPermitLib
+} from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import {
     PartyId,
-    SettlementBundle,
     PublicIntentPublicBalanceBundle,
+    SettlementBundle,
     SettlementBundleLib
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
@@ -21,13 +26,14 @@ import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.so
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 
 /// @title Native Settled Public Intent Library
 /// @author Renegade Eng
 /// @notice Library for validating a natively settled public intent
 /// @dev A natively settled public intent is a public intent with a public (EOA) balance.
 library NativeSettledPublicIntentLib {
+<<<<<<< HEAD
     using FixedPointLib for FixedPoint;
     using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
@@ -39,6 +45,17 @@ library NativeSettledPublicIntentLib {
     using DarkpoolStateLib for DarkpoolState;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
+=======
+    using DarkpoolStateLib for DarkpoolState;
+    using FixedPointLib for FixedPoint;
+    using ObligationLib for ObligationBundle;
+    using PublicIntentPermitLib for PublicIntentPermit;
+    using SettlementBundleLib for SettlementBundle;
+    using SettlementContextLib for SettlementContext;
+    using SettlementObligationLib for SettlementObligation;
+    using SignatureWithNonceLib for SignatureWithNonce;
+    using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
+>>>>>>> 1f9f44b (darkpoolv2: external-match: bounded-match-result: add authorization)
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
@@ -72,17 +89,23 @@ library NativeSettledPublicIntentLib {
         internal
     {
         // Decode the settlement bundle data
+        PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
-        execute(obligation, settlementBundle, settlementContext, state);
+        // Verify that the executor has signed the settlement obligation
+        validateObligationAuthorization(bundleData.auth, obligation, state);
+
+        executeInner(bundleData, obligation, settlementContext, state);
     }
 
-    /// @notice Validate and execute a public intent and public balance settlement bundle
+    /// @notice Validate and execute a public intent and public balance settlement bundle for a bounded match
+    /// @param matchBundle The bounded match result authorization bundle to validate
     /// @param obligation The settlement obligation to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
-    function execute(
+    function executeBoundedMatch(
+        BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
@@ -93,8 +116,32 @@ library NativeSettledPublicIntentLib {
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
 
+        // Verify that the executor has signed the bounded match result, authorizing the settlement obligation derived
+        // from it
+        validateBoundedMatchResultAuthorization(matchBundle, state);
+
+        executeInner(bundleData, obligation, settlementContext, state);
+    }
+
+    /// @notice Execute a public intent and public balance settlement bundle
+    /// @param bundleData The validated bundle data
+    /// @param obligation The validated settlement obligation
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    function executeInner(
+        PublicIntentPublicBalanceBundle memory bundleData,
+        SettlementObligation memory obligation,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
+    )
+        private
+    {
         // 1. Validate the intent authorization
+<<<<<<< HEAD
         (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData, obligation, state);
+=======
+        (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData.auth, state);
+>>>>>>> 1f9f44b (darkpoolv2: external-match: bounded-match-result: add authorization)
 
         // 2. Validate the intent and balance constraints on the obligation
         Intent memory intent = bundleData.auth.permit.intent;
@@ -114,11 +161,9 @@ library NativeSettledPublicIntentLib {
     /// @param bundleData The auth bundle data to validate
     /// @param obligation The settlement obligation to validate
     /// @param state The darkpool state containing all storage references
-    /// @dev We require two checks to pass for a public intent to be authorized:
-    /// 1. The executor has signed the settlement obligation. This authorizes the individual fill parameters.
-    /// 2. The intent owner has signed a tuple of (executor, intent). This authorizes the intent to be filled by the
-    /// executor.
-    /// @return amountRemaining The amount remaining of the intent
+    /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
+    /// filled by the executor.
+    /// @return amountRemaining The amount remaining on the intent
     /// @return intentHash The hash of the intent
     function validatePublicIntentAuthorization(
         PublicIntentPublicBalanceBundle memory bundleData,
@@ -152,6 +197,51 @@ library NativeSettledPublicIntentLib {
         amountRemaining = auth.permit.intent.amountIn;
         state.setOpenIntentAmountRemaining(intentHash, amountRemaining);
         return (amountRemaining, intentHash);
+    }
+
+    // ----------------------------
+    // | Obligation Authorization |
+    // ----------------------------
+
+    /// @notice Validate the authorization of a settlement obligation
+    /// @param auth The public intent authorization bundle to validate
+    /// @param obligation The settlement obligation to validate
+    /// @param state The darkpool state containing all storage references
+    /// @dev We require that the executor has signed the settlement obligation. This authorizes the individual fill
+    /// parameters.
+    function validateObligationAuthorization(
+        PublicIntentAuthBundle memory auth,
+        SettlementObligation memory obligation,
+        DarkpoolState storage state
+    )
+        internal
+    {
+        bytes32 obligationHash = obligation.computeObligationHash();
+        bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, obligationHash);
+        if (!executorValid) revert InvalidExecutorSignature();
+        state.spendNonce(auth.executorSignature.nonce);
+    }
+
+    // -------------------------------
+    // | Bounded Match Authorization |
+    // -------------------------------
+
+    /// @notice Validate the authorization of a bounded match result
+    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param state The darkpool state containing all storage references
+    /// @dev We require that the executor has a tuple of (executor, match result). This authorizes the match result to
+    /// be filled by the executor.
+    function validateBoundedMatchResultAuthorization(
+        PublicIntentAuthBundle memory auth,
+        BoundedMatchResultBundle calldata matchBundle,
+        DarkpoolState storage state
+    )
+        internal
+    {
+        bytes32 matchResultHash = matchBundle.permit.computeHash();
+        bool executorValid = matchBundle.executorSignature.verifyPrehashed(auth.permit.executor, matchResultHash);
+        if (!executorValid) revert InvalidExecutorSignature();
+        state.spendNonce(matchBundle.executorSignature.nonce);
     }
 
     // --------------------------
