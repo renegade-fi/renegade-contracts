@@ -306,7 +306,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     function settleExternalMatch(
         uint256 externalPartyAmountIn,
         address recipient,
+<<<<<<< HEAD
         BoundedMatchResultBundle calldata matchBundle,
+=======
+        BoundedMatchResult calldata matchResult,
+>>>>>>> d024543 (darkpoolv2: external-match: allocate external party transfers)
         SettlementBundle calldata internalPartySettlementBundle
     )
         public
