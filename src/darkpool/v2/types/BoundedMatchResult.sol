@@ -40,12 +40,12 @@ library BoundedMatchResultLib {
     error ZeroAmount();
 
     /// @notice Build two `SettlementObligation`s from a `BoundedMatchResult` and an input amount.
-    /// @param boundedMatchResult The `BoundedMatchResult` to build the `SettlementObligation`s from
+    /// @param matchResult The `BoundedMatchResult` to build the `SettlementObligation`s from
     /// @param externalPartyAmountIn The amount of the input token to trade for the external party
     /// @return externalObligation The `SettlementObligation` for the external party
     /// @return internalObligation The `SettlementObligation` for the internal party
     function buildObligations(
-        BoundedMatchResult calldata boundedMatchResult,
+        BoundedMatchResult calldata matchResult,
         uint256 externalPartyAmountIn
     )
         internal
@@ -53,13 +53,12 @@ library BoundedMatchResultLib {
         returns (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation)
     {
         // Validate the bounded match result
-        validateBoundedMatchResult(boundedMatchResult, externalPartyAmountIn);
-
-        uint256 internalPartyAmountIn = computeInternalPartyAmountIn(boundedMatchResult, externalPartyAmountIn);
+        validateBoundedMatchResult(matchResult, externalPartyAmountIn);
+        uint256 internalPartyAmountIn = computeInternalPartyAmountIn(matchResult, externalPartyAmountIn);
 
         internalObligation = SettlementObligation({
-            inputToken: boundedMatchResult.internalPartyInputToken,
-            outputToken: boundedMatchResult.internalPartyOutputToken,
+            inputToken: matchResult.internalPartyInputToken,
+            outputToken: matchResult.internalPartyOutputToken,
             amountIn: internalPartyAmountIn,
             amountOut: externalPartyAmountIn
         });

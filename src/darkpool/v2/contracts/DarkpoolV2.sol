@@ -19,7 +19,8 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
-import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/settlement/BoundedMatchResult.sol";
+import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
@@ -305,7 +306,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     function settleExternalMatch(
         uint256 externalPartyAmountIn,
         address recipient,
-        BoundedMatchResult calldata matchResult,
+        BoundedMatchResultBundle calldata matchBundle,
         SettlementBundle calldata internalPartySettlementBundle
     )
         public
@@ -316,11 +317,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
         // Build settlement obligations from the bounded match result and external party amount in
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
+            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
         // Validate and authorize the settlement bundles
         SettlementLib.executeExternalSettlementBundle(
-            internalObligation, internalPartySettlementBundle, settlementContext, _state, hasher
+            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, _state, hasher
         );
 
         // Allocate transfers for external party
