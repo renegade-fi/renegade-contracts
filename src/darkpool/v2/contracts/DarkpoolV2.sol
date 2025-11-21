@@ -303,33 +303,35 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @inheritdoc IDarkpoolV2
     function settleExternalMatch(
-        uint256 inputAmount,
+        uint256 externalPartyAmountIn,
+        address recipient,
         BoundedMatchResult calldata matchResult,
         SettlementBundle calldata internalPartySettlementBundle
     )
         public
     {
-        // 1. Allocate a settlement context
+        // Allocate a settlement context
         SettlementContext memory settlementContext =
             SettlementLib.allocateExternalSettlementContext(internalPartySettlementBundle);
 
-        // 2. Build settlement obligations from the bounded match result and input amount
+        // Build settlement obligations from the bounded match result and external party amount in
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchResult, inputAmount);
+            BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
 
-        // 3. Validate and authorize the settlement bundles
+        // Validate and authorize the settlement bundles
         SettlementLib.executeExternalSettlementBundle(
             internalObligation, internalPartySettlementBundle, settlementContext, _state, hasher
         );
 
-        // TODO: Allocate transfers for external party (authorization implied by virtue of external party being the one
-        // settling)
+        // Allocate transfers for external party
+        // Authorization is implied by virtue of the external party being the one settling
+        SettlementLib.allocateExternalSettlementTransfers(recipient, externalObligation, settlementContext);
 
-        // 4. Execute the transfers necessary for settlement
+        // Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary
         SettlementLib.executeTransfers(settlementContext, weth, permit2);
 
-        // 5. Verify the proofs necessary for settlement
+        // Verify the proofs necessary for settlement
         // The helpers above will push proofs to the settlement context if necessary
         SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }

@@ -21,7 +21,7 @@ import {
     PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
-import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
@@ -43,6 +43,7 @@ library SettlementLib {
     using SettlementBundleLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
     using SettlementTransfersLib for SettlementTransfers;
+    using SettlementObligationLib for SettlementObligation;
     using PublicInputsLib for IntentAndBalancePrivateSettlementStatement;
 
     /// @notice Error thrown when the obligation types are not compatible
@@ -95,6 +96,29 @@ library SettlementLib {
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
 
         return SettlementContextLib.newContext(transferCapacity, proofCapacity);
+    }
+
+    /// @notice Allocate transfers to settle an external party's obligation into the settlement context
+    /// @param recipient The recipient of the withdrawal
+    /// @param externalObligation The external party's settlement obligation to settle
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    function allocateExternalSettlementTransfers(
+        address recipient,
+        SettlementObligation memory externalObligation,
+        SettlementContext memory settlementContext
+    )
+        internal
+        view
+    {
+        address owner = msg.sender;
+
+        // Deposit the input token into the darkpool
+        SimpleTransfer memory deposit = externalObligation.buildERC20ApprovalDeposit(owner);
+        settlementContext.pushDeposit(deposit);
+
+        // Withdraw the output token from the darkpool
+        SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(recipient);
+        settlementContext.pushWithdrawal(withdrawal);
     }
 
     // --- Obligation Compatibility --- //
