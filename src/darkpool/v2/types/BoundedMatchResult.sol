@@ -132,7 +132,7 @@ library BoundedMatchResultLib {
         DarkpoolConstants.validateAmount(boundedMatchResult.minInternalPartyAmountIn);
         DarkpoolConstants.validateAmount(boundedMatchResult.maxInternalPartyAmountIn);
 
-        // The min amount must be less than the max amount
+        // The min amount must be less than or equal to the max amount
         bool boundsInvalid = boundedMatchResult.minInternalPartyAmountIn > boundedMatchResult.maxInternalPartyAmountIn;
         if (boundsInvalid) {
             revert InvalidBounds();
