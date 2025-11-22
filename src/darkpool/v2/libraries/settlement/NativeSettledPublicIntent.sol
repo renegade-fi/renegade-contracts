@@ -33,7 +33,6 @@ import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/sett
 /// @notice Library for validating a natively settled public intent
 /// @dev A natively settled public intent is a public intent with a public (EOA) balance.
 library NativeSettledPublicIntentLib {
-<<<<<<< HEAD
     using FixedPointLib for FixedPoint;
     using SignatureWithNonceLib for SignatureWithNonce;
     using SettlementBundleLib for SettlementBundle;
@@ -41,21 +40,11 @@ library NativeSettledPublicIntentLib {
     using ObligationLib for ObligationBundle;
     using SettlementObligationLib for SettlementObligation;
     using PublicIntentPermitLib for PublicIntentPermit;
+    using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
-=======
-    using DarkpoolStateLib for DarkpoolState;
-    using FixedPointLib for FixedPoint;
-    using ObligationLib for ObligationBundle;
-    using PublicIntentPermitLib for PublicIntentPermit;
-    using SettlementBundleLib for SettlementBundle;
-    using SettlementContextLib for SettlementContext;
-    using SettlementObligationLib for SettlementObligation;
-    using SignatureWithNonceLib for SignatureWithNonce;
-    using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
->>>>>>> 1f9f44b (darkpoolv2: external-match: bounded-match-result: add authorization)
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
@@ -118,7 +107,7 @@ library NativeSettledPublicIntentLib {
 
         // Verify that the executor has signed the bounded match result, authorizing the settlement obligation derived
         // from it
-        validateBoundedMatchResultAuthorization(matchBundle, state);
+        validateBoundedMatchResultAuthorization(bundleData.auth, matchBundle, state);
 
         executeInner(bundleData, obligation, settlementContext, state);
     }
@@ -137,11 +126,7 @@ library NativeSettledPublicIntentLib {
         private
     {
         // 1. Validate the intent authorization
-<<<<<<< HEAD
         (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData, obligation, state);
-=======
-        (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData.auth, state);
->>>>>>> 1f9f44b (darkpoolv2: external-match: bounded-match-result: add authorization)
 
         // 2. Validate the intent and balance constraints on the obligation
         Intent memory intent = bundleData.auth.permit.intent;
@@ -238,7 +223,8 @@ library NativeSettledPublicIntentLib {
     )
         internal
     {
-        bytes32 matchResultHash = matchBundle.permit.computeHash();
+        BoundedMatchResultPermit memory permit = matchBundle.permit;
+        bytes32 matchResultHash = permit.computeHash();
         bool executorValid = matchBundle.executorSignature.verifyPrehashed(auth.permit.executor, matchResultHash);
         if (!executorValid) revert InvalidExecutorSignature();
         state.spendNonce(matchBundle.executorSignature.nonce);

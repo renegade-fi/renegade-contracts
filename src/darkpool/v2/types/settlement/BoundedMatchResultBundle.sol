@@ -29,9 +29,9 @@ struct BoundedMatchResultPermit {
 /// @notice Library for bounded match result permit operations
 library BoundedMatchResultPermitLib {
     /// @notice Compute the hash of a `BoundedMatchResultPermit`
-    /// @param matchResult The `BoundedMatchResult` to compute the hash of
+    /// @param permit The `BoundedMatchResultPermit` to compute the hash of
     /// @return The hash of the `BoundedMatchResultPermit`
-    function computeHash(BoundedMatchResultPermit memory matchResult) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(abi.encode(matchResult));
+    function computeHash(BoundedMatchResultPermit memory permit) internal pure returns (bytes32) {
+        return EfficientHashLib.hash(abi.encode(permit));
     }
 }

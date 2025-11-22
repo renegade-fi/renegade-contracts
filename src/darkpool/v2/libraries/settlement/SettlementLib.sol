@@ -305,7 +305,7 @@ library SettlementLib {
             );
         } else {
             // TODO: Add support for other settlement bundle types
-            revert InvalidSettlementBundleType();
+            revert IDarkpoolV2.InvalidSettlementBundleType();
         }
     }
 
