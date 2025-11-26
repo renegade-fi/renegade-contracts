@@ -22,8 +22,6 @@ import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 // --- Order Cancellation --- //
 
 struct OrderCancellationProofBundle {
-    /// @dev The Merkle depth of the order
-    uint256 merkleDepth;
     /// @dev The statement of the order cancellation validity
     ValidOrderCancellationStatement statement;
     /// @dev The proof of the order cancellation validity
