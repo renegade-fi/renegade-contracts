@@ -7,6 +7,7 @@ import { PlonkProof, VerificationKey, OpeningElements } from "renegade-lib/verif
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
+    OrderCancellationProofBundle,
     WithdrawalProofBundle,
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
@@ -38,6 +39,14 @@ interface IVerifier {
     /// @param withdrawalProofBundle The proof bundle for the withdrawal
     /// @return True if the proof is valid, false otherwise
     function verifyWithdrawalValidity(WithdrawalProofBundle calldata withdrawalProofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID ORDER CANCELLATION`
+    /// @param orderCancellationProofBundle The proof bundle for the order cancellation
+    /// @return True if the proof is valid, false otherwise
+    function verifyOrderCancellationValidity(OrderCancellationProofBundle calldata orderCancellationProofBundle)
         external
         view
         returns (bool);

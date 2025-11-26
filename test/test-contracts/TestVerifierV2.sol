@@ -8,6 +8,7 @@ import { PlonkProof, VerificationKey, OpeningElements } from "renegade-lib/verif
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
+    OrderCancellationProofBundle,
     WithdrawalProofBundle,
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
@@ -32,6 +33,11 @@ contract TestVerifierV2 is IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyWithdrawalValidity(WithdrawalProofBundle calldata) external pure returns (bool) {
+        return true;
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyOrderCancellationValidity(OrderCancellationProofBundle calldata) external pure returns (bool) {
         return true;
     }
 

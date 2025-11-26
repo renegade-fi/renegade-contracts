@@ -7,6 +7,7 @@ import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.s
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
+    OrderCancellationProofBundle,
     WithdrawalProofBundle,
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
@@ -15,6 +16,7 @@ import {
 } from "darkpoolv2-types/ProofBundles.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
+import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -110,6 +112,15 @@ interface IDarkpoolV2 {
     /// @param auth The authorization for the withdrawal
     /// @param withdrawalProofBundle The proof bundle for the withdrawal
     function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) external;
+
+    /// @notice Cancel an order in the darkpool
+    /// @param auth The authorization for the order cancellation
+    /// @param orderCancellationProofBundle The proof bundle for the order cancellation
+    function cancelOrder(
+        OrderCancellationAuth memory auth,
+        OrderCancellationProofBundle calldata orderCancellationProofBundle
+    )
+        external;
 
     /// @notice Pay protocol fees publicly on a balance
     /// @param proofBundle The proof bundle for the public protocol fee payment

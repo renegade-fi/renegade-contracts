@@ -11,6 +11,7 @@ import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
+    OrderCancellationProofBundle,
     WithdrawalProofBundle,
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
@@ -28,6 +29,7 @@ import {
     ValidPrivateProtocolFeePaymentStatement,
     ValidPrivateRelayerFeePaymentStatement
 } from "darkpoolv2-lib/public_inputs/Fees.sol";
+import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 
 /// @title Verifier
@@ -37,6 +39,7 @@ contract Verifier is IVerifier {
     using PublicInputsLib for ValidDepositStatement;
     using PublicInputsLib for ValidBalanceCreateStatement;
     using PublicInputsLib for ValidWithdrawalStatement;
+    using PublicInputsLib for ValidOrderCancellationStatement;
     using PublicInputsLib for ValidPublicProtocolFeePaymentStatement;
     using PublicInputsLib for ValidPublicRelayerFeePaymentStatement;
     using PublicInputsLib for ValidPrivateProtocolFeePaymentStatement;
@@ -82,6 +85,17 @@ contract Verifier is IVerifier {
         VerificationKey memory vk = VKEYS.withdrawalKeys();
         BN254.ScalarField[] memory publicInputs = withdrawalProofBundle.statement.statementSerialize();
         return VerifierCore.verify(withdrawalProofBundle.proof, publicInputs, vk);
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyOrderCancellationValidity(OrderCancellationProofBundle calldata orderCancellationProofBundle)
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        BN254.ScalarField[] memory publicInputs = orderCancellationProofBundle.statement.statementSerialize();
+        return VerifierCore.verify(orderCancellationProofBundle.proof, publicInputs, vk);
     }
 
     /// @inheritdoc IVerifier
