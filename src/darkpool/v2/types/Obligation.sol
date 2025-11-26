@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache
-/* solhint-disable one-contract-per-file */
 pragma solidity ^0.8.24;
 
-import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
@@ -46,7 +44,7 @@ library SettlementObligationLib {
         return EfficientHashLib.hash(obligationBytes);
     }
 
-    /// @notice Get the deposit transfer for a settlement obligation
+    /// @notice Get the deposit transfer for a settlement obligation using a permit2 allowance transfer
     /// @param obligation The settlement obligation to get the deposit transfer for
     /// @param owner The owner of the settlement obligation
     /// @return The deposit transfer
@@ -63,6 +61,26 @@ library SettlementObligationLib {
             mint: obligation.inputToken,
             amount: obligation.amountIn,
             transferType: SimpleTransferType.Permit2AllowanceDeposit
+        });
+    }
+
+    /// @notice Get the deposit transfer for a settlement obligation using an ERC20 approval transfer
+    /// @param obligation The settlement obligation to get the ERC20 approval deposit transfer for
+    /// @param owner The owner of the settlement obligation
+    /// @return The ERC20 approval deposit transfer
+    function buildERC20ApprovalDeposit(
+        SettlementObligation memory obligation,
+        address owner
+    )
+        internal
+        pure
+        returns (SimpleTransfer memory)
+    {
+        return SimpleTransfer({
+            account: owner,
+            mint: obligation.inputToken,
+            amount: obligation.amountIn,
+            transferType: SimpleTransferType.ERC20ApprovalDeposit
         });
     }
 

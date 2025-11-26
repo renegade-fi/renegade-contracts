@@ -129,8 +129,7 @@ library SettlementLib {
     }
 
     /// @notice Allocate a settlement context for an external match
-    /// @dev The number of transfers for the external party is known (1 deposit + 1 withdrawal) and does not need to
-    /// be dynamically determined.
+    /// @dev The number of transfers and proofs for the external party is known: (1 deposit + 1 withdrawal + 0 proofs)
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @return The allocated settlement context
     function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
@@ -142,6 +141,29 @@ library SettlementLib {
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
 
         return SettlementContextLib.newContext(transferCapacity, proofCapacity);
+    }
+
+    /// @notice Allocate transfers to settle an external party's obligation into the settlement context
+    /// @param recipient The recipient of the withdrawal
+    /// @param externalObligation The external party's settlement obligation to settle
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    function allocateExternalSettlementTransfers(
+        address recipient,
+        SettlementObligation memory externalObligation,
+        SettlementContext memory settlementContext
+    )
+        internal
+        view
+    {
+        address owner = msg.sender;
+
+        // Deposit the input token into the darkpool
+        SimpleTransfer memory deposit = externalObligation.buildERC20ApprovalDeposit(owner);
+        settlementContext.pushDeposit(deposit);
+
+        // Withdraw the output token from the darkpool
+        SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(recipient);
+        settlementContext.pushWithdrawal(withdrawal);
     }
 
     // --- Obligation Compatibility --- //
@@ -259,7 +281,7 @@ library SettlementLib {
         }
     }
 
-    /// @notice Execute a settlement bundle
+    /// @notice Execute an external settlement bundle
     /// @param obligation The settlement obligation to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
