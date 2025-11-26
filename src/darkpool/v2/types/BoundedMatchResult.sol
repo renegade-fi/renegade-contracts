@@ -89,8 +89,7 @@ library BoundedMatchResultLib {
         validateDeadline(boundedMatchResult);
 
         // 4. Validate price
-        // We validate the price in Intent Libraries to avoid unnecessary denormalization of the intent.
-        // TODO: validate price in Intent Libraries
+        validatePrice(boundedMatchResult);
     }
 
     /// @notice Validates an amount within the bounds of a `BoundedMatchResult`
@@ -146,6 +145,12 @@ library BoundedMatchResultLib {
         if (deadlinePassed) revert MatchExpired();
     }
 
+    /// @notice Validates the bitlength of a price in a `BoundedMatchResult`
+    /// @param boundedMatchResult The `BoundedMatchResult` to validate the price of
+    function validatePrice(BoundedMatchResult calldata boundedMatchResult) internal pure {
+        DarkpoolConstants.validatePrice(boundedMatchResult.price);
+    }
+
     /// @notice Builds a `SettlementObligation` for the external party from a `SettlementObligation` for the internal
     /// party.
     /// @param internalObligation The `SettlementObligation` for the internal party from which we derive the external
@@ -168,6 +173,13 @@ library BoundedMatchResultLib {
     /// @param boundedMatchResult The `BoundedMatchResult` to convert the amount for
     /// @param externalPartyAmountIn The amount to convert
     /// @return internalPartyAmountIn The internal party amount in
+    ///
+    /// SAFETY: Overflow is impossible due to the following constraints:
+    /// 1. `externalPartyAmountIn` is validated to be at most 2^100 - 1 (100 bits).
+    /// 2. `price.repr` is validated to be at most 2^127 - 1 (127 bits).
+    /// 3. The operation multiplies by 2^63, then divides by `price.repr`.
+    /// 4. Maximum intermediate value: (2^100 - 1) * 2^63 = 2^163, which fits comfortably in uint256
+    ///    (2^256 - 1). The division step can only reduce this value further.
     function computeInternalPartyAmountIn(
         BoundedMatchResult calldata boundedMatchResult,
         uint256 externalPartyAmountIn

@@ -24,7 +24,8 @@ library DarkpoolConstants {
     /// @dev We allow PRICE_INTEGRAL_BITS integral bits for a price, and inherit the fractional bits from the fixed
     /// point precision.
     /// So the max price is `2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS) - 1`.
-    uint256 internal constant MAX_PRICE_REPR = 2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS) - 1;
+    uint256 internal constant MAX_PRICE_REPR = 2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS)
+        - 1;
 
     /// @notice Get the maximum relayer fee as a FixedPoint struct
     /// @dev Returns the maximum relayer fee (1%) as a FixedPoint
@@ -32,6 +33,10 @@ library DarkpoolConstants {
     function maxRelayerFee() public pure returns (FixedPoint memory) {
         return FixedPoint({ repr: MAX_RELAYER_FEE_REPR });
     }
+    /// @notice The number of bits allowed in a price's representation
+    /// @dev This includes the fixed point precision
+    /// @dev This is the default fixed point precision plus 32 bits for the integral part
+    uint256 internal constant PRICE_BITS = FixedPointLib.FIXED_POINT_PRECISION_BITS + 64;
 
     /// @notice Check whether an address is the native token address
     /// @param addr The address to check
@@ -61,6 +66,14 @@ library DarkpoolConstants {
     function validateFeeRate(FixedPoint memory feeRate) public pure {
         if (feeRate.repr > MAX_RELAYER_FEE_REPR) {
             revert IDarkpoolV2.FeeRateTooLarge(feeRate.repr);
+        }
+    }
+
+    /// @notice Check whether a price is valid
+    /// @param price The price to check
+    function validatePrice(FixedPoint memory price) public pure {
+        if (price.repr > 2 ** PRICE_BITS - 1) {
+            revert PriceTooLarge(price.repr);
         }
     }
 }
