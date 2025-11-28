@@ -28,8 +28,9 @@ import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_input
 import { IntentPublicShare, IntentPublicShareLib } from "darkpoolv2-types/Intent.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 
-contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
+contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
     using ObligationLib for ObligationBundle;
     using FixedPointLib for FixedPoint;
     using IntentPublicShareLib for IntentPublicShare;
@@ -104,7 +105,11 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
         internal
         returns (IntentOnlyPublicSettlementStatement memory)
     {
-        return IntentOnlyPublicSettlementStatement({ obligation: obligation, relayerFee: randomFee() });
+        return IntentOnlyPublicSettlementStatement({
+            obligation: obligation,
+            relayerFee: relayerFeeRateFixedPoint,
+            relayerFeeRecipient: relayerFeeAddr
+        });
     }
 
     /// @dev Helper to create a sample settlement bundle

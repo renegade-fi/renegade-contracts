@@ -51,11 +51,7 @@ library CommitmentLib {
         returns (BN254.ScalarField)
     {
         // Compute a commitment to the public shares
-        uint256[] memory publicCommitmentInputs = new uint256[](publicShares.length);
-        for (uint256 i = 0; i < publicShares.length; ++i) {
-            publicCommitmentInputs[i] = publicShares[i];
-        }
-        uint256 publicCommitment = hasher.computeResumableCommitment(publicCommitmentInputs);
+        uint256 publicCommitment = hasher.computeResumableCommitment(publicShares);
 
         // Compute the full commitment: H(privateCommitment || publicCommitment)
         return computeCommitment(privateCommitment, BN254.ScalarField.wrap(publicCommitment), hasher);

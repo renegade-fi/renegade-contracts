@@ -19,6 +19,8 @@ import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { FeeTake } from "darkpoolv2-types/Fee.sol";
+import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is PrivateIntentSettlementTestUtils {
     using ObligationLib for ObligationBundle;
@@ -68,22 +70,25 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
             abi.decode(obligationBundle.data, (SettlementObligation, SettlementObligation));
 
-        // Check balances before settlement
-        (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseBefore, uint256 party1QuoteBefore) = baseQuoteBalances(party1.addr);
+        // Compute fees for both obligations
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
 
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-
-        // Check balances after settlement
-        (uint256 party0BaseAfter, uint256 party0QuoteAfter) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseAfter, uint256 party1QuoteAfter) = baseQuoteBalances(party1.addr);
-        abi.decode(obligationBundle.data, (SettlementObligation, SettlementObligation));
-
-        // Verify balance changes
-        assertEq(party0BaseBefore - party0BaseAfter, obligation0.amountIn, "party0 base sent");
-        assertEq(party0QuoteAfter - party0QuoteBefore, obligation0.amountOut, "party0 quote received");
-        assertEq(party1BaseAfter - party1BaseBefore, obligation1.amountOut, "party1 base sent");
-        assertEq(party1QuoteBefore - party1QuoteAfter, obligation1.amountIn, "party1 quote received");
+        // Set up expected differences accounting for fees
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = -int256(obligation0.amountIn);
+        expectedDifferences.party0QuoteChange = int256(obligation0.amountOut) - int256(totalFee0);
+        expectedDifferences.party1BaseChange = int256(obligation1.amountOut) - int256(totalFee1);
+        expectedDifferences.party1QuoteChange = -int256(obligation1.amountIn);
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
+        expectedDifferences.darkpoolBaseChange = 0;
+        expectedDifferences.darkpoolQuoteChange = 0;
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
     }
 
     /// @notice Test a full match settlement that is not the first fill for one intent
@@ -94,21 +99,25 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
             abi.decode(obligationBundle.data, (SettlementObligation, SettlementObligation));
 
-        // Check balances before settlement
-        (uint256 party0BaseBefore, uint256 party0QuoteBefore) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseBefore, uint256 party1QuoteBefore) = baseQuoteBalances(party1.addr);
+        // Compute fees for both obligations
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
 
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-
-        // Check balances after settlement
-        (uint256 party0BaseAfter, uint256 party0QuoteAfter) = baseQuoteBalances(party0.addr);
-        (uint256 party1BaseAfter, uint256 party1QuoteAfter) = baseQuoteBalances(party1.addr);
-
-        // Verify balance changes
-        assertEq(party0BaseBefore - party0BaseAfter, obligation0.amountIn, "party0 base sent");
-        assertEq(party0QuoteAfter - party0QuoteBefore, obligation0.amountOut, "party0 quote received");
-        assertEq(party1BaseAfter - party1BaseBefore, obligation1.amountOut, "party1 base sent");
-        assertEq(party1QuoteBefore - party1QuoteAfter, obligation1.amountIn, "party1 quote received");
+        // Set up expected differences accounting for fees
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = -int256(obligation0.amountIn);
+        expectedDifferences.party0QuoteChange = int256(obligation0.amountOut) - int256(totalFee0);
+        expectedDifferences.party1BaseChange = int256(obligation1.amountOut) - int256(totalFee1);
+        expectedDifferences.party1QuoteChange = -int256(obligation1.amountIn);
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
+        expectedDifferences.darkpoolBaseChange = 0;
+        expectedDifferences.darkpoolQuoteChange = 0;
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
     }
 
     /// @notice Check the Merkle mountain range roots after a full match settlement
