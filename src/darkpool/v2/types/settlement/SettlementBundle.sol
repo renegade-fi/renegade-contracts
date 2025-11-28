@@ -183,6 +183,11 @@ library SettlementBundleLib {
     function getNumWithdrawals(SettlementBundle calldata bundle) internal pure returns (uint256) {
         if (isNativelySettled(bundle)) {
             return 3; // One withdrawal for the trader and two for the fees
+        } else if (bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
+            // A renegade settled intent with a public fill
+            // We pay fees immediately after the match is settled to the fee collection EOAs, this results in two
+            // withdrawals
+            return 2;
         }
 
         // All balance updates are Merklized

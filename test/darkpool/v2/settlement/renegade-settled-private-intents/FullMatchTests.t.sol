@@ -19,6 +19,9 @@ import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { FeeTake } from "darkpoolv2-types/Fee.sol";
+import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     using ObligationLib for ObligationBundle;
@@ -28,6 +31,14 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
     MerkleTreeLib.MerkleTree private testTree;
+
+    function setUp() public virtual override {
+        super.setUp();
+        // Mint max amounts of the base and quote tokens to the darkpool to capitalize fee payments
+        uint256 maxAmt = 2 ** DarkpoolConstants.AMOUNT_BITS - 1;
+        baseToken.mint(address(darkpool), maxAmt);
+        quoteToken.mint(address(darkpool), maxAmt);
+    }
 
     // -----------
     // | Helpers |
@@ -89,8 +100,23 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         RenegadeSettledIntentFirstFillBundle memory bundleData1 =
             abi.decode(bundle1.data, (RenegadeSettledIntentFirstFillBundle));
 
-        // Settle the match
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
+        // Only the relayer and protocol fee accounts should see erc20 balance updates
+        // Obligation 0 is selling the base
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
+            abi.decode(obligationBundle.data, (SettlementObligation, SettlementObligation));
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
+
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
+        expectedDifferences.darkpoolBaseChange = -int256(totalFee1);
+        expectedDifferences.darkpoolQuoteChange = -int256(totalFee0);
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
 
         // 1. Check that the balance nullifiers are spent (first fill only nullifies balance, not intent)
         bool balanceNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.oldBalanceNullifier);
@@ -128,8 +154,23 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         RenegadeSettledIntentBundle memory bundleData0 = abi.decode(bundle0.data, (RenegadeSettledIntentBundle));
         RenegadeSettledIntentBundle memory bundleData1 = abi.decode(bundle1.data, (RenegadeSettledIntentBundle));
 
-        // Settle the match
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
+        // Only the relayer and protocol fee accounts should see erc20 balance updates
+        // Obligation 0 is selling the base
+        (SettlementObligation memory obligation0, SettlementObligation memory obligation1) =
+            abi.decode(obligationBundle.data, (SettlementObligation, SettlementObligation));
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
+
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
+        expectedDifferences.darkpoolBaseChange = -int256(totalFee1);
+        expectedDifferences.darkpoolQuoteChange = -int256(totalFee0);
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
 
         // 1. Check that both intent and balance nullifiers are spent
         bool intentNullifier0Spent = darkpool.nullifierSpent(bundleData0.auth.statement.oldIntentNullifier);
@@ -168,6 +209,11 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
 
     /// @notice Test a full match settlement with an invalid proof
     function test_fullMatch_invalidProof() public {
+        // Mint to the real verifier darkpool
+        uint256 maxAmt = 2 ** DarkpoolConstants.AMOUNT_BITS - 1;
+        baseToken.mint(address(darkpoolRealVerifier), maxAmt);
+        quoteToken.mint(address(darkpoolRealVerifier), maxAmt);
+
         // Create match data
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
             _createMatchData(false);

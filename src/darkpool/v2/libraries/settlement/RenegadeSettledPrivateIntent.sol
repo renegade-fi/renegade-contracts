@@ -19,8 +19,12 @@ import {
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
 import {
     SignatureWithNonce,
@@ -43,6 +47,8 @@ library RenegadeSettledPrivateIntentLib {
     using DarkpoolStateLib for DarkpoolState;
     using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
     using PublicInputsLib for IntentAndBalanceValidityStatement;
+    using FeeRateLib for FeeRate;
+    using FeeTakeLib for FeeTake;
 
     // --- Errors --- //
 
@@ -109,7 +115,7 @@ library RenegadeSettledPrivateIntentLib {
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
-        executeStateUpdatesFirstFill(bundleData, state, hasher);
+        executeStateUpdatesFirstFill(bundleData, state, settlementContext, hasher);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -143,7 +149,7 @@ library RenegadeSettledPrivateIntentLib {
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
-        executeStateUpdates(bundleData, state, hasher);
+        executeStateUpdates(bundleData, state, settlementContext, hasher);
     }
 
     // ------------------------
@@ -217,11 +223,13 @@ library RenegadeSettledPrivateIntentLib {
     /// @notice Execute the state updates necessary to settle the bundle for a first fill
     /// @param bundleData The bundle data to execute the state updates for
     /// @param state The darkpool state containing all storage references
+    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param hasher The hasher to use for hashing
     /// @dev On the first fill, no intent state needs to be nullified, however the balance state must be.
     function executeStateUpdatesFirstFill(
         RenegadeSettledIntentFirstFillBundle memory bundleData,
         DarkpoolState storage state,
+        SettlementContext memory settlementContext,
         IHasher hasher
     )
         internal
@@ -231,20 +239,26 @@ library RenegadeSettledPrivateIntentLib {
         state.spendNullifier(nullifier);
 
         // 2. Insert commitments to the updated intent and balance into the Merkle tree
+        // TODO: Add output balances; no need to update the fees
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
         BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+
+        // 3. Allocate transfers to settle the fees due from the obligation
+        allocateTransfers(bundleData.settlementStatement, state, settlementContext);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
     /// @param bundleData The bundle data to execute the state updates for
     /// @param state The darkpool state containing all storage references
+    /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param hasher The hasher to use for hashing
     function executeStateUpdates(
         RenegadeSettledIntentBundle memory bundleData,
         DarkpoolState storage state,
+        SettlementContext memory settlementContext,
         IHasher hasher
     )
         internal
@@ -256,11 +270,59 @@ library RenegadeSettledPrivateIntentLib {
         state.spendNullifier(intentNullifier);
 
         // 2. Insert commitments to the updated intent and balance into the Merkle tree
-        // TODO: Add output balances
+        // TODO: Add output balances; no need to update the fees
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(hasher);
         BN254.ScalarField newBalanceCommitment = bundleData.computeFullBalanceCommitment(hasher);
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+
+        // 3. Allocate transfers to settle the fees due from the obligation
+        allocateTransfers(bundleData.settlementStatement, state, settlementContext);
+    }
+
+    /// @notice Allocate the transfers to settle the obligation
+    /// @param settlementStatement The settlement statement to allocate the transfers for
+    /// @param state The darkpool state containing all storage references
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    function allocateTransfers(
+        IntentAndBalancePublicSettlementStatement memory settlementStatement,
+        DarkpoolState storage state,
+        SettlementContext memory settlementContext
+    )
+        internal
+    {
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) = computeFeeTakes(settlementStatement, state);
+
+        // Add withdrawal transfers for the fees
+        SimpleTransfer memory relayerWithdrawal = relayerFeeTake.buildWithdrawalTransfer();
+        SimpleTransfer memory protocolWithdrawal = protocolFeeTake.buildWithdrawalTransfer();
+        settlementContext.pushWithdrawal(relayerWithdrawal);
+        settlementContext.pushWithdrawal(protocolWithdrawal);
+    }
+
+    /// @notice Compute the fee takes for the match
+    /// @param settlementStatement The settlement statement to compute the fee takes for
+    /// @param state The darkpool state containing all storage references
+    function computeFeeTakes(
+        IntentAndBalancePublicSettlementStatement memory settlementStatement,
+        DarkpoolState storage state
+    )
+        internal
+        view
+        returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
+    {
+        SettlementObligation memory obligation = settlementStatement.settlementObligation;
+
+        // First compute the fee rates
+        FeeRate memory relayerFeeRate =
+            FeeRate({ rate: settlementStatement.relayerFee, recipient: settlementStatement.relayerFeeRecipient });
+        FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
+
+        // Then multiply the rates with the receive amount
+        uint256 receiveAmount = obligation.amountOut;
+        address receiveToken = obligation.outputToken;
+        relayerFeeTake = relayerFeeRate.computeFeeTake(receiveToken, receiveAmount);
+        protocolFeeTake = protocolFeeRate.computeFeeTake(receiveToken, receiveAmount);
     }
 }
