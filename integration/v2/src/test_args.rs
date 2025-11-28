@@ -4,8 +4,9 @@ use std::{path::PathBuf, str::FromStr};
 
 use alloy::{
     primitives::{Address, U256},
-    providers::Provider,
+    providers::{DynProvider, Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
+    transports::http::reqwest::Url,
 };
 use eyre::Result;
 
@@ -25,10 +26,16 @@ pub(crate) struct TestArgs {
     pub deployments: PathBuf,
     /// A darkpool instance to use for testing
     pub darkpool: Darkpool,
-    /// The signer for the wallet
-    pub signer: PrivateKeySigner,
+    /// The signer for the first party
+    pub party0_signer: PrivateKeySigner,
+    /// The signer for the second party
+    pub party1_signer: PrivateKeySigner,
+    /// The tx submitter for the tests
+    pub tx_submitter: PrivateKeySigner,
     /// The relayer's signer which is used to authorize fee payments
     pub relayer_signer: PrivateKeySigner,
+    /// The RPC URL for the test network
+    pub rpc_url: String,
 }
 
 impl TestArgs {
@@ -39,16 +46,31 @@ impl TestArgs {
         Ok(chain_id)
     }
 
+    /// Get an RPC provider for the test
+    pub fn rpc_provider(&self) -> DynProvider {
+        self.darkpool.provider().clone()
+    }
+
     /// Get the signer for the wallet
-    pub fn signer(&self) -> PrivateKeySigner {
-        self.signer.clone()
+    pub fn party0_signer(&self) -> PrivateKeySigner {
+        self.party0_signer.clone()
+    }
+
+    /// Get the signer for the second party
+    pub fn party1_signer(&self) -> PrivateKeySigner {
+        self.party1_signer.clone()
     }
 
     // --- Addresses and Contracts --- //
 
     /// Get the address of the wallet
-    pub fn wallet_addr(&self) -> Address {
-        self.signer.address()
+    pub fn party0_addr(&self) -> Address {
+        self.party0_signer.address()
+    }
+
+    /// Get the address of the second party
+    pub fn party1_addr(&self) -> Address {
+        self.party1_signer.address()
     }
 
     /// Get the address of the base token
@@ -62,10 +84,34 @@ impl TestArgs {
         self.erc20_from_addr(addr)
     }
 
-    /// Read an ERC20 from an address
+    /// Get the address of the quote token
+    pub fn quote_addr(&self) -> Result<Address> {
+        read_deployment("QuoteToken", &self.deployments)
+    }
+
+    /// Read the ERC20 for the quote token
+    pub fn quote_token(&self) -> Result<ERC20> {
+        let addr = self.quote_addr()?;
+        self.erc20_from_addr(addr)
+    }
+
+    /// Create an ERC20 instance from an address
     pub fn erc20_from_addr(&self, addr: Address) -> Result<ERC20> {
         let provider = self.darkpool.provider().clone();
         let erc20 = ERC20Mock::new(addr, provider);
+        Ok(erc20)
+    }
+
+    /// Create an ERC20 instance from an address with a specific signer
+    pub fn erc20_from_addr_with_signer(
+        &self,
+        addr: Address,
+        signer: PrivateKeySigner,
+    ) -> Result<ERC20> {
+        let url = Url::parse(&self.rpc_url)?;
+        let provider = ProviderBuilder::new().wallet(signer).connect_http(url);
+        let dyn_provider = DynProvider::new(provider);
+        let erc20 = ERC20Mock::new(addr, dyn_provider);
         Ok(erc20)
     }
 
@@ -98,16 +144,24 @@ impl From<CliArgs> for TestArgs {
     fn from(cli_args: CliArgs) -> Self {
         let darkpool_addr = read_deployment(DARKPOOL_PROXY_DEPLOYMENT_KEY, &cli_args.deployments)
             .expect("failed to read darkpool address from deployments file");
-        let signer = PrivateKeySigner::from_str(&cli_args.pkey).unwrap();
-        let darkpool = create_darkpool_client(darkpool_addr, signer.clone(), &cli_args.rpc_url)
-            .expect("failed to create darkpool instance");
+        let tx_submitter = PrivateKeySigner::from_str(&cli_args.pkey).unwrap();
+        let darkpool =
+            create_darkpool_client(darkpool_addr, tx_submitter.clone(), &cli_args.rpc_url)
+                .expect("failed to create darkpool instance");
         let relayer_signer = PrivateKeySigner::random();
+
+        // Sample a second private key for the second party
+        let party0_signer = PrivateKeySigner::random();
+        let party1_signer = PrivateKeySigner::random();
 
         Self {
             deployments: cli_args.deployments,
             darkpool,
-            signer,
+            party0_signer,
+            party1_signer,
+            tx_submitter,
             relayer_signer,
+            rpc_url: cli_args.rpc_url,
         }
     }
 }

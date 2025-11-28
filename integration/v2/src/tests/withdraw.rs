@@ -10,7 +10,7 @@ use renegade_circuit_types::balance::DarkpoolStateBalance;
 use renegade_circuits::{
     singleprover_prove,
     test_helpers::check_constraints_satisfied,
-    zk_circuits::v2::valid_withdrawal::{
+    zk_circuits::valid_withdrawal::{
         SizedValidWithdrawal, SizedValidWithdrawalWitness, ValidWithdrawalStatement,
         ValidWithdrawalWitness,
     },
@@ -22,7 +22,7 @@ use crate::{
     test_args::TestArgs,
     tests::create_balance::create_balance,
     util::{
-        deposit::fund_signer, merkle::fetch_merkle_opening, random_deposit, random_withdrawal,
+        deposit::fund_for_deposit, merkle::fetch_merkle_opening, random_deposit, random_withdrawal,
         transactions::wait_for_tx_success,
     },
 };
@@ -31,7 +31,8 @@ use crate::{
 async fn test_withdraw(args: TestArgs) -> Result<()> {
     // First, create a balance in the darkpool from a deposit
     let deposit = random_deposit(&args)?;
-    fund_signer(&args, &deposit).await?;
+    let addr = deposit.token;
+    fund_for_deposit(addr, &args.party0_signer(), &deposit, &args).await?;
     let (_receipt, balance) = create_balance(&args, &deposit).await?;
 
     // Find the balance's Merkle opening
@@ -42,19 +43,22 @@ async fn test_withdraw(args: TestArgs) -> Result<()> {
     let withdrawal = random_withdrawal(balance.inner.amount, &args)?;
     let proof_bundle = create_proof_bundle(&withdrawal, &balance, &merkle_path)?;
     let new_balance_commitment = proof_bundle.statement.newBalanceCommitment;
-    let withdrawal_auth = create_withdrawal_auth(new_balance_commitment, &args.signer())?;
+    let withdrawal_auth = create_withdrawal_auth(new_balance_commitment, &args.party0_signer())?;
 
     // Send the withdrawal txn
-    let my_balance_before = args.base_balance(args.wallet_addr()).await?;
+    let party0_balance_before = args.base_balance(args.party0_addr()).await?;
     let darkpool_balance_before = args.base_balance(args.darkpool_addr()).await?;
 
     let call = args.darkpool.withdraw(withdrawal_auth, proof_bundle);
     wait_for_tx_success(call).await?;
 
-    let my_balance_after = args.base_balance(args.wallet_addr()).await?;
+    let party0_balance_after = args.base_balance(args.party0_addr()).await?;
     let darkpool_balance_after = args.base_balance(args.darkpool_addr()).await?;
 
-    assert_eq_result!(my_balance_after, my_balance_before + withdrawal.amount)?;
+    assert_eq_result!(
+        party0_balance_after,
+        party0_balance_before + withdrawal.amount
+    )?;
     assert_eq_result!(
         darkpool_balance_after,
         darkpool_balance_before - withdrawal.amount

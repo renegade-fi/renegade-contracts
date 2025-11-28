@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# === Blockchain === #
-alloy = "1.0"
+alloy = { version = "1.1.2", features = ["node-bindings", "rpc-types-anvil"] }
 
 # === Renegade Dependencies === #
 renegade-abi = { package = "abi", path = "../../abi", features = [
@@ -37,3 +36,4 @@ itertools = "0.13"
 num-bigint = "0.4"
 rand = "0.8"
 serde_json = "1.0"
+# === Blockchain === #

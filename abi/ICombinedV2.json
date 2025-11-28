@@ -1,6 +1,162 @@
 [
   {
     "type": "function",
+    "name": "cancelOrder",
+    "inputs": [
+      {
+        "name": "auth",
+        "type": "tuple",
+        "internalType": "struct OrderCancellationAuth",
+        "components": [
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "orderCancellationProofBundle",
+        "type": "tuple",
+        "internalType": "struct OrderCancellationProofBundle",
+        "components": [
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidOrderCancellationStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldIntentNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "owner",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "deposit",
     "inputs": [
       {
@@ -397,6 +553,37 @@
   },
   {
     "type": "function",
+    "name": "getProtocolFee",
+    "inputs": [
+      {
+        "name": "asset0",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "asset1",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct FixedPoint",
+        "components": [
+          {
+            "name": "repr",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -405,7 +592,7 @@
         "internalType": "address"
       },
       {
-        "name": "protocolFeeRate_",
+        "name": "defaultProtocolFeeRateRepr",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -2160,6 +2347,156 @@
                 "name": "newBalancePublicShares",
                 "type": "uint256[7]",
                 "internalType": "BN254.ScalarField[7]"
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyOrderCancellationValidity",
+    "inputs": [
+      {
+        "name": "orderCancellationProofBundle",
+        "type": "tuple",
+        "internalType": "struct OrderCancellationProofBundle",
+        "components": [
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidOrderCancellationStatement",
+            "components": [
+              {
+                "name": "merkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "oldIntentNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "owner",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -4804,19 +5141,46 @@
                 "internalType": "address"
               },
               {
-                "name": "initialIntentCommitment",
+                "name": "intentPrivateCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newIntentPartialCommitment",
+                "name": "recoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "intentPublicShare",
-                "type": "uint256[5]",
-                "internalType": "BN254.ScalarField[5]"
+                "type": "tuple",
+                "internalType": "struct IntentPublicShare",
+                "components": [
+                  {
+                    "name": "inToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "outToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "minPrice",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amountIn",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               }
             ]
           },
@@ -4969,19 +5333,46 @@
                 "internalType": "address"
               },
               {
-                "name": "initialIntentCommitment",
+                "name": "intentPrivateCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newIntentPartialCommitment",
+                "name": "recoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
               {
                 "name": "intentPublicShare",
-                "type": "uint256[5]",
-                "internalType": "BN254.ScalarField[5]"
+                "type": "tuple",
+                "internalType": "struct IntentPublicShare",
+                "components": [
+                  {
+                    "name": "inToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "outToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "minPrice",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amountIn",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               }
             ]
           },
@@ -5317,6 +5708,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -5647,6 +6043,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -5809,19 +6210,46 @@
                     "internalType": "address"
                   },
                   {
-                    "name": "initialIntentCommitment",
+                    "name": "intentPrivateCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "recoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "intentPublicShare",
-                    "type": "uint256[5]",
-                    "internalType": "BN254.ScalarField[5]"
+                    "type": "tuple",
+                    "internalType": "struct IntentPublicShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "amountIn",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   }
                 ]
               },
@@ -5977,6 +6405,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -6134,19 +6567,46 @@
                     "internalType": "address"
                   },
                   {
-                    "name": "initialIntentCommitment",
+                    "name": "intentPrivateCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "newIntentPartialCommitment",
+                    "name": "recoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
                   {
                     "name": "intentPublicShare",
-                    "type": "uint256[5]",
-                    "internalType": "BN254.ScalarField[5]"
+                    "type": "tuple",
+                    "internalType": "struct IntentPublicShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "amountIn",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   }
                 ]
               },
@@ -6302,6 +6762,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -6438,13 +6903,47 @@
               },
               {
                 "name": "newInBalancePublicShares0",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "newOutBalancePublicShares0",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "newAmountPublicShare1",
@@ -6453,13 +6952,47 @@
               },
               {
                 "name": "newInBalancePublicShares1",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "newOutBalancePublicShares1",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "relayerFee0",
@@ -6627,13 +7160,47 @@
               },
               {
                 "name": "newInBalancePublicShares0",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "newOutBalancePublicShares0",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "newAmountPublicShare1",
@@ -6642,13 +7209,47 @@
               },
               {
                 "name": "newInBalancePublicShares1",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "newOutBalancePublicShares1",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "relayerFee0",
@@ -7204,6 +7805,30 @@
                 ]
               }
             ]
+          },
+          {
+            "name": "relayerFeeRate",
+            "type": "tuple",
+            "internalType": "struct FeeRate",
+            "components": [
+              {
+                "name": "rate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
           }
         ]
       }
@@ -7303,6 +7928,30 @@
                     "internalType": "bytes"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "name": "relayerFeeRate",
+            "type": "tuple",
+            "internalType": "struct FeeRate",
+            "components": [
+              {
+                "name": "rate",
+                "type": "tuple",
+                "internalType": "struct FixedPoint",
+                "components": [
+                  {
+                    "name": "repr",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  }
+                ]
+              },
+              {
+                "name": "recipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           }
@@ -7748,8 +8397,30 @@
               },
               {
                 "name": "intentPublicShare",
-                "type": "uint256[4]",
-                "internalType": "BN254.ScalarField[4]"
+                "type": "tuple",
+                "internalType": "struct IntentPreMatchShare",
+                "components": [
+                  {
+                    "name": "inToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "outToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "minPrice",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "intentPrivateShareCommitment",
@@ -7955,8 +8626,30 @@
               },
               {
                 "name": "intentPublicShare",
-                "type": "uint256[4]",
-                "internalType": "BN254.ScalarField[4]"
+                "type": "tuple",
+                "internalType": "struct IntentPreMatchShare",
+                "components": [
+                  {
+                    "name": "inToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "outToken",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "minPrice",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "intentPrivateShareCommitment",
@@ -8357,13 +9050,47 @@
               },
               {
                 "name": "inBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "outBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "relayerFee",
@@ -8376,6 +9103,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -8724,13 +9456,47 @@
               },
               {
                 "name": "inBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "outBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "relayerFee",
@@ -8743,6 +9509,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -8911,8 +9682,30 @@
                   },
                   {
                     "name": "intentPublicShare",
-                    "type": "uint256[4]",
-                    "internalType": "BN254.ScalarField[4]"
+                    "type": "tuple",
+                    "internalType": "struct IntentPreMatchShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
                     "name": "intentPrivateShareCommitment",
@@ -9111,13 +9904,47 @@
               },
               {
                 "name": "inBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "outBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "relayerFee",
@@ -9130,6 +9957,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -9293,8 +10125,30 @@
                   },
                   {
                     "name": "intentPublicShare",
-                    "type": "uint256[4]",
-                    "internalType": "BN254.ScalarField[4]"
+                    "type": "tuple",
+                    "internalType": "struct IntentPreMatchShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
                     "name": "intentPrivateShareCommitment",
@@ -9493,13 +10347,47 @@
               },
               {
                 "name": "inBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "outBalancePublicShares",
-                "type": "uint256[3]",
-                "internalType": "BN254.ScalarField[3]"
+                "type": "tuple",
+                "internalType": "struct PostMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               },
               {
                 "name": "relayerFee",
@@ -9512,6 +10400,11 @@
                     "internalType": "uint256"
                   }
                 ]
+              },
+              {
+                "name": "relayerFeeRecipient",
+                "type": "address",
+                "internalType": "address"
               }
             ]
           },
@@ -10083,8 +10976,30 @@
                   },
                   {
                     "name": "intentPublicShare",
-                    "type": "uint256[4]",
-                    "internalType": "BN254.ScalarField[4]"
+                    "type": "tuple",
+                    "internalType": "struct IntentPreMatchShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
                     "name": "intentPrivateShareCommitment",
@@ -10297,8 +11212,30 @@
                   },
                   {
                     "name": "intentPublicShare",
-                    "type": "uint256[4]",
-                    "internalType": "BN254.ScalarField[4]"
+                    "type": "tuple",
+                    "internalType": "struct IntentPreMatchShare",
+                    "components": [
+                      {
+                        "name": "inToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "outToken",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "owner",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "minPrice",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   },
                   {
                     "name": "intentPrivateShareCommitment",

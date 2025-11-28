@@ -15,6 +15,9 @@ pub mod erc20;
 pub mod merkle;
 pub mod transactions;
 
+/// The number of decimals in the mock ERC20s
+pub(crate) const MOCK_ERC20_DECIMALS: u8 = 18;
+
 // --- Fuzzing Helpers --- //
 
 /// A random "amount" in the Renegade sense
@@ -28,7 +31,7 @@ pub fn random_amount() -> U256 {
 /// Create a random deposit
 pub fn random_deposit(args: &TestArgs) -> Result<Deposit> {
     Ok(Deposit {
-        from: args.wallet_addr(),
+        from: args.party0_addr(),
         token: args.base_addr()?,
         amount: random_amount(),
     })
@@ -42,7 +45,7 @@ pub fn random_withdrawal(
     let mut rng = thread_rng();
     let amount = rng.gen_range(0..max_amount);
     Ok(Withdrawal {
-        to: args.wallet_addr(),
+        to: args.party0_addr(),
         token: args.base_addr()?,
         amount: U256::from(amount),
     })

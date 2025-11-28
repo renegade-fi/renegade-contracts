@@ -21,7 +21,7 @@ use crate::{
     test_args::TestArgs,
     tests::create_balance::create_balance,
     util::{
-        deposit::{build_deposit_permit, fund_signer},
+        deposit::{build_deposit_permit, fund_for_deposit},
         merkle::fetch_merkle_opening,
         random_deposit,
         transactions::wait_for_tx_success,
@@ -32,7 +32,8 @@ use crate::{
 async fn test_deposit(args: TestArgs) -> Result<()> {
     // First, create a balance in the darkpool from a deposit
     let deposit = random_deposit(&args)?;
-    fund_signer(&args, &deposit).await?;
+    let addr = deposit.token;
+    fund_for_deposit(addr, &args.party0_signer(), &deposit, &args).await?;
     let (_receipt, balance) = create_balance(&args, &deposit).await?;
 
     // Find the balance's Merkle opening
@@ -41,23 +42,27 @@ async fn test_deposit(args: TestArgs) -> Result<()> {
 
     // Build a second deposit for the wallet
     let second_deposit = random_deposit(&args)?;
-    fund_signer(&args, &second_deposit).await?;
+    fund_for_deposit(addr, &args.party0_signer(), &second_deposit, &args).await?;
 
     let proof_bundle = create_proof_bundle(&second_deposit, &balance, &merkle_path)?;
     let commitment = u256_to_scalar(&proof_bundle.statement.newBalanceCommitment);
-    let deposit_auth = build_deposit_permit(commitment, &second_deposit, &args).await?;
+    let deposit_auth =
+        build_deposit_permit(commitment, &second_deposit, &args.party0_signer(), &args).await?;
 
     // Send the deposit txn
-    let my_balance_before = args.base_balance(args.wallet_addr()).await?;
+    let party0_balance_before = args.base_balance(args.party0_addr()).await?;
     let darkpool_balance_before = args.base_balance(args.darkpool_addr()).await?;
 
     let call = args.darkpool.deposit(deposit_auth, proof_bundle.clone());
     wait_for_tx_success(call).await?;
 
-    let my_balance_after = args.base_balance(args.wallet_addr()).await?;
+    let party0_balance_after = args.base_balance(args.party0_addr()).await?;
     let darkpool_balance_after = args.base_balance(args.darkpool_addr()).await?;
 
-    assert_eq_result!(my_balance_after, my_balance_before - second_deposit.amount)?;
+    assert_eq_result!(
+        party0_balance_after,
+        party0_balance_before - second_deposit.amount
+    )?;
     assert_eq_result!(
         darkpool_balance_after,
         darkpool_balance_before + second_deposit.amount

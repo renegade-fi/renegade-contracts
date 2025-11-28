@@ -2,4 +2,5 @@
 
 mod create_balance;
 mod deposit;
+mod settlement;
 mod withdraw;

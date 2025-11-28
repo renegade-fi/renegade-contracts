@@ -71,7 +71,7 @@ library SettlementLib {
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )
-        internal
+        external
         pure
         returns (SettlementContext memory)
     {
@@ -94,7 +94,7 @@ library SettlementLib {
         ObligationBundle calldata obligationBundle,
         SettlementContext memory settlementContext
     )
-        internal
+        external
         pure
     {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
@@ -172,7 +172,7 @@ library SettlementLib {
         DarkpoolState storage state,
         IHasher hasher
     )
-        internal
+        external
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
@@ -220,7 +220,7 @@ library SettlementLib {
     /// @notice Verify the proofs necessary for settlement
     /// @param settlementContext The settlement context to verify the proofs from
     /// @param verifier The verifier to use for verification
-    function verifySettlementProofs(SettlementContext memory settlementContext, IVerifier verifier) internal view {
+    function verifySettlementProofs(SettlementContext memory settlementContext, IVerifier verifier) external view {
         if (settlementContext.numProofs() == 0) {
             return;
         }
