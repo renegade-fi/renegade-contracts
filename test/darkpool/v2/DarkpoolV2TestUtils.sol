@@ -25,8 +25,12 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     Vm.Wallet internal oneTimeOwner;
     // Party 0 in a simulated trade
     Vm.Wallet internal party0;
+    // Internal party in a simulated trade (alias for party0)
+    Vm.Wallet internal internalParty;
     // Party 1 in a simulated trade
     Vm.Wallet internal party1;
+    // External party in a simulated trade (alias for party1)
+    Vm.Wallet internal externalParty;
     Vm.Wallet internal executor;
     Vm.Wallet internal wrongSigner;
 
@@ -43,6 +47,9 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         party1 = vm.createWallet("party1");
         executor = vm.createWallet("executor");
         wrongSigner = vm.createWallet("wrong_signer");
+
+        internalParty = party0;
+        externalParty = party1;
     }
 
     // --- ERC20 Balances --- //
@@ -72,6 +79,24 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         vm.stopPrank();
     }
 
+    /// @dev Capitalize the external party for a given token and amount
+    /// @dev External party uses direct ERC20 approval to darkpool (not permit2)
+    function capitalizeExternalParty(address addr, address token, uint256 amount) public {
+        // Mint the tokens to the party
+        ERC20Mock erc20 = ERC20Mock(token);
+        erc20.mint(addr, amount);
+
+        // Approve the darkpool contract directly (external party doesn't use permit2)
+        vm.startPrank(addr);
+        erc20.approve(address(darkpool), type(uint256).max);
+        vm.stopPrank();
+    }
+
+    /// @dev Capitalize the external party for an obligation
+    function capitalizeExternalParty(address addr, SettlementObligation memory obligation) public {
+        capitalizeExternalParty(addr, obligation.inputToken, obligation.amountIn);
+    }
+
     // --- Fuzzing Helpers --- //
 
     /// @notice Generate a random price for a trade
@@ -89,10 +114,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     /// @param min The minimum fixed point value
     /// @param max The maximum fixed point value
     /// @return result The random fixed point value
-    function randomFixedPoint(
-        FixedPoint memory min,
-        FixedPoint memory max
-    )
+    function randomFixedPoint(FixedPoint memory min, FixedPoint memory max)
         internal
         returns (FixedPoint memory result)
     {
