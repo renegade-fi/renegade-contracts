@@ -3,17 +3,29 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { PartyId } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { FeeTake } from "darkpoolv2-types/Fee.sol";
 
 import { CrossBundleTypesTestUtils } from "./Utils.sol";
+import { ExpectedDifferences, SettlementTestUtils } from "../SettlementTestUtils.sol";
 
 /// @title Cross Bundle Tests
 /// @author Renegade Eng
 /// @notice Tests for settling matches that cross different bundle types
 contract CrossBundleTests is CrossBundleTypesTestUtils {
+    function setUp() public virtual override {
+        super.setUp();
+
+        // Mint max amounts of the base and quote tokens to the darkpool to capitalize fee payments
+        uint256 maxAmt = 2 ** DarkpoolConstants.AMOUNT_BITS - 1;
+        baseToken.mint(address(darkpool), maxAmt);
+        quoteToken.mint(address(darkpool), maxAmt);
+    }
+
     /// @notice Cross a natively-settled public intent with a natively-settled private intent
     function test_mixedBundleTypes_nativePublicIntent_nativePrivateIntent() public {
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
@@ -32,20 +44,22 @@ contract CrossBundleTests is CrossBundleTypesTestUtils {
         }
 
         // Check the balances before settling
-        (uint256 party0InputBefore, uint256 party0OutputBefore) = _getInputOutputBalances(party0.addr, obligation0);
-        (uint256 party1InputBefore, uint256 party1OutputBefore) = _getInputOutputBalances(party1.addr, obligation1);
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
 
-        // Settle the trade
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-
-        // Check the resulting balances
-        (uint256 party0InputAfter, uint256 party0OutputAfter) = _getInputOutputBalances(party0.addr, obligation0);
-        (uint256 party1InputAfter, uint256 party1OutputAfter) = _getInputOutputBalances(party1.addr, obligation1);
-
-        assertEq(party0InputAfter, party0InputBefore - obligation0.amountIn, "party0 input after");
-        assertEq(party0OutputAfter, party0OutputBefore + obligation0.amountOut, "party0 output after");
-        assertEq(party1InputAfter, party1InputBefore - obligation1.amountIn, "party1 input after");
-        assertEq(party1OutputAfter, party1OutputBefore + obligation1.amountOut, "party1 output after");
+        // Party 0 is selling the base
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = -int256(obligation0.amountIn);
+        expectedDifferences.party0QuoteChange = int256(obligation0.amountOut) - int256(totalFee0);
+        expectedDifferences.party1BaseChange = int256(obligation1.amountOut) - int256(totalFee1);
+        expectedDifferences.party1QuoteChange = -int256(obligation1.amountIn);
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
     }
 
     /// @notice Cross a natively-settled public intent with a renegade settled private intent
@@ -66,36 +80,30 @@ contract CrossBundleTests is CrossBundleTypesTestUtils {
         }
 
         // Check the balances before settling
-        address publicPartyAddr = party0IsPublic ? party0.addr : party1.addr;
-        address privatePartyAddr = party0IsPublic ? party1.addr : party0.addr;
-        SettlementObligation memory publicBundle = party0IsPublic ? obligation0 : obligation1;
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
 
-        (uint256 publicPartyInputBefore, uint256 publicPartyOutputBefore) =
-            _getInputOutputBalances(publicPartyAddr, publicBundle);
-        (uint256 privatePartyBaseBefore, uint256 privatePartyQuoteBefore) = baseQuoteBalances(privatePartyAddr);
-        (uint256 darkpoolInBefore, uint256 darkpoolOutBefore) = _getInputOutputBalances(address(darkpool), publicBundle);
+        // Party 0 is selling the base
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = party0IsPublic ? -int256(obligation0.amountIn) : int256(0);
+        expectedDifferences.party0QuoteChange =
+            party0IsPublic ? int256(obligation0.amountOut) - int256(totalFee0) : int256(0);
+        expectedDifferences.party1BaseChange =
+            party0IsPublic ? int256(0) : int256(obligation1.amountOut) - int256(totalFee1);
+        expectedDifferences.party1QuoteChange = party0IsPublic ? int256(0) : -int256(obligation1.amountIn);
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
 
-        // Settle the trade
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-
-        // Check the resulting balances
-        (uint256 publicPartyInputAfter, uint256 publicPartyOutputAfter) =
-            _getInputOutputBalances(publicPartyAddr, publicBundle);
-        (uint256 privatePartyBaseAfter, uint256 privatePartyQuoteAfter) = baseQuoteBalances(privatePartyAddr);
-        (uint256 darkpoolInAfter, uint256 darkpoolOutAfter) = _getInputOutputBalances(address(darkpool), publicBundle);
-
-        // Verify the balance updates
-        // 1. The public party should see transfers corresponding to the obligation
-        assertEq(publicPartyInputAfter, publicPartyInputBefore - publicBundle.amountIn, "public party input after");
-        assertEq(publicPartyOutputAfter, publicPartyOutputBefore + publicBundle.amountOut, "public party output after");
-
-        // 2. The private party should see no change in ERC20 balances
-        assertEq(privatePartyBaseAfter, privatePartyBaseBefore, "private party base after");
-        assertEq(privatePartyQuoteAfter, privatePartyQuoteBefore, "private party quote after");
-
-        // 3. The darkpool should see transfers opposite to the public party
-        assertEq(darkpoolInAfter, darkpoolInBefore + publicBundle.amountIn, "darkpool input after");
-        assertEq(darkpoolOutAfter, darkpoolOutBefore - publicBundle.amountOut, "darkpool output after");
+        uint256 baseTraded = obligation0.amountIn;
+        uint256 quoteTraded = obligation1.amountIn;
+        expectedDifferences.darkpoolBaseChange = party0IsPublic ? int256(baseTraded - totalFee1) : -int256(baseTraded);
+        expectedDifferences.darkpoolQuoteChange =
+            party0IsPublic ? -int256(quoteTraded) : int256(quoteTraded - totalFee0);
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
     }
 
     /// @notice Cross a natively-settled private intent with a renegade settled private intent
@@ -104,10 +112,10 @@ contract CrossBundleTests is CrossBundleTypesTestUtils {
         ObligationBundle memory obligationBundle = buildObligationBundle(obligation0, obligation1);
 
         // Create a natively-settled private intent and a renegade settled intent
-        bool party0IsPrivate = vm.randomBool();
+        bool party0IsPublic = vm.randomBool();
         SettlementBundle memory bundle0;
         SettlementBundle memory bundle1;
-        if (party0IsPrivate) {
+        if (party0IsPublic) {
             bundle0 = _createNativePrivateIntentBundle(PartyId.PARTY_0, obligation0);
             bundle1 = _createRenegadeSettledPrivateIntentBundle(PartyId.PARTY_1, obligation1);
         } else {
@@ -116,38 +124,29 @@ contract CrossBundleTests is CrossBundleTypesTestUtils {
         }
 
         // Check the balances before settling
-        address privatePartyAddr = party0IsPrivate ? party0.addr : party1.addr;
-        address renegadePartyAddr = party0IsPrivate ? party1.addr : party0.addr;
-        SettlementObligation memory privateBundle = party0IsPrivate ? obligation0 : obligation1;
+        (FeeTake memory relayerFeeTake0, FeeTake memory protocolFeeTake0) = computeMatchFees(obligation0);
+        (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
+        uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
+        uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
 
-        (uint256 privatePartyInputBefore, uint256 privatePartyOutputBefore) =
-            _getInputOutputBalances(privatePartyAddr, privateBundle);
-        (uint256 renegadePartyBaseBefore, uint256 renegadePartyQuoteBefore) = baseQuoteBalances(renegadePartyAddr);
-        (uint256 darkpoolInBefore, uint256 darkpoolOutBefore) =
-            _getInputOutputBalances(address(darkpool), privateBundle);
+        // Party 0 is selling the base
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = party0IsPublic ? -int256(obligation0.amountIn) : int256(0);
+        expectedDifferences.party0QuoteChange =
+            party0IsPublic ? int256(obligation0.amountOut) - int256(totalFee0) : int256(0);
+        expectedDifferences.party1BaseChange =
+            party0IsPublic ? int256(0) : int256(obligation1.amountOut) - int256(totalFee1);
+        expectedDifferences.party1QuoteChange = party0IsPublic ? int256(0) : -int256(obligation1.amountIn);
+        expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake0.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(protocolFeeTake1.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake0.fee);
 
-        // Settle the trade
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-
-        // Check the resulting balances
-        (uint256 privatePartyInputAfter, uint256 privatePartyOutputAfter) =
-            _getInputOutputBalances(privatePartyAddr, privateBundle);
-        (uint256 renegadePartyBaseAfter, uint256 renegadePartyQuoteAfter) = baseQuoteBalances(renegadePartyAddr);
-        (uint256 darkpoolInAfter, uint256 darkpoolOutAfter) = _getInputOutputBalances(address(darkpool), privateBundle);
-
-        // Verify the balance updates
-        // 1. The natively-settled private party should see transfers corresponding to the obligation
-        assertEq(privatePartyInputAfter, privatePartyInputBefore - privateBundle.amountIn, "private party input after");
-        assertEq(
-            privatePartyOutputAfter, privatePartyOutputBefore + privateBundle.amountOut, "private party output after"
-        );
-
-        // 2. The renegade-settled party should see no change in ERC20 balances
-        assertEq(renegadePartyBaseAfter, renegadePartyBaseBefore, "renegade party base after");
-        assertEq(renegadePartyQuoteAfter, renegadePartyQuoteBefore, "renegade party quote after");
-
-        // 3. The darkpool should see transfers opposite to the natively-settled private party
-        assertEq(darkpoolInAfter, darkpoolInBefore + privateBundle.amountIn, "darkpool input after");
-        assertEq(darkpoolOutAfter, darkpoolOutBefore - privateBundle.amountOut, "darkpool output after");
+        uint256 baseTraded = obligation0.amountIn;
+        uint256 quoteTraded = obligation1.amountIn;
+        expectedDifferences.darkpoolBaseChange = party0IsPublic ? int256(baseTraded - totalFee1) : -int256(baseTraded);
+        expectedDifferences.darkpoolQuoteChange =
+            party0IsPublic ? -int256(quoteTraded) : int256(quoteTraded - totalFee0);
+        checkBalancesBeforeAndAfterSettlement(obligationBundle, bundle0, bundle1, expectedDifferences);
     }
 }
