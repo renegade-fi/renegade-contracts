@@ -12,11 +12,23 @@ import {
     ValidPrivateProtocolFeePaymentStatement,
     ValidPrivateRelayerFeePaymentStatement
 } from "darkpoolv2-lib/public_inputs/Fees.sol";
+import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 
 /// This file stores bundles which package a proof together with its statement (public inputs) and any
 /// proof-linking arguments necessary for connecting proofs.
+
+// --- Order Cancellation --- //
+
+struct OrderCancellationProofBundle {
+    /// @dev The Merkle depth of the order
+    uint256 merkleDepth;
+    /// @dev The statement of the order cancellation validity
+    ValidOrderCancellationStatement statement;
+    /// @dev The proof of the order cancellation validity
+    PlonkProof proof;
+}
 
 // --- Transfers --- //
 

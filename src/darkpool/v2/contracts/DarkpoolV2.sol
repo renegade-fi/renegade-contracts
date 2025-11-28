@@ -16,6 +16,8 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ECDSALib } from "renegade-lib/ECDSA.sol";
 
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
@@ -26,6 +28,7 @@ import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
+    OrderCancellationProofBundle,
     WithdrawalProofBundle,
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
@@ -34,6 +37,7 @@ import {
 } from "darkpoolv2-types/ProofBundles.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
+import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { ExternalTransferLib as TransferLib } from "darkpoolv2-lib/TransferLib.sol";
@@ -56,6 +60,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     error WithdrawalVerificationFailed();
     /// @notice Thrown when a fee payment verification fails
     error FeePaymentVerificationFailed();
+    /// @notice Thrown when an order cancellation verification fails
+    error OrderCancellationVerificationFailed();
+    /// @notice Thrown when the order cancellation signature is invalid
+    error InvalidOrderCancellationSignature();
 
     // ----------
     // | Events |
@@ -173,6 +181,31 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // -----------------
     // | State Updates |
     // -----------------
+
+    // --- Order Cancellation --- //
+
+    /// @inheritdoc IDarkpoolV2
+    function cancelOrder(
+        OrderCancellationAuth memory auth,
+        OrderCancellationProofBundle calldata orderCancellationProofBundle
+    )
+        public
+    {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyOrderCancellationValidity(orderCancellationProofBundle);
+        if (!valid) revert OrderCancellationVerificationFailed();
+
+        // 2. Verify the signature over the intent nullifier by the owner
+        address owner = orderCancellationProofBundle.statement.owner;
+        BN254.ScalarField intentNullifier = orderCancellationProofBundle.statement.oldIntentNullifier;
+        bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
+
+        bool sigValid = ECDSALib.verify(nullifierHash, auth.signature, owner);
+        if (!sigValid) revert InvalidOrderCancellationSignature();
+
+        // 3. Spend the nullifier to cancel the order
+        _state.spendNullifier(intentNullifier);
+    }
 
     // --- Deposit --- //
 

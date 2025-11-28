@@ -12,6 +12,7 @@ import {
     ValidPrivateRelayerFeePaymentStatement,
     FeePaymentValidityStatement
 } from "./Fees.sol";
+import { ValidOrderCancellationStatement } from "./OrderCancellation.sol";
 import {
     IntentOnlyValidityStatementFirstFill,
     IntentOnlyValidityStatement,
@@ -101,6 +102,21 @@ library PublicInputsLib {
         publicInputs[5] = statement.newBalanceCommitment;
         publicInputs[6] = statement.recoveryId;
         publicInputs[7] = statement.newAmountShare;
+    }
+
+    /// @notice Serialize the public inputs for a proof of order cancellation validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ValidOrderCancellationStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 3;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.oldIntentNullifier;
+        publicInputs[2] = BN254.ScalarField.wrap(uint256(uint160(statement.owner)));
     }
 
     /// @notice Serialize the public inputs for a proof of public protocol fee payment validity
