@@ -16,6 +16,7 @@ import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
@@ -106,7 +107,7 @@ contract DeployV2Utils {
 
     /// @notice Deploy core contracts
     /// @param owner The owner address for the darkpool
-    /// @param protocolFeeRate The protocol fee rate
+    /// @param protocolFeeRateRepr The protocol fee rate representation
     /// @param protocolFeeAddr The address to receive protocol fees
     /// @param protocolFeeKey The encryption key for protocol fees
     /// @param permit2 The Permit2 contract instance
@@ -115,7 +116,7 @@ contract DeployV2Utils {
     /// @return darkpoolAddr The deployed darkpool proxy address
     function deployCore(
         address owner,
-        uint256 protocolFeeRate,
+        uint256 protocolFeeRateRepr,
         address protocolFeeAddr,
         EncryptionKey memory protocolFeeKey,
         IPermit2 permit2,
@@ -135,7 +136,7 @@ contract DeployV2Utils {
         DarkpoolV2Proxy darkpoolProxy = new DarkpoolV2Proxy(
             address(darkpool),
             owner,
-            protocolFeeRate,
+            protocolFeeRateRepr,
             protocolFeeAddr,
             protocolFeeKey,
             weth,

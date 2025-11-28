@@ -16,6 +16,7 @@ import {
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
@@ -47,7 +48,9 @@ interface IDarkpoolV2 {
 
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract
-    /// @param protocolFeeRate_ The protocol fee rate
+    /// @param defaultProtocolFeeRateRepr The default protocol fee rate for the darkpool (as uint256 repr)
+    /// We take the repr rather than the `FixedPoint` because the Solidity compiler fails with Yul stack too deep
+    /// errors otherwise.
     /// @param protocolFeeRecipient_ The address to receive protocol fees
     /// @param protocolFeeKey_ The encryption key for protocol fees
     /// @param weth_ The WETH9 contract instance
@@ -57,7 +60,7 @@ interface IDarkpoolV2 {
     /// @param transferExecutor_ The TransferExecutor contract address
     function initialize(
         address initialOwner,
-        uint256 protocolFeeRate_,
+        uint256 defaultProtocolFeeRateRepr,
         address protocolFeeRecipient_,
         EncryptionKey memory protocolFeeKey_,
         IWETH9 weth_,
@@ -77,6 +80,11 @@ interface IDarkpoolV2 {
     /// @param root The root to check
     /// @return True if the root is in the history, false otherwise
     function rootInHistory(BN254.ScalarField root) external view returns (bool);
+
+    /// @notice Get the protocol fee rate for an asset
+    /// @param asset The asset address to get the fee rate for
+    /// @return The protocol fee rate for the asset
+    function getProtocolFeeRate(address asset) external view returns (FixedPoint memory);
 
     /// @notice Get the amount remaining for an open public intent
     /// @param intentHash The hash of the intent

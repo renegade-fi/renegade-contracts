@@ -18,6 +18,7 @@ import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
@@ -84,12 +85,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     // --- Fee Storage --- //
 
-    /// @notice The protocol fee rate for the darkpool
-    /// @dev This is the fixed point representation of a real number between 0 and 1.
-    /// @dev To convert to its floating point representation, divide by the fixed point
-    /// @dev precision, i.e. `fee = protocolFeeRate / FIXED_POINT_PRECISION`.
-    /// @dev The current precision is `2 ** 63`.
-    uint256 public protocolFeeRate;
+    /// @notice The default protocol fee rate for the darkpool
+    FixedPoint public defaultProtocolFeeRate;
     /// @notice The address at which external parties pay protocol fees
     /// @dev This is only used for external parties in atomic matches, fees for internal matches
     /// @dev and internal parties in atomic matches are paid via the `Note` mechanism.
@@ -99,7 +96,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     /// @notice A per-asset fee override for the darkpool
     /// @dev This is used to set the protocol fee rate for atomic matches on a per-token basis
     /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
-    mapping(address => uint256) public perTokenFeeOverrides;
+    mapping(address => FixedPoint) public perAssetFeeOverrides;
 
     // --- Delegate Addresses --- //
 
@@ -133,7 +130,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     /// @inheritdoc IDarkpoolV2
     function initialize(
         address initialOwner,
-        uint256 protocolFeeRate_,
+        uint256 defaultProtocolFeeRateRepr,
         address protocolFeeRecipient_,
         EncryptionKey memory protocolFeeKey_,
         IWETH9 weth_,
@@ -147,7 +144,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     {
         _transferOwnership(initialOwner);
 
-        protocolFeeRate = protocolFeeRate_;
+        defaultProtocolFeeRate = FixedPointLib.wrap(defaultProtocolFeeRateRepr);
         protocolFeeRecipient = protocolFeeRecipient_;
         protocolFeeKey = protocolFeeKey_;
         hasher = hasher_;
@@ -174,6 +171,15 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     /// @inheritdoc IDarkpoolV2
     function rootInHistory(BN254.ScalarField root) public view returns (bool) {
         return _state.rootInHistory(root);
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function getProtocolFeeRate(address asset) public view returns (FixedPoint memory) {
+        FixedPoint memory overrideFee = perAssetFeeOverrides[asset];
+        if (overrideFee.repr != 0) {
+            return overrideFee;
+        }
+        return defaultProtocolFeeRate;
     }
 
     // -----------------
