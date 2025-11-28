@@ -25,11 +25,13 @@ library SettlementContextLib {
     using VerificationListLib for VerificationList;
 
     /// @notice Create a new settlement context
-    /// @param transferCapacity The capacity of the transfers list
+    /// @param numDeposits The initial number of deposits
+    /// @param numWithdrawals The initial number of withdrawals
     /// @param verificationCapacity The capacity of the verifications list
     /// @return The new settlement context
     function newContext(
-        uint256 transferCapacity,
+        uint256 numDeposits,
+        uint256 numWithdrawals,
         uint256 verificationCapacity
     )
         internal
@@ -37,7 +39,7 @@ library SettlementContextLib {
         returns (SettlementContext memory)
     {
         return SettlementContext({
-            transfers: SettlementTransfersLib.newList(transferCapacity),
+            transfers: SettlementTransfersLib.newList(numDeposits, numWithdrawals),
             verifications: VerificationListLib.newList(verificationCapacity)
         });
     }

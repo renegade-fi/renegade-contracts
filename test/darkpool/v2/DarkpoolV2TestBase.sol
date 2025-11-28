@@ -52,6 +52,7 @@ contract DarkpoolV2TestBase is TestUtils {
 
     address public protocolFeeAddr;
     address public relayerFeeAddr;
+    FixedPoint public relayerFeeRateFixedPoint;
     address public darkpoolOwner;
     address public gasSponsorOwner;
     address public gasSponsorAuthAddress;
@@ -108,6 +109,7 @@ contract DarkpoolV2TestBase is TestUtils {
         // Deploy implementation contracts
         darkpoolImpl = new DarkpoolV2();
         darkpoolRealVerifierImpl = new DarkpoolV2();
+        relayerFeeRateFixedPoint = randomFee();
 
         // Deploy the darkpool with a fake verifier
         DarkpoolV2Proxy darkpoolProxy = new DarkpoolV2Proxy(
@@ -181,6 +183,33 @@ contract DarkpoolV2TestBase is TestUtils {
         key = EncryptionKey({ point: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }) });
     }
 
+    /// @notice Generate a random fee
+    function randomFee() internal returns (FixedPoint memory fee) {
+        uint256 minRepr = 0;
+        uint256 maxRepr = 2 ** FixedPointLib.FIXED_POINT_PRECISION_BITS / 100; // 1%
+        FixedPoint memory min = FixedPointLib.wrap(minRepr);
+        FixedPoint memory max = FixedPointLib.wrap(maxRepr);
+        fee = randomFixedPoint(min, max);
+    }
+
+    /// @notice Generate a random fixed point between two fixed point values
+    /// @dev This is inclusive of the bounds, so [min, max]
+    /// @param min The minimum fixed point value
+    /// @param max The maximum fixed point value
+    /// @return result The random fixed point value
+    function randomFixedPoint(
+        FixedPoint memory min,
+        FixedPoint memory max
+    )
+        internal
+        returns (FixedPoint memory result)
+    {
+        uint256 minRepr = min.repr;
+        uint256 maxRepr = max.repr;
+        uint256 randomRepr = vm.randomUint(minRepr, maxRepr);
+        result = FixedPointLib.wrap(randomRepr);
+    }
+
     // --- Signatures --- //
 
     /// @dev Creates a signature for gas sponsorship using the stored private key
@@ -211,6 +240,13 @@ contract DarkpoolV2TestBase is TestUtils {
     function baseQuoteBalances(address addr) public view returns (uint256 baseAmt, uint256 quoteAmt) {
         baseAmt = baseToken.balanceOf(addr);
         quoteAmt = quoteToken.balanceOf(addr);
+    }
+
+    /// @dev Get the base and quote token amounts for an address as an int256
+    function baseQuoteBalancesSigned(address addr) public view returns (int256 baseAmt, int256 quoteAmt) {
+        (uint256 baseAmtUint, uint256 quoteAmtUint) = baseQuoteBalances(addr);
+        baseAmt = int256(baseAmtUint);
+        quoteAmt = int256(quoteAmtUint);
     }
 
     /// @dev Get the weth and quote token balances for an address

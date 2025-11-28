@@ -315,7 +315,9 @@ library NativeSettledPrivateIntentLib {
         settlementContext.pushDeposit(deposit);
 
         // Withdraw the output token from the darkpool
-        SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(owner);
+        // TODO: Add in fees
+        uint256 totalFee = 0;
+        SimpleTransfer memory withdrawal = obligation.buildWithdrawalTransfer(owner, totalFee);
         settlementContext.pushWithdrawal(withdrawal);
     }
 }

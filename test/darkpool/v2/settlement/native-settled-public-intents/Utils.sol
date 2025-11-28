@@ -20,8 +20,9 @@ import {
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
+import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 
-contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
+contract PublicIntentSettlementTestUtils is SettlementTestUtils {
     using ObligationLib for ObligationBundle;
     using PublicIntentPermitLib for PublicIntentPermit;
     using FixedPointLib for FixedPoint;
@@ -86,7 +87,8 @@ contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy `SettlementTransfers` list for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
-        context = SettlementContextLib.newContext(1, /* transferCapacity */ 1 /* verificationCapacity */ );
+        context =
+            SettlementContextLib.newContext(1, /* numDeposits */ 3, /* numWithdrawals */ 1 /* verificationCapacity */ );
     }
 
     /// @dev Helper to create a sample settlement bundle
@@ -129,7 +131,7 @@ contract PublicIntentSettlementTestUtils is DarkpoolV2TestUtils {
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
         // Create relayer fee rate and sign the executor digest with the executor key
-        FeeRate memory feeRate = randomFeeRate();
+        FeeRate memory feeRate = relayerFeeRate();
         SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
 
         // Create auth bundle

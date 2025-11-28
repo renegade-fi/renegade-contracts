@@ -51,10 +51,12 @@ library SettlementObligationLib {
     /// @notice Get the withdrawal transfer for a settlement obligation
     /// @param obligation The settlement obligation to get the withdrawal transfer for
     /// @param owner The owner of the settlement obligation
+    /// @param totalFee The total fee to deduct from the raw obligation amount out
     /// @return The withdrawal transfer
     function buildWithdrawalTransfer(
         SettlementObligation memory obligation,
-        address owner
+        address owner,
+        uint256 totalFee
     )
         internal
         pure
@@ -63,7 +65,7 @@ library SettlementObligationLib {
         return SimpleTransfer({
             account: owner,
             mint: obligation.outputToken,
-            amount: obligation.amountOut,
+            amount: obligation.amountOut - totalFee,
             transferType: SimpleTransferType.Withdrawal
         });
     }

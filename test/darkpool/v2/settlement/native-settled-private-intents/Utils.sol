@@ -83,7 +83,8 @@ contract PrivateIntentSettlementTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
-        context = SettlementContextLib.newContext(2, /* transferCapacity */ 2 /* verificationCapacity */ );
+        context =
+            SettlementContextLib.newContext(1, /* numDeposits */ 3, /* numWithdrawals */ 2 /* verificationCapacity */ );
     }
 
     /// @dev Create a dummy intent validity statement
