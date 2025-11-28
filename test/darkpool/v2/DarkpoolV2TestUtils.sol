@@ -11,6 +11,7 @@ import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { Intent, IntentPublicShare } from "darkpoolv2-types/Intent.sol";
+import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
@@ -120,6 +121,15 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
             owner: randomScalar(),
             minPrice: randomScalar(),
             amountIn: randomScalar()
+        });
+    }
+
+    /// @dev Generate a random post match balance share
+    function randomPostMatchBalanceShare() internal returns (PostMatchBalanceShare memory) {
+        return PostMatchBalanceShare({
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
         });
     }
 

@@ -400,6 +400,12 @@ library SettlementBundleLib {
 
     /// @notice Compute the full commitment to the updated intent for a renegade settled private fill bundle
     /// on its first fill
+    /// @dev Unlike the `computeFullIntentCommitment` methods above, private fills require updating the intent shares
+    /// in-circuit; to avoid leaking the pre- and post-update shares and thereby the fill. So we need not update the
+    /// shares here, we need only resume the partial commitment.
+    /// @dev We also take the updated intent amount public share as an argument here because the settlement proof
+    /// computes updated intent amount public shares for both parties. It's simpler to rely on a higher level method to
+    /// extract the correct party's shares.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param newIntentAmountPublicShare The updated intent amount public share
     /// @param hasher The hasher to use for hashing
@@ -414,35 +420,54 @@ library SettlementBundleLib {
         view
         returns (BN254.ScalarField newIntentCommitment)
     {
-        newIntentCommitment = bundleData.auth.statement.balancePartialCommitment.privateCommitment;
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+
+        // Create a full intent share from the pre-match share and the updated amount public share
+        IntentPublicShare memory newIntentPublicShare =
+            authStatement.intentPublicShare.toFullPublicShare(newIntentAmountPublicShare);
+        uint256[] memory publicShares = newIntentPublicShare.scalarSerialize();
+
+        // Compute the full commitment to the updated intent
+        newIntentCommitment = CommitmentLib.computeCommitmentWithPublicShares(
+            authStatement.intentPrivateShareCommitment, publicShares, hasher
+        );
     }
 
     /// @notice Compute the full commitment to the updated balance for a renegade settled private fill bundle
     /// on its first fill
+    /// @dev Unlike the `computeFullBalanceCommitment` methods above, private fills require updating the shares
+    /// in-circuit; to avoid leaking the pre- and post-update shares and thereby the fill. So we need not update the
+    /// shares here, we need only resume the partial commitment.
+    /// @dev We also take the updated balance shares as an argument here because the settlement proof computes updated
+    /// shares for both parties. It's simpler to rely on a higher level method to extract the correct party's shares.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param newBalancePublicShares The updated balance public shares
     /// @param hasher The hasher to use for hashing
     /// @return newBalanceCommitment The full commitment to the updated balance
-    /// TODO: Compute this correctly
     function computeFullBalanceCommitment(
         RenegadeSettledPrivateFirstFillBundle memory bundleData,
-        BN254.ScalarField[3] memory newBalancePublicShares,
+        PostMatchBalanceShare memory newBalancePublicShares,
         IHasher hasher
     )
         internal
         view
         returns (BN254.ScalarField newBalanceCommitment)
     {
-        newBalanceCommitment = bundleData.auth.statement.balancePartialCommitment.privateCommitment;
+        // Resume the partial commitment with the updated shares
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        uint256[] memory remainingShares = newBalancePublicShares.scalarSerialize();
+        newBalanceCommitment =
+            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
     }
 
     /// @notice Compute the full commitment to the updated intent for a renegade settled private fill bundle
     /// on its subsequent fill
+    /// @dev As with the first fill implementation for private fill bundles; the shares are pre-updated in the circuit,
+    /// so we only need to resume the partial commitment.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param newIntentAmountPublicShare The updated intent amount public share
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
-    /// TODO: Compute this correctly
     function computeFullIntentCommitment(
         RenegadeSettledPrivateFillBundle memory bundleData,
         BN254.ScalarField newIntentAmountPublicShare,
@@ -452,26 +477,34 @@ library SettlementBundleLib {
         view
         returns (BN254.ScalarField newIntentCommitment)
     {
-        newIntentCommitment = bundleData.auth.statement.newIntentPartialCommitment.privateCommitment;
+        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
+        uint256[] memory remainingShares = new uint256[](1);
+        remainingShares[0] = BN254.ScalarField.unwrap(newIntentAmountPublicShare);
+        newIntentCommitment =
+            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.newIntentPartialCommitment, hasher);
     }
 
     /// @notice Compute the full commitment to the updated balance for a renegade settled private fill bundle
     /// on its subsequent fill
+    /// @dev As with the first fill implementation for private fill bundles; the shares are pre-updated in the circuit,
+    /// so we only need to resume the partial commitment.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param newBalancePublicShares The updated balance public shares
     /// @param hasher The hasher to use for hashing
     /// @return newBalanceCommitment The full commitment to the updated balance
-    /// TODO: Compute this correctly
     function computeFullBalanceCommitment(
         RenegadeSettledPrivateFillBundle memory bundleData,
-        BN254.ScalarField[3] memory newBalancePublicShares,
+        PostMatchBalanceShare memory newBalancePublicShares,
         IHasher hasher
     )
         internal
         view
         returns (BN254.ScalarField newBalanceCommitment)
     {
-        newBalanceCommitment = bundleData.auth.statement.balancePartialCommitment.privateCommitment;
+        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
+        uint256[] memory remainingShares = newBalancePublicShares.scalarSerialize();
+        newBalanceCommitment =
+            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
     }
 
     // --- Bundle Decoding --- //
