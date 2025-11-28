@@ -17,7 +17,7 @@ import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { RelayerFeeRate } from "darkpoolv2-types/Fee.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 
 contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     using FixedPointLib for FixedPoint;
@@ -114,8 +114,8 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     }
 
     /// @notice Generate a random relayer fee rate
-    function randomRelayerFeeRate() internal returns (RelayerFeeRate memory relayerFeeRate) {
-        relayerFeeRate = RelayerFeeRate({ relayerFeeRate: randomFee(), recipient: relayerFeeAddr });
+    function randomFeeRate() internal returns (FeeRate memory feeRate) {
+        feeRate = FeeRate({ rate: randomFee(), recipient: relayerFeeAddr });
     }
 
     /// @dev Generate a random set of intent shares

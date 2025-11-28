@@ -81,10 +81,11 @@ interface IDarkpoolV2 {
     /// @return True if the root is in the history, false otherwise
     function rootInHistory(BN254.ScalarField root) external view returns (bool);
 
-    /// @notice Get the protocol fee rate for an asset
-    /// @param asset The asset address to get the fee rate for
-    /// @return The protocol fee rate for the asset
-    function getProtocolFeeRate(address asset) external view returns (FixedPoint memory);
+    /// @notice Get the protocol fee for an asset pair
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @return The protocol fee rate for the asset pair
+    function getProtocolFee(address asset0, address asset1) external view returns (FixedPoint memory);
 
     /// @notice Get the amount remaining for an open public intent
     /// @param intentHash The hash of the intent

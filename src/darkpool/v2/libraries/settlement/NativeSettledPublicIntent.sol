@@ -18,6 +18,7 @@ import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -80,7 +81,9 @@ library NativeSettledPublicIntentLib {
         validateObligationIntentConstraints(amountRemaining, intent, obligation);
 
         // 3. Execute the state updates necessary to settle the bundle
-        executeStateUpdates(intentHash, intent, obligation, settlementContext, state);
+        FeeRate memory relayerFeeRate = bundleData.relayerFeeRate;
+        FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
+        executeStateUpdates(intentHash, intent, obligation, relayerFeeRate, protocolFeeRate, settlementContext, state);
     }
 
     // ------------------------
@@ -176,6 +179,8 @@ library NativeSettledPublicIntentLib {
         bytes32 intentHash,
         Intent memory intent,
         SettlementObligation memory obligation,
+        FeeRate memory relayerFeeRate,
+        FeeRate memory protocolFeeRate,
         SettlementContext memory settlementContext,
         DarkpoolState storage state
     )
