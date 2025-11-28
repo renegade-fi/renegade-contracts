@@ -24,7 +24,9 @@ import {
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
 contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
@@ -68,10 +70,12 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy intent and balance validity statement (first fill)
     function createSampleStatementFirstFill() internal returns (IntentAndBalanceValidityStatementFirstFill memory) {
-        BN254.ScalarField[4] memory intentPublicShare;
-        for (uint256 i = 0; i < 4; ++i) {
-            intentPublicShare[i] = randomScalar();
-        }
+        IntentPreMatchShare memory intentPublicShare = IntentPreMatchShare({
+            inToken: randomScalar(),
+            outToken: randomScalar(),
+            owner: randomScalar(),
+            minPrice: randomScalar()
+        });
 
         return IntentAndBalanceValidityStatementFirstFill({
             merkleRoot: randomScalar(),
@@ -106,15 +110,17 @@ contract RenegadeSettledPrivateIntentTestUtils is DarkpoolV2TestUtils {
         internal
         returns (IntentAndBalancePublicSettlementStatement memory)
     {
-        BN254.ScalarField[3] memory inBalancePublicShares;
-        inBalancePublicShares[0] = randomScalar();
-        inBalancePublicShares[1] = randomScalar();
-        inBalancePublicShares[2] = randomScalar();
+        PostMatchBalanceShare memory inBalancePublicShares = PostMatchBalanceShare({
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
+        });
 
-        BN254.ScalarField[3] memory outBalancePublicShares;
-        outBalancePublicShares[0] = randomScalar();
-        outBalancePublicShares[1] = randomScalar();
-        outBalancePublicShares[2] = randomScalar();
+        PostMatchBalanceShare memory outBalancePublicShares = PostMatchBalanceShare({
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
+        });
 
         return IntentAndBalancePublicSettlementStatement({
             settlementObligation: obligation,

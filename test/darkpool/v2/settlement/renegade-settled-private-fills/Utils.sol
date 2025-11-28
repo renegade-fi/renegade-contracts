@@ -28,6 +28,7 @@ import {
     IntentAndBalanceValidityStatementFirstFill,
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
@@ -72,10 +73,12 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy intent and balance validity statement (first fill)
     function createSampleStatementFirstFill() internal returns (IntentAndBalanceValidityStatementFirstFill memory) {
-        BN254.ScalarField[4] memory intentPublicShare;
-        for (uint256 i = 0; i < 4; ++i) {
-            intentPublicShare[i] = randomScalar();
-        }
+        IntentPreMatchShare memory intentPublicShare = IntentPreMatchShare({
+            inToken: randomScalar(),
+            outToken: randomScalar(),
+            owner: randomScalar(),
+            minPrice: randomScalar()
+        });
 
         return IntentAndBalanceValidityStatementFirstFill({
             merkleRoot: randomScalar(),

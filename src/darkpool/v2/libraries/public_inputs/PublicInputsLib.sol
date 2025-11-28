@@ -263,10 +263,10 @@ library PublicInputsLib {
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = statement.merkleRoot;
         publicInputs[1] = statement.intentAndAuthorizingAddressCommitment;
-        publicInputs[2] = statement.intentPublicShare[0];
-        publicInputs[3] = statement.intentPublicShare[1];
-        publicInputs[4] = statement.intentPublicShare[2];
-        publicInputs[5] = statement.intentPublicShare[3];
+        publicInputs[2] = statement.intentPublicShare.inToken;
+        publicInputs[3] = statement.intentPublicShare.outToken;
+        publicInputs[4] = statement.intentPublicShare.owner;
+        publicInputs[5] = statement.intentPublicShare.minPrice;
         publicInputs[6] = statement.intentPrivateShareCommitment;
         publicInputs[7] = statement.intentRecoveryId;
         publicInputs[8] = statement.balancePartialCommitment.privateCommitment;
@@ -311,14 +311,14 @@ library PublicInputsLib {
         publicInputs[0] = statement.amountPublicShare;
 
         // Add the input balance public shares
-        publicInputs[1] = statement.inBalancePublicShares[0];
-        publicInputs[2] = statement.inBalancePublicShares[1];
-        publicInputs[3] = statement.inBalancePublicShares[2];
+        publicInputs[1] = statement.inBalancePublicShares.relayerFeeBalance;
+        publicInputs[2] = statement.inBalancePublicShares.protocolFeeBalance;
+        publicInputs[3] = statement.inBalancePublicShares.amount;
 
         // Add the output balance public shares
-        publicInputs[4] = statement.outBalancePublicShares[0];
-        publicInputs[5] = statement.outBalancePublicShares[1];
-        publicInputs[6] = statement.outBalancePublicShares[2];
+        publicInputs[4] = statement.outBalancePublicShares.relayerFeeBalance;
+        publicInputs[5] = statement.outBalancePublicShares.protocolFeeBalance;
+        publicInputs[6] = statement.outBalancePublicShares.amount;
 
         // Add the settlement obligation
         publicInputs[7] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.inputToken)));

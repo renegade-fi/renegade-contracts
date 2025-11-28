@@ -151,8 +151,6 @@ library PrivateIntentPrivateBalanceAuthBundleLib {
     /// @notice Get the digest for the owner signature
     /// @param bundleData The bundle data to get the digest for
     /// @return digest The digest for the owner signature
-    /// @dev The digest is computed as:
-    ///     H(intentCommitment || updatedBalanceOneTimeKeyHash)
     function getOwnerSignatureDigest(RenegadeSettledIntentAuthBundleFirstFill memory bundleData)
         internal
         pure

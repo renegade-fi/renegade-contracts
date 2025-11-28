@@ -16,13 +16,21 @@ import {
 } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import {
     IntentOnlyValidityStatementFirstFill,
-    IntentOnlyValidityStatement
+    IntentOnlyValidityStatement,
+    IntentAndBalanceValidityStatementFirstFill,
+    IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
-import { IntentPublicShareLib, IntentPublicShare } from "darkpoolv2-types/Intent.sol";
+import {
+    IntentPublicShareLib,
+    IntentPublicShare,
+    IntentPreMatchShareLib,
+    IntentPreMatchShare
+} from "darkpoolv2-types/Intent.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
+import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-types/Balance.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -140,6 +148,8 @@ struct RenegadeSettledPrivateFillBundle {
 library SettlementBundleLib {
     using BN254 for BN254.ScalarField;
     using IntentPublicShareLib for IntentPublicShare;
+    using IntentPreMatchShareLib for IntentPreMatchShare;
+    using PostMatchBalanceShareLib for PostMatchBalanceShare;
 
     /// @notice The error type emitted when a settlement bundle type check fails
     error InvalidSettlementBundleType();
@@ -262,10 +272,12 @@ library SettlementBundleLib {
 
     /// @notice Compute the full commitment to the updated intent for a renegade settled private intent bundle
     /// on its first fill
+    /// @dev The circuit proves the validity of the private share commitment, so we must:
+    /// 1. Compute the updated public share which results from applying the settlement to the leaked `amountIn` share.
+    /// 2. Compute the full commitment to the updated intent from the private commitment and public shares.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
-    /// TODO: Compute this correctly
     function computeFullIntentCommitment(
         RenegadeSettledIntentFirstFillBundle memory bundleData,
         IHasher hasher
@@ -274,18 +286,35 @@ library SettlementBundleLib {
         view
         returns (BN254.ScalarField newIntentCommitment)
     {
-        uint256[] memory hashInputs = new uint256[](2);
-        hashInputs[0] = BN254.ScalarField.unwrap(bundleData.auth.statement.intentAndAuthorizingAddressCommitment);
-        hashInputs[1] = BN254.ScalarField.unwrap(bundleData.settlementStatement.amountPublicShare);
-        newIntentCommitment = BN254.ScalarField.wrap(hasher.spongeHash(hashInputs));
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+
+        // 1. Compute the updated public share of the amount in field
+        BN254.ScalarField newAmountInShare = settlementStatement.amountPublicShare;
+        newAmountInShare =
+            newAmountInShare.sub(BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn));
+
+        // 2. Create the full updated intent public share
+        IntentPublicShare memory newIntentPublicShare =
+            authStatement.intentPublicShare.toFullPublicShare(newAmountInShare);
+        uint256[] memory publicShares = newIntentPublicShare.scalarSerialize();
+
+        // 3. Compute the full commitment to the updated intent
+        newIntentCommitment = CommitmentLib.computeCommitmentWithPublicShares(
+            authStatement.intentPrivateShareCommitment, publicShares, hasher
+        );
     }
 
     /// @notice Compute the full commitment to the updated balance for a renegade settled private intent bundle
     /// on its first fill
+    /// @dev The circuit proves the validity of a commitment to all fields of the balance which don't change in the
+    /// match,
+    /// so we must:
+    /// 1. Compute the updated public shares of the balance
+    /// 2. Compute the full commitment to the updated balance from the partial commitment and public shares.
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
     /// @return newBalanceCommitment The full commitment to the updated balance
-    /// TODO: Compute this correctly
     function computeFullBalanceCommitment(
         RenegadeSettledIntentFirstFillBundle memory bundleData,
         IHasher hasher
@@ -294,7 +323,20 @@ library SettlementBundleLib {
         view
         returns (BN254.ScalarField newBalanceCommitment)
     {
-        newBalanceCommitment = bundleData.auth.statement.balancePartialCommitment.privateCommitment;
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+
+        // 1. Compute the updated public shares of the balance
+        // The fees don't update for the input balance, so we leave them as is
+        PostMatchBalanceShare memory newInBalancePublicShares = settlementStatement.inBalancePublicShares;
+        newInBalancePublicShares.amount = newInBalancePublicShares.amount.sub(
+            BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn)
+        );
+
+        // 2. Resume the partial commitment with updated shares
+        uint256[] memory remainingShares = newInBalancePublicShares.scalarSerialize();
+        newBalanceCommitment =
+            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
     }
 
     /// @notice Compute the full commitment to the updated intent for a renegade settled private intent bundle
