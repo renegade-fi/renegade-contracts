@@ -24,7 +24,7 @@ use crate::{
     test_args::TestArgs,
     util::{
         deposit::{build_deposit_permit, fund_for_deposit},
-        random_deposit,
+        fuzzing::random_deposit,
         transactions::wait_for_tx_success,
     },
 };

@@ -3,18 +3,16 @@
 use std::path::PathBuf;
 
 use alloy::{
-    primitives::{
-        utils::{parse_ether, parse_units},
-        Address,
-    },
+    primitives::{utils::parse_ether, U256},
     providers::ext::AnvilApi,
+    signers::local::PrivateKeySigner,
 };
 use clap::Parser;
 use eyre::Result;
 use test_args::TestArgs;
 use test_helpers::{integration_test_main, types::TestVerbosity};
 
-use crate::util::{transactions::send_tx, MOCK_ERC20_DECIMALS};
+use crate::util::transactions::wait_for_tx_success;
 
 mod test_args;
 mod tests;
@@ -63,23 +61,30 @@ fn setup(args: &TestArgs) {
 /// An async function to setup the tests
 async fn setup_async(args: &TestArgs) -> Result<()> {
     // Fund each party with the traded tokens and with ETH
-    fund_address(args.party0_addr(), args).await?;
-    fund_address(args.party1_addr(), args).await?;
+    fund_address(&args.party0_signer(), args).await?;
+    fund_address(&args.party1_signer(), args).await?;
     Ok(())
 }
 
 /// Fund the given address for the tests
-async fn fund_address(address: Address, args: &TestArgs) -> Result<()> {
+async fn fund_address(signer: &PrivateKeySigner, args: &TestArgs) -> Result<()> {
     // Fund the address with ETH
+    let address = signer.address();
     let bal = parse_ether("100")?;
     args.rpc_provider().anvil_set_balance(address, bal).await?;
 
     // Fund the address with the base and quote tokens
-    let base = args.base_token()?;
-    let quote = args.quote_token()?;
-    let amt = parse_units("100000", MOCK_ERC20_DECIMALS)?.get_absolute();
+    let base = args.base_token_with_signer(signer)?;
+    let quote = args.quote_token_with_signer(signer)?;
+    let amt = U256::from(1) << 200; // 10^200
 
-    send_tx(base.mint(address, amt)).await?;
-    send_tx(quote.mint(address, amt)).await?;
+    wait_for_tx_success(base.mint(address, amt)).await?;
+    wait_for_tx_success(quote.mint(address, amt)).await?;
+
+    // Approve the permit2 contract to spend all tokens
+    let permit2 = args.permit2_addr()?;
+    wait_for_tx_success(base.approve(permit2, amt)).await?;
+    wait_for_tx_success(quote.approve(permit2, amt)).await?;
+
     Ok(())
 }
