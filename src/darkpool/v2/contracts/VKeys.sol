@@ -2,114 +2,130 @@
 pragma solidity ^0.8.24;
 
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
-import { VerificationKeys } from "darkpoolv2-lib/VerificationKeys.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
+import { WalletUpdateVKeys } from "./vkeys/WalletUpdateVKeys.sol";
+import { SettlementVKeys } from "./vkeys/SettlementVKeys.sol";
+import { ProofLinkingVKeys } from "./vkeys/ProofLinkingVKeys.sol";
 
 /// @title VKeys
 /// @author Renegade Eng
 /// @notice Implementation of the verification keys in the darkpool v2
+/// @dev Deploys sub-contracts in constructor to stay under contract size limits
 contract VKeys is IVkeys {
-    // Individual verification keys
+    /// @notice Sub-contract containing wallet update verification keys
+    WalletUpdateVKeys public immutable walletUpdateVKeys;
+    /// @notice Sub-contract containing settlement verification keys
+    SettlementVKeys public immutable settlementVKeys;
+    /// @notice Sub-contract containing proof linking verification keys (placeholder)
+    ProofLinkingVKeys public immutable proofLinkingVKeys;
+
+    constructor() {
+        walletUpdateVKeys = new WalletUpdateVKeys();
+        settlementVKeys = new SettlementVKeys();
+        proofLinkingVKeys = new ProofLinkingVKeys();
+    }
+
+    // ----------------------
+    // | Wallet Update Keys |
+    // ----------------------
+
     /// @notice Get the verification key for `VALID BALANCE CREATE`
     /// @return The verification key for `VALID BALANCE CREATE`
-    function balanceCreateKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_BALANCE_CREATE_VKEY);
+    function balanceCreateKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.balanceCreateKeys();
     }
 
     /// @notice Get the verification key for `VALID DEPOSIT`
     /// @return The verification key for `VALID DEPOSIT`
-    function depositKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_DEPOSIT_VKEY);
+    function depositKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.depositKeys();
     }
 
     /// @notice Get the verification key for `VALID WITHDRAWAL`
     /// @return The verification key for `VALID WITHDRAWAL`
-    function withdrawalKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_WITHDRAWAL_VKEY);
+    function withdrawalKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.withdrawalKeys();
     }
 
     /// @notice Get the verification key for `VALID ORDER CANCELLATION`
     /// @return The verification key for `VALID ORDER CANCELLATION`
-    function orderCancellationKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_ORDER_CANCELLATION_VKEY);
+    function orderCancellationKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.orderCancellationKeys();
     }
 
     /// @notice Get the verification key for `VALID NOTE REDEMPTION`
     /// @return The verification key for `VALID NOTE REDEMPTION`
-    function noteRedemptionKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_NOTE_REDEMPTION_VKEY);
+    function noteRedemptionKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.noteRedemptionKeys();
     }
 
     /// @notice Get the verification key for `VALID PRIVATE PROTOCOL FEE PAYMENT`
     /// @return The verification key for `VALID PRIVATE PROTOCOL FEE PAYMENT`
-    function privateProtocolFeePaymentKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_PRIVATE_PROTOCOL_FEE_PAYMENT_VKEY);
+    function privateProtocolFeePaymentKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.privateProtocolFeePaymentKeys();
     }
 
     /// @notice Get the verification key for `VALID PRIVATE RELAYER FEE PAYMENT`
     /// @return The verification key for `VALID PRIVATE RELAYER FEE PAYMENT`
-    function privateRelayerFeePaymentKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_PRIVATE_RELAYER_FEE_PAYMENT_VKEY);
+    function privateRelayerFeePaymentKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.privateRelayerFeePaymentKeys();
     }
 
     /// @notice Get the verification key for `VALID PUBLIC PROTOCOL FEE PAYMENT`
     /// @return The verification key for `VALID PUBLIC PROTOCOL FEE PAYMENT`
-    function publicProtocolFeePaymentKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_PUBLIC_PROTOCOL_FEE_PAYMENT_VKEY);
+    function publicProtocolFeePaymentKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.publicProtocolFeePaymentKeys();
     }
 
     /// @notice Get the verification key for `VALID PUBLIC RELAYER FEE PAYMENT`
     /// @return The verification key for `VALID PUBLIC RELAYER FEE PAYMENT`
-    function publicRelayerFeePaymentKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.VALID_PUBLIC_RELAYER_FEE_PAYMENT_VKEY);
+    function publicRelayerFeePaymentKeys() external view override returns (VerificationKey memory) {
+        return walletUpdateVKeys.publicRelayerFeePaymentKeys();
     }
+
+    // -------------------
+    // | Settlement Keys |
+    // -------------------
 
     /// @notice Get the verification key for `INTENT ONLY FIRST FILL VALIDITY`
     /// @return The verification key for `INTENT ONLY FIRST FILL VALIDITY`
-    function intentOnlyFirstFillValidityKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_ONLY_FIRST_FILL_VALIDITY_VKEY);
+    function intentOnlyFirstFillValidityKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentOnlyFirstFillValidityKeys();
     }
 
     /// @notice Get the verification key for `INTENT ONLY VALIDITY`
     /// @return The verification key for `INTENT ONLY VALIDITY`
-    function intentOnlyValidityKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_ONLY_VALIDITY_VKEY);
+    function intentOnlyValidityKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentOnlyValidityKeys();
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE FIRST FILL VALIDITY`
     /// @return The verification key for `INTENT AND BALANCE FIRST FILL VALIDITY`
-    function intentAndBalanceFirstFillValidityKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_FIRST_FILL_VALIDITY_VKEY);
+    function intentAndBalanceFirstFillValidityKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentAndBalanceFirstFillValidityKeys();
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE VALIDITY`
     /// @return The verification key for `INTENT AND BALANCE VALIDITY`
-    function intentAndBalanceValidityKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_VALIDITY_VKEY);
+    function intentAndBalanceValidityKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentAndBalanceValidityKeys();
     }
 
     /// @notice Get the verification key for `INTENT ONLY PUBLIC SETTLEMENT`
     /// @return The verification key for `INTENT ONLY PUBLIC SETTLEMENT`
-    function intentOnlyPublicSettlementKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_ONLY_PUBLIC_SETTLEMENT_VKEY);
+    function intentOnlyPublicSettlementKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentOnlyPublicSettlementKeys();
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
-    function intentAndBalancePublicSettlementKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_PUBLIC_SETTLEMENT_VKEY);
+    function intentAndBalancePublicSettlementKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentAndBalancePublicSettlementKeys();
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
-    function intentAndBalancePrivateSettlementKeys() external pure override returns (VerificationKey memory) {
-        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_PRIVATE_SETTLEMENT_VKEY);
-    }
-
-    /// @notice Deserialize a verification key
-    /// @param vkeyBytes The bytes of the verification key
-    /// @return vk The verification key
-    function __deserializeKey(bytes memory vkeyBytes) internal pure returns (VerificationKey memory vk) {
-        return abi.decode(vkeyBytes, (VerificationKey));
+    function intentAndBalancePrivateSettlementKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentAndBalancePrivateSettlementKeys();
     }
 }
