@@ -5,8 +5,10 @@ use crate::v2::IDarkpoolV2;
 use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
+    settlement::intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
     valid_balance_create::ValidBalanceCreateStatement, valid_deposit::ValidDepositStatement,
     valid_withdrawal::ValidWithdrawalStatement,
+    validity_proofs::intent_only_first_fill::IntentOnlyFirstFillValidityStatement,
 };
 use renegade_crypto_v2::fields::scalar_to_u256;
 
@@ -102,6 +104,31 @@ impl From<ValidWithdrawalStatement> for IDarkpoolV2::ValidWithdrawalStatement {
             newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
             recoveryId: scalar_to_u256(&statement.recovery_id),
             newAmountShare: scalar_to_u256(&statement.new_amount_share),
+        }
+    }
+}
+
+impl From<IntentOnlyFirstFillValidityStatement>
+    for IDarkpoolV2::IntentOnlyValidityStatementFirstFill
+{
+    fn from(statement: IntentOnlyFirstFillValidityStatement) -> Self {
+        Self {
+            intentOwner: statement.owner,
+            intentPrivateCommitment: scalar_to_u256(&statement.intent_private_commitment),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+            intentPublicShare: statement.intent_public_share.into(),
+        }
+    }
+}
+
+impl From<IntentOnlyPublicSettlementStatement>
+    for IDarkpoolV2::IntentOnlyPublicSettlementStatement
+{
+    fn from(statement: IntentOnlyPublicSettlementStatement) -> Self {
+        Self {
+            obligation: statement.settlement_obligation.into(),
+            relayerFee: statement.relayer_fee.into(),
+            relayerFeeRecipient: statement.relayer_fee_recipient,
         }
     }
 }

@@ -28,6 +28,7 @@ v2-relayer-types = [
     "dep:renegade-constants-v2",
     "dep:renegade-crypto-v2",
 ]
+v2-auth-helpers = ["alloy/rand"]
 
 [dependencies]
 alloy = { version = "1.0.1", features = ["essentials"] }

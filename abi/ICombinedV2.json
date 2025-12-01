@@ -1807,6 +1807,71 @@
     "anonymous": false
   },
   {
+    "type": "error",
+    "name": "DepositVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FeePaymentVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IncompatibleAmounts",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IncompatibleObligationTypes",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IncompatiblePairs",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidIntentCommitmentSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidOrderCancellationSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPublicInputLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSettlementBundleType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrderCancellationVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProofVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SettlementVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalVerificationFailed",
+    "inputs": []
+  },
+  {
     "type": "function",
     "name": "batchVerify",
     "inputs": [
