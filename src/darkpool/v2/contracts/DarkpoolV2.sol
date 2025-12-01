@@ -16,15 +16,12 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { ECDSALib } from "renegade-lib/ECDSA.sol";
 
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
@@ -35,12 +32,12 @@ import {
     PrivateProtocolFeePaymentProofBundle,
     PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
-import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
-import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
+import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
+import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { ExternalTransferLib as TransferLib } from "darkpoolv2-lib/TransferLib.sol";
+import { StateUpdatesLib } from "darkpoolv2-lib/StateUpdatesLib.sol";
 
 /// @title DarkpoolV2
 /// @author Renegade Eng
@@ -49,21 +46,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using NullifierLib for NullifierLib.NullifierSet;
     using DarkpoolStateLib for DarkpoolState;
-
-    // ----------
-    // | Errors |
-    // ----------
-
-    /// @notice Thrown when a deposit verification fails
-    error DepositVerificationFailed();
-    /// @notice Thrown when a withdrawal verification fails
-    error WithdrawalVerificationFailed();
-    /// @notice Thrown when a fee payment verification fails
-    error FeePaymentVerificationFailed();
-    /// @notice Thrown when an order cancellation verification fails
-    error OrderCancellationVerificationFailed();
-    /// @notice Thrown when the order cancellation signature is invalid
-    error InvalidOrderCancellationSignature();
 
     // ----------
     // | Events |
@@ -191,40 +173,14 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        // 1. Verify the proof bundle
-        bool valid = verifier.verifyOrderCancellationValidity(orderCancellationProofBundle);
-        if (!valid) revert OrderCancellationVerificationFailed();
-
-        // 2. Verify the signature over the intent nullifier by the owner
-        address owner = orderCancellationProofBundle.statement.owner;
-        BN254.ScalarField intentNullifier = orderCancellationProofBundle.statement.oldIntentNullifier;
-        bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
-
-        bool sigValid = ECDSALib.verify(nullifierHash, auth.signature, owner);
-        if (!sigValid) revert InvalidOrderCancellationSignature();
-
-        // 3. Spend the nullifier to cancel the order
-        _state.spendNullifier(intentNullifier);
+        StateUpdatesLib.cancelOrder(_state, verifier, auth, orderCancellationProofBundle);
     }
 
     // --- Deposit --- //
 
     /// @inheritdoc IDarkpoolV2
     function deposit(DepositAuth memory auth, DepositProofBundle calldata depositProofBundle) public {
-        // 1. Verify the proof bundle
-        bool valid = verifier.verifyExistingBalanceDepositValidity(depositProofBundle);
-        if (!valid) revert DepositVerificationFailed();
-
-        // 2. Execute the deposit
-        Deposit memory depositInfo = depositProofBundle.statement.deposit;
-        BN254.ScalarField newBalanceCommitment = depositProofBundle.statement.newBalanceCommitment;
-        TransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
-
-        // 3. Update the state; nullify the previous balance and insert the new balance
-        uint256 merkleDepth = depositProofBundle.merkleDepth;
-        BN254.ScalarField balanceNullifier = depositProofBundle.statement.oldBalanceNullifier;
-        _state.spendNullifier(balanceNullifier);
-        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        StateUpdatesLib.deposit(_state, verifier, hasher, permit2, auth, depositProofBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
@@ -234,60 +190,36 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        // 1. Verify the proof bundle
-        bool valid = verifier.verifyNewBalanceDepositValidity(newBalanceProofBundle);
-        if (!valid) revert DepositVerificationFailed();
-
-        // 2. Execute the deposit
-        Deposit memory depositInfo = newBalanceProofBundle.statement.deposit;
-        BN254.ScalarField newBalanceCommitment = newBalanceProofBundle.statement.newBalanceCommitment;
-        TransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
-
-        // 3. Update the state; nullify the previous balance and insert the new balance
-        uint256 merkleDepth = newBalanceProofBundle.merkleDepth;
-        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        StateUpdatesLib.depositNewBalance(_state, verifier, hasher, permit2, auth, newBalanceProofBundle);
     }
 
     // --- Withdrawal --- //
 
     /// @inheritdoc IDarkpoolV2
     function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
-        // 1. Verify the proof bundle
-        bool valid = verifier.verifyWithdrawalValidity(withdrawalProofBundle);
-        if (!valid) revert WithdrawalVerificationFailed();
-
-        // 2. Execute the withdrawal
-        Withdrawal memory withdrawal = withdrawalProofBundle.statement.withdrawal;
-        BN254.ScalarField newBalanceCommitment = withdrawalProofBundle.statement.newBalanceCommitment;
-        TransferLib.executeSignedWithdrawal(newBalanceCommitment, auth, withdrawal);
-
-        // 3. Update the state; nullify the previous balance and insert the new balance
-        uint256 merkleDepth = withdrawalProofBundle.merkleDepth;
-        BN254.ScalarField balanceNullifier = withdrawalProofBundle.statement.oldBalanceNullifier;
-        _state.spendNullifier(balanceNullifier);
-        _state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+        StateUpdatesLib.withdraw(_state, verifier, hasher, auth, withdrawalProofBundle);
     }
 
     // --- Fees --- //
 
     /// @inheritdoc IDarkpoolV2
     function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) public {
-        revert("todo");
+        StateUpdatesLib.payPublicProtocolFee(proofBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
     function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) public {
-        revert("todo");
+        StateUpdatesLib.payPublicRelayerFee(proofBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
     function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) public {
-        revert("todo");
+        StateUpdatesLib.payPrivateProtocolFee(proofBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
     function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) public {
-        revert("todo");
+        StateUpdatesLib.payPrivateRelayerFee(proofBundle);
     }
 
     // --------------
@@ -302,27 +234,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        // 1. Allocate a settlement context
-        SettlementContext memory settlementContext =
-            SettlementLib.allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
-
-        // 2. Validate that the settlement obligations are compatible with one another
-        SettlementLib.validateObligationBundle(obligationBundle, settlementContext);
-
-        // 3. Validate and authorize the settlement bundles
-        SettlementLib.executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, _state, hasher
+        SettlementLib.settleMatch(
+            _state, hasher, verifier, weth, permit2, obligationBundle, party0SettlementBundle, party1SettlementBundle
         );
-        SettlementLib.executeSettlementBundle(
-            PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, _state, hasher
-        );
-
-        // 4. Execute the transfers necessary for settlement
-        // The helpers above will push transfers to the settlement context if necessary
-        SettlementLib.executeTransfers(settlementContext, weth, permit2);
-
-        // 5. Verify the proofs necessary for settlement
-        // The helpers above will push proofs to the settlement context if necessary
-        SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }
 }
