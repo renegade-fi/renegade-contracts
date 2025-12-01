@@ -15,7 +15,7 @@ import {
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -197,7 +197,7 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
         // Create match data
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
             _createMatchData(false);
-        vm.expectRevert(VerifierCore.InvalidPublicInputLength.selector);
+        vm.expectRevert(IDarkpoolV2.SettlementVerificationFailed.selector);
         darkpoolRealVerifier.settleMatch(obligationBundle, bundle0, bundle1);
     }
 

@@ -30,6 +30,7 @@ import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 
 /// @title Native Settled Private Intent Library
 /// @author Renegade Eng
@@ -57,8 +58,9 @@ library NativeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
@@ -66,15 +68,16 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         } else {
-            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         }
     }
 
@@ -83,17 +86,20 @@ library NativeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
+    /// TODO: Proof linking
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -109,12 +115,14 @@ library NativeSettledPrivateIntentLib {
             bundleData.computeIntentCommitments(hasher);
 
         // 1. Validate the intent authorization
-        validatePrivateIntentAuthorizationFirstFill(preMatchIntentCommitment, bundleData.auth, settlementContext, state);
+        validatePrivateIntentAuthorizationFirstFill(
+            preMatchIntentCommitment, bundleData.auth, settlementContext, vkeys, state
+        );
 
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
@@ -129,8 +137,9 @@ library NativeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function executeSubsequentFill(
@@ -138,8 +147,9 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -148,12 +158,12 @@ library NativeSettledPrivateIntentLib {
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
-        validatePrivateIntentAuthorization(bundleData.auth, settlementContext);
+        validatePrivateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
 
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
@@ -169,12 +179,14 @@ library NativeSettledPrivateIntentLib {
     /// this commitment with a signature.
     /// @param auth The authorization bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
     /// @dev On the first fill, we verify that the intent owner has signed the intent's commitment.
     function validatePrivateIntentAuthorizationFirstFill(
         BN254.ScalarField preMatchIntentCommitment,
         PrivateIntentAuthBundleFirstFill memory auth,
         SettlementContext memory settlementContext,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal
@@ -187,33 +199,33 @@ library NativeSettledPrivateIntentLib {
         verifyIntentCommitmentSignature(preMatchIntentCommitment, auth, state);
 
         // Append a proof to the settlement context
-        // TODO: Fetch a real verification key
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(auth.statement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentOnlyFirstFillValidityKeys();
         settlementContext.pushProof(publicInputs, auth.validityProof, vk);
     }
 
     /// @notice Authorize a private intent
     /// @param auth The authorization bundle to validate
+    /// @param vkeys The contract storing the verification keys
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @dev Because this is not the first fill, the presence of the intent in the Merkle tree implies that the
     /// intent owner's signature has already been verified (in a previous fill). So in this case, we need only
     /// verify the proof attached to the bundle.
     function validatePrivateIntentAuthorization(
         PrivateIntentAuthBundle memory auth,
+        IVkeys vkeys,
         SettlementContext memory settlementContext
     )
         internal
-        pure
+        view
     {
         // Validate the Merkle depth
         // TODO: Allow for dynamic Merkle depth
         if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert IDarkpool.InvalidMerkleDepthRequested();
 
         // Append a proof to the settlement context
-        // TODO: Fetch a real verification key
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(auth.statement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentOnlyValidityKeys();
         settlementContext.pushProof(publicInputs, auth.validityProof, vk);
     }
 

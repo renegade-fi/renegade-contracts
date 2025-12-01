@@ -128,7 +128,7 @@ contract DeployV2Utils {
     {
         // Deploy library contracts for the darkpool
         IHasher hasher = IHasher(DeployUtils.deployHasher(vm));
-        (, IVerifier verifier) = deployVKeysAndVerifier(vm);
+        (IVkeys vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
         address transferExecutor = deployTransferExecutor(vm);
 
         // Deploy Darkpool with all required parameters
@@ -141,6 +141,7 @@ contract DeployV2Utils {
             protocolFeeKey,
             weth,
             hasher,
+            vkeys,
             verifier,
             permit2,
             transferExecutor

@@ -28,6 +28,12 @@ contract VKeys is IVkeys {
         return __deserializeKey(VerificationKeys.VALID_WITHDRAWAL_VKEY);
     }
 
+    /// @notice Get the verification key for `VALID ORDER CANCELLATION`
+    /// @return The verification key for `VALID ORDER CANCELLATION`
+    function orderCancellationKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.VALID_ORDER_CANCELLATION_VKEY);
+    }
+
     /// @notice Get the verification key for `VALID NOTE REDEMPTION`
     /// @return The verification key for `VALID NOTE REDEMPTION`
     function noteRedemptionKeys() external pure override returns (VerificationKey memory) {
@@ -56,6 +62,48 @@ contract VKeys is IVkeys {
     /// @return The verification key for `VALID PUBLIC RELAYER FEE PAYMENT`
     function publicRelayerFeePaymentKeys() external pure override returns (VerificationKey memory) {
         return __deserializeKey(VerificationKeys.VALID_PUBLIC_RELAYER_FEE_PAYMENT_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT ONLY FIRST FILL VALIDITY`
+    /// @return The verification key for `INTENT ONLY FIRST FILL VALIDITY`
+    function intentOnlyFirstFillValidityKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_ONLY_FIRST_FILL_VALIDITY_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT ONLY VALIDITY`
+    /// @return The verification key for `INTENT ONLY VALIDITY`
+    function intentOnlyValidityKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_ONLY_VALIDITY_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE FIRST FILL VALIDITY`
+    /// @return The verification key for `INTENT AND BALANCE FIRST FILL VALIDITY`
+    function intentAndBalanceFirstFillValidityKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_FIRST_FILL_VALIDITY_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE VALIDITY`
+    /// @return The verification key for `INTENT AND BALANCE VALIDITY`
+    function intentAndBalanceValidityKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_VALIDITY_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT ONLY PUBLIC SETTLEMENT`
+    /// @return The verification key for `INTENT ONLY PUBLIC SETTLEMENT`
+    function intentOnlyPublicSettlementKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_ONLY_PUBLIC_SETTLEMENT_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
+    /// @return The verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
+    function intentAndBalancePublicSettlementKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_PUBLIC_SETTLEMENT_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
+    /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
+    function intentAndBalancePrivateSettlementKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_PRIVATE_SETTLEMENT_VKEY);
     }
 
     /// @notice Deserialize a verification key

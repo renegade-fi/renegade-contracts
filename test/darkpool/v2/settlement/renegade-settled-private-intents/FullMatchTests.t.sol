@@ -20,6 +20,7 @@ import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { FeeTake } from "darkpoolv2-types/Fee.sol";
 import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
@@ -217,7 +218,7 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         // Create match data
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
             _createMatchData(false);
-        vm.expectRevert(VerifierCore.InvalidPublicInputLength.selector);
+        vm.expectRevert(IDarkpoolV2.SettlementVerificationFailed.selector);
         darkpoolRealVerifier.settleMatch(obligationBundle, bundle0, bundle1);
     }
 

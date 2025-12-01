@@ -15,6 +15,7 @@ import {
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
     IntentAndBalanceValidityStatementFirstFill,
@@ -59,22 +60,24 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         } else {
-            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         }
     }
 
@@ -83,15 +86,17 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -101,10 +106,14 @@ library RenegadeSettledPrivateFillLib {
 
         // 1. Validate the intent authorization
         // Uses the same logic as the `RENEGADE_SETTLED_INTENT` bundle
-        RenegadeSettledPrivateIntentLib.validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
+        RenegadeSettledPrivateIntentLib.validateIntentAuthorizationFirstFill(
+            bundleData.auth, settlementContext, vkeys, state
+        );
 
         // 2. Validate the obligation constraints
-        validateObligationConstraintsFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state);
+        validateObligationConstraintsFirstFill(
+            partyId, obligationBundle, settlementBundle, settlementContext, vkeys, state
+        );
 
         // 3. Execute state updates
         executeStateUpdatesFirstFill(partyId, obligation, bundleData, state, hasher);
@@ -115,15 +124,17 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -132,10 +143,10 @@ library RenegadeSettledPrivateFillLib {
 
         // 1. Validate the intent authorization
         // Uses the same logic as the `RENEGADE_SETTLED_INTENT` bundle
-        RenegadeSettledPrivateIntentLib.validateIntentAuthorization(bundleData.auth, settlementContext);
+        RenegadeSettledPrivateIntentLib.validateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
 
         // 2. Validate the obligation constraints
-        validateObligationConstraints(partyId, obligationBundle, settlementBundle, settlementContext, state);
+        validateObligationConstraints(partyId, obligationBundle, settlementBundle, settlementContext, vkeys, state);
 
         // 3. Execute state updates
         executeStateUpdates(partyId, obligation, bundleData, state, hasher);
@@ -150,6 +161,7 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
     /// @dev The obligation constraints are validated in the settlement proofs. So, we only need to proof-link the
     /// validation proof into the obligation bundle's settlement proof.
@@ -158,6 +170,7 @@ library RenegadeSettledPrivateFillLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal
@@ -170,6 +183,7 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
     /// @dev The obligation constraints are validated in the settlement proofs. So, we only need to proof-link the
     /// validation proof into the obligation bundle's settlement proof.
@@ -178,6 +192,7 @@ library RenegadeSettledPrivateFillLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal

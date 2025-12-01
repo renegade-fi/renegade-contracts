@@ -17,9 +17,9 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _validateObligationBundle(ObligationBundle calldata bundle) public pure {
+    function _validateObligationBundle(ObligationBundle calldata bundle) public view {
         SettlementContext memory settlementContext = _createSettlementContext();
-        SettlementLib.validateObligationBundle(bundle, settlementContext);
+        SettlementLib.validateObligationBundle(bundle, settlementContext, vkeys);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
