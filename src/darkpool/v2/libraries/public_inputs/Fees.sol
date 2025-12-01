@@ -93,24 +93,3 @@ struct ValidPrivateRelayerFeePaymentStatement {
     /// @dev The commitment to the note
     BN254.ScalarField noteCommitment;
 }
-
-/// @notice A statement proving validity of a fee payment
-/// TODO: Add note ciphertext here
-struct FeePaymentValidityStatement {
-    /// @dev The nullifier of the previous version of the balance
-    BN254.ScalarField balanceNullifier;
-    /// @dev The commitment to the updated balance after the fee payment
-    /// TODO: Decide whether this should be a partial commitment or a full commitment
-    BN254.ScalarField newBalanceCommitment;
-    /// @dev A commitment to the note emitted for the fee payment
-    BN254.ScalarField noteCommitment;
-    /// @dev The new balance public shares
-    /// @dev These shares include:
-    /// - Relayer fee
-    /// - Protocol fee
-    /// - Amount
-    /// Only one of the fee shares is updated, but we re-blind all the following shares and emit them here
-    /// to aid recovery logic.
-    BN254.ScalarField[3] newBalancePublicShares;
-}
-

@@ -179,13 +179,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Deposit --- //
 
     /// @inheritdoc IDarkpoolV2
-    function deposit(DepositAuth memory auth, DepositProofBundle calldata depositProofBundle) public {
+    function deposit(DepositAuth calldata auth, DepositProofBundle calldata depositProofBundle) public {
         StateUpdatesLib.deposit(_state, verifier, hasher, permit2, auth, depositProofBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
     function depositNewBalance(
-        DepositAuth memory auth,
+        DepositAuth calldata auth,
         NewBalanceDepositProofBundle calldata newBalanceProofBundle
     )
         public
@@ -196,7 +196,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Withdrawal --- //
 
     /// @inheritdoc IDarkpoolV2
-    function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
+    function withdraw(WithdrawalAuth calldata auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
         StateUpdatesLib.withdraw(_state, verifier, hasher, auth, withdrawalProofBundle);
     }
 
