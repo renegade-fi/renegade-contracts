@@ -53,6 +53,12 @@ contract VKeys is IVkeys {
         return walletUpdateVKeys.orderCancellationKeys();
     }
 
+    /// @notice Get the verification key for `VALID ORDER CANCELLATION`
+    /// @return The verification key for `VALID ORDER CANCELLATION`
+    function orderCancellationKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.VALID_ORDER_CANCELLATION_VKEY);
+    }
+
     /// @notice Get the verification key for `VALID NOTE REDEMPTION`
     /// @return The verification key for `VALID NOTE REDEMPTION`
     function noteRedemptionKeys() external view override returns (VerificationKey memory) {
