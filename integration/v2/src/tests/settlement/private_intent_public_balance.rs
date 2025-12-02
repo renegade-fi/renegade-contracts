@@ -13,12 +13,13 @@ use renegade_abi::v2::{
 use renegade_circuit_types::{
     intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
-    PlonkProof,
+    PlonkLinkProof, PlonkProof, ProofLinkingHint,
 };
 use renegade_circuits::{
     singleprover_prove_with_hint,
     test_helpers::{random_price, BOUNDED_MAX_AMT},
     zk_circuits::{
+        proof_linking::intent_only::link_sized_intent_only_settlement,
         settlement::intent_only_public_settlement::{
             self, IntentOnlyPublicSettlementStatement, SizedIntentOnlyPublicSettlementCircuit,
         },
@@ -55,32 +56,10 @@ async fn test_settlement__native_settled_private_intent(args: TestArgs) -> Resul
 
     // --- First Fill --- //
     // On the first fill, settle half of the obligations
-    let (comm0, validity_statement0, validity_proof0) =
-        generate_first_fill_validity_proof(&intent0)?;
-    let (comm1, validity_statement1, validity_proof1) =
-        generate_first_fill_validity_proof(&intent1)?;
-    let (settlement_statement0, settlement_proof0) =
-        generate_settlement_proof(&intent0, &first_obligation0)?;
-    let (settlement_statement1, settlement_proof1) =
-        generate_settlement_proof(&intent1, &first_obligation1)?;
-
-    // Build the calldata
-    let settlement_bundle0 = build_settlement_bundle_first_fill(
-        &args.party0_signer(),
-        comm0,
-        &validity_statement0,
-        &validity_proof0,
-        &settlement_statement0,
-        &settlement_proof0,
-    )?;
-    let settlement_bundle1 = build_settlement_bundle_first_fill(
-        &args.party1_signer(),
-        comm1,
-        &validity_statement1,
-        &validity_proof1,
-        &settlement_statement1,
-        &settlement_proof1,
-    )?;
+    let settlement_bundle0 =
+        build_settlement_bundle_first_fill(&args.party0_signer(), &intent0, &first_obligation0)?;
+    let settlement_bundle1 =
+        build_settlement_bundle_first_fill(&args.party1_signer(), &intent1, &first_obligation1)?;
     let obligation_bundle = build_obligation_bundle(&first_obligation0, &first_obligation1);
 
     let party0_base_before = args.base_balance(args.party0_addr()).await?;
@@ -180,7 +159,12 @@ async fn create_intents_and_obligations(
 /// Also return a commitment to the intent
 fn generate_first_fill_validity_proof(
     intent: &Intent,
-) -> Result<(Scalar, IntentOnlyFirstFillValidityStatement, PlonkProof)> {
+) -> Result<(
+    Scalar,
+    IntentOnlyFirstFillValidityStatement,
+    PlonkProof,
+    ProofLinkingHint,
+)> {
     // Build the witness and statement
     let (witness, statement) =
         intent_only_first_fill::test_helpers::create_witness_statement_with_intent(intent);
@@ -197,31 +181,35 @@ fn generate_first_fill_validity_proof(
     assert_eq_result!(private_comm, statement.intent_private_commitment)?;
 
     // Generate the validity proof
-    let (proof, _link_hint) = singleprover_prove_with_hint::<IntentOnlyFirstFillValidityCircuit>(
+    let (proof, link_hint) = singleprover_prove_with_hint::<IntentOnlyFirstFillValidityCircuit>(
         witness,
         statement.clone(),
     )?;
-    Ok((comm, statement, proof))
+    Ok((comm, statement, proof, link_hint))
 }
 
 /// Generate a settlement proof for a private intent
 fn generate_settlement_proof(
     intent: &Intent,
     obligation: &SettlementObligation,
-) -> Result<(IntentOnlyPublicSettlementStatement, PlonkProof)> {
+) -> Result<(
+    IntentOnlyPublicSettlementStatement,
+    PlonkProof,
+    ProofLinkingHint,
+)> {
     let (witness, statement) = intent_only_public_settlement::test_helpers::create_witness_statement_with_intent_and_obligation(intent, obligation);
-    let (proof, _link_hint) = singleprover_prove_with_hint::<SizedIntentOnlyPublicSettlementCircuit>(
+    let (proof, link_hint) = singleprover_prove_with_hint::<SizedIntentOnlyPublicSettlementCircuit>(
         witness,
         statement.clone(),
     )?;
 
-    Ok((statement, proof))
+    Ok((statement, proof, link_hint))
 }
 
 // --- Calldata Bundles --- //
 
 /// Build an obligation bundle for two public obligations
-fn build_obligation_bundle(
+pub fn build_obligation_bundle(
     obligation0: &SettlementObligation,
     obligation1: &SettlementObligation,
 ) -> ObligationBundle {
@@ -229,20 +217,26 @@ fn build_obligation_bundle(
 }
 
 /// Build a settlement bundle for the first fill
-fn build_settlement_bundle_first_fill(
+pub fn build_settlement_bundle_first_fill(
     owner: &PrivateKeySigner,
-    commitment: Scalar,
-    validity_statement: &IntentOnlyFirstFillValidityStatement,
-    validity_proof: &PlonkProof,
-    settlement_statement: &IntentOnlyPublicSettlementStatement,
-    settlement_proof: &PlonkProof,
+    intent: &Intent,
+    obligation: &SettlementObligation,
 ) -> Result<SettlementBundle> {
+    // Generate proofs
+    let (commitment, validity_statement, validity_proof, validity_link_hint) =
+        generate_first_fill_validity_proof(intent)?;
+    let (settlement_statement, settlement_proof, settlement_link_hint) =
+        generate_settlement_proof(intent, obligation)?;
+    let linking_proof = generate_linking_proof(&validity_link_hint, &settlement_link_hint)?;
+
+    // Build bundles
     let auth_bundle =
-        build_auth_bundle_first_fill(owner, commitment, validity_statement, validity_proof)?;
+        build_auth_bundle_first_fill(owner, commitment, &validity_statement, &validity_proof)?;
     Ok(SettlementBundle::private_intent_public_balance_first_fill(
         auth_bundle.clone(),
         settlement_statement.clone().into(),
         settlement_proof.clone().into(),
+        linking_proof.into(),
     ))
 }
 
@@ -263,4 +257,13 @@ fn build_auth_bundle_first_fill(
         statement: validity_statement.clone().into(),
         validityProof: validity_proof.clone().into(),
     })
+}
+
+/// Generate a linking proof between a validity proof and a settlement proof
+fn generate_linking_proof(
+    validity_link_hint: &ProofLinkingHint,
+    settlement_link_hint: &ProofLinkingHint,
+) -> Result<PlonkLinkProof> {
+    let proof = link_sized_intent_only_settlement(validity_link_hint, settlement_link_hint)?;
+    Ok(proof)
 }

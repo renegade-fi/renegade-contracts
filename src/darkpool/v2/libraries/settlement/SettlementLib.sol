@@ -275,7 +275,7 @@ library SettlementLib {
 
         // Create the extra commitment opening elements implied by the proof linking relation
         OpeningElements memory linkOpenings =
-            ProofLinkingCore.createOpeningElements(settlementContext.proofLinkingArguments.getInstances());
+            ProofLinkingCore.createOpeningElements(settlementContext.proofLinkingArguments.instances);
 
         // Call the core verifier
         bool valid = verifier.batchVerify(

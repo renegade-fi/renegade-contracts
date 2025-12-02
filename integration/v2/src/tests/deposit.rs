@@ -79,7 +79,7 @@ integration_test_async!(test_deposit);
 // --- Circuits Helpers --- //
 
 /// Create a proof of the deposit
-fn create_proof_bundle(
+pub fn create_proof_bundle(
     deposit: &Deposit,
     balance: &DarkpoolStateBalance,
     opening: &MerkleAuthenticationPath,

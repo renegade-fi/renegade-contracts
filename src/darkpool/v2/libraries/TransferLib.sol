@@ -44,7 +44,7 @@ library ExternalTransferLib {
     /// @param transfer The transfer to execute
     /// @param wrapper The WETH9 wrapper contract for native token handling
     /// @param permit2 The permit2 contract instance
-    function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper, IAllowanceTransfer permit2) internal {
+    function executeTransfer(SimpleTransfer memory transfer, IWETH9 wrapper, IAllowanceTransfer permit2) public {
         // If the amount is zero, do nothing
         if (transfer.amount == 0) {
             return;

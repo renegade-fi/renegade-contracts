@@ -636,6 +636,11 @@
         "internalType": "contract IHasher"
       },
       {
+        "name": "vkeys_",
+        "type": "address",
+        "internalType": "contract IVkeys"
+      },
+      {
         "name": "verifier_",
         "type": "address",
         "internalType": "contract IVerifier"
@@ -1834,6 +1839,11 @@
   {
     "type": "error",
     "name": "InvalidIntentCommitmentSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidObligation",
     "inputs": []
   },
   {
@@ -3930,7 +3940,1372 @@
   },
   {
     "type": "function",
+    "name": "intentAndBalanceFirstFillValidityKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentAndBalancePrivateSettlementKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentAndBalancePublicSettlementKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentAndBalanceSettlement0LinkingKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ProofLinkingVK",
+        "components": [
+          {
+            "name": "linkGroupGenerator",
+            "type": "uint256",
+            "internalType": "BN254.ScalarField"
+          },
+          {
+            "name": "linkGroupOffset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "linkGroupSize",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentAndBalanceSettlement1LinkingKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ProofLinkingVK",
+        "components": [
+          {
+            "name": "linkGroupGenerator",
+            "type": "uint256",
+            "internalType": "BN254.ScalarField"
+          },
+          {
+            "name": "linkGroupOffset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "linkGroupSize",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentAndBalanceValidityKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentOnlyFirstFillValidityKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentOnlyPublicSettlementKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentOnlySettlementLinkingKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ProofLinkingVK",
+        "components": [
+          {
+            "name": "linkGroupGenerator",
+            "type": "uint256",
+            "internalType": "BN254.ScalarField"
+          },
+          {
+            "name": "linkGroupOffset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "linkGroupSize",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "intentOnlyValidityKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "noteRedemptionKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "orderCancellationKeys",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct VerificationKey",
+        "components": [
+          {
+            "name": "n",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "l",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "k",
+            "type": "uint256[5]",
+            "internalType": "BN254.ScalarField[5]"
+          },
+          {
+            "name": "qComms",
+            "type": "tuple[13]",
+            "internalType": "struct BN254.G1Point[13]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "sigmaComms",
+            "type": "tuple[5]",
+            "internalType": "struct BN254.G1Point[5]",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "g",
+            "type": "tuple",
+            "internalType": "struct BN254.G1Point",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "h",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          },
+          {
+            "name": "xH",
+            "type": "tuple",
+            "internalType": "struct BN254.G2Point",
+            "components": [
+              {
+                "name": "x0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "x1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y0",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              },
+              {
+                "name": "y1",
+                "type": "uint256",
+                "internalType": "BN254.BaseField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "outputBalanceSettlement0LinkingKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ProofLinkingVK",
+        "components": [
+          {
+            "name": "linkGroupGenerator",
+            "type": "uint256",
+            "internalType": "BN254.ScalarField"
+          },
+          {
+            "name": "linkGroupOffset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "linkGroupSize",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "outputBalanceSettlement1LinkingKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ProofLinkingVK",
+        "components": [
+          {
+            "name": "linkGroupGenerator",
+            "type": "uint256",
+            "internalType": "BN254.ScalarField"
+          },
+          {
+            "name": "linkGroupOffset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "linkGroupSize",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "outputBalanceValidityKeys",
     "inputs": [],
     "outputs": [
       {
@@ -5887,6 +7262,47 @@
                 "internalType": "BN254.ScalarField"
               }
             ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -6220,6 +7636,47 @@
                 "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
               }
             ]
           }
@@ -6584,6 +8041,47 @@
                 "internalType": "BN254.ScalarField"
               }
             ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -6939,6 +8437,47 @@
                 "name": "zBar",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "authSettlementLinkingProof",
+            "type": "tuple",
+            "internalType": "struct LinkingProof",
+            "components": [
+              {
+                "name": "linkingQuotientPolyComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "linkingPolyOpening",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
               }
             ]
           }
@@ -11881,6 +13420,122 @@
                 ]
               }
             ]
+          },
+          {
+            "name": "proofLinkingArguments",
+            "type": "tuple",
+            "internalType": "struct ProofLinkingList",
+            "components": [
+              {
+                "name": "nextIndex",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "instances",
+                "type": "tuple[]",
+                "internalType": "struct ProofLinkingInstance[]",
+                "components": [
+                  {
+                    "name": "wireComm0",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wireComm1",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "proof",
+                    "type": "tuple",
+                    "internalType": "struct LinkingProof",
+                    "components": [
+                      {
+                        "name": "linkingQuotientPolyComm",
+                        "type": "tuple",
+                        "internalType": "struct BN254.G1Point",
+                        "components": [
+                          {
+                            "name": "x",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          },
+                          {
+                            "name": "y",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "linkingPolyOpening",
+                        "type": "tuple",
+                        "internalType": "struct BN254.G1Point",
+                        "components": [
+                          {
+                            "name": "x",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          },
+                          {
+                            "name": "y",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "vk",
+                    "type": "tuple",
+                    "internalType": "struct ProofLinkingVK",
+                    "components": [
+                      {
+                        "name": "linkGroupGenerator",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "linkGroupOffset",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      },
+                      {
+                        "name": "linkGroupSize",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -12220,6 +13875,122 @@
                         "name": "y1",
                         "type": "uint256",
                         "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "proofLinkingArguments",
+            "type": "tuple",
+            "internalType": "struct ProofLinkingList",
+            "components": [
+              {
+                "name": "nextIndex",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "instances",
+                "type": "tuple[]",
+                "internalType": "struct ProofLinkingInstance[]",
+                "components": [
+                  {
+                    "name": "wireComm0",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "wireComm1",
+                    "type": "tuple",
+                    "internalType": "struct BN254.G1Point",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.BaseField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "proof",
+                    "type": "tuple",
+                    "internalType": "struct LinkingProof",
+                    "components": [
+                      {
+                        "name": "linkingQuotientPolyComm",
+                        "type": "tuple",
+                        "internalType": "struct BN254.G1Point",
+                        "components": [
+                          {
+                            "name": "x",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          },
+                          {
+                            "name": "y",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "linkingPolyOpening",
+                        "type": "tuple",
+                        "internalType": "struct BN254.G1Point",
+                        "components": [
+                          {
+                            "name": "x",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          },
+                          {
+                            "name": "y",
+                            "type": "uint256",
+                            "internalType": "BN254.BaseField"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "vk",
+                    "type": "tuple",
+                    "internalType": "struct ProofLinkingVK",
+                    "components": [
+                      {
+                        "name": "linkGroupGenerator",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "linkGroupOffset",
+                        "type": "uint256",
+                        "internalType": "uint256"
+                      },
+                      {
+                        "name": "linkGroupSize",
+                        "type": "uint256",
+                        "internalType": "uint256"
                       }
                     ]
                   }

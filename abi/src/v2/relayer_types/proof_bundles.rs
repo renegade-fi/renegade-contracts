@@ -3,7 +3,7 @@
 use super::*;
 use crate::v2::IDarkpoolV2;
 use crate::v2::BN254::G1Point;
-use renegade_circuit_types_v2::{traits::BaseType, PlonkProof};
+use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
     settlement::intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
     valid_balance_create::ValidBalanceCreateStatement, valid_deposit::ValidDepositStatement,
@@ -161,6 +161,15 @@ impl From<PlonkProof> for IDarkpoolV2::PlonkProof {
             wireEvals: size_vec(evals.wires_evals.into_iter().map(fr_to_u256).collect()),
             sigmaEvals: size_vec(evals.wire_sigma_evals.into_iter().map(fr_to_u256).collect()),
             zBar: fr_to_u256(evals.perm_next_eval),
+        }
+    }
+}
+
+impl From<PlonkLinkProof> for IDarkpoolV2::LinkingProof {
+    fn from(proof: PlonkLinkProof) -> Self {
+        Self {
+            linkingQuotientPolyComm: convert_jf_commitment(proof.quotient_commitment),
+            linkingPolyOpening: convert_g1_point(proof.opening_proof.proof),
         }
     }
 }
