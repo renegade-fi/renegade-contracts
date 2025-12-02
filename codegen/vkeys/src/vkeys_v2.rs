@@ -6,6 +6,9 @@ use renegade_circuits_v2::zk_circuits::fees::valid_private_protocol_fee_payment:
 use renegade_circuits_v2::zk_circuits::fees::valid_private_relayer_fee_payment::SizedValidPrivateRelayerFeePayment;
 use renegade_circuits_v2::zk_circuits::fees::valid_public_protocol_fee_payment::SizedValidPublicProtocolFeePayment;
 use renegade_circuits_v2::zk_circuits::fees::valid_public_relayer_fee_payment::SizedValidPublicRelayerFeePayment;
+use renegade_circuits_v2::zk_circuits::proof_linking::intent_and_balance::get_group_layout as get_intent_and_balance_settlement_group_layout;
+use renegade_circuits_v2::zk_circuits::proof_linking::intent_only::get_intent_public_settlement_group_layout;
+use renegade_circuits_v2::zk_circuits::proof_linking::output_balance::get_group_layout as get_output_balance_settlement_group_layout;
 use renegade_circuits_v2::zk_circuits::settlement::{
     intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementCircuit,
     intent_and_balance_public_settlement::IntentAndBalancePublicSettlementCircuit,
@@ -18,6 +21,7 @@ use renegade_circuits_v2::zk_circuits::validity_proofs::{
     intent_and_balance_first_fill::SizedIntentAndBalanceFirstFillValidityCircuit,
     intent_only::IntentOnlyValidityCircuit,
     intent_only_first_fill::IntentOnlyFirstFillValidityCircuit,
+    output_balance::SizedOutputBalanceValidityCircuit,
 };
 use renegade_circuits_v2::zk_circuits::{
     valid_balance_create::ValidBalanceCreate, valid_deposit::SizedValidDeposit,
@@ -48,6 +52,7 @@ enum V2Circuit {
     IntentOnlyValidity,
     IntentAndBalanceFirstFillValidity,
     IntentAndBalanceValidity,
+    OutputBalanceValidity,
     // --- Settlement Circuits --- //
     IntentOnlyPublicSettlement,
     IntentAndBalancePublicSettlement,
@@ -95,6 +100,9 @@ impl V2Circuit {
             Self::IntentAndBalanceValidity => {
                 generate_vkey_for_circuit::<SizedIntentAndBalanceValidityCircuit>()
             }
+            Self::OutputBalanceValidity => {
+                generate_vkey_for_circuit::<SizedOutputBalanceValidityCircuit>()
+            }
             Self::IntentOnlyPublicSettlement => {
                 generate_vkey_for_circuit::<SizedIntentOnlyPublicSettlementCircuit>()
             }
@@ -123,6 +131,7 @@ impl V2Circuit {
             Self::IntentOnlyValidity => "INTENT_ONLY_VALIDITY",
             Self::IntentAndBalanceFirstFillValidity => "INTENT_AND_BALANCE_FIRST_FILL_VALIDITY",
             Self::IntentAndBalanceValidity => "INTENT_AND_BALANCE_VALIDITY",
+            Self::OutputBalanceValidity => "OUTPUT_BALANCE_VALIDITY",
             Self::IntentOnlyPublicSettlement => "INTENT_ONLY_PUBLIC_SETTLEMENT",
             Self::IntentAndBalancePublicSettlement => "INTENT_AND_BALANCE_PUBLIC_SETTLEMENT",
             Self::IntentAndBalancePrivateSettlement => "INTENT_AND_BALANCE_PRIVATE_SETTLEMENT",
@@ -145,6 +154,7 @@ impl V2Circuit {
             Self::IntentOnlyValidity,
             Self::IntentAndBalanceFirstFillValidity,
             Self::IntentAndBalanceValidity,
+            Self::OutputBalanceValidity,
             Self::IntentOnlyPublicSettlement,
             Self::IntentAndBalancePublicSettlement,
             Self::IntentAndBalancePrivateSettlement,
@@ -155,30 +165,53 @@ impl V2Circuit {
 /// Represents all the linking instances in the Renegade circuits
 #[derive(Debug, Clone, Copy)]
 pub enum V2LinkingInstance {
-    // TODO: Add v2 linking instance variants
+    /// The linking instance between intent-only validity and intent-only settlement
+    IntentOnlySettlement,
+    /// The linking instance between intent and balance validity and intent and balance settlement for the first party
+    IntentAndBalanceSettlement0,
+    /// The linking instance between intent and balance validity and intent and balance settlement for the second party
+    IntentAndBalanceSettlement1,
+    /// The linking instance between output balance validity and output balance settlement for the first party
+    OutputBalanceSettlement0,
+    /// The linking instance between output balance validity and output balance settlement for the second party
+    OutputBalanceSettlement1,
 }
 
 impl V2LinkingInstance {
     /// Generate a verification key for the linking instance
     pub fn vkey(&self) -> ProofLinkingVK {
         match self {
-            // TODO: Implement vkey generation for v2 linking instances
-            _ => todo!("Add linking instances"),
+            Self::IntentOnlySettlement => generate_intent_only_settlement_link_vkey(),
+            Self::IntentAndBalanceSettlement0 => {
+                generate_intent_and_balance_settlement_link_vkey(0)
+            }
+            Self::IntentAndBalanceSettlement1 => {
+                generate_intent_and_balance_settlement_link_vkey(1)
+            }
+            Self::OutputBalanceSettlement0 => generate_output_balance_settlement_link_vkey(0),
+            Self::OutputBalanceSettlement1 => generate_output_balance_settlement_link_vkey(1),
         }
     }
 
     /// Get the name of the linking instance
     pub fn name(&self) -> &'static str {
         match self {
-            // TODO: Implement name for v2 linking instances
-            _ => todo!("Add linking instance names"),
+            Self::IntentOnlySettlement => "INTENT_ONLY_SETTLEMENT",
+            Self::IntentAndBalanceSettlement0 => "INTENT_AND_BALANCE_SETTLEMENT0",
+            Self::IntentAndBalanceSettlement1 => "INTENT_AND_BALANCE_SETTLEMENT1",
+            Self::OutputBalanceSettlement0 => "OUTPUT_BALANCE_SETTLEMENT0",
+            Self::OutputBalanceSettlement1 => "OUTPUT_BALANCE_SETTLEMENT1",
         }
     }
 
     /// Get all linking instances
     pub fn all() -> Vec<Self> {
         vec![
-            // TODO: Fill in v2 linking instances
+            Self::IntentOnlySettlement,
+            Self::IntentAndBalanceSettlement0,
+            Self::IntentAndBalanceSettlement1,
+            Self::OutputBalanceSettlement0,
+            Self::OutputBalanceSettlement1,
         ]
     }
 }
@@ -215,4 +248,24 @@ fn generate_vkey_for_circuit<T: SingleProverCircuit>() -> VerificationKey {
     let vk = T::verifying_key();
     let vkey = VerificationKey::from(vk.as_ref().clone());
     vkey
+}
+
+// --- Proof Linking Keys --- //
+
+/// Generate the link verification key for the intent-only settlement linking instance
+fn generate_intent_only_settlement_link_vkey() -> ProofLinkingVK {
+    let layout = get_intent_public_settlement_group_layout::<MERKLE_HEIGHT>().unwrap();
+    ProofLinkingVK::from(layout)
+}
+
+/// Generate the link verification key for the intent and balance settlement linking instance for the given party
+fn generate_intent_and_balance_settlement_link_vkey(party: u8) -> ProofLinkingVK {
+    let layout = get_intent_and_balance_settlement_group_layout::<MERKLE_HEIGHT>(party).unwrap();
+    ProofLinkingVK::from(layout)
+}
+
+/// Generate the link verification key for the output balance settlement linking instance for the given party
+fn generate_output_balance_settlement_link_vkey(party: u8) -> ProofLinkingVK {
+    let layout = get_output_balance_settlement_group_layout::<MERKLE_HEIGHT>(party).unwrap();
+    ProofLinkingVK::from(layout)
 }
