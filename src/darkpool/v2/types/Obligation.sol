@@ -20,6 +20,22 @@ struct SettlementObligation {
 /// @author Renegade Eng
 /// @notice Library for settlement obligation operations
 library SettlementObligationLib {
+    /// @notice Return whether two obligations are equal
+    /// @param obligation0 The first obligation to compare
+    /// @param obligation1 The second obligation to compare
+    /// @return Whether the obligations are equal
+    function isEqualTo(
+        SettlementObligation memory obligation0,
+        SettlementObligation memory obligation1
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return obligation0.inputToken == obligation1.inputToken && obligation0.outputToken == obligation1.outputToken
+            && obligation0.amountIn == obligation1.amountIn && obligation0.amountOut == obligation1.amountOut;
+    }
+
     /// @notice Compute the obligation hash for a given settlement obligation
     /// @param obligation The settlement obligation to compute the hash for
     /// @return The hash of the obligation

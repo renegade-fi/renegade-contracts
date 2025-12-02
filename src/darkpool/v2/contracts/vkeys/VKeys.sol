@@ -147,31 +147,31 @@ contract VKeys is IVkeys {
 
     /// @notice Get the verification key for `INTENT ONLY SETTLEMENT`
     /// @return The verification key for `INTENT ONLY SETTLEMENT`
-    function intentOnlySettlementKeys() external view override returns (ProofLinkingVK memory) {
-        return proofLinkingVKeys.intentOnlySettlementKeys();
+    function intentOnlySettlementLinkingKey() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.intentOnlySettlementLinkingKey();
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 0`
     /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 0`
-    function intentAndBalanceSettlement0Keys() external view override returns (ProofLinkingVK memory) {
-        return proofLinkingVKeys.intentAndBalanceSettlement0Keys();
+    function intentAndBalanceSettlement0LinkingKey() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.intentAndBalanceSettlement0LinkingKey();
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 1`
     /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 1`
-    function intentAndBalanceSettlement1Keys() external view override returns (ProofLinkingVK memory) {
-        return proofLinkingVKeys.intentAndBalanceSettlement1Keys();
+    function intentAndBalanceSettlement1LinkingKey() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.intentAndBalanceSettlement1LinkingKey();
     }
 
     /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 0`
     /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 0`
-    function outputBalanceSettlement0Keys() external view override returns (ProofLinkingVK memory) {
-        return proofLinkingVKeys.outputBalanceSettlement0Keys();
+    function outputBalanceSettlement0LinkingKey() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.outputBalanceSettlement0LinkingKey();
     }
 
     /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 1`
     /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 1`
-    function outputBalanceSettlement1Keys() external view override returns (ProofLinkingVK memory) {
-        return proofLinkingVKeys.outputBalanceSettlement1Keys();
+    function outputBalanceSettlement1LinkingKey() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.outputBalanceSettlement1LinkingKey();
     }
 }

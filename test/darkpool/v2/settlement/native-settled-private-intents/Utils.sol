@@ -84,8 +84,9 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
 
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
-        context =
-            SettlementContextLib.newContext(1, /* numDeposits */ 3, /* numWithdrawals */ 2 /* verificationCapacity */ );
+        context = SettlementContextLib.newContext(
+            1, /* numDeposits */ 3, /* numWithdrawals */ 2, /* verificationCapacity */ 2 /* proofLinkingCapacity */
+        );
     }
 
     /// @dev Create a dummy intent validity statement
@@ -176,7 +177,8 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData = PrivateIntentPublicBalanceFirstFillBundle({
             auth: auth,
             settlementStatement: settlementStatement,
-            settlementProof: createDummyProof()
+            settlementProof: createDummyProof(),
+            authSettlementLinkingProof: createDummyLinkingProof()
         });
 
         // Encode the obligation and bundle
@@ -216,7 +218,8 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         PrivateIntentPublicBalanceBundle memory bundleData = PrivateIntentPublicBalanceBundle({
             auth: auth,
             settlementStatement: settlementStatement,
-            settlementProof: createDummyProof()
+            settlementProof: createDummyProof(),
+            authSettlementLinkingProof: createDummyLinkingProof()
         });
 
         // Encode the obligation and bundle

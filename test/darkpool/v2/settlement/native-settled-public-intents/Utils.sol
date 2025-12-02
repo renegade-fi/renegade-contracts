@@ -87,8 +87,9 @@ contract PublicIntentSettlementTestUtils is SettlementTestUtils {
 
     /// @dev Create a dummy `SettlementTransfers` list for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
-        context =
-            SettlementContextLib.newContext(1, /* numDeposits */ 3, /* numWithdrawals */ 1 /* verificationCapacity */ );
+        context = SettlementContextLib.newContext(
+            1, /* numDeposits */ 3, /* numWithdrawals */ 1, /* verificationCapacity */ 1 /* proofLinkingCapacity */
+        );
     }
 
     /// @dev Helper to create a sample settlement bundle

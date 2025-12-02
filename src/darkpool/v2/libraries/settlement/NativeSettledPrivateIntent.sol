@@ -20,7 +20,7 @@ import {
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { VerificationKey, ProofLinkingInstance } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
@@ -91,7 +91,6 @@ library NativeSettledPrivateIntentLib {
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
-    /// TODO: Proof linking
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -120,10 +119,7 @@ library NativeSettledPrivateIntentLib {
         );
 
         // 2. Validate the intent constraints on the obligation
-        // This is done in the settlement proof
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
-        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+        validateObligationConstraintsFirstFill(obligation, bundleData, settlementContext, vkeys);
 
         // 3. Execute state updates for the bundle
         executeStateUpdatesFirstFill(
@@ -161,10 +157,7 @@ library NativeSettledPrivateIntentLib {
         validatePrivateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
 
         // 2. Validate the intent constraints on the obligation
-        // This is done in the settlement proof
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
-        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+        validateObligationConstraints(obligation, bundleData, settlementContext, vkeys);
 
         // 3. Execute state updates for the bundle
         executeStateUpdates(bundleData, obligation, settlementContext, state, hasher);
@@ -247,6 +240,79 @@ library NativeSettledPrivateIntentLib {
         bool valid = authBundle.intentSignature.verifyPrehashed(intentOwner, commitmentHash);
         if (!valid) revert IDarkpoolV2.InvalidIntentCommitmentSignature();
         state.spendNonce(authBundle.intentSignature.nonce);
+    }
+
+    // --------------------------
+    // | Obligation Constraints |
+    // --------------------------
+
+    /// @notice Validate the obligation constraints for a natively settled private intent bundle for a first fill
+    /// @param obligation The obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
+    function validateObligationConstraintsFirstFill(
+        SettlementObligation memory obligation,
+        PrivateIntentPublicBalanceFirstFillBundle memory settlementBundle,
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
+    )
+        internal
+    {
+        IntentOnlyPublicSettlementStatement memory settlementStatement = settlementBundle.settlementStatement;
+
+        // The obligation in the settlement statement must match the one from the obligation bundle
+        bool obligationMatches = obligation.isEqualTo(settlementStatement.obligation);
+        if (!obligationMatches) revert IDarkpoolV2.InvalidObligation();
+
+        // Push the settlement proof to the context for verification
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(settlementStatement);
+        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
+        settlementContext.pushProof(publicInputs, settlementBundle.settlementProof, vk);
+
+        // Push the proof linking argument to the context for verification
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: settlementBundle.auth.validityProof.wireComms[0],
+            wireComm1: settlementBundle.settlementProof.wireComms[0],
+            proof: settlementBundle.authSettlementLinkingProof,
+            vk: vkeys.intentOnlySettlementLinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
+    }
+
+    /// @notice Validate the obligation constraints for a natively settled private intent bundle for a subsequent fill;
+    /// i.e. not the first fill
+    /// @param obligation The obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
+    function validateObligationConstraints(
+        SettlementObligation memory obligation,
+        PrivateIntentPublicBalanceBundle memory settlementBundle,
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
+    )
+        internal
+    {
+        IntentOnlyPublicSettlementStatement memory settlementStatement = settlementBundle.settlementStatement;
+
+        // The obligation in the settlement statement must match the one from the obligation bundle
+        bool obligationMatches = obligation.isEqualTo(settlementStatement.obligation);
+        if (!obligationMatches) revert IDarkpoolV2.InvalidObligation();
+
+        // Push the settlement proof to the context for verification
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(settlementStatement);
+        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
+        settlementContext.pushProof(publicInputs, settlementBundle.settlementProof, vk);
+
+        // Push the proof linking argument to the context for verification
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: settlementBundle.auth.validityProof.wireComms[0],
+            wireComm1: settlementBundle.settlementProof.wireComms[0],
+            proof: settlementBundle.authSettlementLinkingProof,
+            vk: vkeys.intentOnlySettlementLinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
     // -----------------

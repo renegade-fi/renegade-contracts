@@ -2,12 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { PlonkProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof, VerificationKey, ProofLinkingInstance } from "renegade-lib/verifier/Types.sol";
 
 /// @title Verification List
 /// @author Renegade Eng
 /// @notice A list of verifications to perform on a settlement bundle
-/// TODO: Add proof-linking arguments
 struct VerificationList {
     /// @dev The cursor indicating the next index to push to
     uint256 nextIndex;
@@ -70,5 +69,63 @@ library VerificationListLib {
         list.publicInputs[list.nextIndex] = publicInputs;
         list.vks[list.nextIndex] = vk;
         ++list.nextIndex;
+    }
+}
+
+/// @title Proof Linking List
+/// @author Renegade Eng
+/// @notice A list of proof linking instances to verify
+struct ProofLinkingList {
+    /// @dev The cursor indicating the next index to push to
+    uint256 nextIndex;
+    /// @dev The list of proof linking instances
+    ProofLinkingInstance[] instances;
+}
+
+/// @title Proof Linking List Library
+/// @author Renegade Eng
+/// @notice A library for managing proof linking lists
+library ProofLinkingListLib {
+    // --- Errors --- //
+
+    /// @notice Thrown when attempting to push to a list that has reached its capacity
+    error ProofLinkingListCapacityExceeded();
+
+    // --- Interface --- //
+
+    /// @notice Create a new proof linking list
+    /// @param capacity The initial capacity of the list
+    /// @return The new proof linking list
+    function newList(uint256 capacity) internal pure returns (ProofLinkingList memory) {
+        return ProofLinkingList({ nextIndex: 0, instances: new ProofLinkingInstance[](capacity) });
+    }
+
+    /// @notice Get the length of the list
+    /// @param list The list to get the length of
+    /// @return The length of the list
+    function length(ProofLinkingList memory list) internal pure returns (uint256) {
+        return list.nextIndex;
+    }
+
+    /// @notice Push a proof linking instance to the list
+    /// @param list The list to push to
+    /// @param instance The proof linking instance to push
+    function push(ProofLinkingList memory list, ProofLinkingInstance memory instance) internal pure {
+        if (list.nextIndex > list.instances.length - 1) {
+            revert ProofLinkingListCapacityExceeded();
+        }
+        list.instances[list.nextIndex] = instance;
+        ++list.nextIndex;
+    }
+
+    /// @notice Get the instances array up to the current length
+    /// @param list The list to get instances from
+    /// @return The instances array with the correct length
+    function getInstances(ProofLinkingList memory list) internal pure returns (ProofLinkingInstance[] memory) {
+        ProofLinkingInstance[] memory instances = new ProofLinkingInstance[](list.nextIndex);
+        for (uint256 i = 0; i < list.nextIndex; i++) {
+            instances[i] = list.instances[i];
+        }
+        return instances;
     }
 }

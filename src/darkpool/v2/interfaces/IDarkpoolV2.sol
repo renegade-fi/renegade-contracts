@@ -48,6 +48,8 @@ interface IDarkpoolV2 {
     error IncompatiblePairs();
     /// @notice Thrown when the obligation amounts are not compatible
     error IncompatibleAmounts();
+    /// @notice Thrown when an obligation is invalid
+    error InvalidObligation();
     /// @notice Thrown when the settlement bundle type is invalid
     error InvalidSettlementBundleType();
     /// @notice Thrown when verification fails for a settlement

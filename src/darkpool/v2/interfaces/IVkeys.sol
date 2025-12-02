@@ -84,17 +84,17 @@ interface IVkeys {
 
     /// @notice Get the verification key for `INTENT ONLY SETTLEMENT`
     /// @return The verification key for `INTENT ONLY SETTLEMENT`
-    function intentOnlySettlementKeys() external view returns (ProofLinkingVK memory);
+    function intentOnlySettlementLinkingKey() external view returns (ProofLinkingVK memory);
     /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 0`
     /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 0`
-    function intentAndBalanceSettlement0Keys() external view returns (ProofLinkingVK memory);
+    function intentAndBalanceSettlement0LinkingKey() external view returns (ProofLinkingVK memory);
     /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 1`
     /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 1`
-    function intentAndBalanceSettlement1Keys() external view returns (ProofLinkingVK memory);
+    function intentAndBalanceSettlement1LinkingKey() external view returns (ProofLinkingVK memory);
     /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 0`
     /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 0`
-    function outputBalanceSettlement0Keys() external view returns (ProofLinkingVK memory);
+    function outputBalanceSettlement0LinkingKey() external view returns (ProofLinkingVK memory);
     /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 1`
     /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 1`
-    function outputBalanceSettlement1Keys() external view returns (ProofLinkingVK memory);
+    function outputBalanceSettlement1LinkingKey() external view returns (ProofLinkingVK memory);
 }

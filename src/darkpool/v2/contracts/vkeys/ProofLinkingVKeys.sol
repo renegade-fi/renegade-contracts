@@ -10,31 +10,31 @@ import { VerificationKeys } from "darkpoolv2-lib/VerificationKeys.sol";
 contract ProofLinkingVKeys {
     /// @notice Get the verification key for `INTENT ONLY SETTLEMENT`
     /// @return The verification key for `INTENT ONLY SETTLEMENT`
-    function intentOnlySettlementKeys() external pure returns (ProofLinkingVK memory) {
+    function intentOnlySettlementLinkingKey() external pure returns (ProofLinkingVK memory) {
         return __deserializeLinkKey(VerificationKeys.INTENT_ONLY_SETTLEMENT_VKEY);
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 0`
     /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 0`
-    function intentAndBalanceSettlement0Keys() external pure returns (ProofLinkingVK memory) {
+    function intentAndBalanceSettlement0LinkingKey() external pure returns (ProofLinkingVK memory) {
         return __deserializeLinkKey(VerificationKeys.INTENT_AND_BALANCE_SETTLEMENT0_VKEY);
     }
 
     /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 1`
     /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 1`
-    function intentAndBalanceSettlement1Keys() external pure returns (ProofLinkingVK memory) {
+    function intentAndBalanceSettlement1LinkingKey() external pure returns (ProofLinkingVK memory) {
         return __deserializeLinkKey(VerificationKeys.INTENT_AND_BALANCE_SETTLEMENT1_VKEY);
     }
 
     /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 0`
     /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 0`
-    function outputBalanceSettlement0Keys() external pure returns (ProofLinkingVK memory) {
+    function outputBalanceSettlement0LinkingKey() external pure returns (ProofLinkingVK memory) {
         return __deserializeLinkKey(VerificationKeys.OUTPUT_BALANCE_SETTLEMENT0_VKEY);
     }
 
     /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 1`
     /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 1`
-    function outputBalanceSettlement1Keys() external pure returns (ProofLinkingVK memory) {
+    function outputBalanceSettlement1LinkingKey() external pure returns (ProofLinkingVK memory) {
         return __deserializeLinkKey(VerificationKeys.OUTPUT_BALANCE_SETTLEMENT1_VKEY);
     }
 

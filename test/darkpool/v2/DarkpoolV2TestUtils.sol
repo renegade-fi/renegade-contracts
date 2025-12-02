@@ -15,7 +15,7 @@ import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { DarkpoolState } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
-import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
 
@@ -214,5 +214,12 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
             sigmaEvals: sigmaEvals,
             zBar: BN254Helpers.ZERO
         });
+    }
+
+    /// @dev Create a dummy LinkingProof
+    function createDummyLinkingProof() internal pure returns (LinkingProof memory) {
+        BN254.G1Point memory pointZero = BN254.P1();
+
+        return LinkingProof({ linkingQuotientPolyComm: pointZero, linkingPolyOpening: pointZero });
     }
 }
