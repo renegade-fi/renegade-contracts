@@ -8,6 +8,7 @@ use renegade_crypto_v2::fields::scalar_to_u256;
 use crate::v2::IDarkpoolV2;
 use crate::v2::BN254;
 
+pub mod commitments;
 pub mod deposit;
 pub mod intent;
 pub mod obligation;

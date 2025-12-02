@@ -8,12 +8,16 @@ use eyre::Result;
 use rand::{thread_rng, Rng};
 use renegade_abi::v2::{
     auth_helpers::sign_with_nonce,
-    IDarkpoolV2::{ObligationBundle, PrivateIntentAuthBundleFirstFill, SettlementBundle},
+    IDarkpoolV2::{
+        ObligationBundle, PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill,
+        SettlementBundle,
+    },
 };
 use renegade_circuit_types::{
     intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
-    PlonkLinkProof, PlonkProof, ProofLinkingHint,
+    state_wrapper::StateWrapper,
+    Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint,
 };
 use renegade_circuits::{
     singleprover_prove_with_hint,
@@ -23,24 +27,32 @@ use renegade_circuits::{
         settlement::intent_only_public_settlement::{
             self, IntentOnlyPublicSettlementStatement, SizedIntentOnlyPublicSettlementCircuit,
         },
-        validity_proofs::intent_only_first_fill::{
-            self, IntentOnlyFirstFillValidityCircuit, IntentOnlyFirstFillValidityStatement,
+        validity_proofs::{
+            intent_only::{self, IntentOnlyValidityStatement, SizedIntentOnlyValidityCircuit},
+            intent_only_first_fill::{
+                self, IntentOnlyFirstFillValidityCircuit, IntentOnlyFirstFillValidityStatement,
+            },
         },
     },
 };
+use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{Scalar, MERKLE_HEIGHT};
 use renegade_crypto::fields::scalar_to_u256;
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
     test_args::TestArgs,
+    tests::settlement::{compute_fee_take, settlement_relayer_fee},
     util::{
         fuzzing::create_matching_intents_and_obligations,
+        merkle::find_state_element_opening,
         transactions::{send_tx, wait_for_tx_success},
     },
 };
 
 /// Tests settling a natively-settled private intent
+///
+/// This test will settle twice to test both the first and subsequent fill paths.
 #[allow(non_snake_case)]
 async fn test_settlement__native_settled_private_intent(args: TestArgs) -> Result<()> {
     // Fund the parties, party0 sells the base; party1 sells the quote
@@ -49,21 +61,72 @@ async fn test_settlement__native_settled_private_intent(args: TestArgs) -> Resul
     // Build the obligations and split them in two for two fills
     let (intent0, intent1, obligation0, obligation1) =
         create_intents_and_obligations(&args).await?;
-
-    // TODO: Add a second fill
-    let (first_obligation0, _second_obligation0) = split_obligation(&obligation0);
-    let (first_obligation1, _second_obligation1) = split_obligation(&obligation1);
+    let (first_obligation0, second_obligation0) = split_obligation(&obligation0);
+    let (first_obligation1, second_obligation1) = split_obligation(&obligation1);
 
     // --- First Fill --- //
+
     // On the first fill, settle half of the obligations
-    let settlement_bundle0 =
+    let (mut state_intent0, settlement_bundle0) =
         build_settlement_bundle_first_fill(&args.party0_signer(), &intent0, &first_obligation0)?;
-    let settlement_bundle1 =
+    let (mut state_intent1, settlement_bundle1) =
         build_settlement_bundle_first_fill(&args.party1_signer(), &intent1, &first_obligation1)?;
     let obligation_bundle = build_obligation_bundle(&first_obligation0, &first_obligation1);
 
     let party0_base_before = args.base_balance(args.party0_addr()).await?;
     let party1_base_before = args.base_balance(args.party1_addr()).await?;
+    let party0_quote_before = args.quote_balance(args.party0_addr()).await?;
+    let party1_quote_before = args.quote_balance(args.party1_addr()).await?;
+    let tx = args
+        .darkpool
+        .settleMatch(obligation_bundle, settlement_bundle0, settlement_bundle1);
+    let tx_receipt = wait_for_tx_success(tx).await?;
+
+    let party0_base_after = args.base_balance(args.party0_addr()).await?;
+    let party1_base_after = args.base_balance(args.party1_addr()).await?;
+    let party0_quote_after = args.quote_balance(args.party0_addr()).await?;
+    let party1_quote_after = args.quote_balance(args.party1_addr()).await?;
+
+    // Verify balance updates
+    let fee_take0 = compute_fee_take(&first_obligation0, &args).await?;
+    let fee_take1 = compute_fee_take(&first_obligation1, &args).await?;
+    let total_fee0 = U256::from(fee_take0.total());
+    let total_fee1 = U256::from(fee_take1.total());
+    assert_eq_result!(
+        party0_base_after,
+        party0_base_before - U256::from(first_obligation0.amount_in)
+    )?;
+    assert_eq_result!(
+        party0_quote_after,
+        party0_quote_before + U256::from(first_obligation0.amount_out) - total_fee0
+    )?;
+    assert_eq_result!(
+        party1_base_after,
+        party1_base_before + U256::from(first_obligation1.amount_out) - total_fee1
+    )?;
+    assert_eq_result!(
+        party1_quote_after,
+        party1_quote_before - U256::from(first_obligation1.amount_in)
+    )?;
+
+    // --- Subsequent Fill --- //
+
+    // Update the state intents and search for their commitments
+    state_intent0.apply_settlement_obligation(&first_obligation0);
+    state_intent1.apply_settlement_obligation(&first_obligation1);
+    let opening0 = find_state_element_opening(&state_intent0, &tx_receipt).await?;
+    let opening1 = find_state_element_opening(&state_intent1, &tx_receipt).await?;
+    let settlement_bundle0 =
+        build_settlement_bundle_subsequent_fill(&state_intent0, &opening0, &second_obligation0)?;
+    let settlement_bundle1 =
+        build_settlement_bundle_subsequent_fill(&state_intent1, &opening1, &second_obligation1)?;
+    let obligation_bundle = build_obligation_bundle(&second_obligation0, &second_obligation1);
+
+    // Settle the match
+    let party0_base_before = args.base_balance(args.party0_addr()).await?;
+    let party1_base_before = args.base_balance(args.party1_addr()).await?;
+    let party0_quote_before = args.quote_balance(args.party0_addr()).await?;
+    let party1_quote_before = args.quote_balance(args.party1_addr()).await?;
     let tx = args
         .darkpool
         .settleMatch(obligation_bundle, settlement_bundle0, settlement_bundle1);
@@ -71,13 +134,30 @@ async fn test_settlement__native_settled_private_intent(args: TestArgs) -> Resul
 
     let party0_base_after = args.base_balance(args.party0_addr()).await?;
     let party1_base_after = args.base_balance(args.party1_addr()).await?;
+    let party0_quote_after = args.quote_balance(args.party0_addr()).await?;
+    let party1_quote_after = args.quote_balance(args.party1_addr()).await?;
 
-    // TODO: Verify balance updates
-    println!("\n\n");
-    println!("party0 base balance before: {party0_base_before}");
-    println!("party0 base balance after: {party0_base_after}");
-    println!("party1 balance before: {party1_base_before}");
-    println!("party1 balance after: {party1_base_after}");
+    // Verify balance updates
+    let fee_take0 = compute_fee_take(&second_obligation0, &args).await?;
+    let fee_take1 = compute_fee_take(&second_obligation1, &args).await?;
+    let total_fee0 = U256::from(fee_take0.total());
+    let total_fee1 = U256::from(fee_take1.total());
+    assert_eq_result!(
+        party0_base_after,
+        party0_base_before - U256::from(second_obligation0.amount_in)
+    )?;
+    assert_eq_result!(
+        party0_quote_after,
+        party0_quote_before + U256::from(second_obligation0.amount_out) - total_fee0
+    )?;
+    assert_eq_result!(
+        party1_base_after,
+        party1_base_before + U256::from(second_obligation1.amount_out) - total_fee1
+    )?;
+    assert_eq_result!(
+        party1_quote_after,
+        party1_quote_before - U256::from(second_obligation1.amount_in)
+    )?;
 
     Ok(())
 }
@@ -160,7 +240,8 @@ async fn create_intents_and_obligations(
 fn generate_first_fill_validity_proof(
     intent: &Intent,
 ) -> Result<(
-    Scalar,
+    Commitment,
+    DarkpoolStateIntent,
     IntentOnlyFirstFillValidityStatement,
     PlonkProof,
     ProofLinkingHint,
@@ -177,15 +258,32 @@ fn generate_first_fill_validity_proof(
         DarkpoolStateIntent::new(intent, share_stream_seed, recovery_stream_seed);
     state_intent.compute_recovery_id();
     let comm = state_intent.compute_commitment();
-    let private_comm = state_intent.compute_private_commitment();
-    assert_eq_result!(private_comm, statement.intent_private_commitment)?;
 
     // Generate the validity proof
     let (proof, link_hint) = singleprover_prove_with_hint::<IntentOnlyFirstFillValidityCircuit>(
         witness,
         statement.clone(),
     )?;
-    Ok((comm, statement, proof, link_hint))
+    Ok((comm, state_intent, statement, proof, link_hint))
+}
+
+/// Generate a subsequent fill validity proof for an intent
+fn generate_subsequent_fill_validity_proof(
+    intent: &StateWrapper<Intent>,
+    merkle_opening: &MerkleAuthenticationPath,
+) -> Result<(IntentOnlyValidityStatement, PlonkProof, ProofLinkingHint)> {
+    // Generate the witness and statement
+    let (mut witness, mut statement) =
+        intent_only::test_helpers::create_witness_statement_with_state_intent(intent.clone());
+
+    // Replace the dummy Merkle opening with the real one
+    statement.merkle_root = merkle_opening.compute_root();
+    witness.old_intent_opening = merkle_opening.clone().into();
+
+    // Prove the circuit
+    let (proof, link_hint) =
+        singleprover_prove_with_hint::<SizedIntentOnlyValidityCircuit>(witness, statement.clone())?;
+    Ok((statement, proof, link_hint))
 }
 
 /// Generate a settlement proof for a private intent
@@ -197,7 +295,8 @@ fn generate_settlement_proof(
     PlonkProof,
     ProofLinkingHint,
 )> {
-    let (witness, statement) = intent_only_public_settlement::test_helpers::create_witness_statement_with_intent_and_obligation(intent, obligation);
+    let (witness, mut statement) = intent_only_public_settlement::test_helpers::create_witness_statement_with_intent_and_obligation(intent, obligation);
+    statement.relayer_fee = settlement_relayer_fee();
     let (proof, link_hint) = singleprover_prove_with_hint::<SizedIntentOnlyPublicSettlementCircuit>(
         witness,
         statement.clone(),
@@ -221,9 +320,9 @@ pub fn build_settlement_bundle_first_fill(
     owner: &PrivateKeySigner,
     intent: &Intent,
     obligation: &SettlementObligation,
-) -> Result<SettlementBundle> {
+) -> Result<(DarkpoolStateIntent, SettlementBundle)> {
     // Generate proofs
-    let (commitment, validity_statement, validity_proof, validity_link_hint) =
+    let (commitment, state_intent, validity_statement, validity_proof, validity_link_hint) =
         generate_first_fill_validity_proof(intent)?;
     let (settlement_statement, settlement_proof, settlement_link_hint) =
         generate_settlement_proof(intent, obligation)?;
@@ -232,7 +331,32 @@ pub fn build_settlement_bundle_first_fill(
     // Build bundles
     let auth_bundle =
         build_auth_bundle_first_fill(owner, commitment, &validity_statement, &validity_proof)?;
-    Ok(SettlementBundle::private_intent_public_balance_first_fill(
+    let settlement_bundle = SettlementBundle::private_intent_public_balance_first_fill(
+        auth_bundle.clone(),
+        settlement_statement.clone().into(),
+        settlement_proof.clone().into(),
+        linking_proof.into(),
+    );
+
+    Ok((state_intent, settlement_bundle))
+}
+
+/// Build a settlement bundle for a subsequent fill
+pub fn build_settlement_bundle_subsequent_fill(
+    intent: &StateWrapper<Intent>,
+    merkle_opening: &MerkleAuthenticationPath,
+    obligation: &SettlementObligation,
+) -> Result<SettlementBundle> {
+    // Generate proofs
+    let (validity_statement, validity_proof, validity_link_hint) =
+        generate_subsequent_fill_validity_proof(intent, merkle_opening)?;
+    let (settlement_statement, settlement_proof, settlement_link_hint) =
+        generate_settlement_proof(&intent.inner, obligation)?;
+    let linking_proof = generate_linking_proof(&validity_link_hint, &settlement_link_hint)?;
+
+    // Build bundles
+    let auth_bundle = build_auth_bundle_subsequent_fill(&validity_statement, &validity_proof)?;
+    Ok(SettlementBundle::private_intent_public_balance(
         auth_bundle.clone(),
         settlement_statement.clone().into(),
         settlement_proof.clone().into(),
@@ -253,6 +377,18 @@ fn build_auth_bundle_first_fill(
 
     Ok(PrivateIntentAuthBundleFirstFill {
         intentSignature: signature,
+        merkleDepth: U256::from(MERKLE_HEIGHT),
+        statement: validity_statement.clone().into(),
+        validityProof: validity_proof.clone().into(),
+    })
+}
+
+/// Build an auth bundle for a subsequent fill
+fn build_auth_bundle_subsequent_fill(
+    validity_statement: &IntentOnlyValidityStatement,
+    validity_proof: &PlonkProof,
+) -> Result<PrivateIntentAuthBundle> {
+    Ok(PrivateIntentAuthBundle {
         merkleDepth: U256::from(MERKLE_HEIGHT),
         statement: validity_statement.clone().into(),
         validityProof: validity_proof.clone().into(),

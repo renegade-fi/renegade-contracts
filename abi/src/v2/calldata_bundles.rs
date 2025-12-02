@@ -27,6 +27,7 @@ impl ObligationBundle {
 }
 
 impl SettlementBundle {
+    /// Build a private intent, public balance settlement bundle for a first fill
     pub fn private_intent_public_balance_first_fill(
         auth: PrivateIntentAuthBundleFirstFill,
         settlement_statement: IntentOnlyPublicSettlementStatement,
@@ -43,6 +44,28 @@ impl SettlementBundle {
 
         Self {
             isFirstFill: true,
+            bundleType: NATIVE_SETTLED_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
+
+    /// Build a private intent, public balance settlement bundle for a subsequent fill
+    pub fn private_intent_public_balance(
+        auth: PrivateIntentAuthBundle,
+        settlement_statement: IntentOnlyPublicSettlementStatement,
+        settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = PrivateIntentPublicBalanceBundle {
+            auth,
+            settlementStatement: settlement_statement,
+            settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: false,
             bundleType: NATIVE_SETTLED_PRIVATE_INTENT_BUNDLE_TYPE,
             data: data.into(),
         }
