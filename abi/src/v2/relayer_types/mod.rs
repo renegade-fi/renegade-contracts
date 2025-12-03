@@ -1,12 +1,16 @@
 //! Relayer type interactions and conversions for the V2 ABI
 
 use alloy::primitives::U256;
+use renegade_circuit_types_v2::fixed_point::FixedPoint;
 use renegade_constants_v2::Scalar;
 use renegade_crypto_v2::fields::scalar_to_u256;
 
+use crate::v2::IDarkpoolV2;
 use crate::v2::BN254;
 
 pub mod deposit;
+pub mod intent;
+pub mod obligation;
 pub mod proof_bundles;
 pub mod withdrawal;
 
@@ -31,4 +35,28 @@ pub fn u128_to_u256(x: u128) -> U256 {
 pub fn scalar_to_contract_scalar(scalar: Scalar) -> BN254::ScalarField {
     let u256 = scalar_to_u256(&scalar);
     BN254::ScalarField::from_underlying(u256)
+}
+
+/// Convert a `U256` to a `Scalar`
+pub fn u256_to_scalar(u256: U256) -> Scalar {
+    let bytes: [u8; 32] = u256.to_be_bytes();
+    Scalar::from_be_bytes_mod_order(&bytes)
+}
+
+/// Convert a `FixedPoint` to a contract `FixedPoint`
+impl From<FixedPoint> for IDarkpoolV2::FixedPoint {
+    fn from(fixed_point: FixedPoint) -> Self {
+        Self {
+            repr: scalar_to_u256(&fixed_point.repr),
+        }
+    }
+}
+
+/// Convert a contract `FixedPoint` to a `FixedPoint`
+impl From<IDarkpoolV2::FixedPoint> for FixedPoint {
+    fn from(fixed_point: IDarkpoolV2::FixedPoint) -> Self {
+        Self {
+            repr: u256_to_scalar(fixed_point.repr),
+        }
+    }
 }
