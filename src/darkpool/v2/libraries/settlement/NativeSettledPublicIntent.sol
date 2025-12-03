@@ -81,7 +81,7 @@ library NativeSettledPublicIntentLib {
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // Verify that the executor has signed the settlement obligation
-        validateObligationAuthorization(bundleData.auth, obligation, state);
+        validateObligationAuthorization(bundleData, obligation, state);
 
         executeInner(bundleData, obligation, settlementContext, state);
     }
@@ -106,7 +106,7 @@ library NativeSettledPublicIntentLib {
 
         // Verify that the executor has signed the bounded match result, authorizing the settlement obligation derived
         // from it
-        validateBoundedMatchResultAuthorization(bundleData.auth, matchBundle, state);
+        validateBoundedMatchResultAuthorization(bundleData, matchBundle, state);
 
         executeInner(bundleData, obligation, settlementContext, state);
     }
@@ -125,7 +125,7 @@ library NativeSettledPublicIntentLib {
         private
     {
         // 1. Validate the intent authorization
-        (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData, obligation, state);
+        (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData, state);
 
         // 2. Validate the intent and balance constraints on the obligation
         Intent memory intent = bundleData.auth.permit.intent;
@@ -145,25 +145,17 @@ library NativeSettledPublicIntentLib {
     /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
     /// filled by the executor.
     /// @param bundleData The auth bundle data to validate
-    /// @param obligation The settlement obligation to validate
     /// @param state The darkpool state containing all storage references
     /// @return amountRemaining The amount remaining on the intent
     /// @return intentHash The hash of the intent
     function validatePublicIntentAuthorization(
         PublicIntentPublicBalanceBundle memory bundleData,
-        SettlementObligation memory obligation,
         DarkpoolState storage state
     )
         internal
         returns (uint256 amountRemaining, bytes32 intentHash)
     {
         PublicIntentAuthBundle memory auth = bundleData.auth;
-
-        // Verify that the executor has signed the settlement obligation
-        bytes32 executorDigest = bundleData.computeExecutorDigest(obligation);
-        bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, executorDigest);
-        if (!executorValid) revert InvalidExecutorSignature();
-        state.spendNonce(auth.executorSignature.nonce);
 
         // If the intent is already in the mapping, we need not check its owner's signature
         intentHash = auth.permit.computeHash();
@@ -194,18 +186,21 @@ library NativeSettledPublicIntentLib {
     /// @notice Validate the authorization of a settlement obligation
     /// @dev We require that the executor has signed the settlement obligation. This authorizes the individual fill
     /// parameters.
-    /// @param auth The public intent authorization bundle to validate
+    /// @param bundleData The auth bundle data to validate
     /// @param obligation The settlement obligation to validate
     /// @param state The darkpool state containing all storage references
     function validateObligationAuthorization(
-        PublicIntentAuthBundle memory auth,
+        PublicIntentPublicBalanceBundle memory bundleData,
         SettlementObligation memory obligation,
         DarkpoolState storage state
     )
         internal
     {
-        bytes32 obligationHash = obligation.computeObligationHash();
-        bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, obligationHash);
+        PublicIntentAuthBundle memory auth = bundleData.auth;
+
+        // Verify that the executor has signed the settlement obligation
+        bytes32 executorDigest = bundleData.computeExecutorDigest(obligation);
+        bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, executorDigest);
         if (!executorValid) revert InvalidExecutorSignature();
         state.spendNonce(auth.executorSignature.nonce);
     }
@@ -215,18 +210,22 @@ library NativeSettledPublicIntentLib {
     // -------------------------------
 
     /// @notice Validate the authorization of a bounded match result
-    /// @dev We require that the executor has a tuple of (executor, match result). This authorizes the match result to
-    /// be filled by the executor.
+    /// @dev We require that the executor signed the bounded match result, which authorizes any obligations derived from
+    /// the match result to be settled.
+    /// @param bundleData The auth bundle data to validate
     /// @param matchBundle The bounded match result authorization bundle to validate
     /// @param state The darkpool state containing all storage references
     function validateBoundedMatchResultAuthorization(
-        PublicIntentAuthBundle memory auth,
+        PublicIntentPublicBalanceBundle memory bundleData,
         BoundedMatchResultBundle calldata matchBundle,
         DarkpoolState storage state
     )
         internal
     {
+        PublicIntentAuthBundle memory auth = bundleData.auth;
         BoundedMatchResultPermit memory permit = matchBundle.permit;
+
+        // Verify that the executor has signed the bounded match result
         bytes32 matchResultHash = permit.computeHash();
         bool executorValid = matchBundle.executorSignature.verifyPrehashed(auth.permit.executor, matchResultHash);
         if (!executorValid) revert InvalidExecutorSignature();

@@ -1,36 +1,35 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { Intent } from "darkpoolv2-types/Intent.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-
+import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import {
+    SettlementBundle,
+    SettlementBundleType,
+    PublicIntentPublicBalanceBundle
+} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import {
+    SignatureWithNonce,
+    PublicIntentAuthBundle,
+    PublicIntentPermit,
+    PublicIntentPermitLib
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
     BoundedMatchResultPermit,
     BoundedMatchResultBundle,
     BoundedMatchResultPermitLib
 } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
-import { Intent } from "darkpoolv2-types/Intent.sol";
-import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
-import {
-    PublicIntentPublicBalanceBundle,
-    SettlementBundle,
-    SettlementBundleType
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import {
-    PublicIntentAuthBundle,
-    PublicIntentPermit,
-    PublicIntentPermitLib,
-    SignatureWithNonce
-} from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { BalanceSnapshots, ExpectedDifferences, SettlementTestUtils } from "../SettlementTestUtils.sol";
 
-import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
-
-contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
+contract ExternalMatchTestUtils is SettlementTestUtils {
     using BoundedMatchResultLib for BoundedMatchResult;
     using BoundedMatchResultPermitLib for BoundedMatchResultPermit;
     using PublicIntentPermitLib for PublicIntentPermit;
+    using FixedPointLib for FixedPoint;
 
     // ---------
     // | Utils |
@@ -140,6 +139,8 @@ contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
         });
     }
 
+    // --- Bounded Match Result --- //
+
     /// @dev Create a bounded match result authorization for a given intent
     /// @param obligation The obligation to create the bounded match result for
     /// @param price The price of the obligation (inToken/outToken)
@@ -216,5 +217,34 @@ contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
     {
         externalPartyAmountIn = vm.randomUint(0, externalObligation.amountIn);
         externalPartyAmountOut = FixedPointLib.divIntegerByFixedPoint(externalPartyAmountIn, price);
+    }
+
+    /// @dev Build obligations from a bounded match result and external party amount in
+    /// @param matchResult The bounded match result to build obligations from
+    /// @param externalPartyAmountIn The external party amount in
+    /// @return externalObligation The external party obligation
+    /// @return internalObligation The internal party obligation
+    function buildObligationsFromMatchResult(
+        BoundedMatchResult memory matchResult,
+        uint256 externalPartyAmountIn
+    )
+        internal
+        view
+        returns (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation)
+    {
+        // Use the calldata version via external call for memory-to-calldata conversion
+        return this._buildObligationsFromMatchResultCalldata(matchResult, externalPartyAmountIn);
+    }
+
+    /// @dev Build obligations from a bounded match result (calldata version)
+    function _buildObligationsFromMatchResultCalldata(
+        BoundedMatchResult calldata matchResult,
+        uint256 externalPartyAmountIn
+    )
+        external
+        view
+        returns (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation)
+    {
+        return BoundedMatchResultLib.buildObligations(matchResult, externalPartyAmountIn);
     }
 }
