@@ -30,10 +30,12 @@ import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol"
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
+import { ProofLinkingList, ProofLinkingListLib } from "darkpoolv2-types/VerificationList.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
-import { emptyOpeningElements, VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { emptyOpeningElements, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
+import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 
@@ -45,6 +47,7 @@ library SettlementLib {
     using SettlementBundleLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
     using SettlementTransfersLib for SettlementTransfers;
+    using ProofLinkingListLib for ProofLinkingList;
     using PublicInputsLib for IntentAndBalancePrivateSettlementStatement;
 
     // --- Entry Point --- //
@@ -118,8 +121,10 @@ library SettlementLib {
             + SettlementBundleLib.getNumWithdrawals(party1SettlementBundle);
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(party0SettlementBundle)
             + SettlementBundleLib.getNumProofs(party1SettlementBundle);
+        uint256 proofLinkingCapacity = SettlementBundleLib.getNumProofLinkingArguments(party0SettlementBundle)
+            + SettlementBundleLib.getNumProofLinkingArguments(party1SettlementBundle);
 
-        return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity);
+        return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
     }
 
     // --- Obligation Compatibility --- //
@@ -268,13 +273,16 @@ library SettlementLib {
             return;
         }
 
+        // Create the extra commitment opening elements implied by the proof linking relation
+        OpeningElements memory linkOpenings =
+            ProofLinkingCore.createOpeningElements(settlementContext.proofLinkingArguments.getInstances());
+
         // Call the core verifier
         bool valid = verifier.batchVerify(
             settlementContext.verifications.proofs,
             settlementContext.verifications.publicInputs,
             settlementContext.verifications.vks,
-            // TODO: Add proof linking instances here
-            emptyOpeningElements()
+            linkOpenings
         );
 
         if (!valid) {

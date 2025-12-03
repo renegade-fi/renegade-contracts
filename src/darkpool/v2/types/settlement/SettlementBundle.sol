@@ -21,7 +21,7 @@ import {
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
 import {
     IntentPublicShareLib,
     IntentPublicShare,
@@ -97,6 +97,8 @@ struct PrivateIntentPublicBalanceFirstFillBundle {
     IntentOnlyPublicSettlementStatement settlementStatement;
     /// @dev The proof of single-intent match settlement
     PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
 }
 
 /// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bundle
@@ -107,6 +109,8 @@ struct PrivateIntentPublicBalanceBundle {
     IntentOnlyPublicSettlementStatement settlementStatement;
     /// @dev The proof of single-intent match settlement
     PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
 }
 
 /// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_INTENT` bundle on the first fill
@@ -202,6 +206,26 @@ library SettlementBundleLib {
             numProofs = 0;
         } else {
             numProofs = 2;
+        }
+    }
+
+    /// @notice Get the number of proof linking arguments which need to be verified for a settlement bundle
+    /// @param bundle The settlement bundle to get the number of proof linking arguments for
+    /// @return numProofLinkingArguments The number of proof linking arguments required to settle the bundle
+    function getNumProofLinkingArguments(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (uint256 numProofLinkingArguments)
+    {
+        if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            numProofLinkingArguments = 0;
+        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+            // A natively settled private intent links the intent authorization with the settlement proof
+            numProofLinkingArguments = 1;
+        } else {
+            // A private balance type requires an extra proof linking argument to link the output balance validity proof
+            // into the settlement proof
+            numProofLinkingArguments = 2;
         }
     }
 

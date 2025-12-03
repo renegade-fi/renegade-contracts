@@ -69,8 +69,9 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure returns (SettlementContext memory context) {
-        context =
-            SettlementContextLib.newContext(0, /* numDeposits */ 0, /* numWithdrawals */ 2 /* verificationCapacity */ );
+        context = SettlementContextLib.newContext(
+            0, /* numDeposits */ 0, /* numWithdrawals */ 2, /* verificationCapacity */ 2 /* proofLinkingCapacity */
+        );
     }
 
     /// @dev Create a dummy intent and balance validity statement (first fill)

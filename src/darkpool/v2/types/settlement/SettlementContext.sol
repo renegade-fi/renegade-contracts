@@ -2,10 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { PlonkProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof, VerificationKey, ProofLinkingInstance } from "renegade-lib/verifier/Types.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
-import { VerificationList, VerificationListLib } from "darkpoolv2-types/VerificationList.sol";
+import {
+    VerificationList,
+    VerificationListLib,
+    ProofLinkingList,
+    ProofLinkingListLib
+} from "darkpoolv2-types/VerificationList.sol";
 
 /// @title Settlement Context
 /// @author Renegade Eng
@@ -15,6 +20,8 @@ struct SettlementContext {
     SettlementTransfers transfers;
     /// @dev The verifications to perform on the settlement
     VerificationList verifications;
+    /// @dev The proof linking arguments to include in verification
+    ProofLinkingList proofLinkingArguments;
 }
 
 /// @title Settlement Context Library
@@ -23,6 +30,7 @@ struct SettlementContext {
 library SettlementContextLib {
     using SettlementTransfersLib for SettlementTransfers;
     using VerificationListLib for VerificationList;
+    using ProofLinkingListLib for ProofLinkingList;
 
     /// @notice Create a new settlement context
     /// @param numDeposits The initial number of deposits
@@ -32,7 +40,8 @@ library SettlementContextLib {
     function newContext(
         uint256 numDeposits,
         uint256 numWithdrawals,
-        uint256 verificationCapacity
+        uint256 verificationCapacity,
+        uint256 proofLinkingCapacity
     )
         internal
         pure
@@ -40,7 +49,8 @@ library SettlementContextLib {
     {
         return SettlementContext({
             transfers: SettlementTransfersLib.newList(numDeposits, numWithdrawals),
-            verifications: VerificationListLib.newList(verificationCapacity)
+            verifications: VerificationListLib.newList(verificationCapacity),
+            proofLinkingArguments: ProofLinkingListLib.newList(proofLinkingCapacity)
         });
     }
 
@@ -65,6 +75,13 @@ library SettlementContextLib {
     /// @return The length of the verifications list
     function numProofs(SettlementContext memory context) internal pure returns (uint256) {
         return context.verifications.length();
+    }
+
+    /// @notice Get the length of the proof linking arguments list
+    /// @param context The context to get the length of
+    /// @return The length of the proof linking arguments list
+    function numProofLinkingArguments(SettlementContext memory context) internal pure returns (uint256) {
+        return context.proofLinkingArguments.length();
     }
 
     // --- Setters --- //
@@ -98,5 +115,18 @@ library SettlementContextLib {
         pure
     {
         context.verifications.push(publicInputs, proof, vk);
+    }
+
+    /// @notice Push a proof linking argument to the proof linking arguments list
+    /// @param context The context to push to
+    /// @param proofLinkingArgument The proof linking argument to push
+    function pushProofLinkingArgument(
+        SettlementContext memory context,
+        ProofLinkingInstance memory proofLinkingArgument
+    )
+        internal
+        pure
+    {
+        context.proofLinkingArguments.push(proofLinkingArgument);
     }
 }
