@@ -3,10 +3,17 @@
 use alloy::{
     primitives::{TxHash, U256},
     providers::Provider,
+    rpc::types::TransactionReceipt,
+    sol_types::SolEventInterface,
 };
 use eyre::{eyre, Result};
 use itertools::Itertools;
 use num_bigint::BigUint;
+use renegade_abi::v2::IDarkpoolV2::{self, IDarkpoolV2Events};
+use renegade_circuit_types::{
+    state_wrapper::StateWrapper,
+    traits::{CircuitBaseType, SecretShareBaseType},
+};
 use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{Scalar, MERKLE_HEIGHT};
 use renegade_crypto::fields::{scalar_to_u256, u256_to_scalar};
@@ -26,6 +33,19 @@ fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
 // | Merkle Proofs |
 // -----------------
 
+/// Find the Merkle opening for a state element
+pub async fn find_state_element_opening<T>(
+    state_element: &StateWrapper<T>,
+    receipt: &TransactionReceipt,
+) -> Result<MerkleAuthenticationPath>
+where
+    T: SecretShareBaseType + CircuitBaseType,
+    T::ShareType: CircuitBaseType,
+{
+    let commitment = state_element.compute_commitment();
+    parse_merkle_opening_from_receipt(commitment, receipt)
+}
+
 /// Fetch a Merkle opening for a given commitment in a tx
 ///
 /// Takes the commitment and returns the sibling path used to hash the commitment into the
@@ -35,25 +55,10 @@ pub async fn fetch_merkle_opening(
     darkpool: &Darkpool,
 ) -> Result<MerkleAuthenticationPath> {
     // 1. Find the commitment in the darkpool logs
-    let (merkle_index, tx_hash) = find_commitment(commitment, darkpool).await?;
+    let (_, tx_hash) = find_commitment(commitment, darkpool).await?;
 
     // 2. Fetch all Merkle opening logs for the tx
-    let siblings = fetch_merkle_openings(tx_hash, darkpool).await?;
-
-    // 3. Construct the authentication path
-    let leaf_index = BigUint::from(merkle_index);
-    let path_siblings = size_vec(
-        siblings
-            .into_iter()
-            .map(|(_, v)| u256_to_scalar(&v))
-            .collect_vec(),
-    );
-
-    Ok(MerkleAuthenticationPath {
-        path_siblings,
-        leaf_index,
-        value: commitment,
-    })
+    fetch_merkle_openings(commitment, tx_hash, darkpool).await
 }
 
 /// Find the given commitment in the Merkle insertion logs
@@ -80,25 +85,89 @@ async fn find_commitment(commitment: Scalar, darkpool: &Darkpool) -> Result<(u12
 /// Fetch the Merkle opening logs for a given tx hash
 ///
 /// Returns the logs in order of increasing height (decreasing depth)
-async fn fetch_merkle_openings(tx_hash: TxHash, darkpool: &Darkpool) -> Result<Vec<(u128, U256)>> {
+async fn fetch_merkle_openings(
+    commitment: Scalar,
+    tx_hash: TxHash,
+    darkpool: &Darkpool,
+) -> Result<MerkleAuthenticationPath> {
     let tx_receipt = darkpool
         .provider()
         .get_transaction_receipt(tx_hash)
         .await?
         .expect("no tx receipt");
 
-    let mut opening_nodes = Vec::with_capacity(MERKLE_HEIGHT);
-    for log in tx_receipt.logs() {
-        if let Ok(decoded) = log
-            .log_decode::<renegade_abi::v2::IDarkpoolV2::MerkleOpeningNode>()
-            .map(|l| l.into_inner())
-        {
-            opening_nodes.push((decoded.depth, decoded.index, decoded.new_value));
+    parse_merkle_opening_from_receipt(commitment, &tx_receipt)
+}
+
+/// Parse a Merkle opening from a tx receipt
+///
+/// Extracts MerkleOpeningNode events from the transaction receipt and returns them
+/// sorted by increasing height (decreasing depth).
+///
+/// Returns a vector of (index, value) tuples representing the sibling nodes
+pub fn parse_merkle_opening_from_receipt(
+    commitment: Scalar,
+    receipt: &TransactionReceipt,
+) -> Result<MerkleAuthenticationPath> {
+    let commitment_u256 = scalar_to_u256(&commitment);
+
+    let mut commitment_found = false;
+    let mut leaf_index = 0;
+    let mut opening_index = 0;
+    let mut all_sister_nodes = Vec::with_capacity(MERKLE_HEIGHT);
+    for log in receipt.logs() {
+        let log = match IDarkpoolV2::IDarkpoolV2Events::decode_log(&log.inner) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        match log.data {
+            IDarkpoolV2Events::MerkleInsertion(data) => {
+                if data.value == commitment_u256 {
+                    commitment_found = true;
+                    leaf_index = data.index;
+                } else {
+                    opening_index += 1;
+                }
+            }
+            IDarkpoolV2Events::MerkleOpeningNode(data) => {
+                all_sister_nodes.push((data.depth, data.index, data.new_value));
+            }
+            _ => continue,
         }
     }
+
+    if !commitment_found {
+        return Err(eyre!("commitment not found in transaction"));
+    }
+
+    // Multiple insertions may have been made in this transaction. We want the `opening_index`th group of `MERKLE_HEIGHT` sister nodes
+    let start_idx = opening_index * MERKLE_HEIGHT;
+    let end_idx = start_idx + MERKLE_HEIGHT;
+    let mut opening_nodes = all_sister_nodes[start_idx..end_idx].to_vec();
 
     // Sort by decreasing depth
     opening_nodes.sort_by_key(|s| -(s.0 as i8));
     let siblings = opening_nodes.into_iter().map(|(_, i, v)| (i, v)).collect();
-    Ok(siblings)
+    Ok(build_authentication_path(leaf_index, commitment, siblings))
+}
+
+/// Build an authentication path from a vector of sibling nodes
+fn build_authentication_path(
+    leaf_index: u128,
+    commitment: Scalar,
+    siblings: Vec<(u128, U256)>,
+) -> MerkleAuthenticationPath {
+    let path_siblings = size_vec(
+        siblings
+            .into_iter()
+            .map(|(_, v)| u256_to_scalar(&v))
+            .collect_vec(),
+    );
+
+    MerkleAuthenticationPath {
+        path_siblings,
+        leaf_index: BigUint::from(leaf_index),
+        value: commitment,
+    }
 }

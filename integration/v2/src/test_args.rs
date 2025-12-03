@@ -1,6 +1,6 @@
 //! Defines arguments passed to each test
 
-use std::{path::PathBuf, str::FromStr};
+use std::{ops::Add, path::PathBuf, str::FromStr};
 
 use alloy::{
     primitives::{Address, U256},
@@ -9,6 +9,7 @@ use alloy::{
     transports::http::reqwest::Url,
 };
 use eyre::Result;
+use renegade_circuit_types::fixed_point::FixedPoint;
 
 use crate::{
     util::{
@@ -60,6 +61,16 @@ impl TestArgs {
     /// Get the signer for the second party
     pub fn party1_signer(&self) -> PrivateKeySigner {
         self.party1_signer.clone()
+    }
+
+    // --- Darkpool Interaction --- //
+
+    /// Get the protocol fee for the trading pair in the tests
+    pub async fn protocol_fee(&self) -> Result<FixedPoint> {
+        let base = self.base_addr()?;
+        let quote = self.quote_addr()?;
+        let fee = self.darkpool.getProtocolFee(base, quote).call().await?;
+        Ok(fee.into())
     }
 
     // --- Addresses and Contracts --- //
@@ -154,6 +165,13 @@ impl TestArgs {
     /// Get the base balance of the given address
     pub async fn base_balance(&self, addr: Address) -> Result<U256> {
         let erc20 = self.base_token()?;
+        let balance = erc20.balanceOf(addr).call().await?;
+        Ok(balance)
+    }
+
+    /// Get the quote balance of the given address
+    pub async fn quote_balance(&self, addr: Address) -> Result<U256> {
+        let erc20 = self.quote_token()?;
         let balance = erc20.balanceOf(addr).call().await?;
         Ok(balance)
     }

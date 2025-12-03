@@ -6,9 +6,13 @@ use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
     settlement::intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
-    valid_balance_create::ValidBalanceCreateStatement, valid_deposit::ValidDepositStatement,
+    valid_balance_create::ValidBalanceCreateStatement,
+    valid_deposit::ValidDepositStatement,
     valid_withdrawal::ValidWithdrawalStatement,
-    validity_proofs::intent_only_first_fill::IntentOnlyFirstFillValidityStatement,
+    validity_proofs::{
+        intent_only::IntentOnlyValidityStatement,
+        intent_only_first_fill::IntentOnlyFirstFillValidityStatement,
+    },
 };
 use renegade_crypto_v2::fields::scalar_to_u256;
 
@@ -117,6 +121,19 @@ impl From<IntentOnlyFirstFillValidityStatement>
             intentPrivateCommitment: scalar_to_u256(&statement.intent_private_commitment),
             recoveryId: scalar_to_u256(&statement.recovery_id),
             intentPublicShare: statement.intent_public_share.into(),
+        }
+    }
+}
+
+impl From<IntentOnlyValidityStatement> for IDarkpoolV2::IntentOnlyValidityStatement {
+    fn from(statement: IntentOnlyValidityStatement) -> Self {
+        Self {
+            intentOwner: statement.owner,
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldIntentNullifier: scalar_to_u256(&statement.old_intent_nullifier),
+            newAmountShare: scalar_to_u256(&statement.new_amount_public_share),
+            newIntentPartialCommitment: statement.new_intent_partial_commitment.into(),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
         }
     }
 }
