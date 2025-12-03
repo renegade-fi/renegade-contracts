@@ -138,7 +138,7 @@ library SettlementLib {
 
         // Allocate transfers for external party
         // Authorization is implied by virtue of the external party being the one settling
-        allocateExternalSettlementTransfers(recipient, externalObligation, settlementContext);
+        allocateExternalMatchSettlementTransfers(recipient, externalObligation, settlementContext);
 
         // Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary
@@ -204,11 +204,11 @@ library SettlementLib {
     /// @notice Allocate transfers to settle an external party's obligation into the settlement context
     /// @dev TODO: Implement fee computation and withdrawal transfers for relayer/protocol fees, and use recipient
     /// parameter for withdrawal
-    /// @param _recipient The recipient of the withdrawal
+    /// @param recipient The recipient of the withdrawal
     /// @param externalObligation The external party's settlement obligation to settle
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    function allocateExternalSettlementTransfers(
-        address _recipient,
+    function allocateExternalMatchSettlementTransfers(
+        address recipient,
         SettlementObligation memory externalObligation,
         SettlementContext memory settlementContext
     )
@@ -223,7 +223,7 @@ library SettlementLib {
 
         // Withdraw the output token from the darkpool
         uint256 totalFee = 0;
-        SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(owner, totalFee);
+        SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(recipient, totalFee);
         settlementContext.pushWithdrawal(withdrawal);
     }
 

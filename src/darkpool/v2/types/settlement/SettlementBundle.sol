@@ -34,6 +34,7 @@ import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-type
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -159,9 +160,6 @@ library SettlementBundleLib {
     using IntentPublicShareLib for IntentPublicShare;
     using IntentPreMatchShareLib for IntentPreMatchShare;
     using PostMatchBalanceShareLib for PostMatchBalanceShare;
-
-    /// @notice The error type emitted when a settlement bundle type check fails
-    error InvalidSettlementBundleType();
 
     // --- Context Allocation --- //
 
@@ -587,7 +585,7 @@ library SettlementBundleLib {
     {
         bool validType =
             !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
     }
 
@@ -601,7 +599,7 @@ library SettlementBundleLib {
     {
         bool validType =
             bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
     }
 
@@ -615,7 +613,7 @@ library SettlementBundleLib {
     {
         bool validType =
             !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
     }
 
@@ -628,7 +626,7 @@ library SettlementBundleLib {
         returns (RenegadeSettledIntentFirstFillBundle memory bundleData)
     {
         bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentFirstFillBundle));
     }
 
@@ -641,7 +639,7 @@ library SettlementBundleLib {
         returns (RenegadeSettledIntentBundle memory bundleData)
     {
         bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundle));
     }
 
@@ -655,7 +653,7 @@ library SettlementBundleLib {
     {
         bool validType =
             bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFirstFillBundle));
     }
 
@@ -669,7 +667,7 @@ library SettlementBundleLib {
     {
         bool validType =
             !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }
 }

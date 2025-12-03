@@ -53,14 +53,6 @@ library DarkpoolConstants {
         }
     }
 
-    /// @notice Check whether a price is valid
-    /// @param price The price to check
-    function validatePrice(FixedPoint memory price) public pure {
-        if (price.repr > MAX_PRICE_REPR) {
-            revert IDarkpoolV2.PriceTooLarge(price.repr);
-        }
-    }
-
     /// @notice Check whether a fee rate is valid
     /// @param feeRate The fee rate to check
     function validateFeeRate(FixedPoint memory feeRate) public pure {
@@ -73,7 +65,7 @@ library DarkpoolConstants {
     /// @param price The price to check
     function validatePrice(FixedPoint memory price) public pure {
         if (price.repr > 2 ** PRICE_BITS - 1) {
-            revert PriceTooLarge(price.repr);
+            revert IDarkpoolV2.PriceTooLarge(price.repr);
         }
     }
 }
