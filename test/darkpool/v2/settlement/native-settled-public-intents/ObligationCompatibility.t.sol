@@ -93,9 +93,7 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
 
         // Should revert with AmountTooLarge
         ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
-        vm.expectRevert(
-            abi.encodeWithSelector(DarkpoolConstants.AmountTooLarge.selector, 2 ** DarkpoolConstants.AMOUNT_BITS)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IDarkpoolV2.AmountTooLarge.selector, 2 ** DarkpoolConstants.AMOUNT_BITS));
         validateObligationBundleHelper(obligationBundle);
     }
 }

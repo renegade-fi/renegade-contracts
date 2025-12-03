@@ -59,6 +59,12 @@ interface IDarkpoolV2 {
     error InvalidIntentCommitmentSignature();
     /// @notice Thrown when the public input length is invalid
     error InvalidPublicInputLength();
+    /// @notice Thrown when an amount is too large
+    error AmountTooLarge(uint256 amount);
+    /// @notice Thrown when a price is too large
+    error PriceTooLarge(uint256 price);
+    /// @notice Thrown when a fee rate is too large
+    error FeeRateTooLarge(uint256 feeRate);
 
     // --- Events --- //
 

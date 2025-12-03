@@ -19,7 +19,7 @@ import {
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
-import { Intent } from "darkpoolv2-types/Intent.sol";
+import { Intent, IntentLib } from "darkpoolv2-types/Intent.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -67,7 +67,6 @@ library NativeSettledPublicIntentLib {
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
-    /// TODO: Add bounds checks on the amounts in the intent
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -143,12 +142,14 @@ library NativeSettledPublicIntentLib {
     // ------------------------
 
     /// @notice Validate the authorization of a public intent
+    /// @dev We require two checks to pass for a public intent to be authorized:
+    /// 1. The executor has signed the settlement obligation and relayer fee rate. This check authorizes the match.
+    /// 2. The intent owner has signed a tuple of (executor, intent). This authorizes the intent to be filled by the
+    /// executor across this and subsequent fills.
     /// @param bundleData The auth bundle data to validate
     /// @param obligation The settlement obligation to validate
     /// @param state The darkpool state containing all storage references
-    /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
-    /// filled by the executor.
-    /// @return amountRemaining The amount remaining on the intent
+    /// @return amountRemaining The amount remaining of the intent
     /// @return intentHash The hash of the intent
     function validatePublicIntentAuthorization(
         PublicIntentPublicBalanceBundle memory bundleData,
@@ -174,9 +175,13 @@ library NativeSettledPublicIntentLib {
         }
 
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
+        // Spending the nonce here prevents replays on registering the intent for a first fill.
         bool sigValid = auth.intentSignature.verifyPrehashed(auth.permit.intent.owner, intentHash);
         if (!sigValid) revert InvalidIntentSignature();
         state.spendNonce(auth.intentSignature.nonce);
+
+        // Verify the intent's fields on its first fill
+        IntentLib.validate(auth.permit.intent);
 
         // Now that we've authorized the intent, update the amount remaining mapping
         amountRemaining = auth.permit.intent.amountIn;
@@ -269,6 +274,8 @@ library NativeSettledPublicIntentLib {
     /// @param intentHash The hash of the intent
     /// @param intent The intent to update
     /// @param obligation The settlement obligation to update
+    /// @param relayerFeeRate The relayer fee rate to update
+    /// @param protocolFeeRate The protocol fee rate to update
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     function executeStateUpdates(

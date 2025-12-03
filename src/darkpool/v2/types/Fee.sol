@@ -25,10 +25,8 @@ library FeeRateLib {
     /// @notice Verify that a given fee rate is within allowable bounds
     /// @param feeRate The fee rate to verify
     /// @dev Reverts with InvalidFeeRate if the fee rate is out of bounds
-    function verify(FeeRate memory feeRate) public pure {
-        if (feeRate.rate.repr > DarkpoolConstants.MAX_RELAYER_FEE) {
-            revert InvalidFeeRate();
-        }
+    function validate(FeeRate memory feeRate) public pure {
+        DarkpoolConstants.validateFeeRate(feeRate.rate);
     }
 
     /// @notice Compute a fee take from a fee rate and receive amount
@@ -46,7 +44,7 @@ library FeeRateLib {
         pure
         returns (FeeTake memory)
     {
-        verify(feeRate);
+        validate(feeRate);
         uint256 fee = feeRate.rate.unsafeFixedPointMul(receiveAmount);
         return FeeTake({ mint: mint, fee: fee, recipient: feeRate.recipient });
     }

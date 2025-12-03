@@ -258,6 +258,7 @@ library NativeSettledPrivateIntentLib {
         IVkeys vkeys
     )
         internal
+        view
     {
         IntentOnlyPublicSettlementStatement memory settlementStatement = settlementBundle.settlementStatement;
 
@@ -293,6 +294,7 @@ library NativeSettledPrivateIntentLib {
         IVkeys vkeys
     )
         internal
+        view
     {
         IntentOnlyPublicSettlementStatement memory settlementStatement = settlementBundle.settlementStatement;
 
@@ -320,6 +322,7 @@ library NativeSettledPrivateIntentLib {
     // -----------------
 
     /// @notice Execute the state updates necessary to settle the bundle for a first fill
+    /// @param postMatchIntentCommitment The post-match commitment to the intent
     /// @param bundleData The bundle data to execute the state updates for
     /// @param obligation The settlement obligation to settle
     /// @param settlementContext The settlement context to which we append post-validation updates.
@@ -381,6 +384,8 @@ library NativeSettledPrivateIntentLib {
 
     /// @notice Allocate transfers to settle the obligation into the settlement context
     /// @param owner The owner of the intent
+    /// @param relayerFeeTake The relayer fee take
+    /// @param protocolFeeTake The protocol fee take
     /// @param obligation The settlement obligation to settle
     /// @param settlementContext The settlement context to which we append post-validation updates.
     function allocateTransfers(
@@ -413,6 +418,8 @@ library NativeSettledPrivateIntentLib {
     /// @param obligation The settlement obligation to compute fee takes for
     /// @param settlementStatement The settlement statement to compute fee takes for
     /// @param state The darkpool state containing all storage references
+    /// @return relayerFeeTake The relayer fee take
+    /// @return protocolFeeTake The protocol fee take
     function computeFeeTakes(
         SettlementObligation memory obligation,
         IntentOnlyPublicSettlementStatement memory settlementStatement,
