@@ -35,7 +35,7 @@ library DarkpoolConstants {
     }
     /// @notice The number of bits allowed in a price's representation
     /// @dev This includes the fixed point precision
-    /// @dev This is the default fixed point precision plus 32 bits for the integral part
+    /// @dev This is the default fixed point precision plus 64 bits for the integral part
     uint256 internal constant PRICE_BITS = FixedPointLib.FIXED_POINT_PRECISION_BITS + 64;
 
     /// @notice Check whether an address is the native token address

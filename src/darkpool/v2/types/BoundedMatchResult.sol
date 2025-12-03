@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 /// @notice A bounded match result for a trade between an internal and external party.
 /// @dev A bounded match result is one in which the size is not known until transaction submission when
@@ -29,15 +30,6 @@ struct BoundedMatchResult {
 /// @notice Library for bounded match result operations
 library BoundedMatchResultLib {
     using FixedPointLib for FixedPoint;
-
-    /// @notice Error thrown when an amount is out of bounds
-    error AmountOutOfBounds(uint256 amount, uint256 minAmount, uint256 maxAmount);
-    /// @notice Error thrown when the bounds are invalid
-    error InvalidBounds();
-    /// @notice Error thrown when the block deadline has passed
-    error MatchExpired();
-    /// @notice Error thrown when an amount is zero
-    error ZeroAmount();
 
     /// @notice Build two `SettlementObligation`s from a `BoundedMatchResult` and an input amount.
     /// @param matchResult The `BoundedMatchResult` to build the `SettlementObligation`s from
@@ -106,7 +98,7 @@ library BoundedMatchResultLib {
         DarkpoolConstants.validateAmount(externalPartyAmountIn);
 
         if (externalPartyAmountIn == 0) {
-            revert ZeroAmount();
+            revert IDarkpoolV2.BoundedMatchZeroAmount();
         }
 
         // Bounded match result is from the internal party's perspective, so we need to convert the external party input
@@ -116,7 +108,7 @@ library BoundedMatchResultLib {
         bool amountTooLow = internalPartyAmountIn < boundedMatchResult.minInternalPartyAmountIn;
         bool amountTooHigh = internalPartyAmountIn > boundedMatchResult.maxInternalPartyAmountIn;
         if (amountTooLow || amountTooHigh) {
-            revert AmountOutOfBounds(
+            revert IDarkpoolV2.BoundedMatchAmountOutOfBounds(
                 internalPartyAmountIn,
                 boundedMatchResult.minInternalPartyAmountIn,
                 boundedMatchResult.maxInternalPartyAmountIn
@@ -134,7 +126,7 @@ library BoundedMatchResultLib {
         // The min amount must be less than or equal to the max amount
         bool boundsInvalid = boundedMatchResult.minInternalPartyAmountIn > boundedMatchResult.maxInternalPartyAmountIn;
         if (boundsInvalid) {
-            revert InvalidBounds();
+            revert IDarkpoolV2.InvalidBoundedMatchBounds();
         }
     }
 
@@ -142,7 +134,7 @@ library BoundedMatchResultLib {
     /// @param boundedMatchResult The `BoundedMatchResult` to validate the deadline of
     function validateDeadline(BoundedMatchResult calldata boundedMatchResult) internal view {
         bool deadlinePassed = block.number > boundedMatchResult.blockDeadline;
-        if (deadlinePassed) revert MatchExpired();
+        if (deadlinePassed) revert IDarkpoolV2.BoundedMatchExpired();
     }
 
     /// @notice Validates the bitlength of a price in a `BoundedMatchResult`

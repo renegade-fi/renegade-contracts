@@ -22,7 +22,6 @@ import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
-import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
@@ -265,29 +264,16 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        // Allocate a settlement context
-        SettlementContext memory settlementContext =
-            SettlementLib.allocateExternalSettlementContext(internalPartySettlementBundle);
-
-        // Build settlement obligations from the bounded match result and external party amount in
-        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
-
-        // Validate and authorize the settlement bundles
-        SettlementLib.executeExternalSettlementBundle(
-            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, _state, hasher
+        SettlementLib.settleExternalMatch(
+            _state,
+            hasher,
+            verifier,
+            weth,
+            permit2,
+            externalPartyAmountIn,
+            recipient,
+            matchBundle,
+            internalPartySettlementBundle
         );
-
-        // Allocate transfers for external party
-        // Authorization is implied by virtue of the external party being the one settling
-        SettlementLib.allocateExternalSettlementTransfers(recipient, externalObligation, settlementContext);
-
-        // Execute the transfers necessary for settlement
-        // The helpers above will push transfers to the settlement context if necessary
-        SettlementLib.executeTransfers(settlementContext, weth, permit2);
-
-        // Verify the proofs necessary for settlement
-        // The helpers above will push proofs to the settlement context if necessary
-        SettlementLib.verifySettlementProofs(settlementContext, verifier);
     }
 }
