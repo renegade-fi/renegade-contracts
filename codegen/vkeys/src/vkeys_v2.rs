@@ -16,6 +16,7 @@ use renegade_circuits_v2::zk_circuits::settlement::{
 };
 use renegade_circuits_v2::zk_circuits::valid_order_cancellation::SizedValidOrderCancellationCircuit;
 use renegade_circuits_v2::zk_circuits::valid_withdrawal::SizedValidWithdrawal;
+use renegade_circuits_v2::zk_circuits::validity_proofs::new_output_balance::NewOutputBalanceValidityCircuit;
 use renegade_circuits_v2::zk_circuits::validity_proofs::{
     intent_and_balance::SizedIntentAndBalanceValidityCircuit,
     intent_and_balance_first_fill::SizedIntentAndBalanceFirstFillValidityCircuit,
@@ -52,6 +53,7 @@ enum V2Circuit {
     IntentOnlyValidity,
     IntentAndBalanceFirstFillValidity,
     IntentAndBalanceValidity,
+    NewOutputBalanceValidity,
     OutputBalanceValidity,
     // --- Settlement Circuits --- //
     IntentOnlyPublicSettlement,
@@ -100,6 +102,9 @@ impl V2Circuit {
             Self::IntentAndBalanceValidity => {
                 generate_vkey_for_circuit::<SizedIntentAndBalanceValidityCircuit>()
             }
+            Self::NewOutputBalanceValidity => {
+                generate_vkey_for_circuit::<NewOutputBalanceValidityCircuit>()
+            }
             Self::OutputBalanceValidity => {
                 generate_vkey_for_circuit::<SizedOutputBalanceValidityCircuit>()
             }
@@ -131,6 +136,7 @@ impl V2Circuit {
             Self::IntentOnlyValidity => "INTENT_ONLY_VALIDITY",
             Self::IntentAndBalanceFirstFillValidity => "INTENT_AND_BALANCE_FIRST_FILL_VALIDITY",
             Self::IntentAndBalanceValidity => "INTENT_AND_BALANCE_VALIDITY",
+            Self::NewOutputBalanceValidity => "NEW_OUTPUT_BALANCE_VALIDITY",
             Self::OutputBalanceValidity => "OUTPUT_BALANCE_VALIDITY",
             Self::IntentOnlyPublicSettlement => "INTENT_ONLY_PUBLIC_SETTLEMENT",
             Self::IntentAndBalancePublicSettlement => "INTENT_AND_BALANCE_PUBLIC_SETTLEMENT",
@@ -154,6 +160,7 @@ impl V2Circuit {
             Self::IntentOnlyValidity,
             Self::IntentAndBalanceFirstFillValidity,
             Self::IntentAndBalanceValidity,
+            Self::NewOutputBalanceValidity,
             Self::OutputBalanceValidity,
             Self::IntentOnlyPublicSettlement,
             Self::IntentAndBalancePublicSettlement,

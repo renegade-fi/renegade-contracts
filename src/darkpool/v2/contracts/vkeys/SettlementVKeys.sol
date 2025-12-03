@@ -56,6 +56,12 @@ contract SettlementVKeys {
         return __deserializeKey(VerificationKeys.OUTPUT_BALANCE_VALIDITY_VKEY);
     }
 
+    /// @notice Get the verification key for `NEW OUTPUT BALANCE VALIDITY`
+    /// @return The verification key for `NEW OUTPUT BALANCE VALIDITY`
+    function newOutputBalanceValidityKeys() external pure returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.NEW_OUTPUT_BALANCE_VALIDITY_VKEY);
+    }
+
     /// @notice Deserialize a verification key
     /// @param vkeyBytes The bytes of the verification key
     /// @return vk The verification key

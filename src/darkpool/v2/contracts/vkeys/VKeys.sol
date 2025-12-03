@@ -141,6 +141,12 @@ contract VKeys is IVkeys {
         return settlementVKeys.outputBalanceValidityKeys();
     }
 
+    /// @notice Get the verification key for `NEW OUTPUT BALANCE VALIDITY`
+    /// @return The verification key for `NEW OUTPUT BALANCE VALIDITY`
+    function newOutputBalanceValidityVkeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.newOutputBalanceValidityKeys();
+    }
+
     // -----------------------
     // | Proof Linking Keys |
     // -----------------------
