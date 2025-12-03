@@ -588,7 +588,7 @@ library SettlementBundleLib {
         returns (PublicIntentPublicBalanceBundle memory bundleData)
     {
         bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
     }
 
@@ -601,7 +601,7 @@ library SettlementBundleLib {
         returns (PrivateIntentPublicBalanceFirstFillBundle memory bundleData)
     {
         bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
     }
 
@@ -654,7 +654,7 @@ library SettlementBundleLib {
         returns (RenegadeSettledPrivateFirstFillBundle memory bundleData)
     {
         bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFirstFillBundle));
     }
 
@@ -667,7 +667,7 @@ library SettlementBundleLib {
         returns (RenegadeSettledPrivateFillBundle memory bundleData)
     {
         bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
-        require(validType, InvalidSettlementBundleType());
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }
 }

@@ -333,7 +333,7 @@ library RenegadeSettledPrivateIntentLib {
         // 3. Allocate transfers to settle the fees due from the obligation
         allocateTransfers(bundleData.settlementStatement, state, settlementContext);
 
-        // 4. Emit recover IDs for the intent and balance
+        // 4. Emit recovery IDs for the intent and balance
         IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
@@ -369,7 +369,7 @@ library RenegadeSettledPrivateIntentLib {
         // 3. Allocate transfers to settle the fees due from the obligation
         allocateTransfers(bundleData.settlementStatement, state, settlementContext);
 
-        // 4. Emit recover IDs for the intent and balance
+        // 4. Emit recovery IDs for the intent and balance
         IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
