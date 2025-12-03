@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { VerificationKey, ProofLinkingVK } from "renegade-lib/verifier/Types.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
-import { WalletUpdateVKeys } from "./vkeys/WalletUpdateVKeys.sol";
-import { SettlementVKeys } from "./vkeys/SettlementVKeys.sol";
-import { ProofLinkingVKeys } from "./vkeys/ProofLinkingVKeys.sol";
+import { WalletUpdateVKeys } from "./WalletUpdateVKeys.sol";
+import { SettlementVKeys } from "./SettlementVKeys.sol";
+import { ProofLinkingVKeys } from "./ProofLinkingVKeys.sol";
 
 /// @title VKeys
 /// @author Renegade Eng
@@ -51,6 +51,12 @@ contract VKeys is IVkeys {
     /// @return The verification key for `VALID ORDER CANCELLATION`
     function orderCancellationKeys() external view override returns (VerificationKey memory) {
         return walletUpdateVKeys.orderCancellationKeys();
+    }
+
+    /// @notice Get the verification key for `VALID ORDER CANCELLATION`
+    /// @return The verification key for `VALID ORDER CANCELLATION`
+    function orderCancellationKeys() external pure override returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.VALID_ORDER_CANCELLATION_VKEY);
     }
 
     /// @notice Get the verification key for `VALID NOTE REDEMPTION`
@@ -127,5 +133,45 @@ contract VKeys is IVkeys {
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     function intentAndBalancePrivateSettlementKeys() external view override returns (VerificationKey memory) {
         return settlementVKeys.intentAndBalancePrivateSettlementKeys();
+    }
+
+    /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`
+    /// @return The verification key for `OUTPUT BALANCE VALIDITY`
+    function outputBalanceValidityKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.outputBalanceValidityKeys();
+    }
+
+    // -----------------------
+    // | Proof Linking Keys |
+    // -----------------------
+
+    /// @notice Get the verification key for `INTENT ONLY SETTLEMENT`
+    /// @return The verification key for `INTENT ONLY SETTLEMENT`
+    function intentOnlySettlementKeys() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.intentOnlySettlementKeys();
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 0`
+    /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 0`
+    function intentAndBalanceSettlement0Keys() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.intentAndBalanceSettlement0Keys();
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 1`
+    /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 1`
+    function intentAndBalanceSettlement1Keys() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.intentAndBalanceSettlement1Keys();
+    }
+
+    /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 0`
+    /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 0`
+    function outputBalanceSettlement0Keys() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.outputBalanceSettlement0Keys();
+    }
+
+    /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 1`
+    /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 1`
+    function outputBalanceSettlement1Keys() external view override returns (ProofLinkingVK memory) {
+        return proofLinkingVKeys.outputBalanceSettlement1Keys();
     }
 }

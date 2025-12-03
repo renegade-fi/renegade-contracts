@@ -10,7 +10,7 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolV2Proxy } from "darkpoolv2-proxies/DarkpoolV2Proxy.sol";
 import { Verifier } from "darkpoolv2-contracts/Verifier.sol";
-import { VKeys } from "darkpoolv2-contracts/VKeys.sol";
+import { VKeys } from "darkpoolv2-contracts/vkeys/VKeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";

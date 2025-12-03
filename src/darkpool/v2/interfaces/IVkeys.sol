@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { VerificationKey, ProofLinkingVK } from "renegade-lib/verifier/Types.sol";
 
 /// @title IVkeys
 /// @author Renegade Eng
@@ -74,4 +74,27 @@ interface IVkeys {
     /// @notice Get the verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     function intentAndBalancePrivateSettlementKeys() external view returns (VerificationKey memory);
+    /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`
+    /// @return The verification key for `OUTPUT BALANCE VALIDITY`
+    function outputBalanceValidityKeys() external view returns (VerificationKey memory);
+
+    // -----------------------
+    // | Proof Linking VKeys |
+    // -----------------------
+
+    /// @notice Get the verification key for `INTENT ONLY SETTLEMENT`
+    /// @return The verification key for `INTENT ONLY SETTLEMENT`
+    function intentOnlySettlementKeys() external view returns (ProofLinkingVK memory);
+    /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 0`
+    /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 0`
+    function intentAndBalanceSettlement0Keys() external view returns (ProofLinkingVK memory);
+    /// @notice Get the verification key for `INTENT AND BALANCE SETTLEMENT 1`
+    /// @return The verification key for `INTENT AND BALANCE SETTLEMENT 1`
+    function intentAndBalanceSettlement1Keys() external view returns (ProofLinkingVK memory);
+    /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 0`
+    /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 0`
+    function outputBalanceSettlement0Keys() external view returns (ProofLinkingVK memory);
+    /// @notice Get the verification key for `OUTPUT BALANCE SETTLEMENT 1`
+    /// @return The verification key for `OUTPUT BALANCE SETTLEMENT 1`
+    function outputBalanceSettlement1Keys() external view returns (ProofLinkingVK memory);
 }
