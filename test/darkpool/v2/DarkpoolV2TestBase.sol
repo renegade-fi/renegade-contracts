@@ -41,6 +41,7 @@ contract DarkpoolV2TestBase is TestUtils {
     /// @dev A separate instance of the darkpool contract without a verifier mock
     IDarkpoolV2 public darkpoolRealVerifier;
     IHasher public hasher;
+    IVkeys public vkeys;
     NullifierLib.NullifierSet private testNullifierSet;
     IPermit2 public permit2;
     ERC20Mock public quoteToken;
@@ -94,7 +95,7 @@ contract DarkpoolV2TestBase is TestUtils {
         // Deploy the darkpool implementation contracts
         hasher = IHasher(HuffDeployer.deploy("libraries/poseidon2/poseidonHasher"));
         IVerifier verifier = new TestVerifierV2();
-        IVkeys vkeys = new VKeys();
+        vkeys = new VKeys();
         IVerifier realVerifier = new Verifier(vkeys);
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
@@ -120,6 +121,7 @@ contract DarkpoolV2TestBase is TestUtils {
             protocolFeeKey,
             IWETH9(address(weth)),
             hasher,
+            vkeys,
             verifier,
             permit2,
             address(transferExecutor)
@@ -135,6 +137,7 @@ contract DarkpoolV2TestBase is TestUtils {
             protocolFeeKey,
             IWETH9(address(weth)),
             hasher,
+            vkeys,
             realVerifier,
             permit2,
             address(transferExecutor)

@@ -7,6 +7,7 @@ import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
@@ -38,6 +39,7 @@ contract DarkpoolV2Proxy is TransparentUpgradeableProxy {
         EncryptionKey memory protocolFeeKey,
         IWETH9 weth,
         IHasher hasher,
+        IVkeys vkeys,
         IVerifier verifier,
         IPermit2 permit2,
         address transferExecutor
@@ -54,6 +56,7 @@ contract DarkpoolV2Proxy is TransparentUpgradeableProxy {
                 protocolFeeKey,
                 weth,
                 hasher,
+                vkeys,
                 verifier,
                 permit2,
                 transferExecutor

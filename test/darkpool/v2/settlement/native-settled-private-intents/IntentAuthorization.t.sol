@@ -38,7 +38,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     {
         SettlementContext memory settlementContext = _createSettlementContext();
         SettlementLib.executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, darkpoolState, hasher
+            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, hasher, vkeys, darkpoolState
         );
         return settlementContext;
     }

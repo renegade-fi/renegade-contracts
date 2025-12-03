@@ -9,8 +9,7 @@ import {
     ValidPublicProtocolFeePaymentStatement,
     ValidPublicRelayerFeePaymentStatement,
     ValidPrivateProtocolFeePaymentStatement,
-    ValidPrivateRelayerFeePaymentStatement,
-    FeePaymentValidityStatement
+    ValidPrivateRelayerFeePaymentStatement
 } from "./Fees.sol";
 import { ValidOrderCancellationStatement } from "./OrderCancellation.sol";
 import {
@@ -210,24 +209,6 @@ library PublicInputsLib {
         publicInputs[6] = statement.noteCommitment;
     }
 
-    /// @notice Serialize the public inputs for a proof of fee payment validity
-    /// @param statement The statement to serialize
-    /// @return publicInputs The serialized public inputs
-    function statementSerialize(FeePaymentValidityStatement memory statement)
-        internal
-        pure
-        returns (BN254.ScalarField[] memory publicInputs)
-    {
-        uint256 nPublicInputs = 6;
-        publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.balanceNullifier;
-        publicInputs[1] = statement.newBalanceCommitment;
-        publicInputs[2] = statement.noteCommitment;
-        publicInputs[3] = statement.newBalancePublicShares[0];
-        publicInputs[4] = statement.newBalancePublicShares[1];
-        publicInputs[5] = statement.newBalancePublicShares[2];
-    }
-
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
@@ -413,35 +394,5 @@ library PublicInputsLib {
         publicInputs[14] = BN254.ScalarField.wrap(statement.relayerFee0.repr);
         publicInputs[15] = BN254.ScalarField.wrap(statement.relayerFee1.repr);
         publicInputs[16] = BN254.ScalarField.wrap(statement.protocolFee.repr);
-    }
-
-    /// @notice Get a dummy verification key for testing
-    /// @return A dummy verification key
-    /// @dev TODO: Replace with real verification key
-    function dummyVkey() internal pure returns (VerificationKey memory) {
-        return VerificationKey({
-            n: 0,
-            l: 0,
-            k: [BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO],
-            qComms: [
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1(),
-                BN254.P1()
-            ],
-            sigmaComms: [BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1()],
-            g: BN254.P1(),
-            h: BN254.P2(),
-            xH: BN254.P2()
-        });
     }
 }

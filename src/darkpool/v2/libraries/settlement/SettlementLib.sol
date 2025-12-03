@@ -6,6 +6,7 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
@@ -54,6 +55,7 @@ library SettlementLib {
     /// @param verifier The verifier to use for verification
     /// @param weth The WETH9 contract instance
     /// @param permit2 The permit2 contract instance
+    /// @param vkeys The contract storing the verification keys
     /// @param obligationBundle The obligation bundle for the trade
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
@@ -63,6 +65,7 @@ library SettlementLib {
         IVerifier verifier,
         IWETH9 weth,
         IPermit2 permit2,
+        IVkeys vkeys,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
@@ -74,14 +77,14 @@ library SettlementLib {
             allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
 
         // 2. Validate that the settlement obligations are compatible with one another
-        validateObligationBundle(obligationBundle, settlementContext);
+        validateObligationBundle(obligationBundle, settlementContext, vkeys);
 
         // 3. Validate and authorize the settlement bundles
         executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, state, hasher
+            PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, hasher, vkeys, state
         );
         executeSettlementBundle(
-            PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, state, hasher
+            PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, hasher, vkeys, state
         );
 
         // 4. Execute the transfers necessary for settlement
@@ -124,18 +127,20 @@ library SettlementLib {
     /// @notice Validate an obligation bundle
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
     function validateObligationBundle(
         ObligationBundle calldata obligationBundle,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
     )
         internal
-        pure
+        view
     {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
             // Validate a public obligation bundle
             validatePublicObligationBundle(obligationBundle);
         } else if (obligationBundle.obligationType == ObligationType.PRIVATE) {
-            validatePrivateObligationBundle(obligationBundle, settlementContext);
+            validatePrivateObligationBundle(obligationBundle, settlementContext, vkeys);
         } else {
             revert IDarkpoolV2.InvalidSettlementBundleType();
         }
@@ -171,19 +176,21 @@ library SettlementLib {
     /// @notice Validate a private obligation bundle
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
     function validatePrivateObligationBundle(
         ObligationBundle calldata obligationBundle,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
     )
         internal
-        pure
+        view
     {
         // Decode the obligations
         PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
 
-        // TODO: Fetch a real vkey
+        // Append the settlement proof to the context for verification
         BN254.ScalarField[] memory publicInputs = obligation.statement.statementSerialize();
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentAndBalancePrivateSettlementKeys();
         settlementContext.pushProof(publicInputs, obligation.proof, vk);
     }
 
@@ -194,8 +201,9 @@ library SettlementLib {
     /// @param obligationBundle The obligation bundle for the trade
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing commitments
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// @dev This function validates and executes the settlement bundle based on the bundle type
     /// @dev See the library files in this directory for type-specific execution & validation logic.
     function executeSettlementBundle(
@@ -203,8 +211,9 @@ library SettlementLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -213,15 +222,15 @@ library SettlementLib {
             NativeSettledPublicIntentLib.execute(partyId, obligationBundle, settlementBundle, settlementContext, state);
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.execute(
-                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+                partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             RenegadeSettledPrivateIntentLib.execute(
-                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+                partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL) {
             RenegadeSettledPrivateFillLib.execute(
-                partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
+                partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state
             );
         } else {
             revert IDarkpoolV2.InvalidSettlementBundleType();

@@ -93,7 +93,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = VKEYS.orderCancellationKeys();
         BN254.ScalarField[] memory publicInputs = orderCancellationProofBundle.statement.statementSerialize();
         return VerifierCore.verify(orderCancellationProofBundle.proof, publicInputs, vk);
     }
@@ -104,7 +104,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = VKEYS.publicProtocolFeePaymentKeys();
         BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
         return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
     }
@@ -115,7 +115,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = VKEYS.publicRelayerFeePaymentKeys();
         BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
         return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
     }
@@ -126,7 +126,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = VKEYS.privateProtocolFeePaymentKeys();
         BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
         return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
     }
@@ -137,7 +137,7 @@ contract Verifier is IVerifier {
         view
         returns (bool)
     {
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = VKEYS.privateRelayerFeePaymentKeys();
         BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
         return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
     }

@@ -14,6 +14,7 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
     IntentAndBalanceValidityStatementFirstFill,
@@ -62,8 +63,9 @@ library RenegadeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function execute(
@@ -71,15 +73,16 @@ library RenegadeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         } else {
-            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, state, hasher);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         }
     }
 
@@ -88,16 +91,18 @@ library RenegadeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -106,12 +111,12 @@ library RenegadeSettledPrivateIntentLib {
             settlementBundle.decodeRenegadeSettledIntentBundleDataFirstFill();
 
         // 1. Validate the intent authorization
-        validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, state);
+        validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, vkeys, state);
 
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
@@ -123,16 +128,18 @@ library RenegadeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param state The darkpool state containing all storage references
     /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
     /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -140,12 +147,12 @@ library RenegadeSettledPrivateIntentLib {
         RenegadeSettledIntentBundle memory bundleData = settlementBundle.decodeRenegadeSettledIntentBundleData();
 
         // 1. Validate the intent authorization
-        validateIntentAuthorization(bundleData.auth, settlementContext);
+        validateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
 
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
         settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
 
         // 3. Execute state updates for the bundle
@@ -159,12 +166,14 @@ library RenegadeSettledPrivateIntentLib {
     /// @notice Execute the state updates necessary to authorize the intent for a first fill
     /// @param bundleData The bundle data to execute the state updates for
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
     /// @dev On the first fill, we verify that the balance-leaked one-time key has signed the initial
     /// intent commitment as well as the rotated one-time key.
     function validateIntentAuthorizationFirstFill(
         RenegadeSettledIntentAuthBundleFirstFill memory bundleData,
         SettlementContext memory settlementContext,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal
@@ -184,24 +193,25 @@ library RenegadeSettledPrivateIntentLib {
         state.spendNonce(bundleData.ownerSignature.nonce);
 
         // Register a proof of validity for the intent and balance
-        // TODO: Fetch a real verification key
         BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentAndBalanceFirstFillValidityKeys();
         settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
     }
 
     /// @notice Execute the state updates necessary to authorize the intent for a subsequent fill
     /// @param bundleData The bundle data to execute the state updates for
+    /// @param vkeys The contract storing the verification keys
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @dev On a subsequent fill, we need not verify the owner signature. The presence of the intent in the Merkle tree
     /// implies that the owner's signature has already been verified (in a previous fill). So in this case, we need only
     /// verify the proof attached to the bundle.
     function validateIntentAuthorization(
         RenegadeSettledIntentAuthBundle memory bundleData,
+        IVkeys vkeys,
         SettlementContext memory settlementContext
     )
         internal
-        pure
+        view
     {
         // Validate the Merkle depth
         // TODO: Allow for dynamic Merkle depth
@@ -210,9 +220,8 @@ library RenegadeSettledPrivateIntentLib {
         }
 
         // Register a proof of validity for the intent and balance
-        // TODO: Fetch a real verification key
         BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = vkeys.intentAndBalanceValidityKeys();
         settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
     }
 

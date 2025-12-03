@@ -42,7 +42,7 @@ library StateUpdatesLib {
     function cancelOrder(
         DarkpoolState storage state,
         IVerifier verifier,
-        OrderCancellationAuth memory auth,
+        OrderCancellationAuth calldata auth,
         OrderCancellationProofBundle calldata orderCancellationProofBundle
     )
         external
@@ -77,7 +77,7 @@ library StateUpdatesLib {
         IVerifier verifier,
         IHasher hasher,
         IPermit2 permit2,
-        DepositAuth memory auth,
+        DepositAuth calldata auth,
         DepositProofBundle calldata depositProofBundle
     )
         external
@@ -110,7 +110,7 @@ library StateUpdatesLib {
         IVerifier verifier,
         IHasher hasher,
         IPermit2 permit2,
-        DepositAuth memory auth,
+        DepositAuth calldata auth,
         NewBalanceDepositProofBundle calldata newBalanceProofBundle
     )
         external
@@ -141,7 +141,7 @@ library StateUpdatesLib {
         DarkpoolState storage state,
         IVerifier verifier,
         IHasher hasher,
-        WithdrawalAuth memory auth,
+        WithdrawalAuth calldata auth,
         WithdrawalProofBundle calldata withdrawalProofBundle
     )
         external

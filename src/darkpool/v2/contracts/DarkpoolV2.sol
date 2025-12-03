@@ -10,6 +10,7 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -82,6 +83,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @notice The hasher for the darkpool
     IHasher public hasher;
+    /// @notice The verification keys contract
+    IVkeys public vkeys;
     /// @notice The verifier for the darkpool
     IVerifier public verifier;
     /// @notice The Permit2 contract instance for handling deposits
@@ -117,6 +120,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         EncryptionKey memory protocolFeeKey_,
         IWETH9 weth_,
         IHasher hasher_,
+        IVkeys vkeys_,
         IVerifier verifier_,
         IPermit2 permit2_,
         address transferExecutor_
@@ -130,6 +134,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         _state.protocolFeeRecipient = protocolFeeRecipient_;
         protocolFeeKey = protocolFeeKey_;
         hasher = hasher_;
+        vkeys = vkeys_;
         verifier = verifier_;
         permit2 = permit2_;
         weth = weth_;
@@ -179,13 +184,13 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Deposit --- //
 
     /// @inheritdoc IDarkpoolV2
-    function deposit(DepositAuth memory auth, DepositProofBundle calldata depositProofBundle) public {
+    function deposit(DepositAuth calldata auth, DepositProofBundle calldata depositProofBundle) public {
         StateUpdatesLib.deposit(_state, verifier, hasher, permit2, auth, depositProofBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
     function depositNewBalance(
-        DepositAuth memory auth,
+        DepositAuth calldata auth,
         NewBalanceDepositProofBundle calldata newBalanceProofBundle
     )
         public
@@ -196,7 +201,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Withdrawal --- //
 
     /// @inheritdoc IDarkpoolV2
-    function withdraw(WithdrawalAuth memory auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
+    function withdraw(WithdrawalAuth calldata auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
         StateUpdatesLib.withdraw(_state, verifier, hasher, auth, withdrawalProofBundle);
     }
 
@@ -235,7 +240,15 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         public
     {
         SettlementLib.settleMatch(
-            _state, hasher, verifier, weth, permit2, obligationBundle, party0SettlementBundle, party1SettlementBundle
+            _state,
+            hasher,
+            verifier,
+            weth,
+            permit2,
+            vkeys,
+            obligationBundle,
+            party0SettlementBundle,
+            party1SettlementBundle
         );
     }
 }
