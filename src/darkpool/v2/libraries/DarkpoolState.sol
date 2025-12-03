@@ -6,6 +6,7 @@ import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 
@@ -90,12 +91,27 @@ library DarkpoolStateLib {
         return state.nullifierSet.isSpent(nullifier);
     }
 
+    /// @notice Get the current Merkle root
+    /// @param state The darkpool state
+    /// @param depth The depth of the Merkle tree to get the root of
+    /// @return The current Merkle root
+    function getMerkleRoot(DarkpoolState storage state, uint256 depth) internal view returns (BN254.ScalarField) {
+        return state.merkleMountainRange.getRoot(depth);
+    }
+
     /// @notice Check if a root is in the Merkle mountain range history
     /// @param state The darkpool state
     /// @param root The root to check
     /// @return Whether the root is in the history
     function rootInHistory(DarkpoolState storage state, BN254.ScalarField root) internal view returns (bool) {
         return state.merkleMountainRange.rootInHistory(root);
+    }
+
+    /// @notice Assert that a root is in the Merkle mountain range history
+    /// @param state The darkpool state
+    /// @param root The root to check
+    function assertRootInHistory(DarkpoolState storage state, BN254.ScalarField root) internal view {
+        if (!rootInHistory(state, root)) revert IDarkpoolV2.InvalidMerkleRoot();
     }
 
     /// @notice Get the default protocol fee rate

@@ -25,6 +25,16 @@ library MerkleMountainLib {
         mapping(uint256 => MerkleTreeLib.MerkleTree) activeSubTrees;
     }
 
+    /// @notice Initialize an empty Merkle tree at a given depth
+    /// @param mountain The Merkle mountain range to initialize the sub-tree in
+    /// @param depth The depth of the sub-tree to initialize
+    /// @dev We do this to avoid initialization cost on the first insert and to aid testing by making a dummy root
+    /// available on contract creation.
+    function initialize(MerkleMountainRange storage mountain, uint256 depth) internal {
+        _replaceActiveSubTree(mountain, depth);
+        _storeRoot(mountain, mountain.activeSubTrees[depth].getRoot());
+    }
+
     /// @notice Get the root of the active sub-tree at the given depth
     /// @param mountain The Merkle mountain range to get the root of
     /// @param depth The depth of the sub-tree to get the root of

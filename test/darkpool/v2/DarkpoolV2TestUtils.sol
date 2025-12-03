@@ -7,6 +7,8 @@ import { DarkpoolV2TestBase } from "./DarkpoolV2TestBase.sol";
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
+import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
@@ -21,6 +23,7 @@ import { FeeRate } from "darkpoolv2-types/Fee.sol";
 
 contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
     using FixedPointLib for FixedPoint;
+    using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
 
     // Test wallets
     Vm.Wallet internal intentOwner;
@@ -52,6 +55,9 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
 
         internalParty = party0;
         externalParty = party1;
+        // Initialize the darkpoolState's merkle mountain range to match the darkpool contract's initialization
+        // This ensures that roots stored during initialization are available in the test state
+        MerkleMountainLib.initialize(darkpoolState.merkleMountainRange, DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
     }
 
     // --- ERC20 Balances --- //

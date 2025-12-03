@@ -20,6 +20,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
@@ -135,6 +136,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
         _state.defaultProtocolFeeRate = FixedPointLib.wrap(defaultProtocolFeeRateRepr);
         _state.protocolFeeRecipient = protocolFeeRecipient_;
+        _state.merkleMountainRange.initialize(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         protocolFeeKey = protocolFeeKey_;
         hasher = hasher_;
         vkeys = vkeys_;
@@ -156,6 +158,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     /// @inheritdoc IDarkpoolV2
     function nullifierSpent(BN254.ScalarField nullifier) public view returns (bool) {
         return _state.nullifierSpent(nullifier);
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function getMerkleRoot(uint256 depth) public view returns (BN254.ScalarField) {
+        return _state.getMerkleRoot(depth);
     }
 
     /// @inheritdoc IDarkpoolV2
