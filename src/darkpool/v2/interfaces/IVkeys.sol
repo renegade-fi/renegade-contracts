@@ -60,6 +60,12 @@ interface IVkeys {
     /// @notice Get the verification key for `INTENT AND BALANCE VALIDITY`
     /// @return The verification key for `INTENT AND BALANCE VALIDITY`
     function intentAndBalanceValidityKeys() external view returns (VerificationKey memory);
+    /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`
+    /// @return The verification key for `OUTPUT BALANCE VALIDITY`
+    function outputBalanceValidityKeys() external view returns (VerificationKey memory);
+    /// @notice Get the verification key for `NEW OUTPUT BALANCE VALIDITY`
+    /// @return The verification key for `NEW OUTPUT BALANCE VALIDITY`
+    function newOutputBalanceValidityVkeys() external view returns (VerificationKey memory);
 
     // --------------------
     // | Settlement VKeys |
@@ -74,9 +80,6 @@ interface IVkeys {
     /// @notice Get the verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     function intentAndBalancePrivateSettlementKeys() external view returns (VerificationKey memory);
-    /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`
-    /// @return The verification key for `OUTPUT BALANCE VALIDITY`
-    function outputBalanceValidityKeys() external view returns (VerificationKey memory);
 
     // -----------------------
     // | Proof Linking VKeys |
