@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { FixedPoint } from "renegade-lib/FixedPoint.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 /// @title DarkpoolConstants
 /// @author Renegade Eng
 /// @notice This library contains constants for the darkpool
 library DarkpoolConstants {
-    /// @notice Error thrown when an amount is invalid
-    error AmountTooLarge(uint256 amount);
-
     /// @notice The address used for native tokens in trade settlement
     /// @dev This is currently just ETH, but intentionally written abstractly
     address internal constant NATIVE_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -19,13 +17,20 @@ library DarkpoolConstants {
     uint256 internal constant AMOUNT_BITS = 100;
     /// @notice The maximum relayer fee allowed by the darkpool (1%)
     /// @dev This is the representation of a fixed point value 0.01; i.e. `0.01 * FIXED_POINT_PRECISION`.
-    uint256 internal constant MAX_RELAYER_FEE = 92_233_720_368_547_758;
+    uint256 internal constant MAX_RELAYER_FEE_REPR = 92_233_720_368_547_758;
+    /// @notice The number of integral bits allowed for a price
+    uint256 internal constant PRICE_INTEGRAL_BITS = 64;
+    /// @notice The maximum price fixed point representation allowed
+    /// @dev We allow PRICE_INTEGRAL_BITS integral bits for a price, and inherit the fractional bits from the fixed
+    /// point precision.
+    /// So the max price is `2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS) - 1`.
+    uint256 internal constant MAX_PRICE_REPR = 2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS) - 1;
 
     /// @notice Get the maximum relayer fee as a FixedPoint struct
     /// @dev Returns the maximum relayer fee (1%) as a FixedPoint
     /// @return The maximum relayer fee as a FixedPoint struct
     function maxRelayerFee() public pure returns (FixedPoint memory) {
-        return FixedPoint({ repr: MAX_RELAYER_FEE });
+        return FixedPoint({ repr: MAX_RELAYER_FEE_REPR });
     }
 
     /// @notice Check whether an address is the native token address
@@ -39,7 +44,23 @@ library DarkpoolConstants {
     /// @param amount The amount to check
     function validateAmount(uint256 amount) public pure {
         if (amount > 2 ** AMOUNT_BITS - 1) {
-            revert AmountTooLarge(amount);
+            revert IDarkpoolV2.AmountTooLarge(amount);
+        }
+    }
+
+    /// @notice Check whether a price is valid
+    /// @param price The price to check
+    function validatePrice(FixedPoint memory price) public pure {
+        if (price.repr > MAX_PRICE_REPR) {
+            revert IDarkpoolV2.PriceTooLarge(price.repr);
+        }
+    }
+
+    /// @notice Check whether a fee rate is valid
+    /// @param feeRate The fee rate to check
+    function validateFeeRate(FixedPoint memory feeRate) public pure {
+        if (feeRate.repr > MAX_RELAYER_FEE_REPR) {
+            revert IDarkpoolV2.FeeRateTooLarge(feeRate.repr);
         }
     }
 }

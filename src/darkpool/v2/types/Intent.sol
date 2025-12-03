@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache
+// solhint-disable one-contract-per-file
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
 /// @title Intent
 /// @notice Intent is a struct that represents an intent to buy or sell a token
@@ -18,6 +20,21 @@ struct Intent {
     FixedPoint minPrice;
     /// @dev The amount of the input token to trade
     uint256 amountIn;
+}
+
+/// @title IntentLib
+/// @author Renegade Eng
+/// @notice Library for operating on intents
+library IntentLib {
+    /// @notice Validate an intent's internal fields
+    /// @param intent The intent to validate
+    /// @dev The only fields that need to be validated are the amount and price
+    /// All other fields may be set arbitrarily by the owner and are validated only in relation to a settlement
+    /// obligation.
+    function validate(Intent memory intent) internal pure {
+        DarkpoolConstants.validateAmount(intent.amountIn);
+        DarkpoolConstants.validatePrice(intent.minPrice);
+    }
 }
 
 /// @notice A secret share of an intent
