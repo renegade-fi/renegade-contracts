@@ -3,13 +3,14 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
+import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import {
     PartyId,
     SettlementBundle,
@@ -32,6 +33,7 @@ import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol"
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { ProofLinkingList, ProofLinkingListLib } from "darkpoolv2-types/VerificationList.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
+import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
 import { emptyOpeningElements, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
@@ -125,6 +127,44 @@ library SettlementLib {
             + SettlementBundleLib.getNumProofLinkingArguments(party1SettlementBundle);
 
         return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
+    }
+
+    /// @notice Allocate a settlement context for an external match
+    /// @dev The number of transfers and proofs for the external party is known: (1 deposit + 1 withdrawal + 0 proofs)
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party
+    /// @return The allocated settlement context
+    function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
+        internal
+        pure
+        returns (SettlementContext memory)
+    {
+        uint256 transferCapacity = SettlementBundleLib.getNumTransfers(internalPartySettlementBundle) + 2;
+        uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
+
+        return SettlementContextLib.newContext(transferCapacity, proofCapacity);
+    }
+
+    /// @notice Allocate transfers to settle an external party's obligation into the settlement context
+    /// @param recipient The recipient of the withdrawal
+    /// @param externalObligation The external party's settlement obligation to settle
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    function allocateExternalSettlementTransfers(
+        address recipient,
+        SettlementObligation memory externalObligation,
+        SettlementContext memory settlementContext
+    )
+        internal
+        view
+    {
+        address owner = msg.sender;
+
+        // Deposit the input token into the darkpool
+        SimpleTransfer memory deposit = externalObligation.buildERC20ApprovalDeposit(owner);
+        settlementContext.pushDeposit(deposit);
+
+        // Withdraw the output token from the darkpool
+        SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(recipient);
+        settlementContext.pushWithdrawal(withdrawal);
     }
 
     // --- Obligation Compatibility --- //
@@ -238,6 +278,33 @@ library SettlementLib {
                 partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state
             );
         } else {
+            revert IDarkpoolV2.InvalidSettlementBundleType();
+        }
+    }
+
+    /// @notice Execute an external settlement bundle
+    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param internalObligation The settlement obligation to validate
+    /// @param internalPartySettlementBundle The settlement bundle for the internal party
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    function executeExternalSettlementBundle(
+        BoundedMatchResultBundle calldata matchBundle,
+        SettlementObligation memory internalObligation,
+        SettlementBundle calldata internalPartySettlementBundle,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher _hasher
+    )
+        internal
+    {
+        SettlementBundleType bundleType = internalPartySettlementBundle.bundleType;
+        if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
+            NativeSettledPublicIntentLib.executeBoundedMatch(
+                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, state
+            );
+        } else {
+            // TODO: Add support for other settlement bundle types
             revert IDarkpoolV2.InvalidSettlementBundleType();
         }
     }
