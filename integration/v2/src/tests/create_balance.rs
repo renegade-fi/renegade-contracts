@@ -59,7 +59,7 @@ integration_test_async!(test_create_balance);
 ///
 /// Assumes that the signer has already been funded with the deposit amount
 /// and that the Permit2 contract has been approved to spend the tokens
-pub(crate) async fn create_balance(
+pub async fn create_balance(
     args: &TestArgs,
     deposit: &Deposit,
 ) -> Result<(TransactionReceipt, DarkpoolStateBalance)> {

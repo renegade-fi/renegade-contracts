@@ -117,15 +117,4 @@ library ProofLinkingListLib {
         list.instances[list.nextIndex] = instance;
         ++list.nextIndex;
     }
-
-    /// @notice Get the instances array up to the current length
-    /// @param list The list to get instances from
-    /// @return The instances array with the correct length
-    function getInstances(ProofLinkingList memory list) internal pure returns (ProofLinkingInstance[] memory) {
-        ProofLinkingInstance[] memory instances = new ProofLinkingInstance[](list.nextIndex);
-        for (uint256 i = 0; i < list.nextIndex; i++) {
-            instances[i] = list.instances[i];
-        }
-        return instances;
-    }
 }

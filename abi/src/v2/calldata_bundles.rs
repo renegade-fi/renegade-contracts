@@ -31,11 +31,13 @@ impl SettlementBundle {
         auth: PrivateIntentAuthBundleFirstFill,
         settlement_statement: IntentOnlyPublicSettlementStatement,
         settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
     ) -> Self {
         let inner = PrivateIntentPublicBalanceFirstFillBundle {
             auth,
             settlementStatement: settlement_statement,
             settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
         };
         let data = inner.abi_encode();
 

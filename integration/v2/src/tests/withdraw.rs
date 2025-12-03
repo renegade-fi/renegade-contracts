@@ -77,7 +77,7 @@ integration_test_async!(test_withdraw);
 // --- Circuits Helpers --- //
 
 /// Create a proof of the withdrawal
-fn create_proof_bundle(
+pub fn create_proof_bundle(
     withdrawal: &Withdrawal,
     balance: &DarkpoolStateBalance,
     opening: &MerkleAuthenticationPath,
