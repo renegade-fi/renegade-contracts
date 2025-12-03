@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { BN254 } from "solidity-bn254/BN254.sol";
+import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
+import { ECDSALib } from "renegade-lib/ECDSA.sol";
+
+import {
+    DepositProofBundle,
+    NewBalanceDepositProofBundle,
+    OrderCancellationProofBundle,
+    WithdrawalProofBundle,
+    PublicProtocolFeePaymentProofBundle,
+    PublicRelayerFeePaymentProofBundle,
+    PrivateProtocolFeePaymentProofBundle,
+    PrivateRelayerFeePaymentProofBundle
+} from "darkpoolv2-types/ProofBundles.sol";
+import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
+import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
+import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
+
+/// @title State Updates Library
+/// @author Renegade Eng
+/// @notice Library for handling state updates (deposits, withdrawals, order cancellations, fees)
+library StateUpdatesLib {
+    using DarkpoolStateLib for DarkpoolState;
+
+    // --- Order Cancellation --- //
+
+    /// @notice Cancel an order
+    /// @param state The darkpool state containing all storage references
+    /// @param verifier The verifier to use for verification
+    /// @param auth The authorization for the order cancellation
+    /// @param orderCancellationProofBundle The proof bundle for the order cancellation
+    function cancelOrder(
+        DarkpoolState storage state,
+        IVerifier verifier,
+        OrderCancellationAuth memory auth,
+        OrderCancellationProofBundle calldata orderCancellationProofBundle
+    )
+        external
+    {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyOrderCancellationValidity(orderCancellationProofBundle);
+        if (!valid) revert IDarkpoolV2.OrderCancellationVerificationFailed();
+
+        // 2. Verify the signature over the intent nullifier by the owner
+        address owner = orderCancellationProofBundle.statement.owner;
+        BN254.ScalarField intentNullifier = orderCancellationProofBundle.statement.oldIntentNullifier;
+        bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
+
+        bool sigValid = ECDSALib.verify(nullifierHash, auth.signature, owner);
+        if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
+
+        // 3. Spend the nullifier to cancel the order
+        state.spendNullifier(intentNullifier);
+    }
+
+    // --- Deposit --- //
+
+    /// @notice Deposit into an existing balance in the darkpool
+    /// @param state The darkpool state containing all storage references
+    /// @param verifier The verifier to use for verification
+    /// @param hasher The hasher to use for hashing commitments
+    /// @param permit2 The Permit2 contract instance
+    /// @param auth The authorization for the deposit
+    /// @param depositProofBundle The proof bundle for the deposit
+    function deposit(
+        DarkpoolState storage state,
+        IVerifier verifier,
+        IHasher hasher,
+        IPermit2 permit2,
+        DepositAuth memory auth,
+        DepositProofBundle calldata depositProofBundle
+    )
+        external
+    {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyExistingBalanceDepositValidity(depositProofBundle);
+        if (!valid) revert IDarkpoolV2.DepositVerificationFailed();
+
+        // 2. Execute the deposit
+        Deposit memory depositInfo = depositProofBundle.statement.deposit;
+        BN254.ScalarField newBalanceCommitment = depositProofBundle.statement.newBalanceCommitment;
+        ExternalTransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
+
+        // 3. Update the state; nullify the previous balance and insert the new balance
+        uint256 merkleDepth = depositProofBundle.merkleDepth;
+        BN254.ScalarField balanceNullifier = depositProofBundle.statement.oldBalanceNullifier;
+        state.spendNullifier(balanceNullifier);
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+    }
+
+    /// @notice Deposit a new balance into the darkpool
+    /// @param state The darkpool state containing all storage references
+    /// @param verifier The verifier to use for verification
+    /// @param hasher The hasher to use for hashing commitments
+    /// @param permit2 The Permit2 contract instance
+    /// @param auth The authorization for the deposit
+    /// @param newBalanceProofBundle The proof bundle for the new balance deposit
+    function depositNewBalance(
+        DarkpoolState storage state,
+        IVerifier verifier,
+        IHasher hasher,
+        IPermit2 permit2,
+        DepositAuth memory auth,
+        NewBalanceDepositProofBundle calldata newBalanceProofBundle
+    )
+        external
+    {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyNewBalanceDepositValidity(newBalanceProofBundle);
+        if (!valid) revert IDarkpoolV2.DepositVerificationFailed();
+
+        // 2. Execute the deposit
+        Deposit memory depositInfo = newBalanceProofBundle.statement.deposit;
+        BN254.ScalarField newBalanceCommitment = newBalanceProofBundle.statement.newBalanceCommitment;
+        ExternalTransferLib.executePermit2SignatureDeposit(depositInfo, newBalanceCommitment, auth, permit2);
+
+        // 3. Update the state; insert the new balance
+        uint256 merkleDepth = newBalanceProofBundle.merkleDepth;
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+    }
+
+    // --- Withdrawal --- //
+
+    /// @notice Withdraw from a balance in the darkpool
+    /// @param state The darkpool state containing all storage references
+    /// @param verifier The verifier to use for verification
+    /// @param hasher The hasher to use for hashing commitments
+    /// @param auth The authorization for the withdrawal
+    /// @param withdrawalProofBundle The proof bundle for the withdrawal
+    function withdraw(
+        DarkpoolState storage state,
+        IVerifier verifier,
+        IHasher hasher,
+        WithdrawalAuth memory auth,
+        WithdrawalProofBundle calldata withdrawalProofBundle
+    )
+        external
+    {
+        // 1. Verify the proof bundle
+        bool valid = verifier.verifyWithdrawalValidity(withdrawalProofBundle);
+        if (!valid) revert IDarkpoolV2.WithdrawalVerificationFailed();
+
+        // 2. Execute the withdrawal
+        Withdrawal memory withdrawal = withdrawalProofBundle.statement.withdrawal;
+        BN254.ScalarField newBalanceCommitment = withdrawalProofBundle.statement.newBalanceCommitment;
+        ExternalTransferLib.executeSignedWithdrawal(newBalanceCommitment, auth, withdrawal);
+
+        // 3. Update the state; nullify the previous balance and insert the new balance
+        uint256 merkleDepth = withdrawalProofBundle.merkleDepth;
+        BN254.ScalarField balanceNullifier = withdrawalProofBundle.statement.oldBalanceNullifier;
+        state.spendNullifier(balanceNullifier);
+        state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+    }
+
+    // --- Fees --- //
+
+    /// @notice Pay protocol fees publicly on a balance
+    /// @param proofBundle The proof bundle for the public protocol fee payment
+    function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) external pure {
+        revert("todo");
+    }
+
+    /// @notice Pay relayer fees publicly on a balance
+    /// @param proofBundle The proof bundle for the public relayer fee payment
+    function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) external pure {
+        revert("todo");
+    }
+
+    /// @notice Pay protocol fees privately on a balance
+    /// @param proofBundle The proof bundle for the private protocol fee payment
+    function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) external pure {
+        revert("todo");
+    }
+
+    /// @notice Pay relayer fees privately on a balance
+    /// @param proofBundle The proof bundle for the private relayer fee payment
+    function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) external pure {
+        revert("todo");
+    }
+}

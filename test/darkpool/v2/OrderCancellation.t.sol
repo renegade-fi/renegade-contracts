@@ -9,6 +9,7 @@ import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
 import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 /// @title OrderCancellationTest
@@ -120,7 +121,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
         OrderCancellationAuth memory auth = createOrderCancellationAuthWrongSigner(intentNullifier);
 
         // Should revert due to invalid signature
-        vm.expectRevert(DarkpoolV2.InvalidOrderCancellationSignature.selector);
+        vm.expectRevert(IDarkpoolV2.InvalidOrderCancellationSignature.selector);
         darkpool.cancelOrder(auth, proofBundle);
     }
 }

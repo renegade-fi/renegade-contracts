@@ -29,6 +29,7 @@ import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.s
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SignatureWithNonceLib, SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 /// @title Native Settled Private Intent Library
 /// @author Renegade Eng
@@ -48,11 +49,6 @@ library NativeSettledPrivateIntentLib {
     using PublicInputsLib for IntentOnlyPublicSettlementStatement;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
-
-    // --- Errors --- //
-
-    /// @notice Error thrown when an intent commitment signature is invalid
-    error InvalidIntentCommitmentSignature();
 
     // --- Implementation --- //
 
@@ -237,7 +233,7 @@ library NativeSettledPrivateIntentLib {
 
         bytes32 commitmentHash = EfficientHashLib.hash(bytes32(commitment));
         bool valid = authBundle.intentSignature.verifyPrehashed(intentOwner, commitmentHash);
-        if (!valid) revert InvalidIntentCommitmentSignature();
+        if (!valid) revert IDarkpoolV2.InvalidIntentCommitmentSignature();
         state.spendNonce(authBundle.intentSignature.nonce);
     }
 

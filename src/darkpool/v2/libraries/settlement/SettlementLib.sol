@@ -6,6 +6,7 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
 import {
@@ -20,10 +21,9 @@ import {
     ObligationLib,
     PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
@@ -46,16 +46,50 @@ library SettlementLib {
     using SettlementTransfersLib for SettlementTransfers;
     using PublicInputsLib for IntentAndBalancePrivateSettlementStatement;
 
-    /// @notice Error thrown when the obligation types are not compatible
-    error IncompatibleObligationTypes();
-    /// @notice Error thrown when the obligation tokens are not compatible
-    error IncompatiblePairs();
-    /// @notice Error thrown when the obligation amounts are not compatible
-    error IncompatibleAmounts();
-    /// @notice Error thrown when the settlement bundle type is invalid
-    error InvalidSettlementBundleType();
-    /// @notice Error thrown when verification fails for a settlement
-    error SettlementVerificationFailed();
+    // --- Entry Point --- //
+
+    /// @notice Settle a match between two parties
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing commitments
+    /// @param verifier The verifier to use for verification
+    /// @param weth The WETH9 contract instance
+    /// @param permit2 The permit2 contract instance
+    /// @param obligationBundle The obligation bundle for the trade
+    /// @param party0SettlementBundle The settlement bundle for the first party
+    /// @param party1SettlementBundle The settlement bundle for the second party
+    function settleMatch(
+        DarkpoolState storage state,
+        IHasher hasher,
+        IVerifier verifier,
+        IWETH9 weth,
+        IPermit2 permit2,
+        ObligationBundle calldata obligationBundle,
+        SettlementBundle calldata party0SettlementBundle,
+        SettlementBundle calldata party1SettlementBundle
+    )
+        external
+    {
+        // 1. Allocate a settlement context
+        SettlementContext memory settlementContext =
+            allocateSettlementContext(party0SettlementBundle, party1SettlementBundle);
+
+        // 2. Validate that the settlement obligations are compatible with one another
+        validateObligationBundle(obligationBundle, settlementContext);
+
+        // 3. Validate and authorize the settlement bundles
+        executeSettlementBundle(
+            PartyId.PARTY_0, obligationBundle, party0SettlementBundle, settlementContext, state, hasher
+        );
+        executeSettlementBundle(
+            PartyId.PARTY_1, obligationBundle, party1SettlementBundle, settlementContext, state, hasher
+        );
+
+        // 4. Execute the transfers necessary for settlement
+        executeTransfers(settlementContext, weth, permit2);
+
+        // 5. Verify the proofs necessary for settlement
+        verifySettlementProofs(settlementContext, verifier);
+    }
 
     // --- Allocation --- //
 
@@ -71,7 +105,7 @@ library SettlementLib {
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
     )
-        external
+        internal
         pure
         returns (SettlementContext memory)
     {
@@ -94,7 +128,7 @@ library SettlementLib {
         ObligationBundle calldata obligationBundle,
         SettlementContext memory settlementContext
     )
-        external
+        internal
         pure
     {
         if (obligationBundle.obligationType == ObligationType.PUBLIC) {
@@ -103,7 +137,7 @@ library SettlementLib {
         } else if (obligationBundle.obligationType == ObligationType.PRIVATE) {
             validatePrivateObligationBundle(obligationBundle, settlementContext);
         } else {
-            revert InvalidSettlementBundleType();
+            revert IDarkpoolV2.InvalidSettlementBundleType();
         }
     }
 
@@ -118,14 +152,14 @@ library SettlementLib {
         bool tokenCompatible =
             obligation0.inputToken == obligation1.outputToken && obligation0.outputToken == obligation1.inputToken;
         if (!tokenCompatible) {
-            revert IncompatiblePairs();
+            revert IDarkpoolV2.IncompatiblePairs();
         }
 
         // 2. The input and output amounts must correspond
         bool amountCompatible =
             obligation0.amountIn == obligation1.amountOut && obligation0.amountOut == obligation1.amountIn;
         if (!amountCompatible) {
-            revert IncompatibleAmounts();
+            revert IDarkpoolV2.IncompatibleAmounts();
         }
 
         // 3. The input and output amounts must be valid
@@ -172,7 +206,7 @@ library SettlementLib {
         DarkpoolState storage state,
         IHasher hasher
     )
-        external
+        internal
     {
         SettlementBundleType bundleType = settlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
@@ -190,7 +224,7 @@ library SettlementLib {
                 partyId, obligationBundle, settlementBundle, settlementContext, state, hasher
             );
         } else {
-            revert InvalidSettlementBundleType();
+            revert IDarkpoolV2.InvalidSettlementBundleType();
         }
     }
 
@@ -220,7 +254,7 @@ library SettlementLib {
     /// @notice Verify the proofs necessary for settlement
     /// @param settlementContext The settlement context to verify the proofs from
     /// @param verifier The verifier to use for verification
-    function verifySettlementProofs(SettlementContext memory settlementContext, IVerifier verifier) external view {
+    function verifySettlementProofs(SettlementContext memory settlementContext, IVerifier verifier) internal view {
         if (settlementContext.numProofs() == 0) {
             return;
         }
@@ -235,7 +269,7 @@ library SettlementLib {
         );
 
         if (!valid) {
-            revert SettlementVerificationFailed();
+            revert IDarkpoolV2.SettlementVerificationFailed();
         }
     }
 }

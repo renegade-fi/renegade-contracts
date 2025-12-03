@@ -18,6 +18,7 @@ import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPrivateIntent.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 
 contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
@@ -99,7 +100,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         bundle.data = abi.encode(bundleData);
 
         // Should revert with InvalidIntentCommitmentSignature
-        vm.expectRevert(NativeSettledPrivateIntentLib.InvalidIntentCommitmentSignature.selector);
+        vm.expectRevert(IDarkpoolV2.InvalidIntentCommitmentSignature.selector);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 

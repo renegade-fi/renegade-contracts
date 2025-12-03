@@ -8,6 +8,7 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
@@ -54,7 +55,7 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
 
         // Should revert with IncompatiblePairs
         ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
-        vm.expectRevert(SettlementLib.IncompatiblePairs.selector);
+        vm.expectRevert(IDarkpoolV2.IncompatiblePairs.selector);
         validateObligationBundleHelper(obligationBundle);
     }
 
@@ -71,7 +72,7 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
 
         // Should revert with IncompatibleAmounts
         ObligationBundle memory obligationBundle = buildObligationBundle(party0Obligation, party1Obligation);
-        vm.expectRevert(SettlementLib.IncompatibleAmounts.selector);
+        vm.expectRevert(IDarkpoolV2.IncompatibleAmounts.selector);
         validateObligationBundleHelper(obligationBundle);
     }
 

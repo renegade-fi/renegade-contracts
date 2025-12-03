@@ -28,6 +28,34 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 /// @author Renegade Eng
 /// @notice Interface for the DarkpoolV2 contract
 interface IDarkpoolV2 {
+    // --- Error Messages --- //
+    /// @notice Thrown when proof verification fails
+    error ProofVerificationFailed();
+    /// @notice Thrown when a deposit verification fails
+    error DepositVerificationFailed();
+    /// @notice Thrown when a withdrawal verification fails
+    error WithdrawalVerificationFailed();
+    /// @notice Thrown when a fee payment verification fails
+    error FeePaymentVerificationFailed();
+    /// @notice Thrown when an order cancellation verification fails
+    error OrderCancellationVerificationFailed();
+    /// @notice Thrown when the order cancellation signature is invalid
+    error InvalidOrderCancellationSignature();
+    /// @notice Thrown when the obligation types are not compatible
+    error IncompatibleObligationTypes();
+    /// @notice Thrown when the obligation tokens are not compatible
+    error IncompatiblePairs();
+    /// @notice Thrown when the obligation amounts are not compatible
+    error IncompatibleAmounts();
+    /// @notice Thrown when the settlement bundle type is invalid
+    error InvalidSettlementBundleType();
+    /// @notice Thrown when verification fails for a settlement
+    error SettlementVerificationFailed();
+    /// @notice Thrown when an intent commitment signature is invalid
+    error InvalidIntentCommitmentSignature();
+    /// @notice Thrown when the public input length is invalid
+    error InvalidPublicInputLength();
+
     // --- Events --- //
 
     /// @notice Emitted when an internal Merkle node is updated
