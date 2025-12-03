@@ -14,6 +14,7 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
@@ -147,7 +148,7 @@ library RenegadeSettledPrivateIntentLib {
         RenegadeSettledIntentBundle memory bundleData = settlementBundle.decodeRenegadeSettledIntentBundleData();
 
         // 1. Validate the intent authorization
-        validateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
+        validateIntentAuthorization(bundleData.auth, vkeys, settlementContext, state);
 
         // 2. Validate the intent constraints on the obligation
         // This is done in the settlement proof
@@ -178,11 +179,12 @@ library RenegadeSettledPrivateIntentLib {
     )
         internal
     {
-        // Validate the Merkle depth
+        // Validate the Merkle root used for the input balance
         // TODO: Allow for dynamic Merkle depth
         if (bundleData.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
             revert IDarkpool.InvalidMerkleDepthRequested();
         }
+        state.assertRootInHistory(bundleData.statement.merkleRoot);
 
         // Verify the owner signature and spend the nonce
         bytes32 digest = PrivateIntentPrivateBalanceAuthBundleLib.getOwnerSignatureDigest(bundleData);
@@ -202,22 +204,26 @@ library RenegadeSettledPrivateIntentLib {
     /// @param bundleData The bundle data to execute the state updates for
     /// @param vkeys The contract storing the verification keys
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
     /// @dev On a subsequent fill, we need not verify the owner signature. The presence of the intent in the Merkle tree
     /// implies that the owner's signature has already been verified (in a previous fill). So in this case, we need only
     /// verify the proof attached to the bundle.
     function validateIntentAuthorization(
         RenegadeSettledIntentAuthBundle memory bundleData,
         IVkeys vkeys,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
         view
     {
-        // Validate the Merkle depth
+        // Validate the Merkle roots used for the input balance and intent
         // TODO: Allow for dynamic Merkle depth
         if (bundleData.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
             revert IDarkpool.InvalidMerkleDepthRequested();
         }
+        state.assertRootInHistory(bundleData.statement.intentMerkleRoot);
+        state.assertRootInHistory(bundleData.statement.balanceMerkleRoot);
 
         // Register a proof of validity for the intent and balance
         BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
@@ -257,6 +263,11 @@ library RenegadeSettledPrivateIntentLib {
 
         // 3. Allocate transfers to settle the fees due from the obligation
         allocateTransfers(bundleData.settlementStatement, state, settlementContext);
+
+        // 4. Emit recover IDs for the intent and balance
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -288,9 +299,16 @@ library RenegadeSettledPrivateIntentLib {
 
         // 3. Allocate transfers to settle the fees due from the obligation
         allocateTransfers(bundleData.settlementStatement, state, settlementContext);
+
+        // 4. Emit recover IDs for the intent and balance
+        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
     }
 
     /// @notice Allocate the transfers to settle the obligation
+    /// @dev We transfer fees out of the balance immediately. This is done to avoid the need to update the balance later
+    /// to pay fees. It leaks no extra privacy, because the settlement obligation in this case is known.
     /// @param settlementStatement The settlement statement to allocate the transfers for
     /// @param state The darkpool state containing all storage references
     /// @param settlementContext The settlement context to which we append post-validation updates.
@@ -300,6 +318,7 @@ library RenegadeSettledPrivateIntentLib {
         SettlementContext memory settlementContext
     )
         internal
+        view
     {
         (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) = computeFeeTakes(settlementStatement, state);
 
