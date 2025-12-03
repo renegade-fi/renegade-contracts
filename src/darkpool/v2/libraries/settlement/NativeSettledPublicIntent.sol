@@ -142,14 +142,12 @@ library NativeSettledPublicIntentLib {
     // ------------------------
 
     /// @notice Validate the authorization of a public intent
-    /// @dev We require two checks to pass for a public intent to be authorized:
-    /// 1. The executor has signed the settlement obligation and relayer fee rate. This check authorizes the match.
-    /// 2. The intent owner has signed a tuple of (executor, intent). This authorizes the intent to be filled by the
-    /// executor across this and subsequent fills.
+    /// @dev We require that the intent owner has signed a tuple of (executor, intent). This authorizes the intent to be
+    /// filled by the executor.
     /// @param bundleData The auth bundle data to validate
     /// @param obligation The settlement obligation to validate
     /// @param state The darkpool state containing all storage references
-    /// @return amountRemaining The amount remaining of the intent
+    /// @return amountRemaining The amount remaining on the intent
     /// @return intentHash The hash of the intent
     function validatePublicIntentAuthorization(
         PublicIntentPublicBalanceBundle memory bundleData,
@@ -194,11 +192,11 @@ library NativeSettledPublicIntentLib {
     // ----------------------------
 
     /// @notice Validate the authorization of a settlement obligation
+    /// @dev We require that the executor has signed the settlement obligation. This authorizes the individual fill
+    /// parameters.
     /// @param auth The public intent authorization bundle to validate
     /// @param obligation The settlement obligation to validate
     /// @param state The darkpool state containing all storage references
-    /// @dev We require that the executor has signed the settlement obligation. This authorizes the individual fill
-    /// parameters.
     function validateObligationAuthorization(
         PublicIntentAuthBundle memory auth,
         SettlementObligation memory obligation,
@@ -217,10 +215,10 @@ library NativeSettledPublicIntentLib {
     // -------------------------------
 
     /// @notice Validate the authorization of a bounded match result
-    /// @param matchBundle The bounded match result authorization bundle to validate
-    /// @param state The darkpool state containing all storage references
     /// @dev We require that the executor has a tuple of (executor, match result). This authorizes the match result to
     /// be filled by the executor.
+    /// @param matchBundle The bounded match result authorization bundle to validate
+    /// @param state The darkpool state containing all storage references
     function validateBoundedMatchResultAuthorization(
         PublicIntentAuthBundle memory auth,
         BoundedMatchResultBundle calldata matchBundle,

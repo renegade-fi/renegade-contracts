@@ -65,6 +65,14 @@ interface IDarkpoolV2 {
     error PriceTooLarge(uint256 price);
     /// @notice Thrown when a fee rate is too large
     error FeeRateTooLarge(uint256 feeRate);
+    /// @notice Thrown when a bounded match amount is out of bounds
+    error BoundedMatchAmountOutOfBounds(uint256 amount, uint256 minAmount, uint256 maxAmount);
+    /// @notice Thrown when the bounds of a bounded match result are invalid
+    error InvalidBoundedMatchBounds();
+    /// @notice Thrown when a bounded match has expired
+    error BoundedMatchExpired();
+    /// @notice Thrown when a bounded match amount is zero
+    error BoundedMatchZeroAmount();
 
     // --- Events --- //
 

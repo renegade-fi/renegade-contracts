@@ -7,6 +7,7 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 import { BoundedMatchResultTestUtils } from "./Utils.sol";
 
@@ -64,7 +65,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         );
 
         // Should revert with InvalidBounds
-        vm.expectRevert(BoundedMatchResultLib.InvalidBounds.selector);
+        vm.expectRevert(IDarkpoolV2.InvalidBoundedMatchBounds.selector);
         this._validateBounds(matchResult);
     }
 
@@ -88,7 +89,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         );
 
         // Should revert with AmountTooLarge
-        vm.expectRevert(abi.encodeWithSelector(DarkpoolConstants.AmountTooLarge.selector, invalidAmount));
+        vm.expectRevert(abi.encodeWithSelector(IDarkpoolV2.AmountTooLarge.selector, invalidAmount));
         this._validateBounds(matchResultMin);
 
         // Test with max too large
@@ -98,7 +99,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         );
 
         // Should revert with AmountTooLarge
-        vm.expectRevert(abi.encodeWithSelector(DarkpoolConstants.AmountTooLarge.selector, invalidAmount));
+        vm.expectRevert(abi.encodeWithSelector(IDarkpoolV2.AmountTooLarge.selector, invalidAmount));
         this._validateBounds(matchResultMax);
     }
 
@@ -108,7 +109,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         BoundedMatchResult memory matchResult = createBoundedMatchResultWithDeadline(block.number - 1); // Past deadline
 
         // Should revert with MatchExpired
-        vm.expectRevert(BoundedMatchResultLib.MatchExpired.selector);
+        vm.expectRevert(IDarkpoolV2.BoundedMatchExpired.selector);
         this._validateDeadline(matchResult);
     }
 
@@ -125,7 +126,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         BoundedMatchResult memory matchResult = createValidBoundedMatchResult();
 
         // Should revert with ZeroAmount
-        vm.expectRevert(BoundedMatchResultLib.ZeroAmount.selector);
+        vm.expectRevert(IDarkpoolV2.BoundedMatchZeroAmount.selector);
         this._validateAmountIn(matchResult, 0);
     }
 
@@ -142,7 +143,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         // Should revert with AmountOutOfBounds
         vm.expectRevert(
             abi.encodeWithSelector(
-                BoundedMatchResultLib.AmountOutOfBounds.selector,
+                IDarkpoolV2.BoundedMatchAmountOutOfBounds.selector,
                 minInternalPartyAmountIn - 1, // internalPartyAmountIn
                 minInternalPartyAmountIn, // minInternalPartyAmountIn
                 maxInternalPartyAmountIn // maxInternalPartyAmountIn
@@ -166,7 +167,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         // Should revert with AmountOutOfBounds
         vm.expectRevert(
             abi.encodeWithSelector(
-                BoundedMatchResultLib.AmountOutOfBounds.selector,
+                IDarkpoolV2.BoundedMatchAmountOutOfBounds.selector,
                 computedInternalAmount, // internalPartyAmountIn
                 minInternalPartyAmountIn, // minInternalPartyAmountIn
                 maxInternalPartyAmountIn // maxInternalPartyAmountIn
@@ -181,7 +182,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         uint256 tooLargeAmount = 2 ** DarkpoolConstants.AMOUNT_BITS; // exceeds max
 
         // Should revert with AmountTooLarge
-        vm.expectRevert(abi.encodeWithSelector(DarkpoolConstants.AmountTooLarge.selector, tooLargeAmount));
+        vm.expectRevert(abi.encodeWithSelector(IDarkpoolV2.AmountTooLarge.selector, tooLargeAmount));
         this._validateAmountIn(matchResult, tooLargeAmount);
     }
 }

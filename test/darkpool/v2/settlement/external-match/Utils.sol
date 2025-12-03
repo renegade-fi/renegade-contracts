@@ -10,6 +10,7 @@ import {
     BoundedMatchResultPermitLib
 } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import {
@@ -55,7 +56,8 @@ contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
     }
 
     /// @dev Sign an obligation (memory version)
-    function signObligation(
+    function createExecutorSignature(
+        FeeRate memory feeRate,
         SettlementObligation memory obligation,
         uint256 signerPrivateKey
     )
@@ -63,24 +65,26 @@ contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
         returns (SignatureWithNonce memory)
     {
         // Use the calldata version via external call for memory-to-calldata conversion
-        return this._signObligationCalldata(obligation, signerPrivateKey);
+        return this._createExecutorSignatureCalldata(obligation, feeRate, signerPrivateKey);
     }
 
     /// @dev Sign an obligation (calldata version)
-    function _signObligationCalldata(
+    function _createExecutorSignatureCalldata(
         SettlementObligation memory obligation,
+        FeeRate memory feeRate,
         uint256 signerPrivateKey
     )
         external
         returns (SignatureWithNonce memory)
     {
-        // Hash the obligation
-        uint256 nonce = randomUint();
-        bytes32 obligationHash = SettlementObligationLib.computeObligationHash(obligation);
-        bytes32 signatureDigest = EfficientHashLib.hash(obligationHash, bytes32(nonce));
+        // Hash the fee with obligation
+        bytes memory encoded = abi.encode(feeRate, obligation);
+        bytes32 digest = EfficientHashLib.hash(encoded);
 
         // Sign with the private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
+        uint256 nonce = randomUint();
+        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(nonce));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureHash);
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
@@ -117,14 +121,16 @@ contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
         PublicIntentPermit memory permit = PublicIntentPermit({ intent: intent, executor: executor.addr });
         SignatureWithNonce memory intentSignature = signIntentPermit(permit, intentOwnerPrivateKey);
 
-        // Sign the obligation with the executor key
-        SignatureWithNonce memory executorSignature = signObligation(obligation, executorPrivateKey);
+        // Create relayer fee rate and sign the executor digest with the executor key
+        FeeRate memory feeRate = relayerFeeRate();
+        SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
             permit: permit, intentSignature: intentSignature, executorSignature: executorSignature
         });
-        PublicIntentPublicBalanceBundle memory bundleData = PublicIntentPublicBalanceBundle({ auth: auth });
+        PublicIntentPublicBalanceBundle memory bundleData =
+            PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
 
         // Create the complete settlement bundle
         return SettlementBundle({
@@ -187,8 +193,7 @@ contract ExternalMatchTestUtils is DarkpoolV2TestUtils {
         returns (BoundedMatchResultBundle memory)
     {
         // Create the permit and sign it with the executor's key
-        BoundedMatchResultPermit memory permit =
-            BoundedMatchResultPermit({ matchResult: matchResult, executor: executor.addr });
+        BoundedMatchResultPermit memory permit = BoundedMatchResultPermit({ matchResult: matchResult });
         SignatureWithNonce memory matchResultSignature = signMatchResult(permit, executorPrivateKey);
 
         // Create auth bundle
