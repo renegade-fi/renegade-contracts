@@ -24,6 +24,7 @@ pub fn create_darkpool_client(
     let url = Url::parse(rpc_url)?;
     let provider = ProviderBuilder::new()
         .wallet(signer.clone())
+        .with_simple_nonce_management()
         .connect_http(url);
     let dyn_provider = DynProvider::new(provider);
 

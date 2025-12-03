@@ -22,7 +22,9 @@ use crate::{
     test_args::TestArgs,
     tests::create_balance::create_balance,
     util::{
-        deposit::fund_for_deposit, merkle::fetch_merkle_opening, random_deposit, random_withdrawal,
+        deposit::fund_for_deposit,
+        fuzzing::{random_deposit, random_withdrawal},
+        merkle::fetch_merkle_opening,
         transactions::wait_for_tx_success,
     },
 };

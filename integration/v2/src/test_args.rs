@@ -12,6 +12,7 @@ use eyre::Result;
 
 use crate::{
     util::{
+        abis::{IPermit2Instance, Permit2},
         darkpool::{create_darkpool_client, Darkpool},
         deployments::{read_deployment, DARKPOOL_PROXY_DEPLOYMENT_KEY},
         erc20::{ERC20Mock, ERC20},
@@ -84,6 +85,12 @@ impl TestArgs {
         self.erc20_from_addr(addr)
     }
 
+    /// Read the ERC20 for the base token with a specific signer    
+    pub fn base_token_with_signer(&self, signer: &PrivateKeySigner) -> Result<ERC20> {
+        let addr = self.base_addr()?;
+        self.erc20_from_addr_with_signer(addr, signer.clone())
+    }
+
     /// Get the address of the quote token
     pub fn quote_addr(&self) -> Result<Address> {
         read_deployment("QuoteToken", &self.deployments)
@@ -93,6 +100,12 @@ impl TestArgs {
     pub fn quote_token(&self) -> Result<ERC20> {
         let addr = self.quote_addr()?;
         self.erc20_from_addr(addr)
+    }
+
+    /// Read the ERC20 for the quote token with a specific signer
+    pub fn quote_token_with_signer(&self, signer: &PrivateKeySigner) -> Result<ERC20> {
+        let addr = self.quote_addr()?;
+        self.erc20_from_addr_with_signer(addr, signer.clone())
     }
 
     /// Create an ERC20 instance from an address
@@ -108,16 +121,22 @@ impl TestArgs {
         addr: Address,
         signer: PrivateKeySigner,
     ) -> Result<ERC20> {
-        let url = Url::parse(&self.rpc_url)?;
-        let provider = ProviderBuilder::new().wallet(signer).connect_http(url);
-        let dyn_provider = DynProvider::new(provider);
-        let erc20 = ERC20Mock::new(addr, dyn_provider);
+        let provider = self.create_provider_with_signer(&signer)?;
+        let erc20 = ERC20Mock::new(addr, provider);
         Ok(erc20)
     }
 
     /// Get the address of the permit2 contract
     pub fn permit2_addr(&self) -> Result<Address> {
         read_deployment("Permit2", &self.deployments)
+    }
+
+    /// Get an instance of the permit2 contract
+    pub fn permit2_with_signer(&self, signer: &PrivateKeySigner) -> Result<Permit2> {
+        let addr = self.permit2_addr()?;
+        let provider = self.create_provider_with_signer(signer)?;
+        let permit2 = IPermit2Instance::new(addr, provider);
+        Ok(permit2)
     }
 
     /// Get the address of the darkpool contract
@@ -137,6 +156,15 @@ impl TestArgs {
         let erc20 = self.base_token()?;
         let balance = erc20.balanceOf(addr).call().await?;
         Ok(balance)
+    }
+
+    fn create_provider_with_signer(&self, signer: &PrivateKeySigner) -> Result<DynProvider> {
+        let url = Url::parse(&self.rpc_url)?;
+        let provider = ProviderBuilder::new()
+            .wallet(signer.clone())
+            .with_simple_nonce_management()
+            .connect_http(url);
+        Ok(DynProvider::new(provider))
     }
 }
 

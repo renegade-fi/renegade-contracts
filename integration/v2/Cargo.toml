@@ -10,6 +10,7 @@ alloy = { version = "1.1.2", features = ["node-bindings", "rpc-types-anvil"] }
 renegade-abi = { package = "abi", path = "../../abi", features = [
     "v2",
     "v2-relayer-types",
+    "v2-auth-helpers",
     "transfer-auth",
 ] }
 renegade-circuit-types = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/circuit-types" }
