@@ -9,7 +9,7 @@ import {
     RenegadeSettledIntentFirstFillBundle,
     RenegadeSettledIntentBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
@@ -22,9 +22,9 @@ import {
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { VerificationKey, ProofLinkingInstance } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
@@ -47,6 +47,8 @@ library RenegadeSettledPrivateIntentLib {
     using SettlementBundleLib for RenegadeSettledIntentBundle;
     using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
+    using ObligationLib for ObligationBundle;
+    using SettlementObligationLib for SettlementObligation;
     using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
     using PublicInputsLib for IntentAndBalanceValidityStatement;
     using FeeRateLib for FeeRate;
@@ -95,7 +97,6 @@ library RenegadeSettledPrivateIntentLib {
     /// @param hasher The hasher to use for hashing
     /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
-    /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -110,15 +111,13 @@ library RenegadeSettledPrivateIntentLib {
         // Decode the bundle data
         RenegadeSettledIntentFirstFillBundle memory bundleData =
             settlementBundle.decodeRenegadeSettledIntentBundleDataFirstFill();
+        SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
         validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, vkeys, state);
 
         // 2. Validate the intent constraints on the obligation
-        // This is done in the settlement proof
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
-        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+        validateObligationConstraintsFirstFill(obligation, bundleData, settlementContext, vkeys);
 
         // 3. Execute state updates for the bundle
         executeStateUpdatesFirstFill(bundleData, state, settlementContext, hasher);
@@ -132,7 +131,6 @@ library RenegadeSettledPrivateIntentLib {
     /// @param hasher The hasher to use for hashing
     /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
-    /// TODO: Check that the settlement obligation in the statement equals the one in the obligation bundle
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
@@ -146,15 +144,13 @@ library RenegadeSettledPrivateIntentLib {
     {
         // Decode the bundle data
         RenegadeSettledIntentBundle memory bundleData = settlementBundle.decodeRenegadeSettledIntentBundleData();
+        SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
         validateIntentAuthorization(bundleData.auth, vkeys, settlementContext, state);
 
         // 2. Validate the intent constraints on the obligation
-        // This is done in the settlement proof
-        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(bundleData.settlementStatement);
-        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
-        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+        validateObligationConstraints(obligation, bundleData, settlementContext, vkeys);
 
         // 3. Execute state updates for the bundle
         executeStateUpdates(bundleData, state, settlementContext, hasher);
@@ -229,6 +225,79 @@ library RenegadeSettledPrivateIntentLib {
         BN254.ScalarField[] memory publicInputs = bundleData.statement.statementSerialize();
         VerificationKey memory vk = vkeys.intentAndBalanceValidityKeys();
         settlementContext.pushProof(publicInputs, bundleData.validityProof, vk);
+    }
+
+    // --------------------------
+    // | Obligation Constraints |
+    // --------------------------
+
+    /// @notice Validate the obligation constraints for a renegade settled private intent bundle for a first fill
+    /// @param obligation The obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
+    function validateObligationConstraintsFirstFill(
+        SettlementObligation memory obligation,
+        RenegadeSettledIntentFirstFillBundle memory settlementBundle,
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
+    )
+        internal
+        view
+    {
+        // The obligation in the settlement statement must match the one from the obligation bundle
+        IntentAndBalancePublicSettlementStatement memory settlementStatement = settlementBundle.settlementStatement;
+        bool obligationMatches = obligation.isEqualTo(settlementStatement.settlementObligation);
+        if (!obligationMatches) revert IDarkpoolV2.InvalidObligation();
+
+        // Register the settlement proof to the context for subsequent verification
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(settlementStatement);
+        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
+        settlementContext.pushProof(publicInputs, settlementBundle.settlementProof, vk);
+
+        // Push the proof linking argument between the authorization and settlement proofs to the context
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: settlementBundle.auth.validityProof.wireComms[0],
+            wireComm1: settlementBundle.settlementProof.wireComms[0],
+            proof: settlementBundle.authSettlementLinkingProof,
+            vk: vkeys.intentAndBalanceSettlement0LinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
+    }
+
+    /// @notice Validate the obligation constraints for a renegade settled private intent bundle for a subsequent fill;
+    /// i.e. not the first fill
+    /// @param obligation The obligation to validate
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
+    function validateObligationConstraints(
+        SettlementObligation memory obligation,
+        RenegadeSettledIntentBundle memory settlementBundle,
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
+    )
+        internal
+        view
+    {
+        // The obligation in the settlement statement must match the one from the obligation bundle
+        IntentAndBalancePublicSettlementStatement memory settlementStatement = settlementBundle.settlementStatement;
+        bool obligationMatches = obligation.isEqualTo(settlementStatement.settlementObligation);
+        if (!obligationMatches) revert IDarkpoolV2.InvalidObligation();
+
+        // Register the settlement proof to the context for subsequent verification
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(settlementStatement);
+        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
+        settlementContext.pushProof(publicInputs, settlementBundle.settlementProof, vk);
+
+        // Push the proof linking argument between the authorization and settlement proofs to the context
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: settlementBundle.auth.validityProof.wireComms[0],
+            wireComm1: settlementBundle.settlementProof.wireComms[0],
+            proof: settlementBundle.authSettlementLinkingProof,
+            vk: vkeys.intentAndBalanceSettlement0LinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
     // -----------------

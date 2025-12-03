@@ -122,6 +122,8 @@ struct RenegadeSettledIntentFirstFillBundle {
     IntentAndBalancePublicSettlementStatement settlementStatement;
     /// @dev The proof of intent and balance public settlement
     PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
 }
 
 /// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle
@@ -132,6 +134,8 @@ struct RenegadeSettledIntentBundle {
     IntentAndBalancePublicSettlementStatement settlementStatement;
     /// @dev The proof of intent and balance public settlement
     PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
 }
 
 /// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle on the first fill
