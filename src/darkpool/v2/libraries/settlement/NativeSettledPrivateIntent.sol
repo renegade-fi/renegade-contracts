@@ -8,18 +8,28 @@ import {
     SettlementBundle,
     SettlementBundleLib,
     PrivateIntentPublicBalanceBundle,
-    PrivateIntentPublicBalanceFirstFillBundle
+    PrivateIntentPublicBalanceFirstFillBundle,
+    PrivateIntentPublicBalanceBoundedBundle,
+    PrivateIntentPublicBalanceBoundedFirstFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
-import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import {
+    PrivateIntentAuthBundle,
+    PrivateIntentAuthBundleFirstFill
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
     IntentOnlyValidityStatement,
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import {
+    IntentOnlyPublicSettlementStatement,
+    IntentOnlyBoundedSettlementStatement
+} from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { VerificationKey, ProofLinkingInstance } from "renegade-lib/verifier/Types.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
@@ -37,19 +47,23 @@ import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 /// @notice Library for validating a natively settled private intent
 /// @dev A natively settled private intent is a private intent with a private (darkpool) balance.
 library NativeSettledPrivateIntentLib {
-    using SignatureWithNonceLib for SignatureWithNonce;
-    using SettlementBundleLib for SettlementBundle;
-    using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
-    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
-    using ObligationLib for ObligationBundle;
-    using SettlementObligationLib for SettlementObligation;
-    using SettlementContextLib for SettlementContext;
+    using BoundedMatchResultLib for BoundedMatchResult;
     using DarkpoolStateLib for DarkpoolState;
-    using PublicInputsLib for IntentOnlyValidityStatement;
-    using PublicInputsLib for IntentOnlyValidityStatementFirstFill;
-    using PublicInputsLib for IntentOnlyPublicSettlementStatement;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
+    using ObligationLib for ObligationBundle;
+    using PublicInputsLib for IntentOnlyBoundedSettlementStatement;
+    using PublicInputsLib for IntentOnlyPublicSettlementStatement;
+    using PublicInputsLib for IntentOnlyValidityStatement;
+    using PublicInputsLib for IntentOnlyValidityStatementFirstFill;
+    using SettlementBundleLib for PrivateIntentPublicBalanceBoundedBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceBoundedFirstFillBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
+    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
+    using SettlementBundleLib for SettlementBundle;
+    using SettlementContextLib for SettlementContext;
+    using SettlementObligationLib for SettlementObligation;
+    using SignatureWithNonceLib for SignatureWithNonce;
 
     // --- Implementation --- //
 
@@ -79,6 +93,121 @@ library NativeSettledPrivateIntentLib {
         } else {
             executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
         }
+    }
+
+    /// @notice Validate and execute a bounded match settlement bundle with a private intent and public balance
+    /// @param matchBundle The bounded match result bundle containing the match parameters
+    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
+    function executeBoundedMatch(
+        BoundedMatchResultBundle calldata matchBundle,
+        SettlementObligation memory obligation,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
+    )
+        internal
+    {
+        if (settlementBundle.isFirstFill) {
+            executeBoundedMatchFirstFill(
+                matchBundle, obligation, settlementBundle, settlementContext, hasher, vkeys, state
+            );
+        } else {
+            executeBoundedMatchSubsequent(
+                matchBundle, obligation, settlementBundle, settlementContext, hasher, vkeys, state
+            );
+        }
+    }
+
+    /// @notice Validate and execute a bounded match settlement bundle for a first fill
+    /// @param matchBundle The bounded match result bundle containing the match parameters
+    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
+    function executeBoundedMatchFirstFill(
+        BoundedMatchResultBundle calldata matchBundle,
+        SettlementObligation memory obligation,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
+    )
+        internal
+    {
+        // Decode the bundle data
+        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData =
+            settlementBundle.decodePrivateIntentBoundedBundleDataFirstFill();
+        BoundedMatchResult memory matchResult = matchBundle.permit.matchResult;
+
+        // Compute the pre- and post-update commitment to the intent
+        // We use `obligation.amountIn` rather than the `amountIn` value leaked by the statement since
+        // the size of a bounded match is determined at runtime by the external party.
+        (BN254.ScalarField preMatchIntentCommitment, BN254.ScalarField postMatchIntentCommitment) =
+            bundleData.computeIntentCommitments(obligation.amountIn, hasher);
+
+        // 1. Validate intent authorization (same as exact settlement)
+        validatePrivateIntentAuthorizationFirstFill(
+            preMatchIntentCommitment, bundleData.auth, settlementContext, vkeys, state
+        );
+
+        // 2. Validate intent constraints on the bounded match result
+        // This makes sure the bounded match result from calldata matches the one in the statement
+        // and appends settlement proof and proof linking argument
+        validateBoundedMatchResultConstraintsFirstFill(matchResult, bundleData, settlementContext, vkeys);
+
+        // 3. Execute state updates
+        executeStateUpdatesFirstFill(
+            postMatchIntentCommitment, bundleData, obligation, settlementContext, state, hasher
+        );
+    }
+
+    /// @notice Validate and execute a bounded match settlement bundle for a subsequent fill
+    /// @param matchBundle The bounded match result bundle containing the match parameters
+    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param settlementBundle The settlement bundle to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
+    /// @param state The darkpool state containing all storage references
+    function executeBoundedMatchSubsequent(
+        BoundedMatchResultBundle calldata matchBundle,
+        SettlementObligation memory obligation,
+        SettlementBundle calldata settlementBundle,
+        SettlementContext memory settlementContext,
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
+    )
+        internal
+    {
+        // Decode the bundle data
+        PrivateIntentPublicBalanceBoundedBundle memory bundleData =
+            settlementBundle.decodePrivateIntentBoundedBundleData();
+        BoundedMatchResult memory matchResult = matchBundle.permit.matchResult;
+
+        // 1. Validate intent authorization using preMatchIntentCommitment
+        // This appends validity proof
+        // Note that we don't need to validate the commitment signature here because it was already validated in the
+        // first fill
+        validatePrivateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
+
+        // 2. Validate intent constraints on the bounded match result
+        // This makes sure the bounded match result from calldata matches the one in the statement
+        // and appends settlement proof and proof linking argument
+        validateBoundedMatchResultConstraints(matchResult, bundleData, settlementContext, vkeys);
+
+        // 3. Execute state updates
+        executeStateUpdates(bundleData, obligation, settlementContext, state, hasher);
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a first fill
@@ -320,6 +449,72 @@ library NativeSettledPrivateIntentLib {
         settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
+    // -------------------------------------
+    // | Bounded Match Result Constraints |
+    // -------------------------------------
+
+    /// @notice Validate the bounded match result constraints for a first fill
+    /// @dev The settlement proof validates that the intent can capitalize the bounded match result.
+    /// We verify that the bounded match result in the calldata matches the one in the settlement statement.
+    /// @param matchResult The bounded match result to validate against
+    /// @param bundleData The decoded settlement bundle containing the settlement proof
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param _vkeys The contract storing the verification keys
+    function validateBoundedMatchResultConstraintsFirstFill(
+        BoundedMatchResult memory matchResult,
+        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData,
+        SettlementContext memory settlementContext,
+        IVkeys _vkeys
+    )
+        internal
+        view
+    {
+        IntentOnlyBoundedSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+
+        // The match result in the settlement statement must match the one in the calldata
+        bool matchResultMatches = matchResult.isEqualTo(settlementStatement.boundedMatchResult);
+        if (!matchResultMatches) revert IDarkpoolV2.InvalidBoundedMatchResult();
+
+        // Push the settlement proof to the context for verification
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(settlementStatement);
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+
+        // Push the proof linking argument to the context for verification
+        // TODO: Implement proof linking
+    }
+
+    /// @notice Validate the bounded match result constraints for a subsequent fill
+    /// @dev The settlement proof validates that the intent can capitalize the bounded match result.
+    /// We verify that the bounded match result in the calldata matches the one in the settlement statement.
+    /// @param matchResult The bounded match result to validate against
+    /// @param bundleData The decoded settlement bundle containing the settlement proof
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param _vkeys The contract storing the verification keys
+    function validateBoundedMatchResultConstraints(
+        BoundedMatchResult memory matchResult,
+        PrivateIntentPublicBalanceBoundedBundle memory bundleData,
+        SettlementContext memory settlementContext,
+        IVkeys _vkeys
+    )
+        internal
+        view
+    {
+        IntentOnlyBoundedSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+
+        // The match result in the settlement statement must match the one in the calldata
+        bool matchResultMatches = matchResult.isEqualTo(settlementStatement.boundedMatchResult);
+        if (!matchResultMatches) revert IDarkpoolV2.InvalidBoundedMatchResult();
+
+        // Push the settlement proof to the context for verification
+        BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(settlementStatement);
+        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        settlementContext.pushProof(publicInputs, bundleData.settlementProof, vk);
+
+        // Push the proof linking argument to the context for verification
+        // TODO: Implement proof linking
+    }
+
     // -----------------
     // | State Updates |
     // -----------------
@@ -358,6 +553,36 @@ library NativeSettledPrivateIntentLib {
         emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
+    /// @notice Execute the state updates necessary to settle a bounded match bundle for a first fill
+    /// @param postMatchIntentCommitment The post-match commitment to the intent
+    /// @param bundleData The bundle data to execute the state updates for
+    /// @param obligation The settlement obligation to settle
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
+    /// @dev On the first fill, no state needs to be nullified. We must only insert the new intent commitment and
+    /// allocate the transfers.
+    function executeStateUpdatesFirstFill(
+        BN254.ScalarField postMatchIntentCommitment,
+        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData,
+        SettlementObligation memory obligation,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher hasher
+    )
+        internal
+    {
+        // 1. Insert a commitment to the updated intent into the Merkle tree
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        state.insertMerkleLeaf(merkleDepth, postMatchIntentCommitment, hasher);
+
+        // 2. Allocate transfers to settle the obligation in the settlement context
+        address owner = bundleData.auth.statement.intentOwner;
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
+            computeFeeTakes(obligation, bundleData.settlementStatement, state);
+        allocateTransfers(owner, relayerFeeTake, protocolFeeTake, obligation, settlementContext);
+    }
+
     /// @notice Execute the state updates necessary to settle the bundle
     /// @param bundleData The bundle data to execute the state updates for
     /// @param obligation The settlement obligation to settle
@@ -391,6 +616,37 @@ library NativeSettledPrivateIntentLib {
         // 4. Emit a recovery ID for the intent
         BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
         emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+    }
+
+    /// @notice Execute the state updates necessary to settle a bounded match bundle
+    /// @param bundleData The bundle data to execute the state updates for
+    /// @param obligation The settlement obligation to settle
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
+    /// @param hasher The hasher to use for hashing
+    function executeStateUpdates(
+        PrivateIntentPublicBalanceBoundedBundle memory bundleData,
+        SettlementObligation memory obligation,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state,
+        IHasher hasher
+    )
+        internal
+    {
+        // 1. Spend the nullifier for the previous version of the intent
+        BN254.ScalarField nullifier = bundleData.auth.statement.oldIntentNullifier;
+        state.spendNullifier(nullifier);
+
+        // 2. Insert a commitment to the updated intent into the Merkle tree
+        BN254.ScalarField newIntentCommitment = bundleData.computeFullIntentCommitment(obligation.amountIn, hasher);
+        uint256 merkleDepth = bundleData.auth.merkleDepth;
+        state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
+
+        // 3. Allocate transfers to settle the obligation in the settlement context
+        address owner = bundleData.auth.statement.intentOwner;
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
+            computeFeeTakes(obligation, bundleData.settlementStatement, state);
+        allocateTransfers(owner, relayerFeeTake, protocolFeeTake, obligation, settlementContext);
     }
 
     /// @notice Allocate transfers to settle the obligation into the settlement context
@@ -444,6 +700,38 @@ library NativeSettledPrivateIntentLib {
         FeeRate memory relayerFeeRate =
             FeeRate({ rate: settlementStatement.relayerFee, recipient: settlementStatement.relayerFeeRecipient });
         FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
+
+        // Multiply the rates with the receive amount
+        uint256 receiveAmount = obligation.amountOut;
+        address receiveToken = obligation.outputToken;
+        relayerFeeTake = relayerFeeRate.computeFeeTake(receiveToken, receiveAmount);
+        protocolFeeTake = protocolFeeRate.computeFeeTake(receiveToken, receiveAmount);
+    }
+
+    /// @notice Compute the fee takes for a bounded match
+    /// @param obligation The settlement obligation to compute fee takes for
+    /// @param settlementStatement The settlement statement to compute fee takes for
+    /// @param state The darkpool state containing all storage references
+    /// @return relayerFeeTake The relayer fee take
+    /// @return protocolFeeTake The protocol fee take
+    function computeFeeTakes(
+        SettlementObligation memory obligation,
+        IntentOnlyBoundedSettlementStatement memory settlementStatement,
+        DarkpoolState storage state
+    )
+        internal
+        view
+        returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
+    {
+        // Compute the fee rates
+        FeeRate memory relayerFeeRate = FeeRate({
+            rate: settlementStatement.internalRelayerFeeRate, recipient: settlementStatement.relayerFeeAddress
+        });
+
+        // Verify the protocol fee rate used in settlement matches the darkpool state
+        FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
+        bool protocolFeeRateMatches = settlementStatement.internalProtocolFeeRate.repr == protocolFeeRate.rate.repr;
+        if (!protocolFeeRateMatches) revert IDarkpoolV2.InvalidProtocolFeeRates();
 
         // Multiply the rates with the receive amount
         uint256 receiveAmount = obligation.amountOut;

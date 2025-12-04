@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 
@@ -23,6 +24,22 @@ struct IntentOnlyPublicSettlementStatement {
     FixedPoint relayerFee;
     /// @dev The recipient of the relayer fee
     address relayerFeeRecipient;
+}
+
+/// @notice A statement for a proof of single-intent bounded settlement
+/// @dev The settlement proof validates that the intent can capitalize the bounded match result.
+/// The contract verifies that the calldata bounded match result matches this statement's bounded match result.
+struct IntentOnlyBoundedSettlementStatement {
+    /// @dev The bounded match result that the intent must be able to capitalize
+    BoundedMatchResult boundedMatchResult;
+    /// @dev The fee rates charged to the external party (relayer + protocol)
+    FixedPoint externalRelayerFeeRate;
+    FixedPoint externalProtocolFeeRate;
+    /// @dev The fee rates charged to the internal party (relayer + protocol)
+    FixedPoint internalRelayerFeeRate;
+    FixedPoint internalProtocolFeeRate;
+    /// @dev The address at which the relayer receives their fee from the external party
+    address relayerFeeAddress;
 }
 
 /// @notice A statement for a proof of intent and balance public settlement
