@@ -23,8 +23,6 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     DepositProofBundle,
@@ -270,6 +268,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
             verifier,
             weth,
             permit2,
+            vkeys,
             externalPartyAmountIn,
             recipient,
             matchBundle,

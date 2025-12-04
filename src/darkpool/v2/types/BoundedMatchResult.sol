@@ -31,6 +31,26 @@ struct BoundedMatchResult {
 library BoundedMatchResultLib {
     using FixedPointLib for FixedPoint;
 
+    /// @notice Return whether two bounded match results are equal
+    /// @param boundedMatchResult0 The first bounded match result to compare
+    /// @param boundedMatchResult1 The second bounded match result to compare
+    /// @return Whether the bounded match results are equal
+    function isEqualTo(
+        BoundedMatchResult memory boundedMatchResult0,
+        BoundedMatchResult memory boundedMatchResult1
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return boundedMatchResult0.internalPartyInputToken == boundedMatchResult1.internalPartyInputToken
+            && boundedMatchResult0.internalPartyOutputToken == boundedMatchResult1.internalPartyOutputToken
+            && boundedMatchResult0.price.repr == boundedMatchResult1.price.repr
+            && boundedMatchResult0.minInternalPartyAmountIn == boundedMatchResult1.minInternalPartyAmountIn
+            && boundedMatchResult0.maxInternalPartyAmountIn == boundedMatchResult1.maxInternalPartyAmountIn
+            && boundedMatchResult0.blockDeadline == boundedMatchResult1.blockDeadline;
+    }
+
     /// @notice Build two `SettlementObligation`s from a `BoundedMatchResult` and an input amount.
     /// @param matchResult The `BoundedMatchResult` to build the `SettlementObligation`s from
     /// @param externalPartyAmountIn The amount of the input token to trade for the external party

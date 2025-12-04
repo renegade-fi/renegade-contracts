@@ -73,6 +73,10 @@ interface IDarkpoolV2 {
     error BoundedMatchExpired();
     /// @notice Thrown when a bounded match amount is zero
     error BoundedMatchZeroAmount();
+    /// @notice Thrown when a bounded match result is invalid
+    error InvalidBoundedMatchResult();
+    /// @notice Thrown when the protocol fee rates used in settlement do not match
+    error InvalidProtocolFeeRates();
 
     // --- Events --- //
 

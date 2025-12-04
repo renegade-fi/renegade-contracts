@@ -12,6 +12,7 @@ import {
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
     IntentOnlyPublicSettlementStatement,
+    IntentOnlyBoundedSettlementStatement,
     IntentAndBalancePublicSettlementStatement
 } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import {
@@ -109,6 +110,30 @@ struct PrivateIntentPublicBalanceBundle {
     /// @dev The statement of single-intent match settlement
     IntentOnlyPublicSettlementStatement settlementStatement;
     /// @dev The proof of single-intent match settlement
+    PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
+}
+
+/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bounded settlement on the first fill
+struct PrivateIntentPublicBalanceBoundedFirstFillBundle {
+    /// @dev The private intent authorization payload with signature attached
+    PrivateIntentAuthBundleFirstFill auth;
+    /// @dev The statement of single-intent bounded settlement
+    IntentOnlyBoundedSettlementStatement settlementStatement;
+    /// @dev The proof of single-intent bounded settlement
+    PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
+}
+
+/// @notice The settlement bundle data for a `NATIVELY_SETTLED_PRIVATE_INTENT` bounded settlement
+struct PrivateIntentPublicBalanceBoundedBundle {
+    /// @dev The private intent authorization payload with signature attached
+    PrivateIntentAuthBundle auth;
+    /// @dev The statement of single-intent bounded settlement
+    IntentOnlyBoundedSettlementStatement settlementStatement;
+    /// @dev The proof of single-intent bounded settlement
     PlonkProof settlementProof;
     /// @dev The proof linking the authorization and settlement proofs
     LinkingProof authSettlementLinkingProof;
@@ -306,6 +331,53 @@ library SettlementBundleLib {
             CommitmentLib.computeResumableCommitment(postUpdateRemainingShares, sharedPrefixPartialComm, hasher);
     }
 
+    /// @notice Compute the pre- and post-update intent commitments for a bounded match first fill
+    /// @dev This differs from the method above in that the settlement amount comes from the obligation rather than the
+    /// statement since because trade size is determined at runtime.
+    /// @param bundleData The bundle data to compute the commitments for
+    /// @param internalPartyAmountIn The internal party's input amount (determined at runtime)
+    /// @param hasher The hasher to use for hashing
+    /// @return preUpdateIntentCommitment The commitment to the pre-updated intent
+    /// @return postUpdateIntentCommitment The commitment to the post-updated intent
+    function computeIntentCommitments(
+        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData,
+        uint256 internalPartyAmountIn,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField preUpdateIntentCommitment, BN254.ScalarField postUpdateIntentCommitment)
+    {
+        IntentOnlyValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        IntentPublicShare memory intentPublicShare = authStatement.intentPublicShare;
+
+        // 1. Compute the shared prefix of the two commitments (same as regular case)
+        uint256[] memory intentPublicShareScalars = intentPublicShare.scalarSerializeMatchPrefix();
+        uint256 prefixHash = hasher.computeResumableCommitment(intentPublicShareScalars);
+
+        // 2. Compute the full pre-update commitment; i.e. the commitment to the original shares
+        PartialCommitment memory sharedPrefixPartialComm = PartialCommitment({
+            privateCommitment: authStatement.intentPrivateCommitment,
+            partialPublicCommitment: BN254.ScalarField.wrap(prefixHash)
+        });
+
+        uint256[] memory preUpdateRemainingShares = new uint256[](1);
+        preUpdateRemainingShares[0] = BN254.ScalarField.unwrap(authStatement.intentPublicShare.amountIn);
+        preUpdateIntentCommitment =
+            CommitmentLib.computeResumableCommitment(preUpdateRemainingShares, sharedPrefixPartialComm, hasher);
+
+        // 3. Compute the full post-update commitment
+        // To do so we must update the `amountIn` field in the intent public shares to reflect the settlement
+        uint256[] memory postUpdateRemainingShares = new uint256[](1);
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(internalPartyAmountIn);
+        // SAFETY: intent.amountIn >= maxBound (constrained in circuit) >= settlementAmount (checked
+        // inBoundedMatchResultLib.validateAmountIn)
+        BN254.ScalarField newAmountInShare = authStatement.intentPublicShare.amountIn.sub(settlementAmount);
+        postUpdateRemainingShares[0] = BN254.ScalarField.unwrap(newAmountInShare);
+        postUpdateIntentCommitment =
+            CommitmentLib.computeResumableCommitment(postUpdateRemainingShares, sharedPrefixPartialComm, hasher);
+    }
+
     /// @notice Compute the full commitment to the updated intent for a natively settled private intent bundle
     /// @param bundleData The bundle data to compute the commitment for
     /// @param hasher The hasher to use for hashing
@@ -325,6 +397,38 @@ library SettlementBundleLib {
 
         // 1. Apply the settlement to the intent public share
         BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.obligation.amountIn);
+        BN254.ScalarField newAmountShareScalar = authStatement.newAmountShare.sub(settlementAmount);
+
+        // 2. Compute the full commitment to the updated intent by resuming from the partial commitment
+        uint256[] memory postUpdateRemainingShares = new uint256[](1);
+        postUpdateRemainingShares[0] = BN254.ScalarField.unwrap(newAmountShareScalar);
+        newIntentCommitment = CommitmentLib.computeResumableCommitment(
+            postUpdateRemainingShares, authStatement.newIntentPartialCommitment, hasher
+        );
+    }
+
+    /// @notice Compute the full commitment to the updated intent for a bounded match subsequent fill
+    /// @dev This differs from the method above in that the settlement amount comes from the obligation rather than the
+    /// statement since trade size is determined at runtime.
+    /// @param bundleData The bundle data to compute the commitments for
+    /// @param internalPartyAmountIn The internal party's input amount (determined at runtime)
+    /// @param hasher The hasher to use for hashing
+    /// @return newIntentCommitment The full commitment to the updated intent
+    function computeFullIntentCommitment(
+        PrivateIntentPublicBalanceBoundedBundle memory bundleData,
+        uint256 internalPartyAmountIn,
+        IHasher hasher
+    )
+        internal
+        view
+        returns (BN254.ScalarField newIntentCommitment)
+    {
+        IntentOnlyValidityStatement memory authStatement = bundleData.auth.statement;
+
+        // 1. Apply the settlement to the intent public share
+        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(internalPartyAmountIn);
+        // SAFETY: intent.amountIn >= maxBound (constrained in circuit) >= settlementAmount (checked
+        // inBoundedMatchResultLib.validateAmountIn)
         BN254.ScalarField newAmountShareScalar = authStatement.newAmountShare.sub(settlementAmount);
 
         // 2. Compute the full commitment to the updated intent by resuming from the partial commitment
@@ -615,6 +719,34 @@ library SettlementBundleLib {
             !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
+    }
+
+    /// @notice Decode a private intent bounded settlement bundle for a first fill
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodePrivateIntentBoundedBundleDataFirstFill(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData)
+    {
+        bool validType =
+            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBoundedFirstFillBundle));
+    }
+
+    /// @notice Decode a private intent bounded settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodePrivateIntentBoundedBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (PrivateIntentPublicBalanceBoundedBundle memory bundleData)
+    {
+        bool validType =
+            !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBoundedBundle));
     }
 
     /// @notice Decode a renegade settled private intent settlement bundle
