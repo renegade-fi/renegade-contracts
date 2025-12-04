@@ -6,10 +6,12 @@ pragma solidity ^0.8.24;
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { FeeTake } from "darkpoolv2-types/Fee.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { BalanceSnapshots, ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 import { ExternalMatchTestUtils } from "./Utils.sol";
 
@@ -74,32 +76,36 @@ contract FullMatchTests is ExternalMatchTestUtils {
             internalPartyPermit.intent, internalPartyObligation, internalParty.privateKey, executor.privateKey
         );
 
-        // Record balances before settlement
-        (uint256 internalPartyBaseBefore, uint256 internalPartyQuoteBefore) = baseQuoteBalances(internalParty.addr);
-        (uint256 externalPartyBaseBefore, uint256 externalPartyQuoteBefore) = baseQuoteBalances(externalParty.addr);
-
-        // Choose a trade size
+        // Choose a trade size and build the actual obligations that will be used in settlement
         (uint256 externalPartyAmountIn, uint256 externalPartyAmountOut) =
             randomExternalPartyAmountIn(externalPartyObligation, matchBundle.permit.matchResult.price);
         address recipient = externalParty.addr;
+        (SettlementObligation memory actualExternalObligation, SettlementObligation memory actualInternalObligation) =
+            buildObligationsFromMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Settle the match as the external party
+        // Compute fees that will be deducted from internal party's output
+        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) = computeMatchFees(actualInternalObligation);
+        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
+
+        // Set up expected differences accounting for fees
+        ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
+        expectedDifferences.party0BaseChange = -int256(actualInternalObligation.amountIn);
+        expectedDifferences.party0QuoteChange = int256(actualInternalObligation.amountOut) - int256(totalFee);
+        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut);
+        expectedDifferences.party1QuoteChange = -int256(actualExternalObligation.amountIn);
+        expectedDifferences.relayerFeeBaseChange = 0;
+        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake.fee);
+        expectedDifferences.protocolFeeBaseChange = 0;
+        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake.fee);
+        expectedDifferences.darkpoolBaseChange = 0;
+        expectedDifferences.darkpoolQuoteChange = 0;
+
+        // Check balances before and after settlement
+        BalanceSnapshots memory preMatch = _captureBalances();
         vm.prank(externalParty.addr);
         darkpool.settleExternalMatch(externalPartyAmountIn, recipient, matchBundle, internalPartySettlementBundle);
-
-        // Check balances after settlement
-        (uint256 internalPartyBaseAfter, uint256 internalPartyQuoteAfter) = baseQuoteBalances(internalParty.addr);
-        (uint256 externalPartyBaseAfter, uint256 externalPartyQuoteAfter) = baseQuoteBalances(externalParty.addr);
-
-        // Verify balance changes
-        assertEq(internalPartyBaseBefore - internalPartyBaseAfter, externalPartyAmountOut, "internalParty base sent");
-        assertEq(
-            internalPartyQuoteAfter - internalPartyQuoteBefore, externalPartyAmountIn, "internalParty quote received"
-        );
-        assertEq(externalPartyQuoteBefore - externalPartyQuoteAfter, externalPartyAmountIn, "externalParty quote sent");
-        assertEq(
-            externalPartyBaseAfter - externalPartyBaseBefore, externalPartyAmountOut, "externalParty base received"
-        );
+        BalanceSnapshots memory postMatch = _captureBalances();
+        _verifyBalanceChanges(preMatch, postMatch, expectedDifferences);
 
         // Verify the amount remaining on the intent
         bytes32 intentHash = internalPartyPermit.computeHash();
