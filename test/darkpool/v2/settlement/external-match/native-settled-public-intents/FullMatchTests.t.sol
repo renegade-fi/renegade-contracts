@@ -11,11 +11,11 @@ import { Intent } from "darkpoolv2-types/Intent.sol";
 import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
-import { BalanceSnapshots, ExpectedDifferences } from "../SettlementTestUtils.sol";
+import { BalanceSnapshots, ExpectedDifferences } from "../../SettlementTestUtils.sol";
 
-import { ExternalMatchTestUtils } from "./Utils.sol";
+import { PublicIntentExternalMatchTestUtils } from "./Utils.sol";
 
-contract FullMatchTests is ExternalMatchTestUtils {
+contract FullMatchTests is PublicIntentExternalMatchTestUtils {
     using FixedPointLib for FixedPoint;
     using PublicIntentPermitLib for PublicIntentPermit;
 

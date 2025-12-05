@@ -91,6 +91,7 @@ contract DarkpoolV2TestUtils is DarkpoolV2TestBase {
         // Approve the darkpool contract directly (external party doesn't use permit2)
         vm.startPrank(externalParty.addr);
         erc20.approve(address(darkpool), type(uint256).max);
+        erc20.approve(address(darkpoolRealVerifier), type(uint256).max);
         vm.stopPrank();
     }
 

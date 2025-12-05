@@ -5,12 +5,12 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 
-import { ExternalMatchTestUtils } from "../settlement/external-match/Utils.sol";
+import { DarkpoolV2TestUtils } from "../DarkpoolV2TestUtils.sol";
 
 /// @title Bounded Match Result Test Utils
 /// @notice Shared utilities for bounded match result tests
 /// @author Renegade Eng
-contract BoundedMatchResultTestUtils is ExternalMatchTestUtils {
+contract BoundedMatchResultTestUtils is DarkpoolV2TestUtils {
     using BoundedMatchResultLib for BoundedMatchResult;
     using FixedPointLib for FixedPoint;
 
