@@ -107,6 +107,7 @@ library SettlementLib {
     /// @param verifier The verifier to use for verification
     /// @param weth The WETH9 contract instance
     /// @param permit2 The permit2 contract instance
+    /// @param vkeys The contract storing the verification keys
     /// @param externalPartyAmountIn The input amount for the trade
     /// @param recipient The recipient of the withdrawal
     /// @param matchBundle The bounded match result bundle
@@ -117,6 +118,7 @@ library SettlementLib {
         IVerifier verifier,
         IWETH9 weth,
         IPermit2 permit2,
+        IVkeys vkeys,
         uint256 externalPartyAmountIn,
         address recipient,
         BoundedMatchResultBundle calldata matchBundle,
@@ -133,7 +135,7 @@ library SettlementLib {
 
         // Validate and authorize the settlement bundles
         executeExternalSettlementBundle(
-            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, state, hasher
+            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
         );
 
         // Allocate transfers for external party
@@ -347,14 +349,17 @@ library SettlementLib {
     /// @param internalObligation The settlement obligation to validate
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param hasher The hasher to use for hashing
+    /// @param vkeys The contract storing the verification keys
     /// @param state The darkpool state containing all storage references
     function executeExternalSettlementBundle(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory internalObligation,
         SettlementBundle calldata internalPartySettlementBundle,
         SettlementContext memory settlementContext,
-        DarkpoolState storage state,
-        IHasher _hasher
+        IHasher hasher,
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
     {
@@ -362,6 +367,10 @@ library SettlementLib {
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             NativeSettledPublicIntentLib.executeBoundedMatch(
                 matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, state
+            );
+        } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+            NativeSettledPrivateIntentLib.executeBoundedMatch(
+                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
             );
         } else {
             // TODO: Add support for other settlement bundle types

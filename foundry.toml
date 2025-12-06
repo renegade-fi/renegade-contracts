@@ -1,4 +1,4 @@
-[profile.lint]
+[lint]
 exclude_lints = ["incorrect-shift"]
 
 [fmt]
