@@ -300,6 +300,24 @@ library RenegadeSettledPrivateIntentLib {
         settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
+    // ------------------------------
+    // | Output Balance Constraints |
+    // ------------------------------
+
+    /// @notice Validate the output balance validity proof on a first fill
+    /// @param bundleData The bundle data to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
+    function validateOutputBalanceConstraintsFirstFill(
+        RenegadeSettledIntentFirstFillBundle memory bundleData,
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
+    )
+        internal
+    {
+        // Decode the output balance bundle
+    }
+
     // -----------------
     // | State Updates |
     // -----------------
