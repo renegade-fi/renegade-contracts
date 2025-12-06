@@ -77,6 +77,7 @@ struct IntentAndBalanceValidityStatementFirstFill {
     /// @dev The partial commitment to the new balance
     PartialCommitment balancePartialCommitment;
     /// @dev The public share of the one-time authorizing address after it has been re-encrypted
+    /// @dev Note that this value is only validated in-circuit and placed here to leak the value to indexers
     BN254.ScalarField newOneTimeAddressPublicShare;
     /// @dev The nullifier of the old balance
     BN254.ScalarField oldBalanceNullifier;

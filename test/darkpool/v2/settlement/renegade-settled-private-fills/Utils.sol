@@ -32,10 +32,12 @@ import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 
 contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
     using FixedPointLib for FixedPoint;
+    using DarkpoolStateLib for DarkpoolState;
 
     // ---------
     // | Utils |
@@ -83,8 +85,9 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             minPrice: randomScalar()
         });
 
+        BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         return IntentAndBalanceValidityStatementFirstFill({
-            merkleRoot: randomScalar(),
+            merkleRoot: merkleRoot,
             intentAndAuthorizingAddressCommitment: randomScalar(),
             intentPublicShare: intentPublicShare,
             intentPrivateShareCommitment: randomScalar(),
@@ -99,12 +102,13 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
 
     /// @dev Create a dummy intent and balance validity statement (subsequent fill)
     function createSampleStatement() internal returns (IntentAndBalanceValidityStatement memory) {
+        BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         return IntentAndBalanceValidityStatement({
-            intentMerkleRoot: randomScalar(),
+            intentMerkleRoot: merkleRoot,
             oldIntentNullifier: randomScalar(),
             newIntentPartialCommitment: randomPartialCommitment(),
             intentRecoveryId: randomScalar(),
-            balanceMerkleRoot: randomScalar(),
+            balanceMerkleRoot: merkleRoot,
             oldBalanceNullifier: randomScalar(),
             balancePartialCommitment: randomPartialCommitment(),
             balanceRecoveryId: randomScalar()
