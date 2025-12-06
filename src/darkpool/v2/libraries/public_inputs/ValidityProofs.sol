@@ -113,3 +113,29 @@ struct IntentAndBalanceValidityStatement {
     /// @dev The recovery identifier of the new balance
     BN254.ScalarField balanceRecoveryId;
 }
+
+// --- Output Balance Validity Statements --- //
+
+/// @notice A statement for a proof of new output balance validity
+/// @dev The statement type for `NEW OUTPUT BALANCE VALIDITY`
+struct NewOutputBalanceValidityStatement {
+    /// @dev A commitment to the original balance before update
+    BN254.ScalarField originalBalanceCommitment;
+    /// @dev A partial commitment to the new output balance
+    PartialCommitment newBalancePartialCommitment;
+    /// @dev The recovery identifier of the new output balance
+    BN254.ScalarField recoveryId;
+}
+
+/// @notice A statement for a proof of output balance validity
+/// @dev The statement type for `OUTPUT BALANCE VALIDITY`
+struct OutputBalanceValidityStatement {
+    /// @dev The Merkle root to which the balance opens
+    BN254.ScalarField merkleRoot;
+    /// @dev The nullifier of the balance
+    BN254.ScalarField oldBalanceNullifier;
+    /// @dev The partial commitment to the balance
+    PartialCommitment newPartialCommitment;
+    /// @dev The recovery identifier of the balance
+    BN254.ScalarField recoveryId;
+}

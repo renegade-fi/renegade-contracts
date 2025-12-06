@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
-import { VerificationKey } from "renegade-lib/verifier/Types.sol";
 import { ValidDepositStatement, ValidBalanceCreateStatement, ValidWithdrawalStatement } from "./Transfers.sol";
 import {
     ValidPublicProtocolFeePaymentStatement,
@@ -16,7 +14,9 @@ import {
     IntentOnlyValidityStatementFirstFill,
     IntentOnlyValidityStatement,
     IntentAndBalanceValidityStatementFirstFill,
-    IntentAndBalanceValidityStatement
+    IntentAndBalanceValidityStatement,
+    NewOutputBalanceValidityStatement,
+    OutputBalanceValidityStatement
 } from "./ValidityProofs.sol";
 import {
     IntentOnlyPublicSettlementStatement,
@@ -351,6 +351,39 @@ library PublicInputsLib {
         publicInputs[7] = statement.balancePartialCommitment.privateCommitment;
         publicInputs[8] = statement.balancePartialCommitment.partialPublicCommitment;
         publicInputs[9] = statement.balanceRecoveryId;
+    }
+
+    /// @notice Serialize the public inputs for a proof of new output balance validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(NewOutputBalanceValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 4;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.originalBalanceCommitment;
+        publicInputs[1] = statement.newBalancePartialCommitment.privateCommitment;
+        publicInputs[2] = statement.newBalancePartialCommitment.partialPublicCommitment;
+        publicInputs[3] = statement.recoveryId;
+    }
+
+    /// @notice Serialize the public inputs for a proof of output balance validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(OutputBalanceValidityStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 5;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        publicInputs[0] = statement.merkleRoot;
+        publicInputs[1] = statement.oldBalanceNullifier;
+        publicInputs[2] = statement.newPartialCommitment.privateCommitment;
+        publicInputs[3] = statement.newPartialCommitment.partialPublicCommitment;
+        publicInputs[4] = statement.recoveryId;
     }
 
     /// @notice Serialize the public inputs for a proof of intent and balance private settlement

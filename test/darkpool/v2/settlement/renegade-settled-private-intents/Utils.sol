@@ -17,12 +17,14 @@ import {
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { OutputBalanceBundle, OutputBalanceBundleType } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import {
     IntentAndBalanceValidityStatementFirstFill,
-    IntentAndBalanceValidityStatement
+    IntentAndBalanceValidityStatement,
+    OutputBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
@@ -139,6 +141,24 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
         });
     }
 
+    /// @dev Create a sample output balance bundle
+    function createSampleOutputBalanceBundle() internal returns (OutputBalanceBundle memory) {
+        BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
+        OutputBalanceValidityStatement memory statement = OutputBalanceValidityStatement({
+            merkleRoot: merkleRoot,
+            oldBalanceNullifier: randomScalar(),
+            newPartialCommitment: randomPartialCommitment(),
+            recoveryId: randomScalar()
+        });
+
+        return OutputBalanceBundle({
+            bundleType: OutputBalanceBundleType.EXISTING_BALANCE,
+            data: abi.encode(statement),
+            proof: createDummyProof(),
+            settlementLinkingProof: createDummyLinkingProof()
+        });
+    }
+
     /// @dev Helper to create a sample settlement bundle
     function createSampleRenegadeSettledBundle(bool isFirstFill)
         internal
@@ -197,8 +217,10 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
+        OutputBalanceBundle memory outputBalanceBundle = createSampleOutputBalanceBundle();
         RenegadeSettledIntentFirstFillBundle memory bundleData = RenegadeSettledIntentFirstFillBundle({
             auth: auth,
+            outputBalanceBundle: outputBalanceBundle,
             settlementStatement: settlementStatement,
             settlementProof: createDummyProof(),
             authSettlementLinkingProof: createDummyLinkingProof()
@@ -231,8 +253,10 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
+        OutputBalanceBundle memory outputBalanceBundle = createSampleOutputBalanceBundle();
         RenegadeSettledIntentBundle memory bundleData = RenegadeSettledIntentBundle({
             auth: auth,
+            outputBalanceBundle: outputBalanceBundle,
             settlementStatement: settlementStatement,
             settlementProof: createDummyProof(),
             authSettlementLinkingProof: createDummyLinkingProof()
