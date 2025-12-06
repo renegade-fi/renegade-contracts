@@ -59,10 +59,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
     // --- validateBounds() --- //
 
     function test_validateBounds_invalidMinGreaterThanMax() public {
-        BoundedMatchResult memory matchResult = createBoundedMatchResultWithBounds(
-            1000, /* min */
-            100 /* max */
-        );
+        BoundedMatchResult memory matchResult = createBoundedMatchResultWithBounds(1000, /* min */ 100 /* max */ );
 
         // Should revert with InvalidBounds
         vm.expectRevert(IDarkpoolV2.InvalidBoundedMatchBounds.selector);
@@ -70,10 +67,7 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
     }
 
     function test_validateBounds_validMinEqualsMax() public {
-        BoundedMatchResult memory matchResult = createBoundedMatchResultWithBounds(
-            100, /* min */
-            100 /* max */
-        );
+        BoundedMatchResult memory matchResult = createBoundedMatchResultWithBounds(100, /* min */ 100 /* max */ );
 
         // Should not revert - min == max is allowed
         this._validateBounds(matchResult);
@@ -83,20 +77,16 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         uint256 invalidAmount = 2 ** DarkpoolConstants.AMOUNT_BITS; // exceeds max
 
         // Test with min too large
-        BoundedMatchResult memory matchResultMin = createBoundedMatchResultWithBounds(
-            invalidAmount, /* min */
-            1000 /* max */
-        );
+        BoundedMatchResult memory matchResultMin =
+            createBoundedMatchResultWithBounds(invalidAmount, /* min */ 1000 /* max */ );
 
         // Should revert with AmountTooLarge
         vm.expectRevert(abi.encodeWithSelector(IDarkpoolV2.AmountTooLarge.selector, invalidAmount));
         this._validateBounds(matchResultMin);
 
         // Test with max too large
-        BoundedMatchResult memory matchResultMax = createBoundedMatchResultWithBounds(
-            100, /* min */
-            invalidAmount /* max */
-        );
+        BoundedMatchResult memory matchResultMax =
+            createBoundedMatchResultWithBounds(100, /* min */ invalidAmount /* max */ );
 
         // Should revert with AmountTooLarge
         vm.expectRevert(abi.encodeWithSelector(IDarkpoolV2.AmountTooLarge.selector, invalidAmount));
@@ -186,4 +176,3 @@ contract BoundedMatchResultValidationTest is BoundedMatchResultTestUtils {
         this._validateAmountIn(matchResult, tooLargeAmount);
     }
 }
-

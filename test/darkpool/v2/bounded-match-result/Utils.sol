@@ -88,4 +88,3 @@ contract BoundedMatchResultTestUtils is ExternalMatchTestUtils {
         });
     }
 }
-
