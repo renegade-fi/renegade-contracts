@@ -58,4 +58,3 @@ struct ValidWithdrawalStatement {
     /// @dev This is verified in the proof and placed here to leak it in calldata for recovery logic
     BN254.ScalarField newAmountShare;
 }
-

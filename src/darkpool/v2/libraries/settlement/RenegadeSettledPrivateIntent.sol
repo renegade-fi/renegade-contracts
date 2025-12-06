@@ -9,6 +9,7 @@ import {
     RenegadeSettledIntentFirstFillBundle,
     RenegadeSettledIntentBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { OutputBalanceBundle, OutputBalanceBundleLib } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -19,7 +20,9 @@ import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import {
     IntentAndBalanceValidityStatementFirstFill,
-    IntentAndBalanceValidityStatement
+    IntentAndBalanceValidityStatement,
+    OutputBalanceValidityStatement,
+    NewOutputBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { VerificationKey, ProofLinkingInstance } from "renegade-lib/verifier/Types.sol";
@@ -51,6 +54,9 @@ library RenegadeSettledPrivateIntentLib {
     using SettlementObligationLib for SettlementObligation;
     using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
     using PublicInputsLib for IntentAndBalanceValidityStatement;
+    using PublicInputsLib for OutputBalanceValidityStatement;
+    using PublicInputsLib for NewOutputBalanceValidityStatement;
+    using OutputBalanceBundleLib for OutputBalanceBundle;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
 
@@ -116,10 +122,13 @@ library RenegadeSettledPrivateIntentLib {
         // 1. Validate the intent authorization
         validateIntentAuthorizationFirstFill(bundleData.auth, settlementContext, vkeys, state);
 
-        // 2. Validate the intent constraints on the obligation
+        // 2. Validate the output balance validity
+        validateOutputBalanceConstraintsFirstFill(bundleData, settlementContext, vkeys);
+
+        // 3. Validate the intent constraints on the obligation
         validateObligationConstraintsFirstFill(obligation, bundleData, settlementContext, vkeys);
 
-        // 3. Execute state updates for the bundle
+        // 4. Execute state updates for the bundle
         executeStateUpdatesFirstFill(bundleData, state, settlementContext, hasher);
     }
 
@@ -149,10 +158,13 @@ library RenegadeSettledPrivateIntentLib {
         // 1. Validate the intent authorization
         validateIntentAuthorization(bundleData.auth, vkeys, settlementContext, state);
 
-        // 2. Validate the intent constraints on the obligation
+        // 2. Validate the output balance validity
+        validateOutputBalanceConstraints(bundleData, settlementContext, vkeys);
+
+        // 3. Validate the intent constraints on the obligation
         validateObligationConstraints(obligation, bundleData, settlementContext, vkeys);
 
-        // 3. Execute state updates for the bundle
+        // 4. Execute state updates for the bundle
         executeStateUpdates(bundleData, state, settlementContext, hasher);
     }
 
@@ -314,8 +326,60 @@ library RenegadeSettledPrivateIntentLib {
         IVkeys vkeys
     )
         internal
+        view
     {
-        // Decode the output balance bundle
+        // Extract the public inputs and verification key for the output balance validity proof
+        OutputBalanceBundle memory outputBalanceBundle = bundleData.outputBalanceBundle;
+        (BN254.ScalarField[] memory publicInputs, VerificationKey memory vk) =
+            OutputBalanceBundleLib.getStatementAndVerificationKey(outputBalanceBundle, vkeys);
+
+        // Register the plonk proof of output balance validity to the settlement context
+        settlementContext.pushProof(publicInputs, outputBalanceBundle.proof, vk);
+
+        // Register the proof linking argument between the output balance validity proof and the settlement proof
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: outputBalanceBundle.proof.wireComms[0],
+            wireComm1: bundleData.settlementProof.wireComms[0],
+            proof: outputBalanceBundle.settlementLinkingProof,
+            // We use the first party's link group layout for this linking argument regardless of the party ID
+            // because in this settlement ring, the settlement proof is per-party, and only has link groups for one
+            // output balance.
+            vk: vkeys.outputBalanceSettlement0LinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
+    }
+
+    /// @notice Validate the output balance validity proof on a subsequent fill
+    /// @param bundleData The bundle data to validate
+    /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param vkeys The contract storing the verification keys
+    function validateOutputBalanceConstraints(
+        RenegadeSettledIntentBundle memory bundleData,
+        SettlementContext memory settlementContext,
+        IVkeys vkeys
+    )
+        internal
+        view
+    {
+        // Extract the public inputs and verification key for the output balance validity proof
+        OutputBalanceBundle memory outputBalanceBundle = bundleData.outputBalanceBundle;
+        (BN254.ScalarField[] memory publicInputs, VerificationKey memory vk) =
+            OutputBalanceBundleLib.getStatementAndVerificationKey(outputBalanceBundle, vkeys);
+
+        // Register the plonk proof of output balance validity to the settlement context
+        settlementContext.pushProof(publicInputs, outputBalanceBundle.proof, vk);
+
+        // Register the proof linking argument between the output balance validity proof and the settlement proof
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: outputBalanceBundle.proof.wireComms[0],
+            wireComm1: bundleData.settlementProof.wireComms[0],
+            proof: outputBalanceBundle.settlementLinkingProof,
+            // We use the first party's link group layout for this linking argument regardless of the party ID
+            // because in this settlement ring, the settlement proof is per-party, and only has link groups for one
+            // output balance.
+            vk: vkeys.outputBalanceSettlement0LinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
     // -----------------
@@ -419,6 +483,8 @@ library RenegadeSettledPrivateIntentLib {
     /// @notice Compute the fee takes for the match
     /// @param settlementStatement The settlement statement to compute the fee takes for
     /// @param state The darkpool state containing all storage references
+    /// @return relayerFeeTake The relayer fee take
+    /// @return protocolFeeTake The protocol fee take
     function computeFeeTakes(
         IntentAndBalancePublicSettlementStatement memory settlementStatement,
         DarkpoolState storage state

@@ -126,7 +126,9 @@ contract ExternalMatchTestUtils is SettlementTestUtils {
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
-            permit: permit, intentSignature: intentSignature, executorSignature: executorSignature
+            permit: permit,
+            intentSignature: intentSignature,
+            executorSignature: executorSignature
         });
         PublicIntentPublicBalanceBundle memory bundleData =
             PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
