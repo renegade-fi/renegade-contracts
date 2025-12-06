@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
+import { console2 } from "forge-std/console2.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import {
     SettlementBundle,
@@ -29,11 +29,15 @@ import { IntentPublicShare, IntentPublicShareLib } from "darkpoolv2-types/Intent
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementTestUtils } from "../SettlementTestUtils.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 
 contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
     using ObligationLib for ObligationBundle;
     using FixedPointLib for FixedPoint;
     using IntentPublicShareLib for IntentPublicShare;
+    using DarkpoolStateLib for DarkpoolState;
+    using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
 
     // ---------
     // | Utils |
@@ -199,9 +203,10 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         returns (SettlementBundle memory)
     {
         // Create the statement types
+        BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(merkleDepth);
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
             intentOwner: owner.addr,
-            merkleRoot: randomScalar(),
+            merkleRoot: merkleRoot,
             oldIntentNullifier: randomScalar(),
             newAmountShare: randomScalar(),
             newIntentPartialCommitment: randomPartialCommitment(),

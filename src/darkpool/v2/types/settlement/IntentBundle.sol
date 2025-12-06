@@ -92,9 +92,8 @@ library PublicIntentPermitLib {
 // --- Private Intent Authorization --- //
 
 /// @notice The private intent authorization payload
-/// TODO: Update names in comments once circuit spec is defined
 struct PrivateIntentAuthBundleFirstFill {
-    /// @dev The signature of the intent by its owner
+    /// @dev The signature of the intent's commitment by its owner
     SignatureWithNonce intentSignature;
     /// @dev The depth of the Merkle tree to insert the intent into
     uint256 merkleDepth;
@@ -105,7 +104,6 @@ struct PrivateIntentAuthBundleFirstFill {
 }
 
 /// @notice The private intent authorization payload
-/// TODO: Update names in comments once circuit spec is defined
 struct PrivateIntentAuthBundle {
     /// @dev The depth of the Merkle tree to insert the intent into
     uint256 merkleDepth;

@@ -154,7 +154,7 @@ library NativeSettledPrivateIntentLib {
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // 1. Validate the intent authorization
-        validatePrivateIntentAuthorization(bundleData.auth, vkeys, settlementContext);
+        validatePrivateIntentAuthorization(bundleData.auth, vkeys, settlementContext, state);
 
         // 2. Validate the intent constraints on the obligation
         validateObligationConstraints(obligation, bundleData, settlementContext, vkeys);
@@ -201,20 +201,23 @@ library NativeSettledPrivateIntentLib {
     /// @param auth The authorization bundle to validate
     /// @param vkeys The contract storing the verification keys
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
     /// @dev Because this is not the first fill, the presence of the intent in the Merkle tree implies that the
     /// intent owner's signature has already been verified (in a previous fill). So in this case, we need only
     /// verify the proof attached to the bundle.
     function validatePrivateIntentAuthorization(
         PrivateIntentAuthBundle memory auth,
         IVkeys vkeys,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
         view
     {
-        // Validate the Merkle depth
+        // Validate the Merkle root
         // TODO: Allow for dynamic Merkle depth
         if (auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) revert IDarkpool.InvalidMerkleDepthRequested();
+        state.assertRootInHistory(auth.statement.merkleRoot);
 
         // Append a proof to the settlement context
         BN254.ScalarField[] memory publicInputs = PublicInputsLib.statementSerialize(auth.statement);
@@ -349,6 +352,10 @@ library NativeSettledPrivateIntentLib {
         (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
             computeFeeTakes(obligation, bundleData.settlementStatement, state);
         allocateTransfers(owner, relayerFeeTake, protocolFeeTake, obligation, settlementContext);
+
+        // 3. Emit a recovery ID for the intent
+        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle
@@ -380,6 +387,10 @@ library NativeSettledPrivateIntentLib {
         (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
             computeFeeTakes(obligation, bundleData.settlementStatement, state);
         allocateTransfers(owner, relayerFeeTake, protocolFeeTake, obligation, settlementContext);
+
+        // 4. Emit a recovery ID for the intent
+        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Allocate transfers to settle the obligation into the settlement context

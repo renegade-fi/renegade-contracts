@@ -31,6 +31,8 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 /// @notice Interface for the DarkpoolV2 contract
 interface IDarkpoolV2 {
     // --- Error Messages --- //
+    /// @notice Thrown when a Merkle root is not in the history
+    error InvalidMerkleRoot();
     /// @notice Thrown when proof verification fails
     error ProofVerificationFailed();
     /// @notice Thrown when a deposit verification fails
@@ -125,6 +127,11 @@ interface IDarkpoolV2 {
     /// @param nullifier The nullifier to check
     /// @return True if the nullifier has been spent, false otherwise
     function nullifierSpent(BN254.ScalarField nullifier) external view returns (bool);
+
+    /// @notice Get the current Merkle root
+    /// @param depth The depth of the Merkle tree to get the root of
+    /// @return The current Merkle root
+    function getMerkleRoot(uint256 depth) external view returns (BN254.ScalarField);
 
     /// @notice Check if a root is in the Merkle mountain range history
     /// @param root The root to check

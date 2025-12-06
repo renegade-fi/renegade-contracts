@@ -9,9 +9,14 @@ import {
     PartyId,
     SettlementBundle,
     SettlementBundleLib,
-    PrivateIntentPublicBalanceFirstFillBundle
+    PrivateIntentPublicBalanceFirstFillBundle,
+    PrivateIntentPublicBalanceBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { SignatureWithNonce, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import {
+    SignatureWithNonce,
+    PrivateIntentAuthBundleFirstFill,
+    PrivateIntentAuthBundle
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
@@ -118,6 +123,26 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
 
         // Should revert with InvalidMerkleDepthRequested
         vm.expectRevert(IDarkpool.InvalidMerkleDepthRequested.selector);
+        authorizeIntentHelper(obligationBundle, bundle);
+    }
+
+    /// @dev Test a bundle verification case with an invalid Merkle root (not in history)
+    function test_invalidMerkleRoot() public {
+        // Create bundle for subsequent fill (not first fill)
+        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
+            createSamplePrivateIntentBundle(false /* isFirstFill */ );
+
+        // Decode the bundle data
+        PrivateIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));
+        PrivateIntentAuthBundle memory authBundle = bundleData.auth;
+
+        // Set the merkle root to a random value
+        authBundle.statement.merkleRoot = randomScalar();
+        bundleData.auth = authBundle;
+        bundle.data = abi.encode(bundleData);
+
+        // Should revert with InvalidMerkleRoot
+        vm.expectRevert(IDarkpoolV2.InvalidMerkleRoot.selector);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 }
