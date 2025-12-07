@@ -5,12 +5,11 @@ import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
+import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    SettlementBundle,
-    SettlementBundleType,
     PrivateIntentPublicBalanceBoundedFirstFillBundle,
     PrivateIntentPublicBalanceBoundedBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import {
     SignatureWithNonce,
     PrivateIntentAuthBundle,
@@ -89,15 +88,10 @@ contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
         view
         returns (IntentOnlyBoundedSettlementStatement memory statement)
     {
-        FixedPoint memory protocolFeeRate =
-            darkpool.getProtocolFee(matchResult.internalPartyInputToken, matchResult.internalPartyOutputToken);
-
         statement = IntentOnlyBoundedSettlementStatement({
             boundedMatchResult: matchResult,
             externalRelayerFeeRate: relayerFeeRateFixedPoint,
-            externalProtocolFeeRate: protocolFeeRate,
             internalRelayerFeeRate: relayerFeeRateFixedPoint,
-            internalProtocolFeeRate: protocolFeeRate,
             relayerFeeAddress: relayerFeeAddr
         });
     }

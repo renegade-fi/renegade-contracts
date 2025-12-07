@@ -5,12 +5,12 @@ import { Vm } from "forge-std/Vm.sol";
 import { console2 } from "forge-std/console2.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+
 import {
-    SettlementBundle,
-    SettlementBundleType,
     PrivateIntentPublicBalanceBundle,
     PrivateIntentPublicBalanceFirstFillBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     SignatureWithNonce,
@@ -89,7 +89,13 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(
-            1, /* numDeposits */ 3, /* numWithdrawals */ 2, /* verificationCapacity */ 2 /* proofLinkingCapacity */
+            1,
+            /* numDeposits */
+            3,
+            /* numWithdrawals */
+            2,
+            /* verificationCapacity */
+            2 /* proofLinkingCapacity */
         );
     }
 
@@ -111,9 +117,7 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         returns (IntentOnlyPublicSettlementStatement memory)
     {
         return IntentOnlyPublicSettlementStatement({
-            obligation: obligation,
-            relayerFee: relayerFeeRateFixedPoint,
-            relayerFeeRecipient: relayerFeeAddr
+            obligation: obligation, relayerFee: relayerFeeRateFixedPoint, relayerFeeRecipient: relayerFeeAddr
         });
     }
 
@@ -216,9 +220,7 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
 
         // Create auth bundle
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({
-            merkleDepth: merkleDepth,
-            statement: validityStatement,
-            validityProof: createDummyProof()
+            merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
         });
         PrivateIntentPublicBalanceBundle memory bundleData = PrivateIntentPublicBalanceBundle({
             auth: auth,

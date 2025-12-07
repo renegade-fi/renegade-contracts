@@ -319,9 +319,7 @@ library PublicInputsLib {
 
         // Add the fee rates
         publicInputs[6] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
-        publicInputs[7] = BN254.ScalarField.wrap(statement.externalProtocolFeeRate.repr);
         publicInputs[8] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
-        publicInputs[9] = BN254.ScalarField.wrap(statement.internalProtocolFeeRate.repr);
 
         // Add the relayer fee address
         publicInputs[10] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeAddress)));
