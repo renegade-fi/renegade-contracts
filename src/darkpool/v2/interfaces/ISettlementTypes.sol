@@ -7,13 +7,15 @@ pragma solidity ^0.8.24;
 import { SettlementBundle, SettlementBundleType, PartyId } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     PublicIntentPublicBalanceBundle,
-    PrivateIntentPublicBalanceFirstFillBundle,
-    PrivateIntentPublicBalanceBundle,
     RenegadeSettledIntentFirstFillBundle,
     RenegadeSettledIntentBundle,
     RenegadeSettledPrivateFirstFillBundle,
     RenegadeSettledPrivateFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import {
+    PrivateIntentPublicBalanceFirstFillBundle,
+    PrivateIntentPublicBalanceBundle
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import {
     PublicIntentAuthBundle,
     PublicIntentPermit,
@@ -24,7 +26,9 @@ import {
     SignatureWithNonce
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
-    ObligationBundle, ObligationType, PrivateObligationBundle
+    ObligationBundle,
+    ObligationType,
+    PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 

@@ -32,13 +32,11 @@ struct IntentOnlyPublicSettlementStatement {
 struct IntentOnlyBoundedSettlementStatement {
     /// @dev The bounded match result that the intent must be able to capitalize
     BoundedMatchResult boundedMatchResult;
-    /// @dev The fee rates charged to the external party (relayer + protocol)
+    /// @dev The relayer fee rate charged to the external party
     FixedPoint externalRelayerFeeRate;
-    FixedPoint externalProtocolFeeRate;
-    /// @dev The fee rates charged to the internal party (relayer + protocol)
+    /// @dev The relayer fee rate charged to the internal party
     FixedPoint internalRelayerFeeRate;
-    FixedPoint internalProtocolFeeRate;
-    /// @dev The address at which the relayer receives their fee from the external party
+    /// @dev The address at which the relayer receives their fee
     address relayerFeeAddress;
 }
 

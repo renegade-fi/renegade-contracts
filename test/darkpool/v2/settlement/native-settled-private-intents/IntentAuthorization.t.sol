@@ -5,12 +5,11 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    PartyId,
-    SettlementBundle,
-    SettlementBundleLib,
+    PrivateIntentPublicBalanceBundleLib,
     PrivateIntentPublicBalanceFirstFillBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import { SignatureWithNonce, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
@@ -22,7 +21,8 @@ import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 
 contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
-    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
+    using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
+    using SettlementBundleLib for SettlementBundle;
 
     // -----------
     // | Helpers |
@@ -74,8 +74,12 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
         (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
         ObligationBundle memory obligationBundle =
             ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
-        SettlementBundle memory bundle =
-            createPrivateIntentSettlementBundle(false, /* isFirstFill */ obligation0, intentOwner);
+        SettlementBundle memory bundle = createPrivateIntentSettlementBundle(
+            false,
+            /* isFirstFill */
+            obligation0,
+            intentOwner
+        );
 
         // Should not revert even though we're not checking the signature
         authorizeIntentHelper(obligationBundle, bundle);
@@ -85,7 +89,9 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidIntentCommitmentSignature_wrongSigner() public {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(true /* isFirstFill */ );
+            createSamplePrivateIntentBundle(
+                true /* isFirstFill */
+            );
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
             abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
