@@ -188,8 +188,14 @@ library SettlementBundleLib {
     function getNumProofs(SettlementBundle calldata bundle) internal pure returns (uint256 numProofs) {
         if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             numProofs = 0;
-        } else {
+        } else if (bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
+            // Validity proof and a settlement proof
             numProofs = 2;
+        } else {
+            // Validity proof, output balance validity proof, and a settlement proof
+            // Strictly speaking, this over-allocates proof capacity for RENEGADE_SETTLED_PRIVATE_FILL, which has one
+            // settlement proof shared between the two parties.
+            numProofs = 3;
         }
     }
 

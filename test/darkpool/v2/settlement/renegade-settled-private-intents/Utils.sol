@@ -71,7 +71,7 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
     /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(
-            0, /* numDeposits */ 2, /* numWithdrawals */ 2, /* verificationCapacity */ 2 /* proofLinkingCapacity */
+            0, /* numDeposits */ 2, /* numWithdrawals */ 3, /* verificationCapacity */ 2 /* proofLinkingCapacity */
         );
     }
 
