@@ -5,14 +5,14 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
-import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
-    RenegadeSettledIntentBundle,
     RenegadeSettledIntentFirstFillBundle,
-    SettlementBundleLib
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+    RenegadeSettledIntentBundle,
+    PrivateIntentPrivateBalanceBundleLib
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 import { RenegadeSettledPrivateIntentTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
@@ -26,8 +26,8 @@ import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     using ObligationLib for ObligationBundle;
-    using SettlementBundleLib for RenegadeSettledIntentBundle;
-    using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
+    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentBundle;
+    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentFirstFillBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 

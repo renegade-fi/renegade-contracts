@@ -61,6 +61,8 @@ interface IDarkpoolV2 {
     error SettlementVerificationFailed();
     /// @notice Thrown when an intent commitment signature is invalid
     error InvalidIntentCommitmentSignature();
+    /// @notice Thrown when the owner signature is invalid
+    error InvalidOwnerSignature();
     /// @notice Thrown when the public input length is invalid
     error InvalidPublicInputLength();
     /// @notice Thrown when an amount is too large
