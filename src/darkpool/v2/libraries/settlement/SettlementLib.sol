@@ -24,20 +24,19 @@ import {
     ObligationLib,
     PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
-import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol";
-import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { ProofLinkingList, ProofLinkingListLib } from "darkpoolv2-types/VerificationList.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { SettlementTransfers, SettlementTransfersLib } from "darkpoolv2-types/transfers/TransfersList.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 
-import { emptyOpeningElements, VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
+import { VerificationKey, OpeningElements } from "renegade-lib/verifier/Types.sol";
 import { ProofLinkingCore } from "renegade-lib/verifier/ProofLinking.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
@@ -195,12 +194,7 @@ library SettlementLib {
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
 
         return
-            SettlementContextLib.newContext(
-                numDeposits,
-                numWithdrawals,
-                proofCapacity,
-                0 /* proof linking capacity */
-            );
+            SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, 0 /* proof linking capacity */ );
     }
 
     /// @notice Allocate transfers to settle an external party's obligation into the settlement context

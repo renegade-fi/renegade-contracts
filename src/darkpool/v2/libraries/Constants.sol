@@ -24,8 +24,7 @@ library DarkpoolConstants {
     /// @dev We allow PRICE_INTEGRAL_BITS integral bits for a price, and inherit the fractional bits from the fixed
     /// point precision.
     /// So the max price is `2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS) - 1`.
-    uint256 internal constant MAX_PRICE_REPR = 2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS)
-        - 1;
+    uint256 internal constant MAX_PRICE_REPR = 2 ** (FixedPointLib.FIXED_POINT_PRECISION_BITS + PRICE_INTEGRAL_BITS) - 1;
 
     /// @notice Get the maximum relayer fee as a FixedPoint struct
     /// @dev Returns the maximum relayer fee (1%) as a FixedPoint
@@ -36,6 +35,7 @@ library DarkpoolConstants {
     /// @notice The number of bits allowed in a price's representation
     /// @dev This includes the fixed point precision
     /// @dev This is the default fixed point precision plus 64 bits for the integral part
+
     uint256 internal constant PRICE_BITS = FixedPointLib.FIXED_POINT_PRECISION_BITS + 64;
 
     /// @notice Check whether an address is the native token address

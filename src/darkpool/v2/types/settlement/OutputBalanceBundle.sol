@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache
 pragma solidity ^0.8.24;
 
-import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
+import { PlonkProof, LinkingProof, VerificationKey } from "renegade-lib/verifier/Types.sol";
 import {
     OutputBalanceValidityStatement,
     NewOutputBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
+import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
+import { BN254 } from "solidity-bn254/BN254.sol";
 
 // ------------------------
 // | Output Balance Types |
@@ -50,10 +53,40 @@ struct NewBalanceBundle {
 /// @author Renegade Eng
 /// @notice Library for decoding output balance bundle data
 library OutputBalanceBundleLib {
+    using PublicInputsLib for OutputBalanceValidityStatement;
+    using PublicInputsLib for NewOutputBalanceValidityStatement;
+
+    /// @notice Extract the public keys and verification key for an output balance bundle
+    /// @param bundle The output balance bundle to extract the public keys and verification key for
+    /// @param vkeys The contract storing the verification keys
+    /// @return publicInputs The public inputs for the output balance validity proof
+    /// @return vk The verification key for the output balance validity proof
+    function getStatementAndVerificationKey(
+        OutputBalanceBundle memory bundle,
+        IVkeys vkeys
+    )
+        internal
+        view
+        returns (BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
+    {
+        if (bundle.bundleType == OutputBalanceBundleType.EXISTING_BALANCE) {
+            ExistingBalanceBundle memory existingBalanceBundle =
+                OutputBalanceBundleLib.decodeExistingBalanceBundle(bundle);
+            publicInputs = existingBalanceBundle.statement.statementSerialize();
+            vk = vkeys.outputBalanceValidityKeys();
+        } else if (bundle.bundleType == OutputBalanceBundleType.NEW_BALANCE) {
+            NewBalanceBundle memory newBalanceBundle = OutputBalanceBundleLib.decodeNewBalanceBundle(bundle);
+            publicInputs = newBalanceBundle.statement.statementSerialize();
+            vk = vkeys.newOutputBalanceValidityVkeys();
+        } else {
+            revert IDarkpoolV2.InvalidOutputBalanceBundleType();
+        }
+    }
+
     /// @notice Decode an existing balance bundle
     /// @param bundle The output balance bundle to decode
     /// @return bundleData The decoded bundle data
-    function decodeExistingBalanceBundle(OutputBalanceBundle calldata bundle)
+    function decodeExistingBalanceBundle(OutputBalanceBundle memory bundle)
         internal
         pure
         returns (ExistingBalanceBundle memory bundleData)
@@ -66,7 +99,7 @@ library OutputBalanceBundleLib {
     /// @notice Decode a new balance bundle
     /// @param bundle The output balance bundle to decode
     /// @return bundleData The decoded bundle data
-    function decodeNewBalanceBundle(OutputBalanceBundle calldata bundle)
+    function decodeNewBalanceBundle(OutputBalanceBundle memory bundle)
         internal
         pure
         returns (NewBalanceBundle memory bundleData)
