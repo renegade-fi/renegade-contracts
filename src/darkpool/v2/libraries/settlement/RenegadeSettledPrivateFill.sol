@@ -10,7 +10,9 @@ import {
     RenegadeSettledPrivateFillBundle
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    ObligationBundle, ObligationLib, PrivateObligationBundle
+    ObligationBundle,
+    ObligationLib,
+    PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -173,8 +175,7 @@ library RenegadeSettledPrivateFillLib {
         IVkeys vkeys,
         DarkpoolState storage state
     )
-        internal
-    {
+        internal {
         // TODO: Proof link into the obligation bundle's settlement proof
     }
 
@@ -195,8 +196,7 @@ library RenegadeSettledPrivateFillLib {
         IVkeys vkeys,
         DarkpoolState storage state
     )
-        internal
-    {
+        internal {
         // TODO: Proof link into the obligation bundle's settlement proof
     }
 
