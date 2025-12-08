@@ -25,12 +25,14 @@ import { IntentPublicShare, IntentPublicShareLib } from "darkpoolv2-types/Intent
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { ExternalMatchTestUtils } from "../Utils.sol";
 
 contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
     using BoundedMatchResultLib for BoundedMatchResult;
     using IntentPublicShareLib for IntentPublicShare;
     using FixedPointLib for FixedPoint;
+    using DarkpoolStateLib for DarkpoolState;
 
     // ---------
     // | Utils |
@@ -175,10 +177,13 @@ contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
         internal
         returns (SettlementBundle memory)
     {
+        // Get the actual Merkle root from the test state (must be in history for subsequent fills)
+        BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(merkleDepth);
+
         // Create the validity statement
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
             intentOwner: owner.addr,
-            merkleRoot: randomScalar(),
+            merkleRoot: merkleRoot,
             oldIntentNullifier: randomScalar(),
             newAmountShare: randomScalar(),
             newIntentPartialCommitment: randomPartialCommitment(),

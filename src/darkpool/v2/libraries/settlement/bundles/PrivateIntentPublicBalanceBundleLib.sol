@@ -435,10 +435,12 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @param bundleData The bundle containing the validity proof
     /// @param settlementContext The context to push to
     /// @param vkeys The verification keys contract
+    /// @param state The darkpool state for root validation
     function pushValidityProof(
         PrivateIntentPublicBalanceBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
         view
@@ -448,6 +450,7 @@ library PrivateIntentPublicBalanceBundleLib {
         _pushValidityProofInner(
             bundleData.auth.merkleDepth, publicInputs, bundleData.auth.validityProof, vk, settlementContext
         );
+        state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
     }
 
     /// @notice Push the validity proof to the context and validate merkle depth
@@ -473,10 +476,12 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @param bundleData The bundle containing the validity proof
     /// @param settlementContext The context to push to
     /// @param vkeys The verification keys contract
+    /// @param state The darkpool state for root validation
     function pushValidityProof(
         PrivateIntentPublicBalanceBoundedBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        IVkeys vkeys,
+        DarkpoolState storage state
     )
         internal
         view
@@ -486,6 +491,7 @@ library PrivateIntentPublicBalanceBundleLib {
         _pushValidityProofInner(
             bundleData.auth.merkleDepth, publicInputs, bundleData.auth.validityProof, vk, settlementContext
         );
+        state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
     }
 
     /// @notice Internal helper to validate merkle depth and push validity proof

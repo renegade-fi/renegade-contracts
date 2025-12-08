@@ -13,6 +13,7 @@ import {
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -133,6 +134,10 @@ library NativeSettledPrivateIntentLib {
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
+
+        // Emit a recovery ID for the intent
+        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Validate and execute a bounded match settlement bundle for a subsequent fill
@@ -164,7 +169,7 @@ library NativeSettledPrivateIntentLib {
         BN254.ScalarField postMatchCommitment = bundleData.computeFullIntentCommitment(obligation.amountIn, hasher);
 
         // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, vkeys);
+        bundleData.pushValidityProof(settlementContext, vkeys, state);
         bundleData.pushSettlementProofs(settlementContext);
 
         // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
@@ -173,6 +178,10 @@ library NativeSettledPrivateIntentLib {
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
+
+        // Emit a recovery ID for the intent
+        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a first fill
@@ -219,6 +228,10 @@ library NativeSettledPrivateIntentLib {
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
+
+        // Emit a recovery ID for the intent
+        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a subsequent
@@ -253,7 +266,7 @@ library NativeSettledPrivateIntentLib {
         bundleData.validateObligation(obligation);
 
         // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, vkeys);
+        bundleData.pushValidityProof(settlementContext, vkeys, state);
         bundleData.pushSettlementProofs(settlementContext, vkeys);
 
         // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
@@ -262,5 +275,9 @@ library NativeSettledPrivateIntentLib {
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
+
+        // Emit a recovery ID for the intent
+        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
+        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 }

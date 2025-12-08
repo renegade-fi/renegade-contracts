@@ -8,9 +8,14 @@ import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/Ob
 import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     PrivateIntentPublicBalanceBundleLib,
-    PrivateIntentPublicBalanceFirstFillBundle
+    PrivateIntentPublicBalanceFirstFillBundle,
+    PrivateIntentPublicBalanceBundle
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
-import { SignatureWithNonce, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import {
+    SignatureWithNonce,
+    PrivateIntentAuthBundleFirstFill,
+    PrivateIntentAuthBundle
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
