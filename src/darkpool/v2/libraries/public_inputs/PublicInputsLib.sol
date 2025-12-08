@@ -19,6 +19,7 @@ import {
     IntentAndBalanceValidityStatement
 } from "./ValidityProofs.sol";
 import {
+    IntentOnlyBoundedSettlementStatement,
     IntentOnlyPublicSettlementStatement,
     IntentAndBalancePublicSettlementStatement,
     IntentAndBalancePrivateSettlementStatement
@@ -294,6 +295,36 @@ library PublicInputsLib {
         publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeRecipient)));
     }
 
+    /// @notice Serialize the public inputs for a proof of single-intent bounded match settlement
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    /// @dev NOTE: This is a temporary placeholder implementation until the circuits are completed.
+    /// The actual circuit public inputs format may differ from this serialization.
+    function statementSerialize(IntentOnlyBoundedSettlementStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 11;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+
+        // Add the bounded match result fields
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.boundedMatchResult.internalPartyInputToken)));
+        publicInputs[1] =
+            BN254.ScalarField.wrap(uint256(uint160(statement.boundedMatchResult.internalPartyOutputToken)));
+        publicInputs[2] = BN254.ScalarField.wrap(statement.boundedMatchResult.price.repr);
+        publicInputs[3] = BN254.ScalarField.wrap(statement.boundedMatchResult.minInternalPartyAmountIn);
+        publicInputs[4] = BN254.ScalarField.wrap(statement.boundedMatchResult.maxInternalPartyAmountIn);
+        publicInputs[5] = BN254.ScalarField.wrap(statement.boundedMatchResult.blockDeadline);
+
+        // Add the fee rates
+        publicInputs[6] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
+        publicInputs[8] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
+
+        // Add the relayer fee address
+        publicInputs[10] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeAddress)));
+    }
+
     /// @notice Serialize the public inputs for a proof of intent and balance public settlement
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
@@ -394,5 +425,35 @@ library PublicInputsLib {
         publicInputs[14] = BN254.ScalarField.wrap(statement.relayerFee0.repr);
         publicInputs[15] = BN254.ScalarField.wrap(statement.relayerFee1.repr);
         publicInputs[16] = BN254.ScalarField.wrap(statement.protocolFee.repr);
+    }
+
+    /// @notice Get a dummy verification key for testing
+    /// @return A dummy verification key
+    /// @dev TODO: Replace with real verification key
+    function dummyVkey() internal pure returns (VerificationKey memory) {
+        return VerificationKey({
+            n: 0,
+            l: 0,
+            k: [BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO, BN254Helpers.ZERO],
+            qComms: [
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1(),
+                BN254.P1()
+            ],
+            sigmaComms: [BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1(), BN254.P1()],
+            g: BN254.P1(),
+            h: BN254.P2(),
+            xH: BN254.P2()
+        });
     }
 }

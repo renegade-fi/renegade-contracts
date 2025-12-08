@@ -8,11 +8,12 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationType, ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import { SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    PrivateIntentPublicBalanceBundle,
+    PrivateIntentPublicBalanceBundleLib,
     PrivateIntentPublicBalanceFirstFillBundle,
-    SettlementBundleLib
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+    PrivateIntentPublicBalanceBundle
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -24,8 +25,9 @@ import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is PrivateIntentSettlementTestUtils {
     using ObligationLib for ObligationBundle;
-    using SettlementBundleLib for PrivateIntentPublicBalanceBundle;
-    using SettlementBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
+    using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceBundle;
+    using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
+    using SettlementBundleLib for SettlementBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 
@@ -234,7 +236,13 @@ contract FullMatchTests is PrivateIntentSettlementTestUtils {
             abi.decode(obligationBundle.data, (SettlementObligation, SettlementObligation));
 
         vm.startPrank(party0.addr);
-        permit2.approve(obligation0.inputToken, address(darkpool), 0, /* amount */ uint48(block.timestamp + 1 days));
+        permit2.approve(
+            obligation0.inputToken,
+            address(darkpool),
+            0,
+            /* amount */
+            uint48(block.timestamp + 1 days)
+        );
         vm.stopPrank();
 
         // Try settling the match, the permit should be revoked

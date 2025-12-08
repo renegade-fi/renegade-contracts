@@ -2,66 +2,62 @@
 pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
-import { console2 } from "forge-std/console2.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
-import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 
+import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    PrivateIntentPublicBalanceBundle,
-    PrivateIntentPublicBalanceFirstFillBundle
+    PrivateIntentPublicBalanceBoundedFirstFillBundle,
+    PrivateIntentPublicBalanceBoundedBundle
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
-import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     SignatureWithNonce,
     PrivateIntentAuthBundle,
     PrivateIntentAuthBundleFirstFill
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
-import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { IntentOnlyBoundedSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import {
     IntentOnlyValidityStatement,
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { IntentOnlyPublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { IntentPublicShare, IntentPublicShareLib } from "darkpoolv2-types/Intent.sol";
+import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { SettlementTestUtils } from "../SettlementTestUtils.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
+import { ExternalMatchTestUtils } from "../Utils.sol";
 
-contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
-    using ObligationLib for ObligationBundle;
-    using FixedPointLib for FixedPoint;
+contract BoundedPrivateIntentTestUtils is ExternalMatchTestUtils {
+    using BoundedMatchResultLib for BoundedMatchResult;
     using IntentPublicShareLib for IntentPublicShare;
+    using FixedPointLib for FixedPoint;
     using DarkpoolStateLib for DarkpoolState;
-    using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
 
     // ---------
     // | Utils |
     // ---------
 
-    // --- Signatures --- //
+    // --- Intent Commitment --- //
 
     /// @dev Compute the full commitment to an intent's shares
     function computeIntentSharesCommitment(
         IntentPublicShare memory intentPublicShare,
         BN254.ScalarField intentPrivateCommitment,
-        IHasher hasher
+        IHasher _hasher
     )
         internal
+        view
         returns (BN254.ScalarField commitment)
     {
         uint256[] memory intentPublicShareScalars = intentPublicShare.scalarSerialize();
-        uint256 commitmentHash = hasher.computeResumableCommitment(intentPublicShareScalars);
+        uint256 commitmentHash = _hasher.computeResumableCommitment(intentPublicShareScalars);
 
         // Compute the full commitment: H(private commitment || public commitment)
         uint256[] memory commitmentInputs = new uint256[](2);
         commitmentInputs[0] = BN254.ScalarField.unwrap(intentPrivateCommitment);
         commitmentInputs[1] = commitmentHash;
-        uint256 hashResult = hasher.spongeHash(commitmentInputs);
+        uint256 hashResult = _hasher.spongeHash(commitmentInputs);
         commitment = BN254.ScalarField.wrap(hashResult);
     }
 
@@ -84,60 +80,30 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
     }
 
-    // --- Dummy Data --- //
+    // --- Bounded Settlement Statement --- //
 
-    /// @dev Create a dummy `SettlementContext` for the test
-    function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
-        context = SettlementContextLib.newContext(
-            1,
-            /* numDeposits */
-            3,
-            /* numWithdrawals */
-            2,
-            /* verificationCapacity */
-            2 /* proofLinkingCapacity */
-        );
-    }
-
-    /// @dev Create a dummy intent validity statement
-    function createSampleIntentValidityStatement() internal returns (IntentOnlyValidityStatement memory) {
-        return IntentOnlyValidityStatement({
-            intentOwner: intentOwner.addr,
-            merkleRoot: randomScalar(),
-            oldIntentNullifier: randomScalar(),
-            newAmountShare: randomScalar(),
-            newIntentPartialCommitment: randomPartialCommitment(),
-            recoveryId: randomScalar()
+    /// @dev Create a bounded settlement statement for a given bounded match result
+    /// @param matchResult The bounded match result to create the statement for
+    /// @return statement The bounded settlement statement
+    function createBoundedSettlementStatement(BoundedMatchResult memory matchResult)
+        internal
+        view
+        returns (IntentOnlyBoundedSettlementStatement memory statement)
+    {
+        statement = IntentOnlyBoundedSettlementStatement({
+            boundedMatchResult: matchResult,
+            externalRelayerFeeRate: relayerFeeRateFixedPoint,
+            internalRelayerFeeRate: relayerFeeRateFixedPoint,
+            relayerFeeAddress: relayerFeeAddr
         });
     }
 
-    /// @dev Create a dummy settlement statement
-    function createSampleSettlementStatement(SettlementObligation memory obligation)
-        internal
-        returns (IntentOnlyPublicSettlementStatement memory)
-    {
-        return IntentOnlyPublicSettlementStatement({
-            obligation: obligation, relayerFee: relayerFeeRateFixedPoint, relayerFeeRecipient: relayerFeeAddr
-        });
-    }
+    // --- Private Intent Settlement Bundle --- //
 
-    /// @dev Helper to create a sample settlement bundle
-    function createSamplePrivateIntentBundle(bool isFirstFill)
-        internal
-        returns (ObligationBundle memory obligationBundle, SettlementBundle memory bundle)
-    {
-        // Create obligation
-        (SettlementObligation memory obligation0, SettlementObligation memory obligation1,) = createTradeObligations();
-        obligationBundle =
-            ObligationBundle({ obligationType: ObligationType.PUBLIC, data: abi.encode(obligation0, obligation1) });
-
-        bundle = createPrivateIntentSettlementBundle(isFirstFill, obligation0, intentOwner);
-    }
-
-    /// @dev Create a complete settlement bundle given an obligation
-    function createPrivateIntentSettlementBundle(
+    /// @dev Create a complete bounded private intent settlement bundle
+    function createBoundedPrivateIntentSettlementBundle(
         bool isFirstFill,
-        SettlementObligation memory obligation,
+        BoundedMatchResult memory matchResult,
         Vm.Wallet memory owner
     )
         internal
@@ -145,29 +111,28 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
     {
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
         if (isFirstFill) {
-            return createPrivateIntentSettlementBundleFirstFill(merkleDepth, obligation, owner);
+            return createBoundedPrivateIntentBundleFirstFill(merkleDepth, matchResult, owner);
         } else {
-            return createPrivateIntentSettlementBundleSubsequentFill(merkleDepth, obligation, owner);
+            return createBoundedPrivateIntentBundleSubsequent(merkleDepth, matchResult, owner);
         }
     }
 
-    /// @dev Create a complete settlement bundle with custom signer for the first fill
-    function createPrivateIntentSettlementBundleFirstFill(
+    /// @dev Create a bounded private intent settlement bundle for first fill
+    function createBoundedPrivateIntentBundleFirstFill(
         uint256 merkleDepth,
-        SettlementObligation memory obligation,
+        BoundedMatchResult memory matchResult,
         Vm.Wallet memory owner
     )
         internal
         returns (SettlementBundle memory)
     {
-        // Create the statement types
+        // Create the validity statement
         IntentOnlyValidityStatementFirstFill memory validityStatement = IntentOnlyValidityStatementFirstFill({
             intentOwner: owner.addr,
             intentPrivateCommitment: randomScalar(),
             recoveryId: randomScalar(),
             intentPublicShare: randomIntentPublicShare()
         });
-        IntentOnlyPublicSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
         // Sign the pre-update intent commitment
         BN254.ScalarField intentCommitment = computeIntentSharesCommitment(
@@ -182,14 +147,20 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        PrivateIntentPublicBalanceFirstFillBundle memory bundleData = PrivateIntentPublicBalanceFirstFillBundle({
-            auth: auth,
-            settlementStatement: settlementStatement,
-            settlementProof: createDummyProof(),
-            authSettlementLinkingProof: createDummyLinkingProof()
-        });
 
-        // Encode the obligation and bundle
+        // Create bounded settlement statement
+        IntentOnlyBoundedSettlementStatement memory settlementStatement = createBoundedSettlementStatement(matchResult);
+
+        // Create the bundle data
+        PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData =
+            PrivateIntentPublicBalanceBoundedFirstFillBundle({
+                auth: auth,
+                settlementStatement: settlementStatement,
+                settlementProof: createDummyProof(),
+                authSettlementLinkingProof: createDummyLinkingProof()
+            });
+
+        // Encode and return the settlement bundle
         return SettlementBundle({
             isFirstFill: true,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT,
@@ -197,17 +168,19 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
         });
     }
 
-    /// @dev Create a complete settlement bundle with custom signer and parameters
-    function createPrivateIntentSettlementBundleSubsequentFill(
+    /// @dev Create a bounded private intent settlement bundle for subsequent fills
+    function createBoundedPrivateIntentBundleSubsequent(
         uint256 merkleDepth,
-        SettlementObligation memory obligation,
+        BoundedMatchResult memory matchResult,
         Vm.Wallet memory owner
     )
         internal
         returns (SettlementBundle memory)
     {
-        // Create the statement types
+        // Get the actual Merkle root from the test state (must be in history for subsequent fills)
         BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(merkleDepth);
+
+        // Create the validity statement
         IntentOnlyValidityStatement memory validityStatement = IntentOnlyValidityStatement({
             intentOwner: owner.addr,
             merkleRoot: merkleRoot,
@@ -216,20 +189,24 @@ contract PrivateIntentSettlementTestUtils is SettlementTestUtils {
             newIntentPartialCommitment: randomPartialCommitment(),
             recoveryId: randomScalar()
         });
-        IntentOnlyPublicSettlementStatement memory settlementStatement = createSampleSettlementStatement(obligation);
 
-        // Create auth bundle
+        // Create auth bundle (no signature needed for subsequent fills)
         PrivateIntentAuthBundle memory auth = PrivateIntentAuthBundle({
             merkleDepth: merkleDepth, statement: validityStatement, validityProof: createDummyProof()
         });
-        PrivateIntentPublicBalanceBundle memory bundleData = PrivateIntentPublicBalanceBundle({
+
+        // Create bounded settlement statement
+        IntentOnlyBoundedSettlementStatement memory settlementStatement = createBoundedSettlementStatement(matchResult);
+
+        // Create the bundle data
+        PrivateIntentPublicBalanceBoundedBundle memory bundleData = PrivateIntentPublicBalanceBoundedBundle({
             auth: auth,
             settlementStatement: settlementStatement,
             settlementProof: createDummyProof(),
             authSettlementLinkingProof: createDummyLinkingProof()
         });
 
-        // Encode the obligation and bundle
+        // Encode and return the settlement bundle
         return SettlementBundle({
             isFirstFill: false,
             bundleType: SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT,
