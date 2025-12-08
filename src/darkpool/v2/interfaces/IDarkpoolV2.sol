@@ -55,6 +55,8 @@ interface IDarkpoolV2 {
     error InvalidObligation();
     /// @notice Thrown when the settlement bundle type is invalid
     error InvalidSettlementBundleType();
+    /// @notice Thrown when the output balance bundle type is invalid
+    error InvalidOutputBalanceBundleType();
     /// @notice Thrown when verification fails for a settlement
     error SettlementVerificationFailed();
     /// @notice Thrown when an intent commitment signature is invalid
