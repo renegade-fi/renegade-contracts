@@ -36,6 +36,7 @@ import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+import { OutputBalanceBundle } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -95,6 +96,8 @@ struct PublicIntentPublicBalanceBundle {
 struct RenegadeSettledIntentFirstFillBundle {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundleFirstFill auth;
+    /// @dev The calldata bundle containing a proof of output balance validity
+    OutputBalanceBundle outputBalanceBundle;
     /// @dev The statement of intent and balance public settlement
     IntentAndBalancePublicSettlementStatement settlementStatement;
     /// @dev The proof of intent and balance public settlement
@@ -107,6 +110,8 @@ struct RenegadeSettledIntentFirstFillBundle {
 struct RenegadeSettledIntentBundle {
     /// @dev The private intent authorization payload with signature attached
     RenegadeSettledIntentAuthBundle auth;
+    /// @dev The calldata bundle containing a proof of output balance validity
+    OutputBalanceBundle outputBalanceBundle;
     /// @dev The statement of intent and balance public settlement
     IntentAndBalancePublicSettlementStatement settlementStatement;
     /// @dev The proof of intent and balance public settlement
