@@ -106,9 +106,10 @@ library RenegadeSettledPrivateFillLib {
 
         // 1. Validate the intent authorization
         // Uses the same logic as the `RENEGADE_SETTLED_INTENT` bundle
-        RenegadeSettledPrivateIntentLib.validateIntentAuthorizationFirstFill(
-            bundleData.auth, settlementContext, vkeys, state
-        );
+        // TODO: Add settlement library here
+        // RenegadeSettledPrivateIntentLib.authorizeIntent(
+        //     bundleData.auth, settlementContext, vkeys, state
+        // );
 
         // 2. Validate the obligation constraints
         validateObligationConstraintsFirstFill(
@@ -143,7 +144,8 @@ library RenegadeSettledPrivateFillLib {
 
         // 1. Validate the intent authorization
         // Uses the same logic as the `RENEGADE_SETTLED_INTENT` bundle
-        RenegadeSettledPrivateIntentLib.validateIntentAuthorization(bundleData.auth, vkeys, settlementContext, state);
+        // TODO: Add settlement library here
+        // RenegadeSettledPrivateIntentLib.authorizeIntent(bundleData.auth, settlementContext, vkeys, state);
 
         // 2. Validate the obligation constraints
         validateObligationConstraints(partyId, obligationBundle, settlementBundle, settlementContext, vkeys, state);

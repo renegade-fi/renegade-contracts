@@ -65,7 +65,7 @@ interface IVkeys {
     function outputBalanceValidityKeys() external view returns (VerificationKey memory);
     /// @notice Get the verification key for `NEW OUTPUT BALANCE VALIDITY`
     /// @return The verification key for `NEW OUTPUT BALANCE VALIDITY`
-    function newOutputBalanceValidityVkeys() external view returns (VerificationKey memory);
+    function newOutputBalanceValidityKeys() external view returns (VerificationKey memory);
 
     // --------------------
     // | Settlement VKeys |

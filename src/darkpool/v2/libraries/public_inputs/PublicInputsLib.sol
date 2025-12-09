@@ -394,12 +394,11 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 4;
+        uint256 nPublicInputs = 3;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.originalBalanceCommitment;
-        publicInputs[1] = statement.newBalancePartialCommitment.privateCommitment;
-        publicInputs[2] = statement.newBalancePartialCommitment.partialPublicCommitment;
-        publicInputs[3] = statement.recoveryId;
+        publicInputs[0] = statement.newBalancePartialCommitment.privateCommitment;
+        publicInputs[1] = statement.newBalancePartialCommitment.partialPublicCommitment;
+        publicInputs[2] = statement.recoveryId;
     }
 
     /// @notice Serialize the public inputs for a proof of output balance validity

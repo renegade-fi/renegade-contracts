@@ -3,21 +3,23 @@ pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
-import {
-    SettlementBundle,
-    SettlementBundleType,
-    RenegadeSettledIntentFirstFillBundle,
-    RenegadeSettledIntentBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     SignatureWithNonce,
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
-import { OutputBalanceBundle, OutputBalanceBundleType } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
+import {
+    RenegadeSettledIntentFirstFillBundle,
+    RenegadeSettledIntentBundle
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
+import {
+    OutputBalanceBundle,
+    OutputBalanceBundleType,
+    ExistingBalanceBundle
+} from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
@@ -151,9 +153,11 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
             recoveryId: randomScalar()
         });
 
+        ExistingBalanceBundle memory existingBalanceBundle =
+            ExistingBalanceBundle({ merkleDepth: DarkpoolConstants.DEFAULT_MERKLE_DEPTH, statement: statement });
         return OutputBalanceBundle({
             bundleType: OutputBalanceBundleType.EXISTING_BALANCE,
-            data: abi.encode(statement),
+            data: abi.encode(existingBalanceBundle),
             proof: createDummyProof(),
             settlementLinkingProof: createDummyLinkingProof()
         });

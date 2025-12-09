@@ -3,12 +3,9 @@ pragma solidity ^0.8.24;
 
 /* solhint-disable func-name-mixedcase */
 
-import {
-    PartyId,
-    SettlementBundle,
-    SettlementBundleLib,
-    RenegadeSettledIntentFirstFillBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { RenegadeSettledIntentFirstFillBundle } from
+    "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     SignatureWithNonce, RenegadeSettledIntentAuthBundleFirstFill
@@ -22,8 +19,6 @@ import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { RenegadeSettledPrivateIntentTestUtils } from "./Utils.sol";
 
 contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivateIntentTestUtils {
-    using SettlementBundleLib for RenegadeSettledIntentFirstFillBundle;
-
     function setUp() public virtual override {
         super.setUp();
         // Mint max amounts of the base and quote tokens to the darkpool to capitalize fee payments

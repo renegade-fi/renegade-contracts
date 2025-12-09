@@ -119,8 +119,6 @@ struct IntentAndBalanceValidityStatement {
 /// @notice A statement for a proof of new output balance validity
 /// @dev The statement type for `NEW OUTPUT BALANCE VALIDITY`
 struct NewOutputBalanceValidityStatement {
-    /// @dev A commitment to the original balance before update
-    BN254.ScalarField originalBalanceCommitment;
     /// @dev A partial commitment to the new output balance
     PartialCommitment newBalancePartialCommitment;
     /// @dev The recovery identifier of the new output balance

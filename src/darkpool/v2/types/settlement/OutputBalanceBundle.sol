@@ -39,6 +39,8 @@ enum OutputBalanceBundleType {
 
 /// @notice The verification data for an existing balance bundle
 struct ExistingBalanceBundle {
+    /// @dev The Merkle depth of the balance
+    uint256 merkleDepth;
     /// @dev The statement for the balance validity proof
     OutputBalanceValidityStatement statement;
 }
@@ -55,33 +57,6 @@ struct NewBalanceBundle {
 library OutputBalanceBundleLib {
     using PublicInputsLib for OutputBalanceValidityStatement;
     using PublicInputsLib for NewOutputBalanceValidityStatement;
-
-    /// @notice Extract the public keys and verification key for an output balance bundle
-    /// @param bundle The output balance bundle to extract the public keys and verification key for
-    /// @param vkeys The contract storing the verification keys
-    /// @return publicInputs The public inputs for the output balance validity proof
-    /// @return vk The verification key for the output balance validity proof
-    function getStatementAndVerificationKey(
-        OutputBalanceBundle memory bundle,
-        IVkeys vkeys
-    )
-        internal
-        view
-        returns (BN254.ScalarField[] memory publicInputs, VerificationKey memory vk)
-    {
-        if (bundle.bundleType == OutputBalanceBundleType.EXISTING_BALANCE) {
-            ExistingBalanceBundle memory existingBalanceBundle =
-                OutputBalanceBundleLib.decodeExistingBalanceBundle(bundle);
-            publicInputs = existingBalanceBundle.statement.statementSerialize();
-            vk = vkeys.outputBalanceValidityKeys();
-        } else if (bundle.bundleType == OutputBalanceBundleType.NEW_BALANCE) {
-            NewBalanceBundle memory newBalanceBundle = OutputBalanceBundleLib.decodeNewBalanceBundle(bundle);
-            publicInputs = newBalanceBundle.statement.statementSerialize();
-            vk = vkeys.newOutputBalanceValidityVkeys();
-        } else {
-            revert IDarkpoolV2.InvalidOutputBalanceBundleType();
-        }
-    }
 
     /// @notice Decode an existing balance bundle
     /// @param bundle The output balance bundle to decode
