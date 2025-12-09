@@ -9,6 +9,11 @@ import { SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settleme
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
+    OutputBalanceBundle,
+    OutputBalanceBundleLib,
+    ExistingBalanceBundle
+} from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
+import {
     RenegadeSettledIntentFirstFillBundle,
     RenegadeSettledIntentBundle,
     PrivateIntentPrivateBalanceBundleLib
@@ -26,6 +31,7 @@ import { ExpectedDifferences } from "../SettlementTestUtils.sol";
 
 contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
     using ObligationLib for ObligationBundle;
+    using OutputBalanceBundleLib for OutputBalanceBundle;
     using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentBundle;
     using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentFirstFillBundle;
     using FixedPointLib for FixedPoint;
@@ -109,6 +115,8 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
         uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
         uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
+        uint256 netReceiveAmount0 = obligation0.amountOut - totalFee0;
+        uint256 netReceiveAmount1 = obligation1.amountOut - totalFee1;
 
         ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
         expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
@@ -127,10 +135,20 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
 
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents and balances
+        ExistingBalanceBundle memory outBalanceBundle0 = bundleData0.outputBalanceBundle.decodeExistingBalanceBundle();
+        ExistingBalanceBundle memory outBalanceBundle1 = bundleData1.outputBalanceBundle.decodeExistingBalanceBundle();
         BN254.ScalarField intentCommitment0 = bundleData0.computeFullIntentCommitment(hasher);
         BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
         BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
         BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
+        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib
+            .computeFullExistingOutputBalanceCommitment(
+            netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
+        );
+        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib
+            .computeFullExistingOutputBalanceCommitment(
+            netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
+        );
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =
@@ -138,8 +156,10 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         MerkleTreeLib.initialize(testTree, config);
         testTree.insertLeaf(intentCommitment0, hasher);
         testTree.insertLeaf(balanceCommitment0, hasher);
+        testTree.insertLeaf(outBalanceCommitment0, hasher);
         testTree.insertLeaf(intentCommitment1, hasher);
         testTree.insertLeaf(balanceCommitment1, hasher);
+        testTree.insertLeaf(outBalanceCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();
@@ -163,6 +183,8 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         (FeeTake memory relayerFeeTake1, FeeTake memory protocolFeeTake1) = computeMatchFees(obligation1);
         uint256 totalFee0 = relayerFeeTake0.fee + protocolFeeTake0.fee;
         uint256 totalFee1 = relayerFeeTake1.fee + protocolFeeTake1.fee;
+        uint256 netReceiveAmount0 = obligation0.amountOut - totalFee0;
+        uint256 netReceiveAmount1 = obligation1.amountOut - totalFee1;
 
         ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
         expectedDifferences.relayerFeeBaseChange = int256(relayerFeeTake1.fee);
@@ -186,10 +208,20 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
 
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents and balances
+        ExistingBalanceBundle memory outBalanceBundle0 = bundleData0.outputBalanceBundle.decodeExistingBalanceBundle();
+        ExistingBalanceBundle memory outBalanceBundle1 = bundleData1.outputBalanceBundle.decodeExistingBalanceBundle();
         BN254.ScalarField intentCommitment0 = bundleData0.computeFullIntentCommitment(hasher);
         BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
         BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
         BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
+        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib
+            .computeFullExistingOutputBalanceCommitment(
+            netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
+        );
+        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib
+            .computeFullExistingOutputBalanceCommitment(
+            netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
+        );
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =
@@ -197,8 +229,10 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         MerkleTreeLib.initialize(testTree, config);
         testTree.insertLeaf(intentCommitment0, hasher);
         testTree.insertLeaf(balanceCommitment0, hasher);
+        testTree.insertLeaf(outBalanceCommitment0, hasher);
         testTree.insertLeaf(intentCommitment1, hasher);
         testTree.insertLeaf(balanceCommitment1, hasher);
+        testTree.insertLeaf(outBalanceCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();
