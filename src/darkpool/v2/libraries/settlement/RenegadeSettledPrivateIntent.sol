@@ -89,19 +89,22 @@ library RenegadeSettledPrivateIntentLib {
             settlementBundle.decodeRenegadeSettledIntentBundleDataFirstFill();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
+        // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
+        uint256 netReceiveAmount =
+            PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
+
         // 1. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeIntent(settlementContext, vkeys, state);
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
 
         // 2. Validate the output balance validity
-        bundle.outputBalanceBundle.authorizeOutputBalance(bundle.settlementProof, settlementContext, vkeys, state);
+        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
+            netReceiveAmount, bundle.outputBalanceBundle, bundle.settlementProof, settlementContext, vkeys, state
+        );
 
         // 3. Validate the obligation settlement
         PrivateIntentPrivateBalanceBundleLib.verifySettlement(
             obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
         );
-
-        // 4. Execute state updates for the bundle
-        bundle.executeStateUpdatesFirstFill(state, settlementContext, hasher);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -127,18 +130,21 @@ library RenegadeSettledPrivateIntentLib {
         RenegadeSettledIntentBundle memory bundle = settlementBundle.decodeRenegadeSettledIntentBundleData();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
+        // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
+        uint256 netReceiveAmount =
+            PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
+
         // 1. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeIntent(settlementContext, vkeys, state);
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
 
         // 2. Validate the output balance validity
-        bundle.outputBalanceBundle.authorizeOutputBalance(bundle.settlementProof, settlementContext, vkeys, state);
+        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
+            netReceiveAmount, bundle.outputBalanceBundle, bundle.settlementProof, settlementContext, vkeys, state
+        );
 
         // 3. Validate the obligation settlement
         PrivateIntentPrivateBalanceBundleLib.verifySettlement(
             obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
         );
-
-        // 4. Execute state updates for the bundle
-        bundle.executeStateUpdates(state, settlementContext, hasher);
     }
 }
