@@ -98,7 +98,14 @@ library RenegadeSettledPrivateIntentLib {
 
         // 2. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
-            netReceiveAmount, bundle.outputBalanceBundle, bundle.settlementProof, settlementContext, vkeys, state
+            netReceiveAmount,
+            bundle.settlementStatement,
+            bundle.outputBalanceBundle,
+            bundle.settlementProof,
+            settlementContext,
+            vkeys,
+            hasher,
+            state
         );
 
         // 3. Validate the obligation settlement
@@ -139,7 +146,14 @@ library RenegadeSettledPrivateIntentLib {
 
         // 2. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
-            netReceiveAmount, bundle.outputBalanceBundle, bundle.settlementProof, settlementContext, vkeys, state
+            netReceiveAmount,
+            bundle.settlementStatement,
+            bundle.outputBalanceBundle,
+            bundle.settlementProof,
+            settlementContext,
+            vkeys,
+            hasher,
+            state
         );
 
         // 3. Validate the obligation settlement

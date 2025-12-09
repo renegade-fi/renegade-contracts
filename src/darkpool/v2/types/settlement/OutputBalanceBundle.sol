@@ -6,7 +6,6 @@ import {
     OutputBalanceValidityStatement,
     NewOutputBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
@@ -18,6 +17,8 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 /// @notice The output balance bundle for a user
 /// @dev This type encapsulates the authorization data for use of a balance as the output of a trade.
 struct OutputBalanceBundle {
+    /// @dev The Merkle depth at which to update the balance
+    uint256 merkleDepth;
     /// @dev The type of output balance bundle
     OutputBalanceBundleType bundleType;
     /// @dev The data validating the output balance bundle
@@ -39,8 +40,6 @@ enum OutputBalanceBundleType {
 
 /// @notice The verification data for an existing balance bundle
 struct ExistingBalanceBundle {
-    /// @dev The Merkle depth of the balance
-    uint256 merkleDepth;
     /// @dev The statement for the balance validity proof
     OutputBalanceValidityStatement statement;
 }
@@ -55,9 +54,6 @@ struct NewBalanceBundle {
 /// @author Renegade Eng
 /// @notice Library for decoding output balance bundle data
 library OutputBalanceBundleLib {
-    using PublicInputsLib for OutputBalanceValidityStatement;
-    using PublicInputsLib for NewOutputBalanceValidityStatement;
-
     /// @notice Decode an existing balance bundle
     /// @param bundle The output balance bundle to decode
     /// @return bundleData The decoded bundle data

@@ -153,9 +153,9 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
             recoveryId: randomScalar()
         });
 
-        ExistingBalanceBundle memory existingBalanceBundle =
-            ExistingBalanceBundle({ merkleDepth: DarkpoolConstants.DEFAULT_MERKLE_DEPTH, statement: statement });
+        ExistingBalanceBundle memory existingBalanceBundle = ExistingBalanceBundle({ statement: statement });
         return OutputBalanceBundle({
+            merkleDepth: DarkpoolConstants.DEFAULT_MERKLE_DEPTH,
             bundleType: OutputBalanceBundleType.EXISTING_BALANCE,
             data: abi.encode(existingBalanceBundle),
             proof: createDummyProof(),
