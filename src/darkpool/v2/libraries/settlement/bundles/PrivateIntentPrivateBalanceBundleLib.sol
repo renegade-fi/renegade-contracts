@@ -11,10 +11,12 @@ import {
     ProofLinkingVK
 } from "renegade-lib/verifier/Types.sol";
 
+import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
+import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import {
@@ -31,7 +33,11 @@ import {
     ExistingBalanceBundle,
     OutputBalanceBundleType
 } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
-import { IntentAndBalancePublicSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import {
+    IntentAndBalancePublicSettlementStatement,
+    IntentAndBalanceBoundedSettlementStatement
+} from "darkpoolv2-lib/public_inputs/Settlement.sol";
+import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
@@ -84,6 +90,34 @@ struct RenegadeSettledIntentBundle {
     LinkingProof authSettlementLinkingProof;
 }
 
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bounded settlement on the first fill
+struct RenegadeSettledIntentBoundedFirstFillBundle {
+    /// @dev The private intent authorization payload with signature attached
+    RenegadeSettledIntentAuthBundleFirstFill auth;
+    /// @dev The calldata bundle containing a proof of output balance validity
+    OutputBalanceBundle outputBalanceBundle;
+    /// @dev The statement of intent and balance bounded settlement
+    IntentAndBalanceBoundedSettlementStatement settlementStatement;
+    /// @dev The proof of intent and balance bounded settlement
+    PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
+}
+
+/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bounded settlement
+struct RenegadeSettledIntentBoundedBundle {
+    /// @dev The private intent authorization payload with signature attached
+    RenegadeSettledIntentAuthBundle auth;
+    /// @dev The calldata bundle containing a proof of output balance validity
+    OutputBalanceBundle outputBalanceBundle;
+    /// @dev The statement of intent and balance bounded settlement
+    IntentAndBalanceBoundedSettlementStatement settlementStatement;
+    /// @dev The proof of intent and balance bounded settlement
+    PlonkProof settlementProof;
+    /// @dev The proof linking the authorization and settlement proofs
+    LinkingProof authSettlementLinkingProof;
+}
+
 // -----------
 // | Library |
 // -----------
@@ -94,21 +128,23 @@ struct RenegadeSettledIntentBundle {
 /// bundles.
 library PrivateIntentPrivateBalanceBundleLib {
     using BN254 for BN254.ScalarField;
-    using IntentPublicShareLib for IntentPublicShare;
-    using IntentPreMatchShareLib for IntentPreMatchShare;
-    using PostMatchBalanceShareLib for PostMatchBalanceShare;
-    using SignatureWithNonceLib for SignatureWithNonce;
-    using SettlementContextLib for SettlementContext;
+    using BoundedMatchResultLib for BoundedMatchResult;
     using DarkpoolStateLib for DarkpoolState;
-    using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
-    using PublicInputsLib for IntentAndBalanceValidityStatement;
-    using PublicInputsLib for NewOutputBalanceValidityStatement;
-    using PublicInputsLib for OutputBalanceValidityStatement;
-    using PublicInputsLib for IntentAndBalancePublicSettlementStatement;
-    using SettlementObligationLib for SettlementObligation;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
+    using IntentPreMatchShareLib for IntentPreMatchShare;
+    using IntentPublicShareLib for IntentPublicShare;
     using OutputBalanceBundleLib for OutputBalanceBundle;
+    using PostMatchBalanceShareLib for PostMatchBalanceShare;
+    using PublicInputsLib for IntentAndBalanceBoundedSettlementStatement;
+    using PublicInputsLib for IntentAndBalancePublicSettlementStatement;
+    using PublicInputsLib for IntentAndBalanceValidityStatement;
+    using PublicInputsLib for IntentAndBalanceValidityStatementFirstFill;
+    using PublicInputsLib for NewOutputBalanceValidityStatement;
+    using PublicInputsLib for OutputBalanceValidityStatement;
+    using SettlementContextLib for SettlementContext;
+    using SettlementObligationLib for SettlementObligation;
+    using SignatureWithNonceLib for SignatureWithNonce;
 
     // ----------
     // | Decode |
@@ -140,19 +176,55 @@ library PrivateIntentPrivateBalanceBundleLib {
         bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBundle));
     }
 
+    /// @notice Decode a Renegade settled private intent bounded settlement bundle for a first fill
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledIntentBoundedBundleDataFirstFill(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledIntentBoundedFirstFillBundle memory bundleData)
+    {
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBoundedFirstFillBundle));
+    }
+
+    /// @notice Decode a Renegade settled private intent bounded settlement bundle
+    /// @param bundle The settlement bundle to decode
+    /// @return bundleData The decoded bundle data
+    function decodeRenegadeSettledIntentBoundedBundleData(SettlementBundle calldata bundle)
+        internal
+        pure
+        returns (RenegadeSettledIntentBoundedBundle memory bundleData)
+    {
+        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT;
+        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
+        bundleData = abi.decode(bundle.data, (RenegadeSettledIntentBoundedBundle));
+    }
+
     // ----------------------------------
     // | Intent & Input Balance Updates |
     // ----------------------------------
 
     /// @notice Authorize and update the intent and capitalizing balance for a Renegade settled private intent bundle on
     /// its first fill
-    /// @param bundleData The bundle to check validity for
+    /// @param settlementAmount The amount to use for settlement
+    /// @param amountPublicShare The public share of the amount from the settlement statement
+    /// @param inBalancePublicShares The public shares of the input balance from the settlement statement
+    /// @param settlementProof The settlement proof
+    /// @param authSettlementLinkingProof The proof linking the authorization and settlement proofs
+    /// @param authBundle The authorization bundle
     /// @param settlementContext The settlement context to check validity for
     /// @param vkeys The contract storing the verification keys
     /// @param hasher The hasher contract
     /// @param state The state to use for verification
-    function authorizeAndUpdateIntentAndBalance(
-        RenegadeSettledIntentFirstFillBundle memory bundleData,
+    function authorizeAndUpdateIntentAndBalanceFirstFill(
+        uint256 settlementAmount,
+        BN254.ScalarField amountPublicShare,
+        PostMatchBalanceShare memory inBalancePublicShares,
+        PlonkProof memory settlementProof,
+        LinkingProof memory authSettlementLinkingProof,
+        RenegadeSettledIntentAuthBundleFirstFill memory authBundle,
         SettlementContext memory settlementContext,
         IVkeys vkeys,
         IHasher hasher,
@@ -160,8 +232,6 @@ library PrivateIntentPrivateBalanceBundleLib {
     )
         internal
     {
-        RenegadeSettledIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
-
         // Validate the Merkle root used to authorize the input balance
         state.assertRootInHistory(authBundle.statement.merkleRoot);
 
@@ -172,15 +242,25 @@ library PrivateIntentPrivateBalanceBundleLib {
         pushValidityProof(
             authBundle.statement.statementSerialize(),
             authBundle.validityProof,
-            bundleData.settlementProof,
+            settlementProof,
             vkeys.intentAndBalanceFirstFillValidityKeys(),
             vkeys.intentAndBalanceSettlement0LinkingKey(),
-            bundleData.authSettlementLinkingProof,
+            authSettlementLinkingProof,
             settlementContext
         );
 
         // Rotate the intent and balance state elements to their updated versions
-        _updateIntentAndBalance(bundleData, state, hasher);
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = authBundle.statement;
+        _updateIntentAndBalanceFirstFill(
+            settlementAmount,
+            authBundle.merkleDepth,
+            amountPublicShare,
+            authStatement.oldBalanceNullifier,
+            inBalancePublicShares,
+            authStatement,
+            hasher,
+            state
+        );
     }
 
     /// @notice Authorize and update the intent and capitalizing balance for a Renegade settled private intent bundle on
@@ -188,13 +268,25 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @dev Note that we don't need to verify the owner signature here. The presence of the intent in the Merkle tree
     /// implies that the owner's signature has already been verified (in a previous fill). So in this case, we need only
     /// verify the proof attached to the bundle.
-    /// @param bundleData The bundle to authorize
-    /// @param settlementContext The settlement context to authorize the intent for
+    /// @param settlementAmount The amount to use for settlement
+    /// @param merkleDepth The Merkle tree depth
+    /// @param amountPublicShare The public share of the amount from the settlement statement
+    /// @param inBalancePublicShares The public shares of the input balance from the settlement statement
+    /// @param settlementProof The settlement proof
+    /// @param authSettlementLinkingProof The proof linking the authorization and settlement proofs
+    /// @param authBundle The authorization bundle
+    /// @param settlementContext The settlement context to check validity for
     /// @param vkeys The contract storing the verification keys
     /// @param hasher The hasher contract
     /// @param state The state to use for authorization
     function authorizeAndUpdateIntentAndBalance(
-        RenegadeSettledIntentBundle memory bundleData,
+        uint256 settlementAmount,
+        uint256 merkleDepth,
+        BN254.ScalarField amountPublicShare,
+        PostMatchBalanceShare memory inBalancePublicShares,
+        PlonkProof memory settlementProof,
+        LinkingProof memory authSettlementLinkingProof,
+        RenegadeSettledIntentAuthBundle memory authBundle,
         SettlementContext memory settlementContext,
         IVkeys vkeys,
         IHasher hasher,
@@ -203,78 +295,100 @@ library PrivateIntentPrivateBalanceBundleLib {
         internal
     {
         // Validate the Merkle roots used for the input balance and intent
-        state.assertRootInHistory(bundleData.auth.statement.intentMerkleRoot);
-        state.assertRootInHistory(bundleData.auth.statement.balanceMerkleRoot);
+        state.assertRootInHistory(authBundle.statement.intentMerkleRoot);
+        state.assertRootInHistory(authBundle.statement.balanceMerkleRoot);
 
         // Push a validity proof to the settlement context
         pushValidityProof(
-            bundleData.auth.statement.statementSerialize(),
-            bundleData.auth.validityProof,
-            bundleData.settlementProof,
+            authBundle.statement.statementSerialize(),
+            authBundle.validityProof,
+            settlementProof,
             vkeys.intentAndBalanceValidityKeys(),
             vkeys.intentAndBalanceSettlement0LinkingKey(),
-            bundleData.authSettlementLinkingProof,
+            authSettlementLinkingProof,
             settlementContext
         );
 
         // Rotate the intent and balance state elements to their updated versions
-        _updateIntentAndBalance(bundleData, state, hasher);
+        IntentAndBalanceValidityStatement memory authStatement = authBundle.statement;
+        _updateIntentAndBalance(
+            settlementAmount, merkleDepth, amountPublicShare, inBalancePublicShares, authStatement, hasher, state
+        );
     }
 
     /// @notice Update the intent and input balance on the first fill after authorization
-    /// @param bundle The bundle to update the intent for
-    /// @param state The state to use for the update
+    /// @param settlementAmount The amount to use for settlement
+    /// @param merkleDepth The Merkle tree depth
+    /// @param amountPublicShare The public share of the amount from the settlement statement
+    /// @param oldBalanceNullifier The nullifier for the old balance state
+    /// @param inBalancePublicShares The public shares of the input balance from the settlement statement
+    /// @param authStatement The validity statement from the authorization bundle
     /// @param hasher The hasher contract
-    function _updateIntentAndBalance(
-        RenegadeSettledIntentFirstFillBundle memory bundle,
-        DarkpoolState storage state,
-        IHasher hasher
+    /// @param state The state to use for the update
+    function _updateIntentAndBalanceFirstFill(
+        uint256 settlementAmount,
+        uint256 merkleDepth,
+        BN254.ScalarField amountPublicShare,
+        BN254.ScalarField oldBalanceNullifier,
+        PostMatchBalanceShare memory inBalancePublicShares,
+        IntentAndBalanceValidityStatementFirstFill memory authStatement,
+        IHasher hasher,
+        DarkpoolState storage state
     )
         internal
     {
         // 1. Nullify the balance state
-        BN254.ScalarField nullifier = bundle.auth.statement.oldBalanceNullifier;
-        state.spendNullifier(nullifier);
+        state.spendNullifier(oldBalanceNullifier);
 
         // 2. Insert commitments to the updated intent and balance into the Merkle tree
-        uint256 merkleDepth = bundle.auth.merkleDepth;
-        BN254.ScalarField newIntentCommitment = computeFullIntentCommitment(bundle, hasher);
-        BN254.ScalarField newBalanceCommitment = computeFullBalanceCommitment(bundle, hasher);
+        BN254.ScalarField newIntentCommitment =
+            computeFullIntentCommitment(settlementAmount, amountPublicShare, authStatement, hasher);
+        BN254.ScalarField newBalanceCommitment = computeFullBalanceCommitment(
+            settlementAmount, inBalancePublicShares, authStatement.balancePartialCommitment, hasher
+        );
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
         // 3. Emit recovery IDs for the intent and balance
-        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundle.auth.statement;
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
     }
 
-    /// @notice Update the intent and input balance on a subsequent fill
-    /// @param bundle The bundle to update the intent for
-    /// @param state The state to use for the update
+    /// @notice Update the intent and input balance on a subsequent fill after authorization
+    /// @param settlementAmount The amount to use for settlement
+    /// @param merkleDepth The Merkle tree depth
+    /// @param amountPublicShare The public share of the amount from the settlement statement
+    /// @param inBalancePublicShares The public shares of the input balance from the settlement statement
+    /// @param authStatement The validity statement from the authorization bundle
     /// @param hasher The hasher contract
+    /// @param state The state to use for the update
     function _updateIntentAndBalance(
-        RenegadeSettledIntentBundle memory bundle,
-        DarkpoolState storage state,
-        IHasher hasher
+        uint256 settlementAmount,
+        uint256 merkleDepth,
+        BN254.ScalarField amountPublicShare,
+        PostMatchBalanceShare memory inBalancePublicShares,
+        IntentAndBalanceValidityStatement memory authStatement,
+        IHasher hasher,
+        DarkpoolState storage state
     )
         internal
     {
         // 1. Nullify both the balance and intent states
-        BN254.ScalarField balanceNullifier = bundle.auth.statement.oldBalanceNullifier;
-        BN254.ScalarField intentNullifier = bundle.auth.statement.oldIntentNullifier;
+        BN254.ScalarField balanceNullifier = authStatement.oldBalanceNullifier;
+        BN254.ScalarField intentNullifier = authStatement.oldIntentNullifier;
         state.spendNullifier(balanceNullifier);
         state.spendNullifier(intentNullifier);
 
         // 2. Insert commitments to the updated intent and balance into the Merkle tree
-        uint256 merkleDepth = bundle.auth.merkleDepth;
-        BN254.ScalarField newIntentCommitment = computeFullIntentCommitment(bundle, hasher);
-        BN254.ScalarField newBalanceCommitment = computeFullBalanceCommitment(bundle, hasher);
+        BN254.ScalarField newIntentCommitment =
+            computeFullIntentCommitment(settlementAmount, amountPublicShare, authStatement, hasher);
+        BN254.ScalarField newBalanceCommitment = computeFullBalanceCommitment(
+            settlementAmount, inBalancePublicShares, authStatement.balancePartialCommitment, hasher
+        );
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
 
         // 3. Emit recovery IDs for the intent and balance
-        IntentAndBalanceValidityStatement memory authStatement = bundle.auth.statement;
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
     }
@@ -306,22 +420,23 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @dev A settlement *may* create a new output balance, or it may use an existing balance. These two cases
     /// correspond to the helpers below
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
-    /// @param outputBalanceBundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
+    /// @param outBalancePublicShares The updated public shares of the post-match balance fields for the
+    /// output balance
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
+    /// @param outputBalanceBundle The output balance's authorization bundle
     /// @param settlementContext The settlement context to authorize the output balance for
-    /// @param vkeys The verification keys to use for authorization
     /// @param hasher The hasher contract
+    /// @param vkeys The verification keys to use for authorization
     /// @param state The state to use for authorization
     function authorizeAndUpdateOutputBalance(
         uint256 netReceiveAmount,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
-        OutputBalanceBundle memory outputBalanceBundle,
+        PostMatchBalanceShare memory outBalancePublicShares,
         PlonkProof memory settlementProof,
+        OutputBalanceBundle memory outputBalanceBundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
         IHasher hasher,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal
@@ -329,23 +444,23 @@ library PrivateIntentPrivateBalanceBundleLib {
         if (outputBalanceBundle.bundleType == OutputBalanceBundleType.NEW_BALANCE) {
             _authorizeAndUpdateNewOutputBalance(
                 netReceiveAmount,
-                outputBalanceBundle,
-                settlementStatement,
+                outBalancePublicShares,
                 settlementProof,
+                outputBalanceBundle,
                 settlementContext,
-                vkeys,
                 hasher,
+                vkeys,
                 state
             );
         } else if (outputBalanceBundle.bundleType == OutputBalanceBundleType.EXISTING_BALANCE) {
             _authorizeAndUpdateExistingOutputBalance(
                 netReceiveAmount,
-                outputBalanceBundle,
-                settlementStatement,
+                outBalancePublicShares,
                 settlementProof,
+                outputBalanceBundle,
                 settlementContext,
-                vkeys,
                 hasher,
+                vkeys,
                 state
             );
         } else {
@@ -356,22 +471,23 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @notice Authorize a new output balance for a Renegade settled private intent bundle
     /// @dev A new output balance is created as part of the settlement
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
-    /// @param bundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
+    /// @param outBalancePublicShares The updated public shares of the post-match balance fields for the
+    /// output balance
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
+    /// @param bundle The output balance's authorization bundle
     /// @param settlementContext The settlement context to authorize the output balance for
-    /// @param vkeys The verification keys to use for authorization
     /// @param hasher The hasher contract
+    /// @param vkeys The verification keys to use for authorization
     /// @param state The state to use for the update
     function _authorizeAndUpdateNewOutputBalance(
         uint256 netReceiveAmount,
-        OutputBalanceBundle memory bundle,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
+        PostMatchBalanceShare memory outBalancePublicShares,
         PlonkProof memory settlementProof,
+        OutputBalanceBundle memory bundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
         IHasher hasher,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal
@@ -392,28 +508,29 @@ library PrivateIntentPrivateBalanceBundleLib {
         );
 
         // Update the output balance's contract state
-        _updateNewOutputBalance(netReceiveAmount, newBalanceBundle, bundle, settlementStatement, hasher, state);
+        _updateNewOutputBalance(netReceiveAmount, outBalancePublicShares, newBalanceBundle, bundle, hasher, state);
     }
 
     /// @notice Authorize an existing output balance for a Renegade settled private intent bundle
     /// @dev An existing output balance is used as part of the settlement
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
-    /// @param bundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
+    /// @param outBalancePublicShares The updated public shares of the post-match balance fields for the
+    /// output balance
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
+    /// @param bundle The output balance's authorization bundle
     /// @param settlementContext The settlement context to authorize the output balance for
-    /// @param vkeys The verification keys to use for authorization
     /// @param hasher The hasher contract
+    /// @param vkeys The verification keys to use for authorization
     /// @param state The state to use for authorization
     function _authorizeAndUpdateExistingOutputBalance(
         uint256 netReceiveAmount,
-        OutputBalanceBundle memory bundle,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
+        PostMatchBalanceShare memory outBalancePublicShares,
         PlonkProof memory settlementProof,
+        OutputBalanceBundle memory bundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
         IHasher hasher,
+        IVkeys vkeys,
         DarkpoolState storage state
     )
         internal
@@ -439,22 +556,23 @@ library PrivateIntentPrivateBalanceBundleLib {
 
         // Update the output balance's contract state
         _updateExistingOutputBalance(
-            netReceiveAmount, existingBalanceBundle, bundle, settlementStatement, hasher, state
+            netReceiveAmount, outBalancePublicShares, existingBalanceBundle, bundle, hasher, state
         );
     }
 
     /// @notice Update a new output balance's contract state
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
+    /// @param outBalancePublicShares The updated public shares of the post-match balance fields for the
+    /// output balance
     /// @param bundle The new balance bundle
     /// @param outputBalanceBundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
     /// @param hasher The hasher contract
     /// @param state The state to use for the update
     function _updateNewOutputBalance(
         uint256 netReceiveAmount,
+        PostMatchBalanceShare memory outBalancePublicShares,
         NewBalanceBundle memory bundle,
         OutputBalanceBundle memory outputBalanceBundle,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
         IHasher hasher,
         DarkpoolState storage state
     )
@@ -463,8 +581,9 @@ library PrivateIntentPrivateBalanceBundleLib {
         // Compute the commitment to the output balance after the settlement is applied
         // Fees are already paid directly as ERC20 transfers for this settlement bundle type, so we only need to update
         // the balance's `amount` share.
-        BN254.ScalarField newBalanceCommitment =
-            computeFullNewOutputBalanceCommitment(netReceiveAmount, bundle, settlementStatement, hasher);
+        BN254.ScalarField newBalanceCommitment = computeFullOutputBalanceCommitment(
+            netReceiveAmount, outBalancePublicShares, bundle.statement.newBalancePartialCommitment, hasher
+        );
         state.insertMerkleLeaf(outputBalanceBundle.merkleDepth, newBalanceCommitment, hasher);
 
         // Emit a recovery ID for the output balance
@@ -474,16 +593,17 @@ library PrivateIntentPrivateBalanceBundleLib {
 
     /// @notice Update an existing output balance's contract state
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
+    /// @param outBalancePublicShares The updated public shares of the post-match balance fields for the
+    /// output balance
     /// @param bundle The existing balance bundle
     /// @param outputBalanceBundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
     /// @param hasher The hasher contract
     /// @param state The state to use for the update
     function _updateExistingOutputBalance(
         uint256 netReceiveAmount,
+        PostMatchBalanceShare memory outBalancePublicShares,
         ExistingBalanceBundle memory bundle,
         OutputBalanceBundle memory outputBalanceBundle,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
         IHasher hasher,
         DarkpoolState storage state
     )
@@ -495,8 +615,9 @@ library PrivateIntentPrivateBalanceBundleLib {
         // Compute the commitment to the output balance after the settlement is applied
         // Fees are already paid directly as ERC20 transfers for this settlement bundle type, so we only need to update
         // the balance's `amount` share.
-        BN254.ScalarField newBalanceCommitment =
-            computeFullExistingOutputBalanceCommitment(netReceiveAmount, bundle, settlementStatement, hasher);
+        BN254.ScalarField newBalanceCommitment = computeFullOutputBalanceCommitment(
+            netReceiveAmount, outBalancePublicShares, bundle.statement.newPartialCommitment, hasher
+        );
         state.insertMerkleLeaf(outputBalanceBundle.merkleDepth, newBalanceCommitment, hasher);
 
         // Emit a recovery ID for the output balance
@@ -513,24 +634,24 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @dev The circuit proves the validity of the private share commitment, so we must:
     /// 1. Compute the updated public share which results from applying the settlement to the leaked `amountIn` share.
     /// 2. Compute the full commitment to the updated intent from the private commitment and public shares.
-    /// @param bundleData The bundle data to compute the commitment for
+    /// @param settlementAmount The settlement amount
+    /// @param amountPublicShare The public share of the amount in field
+    /// @param authStatement The validity statement from the authorization bundle
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
     function computeFullIntentCommitment(
-        RenegadeSettledIntentFirstFillBundle memory bundleData,
+        uint256 settlementAmount,
+        BN254.ScalarField amountPublicShare,
+        IntentAndBalanceValidityStatementFirstFill memory authStatement,
         IHasher hasher
     )
         internal
         view
         returns (BN254.ScalarField newIntentCommitment)
     {
-        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
-        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
-
         // 1. Compute the updated public share of the amount in field
-        BN254.ScalarField newAmountInShare = settlementStatement.amountPublicShare;
-        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
-        newAmountInShare = newAmountInShare.sub(settlementAmount);
+        BN254.ScalarField settlementAmountScalar = BN254.ScalarField.wrap(settlementAmount);
+        BN254.ScalarField newAmountInShare = amountPublicShare.sub(settlementAmountScalar);
 
         // 2. Create the full updated intent public share
         IntentPublicShare memory newIntentPublicShare =
@@ -543,62 +664,29 @@ library PrivateIntentPrivateBalanceBundleLib {
         );
     }
 
-    /// @notice Compute the full commitment to the updated balance for a Renegade settled private intent bundle
-    /// on its first fill
-    /// @dev The circuit proves the validity of a commitment to all fields of the balance which don't change in the
-    /// match,
-    /// so we must:
-    /// 1. Compute the updated public shares of the balance
-    /// 2. Compute the full commitment to the updated balance from the partial commitment and public shares.
-    /// @param bundleData The bundle data to compute the commitment for
-    /// @param hasher The hasher to use for hashing
-    /// @return newBalanceCommitment The full commitment to the updated balance
-    function computeFullBalanceCommitment(
-        RenegadeSettledIntentFirstFillBundle memory bundleData,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newBalanceCommitment)
-    {
-        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
-        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
-
-        // 1. Compute the updated public shares of the balance
-        // The fees don't update for the input balance, so we leave them as is
-        PostMatchBalanceShare memory newInBalancePublicShares = settlementStatement.inBalancePublicShares;
-        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
-        newInBalancePublicShares.amount = newInBalancePublicShares.amount.sub(settlementAmount);
-
-        // 2. Resume the partial commitment with updated shares
-        uint256[] memory remainingShares = newInBalancePublicShares.scalarSerialize();
-        newBalanceCommitment =
-            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
-    }
-
-    /// @notice Compute the full commitment to the updated intent for a Renegade settled private intent bundle
-    /// on its subsequent fill
+    /// @notice Compute the full commitment to the updated intent for a renegade settled private intent bundle in
+    /// a subsequent fill.
     /// @dev The partial commitment computed in the circuit is a commitment to all shares except the public share of the
     /// `amountIn` field, which is updated in a match settlement. We must therefore apply the settlement to the
     /// `amountIn` public share and resume the commitment.
-    /// @param bundleData The bundle data to compute the commitment for
+    /// @param settlementAmount The settlement amount
+    /// @param amountPublicShare The public share of the amount in field
+    /// @param authStatement The validity statement from the authorization bundle
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
     function computeFullIntentCommitment(
-        RenegadeSettledIntentBundle memory bundleData,
+        uint256 settlementAmount,
+        BN254.ScalarField amountPublicShare,
+        IntentAndBalanceValidityStatement memory authStatement,
         IHasher hasher
     )
         internal
         view
         returns (BN254.ScalarField newIntentCommitment)
     {
-        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
-        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
-
         // Compute the updated public share of the amount in field
-        BN254.ScalarField newAmountInShare = settlementStatement.amountPublicShare;
-        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
-        newAmountInShare = newAmountInShare.sub(settlementAmount);
+        BN254.ScalarField settlementAmountScalar = BN254.ScalarField.wrap(settlementAmount);
+        BN254.ScalarField newAmountInShare = amountPublicShare.sub(settlementAmountScalar);
 
         // Resume the partial commitment with updated shares
         uint256[] memory remainingShares = new uint256[](1);
@@ -608,86 +696,61 @@ library PrivateIntentPrivateBalanceBundleLib {
     }
 
     /// @notice Compute the full commitment to the updated balance for a Renegade settled private intent bundle
-    /// on its subsequent fill
-    /// @dev The partial commitment computed in the circuit is a commitment to all shares except the public share of the
-    /// `amount` field, which is updated in a match settlement. We must therefore apply the settlement to the
-    /// `amount` public share and resume the commitment.
-    /// @param bundleData The bundle data to compute the commitment for
+    /// @dev The circuit proves the validity of a commitment to all fields of the balance which don't change in the
+    /// match,
+    /// so we must:
+    /// 1. Compute the updated public shares of the balance
+    /// 2. Compute the full commitment to the updated balance from the partial commitment and public shares.
+    /// @param settlementAmount The settlement amount
+    /// @param inBalancePublicShares The public shares of the input balance
+    /// @param balancePartialCommitment The partial commitment to the balance
     /// @param hasher The hasher to use for hashing
     /// @return newBalanceCommitment The full commitment to the updated balance
     function computeFullBalanceCommitment(
-        RenegadeSettledIntentBundle memory bundleData,
+        uint256 settlementAmount,
+        PostMatchBalanceShare memory inBalancePublicShares,
+        PartialCommitment memory balancePartialCommitment,
         IHasher hasher
     )
         internal
         view
         returns (BN254.ScalarField newBalanceCommitment)
     {
-        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
-        IntentAndBalancePublicSettlementStatement memory settlementStatement = bundleData.settlementStatement;
+        // 1. Compute the updated public shares of the balance
+        // The fees don't update for the input balance, so we leave them as is
+        BN254.ScalarField settlementAmountScalar = BN254.ScalarField.wrap(settlementAmount);
+        inBalancePublicShares.amount = inBalancePublicShares.amount.sub(settlementAmountScalar);
 
-        // Compute the updated public shares of the balance
-        PostMatchBalanceShare memory newInBalancePublicShares = settlementStatement.inBalancePublicShares;
-        BN254.ScalarField settlementAmount = BN254.ScalarField.wrap(settlementStatement.settlementObligation.amountIn);
-        newInBalancePublicShares.amount = newInBalancePublicShares.amount.sub(settlementAmount);
-
-        // Resume the partial commitment with updated shares
-        uint256[] memory remainingShares = newInBalancePublicShares.scalarSerialize();
+        // 2. Resume the partial commitment with updated shares
+        uint256[] memory remainingShares = inBalancePublicShares.scalarSerialize();
         newBalanceCommitment =
-            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
-    }
-
-    /// @notice Compute the full commitment to a new output balance for a Renegade settled private intent
-    /// bundle; after updating the balance's amount share to reflect the settlement
-    /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
-    /// @param bundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
-    /// @param hasher The hasher contract
-    /// @return newBalanceCommitment The full commitment to the new output balance
-    function computeFullNewOutputBalanceCommitment(
-        uint256 netReceiveAmount,
-        NewBalanceBundle memory bundle,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newBalanceCommitment)
-    {
-        PostMatchBalanceShare memory newBalancePublicShares = settlementStatement.outBalancePublicShares;
-        BN254.ScalarField netReceiveAmountScalar = BN254.ScalarField.wrap(netReceiveAmount);
-        newBalancePublicShares.amount = newBalancePublicShares.amount.add(netReceiveAmountScalar);
-
-        uint256[] memory remainingShares = newBalancePublicShares.scalarSerialize();
-        newBalanceCommitment = CommitmentLib.computeResumableCommitment(
-            remainingShares, bundle.statement.newBalancePartialCommitment, hasher
-        );
+            CommitmentLib.computeResumableCommitment(remainingShares, balancePartialCommitment, hasher);
     }
 
     /// @notice Compute the full commitment to an existing output balance for a Renegade settled private intent
     /// bundle; after updating the balance's amount share to reflect the settlement
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
-    /// @param bundle The output balance's authorization bundle
-    /// @param settlementStatement The settlement statement to use for the update
-    /// @param hasher The hasher contract
-    /// @return newBalanceCommitment The full commitment to the existing output balance
-    function computeFullExistingOutputBalanceCommitment(
+    /// @param newBalancePublicShares The updated public shares of the post-match balance fields for the
+    /// output balance
+    /// @param newBalancePartialCommitment The partial commitment to the new balance
+    /// @param hasher The hasher to use for hashing
+    /// @return newBalanceCommitment The full commitment to the updated balance
+    function computeFullOutputBalanceCommitment(
         uint256 netReceiveAmount,
-        ExistingBalanceBundle memory bundle,
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
+        PostMatchBalanceShare memory newBalancePublicShares,
+        PartialCommitment memory newBalancePartialCommitment,
         IHasher hasher
     )
         internal
         view
         returns (BN254.ScalarField newBalanceCommitment)
     {
-        PostMatchBalanceShare memory newBalancePublicShares = settlementStatement.outBalancePublicShares;
         BN254.ScalarField netReceiveAmountScalar = BN254.ScalarField.wrap(netReceiveAmount);
         newBalancePublicShares.amount = newBalancePublicShares.amount.add(netReceiveAmountScalar);
 
         uint256[] memory remainingShares = newBalancePublicShares.scalarSerialize();
         newBalanceCommitment =
-            CommitmentLib.computeResumableCommitment(remainingShares, bundle.statement.newPartialCommitment, hasher);
+            CommitmentLib.computeResumableCommitment(remainingShares, newBalancePartialCommitment, hasher);
     }
 
     // -------------------
@@ -756,19 +819,50 @@ library PrivateIntentPrivateBalanceBundleLib {
         settlementContext.pushProof(publicInputs, proof, vk);
     }
 
+    /// @notice Verify a bounded settlement proof
+    /// @param matchResult The bounded match result to validate
+    /// @param proof The settlement proof to verify
+    /// @param statement The settlement statement
+    /// @param vkeys The verification keys contract
+    /// @param settlementContext The settlement context to push to
+    function verifyBoundedSettlement(
+        BoundedMatchResult memory matchResult,
+        PlonkProof memory proof,
+        IntentAndBalanceBoundedSettlementStatement memory statement,
+        IVkeys vkeys,
+        SettlementContext memory settlementContext
+    )
+        internal
+        view
+    {
+        // The match result in the settlement statement must match the one from the match result bundle
+        bool matchResultMatches = matchResult.isEqualTo(statement.boundedMatchResult);
+        if (!matchResultMatches) revert IDarkpoolV2.InvalidBoundedMatchResult();
+
+        // Push the settlement proof to the settlement context
+        BN254.ScalarField[] memory publicInputs = statement.statementSerialize();
+        // TODO: Use the correct verification key
+        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
+        settlementContext.pushProof(publicInputs, proof, vk);
+    }
+
     // -------------
     // | Transfers |
     // -------------
 
     /// @notice Apply fees to an obligation and allocate transfers to settle the fees
-    /// @param settlementStatement The settlement statement to apply the fees to
-    /// @param state The darkpool state containing all storage references
+    /// @param relayerFeeRecipient The recipient of the relayer fee
+    /// @param relayerFeeRate The relayer fee rate to apply
+    /// @param obligation The obligation to apply fees to
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
     /// @return traderNetReceiveAmount The net receive amount after fees
     function applyFees(
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
-        DarkpoolState storage state,
-        SettlementContext memory settlementContext
+        address relayerFeeRecipient,
+        FixedPoint memory relayerFeeRate,
+        SettlementObligation memory obligation,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
         view
@@ -776,31 +870,35 @@ library PrivateIntentPrivateBalanceBundleLib {
     {
         // Transfer fees to the relayer and protocol collection wallets
         (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) =
-            _addFeeTransfers(settlementStatement, state, settlementContext);
+            _addFeeTransfers(relayerFeeRecipient, relayerFeeRate, obligation, settlementContext, state);
 
         // Calculate the net receive amount after fees
         uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
-        traderNetReceiveAmount = settlementStatement.settlementObligation.amountOut - totalFee;
+        traderNetReceiveAmount = obligation.amountOut - totalFee;
     }
 
     /// @notice Allocate the transfers to settle the obligation
     /// @dev We transfer fees out of the balance immediately. This is done to avoid the need to update the balance later
     /// to pay fees. It leaks no extra privacy, because the settlement obligation in this case is known.
-    /// @param settlementStatement The settlement statement to allocate the transfers for
-    /// @param state The darkpool state containing all storage references
+    /// @param relayerFeeRecipient The recipient of the relayer fee
+    /// @param relayerFeeRate The relayer fee rate to apply
+    /// @param obligation The obligation to apply fees to
     /// @param settlementContext The settlement context to which we append post-validation updates.
+    /// @param state The darkpool state containing all storage references
     /// @return relayerFeeTake The relayer fee take
     /// @return protocolFeeTake The protocol fee take
     function _addFeeTransfers(
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
-        DarkpoolState storage state,
-        SettlementContext memory settlementContext
+        address relayerFeeRecipient,
+        FixedPoint memory relayerFeeRate,
+        SettlementObligation memory obligation,
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
         view
         returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
     {
-        (relayerFeeTake, protocolFeeTake) = _computeFeeTakes(settlementStatement, state);
+        (relayerFeeTake, protocolFeeTake) = _computeFeeTakes(relayerFeeRecipient, relayerFeeRate, obligation, state);
 
         // Add withdrawal transfers for the fees
         SimpleTransfer memory relayerWithdrawal = relayerFeeTake.buildWithdrawalTransfer();
@@ -810,23 +908,24 @@ library PrivateIntentPrivateBalanceBundleLib {
     }
 
     /// @notice Compute the fee takes for the match
-    /// @param settlementStatement The settlement statement to compute the fee takes for
+    /// @param relayerFeeRecipient The recipient of the relayer fee
+    /// @param relayerFee The relayer fee rate to apply
+    /// @param obligation The obligation to compute the fee takes for
     /// @param state The darkpool state containing all storage references
     /// @return relayerFeeTake The relayer fee take
     /// @return protocolFeeTake The protocol fee take
     function _computeFeeTakes(
-        IntentAndBalancePublicSettlementStatement memory settlementStatement,
+        address relayerFeeRecipient,
+        FixedPoint memory relayerFee,
+        SettlementObligation memory obligation,
         DarkpoolState storage state
     )
         internal
         view
         returns (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake)
     {
-        SettlementObligation memory obligation = settlementStatement.settlementObligation;
-
         // First compute the fee rates
-        FeeRate memory relayerFeeRate =
-            FeeRate({ rate: settlementStatement.relayerFee, recipient: settlementStatement.relayerFeeRecipient });
+        FeeRate memory relayerFeeRate = FeeRate({ rate: relayerFee, recipient: relayerFeeRecipient });
         FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
 
         // Then multiply the rates with the receive amount
