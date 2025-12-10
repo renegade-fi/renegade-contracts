@@ -38,9 +38,11 @@ pub async fn send_tx<C: CallDecoder>(tx: TestCallBuilder<'_, C>) -> Result<Trans
             let decoded =
                 err_payload.as_decoded_interface_error::<IDarkpoolV2::IDarkpoolV2Errors>();
 
-            let err_str = decoded
-                .map(|e| format!("{e:?}"))
-                .unwrap_or_else(|| format!("unknown error: {}", err_payload.message));
+            let err_str = decoded.map(|e| format!("{e:?}")).unwrap_or_else(|| {
+                let msg = err_payload.message;
+                let data = err_payload.data.unwrap_or_default();
+                format!("unknown error: {msg} (data = {data})")
+            });
             eyre::bail!("pending tx error: {err_str}");
         }
         Err(err) => {

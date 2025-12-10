@@ -63,6 +63,8 @@ interface IDarkpoolV2 {
     error InvalidIntentCommitmentSignature();
     /// @notice Thrown when the owner signature is invalid
     error InvalidOwnerSignature();
+    /// @notice Thrown when an executor signature is invalid
+    error InvalidExecutorSignature();
     /// @notice Thrown when the public input length is invalid
     error InvalidPublicInputLength();
     /// @notice Thrown when an amount is too large

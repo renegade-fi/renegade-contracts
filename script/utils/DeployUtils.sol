@@ -12,7 +12,7 @@ import { JsonUtils } from "./JsonUtils.sol";
 /// @notice Deployment utilities for the Renegade darkpool
 library DeployUtils {
     /// @dev Path to the deployments JSON file
-    string internal constant DEFAULT_DEPLOYMENTS_PATH = "deployments.json";
+    string internal constant DEFAULT_DEPLOYMENTS_PATH = "deployments.devnet.json";
 
     /// @notice Get the deployments path from environment or use default
     /// @param vm The VM to access environment variables

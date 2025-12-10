@@ -2,9 +2,9 @@
 
 use eyre::Result;
 use renegade_abi::v2::{
+    IDarkpoolV2::{Withdrawal, WithdrawalProofBundle},
     relayer_types::u256_to_u128,
     transfer_auth::withdrawal::create_withdrawal_auth,
-    IDarkpoolV2::{Withdrawal, WithdrawalProofBundle},
 };
 use renegade_circuit_types::balance::DarkpoolStateBalance;
 use renegade_circuits::{
@@ -86,7 +86,7 @@ pub fn create_proof_bundle(
     let valid = check_constraints_satisfied::<SizedValidWithdrawal>(&witness, &statement);
     assert_true_result!(valid)?;
 
-    let proof = singleprover_prove::<SizedValidWithdrawal>(witness, statement.clone())?;
+    let proof = singleprover_prove::<SizedValidWithdrawal>(&witness, &statement)?;
 
     // Create the bundle using the helper
     let bundle = WithdrawalProofBundle::new(statement, proof);

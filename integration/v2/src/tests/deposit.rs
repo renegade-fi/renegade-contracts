@@ -2,8 +2,8 @@
 
 use eyre::Result;
 use renegade_abi::v2::{
-    relayer_types::u256_to_u128,
     IDarkpoolV2::{Deposit, DepositProofBundle},
+    relayer_types::u256_to_u128,
 };
 use renegade_circuit_types::balance::DarkpoolStateBalance;
 use renegade_circuits::{
@@ -88,7 +88,7 @@ pub fn create_proof_bundle(
     let valid = check_constraints_satisfied::<SizedValidDeposit>(&witness, &statement);
     assert_true_result!(valid)?;
 
-    let proof = singleprover_prove::<SizedValidDeposit>(witness, statement.clone())?;
+    let proof = singleprover_prove::<SizedValidDeposit>(&witness, &statement)?;
     let bundle = DepositProofBundle::new(statement, proof);
     Ok(bundle)
 }

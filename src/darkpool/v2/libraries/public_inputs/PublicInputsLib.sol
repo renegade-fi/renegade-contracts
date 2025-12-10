@@ -338,24 +338,24 @@ library PublicInputsLib {
         uint256 nPublicInputs = 13;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
 
+        // Add the settlement obligation
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.inputToken)));
+        publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.outputToken)));
+        publicInputs[2] = BN254.ScalarField.wrap(statement.settlementObligation.amountIn);
+        publicInputs[3] = BN254.ScalarField.wrap(statement.settlementObligation.amountOut);
+
         // Add the leaked pre-update amount public share of the intent
-        publicInputs[0] = statement.amountPublicShare;
+        publicInputs[4] = statement.amountPublicShare;
 
         // Add the input balance public shares
-        publicInputs[1] = statement.inBalancePublicShares.relayerFeeBalance;
-        publicInputs[2] = statement.inBalancePublicShares.protocolFeeBalance;
-        publicInputs[3] = statement.inBalancePublicShares.amount;
+        publicInputs[5] = statement.inBalancePublicShares.relayerFeeBalance;
+        publicInputs[6] = statement.inBalancePublicShares.protocolFeeBalance;
+        publicInputs[7] = statement.inBalancePublicShares.amount;
 
         // Add the output balance public shares
-        publicInputs[4] = statement.outBalancePublicShares.relayerFeeBalance;
-        publicInputs[5] = statement.outBalancePublicShares.protocolFeeBalance;
-        publicInputs[6] = statement.outBalancePublicShares.amount;
-
-        // Add the settlement obligation
-        publicInputs[7] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.inputToken)));
-        publicInputs[8] = BN254.ScalarField.wrap(uint256(uint160(statement.settlementObligation.outputToken)));
-        publicInputs[9] = BN254.ScalarField.wrap(statement.settlementObligation.amountIn);
-        publicInputs[10] = BN254.ScalarField.wrap(statement.settlementObligation.amountOut);
+        publicInputs[8] = statement.outBalancePublicShares.relayerFeeBalance;
+        publicInputs[9] = statement.outBalancePublicShares.protocolFeeBalance;
+        publicInputs[10] = statement.outBalancePublicShares.amount;
 
         // Add the relayer fee and recipient
         publicInputs[11] = BN254.ScalarField.wrap(statement.relayerFee.repr);

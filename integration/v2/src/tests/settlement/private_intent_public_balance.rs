@@ -1,27 +1,27 @@
 //! Tests for settling a natively-settled private intent
 
 use alloy::{
-    primitives::{aliases::U48, keccak256, Address, U160, U256},
+    primitives::{Address, U160, U256, aliases::U48, keccak256},
     signers::local::PrivateKeySigner,
 };
 use eyre::Result;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use renegade_abi::v2::{
-    auth_helpers::sign_with_nonce,
     IDarkpoolV2::{
         ObligationBundle, PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill,
         SettlementBundle,
     },
+    auth_helpers::sign_with_nonce,
 };
 use renegade_circuit_types::{
+    Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint,
     intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
     state_wrapper::StateWrapper,
-    Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint,
 };
 use renegade_circuits::{
     singleprover_prove_with_hint,
-    test_helpers::{random_price, BOUNDED_MAX_AMT},
+    test_helpers::{BOUNDED_MAX_AMT, random_price},
     zk_circuits::{
         proof_linking::intent_only::link_sized_intent_only_settlement,
         settlement::intent_only_public_settlement::{
@@ -36,13 +36,13 @@ use renegade_circuits::{
     },
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
-use renegade_constants::{Scalar, MERKLE_HEIGHT};
+use renegade_constants::{MERKLE_HEIGHT, Scalar};
 use renegade_crypto::fields::scalar_to_u256;
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
     test_args::TestArgs,
-    tests::settlement::{compute_fee_take, settlement_relayer_fee},
+    tests::settlement::{compute_fee_take, settlement_relayer_fee, split_obligation},
     util::{
         fuzzing::create_matching_intents_and_obligations,
         merkle::find_state_element_opening,
@@ -167,22 +167,6 @@ integration_test_async!(test_settlement__native_settled_private_intent);
 // | Helpers |
 // -----------
 
-/// Split an obligation in two
-///
-/// Returns the two splits of the obligation
-fn split_obligation(
-    obligation: &SettlementObligation,
-) -> (SettlementObligation, SettlementObligation) {
-    let mut obligation0 = obligation.clone();
-    let mut obligation1 = obligation.clone();
-    obligation0.amount_in /= 2;
-    obligation0.amount_out /= 2;
-    obligation1.amount_in /= 2;
-    obligation1.amount_out /= 2;
-
-    (obligation0, obligation1)
-}
-
 // --- Funding --- //
 
 /// Fund the two parties with the base and quote tokens
@@ -260,10 +244,8 @@ fn generate_first_fill_validity_proof(
     let comm = state_intent.compute_commitment();
 
     // Generate the validity proof
-    let (proof, link_hint) = singleprover_prove_with_hint::<IntentOnlyFirstFillValidityCircuit>(
-        witness,
-        statement.clone(),
-    )?;
+    let (proof, link_hint) =
+        singleprover_prove_with_hint::<IntentOnlyFirstFillValidityCircuit>(&witness, &statement)?;
     Ok((comm, state_intent, statement, proof, link_hint))
 }
 
@@ -282,7 +264,7 @@ fn generate_subsequent_fill_validity_proof(
 
     // Prove the circuit
     let (proof, link_hint) =
-        singleprover_prove_with_hint::<SizedIntentOnlyValidityCircuit>(witness, statement.clone())?;
+        singleprover_prove_with_hint::<SizedIntentOnlyValidityCircuit>(&witness, &statement)?;
     Ok((statement, proof, link_hint))
 }
 
@@ -298,8 +280,7 @@ fn generate_settlement_proof(
     let (witness, mut statement) = intent_only_public_settlement::test_helpers::create_witness_statement_with_intent_and_obligation(intent, obligation);
     statement.relayer_fee = settlement_relayer_fee();
     let (proof, link_hint) = singleprover_prove_with_hint::<SizedIntentOnlyPublicSettlementCircuit>(
-        witness,
-        statement.clone(),
+        &witness, &statement,
     )?;
 
     Ok((statement, proof, link_hint))

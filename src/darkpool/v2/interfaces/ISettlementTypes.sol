@@ -30,6 +30,12 @@ import {
 import {
     ObligationBundle, ObligationType, PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
+import {
+    OutputBalanceBundle,
+    OutputBalanceBundleType,
+    ExistingBalanceBundle,
+    NewBalanceBundle
+} from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 
 /// @title ISettlementTypes
@@ -104,6 +110,18 @@ interface ISettlementTypes {
         external
         pure
         returns (PrivateObligationBundle memory);
+
+    // Output balance bundle types
+    function exposeOutputBalanceBundle(OutputBalanceBundle calldata)
+        external
+        pure
+        returns (OutputBalanceBundle memory);
+    function exposeOutputBalanceBundleType(OutputBalanceBundleType) external pure returns (OutputBalanceBundleType);
+    function exposeExistingBalanceBundle(ExistingBalanceBundle calldata)
+        external
+        pure
+        returns (ExistingBalanceBundle memory);
+    function exposeNewBalanceBundle(NewBalanceBundle calldata) external pure returns (NewBalanceBundle memory);
 
     // Settlement context types
     function exposeSettlementContext(SettlementContext calldata) external pure returns (SettlementContext memory);
