@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     RenegadeSettledIntentFirstFillBundle,
@@ -27,17 +26,17 @@ import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMat
 /// @notice Library for validating a renegade settled private intents
 /// @dev A renegade settled private intent is a private intent with a private (darkpool) balance.
 library RenegadeSettledPrivateIntentLib {
+    using SettlementBundleLib for SettlementBundle;
+    using PrivateIntentPrivateBalanceBundleLib for SettlementBundle;
+    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentFirstFillBundle;
+    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentBundle;
+    using PrivateIntentPrivateBalanceBoundedLib for RenegadeSettledIntentBoundedFirstFillBundle;
+    using PrivateIntentPrivateBalanceBoundedLib for RenegadeSettledIntentBoundedBundle;
+    using SettlementContextLib for SettlementContext;
     using DarkpoolStateLib for DarkpoolState;
     using ObligationLib for ObligationBundle;
     using OutputBalanceBundleLib for OutputBalanceBundle;
     using PrivateIntentPrivateBalanceBundleLib for OutputBalanceBundle;
-    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentBoundedBundle;
-    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentBoundedFirstFillBundle;
-    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentBundle;
-    using PrivateIntentPrivateBalanceBundleLib for RenegadeSettledIntentFirstFillBundle;
-    using PrivateIntentPrivateBalanceBundleLib for SettlementBundle;
-    using SettlementBundleLib for SettlementBundle;
-    using SettlementContextLib for SettlementContext;
 
     // --- Errors --- //
 
@@ -105,37 +104,21 @@ library RenegadeSettledPrivateIntentLib {
         );
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
-        uint256 netReceiveAmount = PrivateIntentPrivateBalanceBundleLib.applyFees(
-            bundle.settlementStatement.relayerFeeRecipient,
-            bundle.settlementStatement.relayerFee,
-            obligation,
-            settlementContext,
-            state
-        );
+        uint256 netReceiveAmount =
+            PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
-        // 1. Validate the intent and input (capitalizing) balance authorization
-        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateIntentAndBalanceFirstFill(
-            bundle.settlementStatement.settlementObligation.amountIn,
-            bundle.settlementStatement.amountPublicShare,
-            bundle.settlementStatement.inBalancePublicShares,
-            bundle.settlementProof,
-            bundle.authSettlementLinkingProof,
-            bundle.auth,
-            settlementContext,
-            vkeys,
-            hasher,
-            state
-        );
+        // 2. Validate the intent and input (capitalizing) balance authorization
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
 
         // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
-            bundle.settlementStatement.outBalancePublicShares,
-            bundle.settlementProof,
+            bundle.settlementStatement,
             bundle.outputBalanceBundle,
+            bundle.settlementProof,
             settlementContext,
-            hasher,
             vkeys,
+            hasher,
             state
         );
     }
@@ -170,166 +153,22 @@ library RenegadeSettledPrivateIntentLib {
         );
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
-        uint256 netReceiveAmount = PrivateIntentPrivateBalanceBundleLib.applyFees(
-            bundle.settlementStatement.relayerFeeRecipient,
-            bundle.settlementStatement.relayerFee,
-            obligation,
-            settlementContext,
-            state
-        );
+        uint256 netReceiveAmount =
+            PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
-        // 1. Validate the intent and input (capitalizing) balance authorization
-        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateIntentAndBalance(
-            bundle.settlementStatement.settlementObligation.amountIn,
-            bundle.auth.merkleDepth,
-            bundle.settlementStatement.amountPublicShare,
-            bundle.settlementStatement.inBalancePublicShares,
-            bundle.settlementProof,
-            bundle.authSettlementLinkingProof,
-            bundle.auth,
-            settlementContext,
-            vkeys,
-            hasher,
-            state
-        );
+        // 2. Validate the intent and input (capitalizing) balance authorization
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
 
         // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
-            bundle.settlementStatement.outBalancePublicShares,
-            bundle.settlementProof,
+            bundle.settlementStatement,
             bundle.outputBalanceBundle,
-            settlementContext,
-            hasher,
-            vkeys,
-            state
-        );
-    }
-
-    /// @notice Execute the state updates necessary to settle a bounded match bundle for a first fill
-    /// @param matchBundle The bounded match result bundle to execute
-    /// @param obligation The obligation to execute
-    /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
-    /// @param state The darkpool state containing all storage references
-    function executeBoundedFirstFill(
-        BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
-        SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
-        DarkpoolState storage state
-    )
-        internal
-    {
-        RenegadeSettledIntentBoundedFirstFillBundle memory bundle =
-            settlementBundle.decodeRenegadeSettledIntentBoundedBundleDataFirstFill();
-
-        // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
-        uint256 netReceiveAmount = PrivateIntentPrivateBalanceBundleLib.applyFees(
-            bundle.settlementStatement.relayerFeeAddress,
-            bundle.settlementStatement.internalRelayerFeeRate,
-            obligation,
-            settlementContext,
-            state
-        );
-
-        // 1. Validate the intent and input (capitalizing) balance authorization
-        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateIntentAndBalanceFirstFill(
-            obligation.amountIn,
-            bundle.settlementStatement.amountPublicShare,
-            bundle.settlementStatement.inBalancePublicShares,
             bundle.settlementProof,
-            bundle.authSettlementLinkingProof,
-            bundle.auth,
             settlementContext,
             vkeys,
             hasher,
             state
-        );
-
-        // 2. Validate the output balance validity
-        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
-            netReceiveAmount,
-            bundle.settlementStatement.outBalancePublicShares,
-            bundle.settlementProof,
-            bundle.outputBalanceBundle,
-            settlementContext,
-            hasher,
-            vkeys,
-            state
-        );
-
-        // 3. Validate the bounded settlement
-        PrivateIntentPrivateBalanceBundleLib.verifyBoundedSettlement(
-            matchBundle.permit.matchResult, bundle.settlementProof, bundle.settlementStatement, vkeys, settlementContext
-        );
-    }
-
-    /// @notice Execute the state updates necessary to settle a bounded match bundle for a subsequent fill
-    /// @param matchBundle The bounded match result bundle to execute
-    /// @param obligation The obligation to execute
-    /// @param settlementBundle The settlement bundle to execute
-    /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
-    /// @param state The darkpool state containing all storage references
-    function executeBoundedSubsequentFill(
-        BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
-        SettlementBundle calldata settlementBundle,
-        SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
-        DarkpoolState storage state
-    )
-        internal
-    {
-        RenegadeSettledIntentBoundedBundle memory bundle =
-            settlementBundle.decodeRenegadeSettledIntentBoundedBundleData();
-
-        // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
-        uint256 netReceiveAmount = PrivateIntentPrivateBalanceBundleLib.applyFees(
-            bundle.settlementStatement.relayerFeeAddress,
-            bundle.settlementStatement.internalRelayerFeeRate,
-            obligation,
-            settlementContext,
-            state
-        );
-
-        // 1. Validate the intent and input (capitalizing) balance authorization
-        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateIntentAndBalance(
-            obligation.amountIn,
-            bundle.auth.merkleDepth,
-            bundle.settlementStatement.amountPublicShare,
-            bundle.settlementStatement.inBalancePublicShares,
-            bundle.settlementProof,
-            bundle.authSettlementLinkingProof,
-            bundle.auth,
-            settlementContext,
-            vkeys,
-            hasher,
-            state
-        );
-
-        // 2. Validate the output balance validity
-        PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
-            netReceiveAmount,
-            bundle.settlementStatement.outBalancePublicShares,
-            bundle.settlementProof,
-            bundle.outputBalanceBundle,
-            settlementContext,
-            hasher,
-            vkeys,
-            state
-        );
-
-        // 3. Validate the bounded settlement
-        PrivateIntentPrivateBalanceBundleLib.verifyBoundedSettlement(
-            matchBundle.permit.matchResult, bundle.settlementProof, bundle.settlementStatement, vkeys, settlementContext
         );
     }
 
@@ -343,7 +182,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
-    function executeBounded(
+    function executeBoundedMatch(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
