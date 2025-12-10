@@ -39,6 +39,7 @@ import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { StateUpdatesLib } from "darkpoolv2-lib/StateUpdatesLib.sol";
 
@@ -269,7 +270,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        SettlementLib.settleExternalMatch(
+        ExternalSettlementLib.settleExternalMatch(
             _state,
             hasher,
             verifier,
