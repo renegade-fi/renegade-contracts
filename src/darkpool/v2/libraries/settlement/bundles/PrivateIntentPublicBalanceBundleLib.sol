@@ -25,10 +25,7 @@ import {
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
-import {
-    PrivateIntentAuthBundle,
-    PrivateIntentAuthBundleFirstFill
-} from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -122,8 +119,7 @@ library PrivateIntentPublicBalanceBundleLib {
         pure
         returns (PrivateIntentPublicBalanceFirstFillBundle memory bundleData)
     {
-        bool validType =
-            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
     }
@@ -150,8 +146,7 @@ library PrivateIntentPublicBalanceBundleLib {
         pure
         returns (PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData)
     {
-        bool validType =
-            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBoundedFirstFillBundle));
     }

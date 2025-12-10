@@ -5,13 +5,18 @@ use crate::v2::IDarkpoolV2;
 use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
-    settlement::intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
+    settlement::{
+        intent_and_balance_public_settlement::IntentAndBalancePublicSettlementStatement,
+        intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
+    },
     valid_balance_create::ValidBalanceCreateStatement,
     valid_deposit::ValidDepositStatement,
     valid_withdrawal::ValidWithdrawalStatement,
     validity_proofs::{
+        intent_and_balance_first_fill::IntentAndBalanceFirstFillValidityStatement,
         intent_only::IntentOnlyValidityStatement,
         intent_only_first_fill::IntentOnlyFirstFillValidityStatement,
+        new_output_balance::NewOutputBalanceValidityStatement,
     },
 };
 use renegade_crypto_v2::fields::scalar_to_u256;
@@ -138,6 +143,40 @@ impl From<IntentOnlyValidityStatement> for IDarkpoolV2::IntentOnlyValidityStatem
     }
 }
 
+impl From<IntentAndBalanceFirstFillValidityStatement>
+    for IDarkpoolV2::IntentAndBalanceValidityStatementFirstFill
+{
+    fn from(statement: IntentAndBalanceFirstFillValidityStatement) -> Self {
+        Self {
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            intentAndAuthorizingAddressCommitment: scalar_to_u256(
+                &statement.intent_and_authorizing_address_commitment,
+            ),
+            intentPublicShare: statement.intent_public_share.into(),
+            intentPrivateShareCommitment: scalar_to_u256(
+                &statement.intent_private_share_commitment,
+            ),
+            intentRecoveryId: scalar_to_u256(&statement.intent_recovery_id),
+            balancePartialCommitment: statement.balance_partial_commitment.into(),
+            newOneTimeAddressPublicShare: scalar_to_u256(
+                &statement.new_one_time_address_public_share,
+            ),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            balanceRecoveryId: scalar_to_u256(&statement.balance_recovery_id),
+            oneTimeAuthorizingAddress: statement.one_time_authorizing_address,
+        }
+    }
+}
+
+impl From<NewOutputBalanceValidityStatement> for IDarkpoolV2::NewOutputBalanceValidityStatement {
+    fn from(statement: NewOutputBalanceValidityStatement) -> Self {
+        Self {
+            newBalancePartialCommitment: statement.new_balance_partial_commitment.into(),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+        }
+    }
+}
+
 impl From<IntentOnlyPublicSettlementStatement>
     for IDarkpoolV2::IntentOnlyPublicSettlementStatement
 {
@@ -146,6 +185,21 @@ impl From<IntentOnlyPublicSettlementStatement>
             obligation: statement.settlement_obligation.into(),
             relayerFee: statement.relayer_fee.into(),
             relayerFeeRecipient: statement.relayer_fee_recipient,
+        }
+    }
+}
+
+impl From<IntentAndBalancePublicSettlementStatement>
+    for IDarkpoolV2::IntentAndBalancePublicSettlementStatement
+{
+    fn from(statement: IntentAndBalancePublicSettlementStatement) -> Self {
+        Self {
+            inBalancePublicShares: statement.in_balance_public_shares.into(),
+            outBalancePublicShares: statement.out_balance_public_shares.into(),
+            relayerFee: statement.relayer_fee.into(),
+            relayerFeeRecipient: statement.relayer_fee_recipient,
+            settlementObligation: statement.settlement_obligation.into(),
+            amountPublicShare: scalar_to_u256(&statement.amount_public_share),
         }
     }
 }

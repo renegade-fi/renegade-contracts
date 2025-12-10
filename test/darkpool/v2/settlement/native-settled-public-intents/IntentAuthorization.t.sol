@@ -23,6 +23,7 @@ import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
     using PublicIntentPermitLib for PublicIntentPermit;
@@ -122,7 +123,7 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         bundle.data = abi.encode(bundleData);
 
         // Should revert with InvalidExecutorSignature
-        vm.expectRevert(NativeSettledPublicIntentLib.InvalidExecutorSignature.selector);
+        vm.expectRevert(IDarkpoolV2.InvalidExecutorSignature.selector);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 

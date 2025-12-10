@@ -3,8 +3,8 @@
 use alloy::rpc::types::TransactionReceipt;
 use eyre::Result;
 use renegade_abi::v2::{
-    relayer_types::u256_to_u128,
     IDarkpoolV2::{Deposit, NewBalanceDepositProofBundle},
+    relayer_types::u256_to_u128,
 };
 use renegade_circuit_types::{
     balance::{Balance, DarkpoolStateBalance},
@@ -103,7 +103,7 @@ fn create_proof_bundle(
     let valid = check_constraints_satisfied::<ValidBalanceCreate>(&witness, &statement);
     assert_true_result!(valid)?;
 
-    let proof = singleprover_prove::<ValidBalanceCreate>(witness.clone(), statement.clone())?;
+    let proof = singleprover_prove::<ValidBalanceCreate>(&witness, &statement)?;
     let bundle = NewBalanceDepositProofBundle::new(statement, proof);
     Ok((witness, bundle))
 }

@@ -89,14 +89,20 @@ library RenegadeSettledPrivateIntentLib {
             settlementBundle.decodeRenegadeSettledIntentBundleDataFirstFill();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
+        // 1. Validate the obligation settlement
+        // The methods below may modify the memory state of the statement, so we append the proof first
+        PrivateIntentPrivateBalanceBundleLib.verifySettlement(
+            obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
+        );
+
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
         uint256 netReceiveAmount =
             PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
-        // 1. Validate the intent and input (capitalizing) balance authorization
+        // 2. Validate the intent and input (capitalizing) balance authorization
         bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
 
-        // 2. Validate the output balance validity
+        // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
             bundle.settlementStatement,
@@ -106,11 +112,6 @@ library RenegadeSettledPrivateIntentLib {
             vkeys,
             hasher,
             state
-        );
-
-        // 3. Validate the obligation settlement
-        PrivateIntentPrivateBalanceBundleLib.verifySettlement(
-            obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
         );
     }
 
@@ -137,14 +138,20 @@ library RenegadeSettledPrivateIntentLib {
         RenegadeSettledIntentBundle memory bundle = settlementBundle.decodeRenegadeSettledIntentBundleData();
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
+        // 1. Validate the obligation settlement
+        // The methods below may modify the memory state of the statement, so we append the proof first
+        PrivateIntentPrivateBalanceBundleLib.verifySettlement(
+            obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
+        );
+
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
         uint256 netReceiveAmount =
             PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
-        // 1. Validate the intent and input (capitalizing) balance authorization
+        // 2. Validate the intent and input (capitalizing) balance authorization
         bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
 
-        // 2. Validate the output balance validity
+        // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
             bundle.settlementStatement,
@@ -154,11 +161,6 @@ library RenegadeSettledPrivateIntentLib {
             vkeys,
             hasher,
             state
-        );
-
-        // 3. Validate the obligation settlement
-        PrivateIntentPrivateBalanceBundleLib.verifySettlement(
-            obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
         );
     }
 }

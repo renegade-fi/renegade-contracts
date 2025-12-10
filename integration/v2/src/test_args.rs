@@ -1,9 +1,9 @@
 //! Defines arguments passed to each test
 
-use std::{ops::Add, path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr};
 
 use alloy::{
-    primitives::{Address, U256},
+    primitives::{Address, U160, U256, aliases::U48},
     providers::{DynProvider, Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
     transports::http::reqwest::Url,
@@ -12,13 +12,14 @@ use eyre::Result;
 use renegade_circuit_types::fixed_point::FixedPoint;
 
 use crate::{
+    CliArgs,
     util::{
         abis::{IPermit2Instance, Permit2},
-        darkpool::{create_darkpool_client, Darkpool},
-        deployments::{read_deployment, DARKPOOL_PROXY_DEPLOYMENT_KEY},
-        erc20::{ERC20Mock, ERC20},
+        darkpool::{Darkpool, create_darkpool_client},
+        deployments::{DARKPOOL_PROXY_DEPLOYMENT_KEY, read_deployment},
+        erc20::{ERC20, ERC20Mock},
+        transactions::wait_for_tx_success,
     },
-    CliArgs,
 };
 
 /// The CLI arguments for the integration tests
@@ -174,6 +175,24 @@ impl TestArgs {
         let erc20 = self.quote_token()?;
         let balance = erc20.balanceOf(addr).call().await?;
         Ok(balance)
+    }
+
+    // --- Approvals --- //
+
+    /// Approve the darkpool to spend the given token through permit2
+    pub async fn permit2_approve_darkpool(
+        &self,
+        token: Address,
+        signer: &PrivateKeySigner,
+    ) -> Result<()> {
+        let amt = U160::MAX;
+        let permit2 = self.permit2_with_signer(signer)?;
+        let darkpool = self.darkpool_addr();
+        let expiration = U48::MAX;
+
+        let approve_tx = permit2.approve(token, darkpool, amt, expiration);
+        wait_for_tx_success(approve_tx).await?;
+        Ok(())
     }
 
     fn create_provider_with_signer(&self, signer: &PrivateKeySigner) -> Result<DynProvider> {

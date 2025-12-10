@@ -27,6 +27,7 @@ import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.s
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 /// @title Native Settled Public Intent Library
 /// @author Renegade Eng
@@ -48,8 +49,6 @@ library NativeSettledPublicIntentLib {
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
-    /// @notice Error thrown when an executor signature is invalid
-    error InvalidExecutorSignature();
     /// @notice Error thrown when an intent and obligation pair is invalid
     error InvalidObligationPair();
     /// @notice Error thrown when the input amount on the obligation is invalid
@@ -201,7 +200,7 @@ library NativeSettledPublicIntentLib {
         // Verify that the executor has signed the settlement obligation
         bytes32 executorDigest = bundleData.computeExecutorDigest(obligation);
         bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, executorDigest);
-        if (!executorValid) revert InvalidExecutorSignature();
+        if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
         state.spendNonce(auth.executorSignature.nonce);
     }
 
@@ -228,7 +227,7 @@ library NativeSettledPublicIntentLib {
         // Verify that the executor has signed the bounded match result
         bytes32 matchResultHash = permit.computeHash();
         bool executorValid = matchBundle.executorSignature.verifyPrehashed(auth.permit.executor, matchResultHash);
-        if (!executorValid) revert InvalidExecutorSignature();
+        if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
         state.spendNonce(matchBundle.executorSignature.nonce);
     }
 
