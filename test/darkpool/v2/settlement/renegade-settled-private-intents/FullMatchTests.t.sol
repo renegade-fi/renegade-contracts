@@ -137,17 +137,35 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         // Compute the commitments to the updated intents and balances
         ExistingBalanceBundle memory outBalanceBundle0 = bundleData0.outputBalanceBundle.decodeExistingBalanceBundle();
         ExistingBalanceBundle memory outBalanceBundle1 = bundleData1.outputBalanceBundle.decodeExistingBalanceBundle();
-        BN254.ScalarField intentCommitment0 = bundleData0.computeFullIntentCommitment(hasher);
-        BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
-        BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
-        BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
-        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
+        BN254.ScalarField intentCommitment0 = PrivateIntentPrivateBalanceBundleLib.computeFullIntentCommitment(
+            obligation0.amountIn, bundleData0.settlementStatement.amountPublicShare, bundleData0.auth.statement, hasher
         );
-        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
+        BN254.ScalarField intentCommitment1 = PrivateIntentPrivateBalanceBundleLib.computeFullIntentCommitment(
+            obligation1.amountIn, bundleData1.settlementStatement.amountPublicShare, bundleData1.auth.statement, hasher
+        );
+        BN254.ScalarField balanceCommitment0 = PrivateIntentPrivateBalanceBundleLib.computeFullBalanceCommitment(
+            obligation0.amountIn,
+            bundleData0.settlementStatement.inBalancePublicShares,
+            bundleData0.auth.statement.balancePartialCommitment,
+            hasher
+        );
+        BN254.ScalarField balanceCommitment1 = PrivateIntentPrivateBalanceBundleLib.computeFullBalanceCommitment(
+            obligation1.amountIn,
+            bundleData1.settlementStatement.inBalancePublicShares,
+            bundleData1.auth.statement.balancePartialCommitment,
+            hasher
+        );
+        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib.computeFullOutputBalanceCommitment(
+            netReceiveAmount0,
+            bundleData0.settlementStatement.outBalancePublicShares,
+            outBalanceBundle0.statement.newPartialCommitment,
+            hasher
+        );
+        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib.computeFullOutputBalanceCommitment(
+            netReceiveAmount1,
+            bundleData1.settlementStatement.outBalancePublicShares,
+            outBalanceBundle1.statement.newPartialCommitment,
+            hasher
         );
 
         // Validate against a single Merkle tree
@@ -210,17 +228,35 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         // Compute the commitments to the updated intents and balances
         ExistingBalanceBundle memory outBalanceBundle0 = bundleData0.outputBalanceBundle.decodeExistingBalanceBundle();
         ExistingBalanceBundle memory outBalanceBundle1 = bundleData1.outputBalanceBundle.decodeExistingBalanceBundle();
-        BN254.ScalarField intentCommitment0 = bundleData0.computeFullIntentCommitment(hasher);
-        BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
-        BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
-        BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
-        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
+        BN254.ScalarField intentCommitment0 = PrivateIntentPrivateBalanceBundleLib.computeFullIntentCommitment(
+            obligation0.amountIn, bundleData0.settlementStatement.amountPublicShare, bundleData0.auth.statement, hasher
         );
-        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
+        BN254.ScalarField intentCommitment1 = PrivateIntentPrivateBalanceBundleLib.computeFullIntentCommitment(
+            obligation1.amountIn, bundleData1.settlementStatement.amountPublicShare, bundleData1.auth.statement, hasher
+        );
+        BN254.ScalarField balanceCommitment0 = PrivateIntentPrivateBalanceBundleLib.computeFullBalanceCommitment(
+            obligation0.amountIn,
+            bundleData0.settlementStatement.inBalancePublicShares,
+            bundleData0.auth.statement.balancePartialCommitment,
+            hasher
+        );
+        BN254.ScalarField balanceCommitment1 = PrivateIntentPrivateBalanceBundleLib.computeFullBalanceCommitment(
+            obligation1.amountIn,
+            bundleData1.settlementStatement.inBalancePublicShares,
+            bundleData1.auth.statement.balancePartialCommitment,
+            hasher
+        );
+        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib.computeFullOutputBalanceCommitment(
+            netReceiveAmount0,
+            bundleData0.settlementStatement.outBalancePublicShares,
+            outBalanceBundle0.statement.newPartialCommitment,
+            hasher
+        );
+        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib.computeFullOutputBalanceCommitment(
+            netReceiveAmount1,
+            bundleData1.settlementStatement.outBalancePublicShares,
+            outBalanceBundle1.statement.newPartialCommitment,
+            hasher
         );
 
         // Validate against a single Merkle tree
