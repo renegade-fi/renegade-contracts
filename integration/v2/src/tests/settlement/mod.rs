@@ -9,6 +9,7 @@ use renegade_crypto::fields::scalar_to_u128;
 
 use crate::test_args::TestArgs;
 
+mod private_fill;
 mod private_intent_private_balance;
 mod private_intent_public_balance;
 
