@@ -165,7 +165,7 @@ library MerkleTreeLib {
 
             // Emit an event for indexers to track the opening of the current insertion
             uint256 siblingIdx = isRightChild ? idxAtHeight - 1 : idxAtHeight + 1;
-            uint8 depth = uint8(DarkpoolConstants.MERKLE_DEPTH - height);
+            uint8 depth = uint8(tree.config.depth - height);
             emit MerkleOpeningNode(depth, uint128(siblingIdx), sisterLeaves[height]);
         }
 

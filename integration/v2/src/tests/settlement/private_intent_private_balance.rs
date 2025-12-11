@@ -4,6 +4,7 @@
 
 use alloy::{
     primitives::{Address, U256},
+    rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
 };
 use eyre::Result;
@@ -11,18 +12,17 @@ use rand::{Rng, thread_rng};
 use renegade_abi::v2::{
     IDarkpoolV2::{
         self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle,
-        PublicIntentPermit, RenegadeSettledIntentAuthBundleFirstFill, SettlementBundle,
+        PublicIntentPermit, RenegadeSettledIntentAuthBundle,
+        RenegadeSettledIntentAuthBundleFirstFill, SettlementBundle,
     },
     auth_helpers::sign_with_nonce,
-    relayer_types::scalar_to_contract_scalar,
 };
 use renegade_circuit_types::{
     PlonkLinkProof, PlonkProof, ProofLinkingHint,
-    balance::{Balance, DarkpoolStateBalance, PostMatchBalance, PostMatchBalanceShare},
+    balance::{Balance, DarkpoolStateBalance, PostMatchBalanceShare},
     intent::{DarkpoolStateIntent, Intent, PreMatchIntentShare},
     settlement_obligation::SettlementObligation,
     state_wrapper::StateWrapper,
-    traits::BaseType,
 };
 use renegade_circuits::{
     singleprover_prove_with_hint,
@@ -37,6 +37,10 @@ use renegade_circuits::{
             IntentAndBalancePublicSettlementWitness,
         },
         validity_proofs::{
+            intent_and_balance::{
+                INTENT_PARTIAL_COMMITMENT_SIZE, IntentAndBalanceValidityStatement,
+                IntentAndBalanceValidityWitness, SizedIntentAndBalanceValidityCircuit,
+            },
             intent_and_balance_first_fill::{
                 BALANCE_PARTIAL_COMMITMENT_SIZE, IntentAndBalanceFirstFillValidityStatement,
                 IntentAndBalanceFirstFillValidityWitness,
@@ -45,6 +49,10 @@ use renegade_circuits::{
             new_output_balance::{
                 NewOutputBalanceValidityCircuit, NewOutputBalanceValidityStatement,
                 test_helpers::create_witness_statement_with_balance as create_new_output_balance_witness_statement,
+            },
+            output_balance::{
+                OutputBalanceValidityStatement, OutputBalanceValidityWitness,
+                SizedOutputBalanceValidityCircuit,
             },
         },
     },
@@ -55,13 +63,15 @@ use renegade_crypto::{
     fields::{address_to_scalar, scalar_to_u256},
     hash::compute_poseidon_hash,
 };
-use test_helpers::integration_test_async;
+use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{
     test_args::TestArgs,
     tests::{
         create_balance::create_balance,
-        settlement::{settlement_relayer_fee, settlement_relayer_fee_rate, split_obligation},
+        settlement::{
+            compute_fee_take, settlement_relayer_fee, settlement_relayer_fee_rate, split_obligation,
+        },
     },
     util::{
         deposit::fund_for_deposit, fuzzing::create_matching_intents_and_obligations,
@@ -93,7 +103,7 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
         first_obligation0.clone().into(),
         first_obligation1.clone().into(),
     );
-    let (mut state_intent0, mut state_balance0, settlement_bundle0) =
+    let (mut state_intent0, mut out_balance0, settlement_bundle0) =
         build_settlement_bundle_first_fill(
             &args.party0_signer(),
             &intent0,
@@ -105,12 +115,89 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
     let settlement_bundle1 =
         build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &first_obligation1, &args)?;
 
-    // TODO: Check balance updates
+    let (party0_base_before, party0_quote_before) =
+        args.base_and_quote_balances(args.party0_addr()).await?;
+    let (party1_base_before, party1_quote_before) =
+        args.base_and_quote_balances(args.party1_addr()).await?;
+
     let tx = args
         .darkpool
         .settleMatch(obligation_bundle, settlement_bundle0, settlement_bundle1);
     let tx_receipt = wait_for_tx_success(tx).await?;
-    println!("tx success: {:#x}", tx_receipt.transaction_hash);
+
+    let (party0_base_after, party0_quote_after) =
+        args.base_and_quote_balances(args.party0_addr()).await?;
+    let (party1_base_after, party1_quote_after) =
+        args.base_and_quote_balances(args.party1_addr()).await?;
+
+    // Party 0 balances should not change; they're settled into the darkpool state
+    assert_eq_result!(party0_base_after, party0_base_before)?;
+    assert_eq_result!(party0_quote_after, party0_quote_before)?;
+    // Party 1 balances should increase by the amount of the obligation
+    let fee_take1 = compute_fee_take(&first_obligation1, &args).await?;
+    let net_receive = first_obligation1.amount_out - fee_take1.total();
+    assert_eq_result!(
+        party1_base_after,
+        party1_base_before + U256::from(net_receive)
+    )?;
+    assert_eq_result!(
+        party1_quote_after,
+        party1_quote_before - U256::from(first_obligation1.amount_in)
+    )?;
+
+    // --- Subsequent Fill --- //
+
+    // Update the state values to match their post-settlement state committed on-chain
+    let fee_take = compute_fee_take(&first_obligation0, &args).await?;
+    state_intent0.apply_settlement_obligation(&first_obligation0);
+    party0_bal.apply_obligation_in_balance(&first_obligation0);
+    out_balance0.apply_obligation_out_balance(&first_obligation0, &fee_take);
+
+    // Build a settlement bundle for the next fill
+    let obligation_bundle = ObligationBundle::new_public(
+        second_obligation0.clone().into(),
+        second_obligation1.clone().into(),
+    );
+    let settlement_bundle0 = build_settlement_bundle_subsequent_fill(
+        &mut state_intent0,
+        &mut party0_bal,
+        &mut out_balance0,
+        &second_obligation0,
+        &tx_receipt,
+    )
+    .await?;
+    let settlement_bundle1 =
+        build_settlement_bundle_ring0(&args.party1_signer(), &intent1, &second_obligation1, &args)?;
+
+    let (party0_base_before, party0_quote_before) =
+        args.base_and_quote_balances(args.party0_addr()).await?;
+    let (party1_base_before, party1_quote_before) =
+        args.base_and_quote_balances(args.party1_addr()).await?;
+
+    let tx = args
+        .darkpool
+        .settleMatch(obligation_bundle, settlement_bundle0, settlement_bundle1);
+    wait_for_tx_success(tx).await?;
+
+    let (party0_base_after, party0_quote_after) =
+        args.base_and_quote_balances(args.party0_addr()).await?;
+    let (party1_base_after, party1_quote_after) =
+        args.base_and_quote_balances(args.party1_addr()).await?;
+
+    // Party 0 balances should not change; they're settled into the darkpool state
+    assert_eq_result!(party0_base_after, party0_base_before)?;
+    assert_eq_result!(party0_quote_after, party0_quote_before)?;
+    // Party 1 balances should increase by the amount of the obligation
+    let fee_take1 = compute_fee_take(&second_obligation1, &args).await?;
+    let net_receive = second_obligation1.amount_out - fee_take1.total();
+    assert_eq_result!(
+        party1_base_after,
+        party1_base_before + U256::from(net_receive)
+    )?;
+    assert_eq_result!(
+        party1_quote_after,
+        party1_quote_before - U256::from(second_obligation1.amount_in)
+    )?;
 
     Ok(())
 }
@@ -178,7 +265,7 @@ pub async fn fund_party1(
     args.permit2_approve_darkpool(token, signer).await
 }
 
-// --- Settlement Bundles --- //
+// --- First Fill Bundle --- //
 
 /// Build a ring 0 settlement bundle
 pub fn build_settlement_bundle_ring0(
@@ -213,7 +300,9 @@ pub fn build_settlement_bundle_ring0(
 
 /// Build a settlement bundle for the first fill
 ///
-/// Returns the new intent, new output balance, and settlement bundle
+/// Updates the state intent's public shares to match the validity statement's values.
+/// This ensures that after settlement, we can correctly compute the commitment using
+/// the same values that Solidity uses from the validity proof.
 pub fn build_settlement_bundle_first_fill(
     signer: &PrivateKeySigner,
     intent: &Intent,
@@ -241,11 +330,12 @@ pub fn build_settlement_bundle_first_fill(
 
     let output_balance_link_proof =
         generate_output_balance_settlement_linking_proof(&new_output_hint, &settlement_hint)?;
-    let new_output_auth_bundle = build_new_output_balance_auth_bundle(
-        new_output_statement,
-        new_output_proof,
-        output_balance_link_proof,
-    )?;
+    let new_output_auth_bundle = OutputBalanceBundle::new_output_balance(
+        U256::from(MERKLE_HEIGHT),
+        new_output_statement.into(),
+        new_output_proof.into(),
+        output_balance_link_proof.into(),
+    );
 
     let bundle = SettlementBundle::renegade_settled_private_intent_first_fill(
         auth_bundle,
@@ -276,20 +366,65 @@ fn build_auth_bundle_first_fill(
     })
 }
 
-/// Build a new output balance auth bundle
-fn build_new_output_balance_auth_bundle(
-    output_balance_statement: NewOutputBalanceValidityStatement,
-    output_balance_proof: PlonkProof,
-    linking_proof: PlonkLinkProof,
-) -> Result<OutputBalanceBundle> {
-    let bundle = OutputBalanceBundle::new_output_balance(
+// --- Subsequent Fill Bundle --- //
+
+/// Build a settlement bundle for the subsequent fill
+pub async fn build_settlement_bundle_subsequent_fill(
+    intent: &mut DarkpoolStateIntent,
+    in_balance: &mut DarkpoolStateBalance,
+    out_balance: &mut DarkpoolStateBalance,
+    obligation: &SettlementObligation,
+    first_fill_receipt: &TransactionReceipt,
+) -> Result<SettlementBundle> {
+    // Find the Merkle openings for all state elements
+    let intent_opening = find_state_element_opening(intent, first_fill_receipt).await?;
+    let in_balance_opening = find_state_element_opening(in_balance, first_fill_receipt)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to find in balance opening: {e}"))?;
+    let out_balance_opening = find_state_element_opening(out_balance, first_fill_receipt)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to find out balance opening: {e}"))?;
+
+    // Generate validity proofs
+    let (validity_statement, validity_proof, validity_hint) =
+        generate_validity_proof_subsequent_fill(
+            intent,
+            in_balance,
+            &intent_opening,
+            &in_balance_opening,
+        )?;
+    let (output_balance_statement, output_balance_proof, output_balance_hint) =
+        generate_existing_output_balance_validity_proof(out_balance, &out_balance_opening)?;
+
+    // Generate a settlement proof
+    let (settlement_statement, settlement_proof, settlement_hint) =
+        generate_settlement_proof(intent, in_balance, out_balance, obligation)?;
+
+    // Build the auth bundles
+    let validity_link_proof =
+        generate_validity_settlement_linking_proof(&validity_hint, &settlement_hint)?;
+    let auth_bundle = RenegadeSettledIntentAuthBundle {
+        merkleDepth: U256::from(MERKLE_HEIGHT),
+        statement: validity_statement.clone().into(),
+        validityProof: validity_proof.into(),
+    };
+
+    let output_balance_link_proof =
+        generate_output_balance_settlement_linking_proof(&output_balance_hint, &settlement_hint)?;
+    let existing_output_auth_bundle = OutputBalanceBundle::existing_output_balance(
         U256::from(MERKLE_HEIGHT),
-        output_balance_statement.into(),
+        output_balance_statement.clone().into(),
         output_balance_proof.into(),
-        linking_proof.into(),
+        output_balance_link_proof.into(),
     );
 
-    Ok(bundle)
+    Ok(SettlementBundle::renegade_settled_private_intent(
+        auth_bundle,
+        existing_output_auth_bundle,
+        settlement_statement.clone().into(),
+        settlement_proof.into(),
+        validity_link_proof.into(),
+    ))
 }
 
 // --- Proofs --- //
@@ -323,10 +458,8 @@ fn generate_validity_proof_first_fill(
     // Re-encrypt the post-match balance shares
     let new_one_time_address = bal.inner.one_time_authority;
     let new_one_time_share = bal.stream_cipher_encrypt(&new_one_time_address);
-    let post_match_balance = PostMatchBalance::from(bal.inner.clone());
-    let post_match_balance_shares = bal.stream_cipher_encrypt(&post_match_balance);
+    let post_match_balance_shares = bal.reencrypt_post_match_share();
     bal.public_share.one_time_authority = new_one_time_share;
-    bal.update_from_post_match(&post_match_balance_shares);
 
     let witness = IntentAndBalanceFirstFillValidityWitness {
         intent: intent.clone(),
@@ -374,12 +507,65 @@ fn generate_validity_proof_first_fill(
         SizedIntentAndBalanceFirstFillValidityCircuit,
     >(&witness, &statement)?;
 
-    // Extract the state intent that was generated by the witness helper
-    let stream_seed = witness.initial_intent_share_stream.seed;
-    let recovery_seed = witness.initial_intent_recovery_stream.seed;
-    let state_intent = StateWrapper::new(intent.clone(), stream_seed, recovery_seed);
-
     Ok((state_intent, statement, proof, hint))
+}
+
+/// Generate a validity proof for a subsequent fill
+fn generate_validity_proof_subsequent_fill(
+    intent: &mut DarkpoolStateIntent,
+    in_balance: &mut DarkpoolStateBalance,
+    intent_opening: &MerkleAuthenticationPath,
+    in_balance_opening: &MerkleAuthenticationPath,
+) -> Result<(
+    IntentAndBalanceValidityStatement,
+    PlonkProof,
+    ProofLinkingHint,
+)> {
+    // Update the intent
+    let old_intent = intent.clone();
+    let old_intent_nullifier = old_intent.compute_nullifier();
+    let new_amount_public_share = intent.reencrypt_amount_in();
+
+    let intent_recovery_id = intent.compute_recovery_id();
+    let intent_partial_commitment =
+        intent.compute_partial_commitment(INTENT_PARTIAL_COMMITMENT_SIZE);
+
+    // Update the balance
+    let old_balance = in_balance.clone();
+    let old_balance_nullifier = old_balance.compute_nullifier();
+    let post_match_balance_shares = in_balance.reencrypt_post_match_share();
+
+    let balance_recovery_id = in_balance.compute_recovery_id();
+    let balance_partial_commitment =
+        in_balance.compute_partial_commitment(BALANCE_PARTIAL_COMMITMENT_SIZE);
+
+    // Build the witness and statement
+    let witness = IntentAndBalanceValidityWitness {
+        intent: old_intent.inner.clone(),
+        old_intent,
+        old_intent_opening: intent_opening.clone().into(),
+        new_amount_public_share,
+        balance: old_balance.inner.clone(),
+        old_balance,
+        old_balance_opening: in_balance_opening.clone().into(),
+        post_match_balance_shares,
+    };
+
+    let statement = IntentAndBalanceValidityStatement {
+        intent_merkle_root: intent_opening.compute_root(),
+        old_intent_nullifier,
+        new_intent_partial_commitment: intent_partial_commitment,
+        intent_recovery_id,
+        balance_merkle_root: in_balance_opening.compute_root(),
+        old_balance_nullifier,
+        balance_partial_commitment,
+        balance_recovery_id,
+    };
+
+    // Prove the validity relation
+    let (proof, hint) =
+        singleprover_prove_with_hint::<SizedIntentAndBalanceValidityCircuit>(&witness, &statement)?;
+    Ok((statement, proof, hint))
 }
 
 /// Generate a new output balance validity proof
@@ -404,14 +590,50 @@ fn generate_new_output_balance_validity_proof(
 
     // Build the witness and statement
     let (witness, statement) = create_new_output_balance_witness_statement(bal.clone());
-
     let (proof, hint) =
         singleprover_prove_with_hint::<NewOutputBalanceValidityCircuit>(&witness, &statement)?;
 
     let share_seed = witness.initial_share_stream.seed;
     let recovery_seed = witness.initial_recovery_stream.seed;
-    let state_balance = StateWrapper::new(bal, share_seed, recovery_seed);
+
+    // Build the balance; compute a recovery ID to match the stream state after the circuit applies
+    let mut state_balance = StateWrapper::new(bal, share_seed, recovery_seed);
+    state_balance.compute_recovery_id();
     Ok((state_balance, statement, proof, hint))
+}
+
+/// Generate an output balance validity proof for an existing balance
+fn generate_existing_output_balance_validity_proof(
+    balance: &mut DarkpoolStateBalance,
+    balance_opening: &MerkleAuthenticationPath,
+) -> Result<(OutputBalanceValidityStatement, PlonkProof, ProofLinkingHint)> {
+    // Build the witness and statement
+    let old_balance = balance.clone();
+    let old_balance_nullifier = old_balance.compute_nullifier();
+    let post_match_balance_shares = balance.reencrypt_post_match_share();
+
+    let recovery_id = balance.compute_recovery_id();
+    let new_partial_commitment =
+        balance.compute_partial_commitment(BALANCE_PARTIAL_COMMITMENT_SIZE);
+
+    let witness = OutputBalanceValidityWitness {
+        balance: old_balance.inner.clone(),
+        old_balance,
+        balance_opening: balance_opening.clone().into(),
+        post_match_balance_shares,
+    };
+
+    let statement = OutputBalanceValidityStatement {
+        merkle_root: balance_opening.compute_root(),
+        old_balance_nullifier,
+        new_partial_commitment,
+        recovery_id,
+    };
+
+    // Prove the relation
+    let (proof, hint) =
+        singleprover_prove_with_hint::<SizedOutputBalanceValidityCircuit>(&witness, &statement)?;
+    Ok((statement, proof, hint))
 }
 
 /// Generate a settlement proof for the fill
