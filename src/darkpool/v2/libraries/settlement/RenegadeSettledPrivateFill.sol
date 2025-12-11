@@ -90,7 +90,10 @@ library RenegadeSettledPrivateFillLib {
             partyId, bundleData, obligation, settlementContext, vkeys, hasher, state
         );
 
-        // TODO: Output balance updates
+        // 2. Validate the output balance validity
+        RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateOutputBalance(
+            partyId, bundleData.outputBalanceBundle, obligation, settlementContext, vkeys, hasher, state
+        );
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -120,6 +123,9 @@ library RenegadeSettledPrivateFillLib {
             partyId, bundleData, obligation, settlementContext, vkeys, hasher, state
         );
 
-        // TODO: Output balance updates
+        // 2. Validate the output balance validity
+        RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateOutputBalance(
+            partyId, bundleData.outputBalanceBundle, obligation, settlementContext, vkeys, hasher, state
+        );
     }
 }

@@ -9,10 +9,8 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { BoundedMatchResult, BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
-import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import {
     IntentOnlyBoundedSettlementStatement,
@@ -421,9 +419,7 @@ library PrivateIntentPublicBalanceBundleLib {
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
         VerificationKey memory vk = vkeys.intentOnlyFirstFillValidityKeys();
-        _pushValidityProofInner(
-            bundleData.auth.merkleDepth, publicInputs, bundleData.auth.validityProof, vk, settlementContext
-        );
+        _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
     }
 
     /// @notice Push the validity proof to the context and validate merkle depth
@@ -442,9 +438,7 @@ library PrivateIntentPublicBalanceBundleLib {
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
         VerificationKey memory vk = vkeys.intentOnlyValidityKeys();
-        _pushValidityProofInner(
-            bundleData.auth.merkleDepth, publicInputs, bundleData.auth.validityProof, vk, settlementContext
-        );
+        _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
         state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
     }
 
@@ -462,9 +456,7 @@ library PrivateIntentPublicBalanceBundleLib {
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
         VerificationKey memory vk = vkeys.intentOnlyFirstFillValidityKeys();
-        _pushValidityProofInner(
-            bundleData.auth.merkleDepth, publicInputs, bundleData.auth.validityProof, vk, settlementContext
-        );
+        _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
     }
 
     /// @notice Push the validity proof to the context and validate merkle depth
@@ -483,20 +475,16 @@ library PrivateIntentPublicBalanceBundleLib {
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
         VerificationKey memory vk = vkeys.intentOnlyValidityKeys();
-        _pushValidityProofInner(
-            bundleData.auth.merkleDepth, publicInputs, bundleData.auth.validityProof, vk, settlementContext
-        );
+        _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
         state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
     }
 
     /// @notice Internal helper to validate merkle depth and push validity proof
-    /// @param merkleDepth The merkle depth to validate
     /// @param publicInputs The serialized public inputs
     /// @param validityProof The validity proof to push
     /// @param vk The verification key to use
     /// @param settlementContext The context to push to
     function _pushValidityProofInner(
-        uint256 merkleDepth,
         BN254.ScalarField[] memory publicInputs,
         PlonkProof memory validityProof,
         VerificationKey memory vk,
@@ -505,9 +493,6 @@ library PrivateIntentPublicBalanceBundleLib {
         private
         pure
     {
-        if (merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
-            revert IDarkpool.InvalidMerkleDepthRequested();
-        }
         settlementContext.pushProof(publicInputs, validityProof, vk);
     }
 

@@ -21,7 +21,6 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { NativeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/NativeSettledPrivateIntent.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { PrivateIntentSettlementTestUtils } from "./Utils.sol";
 
@@ -94,9 +93,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidIntentCommitmentSignature_wrongSigner() public {
         // Create bundle and replace the intent commitment signature with a signature from wrong signer
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(
-                true /* isFirstFill */
-            );
+            createSamplePrivateIntentBundle(true /* isFirstFill */ );
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
             abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
         PrivateIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
@@ -128,7 +125,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
             createPrivateIntentSettlementBundleSubsequentFill(invalidDepth, obligation0, intentOwner);
 
         // Should revert with InvalidMerkleDepthRequested
-        vm.expectRevert(IDarkpool.InvalidMerkleDepthRequested.selector);
+        vm.expectRevert(IDarkpoolV2.InvalidMerkleRoot.selector);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 
@@ -136,9 +133,7 @@ contract PrivateIntentAuthorizationTest is PrivateIntentSettlementTestUtils {
     function test_invalidMerkleRoot() public {
         // Create bundle for subsequent fill (not first fill)
         (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSamplePrivateIntentBundle(
-                false /* isFirstFill */
-            );
+            createSamplePrivateIntentBundle(false /* isFirstFill */ );
 
         // Decode the bundle data
         PrivateIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBundle));

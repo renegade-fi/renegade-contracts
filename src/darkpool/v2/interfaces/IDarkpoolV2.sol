@@ -33,6 +33,8 @@ interface IDarkpoolV2 {
     // --- Error Messages --- //
     /// @notice Thrown when a Merkle root is not in the history
     error InvalidMerkleRoot();
+    /// @notice Thrown when the Merkle depth is invalid
+    error InvalidMerkleDepthRequested();
     /// @notice Thrown when proof verification fails
     error ProofVerificationFailed();
     /// @notice Thrown when a deposit verification fails
