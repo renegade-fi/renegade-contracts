@@ -1,6 +1,5 @@
 //! Settlement tests
 
-use alloy::primitives::Address;
 use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::FeeRate;
 use renegade_circuit_types::{

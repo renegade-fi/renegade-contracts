@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { IntentPublicShare, IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
+import { PreMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 
 // --- Validity Statements --- //
 // Validity proofs verify that:
@@ -119,6 +120,8 @@ struct IntentAndBalanceValidityStatement {
 /// @notice A statement for a proof of new output balance validity
 /// @dev The statement type for `NEW OUTPUT BALANCE VALIDITY`
 struct NewOutputBalanceValidityStatement {
+    /// @dev The pre-match balance shares for the new balance
+    PreMatchBalanceShare preMatchBalanceShares;
     /// @dev A partial commitment to the new output balance
     PartialCommitment newBalancePartialCommitment;
     /// @dev The recovery identifier of the new output balance

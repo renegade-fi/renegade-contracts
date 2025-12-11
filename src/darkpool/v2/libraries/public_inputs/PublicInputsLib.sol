@@ -394,11 +394,18 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 3;
+        uint256 nPublicInputs = 7;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
-        publicInputs[0] = statement.newBalancePartialCommitment.privateCommitment;
-        publicInputs[1] = statement.newBalancePartialCommitment.partialPublicCommitment;
-        publicInputs[2] = statement.recoveryId;
+        // Pre-match balance shares
+        publicInputs[0] = statement.preMatchBalanceShares.mint;
+        publicInputs[1] = statement.preMatchBalanceShares.owner;
+        publicInputs[2] = statement.preMatchBalanceShares.relayerFeeRecipient;
+        publicInputs[3] = statement.preMatchBalanceShares.oneTimeAuthority;
+        // Partial commitment
+        publicInputs[4] = statement.newBalancePartialCommitment.privateCommitment;
+        publicInputs[5] = statement.newBalancePartialCommitment.partialPublicCommitment;
+        // Recovery ID
+        publicInputs[6] = statement.recoveryId;
     }
 
     /// @notice Serialize the public inputs for a proof of output balance validity

@@ -6597,6 +6597,33 @@
             "internalType": "struct NewOutputBalanceValidityStatement",
             "components": [
               {
+                "name": "preMatchBalanceShares",
+                "type": "tuple",
+                "internalType": "struct PreMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "relayerFeeRecipient",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oneTimeAuthority",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
                 "name": "newBalancePartialCommitment",
                 "type": "tuple",
                 "internalType": "struct PartialCommitment",
@@ -6634,6 +6661,33 @@
             "type": "tuple",
             "internalType": "struct NewOutputBalanceValidityStatement",
             "components": [
+              {
+                "name": "preMatchBalanceShares",
+                "type": "tuple",
+                "internalType": "struct PreMatchBalanceShare",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "relayerFeeRecipient",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "oneTimeAuthority",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
               {
                 "name": "newBalancePartialCommitment",
                 "type": "tuple",

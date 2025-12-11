@@ -188,6 +188,7 @@ impl From<IntentAndBalanceValidityStatement> for IDarkpoolV2::IntentAndBalanceVa
 impl From<NewOutputBalanceValidityStatement> for IDarkpoolV2::NewOutputBalanceValidityStatement {
     fn from(statement: NewOutputBalanceValidityStatement) -> Self {
         Self {
+            preMatchBalanceShares: statement.pre_match_balance_shares.into(),
             newBalancePartialCommitment: statement.new_balance_partial_commitment.into(),
             recoveryId: scalar_to_u256(&statement.recovery_id),
         }
