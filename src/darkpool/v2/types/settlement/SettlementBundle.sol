@@ -3,40 +3,18 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import {
-    PublicIntentAuthBundle,
-    PrivateIntentAuthBundleFirstFill,
-    PrivateIntentAuthBundle,
-    RenegadeSettledIntentAuthBundleFirstFill,
-    RenegadeSettledIntentAuthBundle
-} from "darkpoolv2-types/settlement/IntentBundle.sol";
-import {
-    IntentOnlyPublicSettlementStatement,
-    IntentOnlyBoundedSettlementStatement,
-    IntentAndBalancePublicSettlementStatement
-} from "darkpoolv2-lib/public_inputs/Settlement.sol";
-import {
-    IntentOnlyValidityStatementFirstFill,
-    IntentOnlyValidityStatement,
-    IntentAndBalanceValidityStatementFirstFill,
-    IntentAndBalanceValidityStatement
-} from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { PlonkProof, LinkingProof } from "renegade-lib/verifier/Types.sol";
+import { PublicIntentAuthBundle } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
     IntentPublicShareLib,
     IntentPublicShare,
     IntentPreMatchShareLib,
     IntentPreMatchShare
 } from "darkpoolv2-types/Intent.sol";
-import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
-import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-types/Balance.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
-import { OutputBalanceBundle } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 
 // ---------------------------
 // | Settlement Bundle Types |
@@ -90,24 +68,6 @@ struct PublicIntentPublicBalanceBundle {
     PublicIntentAuthBundle auth;
     /// @dev The relayer's fee take for the match
     FeeRate relayerFeeRate;
-}
-
-/// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle on the first fill
-/// @dev Note that this is the same as the `RENEGADE_SETTLED_INTENT` bundle, but without the settlement statement and
-/// proof
-/// These proofs are attached to the obligation bundle, as the proof unifies the two settlement bundles
-struct RenegadeSettledPrivateFirstFillBundle {
-    /// @dev The private intent authorization payload with signature attached
-    RenegadeSettledIntentAuthBundleFirstFill auth;
-}
-
-/// @notice The settlement bundle data for a `RENEGADE_SETTLED_PRIVATE_FILL` bundle on subsequent fills
-/// @dev Note that this is the same as the `RENEGADE_SETTLED_INTENT` bundle, but without the settlement statement and
-/// proof
-/// These proofs are attached to the obligation bundle, as the proof unifies the two settlement bundles
-struct RenegadeSettledPrivateFillBundle {
-    /// @dev The private intent authorization payload with signature attached
-    RenegadeSettledIntentAuthBundle auth;
 }
 
 /// @title Settlement Bundle Library
@@ -223,115 +183,6 @@ library SettlementBundleLib {
         digest = EfficientHashLib.hash(encoded);
     }
 
-    /// @notice Compute the full commitment to the updated intent for a renegade settled private fill bundle
-    /// on its first fill
-    /// @dev Unlike the `computeFullIntentCommitment` methods above, private fills require updating the intent shares
-    /// in-circuit; to avoid leaking the pre- and post-update shares and thereby the fill. So we need not update the
-    /// shares here, we need only resume the partial commitment.
-    /// @dev We also take the updated intent amount public share as an argument here because the settlement proof
-    /// computes updated intent amount public shares for both parties. It's simpler to rely on a higher level method to
-    /// extract the correct party's shares.
-    /// @param bundleData The bundle data to compute the commitment for
-    /// @param newIntentAmountPublicShare The updated intent amount public share
-    /// @param hasher The hasher to use for hashing
-    /// @return newIntentCommitment The full commitment to the updated intent
-    /// TODO: Compute this correctly
-    function computeFullIntentCommitment(
-        RenegadeSettledPrivateFirstFillBundle memory bundleData,
-        BN254.ScalarField newIntentAmountPublicShare,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newIntentCommitment)
-    {
-        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
-
-        // Create a full intent share from the pre-match share and the updated amount public share
-        IntentPublicShare memory newIntentPublicShare =
-            authStatement.intentPublicShare.toFullPublicShare(newIntentAmountPublicShare);
-        uint256[] memory publicShares = newIntentPublicShare.scalarSerialize();
-
-        // Compute the full commitment to the updated intent
-        newIntentCommitment = CommitmentLib.computeCommitmentWithPublicShares(
-            authStatement.intentPrivateShareCommitment, publicShares, hasher
-        );
-    }
-
-    /// @notice Compute the full commitment to the updated balance for a renegade settled private fill bundle
-    /// on its first fill
-    /// @dev Unlike the `computeFullBalanceCommitment` methods above, private fills require updating the shares
-    /// in-circuit; to avoid leaking the pre- and post-update shares and thereby the fill. So we need not update the
-    /// shares here, we need only resume the partial commitment.
-    /// @dev We also take the updated balance shares as an argument here because the settlement proof computes updated
-    /// shares for both parties. It's simpler to rely on a higher level method to extract the correct party's shares.
-    /// @param bundleData The bundle data to compute the commitment for
-    /// @param newBalancePublicShares The updated balance public shares
-    /// @param hasher The hasher to use for hashing
-    /// @return newBalanceCommitment The full commitment to the updated balance
-    function computeFullBalanceCommitment(
-        RenegadeSettledPrivateFirstFillBundle memory bundleData,
-        PostMatchBalanceShare memory newBalancePublicShares,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newBalanceCommitment)
-    {
-        // Resume the partial commitment with the updated shares
-        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
-        uint256[] memory remainingShares = newBalancePublicShares.scalarSerialize();
-        newBalanceCommitment =
-            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
-    }
-
-    /// @notice Compute the full commitment to the updated intent for a renegade settled private fill bundle
-    /// on its subsequent fill
-    /// @dev As with the first fill implementation for private fill bundles; the shares are pre-updated in the circuit,
-    /// so we only need to resume the partial commitment.
-    /// @param bundleData The bundle data to compute the commitment for
-    /// @param newIntentAmountPublicShare The updated intent amount public share
-    /// @param hasher The hasher to use for hashing
-    /// @return newIntentCommitment The full commitment to the updated intent
-    function computeFullIntentCommitment(
-        RenegadeSettledPrivateFillBundle memory bundleData,
-        BN254.ScalarField newIntentAmountPublicShare,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newIntentCommitment)
-    {
-        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
-        uint256[] memory remainingShares = new uint256[](1);
-        remainingShares[0] = BN254.ScalarField.unwrap(newIntentAmountPublicShare);
-        newIntentCommitment =
-            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.newIntentPartialCommitment, hasher);
-    }
-
-    /// @notice Compute the full commitment to the updated balance for a renegade settled private fill bundle
-    /// on its subsequent fill
-    /// @dev As with the first fill implementation for private fill bundles; the shares are pre-updated in the circuit,
-    /// so we only need to resume the partial commitment.
-    /// @param bundleData The bundle data to compute the commitment for
-    /// @param newBalancePublicShares The updated balance public shares
-    /// @param hasher The hasher to use for hashing
-    /// @return newBalanceCommitment The full commitment to the updated balance
-    function computeFullBalanceCommitment(
-        RenegadeSettledPrivateFillBundle memory bundleData,
-        PostMatchBalanceShare memory newBalancePublicShares,
-        IHasher hasher
-    )
-        internal
-        view
-        returns (BN254.ScalarField newBalanceCommitment)
-    {
-        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
-        uint256[] memory remainingShares = newBalancePublicShares.scalarSerialize();
-        newBalanceCommitment =
-            CommitmentLib.computeResumableCommitment(remainingShares, authStatement.balancePartialCommitment, hasher);
-    }
-
     // --- Bundle Decoding --- //
 
     /// @notice Decode a public settlement bundle
@@ -345,31 +196,5 @@ library SettlementBundleLib {
         bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
-    }
-
-    /// @notice Decode a renegade settled private fill settlement bundle for a first fill
-    /// @param bundle The settlement bundle to decode
-    /// @return bundleData The decoded bundle data
-    function decodeRenegadeSettledPrivateFirstFillBundle(SettlementBundle calldata bundle)
-        internal
-        pure
-        returns (RenegadeSettledPrivateFirstFillBundle memory bundleData)
-    {
-        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
-        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
-        bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFirstFillBundle));
-    }
-
-    /// @notice Decode a renegade settled private fill settlement bundle
-    /// @param bundle The settlement bundle to decode
-    /// @return bundleData The decoded bundle data
-    function decodeRenegadeSettledPrivateBundle(SettlementBundle calldata bundle)
-        internal
-        pure
-        returns (RenegadeSettledPrivateFillBundle memory bundleData)
-    {
-        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
-        require(validType, IDarkpoolV2.InvalidSettlementBundleType());
-        bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }
 }

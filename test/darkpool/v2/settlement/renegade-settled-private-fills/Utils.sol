@@ -4,12 +4,11 @@ pragma solidity ^0.8.24;
 import { Vm } from "forge-std/Vm.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolV2TestUtils } from "../../DarkpoolV2TestUtils.sol";
+import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    SettlementBundle,
-    SettlementBundleType,
     RenegadeSettledPrivateFirstFillBundle,
     RenegadeSettledPrivateFillBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+} from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import {
     ObligationBundle,
     ObligationType,
@@ -191,7 +190,8 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        RenegadeSettledPrivateFirstFillBundle memory bundleData = RenegadeSettledPrivateFirstFillBundle({ auth: auth });
+        RenegadeSettledPrivateFirstFillBundle memory bundleData =
+            RenegadeSettledPrivateFirstFillBundle({ auth: auth, authSettlementLinkingProof: createDummyLinkingProof() });
 
         // Encode the bundle
         return SettlementBundle({
@@ -215,7 +215,8 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        RenegadeSettledPrivateFillBundle memory bundleData = RenegadeSettledPrivateFillBundle({ auth: auth });
+        RenegadeSettledPrivateFillBundle memory bundleData =
+            RenegadeSettledPrivateFillBundle({ auth: auth, authSettlementLinkingProof: createDummyLinkingProof() });
 
         // Encode the bundle
         return SettlementBundle({

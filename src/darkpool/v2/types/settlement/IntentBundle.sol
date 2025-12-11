@@ -125,6 +125,7 @@ struct RenegadeSettledIntentAuthBundleFirstFill {
     /// under the previous, now leaked, one time key. This authorizes the intent to be capitalized by
     /// the balance which the owner (hidden) has deposited in the darkpool. This signature also
     /// authorizes the one time key to be rotated to the new one time key.
+    /// TODO: Move this to an in-circuit verification
     SignatureWithNonce ownerSignature;
     /// @dev The statement for the proof intent and balance validity
     IntentAndBalanceValidityStatementFirstFill statement;
