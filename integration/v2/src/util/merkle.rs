@@ -6,7 +6,7 @@ use alloy::{
     rpc::types::TransactionReceipt,
     sol_types::SolEventInterface,
 };
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
 use itertools::Itertools;
 use num_bigint::BigUint;
 use renegade_abi::v2::IDarkpoolV2::{self, IDarkpoolV2Events};
@@ -15,7 +15,7 @@ use renegade_circuit_types::{
     traits::{CircuitBaseType, SecretShareBaseType},
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
-use renegade_constants::{Scalar, MERKLE_HEIGHT};
+use renegade_constants::{MERKLE_HEIGHT, Scalar};
 use renegade_crypto::fields::{scalar_to_u256, u256_to_scalar};
 
 use crate::util::darkpool::Darkpool;
@@ -126,6 +126,7 @@ pub fn parse_merkle_opening_from_receipt(
                 if data.value == commitment_u256 {
                     commitment_found = true;
                     leaf_index = data.index;
+                    break;
                 } else {
                     opening_index += 1;
                 }
@@ -147,8 +148,11 @@ pub fn parse_merkle_opening_from_receipt(
     let mut opening_nodes = all_sister_nodes[start_idx..end_idx].to_vec();
 
     // Sort by decreasing depth
-    opening_nodes.sort_by_key(|s| -(s.0 as i8));
-    let siblings = opening_nodes.into_iter().map(|(_, i, v)| (i, v)).collect();
+    opening_nodes.sort_by_key(|(depth, _, _)| -(*depth as i8));
+    let siblings = opening_nodes
+        .into_iter()
+        .map(|(_idx, i, v)| (i, v))
+        .collect();
     Ok(build_authentication_path(leaf_index, commitment, siblings))
 }
 

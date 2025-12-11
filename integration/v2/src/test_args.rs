@@ -177,6 +177,13 @@ impl TestArgs {
         Ok(balance)
     }
 
+    /// Get the base and quote balances for a given address
+    pub async fn base_and_quote_balances(&self, addr: Address) -> Result<(U256, U256)> {
+        let base = self.base_balance(addr).await?;
+        let quote = self.quote_balance(addr).await?;
+        Ok((base, quote))
+    }
+
     // --- Approvals --- //
 
     /// Approve the darkpool to spend the given token through permit2

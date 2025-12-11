@@ -13,10 +13,12 @@ use renegade_circuits_v2::zk_circuits::{
     valid_deposit::ValidDepositStatement,
     valid_withdrawal::ValidWithdrawalStatement,
     validity_proofs::{
+        intent_and_balance::IntentAndBalanceValidityStatement,
         intent_and_balance_first_fill::IntentAndBalanceFirstFillValidityStatement,
         intent_only::IntentOnlyValidityStatement,
         intent_only_first_fill::IntentOnlyFirstFillValidityStatement,
         new_output_balance::NewOutputBalanceValidityStatement,
+        output_balance::OutputBalanceValidityStatement,
     },
 };
 use renegade_crypto_v2::fields::scalar_to_u256;
@@ -168,10 +170,36 @@ impl From<IntentAndBalanceFirstFillValidityStatement>
     }
 }
 
+impl From<IntentAndBalanceValidityStatement> for IDarkpoolV2::IntentAndBalanceValidityStatement {
+    fn from(statement: IntentAndBalanceValidityStatement) -> Self {
+        Self {
+            intentMerkleRoot: scalar_to_u256(&statement.intent_merkle_root),
+            oldIntentNullifier: scalar_to_u256(&statement.old_intent_nullifier),
+            newIntentPartialCommitment: statement.new_intent_partial_commitment.into(),
+            intentRecoveryId: scalar_to_u256(&statement.intent_recovery_id),
+            balanceMerkleRoot: scalar_to_u256(&statement.balance_merkle_root),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            balancePartialCommitment: statement.balance_partial_commitment.into(),
+            balanceRecoveryId: scalar_to_u256(&statement.balance_recovery_id),
+        }
+    }
+}
+
 impl From<NewOutputBalanceValidityStatement> for IDarkpoolV2::NewOutputBalanceValidityStatement {
     fn from(statement: NewOutputBalanceValidityStatement) -> Self {
         Self {
             newBalancePartialCommitment: statement.new_balance_partial_commitment.into(),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+        }
+    }
+}
+
+impl From<OutputBalanceValidityStatement> for IDarkpoolV2::OutputBalanceValidityStatement {
+    fn from(statement: OutputBalanceValidityStatement) -> Self {
+        Self {
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            newPartialCommitment: statement.new_partial_commitment.into(),
             recoveryId: scalar_to_u256(&statement.recovery_id),
         }
     }

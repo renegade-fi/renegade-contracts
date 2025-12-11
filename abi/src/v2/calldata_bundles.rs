@@ -3,7 +3,6 @@ use alloy::primitives::U256;
 use alloy::sol_types::SolValue;
 
 use super::IDarkpoolV2::*;
-use super::*;
 
 /// The public obligation bundle type
 pub const PUBLIC_OBLIGATION_BUNDLE_TYPE: u8 = 0;
@@ -122,6 +121,30 @@ impl SettlementBundle {
             data: data.into(),
         }
     }
+
+    /// Build a renegade settled private intent subsequent fill bundle
+    pub fn renegade_settled_private_intent(
+        auth: RenegadeSettledIntentAuthBundle,
+        output_balance_bundle: OutputBalanceBundle,
+        settlement_statement: IntentAndBalancePublicSettlementStatement,
+        settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = RenegadeSettledIntentBundle {
+            auth,
+            outputBalanceBundle: output_balance_bundle,
+            settlementStatement: settlement_statement,
+            settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: false,
+            bundleType: NATIVE_SETTLED_RENEGADE_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
 }
 
 impl OutputBalanceBundle {
@@ -137,6 +160,25 @@ impl OutputBalanceBundle {
         OutputBalanceBundle {
             merkleDepth: merkle_depth,
             bundleType: NEW_OUTPUT_BALANCE_BUNDLE_TYPE,
+            data: data.into(),
+            proof,
+            settlementLinkingProof: linking_proof,
+        }
+    }
+
+    /// Build an existing output balance bundle
+    pub fn existing_output_balance(
+        merkle_depth: U256,
+        statement: OutputBalanceValidityStatement,
+        proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = ExistingBalanceBundle { statement };
+        let data = inner.abi_encode();
+
+        OutputBalanceBundle {
+            merkleDepth: merkle_depth,
+            bundleType: EXISTING_OUTPUT_BALANCE_BUNDLE_TYPE,
             data: data.into(),
             proof,
             settlementLinkingProof: linking_proof,
