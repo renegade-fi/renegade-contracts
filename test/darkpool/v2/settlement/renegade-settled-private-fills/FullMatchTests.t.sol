@@ -15,8 +15,8 @@ import {
 import {
     RenegadeSettledPrivateFillBundle,
     RenegadeSettledPrivateFirstFillBundle,
-    SettlementBundleLib
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+    RenegadeSettledPrivateFillLib
+} from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import { RenegadeSettledPrivateFillTestUtils } from "./Utils.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
@@ -27,8 +27,8 @@ import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
     using ObligationLib for ObligationBundle;
-    using SettlementBundleLib for RenegadeSettledPrivateFillBundle;
-    using SettlementBundleLib for RenegadeSettledPrivateFirstFillBundle;
+    using RenegadeSettledPrivateFillLib for RenegadeSettledPrivateFirstFillBundle;
+    using RenegadeSettledPrivateFillLib for RenegadeSettledPrivateFillBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
 

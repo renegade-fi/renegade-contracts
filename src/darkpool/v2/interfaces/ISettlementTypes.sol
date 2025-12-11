@@ -5,11 +5,11 @@ pragma solidity ^0.8.24;
 /* solhint-disable use-natspec */
 
 import { SettlementBundle, SettlementBundleType, PartyId } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { PublicIntentPublicBalanceBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    PublicIntentPublicBalanceBundle,
     RenegadeSettledPrivateFirstFillBundle,
     RenegadeSettledPrivateFillBundle
-} from "darkpoolv2-types/settlement/SettlementBundle.sol";
+} from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import {
     PrivateIntentPublicBalanceFirstFillBundle,
     PrivateIntentPublicBalanceBundle
