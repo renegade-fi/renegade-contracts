@@ -142,11 +142,11 @@ library MerkleTreeLib {
         // `subtreeFilled` maintains whether the subtree rooted at the current node is full
         // This is initially true, as the current node is the leaf being inserted
         bool subtreeFilled = true;
-        for (uint256 height = 0; height < tree.config.depth; ++height) {
+        uint256 depth = tree.config.depth;
+        for (uint256 height = 0; height < depth; ++height) {
             // Compute the insertion coordinates at the current height
             uint256 idxAtHeight = idx >> height;
-            uint256 idxBit = idxAtHeight & 1;
-            bool isRightChild = idxBit == 1;
+            bool isRightChild = (idxAtHeight & 1) == 1;
 
             // If the subtree is full, we need to switch the sibling path entry at this height
             if (subtreeFilled) {
@@ -164,9 +164,9 @@ library MerkleTreeLib {
             subtreeFilled = isRightChild && subtreeFilled;
 
             // Emit an event for indexers to track the opening of the current insertion
-            uint256 siblingIdx = isRightChild ? idxAtHeight - 1 : idxAtHeight + 1;
-            uint8 depth = uint8(tree.config.depth - height);
-            emit MerkleOpeningNode(depth, uint128(siblingIdx), sisterLeaves[height]);
+            emit MerkleOpeningNode(
+                uint8(depth - height), uint128(isRightChild ? idxAtHeight - 1 : idxAtHeight + 1), sisterLeaves[height]
+            );
         }
 
         // Log the updates to the Merkle tree after an insertion
