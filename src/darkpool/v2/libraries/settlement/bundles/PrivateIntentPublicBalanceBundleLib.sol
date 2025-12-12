@@ -27,6 +27,7 @@ import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkp
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
@@ -408,36 +409,36 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @notice Push the validity proof to the context and validate merkle depth
     /// @param bundleData The bundle containing the validity proof
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     function pushValidityProof(
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        SettlementContracts memory contracts
     )
         internal
         view
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
-        VerificationKey memory vk = vkeys.intentOnlyFirstFillValidityKeys();
+        VerificationKey memory vk = contracts.vkeys.intentOnlyFirstFillValidityKeys();
         _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
     }
 
     /// @notice Push the validity proof to the context and validate merkle depth
     /// @param bundleData The bundle containing the validity proof
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state for root validation
     function pushValidityProof(
         PrivateIntentPublicBalanceBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
         view
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
-        VerificationKey memory vk = vkeys.intentOnlyValidityKeys();
+        VerificationKey memory vk = contracts.vkeys.intentOnlyValidityKeys();
         _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
         state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
     }
@@ -445,36 +446,36 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @notice Push the validity proof to the context and validate merkle depth
     /// @param bundleData The bundle containing the validity proof
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     function pushValidityProof(
         PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        SettlementContracts memory contracts
     )
         internal
         view
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
-        VerificationKey memory vk = vkeys.intentOnlyFirstFillValidityKeys();
+        VerificationKey memory vk = contracts.vkeys.intentOnlyFirstFillValidityKeys();
         _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
     }
 
     /// @notice Push the validity proof to the context and validate merkle depth
     /// @param bundleData The bundle containing the validity proof
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state for root validation
     function pushValidityProof(
         PrivateIntentPublicBalanceBoundedBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
         view
     {
         BN254.ScalarField[] memory publicInputs = bundleData.auth.statement.statementSerialize();
-        VerificationKey memory vk = vkeys.intentOnlyValidityKeys();
+        VerificationKey memory vk = contracts.vkeys.intentOnlyValidityKeys();
         _pushValidityProofInner(publicInputs, bundleData.auth.validityProof, vk, settlementContext);
         state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
     }
@@ -503,11 +504,11 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @notice Push the settlement proof and proof linking argument to the context
     /// @param bundleData The bundle containing proofs
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     function pushSettlementProofs(
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        SettlementContracts memory contracts
     )
         internal
         view
@@ -518,18 +519,18 @@ library PrivateIntentPublicBalanceBundleLib {
             bundleData.auth.validityProof,
             bundleData.authSettlementLinkingProof,
             settlementContext,
-            vkeys
+            contracts
         );
     }
 
     /// @notice Push the settlement proof and proof linking argument to the context
     /// @param bundleData The bundle containing proofs
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     function pushSettlementProofs(
         PrivateIntentPublicBalanceBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        SettlementContracts memory contracts
     )
         internal
         view
@@ -540,7 +541,7 @@ library PrivateIntentPublicBalanceBundleLib {
             bundleData.auth.validityProof,
             bundleData.authSettlementLinkingProof,
             settlementContext,
-            vkeys
+            contracts
         );
     }
 
@@ -576,21 +577,21 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @param validityProof The validity proof (for proof linking)
     /// @param authSettlementLinkingProof The proof linking the auth and settlement proofs
     /// @param settlementContext The context to push to
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     function _pushSettlementProofsInner(
         IntentOnlyPublicSettlementStatement memory settlementStatement,
         PlonkProof memory settlementProof,
         PlonkProof memory validityProof,
         LinkingProof memory authSettlementLinkingProof,
         SettlementContext memory settlementContext,
-        IVkeys vkeys
+        SettlementContracts memory contracts
     )
         private
         view
     {
         // Push the settlement proof
         BN254.ScalarField[] memory publicInputs = settlementStatement.statementSerialize();
-        VerificationKey memory vk = vkeys.intentOnlyPublicSettlementKeys();
+        VerificationKey memory vk = contracts.vkeys.intentOnlyPublicSettlementKeys();
         settlementContext.pushProof(publicInputs, settlementProof, vk);
 
         // Push the proof linking argument
@@ -598,7 +599,7 @@ library PrivateIntentPublicBalanceBundleLib {
             wireComm0: validityProof.wireComms[0],
             wireComm1: settlementProof.wireComms[0],
             proof: authSettlementLinkingProof,
-            vk: vkeys.intentOnlySettlementLinkingKey()
+            vk: contracts.vkeys.intentOnlySettlementLinkingKey()
         });
         settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }

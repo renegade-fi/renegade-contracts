@@ -14,6 +14,7 @@ import {
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { RenegadeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/RenegadeSettledPrivateIntent.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -33,8 +34,9 @@ contract RenegadeSettledPrivateFillAuthorizationTest is RenegadeSettledPrivateFi
         returns (SettlementContext memory)
     {
         SettlementContext memory settlementContext = _createSettlementContext();
+        SettlementContracts memory contracts = getSettlementContracts();
         SettlementLib.executeSettlementBundle(
-            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, hasher, vkeys, darkpoolState
+            PartyId.PARTY_0, obligationBundle, bundle, settlementContext, contracts, darkpoolState
         );
         return settlementContext;
     }
