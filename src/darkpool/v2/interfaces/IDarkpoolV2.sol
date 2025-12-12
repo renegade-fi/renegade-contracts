@@ -49,6 +49,10 @@ interface IDarkpoolV2 {
     error PublicProtocolFeePaymentVerificationFailed();
     /// @notice Thrown when a public relayer fee payment verification fails
     error PublicRelayerFeePaymentVerificationFailed();
+    /// @notice Thrown when a private protocol fee payment verification fails
+    error PrivateProtocolFeePaymentVerificationFailed();
+    /// @notice Thrown when a private relayer fee payment verification fails
+    error PrivateRelayerFeePaymentVerificationFailed();
     /// @notice Thrown when an order cancellation verification fails
     error OrderCancellationVerificationFailed();
     /// @notice Thrown when the order cancellation signature is invalid
@@ -95,6 +99,10 @@ interface IDarkpoolV2 {
     error InvalidProtocolFeeRates();
     /// @notice Thrown when the protocol fee does not match the expected value
     error InvalidProtocolFee();
+    /// @notice Thrown when the protocol fee receiver does not match the expected value
+    error InvalidProtocolFeeReceiver();
+    /// @notice Thrown when the protocol fee encryption key does not match the expected value
+    error InvalidProtocolFeeEncryptionKey();
 
     // --- Events --- //
 
@@ -167,6 +175,10 @@ interface IDarkpoolV2 {
     /// @notice Get the default protocol fee rate
     /// @return The default protocol fee rate
     function getDefaultProtocolFee() external view returns (FixedPoint memory);
+
+    /// @notice Get the public encryption key for the protocol's fees
+    /// @return The public encryption key for the protocol's fees
+    function protocolFeeKey() external view returns (EncryptionKey memory);
 
     /// @notice Get the amount remaining for an open public intent
     /// @param intentHash The hash of the intent
