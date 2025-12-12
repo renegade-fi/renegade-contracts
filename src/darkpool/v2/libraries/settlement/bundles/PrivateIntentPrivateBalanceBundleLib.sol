@@ -163,10 +163,6 @@ library PrivateIntentPrivateBalanceBundleLib {
         RenegadeSettledIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
 
         // Validate the Merkle root used to authorize the input balance
-        // TODO: Allow for dynamic Merkle depth
-        if (authBundle.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
-            revert IDarkpool.InvalidMerkleDepthRequested();
-        }
         state.assertRootInHistory(authBundle.statement.merkleRoot);
 
         // Verify the intent signature
@@ -207,10 +203,6 @@ library PrivateIntentPrivateBalanceBundleLib {
         internal
     {
         // Validate the Merkle roots used for the input balance and intent
-        // TODO: Allow for dynamic Merkle depth
-        if (bundleData.auth.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
-            revert IDarkpool.InvalidMerkleDepthRequested();
-        }
         state.assertRootInHistory(bundleData.auth.statement.intentMerkleRoot);
         state.assertRootInHistory(bundleData.auth.statement.balanceMerkleRoot);
 
@@ -429,10 +421,6 @@ library PrivateIntentPrivateBalanceBundleLib {
         ExistingBalanceBundle memory existingBalanceBundle = bundle.decodeExistingBalanceBundle();
 
         // Validate the Merkle root used for the output balance
-        // TODO: Allow for dynamic Merkle depth
-        if (bundle.merkleDepth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
-            revert IDarkpool.InvalidMerkleDepthRequested();
-        }
         state.assertRootInHistory(existingBalanceBundle.statement.merkleRoot);
 
         // Push the validity proof to the settlement context alongside the proof linking argument

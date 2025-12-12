@@ -24,6 +24,13 @@ import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+import { IntentPublicShare, IntentPreMatchShare, IntentPreMatchShareLib } from "darkpoolv2-types/Intent.sol";
+import {
+    OutputBalanceBundle,
+    OutputBalanceBundleType,
+    OutputBalanceBundleLib,
+    NewBalanceBundle
+} from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 
 contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
     using ObligationLib for ObligationBundle;
@@ -31,6 +38,8 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
     using RenegadeSettledPrivateFillLib for RenegadeSettledPrivateFillBundle;
     using FixedPointLib for FixedPoint;
     using MerkleTreeLib for MerkleTreeLib.MerkleTree;
+    using IntentPreMatchShareLib for IntentPreMatchShare;
+    using OutputBalanceBundleLib for OutputBalanceBundle;
 
     MerkleTreeLib.MerkleTree private testTree;
 
@@ -106,23 +115,54 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
 
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents and balances
-        BN254.ScalarField intentCommitment0 =
-            bundleData0.computeFullIntentCommitment(obligation.statement.newAmountPublicShare0, hasher);
-        BN254.ScalarField intentCommitment1 =
-            bundleData1.computeFullIntentCommitment(obligation.statement.newAmountPublicShare1, hasher);
-        BN254.ScalarField balanceCommitment0 =
-            bundleData0.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares0, hasher);
-        BN254.ScalarField balanceCommitment1 =
-            bundleData1.computeFullBalanceCommitment(obligation.statement.newOutBalancePublicShares1, hasher);
+        IntentPreMatchShare memory intentPartialShare0 = bundleData0.auth.statement.intentPublicShare;
+        IntentPreMatchShare memory intentPartialShare1 = bundleData1.auth.statement.intentPublicShare;
+        IntentPublicShare memory newIntentShare0 =
+            intentPartialShare0.toFullPublicShare(obligation.statement.newAmountPublicShare0);
+        IntentPublicShare memory newIntentShare1 =
+            intentPartialShare1.toFullPublicShare(obligation.statement.newAmountPublicShare1);
+        BN254.ScalarField intentCommitment0 = RenegadeSettledPrivateFillLib.computeFullIntentCommitment(
+            newIntentShare0, bundleData0.auth.statement.intentPrivateShareCommitment, hasher
+        );
+        BN254.ScalarField intentCommitment1 = RenegadeSettledPrivateFillLib.computeFullIntentCommitment(
+            newIntentShare1, bundleData1.auth.statement.intentPrivateShareCommitment, hasher
+        );
+        // For first fill, _updateIntentAndBalance inserts input balance first, then intent
+        BN254.ScalarField inputBalanceCommitment0 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newInBalancePublicShares0, bundleData0.auth.statement.balancePartialCommitment, hasher
+        );
+        BN254.ScalarField inputBalanceCommitment1 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newInBalancePublicShares1, bundleData1.auth.statement.balancePartialCommitment, hasher
+        );
+
+        // Decode output balance bundles and get their partial commitments
+        // authorizeAndUpdateOutputBalance inserts the output balance using newBalancePartialCommitment
+        NewBalanceBundle memory outputBalanceBundle0 = bundleData0.outputBalanceBundle.decodeNewBalanceBundle();
+        NewBalanceBundle memory outputBalanceBundle1 = bundleData1.outputBalanceBundle.decodeNewBalanceBundle();
+
+        BN254.ScalarField outBalanceCommitment0 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newOutBalancePublicShares0,
+            outputBalanceBundle0.statement.newBalancePartialCommitment,
+            hasher
+        );
+        BN254.ScalarField outBalanceCommitment1 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newOutBalancePublicShares1,
+            outputBalanceBundle1.statement.newBalancePartialCommitment,
+            hasher
+        );
 
         // Validate against a single Merkle tree
+        // Order per party: balance (from _updateIntentAndBalance), intent, output balance (from
+        // authorizeAndUpdateOutputBalance)
         MerkleTreeLib.MerkleTreeConfig memory config =
             MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
         MerkleTreeLib.initialize(testTree, config);
-        testTree.insertLeaf(balanceCommitment0, hasher);
+        testTree.insertLeaf(inputBalanceCommitment0, hasher);
         testTree.insertLeaf(intentCommitment0, hasher);
-        testTree.insertLeaf(balanceCommitment1, hasher);
+        testTree.insertLeaf(outBalanceCommitment0, hasher);
+        testTree.insertLeaf(inputBalanceCommitment1, hasher);
         testTree.insertLeaf(intentCommitment1, hasher);
+        testTree.insertLeaf(outBalanceCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();
@@ -157,23 +197,44 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
 
         // 2. Check that the Merkle root matches the expected root
         // Compute the commitments to the updated intents and balances
-        BN254.ScalarField intentCommitment0 =
-            bundleData0.computeFullIntentCommitment(obligation.statement.newAmountPublicShare0, hasher);
-        BN254.ScalarField intentCommitment1 =
-            bundleData1.computeFullIntentCommitment(obligation.statement.newAmountPublicShare1, hasher);
-        BN254.ScalarField balanceCommitment0 =
-            bundleData0.computeFullBalanceCommitment(obligation.statement.newInBalancePublicShares0, hasher);
-        BN254.ScalarField balanceCommitment1 =
-            bundleData1.computeFullBalanceCommitment(obligation.statement.newInBalancePublicShares1, hasher);
+        BN254.ScalarField intentCommitment0 = RenegadeSettledPrivateFillLib.computeFullIntentCommitment(
+            obligation.statement.newAmountPublicShare0, bundleData0.auth.statement.newIntentPartialCommitment, hasher
+        );
+        BN254.ScalarField intentCommitment1 = RenegadeSettledPrivateFillLib.computeFullIntentCommitment(
+            obligation.statement.newAmountPublicShare1, bundleData1.auth.statement.newIntentPartialCommitment, hasher
+        );
+        BN254.ScalarField inBalanceCommitment0 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newInBalancePublicShares0, bundleData0.auth.statement.balancePartialCommitment, hasher
+        );
+        BN254.ScalarField inBalanceCommitment1 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newInBalancePublicShares1, bundleData1.auth.statement.balancePartialCommitment, hasher
+        );
+
+        // Decode output balance bundles and get their partial commitments
+        NewBalanceBundle memory outputBalanceBundle0 = bundleData0.outputBalanceBundle.decodeNewBalanceBundle();
+        NewBalanceBundle memory outputBalanceBundle1 = bundleData1.outputBalanceBundle.decodeNewBalanceBundle();
+
+        BN254.ScalarField outBalanceCommitment0 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newOutBalancePublicShares0,
+            outputBalanceBundle0.statement.newBalancePartialCommitment,
+            hasher
+        );
+        BN254.ScalarField outBalanceCommitment1 = RenegadeSettledPrivateFillLib.computeFullBalanceCommitment(
+            obligation.statement.newOutBalancePublicShares1,
+            outputBalanceBundle1.statement.newBalancePartialCommitment,
+            hasher
+        );
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =
             MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
         MerkleTreeLib.initialize(testTree, config);
-        testTree.insertLeaf(balanceCommitment0, hasher);
+        testTree.insertLeaf(inBalanceCommitment0, hasher);
         testTree.insertLeaf(intentCommitment0, hasher);
-        testTree.insertLeaf(balanceCommitment1, hasher);
+        testTree.insertLeaf(outBalanceCommitment0, hasher);
+        testTree.insertLeaf(inBalanceCommitment1, hasher);
         testTree.insertLeaf(intentCommitment1, hasher);
+        testTree.insertLeaf(outBalanceCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();

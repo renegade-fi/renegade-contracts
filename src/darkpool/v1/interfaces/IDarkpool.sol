@@ -55,8 +55,6 @@ interface IDarkpool {
     error InvalidETHValue();
     /// @notice Thrown when protocol encryption key doesn't match
     error InvalidProtocolEncryptionKey();
-    /// @notice Thrown when the Merkle depth is invalid
-    error InvalidMerkleDepthRequested();
 
     // --- Events --- //
 

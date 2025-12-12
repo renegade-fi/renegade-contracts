@@ -7,7 +7,7 @@ import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
-
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 
 /// @title Darkpool State
@@ -219,6 +219,10 @@ library DarkpoolStateLib {
     )
         internal
     {
+        // TODO: Allow for dynamic Merkle depth
+        if (depth != DarkpoolConstants.DEFAULT_MERKLE_DEPTH) {
+            revert IDarkpoolV2.InvalidMerkleDepthRequested();
+        }
         state.merkleMountainRange.insertLeaf(depth, leaf, hasher);
     }
 }

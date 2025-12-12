@@ -16,7 +16,7 @@ import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { RenegadeSettledPrivateIntentLib } from "darkpoolv2-lib/settlement/RenegadeSettledPrivateIntent.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { RenegadeSettledPrivateFillTestUtils } from "./Utils.sol";
 
 contract RenegadeSettledPrivateFillAuthorizationTest is RenegadeSettledPrivateFillTestUtils {
@@ -94,7 +94,7 @@ contract RenegadeSettledPrivateFillAuthorizationTest is RenegadeSettledPrivateFi
         obligationBundle.data = abi.encode(createPrivateObligationBundle());
 
         // Should revert with InvalidMerkleDepthRequested
-        vm.expectRevert(IDarkpool.InvalidMerkleDepthRequested.selector);
+        vm.expectRevert(IDarkpoolV2.InvalidMerkleDepthRequested.selector);
         authorizeIntentHelper(obligationBundle, bundle);
     }
 }

@@ -30,8 +30,14 @@ import {
 import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
+import { PostMatchBalanceShare, PreMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import {
+    OutputBalanceBundle,
+    OutputBalanceBundleType,
+    NewBalanceBundle
+} from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
+import { NewOutputBalanceValidityStatement } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 
 contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
     using ObligationLib for ObligationBundle;
@@ -114,6 +120,32 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
         });
     }
 
+    /// @dev Create a dummy output balance bundle (new balance)
+    function createOutputBalanceBundle(uint256 merkleDepth) internal returns (OutputBalanceBundle memory) {
+        PreMatchBalanceShare memory preMatchBalanceShares = PreMatchBalanceShare({
+            mint: randomScalar(),
+            owner: randomScalar(),
+            relayerFeeRecipient: randomScalar(),
+            oneTimeAuthority: randomScalar()
+        });
+
+        NewOutputBalanceValidityStatement memory statement = NewOutputBalanceValidityStatement({
+            preMatchBalanceShares: preMatchBalanceShares,
+            newBalancePartialCommitment: randomPartialCommitment(),
+            recoveryId: randomScalar()
+        });
+
+        NewBalanceBundle memory bundleData = NewBalanceBundle({ statement: statement });
+
+        return OutputBalanceBundle({
+            merkleDepth: merkleDepth,
+            bundleType: OutputBalanceBundleType.NEW_BALANCE,
+            data: abi.encode(bundleData),
+            proof: createDummyProof(),
+            settlementLinkingProof: createDummyLinkingProof()
+        });
+    }
+
     /// @dev Create a dummy private obligation bundle for a private fill
     function createPrivateObligationBundle() internal returns (PrivateObligationBundle memory) {
         PostMatchBalanceShare memory party0InBalanceShares = randomPostMatchBalanceShare();
@@ -190,8 +222,14 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        RenegadeSettledPrivateFirstFillBundle memory bundleData =
-            RenegadeSettledPrivateFirstFillBundle({ auth: auth, authSettlementLinkingProof: createDummyLinkingProof() });
+
+        // Create output balance bundle
+        OutputBalanceBundle memory outputBalanceBundle = createOutputBalanceBundle(merkleDepth);
+        RenegadeSettledPrivateFirstFillBundle memory bundleData = RenegadeSettledPrivateFirstFillBundle({
+            auth: auth,
+            outputBalanceBundle: outputBalanceBundle,
+            authSettlementLinkingProof: createDummyLinkingProof()
+        });
 
         // Encode the bundle
         return SettlementBundle({
@@ -215,8 +253,14 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             statement: validityStatement,
             validityProof: createDummyProof()
         });
-        RenegadeSettledPrivateFillBundle memory bundleData =
-            RenegadeSettledPrivateFillBundle({ auth: auth, authSettlementLinkingProof: createDummyLinkingProof() });
+
+        // Create output balance bundle
+        OutputBalanceBundle memory outputBalanceBundle = createOutputBalanceBundle(merkleDepth);
+        RenegadeSettledPrivateFillBundle memory bundleData = RenegadeSettledPrivateFillBundle({
+            auth: auth,
+            outputBalanceBundle: outputBalanceBundle,
+            authSettlementLinkingProof: createDummyLinkingProof()
+        });
 
         // Encode the bundle
         return SettlementBundle({
