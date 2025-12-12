@@ -21,6 +21,7 @@ import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 import { SettlementLib } from "./SettlementLib.sol";
 import { SettlementVerification } from "./SettlementVerification.sol";
@@ -35,22 +36,14 @@ library ExternalSettlementLib {
 
     /// @notice Settle a trade with an external party who decides the trade size
     /// @param state The darkpool state containing all storage references
-    /// @param hasher The hasher to use for hashing commitments
-    /// @param verifier The verifier to use for verification
-    /// @param weth The WETH9 contract instance
-    /// @param permit2 The permit2 contract instance
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param externalPartyAmountIn The input amount for the trade
     /// @param recipient The recipient of the withdrawal
     /// @param matchBundle The bounded match result bundle
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     function settleExternalMatch(
         DarkpoolState storage state,
-        IHasher hasher,
-        IVerifier verifier,
-        IWETH9 weth,
-        IPermit2 permit2,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         uint256 externalPartyAmountIn,
         address recipient,
         BoundedMatchResultBundle calldata matchBundle,
@@ -67,7 +60,7 @@ library ExternalSettlementLib {
 
         // Validate and authorize the settlement bundles
         executeExternalSettlementBundle(
-            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
+            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, contracts, state
         );
 
         // Allocate transfers for external party
@@ -76,11 +69,11 @@ library ExternalSettlementLib {
 
         // Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary
-        SettlementLib.executeTransfers(settlementContext, weth, permit2);
+        SettlementLib.executeTransfers(settlementContext, contracts);
 
         // Verify the proofs necessary for settlement
         // The helpers above will push proofs to the settlement context if necessary
-        SettlementVerification.verifySettlementProofs(settlementContext, verifier);
+        SettlementVerification.verifySettlementProofs(settlementContext, contracts.verifier);
     }
 
     // --- Allocation --- //
@@ -135,16 +128,14 @@ library ExternalSettlementLib {
     /// @param internalObligation The settlement obligation to validate
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeExternalSettlementBundle(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory internalObligation,
         SettlementBundle calldata internalPartySettlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -156,7 +147,7 @@ library ExternalSettlementLib {
             );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.executeBoundedMatch(
-                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
+                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, contracts, state
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             RenegadeSettledPrivateIntentLib.executeBoundedMatch(

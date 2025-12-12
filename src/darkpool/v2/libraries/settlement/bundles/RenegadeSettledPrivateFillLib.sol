@@ -29,6 +29,7 @@ import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { PrivateObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -123,16 +124,14 @@ library RenegadeSettledPrivateFillLib {
     /// @param bundleData The bundle to authorize and update
     /// @param obligationBundle The obligation bundle to authorize and update
     /// @param settlementContext The settlement context to authorize and update
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher to use for hashing
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization and update
     function authorizeAndUpdateIntentAndBalance(
         PartyId partyId,
         RenegadeSettledPrivateFirstFillBundle memory bundleData,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -144,19 +143,19 @@ library RenegadeSettledPrivateFillLib {
         PrivateIntentPrivateBalanceBundleLib._verifyIntentSignature(bundleData.auth, state);
 
         // Push the validity proof to the settlement context
-        ProofLinkingVK memory proofLinkingVkey = _getIntentAndBalanceProofLinkingVkey(partyId, vkeys);
+        ProofLinkingVK memory proofLinkingVkey = _getIntentAndBalanceProofLinkingVkey(partyId, contracts.vkeys);
         PrivateIntentPrivateBalanceBundleLib.pushValidityProof(
             bundleData.auth.statement.statementSerialize(),
             bundleData.auth.validityProof,
             obligationBundle.proof,
-            vkeys.intentAndBalanceFirstFillValidityKeys(),
+            contracts.vkeys.intentAndBalanceFirstFillValidityKeys(),
             proofLinkingVkey,
             bundleData.authSettlementLinkingProof,
             settlementContext
         );
 
         // Execute state updates for the input balance and intent
-        _updateIntentAndBalance(partyId, bundleData, obligationBundle, state, hasher);
+        _updateIntentAndBalance(partyId, bundleData, obligationBundle, state, contracts.hasher);
     }
 
     /// @notice Authorize and update the intent and input balance for a renegade settled private fill on a subsequent
@@ -165,16 +164,14 @@ library RenegadeSettledPrivateFillLib {
     /// @param bundleData The bundle to authorize and update
     /// @param obligationBundle The obligation bundle to authorize and update
     /// @param settlementContext The settlement context to authorize and update
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher to use for hashing
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization and update
     function authorizeAndUpdateIntentAndBalance(
         PartyId partyId,
         RenegadeSettledPrivateFillBundle memory bundleData,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -184,19 +181,19 @@ library RenegadeSettledPrivateFillLib {
         state.assertRootInHistory(bundleData.auth.statement.balanceMerkleRoot);
 
         // Push a validity proof to the settlement context
-        ProofLinkingVK memory proofLinkingVkey = _getIntentAndBalanceProofLinkingVkey(partyId, vkeys);
+        ProofLinkingVK memory proofLinkingVkey = _getIntentAndBalanceProofLinkingVkey(partyId, contracts.vkeys);
         PrivateIntentPrivateBalanceBundleLib.pushValidityProof(
             bundleData.auth.statement.statementSerialize(),
             bundleData.auth.validityProof,
             obligationBundle.proof,
-            vkeys.intentAndBalanceValidityKeys(),
+            contracts.vkeys.intentAndBalanceValidityKeys(),
             proofLinkingVkey,
             bundleData.authSettlementLinkingProof,
             settlementContext
         );
 
         // Rotate the intent and balance state elements to their updated versions
-        _updateIntentAndBalance(partyId, bundleData, obligationBundle, state, hasher);
+        _updateIntentAndBalance(partyId, bundleData, obligationBundle, state, contracts.hasher);
     }
 
     /// @notice Update the intent and input balance after authorization on the first fill
@@ -299,27 +296,25 @@ library RenegadeSettledPrivateFillLib {
     /// @param outputBalanceBundle The output balance bundle to authorize and update
     /// @param obligationBundle The obligation bundle to authorize and update
     /// @param settlementContext The settlement context to authorize and update
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher to use for hashing
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization and update
     function authorizeAndUpdateOutputBalance(
         PartyId partyId,
         OutputBalanceBundle memory outputBalanceBundle,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
     {
         if (outputBalanceBundle.bundleType == OutputBalanceBundleType.NEW_BALANCE) {
             _authorizeAndUpdateNewOutputBalance(
-                partyId, outputBalanceBundle, obligationBundle, settlementContext, vkeys, hasher, state
+                partyId, outputBalanceBundle, obligationBundle, settlementContext, contracts, state
             );
         } else if (outputBalanceBundle.bundleType == OutputBalanceBundleType.EXISTING_BALANCE) {
             _authorizeAndUpdateExistingOutputBalance(
-                partyId, outputBalanceBundle, obligationBundle, settlementContext, vkeys, hasher, state
+                partyId, outputBalanceBundle, obligationBundle, settlementContext, contracts, state
             );
         } else {
             revert IDarkpoolV2.InvalidOutputBalanceBundleType();
@@ -331,27 +326,25 @@ library RenegadeSettledPrivateFillLib {
     /// @param outputBalanceBundle The output balance bundle to authorize and update
     /// @param obligationBundle The obligation bundle to authorize and update
     /// @param settlementContext The settlement context to authorize and update
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher to use for hashing
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization and update
     function _authorizeAndUpdateNewOutputBalance(
         PartyId partyId,
         OutputBalanceBundle memory outputBalanceBundle,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
     {
         NewBalanceBundle memory newBalanceBundle = outputBalanceBundle.decodeNewBalanceBundle();
-        ProofLinkingVK memory proofLinkingVkey = _getOutputBalanceProofLinkingVkey(partyId, vkeys);
+        ProofLinkingVK memory proofLinkingVkey = _getOutputBalanceProofLinkingVkey(partyId, contracts.vkeys);
         PrivateIntentPrivateBalanceBundleLib.pushValidityProof(
             newBalanceBundle.statement.statementSerialize(),
             outputBalanceBundle.proof,
             obligationBundle.proof,
-            vkeys.newOutputBalanceValidityKeys(),
+            contracts.vkeys.newOutputBalanceValidityKeys(),
             proofLinkingVkey,
             outputBalanceBundle.settlementLinkingProof,
             settlementContext
@@ -359,7 +352,7 @@ library RenegadeSettledPrivateFillLib {
 
         // Update the output balance in the state
         _updateNewOutputBalance(
-            partyId, newBalanceBundle, outputBalanceBundle, obligationBundle.statement, hasher, state
+            partyId, newBalanceBundle, outputBalanceBundle, obligationBundle.statement, contracts.hasher, state
         );
     }
 
@@ -368,16 +361,14 @@ library RenegadeSettledPrivateFillLib {
     /// @param outputBalanceBundle The output balance bundle to authorize and update
     /// @param obligationBundle The obligation bundle to authorize and update
     /// @param settlementContext The settlement context to authorize and update
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher to use for hashing
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization and update
     function _authorizeAndUpdateExistingOutputBalance(
         PartyId partyId,
         OutputBalanceBundle memory outputBalanceBundle,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -388,12 +379,12 @@ library RenegadeSettledPrivateFillLib {
         state.assertRootInHistory(existingBalanceBundle.statement.merkleRoot);
 
         // Push the validity proof to the settlement context
-        ProofLinkingVK memory proofLinkingVkey = _getOutputBalanceProofLinkingVkey(partyId, vkeys);
+        ProofLinkingVK memory proofLinkingVkey = _getOutputBalanceProofLinkingVkey(partyId, contracts.vkeys);
         PrivateIntentPrivateBalanceBundleLib.pushValidityProof(
             existingBalanceBundle.statement.statementSerialize(),
             outputBalanceBundle.proof,
             obligationBundle.proof,
-            vkeys.outputBalanceValidityKeys(),
+            contracts.vkeys.outputBalanceValidityKeys(),
             proofLinkingVkey,
             outputBalanceBundle.settlementLinkingProof,
             settlementContext
@@ -401,7 +392,7 @@ library RenegadeSettledPrivateFillLib {
 
         // Update the output balance in the state
         _updateExistingOutputBalance(
-            partyId, existingBalanceBundle, outputBalanceBundle, obligationBundle.statement, hasher, state
+            partyId, existingBalanceBundle, outputBalanceBundle, obligationBundle.statement, contracts.hasher, state
         );
     }
 
