@@ -9,6 +9,7 @@ import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ECDSALib } from "renegade-lib/ECDSA.sol";
+import { EncryptionKey, EncryptionKeyLib } from "renegade-lib/Ciphertext.sol";
 
 import {
     DepositProofBundle,
@@ -34,6 +35,7 @@ import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 /// @notice Library for handling state updates (deposits, withdrawals, order cancellations, fees)
 library StateUpdatesLib {
     using DarkpoolStateLib for DarkpoolState;
+    using EncryptionKeyLib for EncryptionKey;
     using NoteLib for Note;
 
     // --- Order Cancellation --- //
@@ -198,7 +200,7 @@ library StateUpdatesLib {
         SimpleTransfer memory transfer = note.buildTransfer();
         ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
 
-        // Emit the recovery id so that indexers can track the balance's update
+        // Emit the recovery id
         emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
     }
 
@@ -232,14 +234,49 @@ library StateUpdatesLib {
         SimpleTransfer memory transfer = note.buildTransfer();
         ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
 
-        // Emit the recovery id so that indexers can track the balance's update
+        // Emit the recovery id
         emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
     }
 
     /// @notice Pay protocol fees privately on a balance
     /// @param proofBundle The proof bundle for the private protocol fee payment
-    function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) external pure {
-        revert("todo");
+    /// @param contracts The contract references needed for settlement
+    /// @param state The darkpool state containing all storage references
+    function payPrivateProtocolFee(
+        PrivateProtocolFeePaymentProofBundle calldata proofBundle,
+        DarkpoolContracts calldata contracts,
+        DarkpoolState storage state
+    )
+        external
+    {
+        // Verify the proof of fee payment
+        bool valid = contracts.verifier.verifyPrivateProtocolFeePaymentValidity(proofBundle);
+        if (!valid) revert IDarkpoolV2.PrivateProtocolFeePaymentVerificationFailed();
+
+        // Verify the Merkle root is in the history
+        BN254.ScalarField merkleRoot = proofBundle.statement.merkleRoot;
+        state.assertRootInHistory(merkleRoot);
+
+        // Verify that the note's receiver and the public key under which it was encrypted are valid
+        address receiver = proofBundle.statement.protocolFeeReceiver;
+        EncryptionKey calldata encryptionKey = proofBundle.statement.protocolEncryptionKey;
+        if (receiver != state.getProtocolFeeRecipient()) {
+            revert IDarkpoolV2.InvalidProtocolFeeReceiver();
+        }
+        if (!encryptionKey.equal(state.getProtocolFeeKey())) {
+            revert IDarkpoolV2.InvalidProtocolFeeEncryptionKey();
+        }
+
+        // Spend the nullifier of the previous balance and insert the new balance's commitment
+        BN254.ScalarField balanceNullifier = proofBundle.statement.oldBalanceNullifier;
+        BN254.ScalarField newBalanceCommitment = proofBundle.statement.newBalanceCommitment;
+        BN254.ScalarField noteCommitment = proofBundle.statement.noteCommitment;
+        state.spendNullifier(balanceNullifier);
+        state.insertMerkleLeaf(proofBundle.merkleDepth, newBalanceCommitment, contracts.hasher);
+        state.insertMerkleLeaf(proofBundle.merkleDepth, noteCommitment, contracts.hasher);
+
+        // Emit the recovery id
+        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
     }
 
     /// @notice Pay relayer fees privately on a balance
