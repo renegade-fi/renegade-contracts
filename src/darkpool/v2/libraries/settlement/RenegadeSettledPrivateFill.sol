@@ -13,6 +13,7 @@ import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { RenegadeSettledPrivateFillLib as RenegadeSettledPrivateFillBundleLib } from
     "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 
@@ -41,24 +42,22 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function execute(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         } else {
-            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         }
     }
 
@@ -67,16 +66,14 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -87,12 +84,12 @@ library RenegadeSettledPrivateFillLib {
 
         // 1. Authorize the intent and input balance
         RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateIntentAndBalance(
-            partyId, bundleData, obligation, settlementContext, vkeys, hasher, state
+            partyId, bundleData, obligation, settlementContext, contracts, state
         );
 
         // 2. Validate the output balance validity
         RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateOutputBalance(
-            partyId, bundleData.outputBalanceBundle, obligation, settlementContext, vkeys, hasher, state
+            partyId, bundleData.outputBalanceBundle, obligation, settlementContext, contracts, state
         );
     }
 
@@ -101,16 +98,14 @@ library RenegadeSettledPrivateFillLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -120,12 +115,12 @@ library RenegadeSettledPrivateFillLib {
 
         // 1. Authorize the intent and input balance
         RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateIntentAndBalance(
-            partyId, bundleData, obligation, settlementContext, vkeys, hasher, state
+            partyId, bundleData, obligation, settlementContext, contracts, state
         );
 
         // 2. Validate the output balance validity
         RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateOutputBalance(
-            partyId, bundleData.outputBalanceBundle, obligation, settlementContext, vkeys, hasher, state
+            partyId, bundleData.outputBalanceBundle, obligation, settlementContext, contracts, state
         );
     }
 }

@@ -25,6 +25,7 @@ import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
@@ -174,6 +175,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         return _state.getProtocolFeeRate(asset0, asset1).rate;
     }
 
+    /// @inheritdoc IDarkpoolV2
+    function getDefaultProtocolFee() public view returns (FixedPoint memory) {
+        return _state.getDefaultProtocolFeeRate();
+    }
+
     // -----------------
     // | State Updates |
     // -----------------
@@ -248,17 +254,10 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        SettlementLib.settleMatch(
-            _state,
-            hasher,
-            verifier,
-            weth,
-            permit2,
-            vkeys,
-            obligationBundle,
-            party0SettlementBundle,
-            party1SettlementBundle
-        );
+        SettlementContracts memory contracts =
+            SettlementContracts({ hasher: hasher, verifier: verifier, weth: weth, permit2: permit2, vkeys: vkeys });
+
+        SettlementLib.settleMatch(_state, contracts, obligationBundle, party0SettlementBundle, party1SettlementBundle);
     }
 
     /// @inheritdoc IDarkpoolV2
@@ -270,17 +269,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
+        SettlementContracts memory contracts =
+            SettlementContracts({ hasher: hasher, verifier: verifier, weth: weth, permit2: permit2, vkeys: vkeys });
+
         ExternalSettlementLib.settleExternalMatch(
-            _state,
-            hasher,
-            verifier,
-            weth,
-            permit2,
-            vkeys,
-            externalPartyAmountIn,
-            recipient,
-            matchBundle,
-            internalPartySettlementBundle
+            _state, contracts, externalPartyAmountIn, recipient, matchBundle, internalPartySettlementBundle
         );
     }
 }

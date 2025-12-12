@@ -15,6 +15,7 @@ import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import {
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle,
@@ -146,14 +147,12 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// its first fill
     /// @param bundleData The bundle to check validity for
     /// @param settlementContext The settlement context to check validity for
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for verification
     function authorizeAndUpdateIntentAndBalance(
         RenegadeSettledIntentFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -171,14 +170,14 @@ library PrivateIntentPrivateBalanceBundleLib {
             authBundle.statement.statementSerialize(),
             authBundle.validityProof,
             bundleData.settlementProof,
-            vkeys.intentAndBalanceFirstFillValidityKeys(),
-            vkeys.intentAndBalanceSettlement0LinkingKey(),
+            contracts.vkeys.intentAndBalanceFirstFillValidityKeys(),
+            contracts.vkeys.intentAndBalanceSettlement0LinkingKey(),
             bundleData.authSettlementLinkingProof,
             settlementContext
         );
 
         // Rotate the intent and balance state elements to their updated versions
-        _updateIntentAndBalance(bundleData, state, hasher);
+        _updateIntentAndBalance(bundleData, state, contracts.hasher);
     }
 
     /// @notice Authorize and update the intent and capitalizing balance for a Renegade settled private intent bundle on
@@ -188,14 +187,12 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// verify the proof attached to the bundle.
     /// @param bundleData The bundle to authorize
     /// @param settlementContext The settlement context to authorize the intent for
-    /// @param vkeys The contract storing the verification keys
-    /// @param hasher The hasher contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization
     function authorizeAndUpdateIntentAndBalance(
         RenegadeSettledIntentBundle memory bundleData,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -209,14 +206,14 @@ library PrivateIntentPrivateBalanceBundleLib {
             bundleData.auth.statement.statementSerialize(),
             bundleData.auth.validityProof,
             bundleData.settlementProof,
-            vkeys.intentAndBalanceValidityKeys(),
-            vkeys.intentAndBalanceSettlement0LinkingKey(),
+            contracts.vkeys.intentAndBalanceValidityKeys(),
+            contracts.vkeys.intentAndBalanceSettlement0LinkingKey(),
             bundleData.authSettlementLinkingProof,
             settlementContext
         );
 
         // Rotate the intent and balance state elements to their updated versions
-        _updateIntentAndBalance(bundleData, state, hasher);
+        _updateIntentAndBalance(bundleData, state, contracts.hasher);
     }
 
     /// @notice Update the intent and input balance on the first fill after authorization
@@ -309,8 +306,7 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
     /// @param settlementContext The settlement context to authorize the output balance for
-    /// @param vkeys The verification keys to use for authorization
-    /// @param hasher The hasher contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization
     function authorizeAndUpdateOutputBalance(
         uint256 netReceiveAmount,
@@ -318,8 +314,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         OutputBalanceBundle memory outputBalanceBundle,
         PlonkProof memory settlementProof,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -331,8 +326,7 @@ library PrivateIntentPrivateBalanceBundleLib {
                 settlementStatement,
                 settlementProof,
                 settlementContext,
-                vkeys,
-                hasher,
+                contracts,
                 state
             );
         } else if (outputBalanceBundle.bundleType == OutputBalanceBundleType.EXISTING_BALANCE) {
@@ -342,8 +336,7 @@ library PrivateIntentPrivateBalanceBundleLib {
                 settlementStatement,
                 settlementProof,
                 settlementContext,
-                vkeys,
-                hasher,
+                contracts,
                 state
             );
         } else {
@@ -359,8 +352,7 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
     /// @param settlementContext The settlement context to authorize the output balance for
-    /// @param vkeys The verification keys to use for authorization
-    /// @param hasher The hasher contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for the update
     function _authorizeAndUpdateNewOutputBalance(
         uint256 netReceiveAmount,
@@ -368,8 +360,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         IntentAndBalancePublicSettlementStatement memory settlementStatement,
         PlonkProof memory settlementProof,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -380,17 +371,19 @@ library PrivateIntentPrivateBalanceBundleLib {
             newBalanceBundle.statement.statementSerialize(),
             bundle.proof,
             settlementProof,
-            vkeys.newOutputBalanceValidityKeys(),
+            contracts.vkeys.newOutputBalanceValidityKeys(),
             // We use the first party's link group layout for this linking argument regardless of the party ID
             // because in this settlement ring, the settlement proof is per-party, and only has link groups for one
             // output balance.
-            vkeys.outputBalanceSettlement0LinkingKey(),
+            contracts.vkeys.outputBalanceSettlement0LinkingKey(),
             bundle.settlementLinkingProof,
             settlementContext
         );
 
         // Update the output balance's contract state
-        _updateNewOutputBalance(netReceiveAmount, newBalanceBundle, bundle, settlementStatement, hasher, state);
+        _updateNewOutputBalance(
+            netReceiveAmount, newBalanceBundle, bundle, settlementStatement, contracts.hasher, state
+        );
     }
 
     /// @notice Authorize an existing output balance for a Renegade settled private intent bundle
@@ -401,8 +394,7 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
     /// @param settlementContext The settlement context to authorize the output balance for
-    /// @param vkeys The verification keys to use for authorization
-    /// @param hasher The hasher contract
+    /// @param contracts The contract references needed for settlement
     /// @param state The state to use for authorization
     function _authorizeAndUpdateExistingOutputBalance(
         uint256 netReceiveAmount,
@@ -410,8 +402,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         IntentAndBalancePublicSettlementStatement memory settlementStatement,
         PlonkProof memory settlementProof,
         SettlementContext memory settlementContext,
-        IVkeys vkeys,
-        IHasher hasher,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -426,18 +417,18 @@ library PrivateIntentPrivateBalanceBundleLib {
             existingBalanceBundle.statement.statementSerialize(),
             bundle.proof,
             settlementProof,
-            vkeys.outputBalanceValidityKeys(),
+            contracts.vkeys.outputBalanceValidityKeys(),
             // We use the first party's link group layout for this linking argument regardless of the party ID
             // because in this settlement ring, the settlement proof is per-party, and only has link groups for one
             // output balance.
-            vkeys.outputBalanceSettlement0LinkingKey(),
+            contracts.vkeys.outputBalanceSettlement0LinkingKey(),
             bundle.settlementLinkingProof,
             settlementContext
         );
 
         // Update the output balance's contract state
         _updateExistingOutputBalance(
-            netReceiveAmount, existingBalanceBundle, bundle, settlementStatement, hasher, state
+            netReceiveAmount, existingBalanceBundle, bundle, settlementStatement, contracts.hasher, state
         );
     }
 
@@ -732,13 +723,13 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// value passed in here.
     /// @param statement The settlement statement
     /// @param proof The settlement proof to push
-    /// @param vkeys The verification keys contract
+    /// @param contracts The contract references needed for settlement
     /// @param settlementContext The settlement context to push to
     function verifySettlement(
         SettlementObligation memory obligation,
         IntentAndBalancePublicSettlementStatement memory statement,
         PlonkProof memory proof,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         SettlementContext memory settlementContext
     )
         internal
@@ -750,7 +741,7 @@ library PrivateIntentPrivateBalanceBundleLib {
 
         // Push the settlement proof to the settlement context
         BN254.ScalarField[] memory publicInputs = statement.statementSerialize();
-        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
+        VerificationKey memory vk = contracts.vkeys.intentAndBalancePublicSettlementKeys();
         settlementContext.pushProof(publicInputs, proof, vk);
     }
 

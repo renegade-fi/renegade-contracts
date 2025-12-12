@@ -26,6 +26,8 @@ import { IGasSponsor } from "darkpoolv1-interfaces/IGasSponsor.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { TestVerifierV2 } from "test-contracts/TestVerifierV2.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 // solhint-disable-next-line max-states-count
 contract DarkpoolV2TestBase is TestUtils {
@@ -262,5 +264,23 @@ contract DarkpoolV2TestBase is TestUtils {
     function etherQuoteBalances(address addr) public view returns (uint256 etherAmt, uint256 quoteAmt) {
         etherAmt = addr.balance;
         quoteAmt = quoteToken.balanceOf(addr);
+    }
+
+    /// @notice Create a SettlementContracts struct from the test's contract instances
+    /// @param verifier The verifier to use (if not provided, uses the darkpool's verifier)
+    function getSettlementContracts(IVerifier verifier) public view returns (SettlementContracts memory contracts) {
+        contracts = SettlementContracts({
+            hasher: hasher,
+            verifier: verifier,
+            weth: IWETH9(address(weth)),
+            permit2: permit2,
+            vkeys: vkeys
+        });
+    }
+
+    /// @notice Create a SettlementContracts struct using the darkpool's verifier
+    function getSettlementContracts() public view returns (SettlementContracts memory contracts) {
+        DarkpoolV2 darkpoolImpl = DarkpoolV2(address(darkpool));
+        contracts = getSettlementContracts(darkpoolImpl.verifier());
     }
 }
