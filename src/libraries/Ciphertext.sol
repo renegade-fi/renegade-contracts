@@ -44,3 +44,16 @@ struct EncryptionKey {
     /// @dev The underlying point on the Baby JubJub curve
     BabyJubJubPoint point;
 }
+
+/// @title EncryptionKeyLib
+/// @notice A library for manipulating encryption keys
+library EncryptionKeyLib {
+    /// @notice Return whether two encryption keys are equal
+    /// @param a The first encryption key
+    /// @param b The second encryption key
+    /// @return Whether the encryption keys are equal
+    function equal(EncryptionKey memory a, EncryptionKey memory b) internal pure returns (bool) {
+        return BN254.ScalarField.unwrap(a.point.x) == BN254.ScalarField.unwrap(b.point.x)
+            && BN254.ScalarField.unwrap(a.point.y) == BN254.ScalarField.unwrap(b.point.y);
+    }
+}
