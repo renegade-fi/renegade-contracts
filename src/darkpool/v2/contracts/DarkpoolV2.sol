@@ -25,7 +25,6 @@ import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import {
     DepositProofBundle,
     NewBalanceDepositProofBundle,
@@ -43,6 +42,16 @@ import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { StateUpdatesLib } from "darkpoolv2-lib/StateUpdatesLib.sol";
+
+/// @notice Contract references needed for darkpool operations
+/// @dev Used for settlement, fee payments, and other operations requiring contract instances
+struct DarkpoolContracts {
+    IHasher hasher;
+    IVerifier verifier;
+    IWETH9 weth;
+    IPermit2 permit2;
+    IVkeys vkeys;
+}
 
 /// @title DarkpoolV2
 /// @author Renegade Eng
@@ -224,7 +233,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @inheritdoc IDarkpoolV2
     function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) public {
-        StateUpdatesLib.payPublicProtocolFee(proofBundle);
+        DarkpoolContracts memory contracts = _getDarkpoolContracts();
+        StateUpdatesLib.payPublicProtocolFee(proofBundle, contracts, _state);
     }
 
     /// @inheritdoc IDarkpoolV2
@@ -254,9 +264,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        SettlementContracts memory contracts =
-            SettlementContracts({ hasher: hasher, verifier: verifier, weth: weth, permit2: permit2, vkeys: vkeys });
-
+        DarkpoolContracts memory contracts = _getDarkpoolContracts();
         SettlementLib.settleMatch(_state, contracts, obligationBundle, party0SettlementBundle, party1SettlementBundle);
     }
 
@@ -269,11 +277,20 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        SettlementContracts memory contracts =
-            SettlementContracts({ hasher: hasher, verifier: verifier, weth: weth, permit2: permit2, vkeys: vkeys });
-
+        DarkpoolContracts memory contracts = _getDarkpoolContracts();
         ExternalSettlementLib.settleExternalMatch(
             _state, contracts, externalPartyAmountIn, recipient, matchBundle, internalPartySettlementBundle
         );
+    }
+
+    // --------------------
+    // | Helper Functions |
+    // --------------------
+
+    /// @notice Create a DarkpoolContracts struct from the contract's stored contract instances
+    /// @return contracts The DarkpoolContracts struct containing all contract references
+    function _getDarkpoolContracts() internal view returns (DarkpoolContracts memory contracts) {
+        contracts =
+            DarkpoolContracts({ hasher: hasher, verifier: verifier, weth: weth, permit2: permit2, vkeys: vkeys });
     }
 }

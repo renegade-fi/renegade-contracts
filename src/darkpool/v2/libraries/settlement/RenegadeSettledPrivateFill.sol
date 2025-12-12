@@ -11,9 +11,7 @@ import {
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { RenegadeSettledPrivateFillLib as RenegadeSettledPrivateFillBundleLib } from
     "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 
@@ -49,7 +47,7 @@ library RenegadeSettledPrivateFillLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -73,7 +71,7 @@ library RenegadeSettledPrivateFillLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -105,7 +103,7 @@ library RenegadeSettledPrivateFillLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal

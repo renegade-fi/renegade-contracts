@@ -15,7 +15,7 @@ import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import {
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle,
@@ -152,7 +152,7 @@ library PrivateIntentPrivateBalanceBundleLib {
     function authorizeAndUpdateIntentAndBalance(
         RenegadeSettledIntentFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -192,7 +192,7 @@ library PrivateIntentPrivateBalanceBundleLib {
     function authorizeAndUpdateIntentAndBalance(
         RenegadeSettledIntentBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -314,7 +314,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         OutputBalanceBundle memory outputBalanceBundle,
         PlonkProof memory settlementProof,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -360,7 +360,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         IntentAndBalancePublicSettlementStatement memory settlementStatement,
         PlonkProof memory settlementProof,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -402,7 +402,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         IntentAndBalancePublicSettlementStatement memory settlementStatement,
         PlonkProof memory settlementProof,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -729,7 +729,7 @@ library PrivateIntentPrivateBalanceBundleLib {
         SettlementObligation memory obligation,
         IntentAndBalancePublicSettlementStatement memory statement,
         PlonkProof memory proof,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         SettlementContext memory settlementContext
     )
         internal
