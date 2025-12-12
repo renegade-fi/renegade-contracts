@@ -29,7 +29,7 @@ import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
 import { PrivateObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -131,7 +131,7 @@ library RenegadeSettledPrivateFillLib {
         RenegadeSettledPrivateFirstFillBundle memory bundleData,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -171,7 +171,7 @@ library RenegadeSettledPrivateFillLib {
         RenegadeSettledPrivateFillBundle memory bundleData,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -303,7 +303,7 @@ library RenegadeSettledPrivateFillLib {
         OutputBalanceBundle memory outputBalanceBundle,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -333,7 +333,7 @@ library RenegadeSettledPrivateFillLib {
         OutputBalanceBundle memory outputBalanceBundle,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -368,7 +368,7 @@ library RenegadeSettledPrivateFillLib {
         OutputBalanceBundle memory outputBalanceBundle,
         PrivateObligationBundle memory obligationBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
 /// @title Note
 /// @author Renegade Eng
@@ -15,4 +16,21 @@ struct Note {
     address receiver;
     /// @dev The blinder of the note
     BN254.ScalarField blinder;
+}
+
+/// @title NoteLib
+/// @author Renegade Eng
+/// @notice A library for manipulating notes
+library NoteLib {
+    /// @notice Build a transfer from a note
+    /// @param note The note to build the transfer from
+    /// @return The transfer
+    function buildTransfer(Note memory note) public pure returns (SimpleTransfer memory) {
+        return SimpleTransfer({
+            account: note.receiver,
+            mint: note.mint,
+            amount: note.amount,
+            transferType: SimpleTransferType.Withdrawal
+        });
+    }
 }

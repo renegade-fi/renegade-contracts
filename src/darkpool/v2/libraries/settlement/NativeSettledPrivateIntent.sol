@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
     PrivateIntentPublicBalanceBoundedBundle,
@@ -14,10 +13,9 @@ import {
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
-import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 /// @title Native Settled Private Intent Library
@@ -50,7 +48,7 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -74,7 +72,7 @@ library NativeSettledPrivateIntentLib {
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -100,7 +98,7 @@ library NativeSettledPrivateIntentLib {
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -145,7 +143,7 @@ library NativeSettledPrivateIntentLib {
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -190,7 +188,7 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -239,7 +237,7 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal

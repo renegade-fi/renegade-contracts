@@ -31,6 +31,8 @@ import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 /// @notice Interface for the DarkpoolV2 contract
 interface IDarkpoolV2 {
     // --- Error Messages --- //
+    /// @notice The nullifier has already been spent
+    error NullifierAlreadySpent();
     /// @notice Thrown when a Merkle root is not in the history
     error InvalidMerkleRoot();
     /// @notice Thrown when the Merkle depth is invalid
@@ -43,6 +45,8 @@ interface IDarkpoolV2 {
     error WithdrawalVerificationFailed();
     /// @notice Thrown when a fee payment verification fails
     error FeePaymentVerificationFailed();
+    /// @notice Thrown when a public protocol fee payment verification fails
+    error PublicProtocolFeePaymentVerificationFailed();
     /// @notice Thrown when an order cancellation verification fails
     error OrderCancellationVerificationFailed();
     /// @notice Thrown when the order cancellation signature is invalid

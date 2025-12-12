@@ -20,7 +20,7 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 import { SettlementLib } from "./SettlementLib.sol";
 import { SettlementVerification } from "./SettlementVerification.sol";
@@ -42,7 +42,7 @@ library ExternalSettlementLib {
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     function settleExternalMatch(
         DarkpoolState storage state,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         uint256 externalPartyAmountIn,
         address recipient,
         BoundedMatchResultBundle calldata matchBundle,
@@ -134,7 +134,7 @@ library ExternalSettlementLib {
         SettlementObligation memory internalObligation,
         SettlementBundle calldata internalPartySettlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
