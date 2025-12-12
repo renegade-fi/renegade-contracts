@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+/* solhint-disable gas-small-strings */
+/* solhint-disable func-name-mixedcase */
 pragma solidity ^0.8.24;
 
 import { Vm } from "forge-std/Vm.sol";
@@ -7,7 +9,7 @@ import { IERC20 } from "oz-contracts/token/ERC20/IERC20.sol";
 import { BN254 } from "solidity-bn254/BN254.sol";
 
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
+import { DarkpoolV2TestUtils } from "../DarkpoolV2TestUtils.sol";
 import { WithdrawalProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
@@ -16,6 +18,7 @@ import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title WithdrawalTest
+/// @author Renegade Eng
 /// @notice Tests for the withdrawal functionality in DarkpoolV2
 contract WithdrawalTest is DarkpoolV2TestUtils {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
@@ -27,6 +30,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     // Test state
     MerkleMountainLib.MerkleMountainRange private testMountain;
 
+    /// @notice Set up the test environment
     function setUp() public override {
         super.setUp();
         balanceOwner = vm.createWallet("balance_owner");
@@ -52,6 +56,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Create a withdrawal for testing
+    /// @return withdrawal The withdrawal struct
     function createTestWithdrawal() internal returns (Withdrawal memory) {
         uint256 amount = randomAmount();
         return Withdrawal({ to: balanceOwner.addr, token: address(withdrawalToken), amount: amount });
@@ -59,6 +64,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
 
     /// @notice Create a withdrawal auth for testing
     /// @param newBalanceCommitment The new balance commitment to sign
+    /// @return auth The withdrawal authorization
     function createWithdrawalAuth(BN254.ScalarField newBalanceCommitment)
         internal
         view
@@ -74,6 +80,8 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Create a withdrawal proof bundle for testing
+    /// @param withdrawal The withdrawal struct
+    /// @return proofBundle The withdrawal proof bundle
     function createWithdrawalProofBundle(Withdrawal memory withdrawal)
         internal
         returns (WithdrawalProofBundle memory)
@@ -98,6 +106,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Capitalize the darkpool's balance so it can fulfill withdrawals
+    /// @param withdrawal The withdrawal struct containing the amount to capitalize
     function capitalizeDarkpool(Withdrawal memory withdrawal) internal {
         withdrawalToken.mint(address(darkpool), withdrawal.amount);
     }

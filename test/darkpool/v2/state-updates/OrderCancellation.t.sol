@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
+/* solhint-disable gas-small-strings */
+/* solhint-disable func-name-mixedcase */
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 
-import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
+import { DarkpoolV2TestUtils } from "../DarkpoolV2TestUtils.sol";
 import { OrderCancellationProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
 import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
 /// @title OrderCancellationTest
+/// @author Renegade Eng
 /// @notice Tests for the order cancellation functionality in DarkpoolV2
 contract OrderCancellationTest is DarkpoolV2TestUtils {
+    /// @notice Set up the test environment
     function setUp() public override {
         super.setUp();
     }
@@ -36,6 +39,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
 
     /// @notice Create an order cancellation auth for testing
     /// @param intentNullifier The intent nullifier to sign
+    /// @return The order cancellation authorization
     function createOrderCancellationAuth(BN254.ScalarField intentNullifier)
         internal
         view
@@ -50,6 +54,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Create an order cancellation proof bundle for testing
+    /// @return The order cancellation proof bundle
     function createOrderCancellationProofBundle() internal returns (OrderCancellationProofBundle memory) {
         BN254.ScalarField merkleRoot = randomScalar();
         BN254.ScalarField oldIntentNullifier = randomScalar();
@@ -66,6 +71,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
 
     /// @notice Create an order cancellation auth with wrong signer
     /// @param intentNullifier The intent nullifier to sign
+    /// @return The order cancellation authorization with wrong signer
     function createOrderCancellationAuthWrongSigner(BN254.ScalarField intentNullifier)
         internal
         view

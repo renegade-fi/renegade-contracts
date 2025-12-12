@@ -8,7 +8,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { ISignatureTransfer } from "permit2-lib/interfaces/ISignatureTransfer.sol";
 
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
-import { DarkpoolV2TestUtils } from "./DarkpoolV2TestUtils.sol";
+import { DarkpoolV2TestUtils } from "../DarkpoolV2TestUtils.sol";
 import { DepositProofBundle, NewBalanceDepositProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Deposit, DepositAuth, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv2-types/transfers/Deposit.sol";
@@ -16,6 +16,7 @@ import { ValidDepositStatement, ValidBalanceCreateStatement } from "darkpoolv2-l
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 
 /// @title DepositTest
+/// @author Renegade Eng
 /// @notice Tests for the deposit functionality in DarkpoolV2
 contract DepositTest is DarkpoolV2TestUtils {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
@@ -27,6 +28,7 @@ contract DepositTest is DarkpoolV2TestUtils {
     // Test state
     MerkleMountainLib.MerkleMountainRange private testMountain;
 
+    /// @notice Set up the test environment
     function setUp() public override {
         super.setUp();
         depositor = vm.createWallet("depositor");
@@ -52,12 +54,16 @@ contract DepositTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Create a deposit for testing
+    /// @return deposit The deposit struct
     function createTestDeposit() internal returns (Deposit memory) {
         uint256 amount = randomAmount();
         return Deposit({ from: depositor.addr, token: address(depositToken), amount: amount });
     }
 
     /// @notice Create a deposit auth for testing
+    /// @param deposit The deposit struct
+    /// @param newBalanceCommitment The new balance commitment
+    /// @return auth The deposit authorization
     function createDepositAuth(
         Deposit memory deposit,
         BN254.ScalarField newBalanceCommitment
@@ -87,6 +93,12 @@ contract DepositTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Sign a permit2 witness transfer
+    /// @param permit The permit transfer from struct
+    /// @param spender The spender address
+    /// @param witnessTypeString The witness type string
+    /// @param witness The witness
+    /// @param privateKey The private key of the signer
+    /// @return The signature
     function signPermit2WitnessTransfer(
         ISignatureTransfer.PermitTransferFrom memory permit,
         address spender,
