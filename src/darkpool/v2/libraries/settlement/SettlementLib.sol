@@ -2,10 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
-import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
-import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
@@ -40,15 +36,7 @@ import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol"
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateFillLib } from "./RenegadeSettledPrivateFill.sol";
 import { SettlementVerification } from "./SettlementVerification.sol";
-
-/// @notice Contract references needed for settlement operations
-struct SettlementContracts {
-    IHasher hasher;
-    IVerifier verifier;
-    IWETH9 weth;
-    IPermit2 permit2;
-    IVkeys vkeys;
-}
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
 /// @title SettlementLib
 /// @author Renegade Eng
@@ -74,7 +62,7 @@ library SettlementLib {
     /// @param party1SettlementBundle The settlement bundle for the second party
     function settleMatch(
         DarkpoolState storage state,
-        SettlementContracts memory contracts,
+        DarkpoolContracts calldata contracts,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
@@ -144,7 +132,7 @@ library SettlementLib {
         ObligationBundle calldata obligationBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         internal
         view
@@ -235,7 +223,7 @@ library SettlementLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -267,7 +255,7 @@ library SettlementLib {
     /// @param contracts The contract references needed for settlement
     function executeTransfers(
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         internal
     {

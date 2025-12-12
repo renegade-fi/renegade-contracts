@@ -43,6 +43,8 @@ interface IDarkpoolV2 {
     error WithdrawalVerificationFailed();
     /// @notice Thrown when a fee payment verification fails
     error FeePaymentVerificationFailed();
+    /// @notice Thrown when a public protocol fee payment verification fails
+    error PublicProtocolFeePaymentVerificationFailed();
     /// @notice Thrown when an order cancellation verification fails
     error OrderCancellationVerificationFailed();
     /// @notice Thrown when the order cancellation signature is invalid

@@ -8,7 +8,7 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
 import { TestVerifierV2 } from "test-contracts/TestVerifierV2.sol";
@@ -24,7 +24,7 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
         SettlementContext memory settlementContext = _createSettlementContext();
         // Create a dummy verifier since it's not used in validateObligationBundle
         IVerifier dummyVerifier = new TestVerifierV2();
-        SettlementContracts memory contracts = getSettlementContracts(dummyVerifier);
+        DarkpoolContracts memory contracts = getSettlementContracts(dummyVerifier);
         SettlementLib.validateObligationBundle(bundle, settlementContext, darkpoolState, contracts);
     }
 
