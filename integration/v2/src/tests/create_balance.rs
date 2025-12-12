@@ -1,6 +1,6 @@
 //! Tests for creating a new balance and depositing into it
 
-use alloy::rpc::types::TransactionReceipt;
+use alloy::{rpc::types::TransactionReceipt, signers::local::PrivateKeySigner};
 use eyre::Result;
 use renegade_abi::v2::{
     IDarkpoolV2::{Deposit, NewBalanceDepositProofBundle},
@@ -41,7 +41,7 @@ async fn test_create_balance(args: TestArgs) -> Result<()> {
     let darkpool_addr = args.darkpool_addr();
     let my_balance_before = args.base_balance(party0_addr).await?;
     let darkpool_balance_before = args.base_balance(darkpool_addr).await?;
-    create_balance(&args, &deposit).await?;
+    create_balance(&args.party0_signer(), &deposit, &args).await?;
 
     let my_balance_after = args.base_balance(party0_addr).await?;
     let darkpool_balance_after = args.base_balance(darkpool_addr).await?;
@@ -60,14 +60,14 @@ integration_test_async!(test_create_balance);
 /// Assumes that the signer has already been funded with the deposit amount
 /// and that the Permit2 contract has been approved to spend the tokens
 pub async fn create_balance(
-    args: &TestArgs,
+    signer: &PrivateKeySigner,
     deposit: &Deposit,
+    args: &TestArgs,
 ) -> Result<(TransactionReceipt, DarkpoolStateBalance)> {
     // Build calldata for the balance creation
     let (witness, bundle) = create_proof_bundle(deposit, args)?;
     let commitment = u256_to_scalar(&bundle.statement.newBalanceCommitment);
-    let signer = args.party0_signer();
-    let deposit_auth = build_deposit_permit(commitment, deposit, &signer, args).await?;
+    let deposit_auth = build_deposit_permit(commitment, deposit, signer, args).await?;
 
     // Send the txn
     let call = args
@@ -99,7 +99,6 @@ fn create_proof_bundle(
     args: &TestArgs,
 ) -> Result<(ValidBalanceCreateWitness, NewBalanceDepositProofBundle)> {
     let (witness, statement) = build_witness_statement(deposit, args)?;
-
     let valid = check_constraints_satisfied::<ValidBalanceCreate>(&witness, &statement);
     assert_true_result!(valid)?;
 
@@ -117,9 +116,9 @@ fn build_witness_statement(
     let amount_u128 = u256_to_u128(deposit.amount);
     let balance = Balance::new(
         deposit.token,
-        args.party0_addr(),
+        deposit.from,
         args.relayer_signer_addr(),
-        args.party0_addr(),
+        deposit.from,
     )
     .with_amount(amount_u128);
 

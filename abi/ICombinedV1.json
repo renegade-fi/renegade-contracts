@@ -6240,11 +6240,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidMerkleDepthRequested",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InvalidOrderSettlementIndices",
     "inputs": []
   },

@@ -34,7 +34,7 @@ async fn test_deposit(args: TestArgs) -> Result<()> {
     let deposit = random_deposit(&args)?;
     let addr = deposit.token;
     fund_for_deposit(addr, &args.party0_signer(), &deposit, &args).await?;
-    let (_receipt, balance) = create_balance(&args, &deposit).await?;
+    let (_receipt, balance) = create_balance(&args.party0_signer(), &deposit, &args).await?;
 
     // Find the balance's Merkle opening
     let commitment = balance.compute_commitment();

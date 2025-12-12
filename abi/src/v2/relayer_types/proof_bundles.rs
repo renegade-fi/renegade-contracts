@@ -6,6 +6,7 @@ use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
     settlement::{
+        intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementStatement,
         intent_and_balance_public_settlement::IntentAndBalancePublicSettlementStatement,
         intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
     },
@@ -74,6 +75,8 @@ impl IDarkpoolV2::WithdrawalProofBundle {
 // -------------------
 // | Statement Types |
 // -------------------
+
+// --- Validity Statements --- //
 
 impl From<ValidBalanceCreateStatement> for IDarkpoolV2::ValidBalanceCreateStatement {
     fn from(statement: ValidBalanceCreateStatement) -> Self {
@@ -206,6 +209,8 @@ impl From<OutputBalanceValidityStatement> for IDarkpoolV2::OutputBalanceValidity
     }
 }
 
+// --- Settlement Statements --- //
+
 impl From<IntentOnlyPublicSettlementStatement>
     for IDarkpoolV2::IntentOnlyPublicSettlementStatement
 {
@@ -229,6 +234,24 @@ impl From<IntentAndBalancePublicSettlementStatement>
             relayerFeeRecipient: statement.relayer_fee_recipient,
             settlementObligation: statement.settlement_obligation.into(),
             amountPublicShare: scalar_to_u256(&statement.amount_public_share),
+        }
+    }
+}
+
+impl From<IntentAndBalancePrivateSettlementStatement>
+    for IDarkpoolV2::IntentAndBalancePrivateSettlementStatement
+{
+    fn from(statement: IntentAndBalancePrivateSettlementStatement) -> Self {
+        Self {
+            newAmountPublicShare0: scalar_to_u256(&statement.new_amount_public_share0),
+            newInBalancePublicShares0: statement.new_in_balance_public_shares0.into(),
+            newOutBalancePublicShares0: statement.new_out_balance_public_shares0.into(),
+            newAmountPublicShare1: scalar_to_u256(&statement.new_amount_public_share1),
+            newInBalancePublicShares1: statement.new_in_balance_public_shares1.into(),
+            newOutBalancePublicShares1: statement.new_out_balance_public_shares1.into(),
+            relayerFee0: statement.relayer_fee0.into(),
+            relayerFee1: statement.relayer_fee1.into(),
+            protocolFee: statement.protocol_fee.into(),
         }
     }
 }

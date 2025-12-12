@@ -15,6 +15,8 @@ pub const NATIVE_SETTLED_PUBLIC_INTENT_BUNDLE_TYPE: u8 = 0;
 pub const NATIVE_SETTLED_PRIVATE_INTENT_BUNDLE_TYPE: u8 = 1;
 /// The bundle type for a natively-settled renegade private intent
 pub const NATIVE_SETTLED_RENEGADE_PRIVATE_INTENT_BUNDLE_TYPE: u8 = 2;
+/// The bundle type for a Renegade settled private fill
+pub const RENEGADE_SETTLED_PRIVATE_FILL_BUNDLE_TYPE: u8 = 3;
 
 /// The type of the bundle for an existing output balance
 pub const EXISTING_OUTPUT_BALANCE_BUNDLE_TYPE: u8 = 0;
@@ -30,6 +32,20 @@ impl ObligationBundle {
         let data = (obligation0, obligation1).abi_encode();
         Self {
             obligationType: PUBLIC_OBLIGATION_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
+
+    /// Create a new private obligation bundle
+    pub fn new_private(
+        statement: IntentAndBalancePrivateSettlementStatement,
+        proof: PlonkProof,
+    ) -> Self {
+        let inner = PrivateObligationBundle { statement, proof };
+        let data = inner.abi_encode();
+
+        Self {
+            obligationType: PRIVATE_OBLIGATION_BUNDLE_TYPE,
             data: data.into(),
         }
     }
@@ -142,6 +158,26 @@ impl SettlementBundle {
         Self {
             isFirstFill: false,
             bundleType: NATIVE_SETTLED_RENEGADE_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
+
+    /// Build a Renegade settled private fill bundle for a first fill
+    pub fn renegade_settled_private_first_fill(
+        auth: RenegadeSettledIntentAuthBundleFirstFill,
+        output_balance_bundle: OutputBalanceBundle,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = RenegadeSettledPrivateFirstFillBundle {
+            auth,
+            outputBalanceBundle: output_balance_bundle,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: true,
+            bundleType: RENEGADE_SETTLED_PRIVATE_FILL_BUNDLE_TYPE,
             data: data.into(),
         }
     }
