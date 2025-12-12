@@ -17,6 +17,7 @@ import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 
 /// @title Native Settled Private Intent Library
@@ -40,8 +41,7 @@ library NativeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
@@ -50,16 +50,15 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         } else {
-            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         }
     }
 
@@ -68,27 +67,23 @@ library NativeSettledPrivateIntentLib {
     /// @param obligation The settlement obligation derived from the bounded match result
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatch(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeBoundedMatchFirstFill(
-                matchBundle, obligation, settlementBundle, settlementContext, hasher, vkeys, state
-            );
+            executeBoundedMatchFirstFill(matchBundle, obligation, settlementBundle, settlementContext, contracts, state);
         } else {
             executeBoundedMatchSubsequent(
-                matchBundle, obligation, settlementBundle, settlementContext, hasher, vkeys, state
+                matchBundle, obligation, settlementBundle, settlementContext, contracts, state
             );
         }
     }
@@ -98,16 +93,14 @@ library NativeSettledPrivateIntentLib {
     /// @param obligation The settlement obligation derived from the bounded match result
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatchFirstFill(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -117,7 +110,7 @@ library NativeSettledPrivateIntentLib {
 
         // Compute pre- and post-match intent commitments
         (BN254.ScalarField preMatchCommitment, BN254.ScalarField postMatchCommitment) =
-            bundleData.computeIntentCommitments(obligation.amountIn, hasher);
+            bundleData.computeIntentCommitments(obligation.amountIn, contracts.hasher);
 
         // First-fill only: Verify intent commitment signature
         PrivateIntentPublicBalanceBundleLib.verifyIntentCommitmentSignature(preMatchCommitment, bundleData.auth, state);
@@ -126,11 +119,11 @@ library NativeSettledPrivateIntentLib {
         bundleData.validateMatchResult(matchBundle.permit.matchResult);
 
         // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, vkeys);
+        bundleData.pushValidityProof(settlementContext, contracts);
         bundleData.pushSettlementProofs(settlementContext);
 
         // State mutation: Insert post-match intent commitment into Merkle tree
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, hasher);
+        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
@@ -145,16 +138,14 @@ library NativeSettledPrivateIntentLib {
     /// @param obligation The settlement obligation derived from the bounded match result
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatchSubsequent(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -166,15 +157,16 @@ library NativeSettledPrivateIntentLib {
         bundleData.validateMatchResult(matchBundle.permit.matchResult);
 
         // Compute post-match commitment
-        BN254.ScalarField postMatchCommitment = bundleData.computeFullIntentCommitment(obligation.amountIn, hasher);
+        BN254.ScalarField postMatchCommitment =
+            bundleData.computeFullIntentCommitment(obligation.amountIn, contracts.hasher);
 
         // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, vkeys, state);
+        bundleData.pushValidityProof(settlementContext, contracts, state);
         bundleData.pushSettlementProofs(settlementContext);
 
         // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
         state.spendNullifier(bundleData.auth.statement.oldIntentNullifier);
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, hasher);
+        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
@@ -189,8 +181,7 @@ library NativeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
@@ -199,8 +190,7 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -211,7 +201,7 @@ library NativeSettledPrivateIntentLib {
 
         // Compute pre- and post-match intent commitments
         (BN254.ScalarField preMatchCommitment, BN254.ScalarField postMatchCommitment) =
-            bundleData.computeIntentCommitments(hasher);
+            bundleData.computeIntentCommitments(contracts.hasher);
 
         // First-fill only: Verify intent commitment signature
         PrivateIntentPublicBalanceBundleLib.verifyIntentCommitmentSignature(preMatchCommitment, bundleData.auth, state);
@@ -220,11 +210,11 @@ library NativeSettledPrivateIntentLib {
         bundleData.validateObligation(obligation);
 
         // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, vkeys);
-        bundleData.pushSettlementProofs(settlementContext, vkeys);
+        bundleData.pushValidityProof(settlementContext, contracts);
+        bundleData.pushSettlementProofs(settlementContext, contracts);
 
         // State mutation: insert post-match commitment to intent into Merkle tree
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, hasher);
+        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);
@@ -240,8 +230,7 @@ library NativeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to validate
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
@@ -250,8 +239,7 @@ library NativeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -260,18 +248,18 @@ library NativeSettledPrivateIntentLib {
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
         // Compute post-match commitment
-        BN254.ScalarField postMatchCommitment = bundleData.computeFullIntentCommitment(hasher);
+        BN254.ScalarField postMatchCommitment = bundleData.computeFullIntentCommitment(contracts.hasher);
 
         // Validate obligation
         bundleData.validateObligation(obligation);
 
         // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, vkeys, state);
-        bundleData.pushSettlementProofs(settlementContext, vkeys);
+        bundleData.pushValidityProof(settlementContext, contracts, state);
+        bundleData.pushSettlementProofs(settlementContext, contracts);
 
         // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
         state.spendNullifier(bundleData.auth.statement.oldIntentNullifier);
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, hasher);
+        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
 
         // Allocate transfers
         bundleData.allocateTransfers(obligation, settlementContext, state);

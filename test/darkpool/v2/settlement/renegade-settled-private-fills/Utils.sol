@@ -153,6 +153,7 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
         PostMatchBalanceShare memory party1InBalanceShares = randomPostMatchBalanceShare();
         PostMatchBalanceShare memory party1OutBalanceShares = randomPostMatchBalanceShare();
 
+        FixedPoint memory protocolFee = darkpool.getDefaultProtocolFee();
         IntentAndBalancePrivateSettlementStatement memory statement = IntentAndBalancePrivateSettlementStatement({
             newAmountPublicShare0: randomScalar(),
             newInBalancePublicShares0: party0InBalanceShares,
@@ -162,7 +163,7 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             newOutBalancePublicShares1: party1OutBalanceShares,
             relayerFee0: randomFee(),
             relayerFee1: randomFee(),
-            protocolFee: randomFee()
+            protocolFee: protocolFee
         });
 
         return PrivateObligationBundle({ statement: statement, proof: createDummyProof() });

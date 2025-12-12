@@ -87,6 +87,8 @@ interface IDarkpoolV2 {
     error InvalidBoundedMatchResult();
     /// @notice Thrown when the protocol fee rates used in settlement do not match
     error InvalidProtocolFeeRates();
+    /// @notice Thrown when the protocol fee does not match the expected value
+    error InvalidProtocolFee();
 
     // --- Events --- //
 
@@ -155,6 +157,10 @@ interface IDarkpoolV2 {
     /// @param asset1 The second asset in the trading pair
     /// @return The protocol fee rate for the asset pair
     function getProtocolFee(address asset0, address asset1) external view returns (FixedPoint memory);
+
+    /// @notice Get the default protocol fee rate
+    /// @return The default protocol fee rate
+    function getDefaultProtocolFee() external view returns (FixedPoint memory);
 
     /// @notice Get the amount remaining for an open public intent
     /// @param intentHash The hash of the intent

@@ -8,7 +8,10 @@ import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.s
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
+import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
+import { TestVerifierV2 } from "test-contracts/TestVerifierV2.sol";
 import { PublicIntentSettlementTestUtils } from "./Utils.sol";
 
 contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
@@ -17,13 +20,16 @@ contract ObligationCompatibilityTest is PublicIntentSettlementTestUtils {
     // -----------
 
     /// @notice Wrapper to convert memory to calldata for library call
-    function _validateObligationBundle(ObligationBundle calldata bundle) public view {
+    function _validateObligationBundle(ObligationBundle calldata bundle) public {
         SettlementContext memory settlementContext = _createSettlementContext();
-        SettlementLib.validateObligationBundle(bundle, settlementContext, vkeys);
+        // Create a dummy verifier since it's not used in validateObligationBundle
+        IVerifier dummyVerifier = new TestVerifierV2();
+        SettlementContracts memory contracts = getSettlementContracts(dummyVerifier);
+        SettlementLib.validateObligationBundle(bundle, settlementContext, darkpoolState, contracts);
     }
 
     /// @notice Helper that accepts memory and calls library with calldata
-    function validateObligationBundleHelper(ObligationBundle memory bundle) internal view {
+    function validateObligationBundleHelper(ObligationBundle memory bundle) internal {
         this._validateObligationBundle(bundle);
     }
 

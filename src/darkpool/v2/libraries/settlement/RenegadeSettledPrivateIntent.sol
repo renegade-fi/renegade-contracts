@@ -15,6 +15,7 @@ import {
 import { OutputBalanceBundle, OutputBalanceBundleLib } from "darkpoolv2-types/settlement/OutputBalanceBundle.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
+import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
@@ -50,8 +51,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
@@ -60,16 +60,15 @@ library RenegadeSettledPrivateIntentLib {
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
+            executeFirstFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         } else {
-            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, hasher, vkeys, state);
+            executeSubsequentFill(partyId, obligationBundle, settlementBundle, settlementContext, contracts, state);
         }
     }
 
@@ -78,16 +77,14 @@ library RenegadeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeFirstFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -100,7 +97,7 @@ library RenegadeSettledPrivateIntentLib {
         // 1. Validate the obligation settlement
         // The methods below may modify the memory state of the statement, so we append the proof first
         PrivateIntentPrivateBalanceBundleLib.verifySettlement(
-            obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
+            obligation, bundle.settlementStatement, bundle.settlementProof, contracts, settlementContext
         );
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
@@ -108,7 +105,7 @@ library RenegadeSettledPrivateIntentLib {
             PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
         // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, contracts, state);
 
         // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
@@ -117,8 +114,7 @@ library RenegadeSettledPrivateIntentLib {
             bundle.outputBalanceBundle,
             bundle.settlementProof,
             settlementContext,
-            vkeys,
-            hasher,
+            contracts,
             state
         );
     }
@@ -128,16 +124,14 @@ library RenegadeSettledPrivateIntentLib {
     /// @param obligationBundle The obligation bundle to execute
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
-    /// @param hasher The hasher to use for hashing
-    /// @param vkeys The contract storing the verification keys
+    /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeSubsequentFill(
         PartyId partyId,
         ObligationBundle calldata obligationBundle,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
-        IHasher hasher,
-        IVkeys vkeys,
+        SettlementContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -149,7 +143,7 @@ library RenegadeSettledPrivateIntentLib {
         // 1. Validate the obligation settlement
         // The methods below may modify the memory state of the statement, so we append the proof first
         PrivateIntentPrivateBalanceBundleLib.verifySettlement(
-            obligation, bundle.settlementStatement, bundle.settlementProof, vkeys, settlementContext
+            obligation, bundle.settlementStatement, bundle.settlementProof, contracts, settlementContext
         );
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
@@ -157,7 +151,7 @@ library RenegadeSettledPrivateIntentLib {
             PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
         // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, vkeys, hasher, state);
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, contracts, state);
 
         // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
@@ -166,8 +160,7 @@ library RenegadeSettledPrivateIntentLib {
             bundle.outputBalanceBundle,
             bundle.settlementProof,
             settlementContext,
-            vkeys,
-            hasher,
+            contracts,
             state
         );
     }
