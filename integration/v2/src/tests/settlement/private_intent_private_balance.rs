@@ -511,7 +511,7 @@ pub(crate) fn generate_validity_proof_first_fill(
 }
 
 /// Generate a validity proof for a subsequent fill
-fn generate_validity_proof_subsequent_fill(
+pub(crate) fn generate_validity_proof_subsequent_fill(
     intent: &mut DarkpoolStateIntent,
     in_balance: &mut DarkpoolStateBalance,
     intent_opening: &MerkleAuthenticationPath,
@@ -603,7 +603,7 @@ pub(crate) fn generate_new_output_balance_validity_proof(
 }
 
 /// Generate an output balance validity proof for an existing balance
-fn generate_existing_output_balance_validity_proof(
+pub(crate) fn generate_existing_output_balance_validity_proof(
     balance: &mut DarkpoolStateBalance,
     balance_opening: &MerkleAuthenticationPath,
 ) -> Result<(OutputBalanceValidityStatement, PlonkProof, ProofLinkingHint)> {

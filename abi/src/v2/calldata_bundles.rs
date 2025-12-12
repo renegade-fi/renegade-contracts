@@ -181,6 +181,26 @@ impl SettlementBundle {
             data: data.into(),
         }
     }
+
+    /// Build a Renegade settled private fill bundle for a subsequent fill
+    pub fn renegade_settled_private_fill(
+        auth: RenegadeSettledIntentAuthBundle,
+        output_balance_bundle: OutputBalanceBundle,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = RenegadeSettledPrivateFillBundle {
+            auth,
+            outputBalanceBundle: output_balance_bundle,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: false,
+            bundleType: RENEGADE_SETTLED_PRIVATE_FILL_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
 }
 
 impl OutputBalanceBundle {
