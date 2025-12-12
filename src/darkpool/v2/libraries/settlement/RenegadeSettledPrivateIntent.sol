@@ -17,8 +17,6 @@ import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/Obl
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
-import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 
