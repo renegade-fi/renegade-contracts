@@ -1,8 +1,10 @@
 //! Tests for settling a Renegade settled private fill
 
-use alloy::primitives::U256;
+use alloy::{primitives::U256, rpc::types::TransactionReceipt};
 use eyre::Result;
-use renegade_abi::v2::IDarkpoolV2::{ObligationBundle, OutputBalanceBundle, SettlementBundle};
+use renegade_abi::v2::IDarkpoolV2::{
+    ObligationBundle, OutputBalanceBundle, RenegadeSettledIntentAuthBundle, SettlementBundle,
+};
 use renegade_circuit_types::{
     PlonkProof, ProofLinkingHint,
     balance::{DarkpoolStateBalance, PostMatchBalanceShare},
@@ -21,8 +23,10 @@ use renegade_circuits::{
             IntentAndBalancePrivateSettlementWitness,
         },
         validity_proofs::{
+            intent_and_balance::IntentAndBalanceValidityStatement,
             intent_and_balance_first_fill::IntentAndBalanceFirstFillValidityStatement,
             new_output_balance::NewOutputBalanceValidityStatement,
+            output_balance::OutputBalanceValidityStatement,
         },
     },
 };
@@ -37,7 +41,7 @@ use crate::{
         private_intent_private_balance::{self, create_intents_and_obligations, fund_ring2_party},
         settlement_relayer_fee, split_obligation,
     },
-    util::transactions::wait_for_tx_success,
+    util::{merkle::find_state_element_opening, transactions::wait_for_tx_success},
 };
 
 /// Tests settling a Renegade settled private fill
@@ -59,7 +63,12 @@ pub async fn test_settlement__private_fill(args: TestArgs) -> Result<()> {
     // --- First Fill --- //
 
     // Build the settlement bundles
-    let (settlement_bundle0, settlement_bundle1, obligation_bundle) = build_first_fill_bundles(
+    let (
+        settlement_bundle0,
+        settlement_bundle1,
+        obligation_bundle,
+        mut subsequent_fill_state_elements,
+    ) = build_first_fill_bundles(
         &intent0,
         &intent1,
         &first_obligation0,
@@ -81,7 +90,7 @@ pub async fn test_settlement__private_fill(args: TestArgs) -> Result<()> {
     let tx = args
         .darkpool
         .settleMatch(obligation_bundle, settlement_bundle0, settlement_bundle1);
-    let _tx_receipt = wait_for_tx_success(tx).await?;
+    let tx_receipt = wait_for_tx_success(tx).await?;
 
     let (party0_base_after, party0_quote_after) =
         args.base_and_quote_balances(args.party0_addr()).await?;
@@ -94,14 +103,58 @@ pub async fn test_settlement__private_fill(args: TestArgs) -> Result<()> {
     assert_eq_result!(party1_base_after, party1_base_before)?;
     assert_eq_result!(party1_quote_after, party1_quote_before)?;
 
-    // TODO: Subsequent fills
+    // --- Subsequent Fill --- //
+
+    let (settlement_bundle0, settlement_bundle1, obligation_bundle) =
+        build_subsequent_fill_bundles(
+            &second_obligation0,
+            &second_obligation1,
+            &mut subsequent_fill_state_elements,
+            &tx_receipt,
+            &args,
+        )
+        .await?;
+
+    // Submit the match
+    let (party0_base_before, party0_quote_before) =
+        args.base_and_quote_balances(args.party0_addr()).await?;
+    let (party1_base_before, party1_quote_before) =
+        args.base_and_quote_balances(args.party1_addr()).await?;
+
+    let tx = args
+        .darkpool
+        .settleMatch(obligation_bundle, settlement_bundle0, settlement_bundle1);
+    wait_for_tx_success(tx).await?;
+
+    let (party0_base_after, party0_quote_after) =
+        args.base_and_quote_balances(args.party0_addr()).await?;
+    let (party1_base_after, party1_quote_after) =
+        args.base_and_quote_balances(args.party1_addr()).await?;
+
+    // Verify balance updates
+    // Again, no balances should change
+    assert_eq_result!(party0_base_after, party0_base_before)?;
+    assert_eq_result!(party0_quote_after, party0_quote_before)?;
+    assert_eq_result!(party1_base_after, party1_base_before)?;
+    assert_eq_result!(party1_quote_after, party1_quote_before)?;
+
     Ok(())
 }
 integration_test_async!(test_settlement__private_fill);
 
-// ----------------------
-// | Settlement Bundles |
-// ----------------------
+// ---------------------------------
+// | First Fill Settlement Bundles |
+// ---------------------------------
+
+/// The state elements for a subsequent fill
+pub struct SubsequentFillStateElements {
+    intent0: DarkpoolStateIntent,
+    intent1: DarkpoolStateIntent,
+    input_bal0: DarkpoolStateBalance,
+    input_bal1: DarkpoolStateBalance,
+    output_bal0: DarkpoolStateBalance,
+    output_bal1: DarkpoolStateBalance,
+}
 
 /// Build a settlement bundle for the first fill
 #[allow(clippy::too_many_arguments)]
@@ -115,7 +168,12 @@ pub async fn build_first_fill_bundles(
     input_bal0_opening: &MerkleAuthenticationPath,
     input_bal1_opening: &MerkleAuthenticationPath,
     args: &TestArgs,
-) -> Result<(SettlementBundle, SettlementBundle, ObligationBundle)> {
+) -> Result<(
+    SettlementBundle,
+    SettlementBundle,
+    ObligationBundle,
+    SubsequentFillStateElements,
+)> {
     // Party 0 validity proofs
     let (mut state_intent0, validity_statement0, validity_proof0, validity_hint0) =
         private_intent_private_balance::generate_validity_proof_first_fill(
@@ -187,7 +245,22 @@ pub async fn build_first_fill_bundles(
         args,
     )?;
 
-    Ok((bundle0, bundle1, obligation_bundle))
+    // Save the state elements for the subsequent fill test
+    let subsequent_fill_state_elements = SubsequentFillStateElements {
+        intent0: state_intent0,
+        intent1: state_intent1,
+        input_bal0: input_bal0.clone(),
+        input_bal1: input_bal1.clone(),
+        output_bal0: output_balance0.clone(),
+        output_bal1: output_balance1.clone(),
+    };
+
+    Ok((
+        bundle0,
+        bundle1,
+        obligation_bundle,
+        subsequent_fill_state_elements,
+    ))
 }
 
 /// Build a private settlement bundle for a party
@@ -239,6 +312,148 @@ fn build_private_settlement_bundle_first_fill(
 
     // Build the settlement bundle
     Ok(SettlementBundle::renegade_settled_private_first_fill(
+        auth_bundle,
+        output_balance_bundle,
+        validity_link_proof.into(),
+    ))
+}
+
+// --------------------------------------
+// | Subsequent Fill Settlement Bundles |
+// --------------------------------------
+
+/// Build a settlement bundle for the first fill
+#[allow(clippy::too_many_arguments)]
+pub async fn build_subsequent_fill_bundles(
+    obligation0: &SettlementObligation,
+    obligation1: &SettlementObligation,
+    elts: &mut SubsequentFillStateElements,
+    first_fill_receipt: &TransactionReceipt,
+    args: &TestArgs,
+) -> Result<(SettlementBundle, SettlementBundle, ObligationBundle)> {
+    // Lookup Merkle openings for each state element
+    let SubsequentFillStateElements {
+        intent0,
+        intent1,
+        input_bal0,
+        input_bal1,
+        output_bal0,
+        output_bal1,
+    } = elts;
+    let intent0_opening = find_state_element_opening(intent0, first_fill_receipt).await?;
+    let intent1_opening = find_state_element_opening(intent1, first_fill_receipt).await?;
+    let input_bal0_opening = find_state_element_opening(input_bal0, first_fill_receipt).await?;
+    let input_bal1_opening = find_state_element_opening(input_bal1, first_fill_receipt).await?;
+    let output_bal0_opening = find_state_element_opening(output_bal0, first_fill_receipt).await?;
+    let output_bal1_opening = find_state_element_opening(output_bal1, first_fill_receipt).await?;
+
+    // Generate validity proofs
+    let (validity_statement0, validity_proof0, validity_hint0) =
+        private_intent_private_balance::generate_validity_proof_subsequent_fill(
+            intent0,
+            input_bal0,
+            &intent0_opening,
+            &input_bal0_opening,
+        )?;
+    let (validity_statement1, validity_proof1, validity_hint1) =
+        private_intent_private_balance::generate_validity_proof_subsequent_fill(
+            intent1,
+            input_bal1,
+            &intent1_opening,
+            &input_bal1_opening,
+        )?;
+    let (output_validity_statement0, output_validity_proof0, output_validity_hint0) =
+        private_intent_private_balance::generate_existing_output_balance_validity_proof(
+            output_bal0,
+            &output_bal0_opening,
+        )?;
+    let (output_validity_statement1, output_validity_proof1, output_validity_hint1) =
+        private_intent_private_balance::generate_existing_output_balance_validity_proof(
+            output_bal1,
+            &output_bal1_opening,
+        )?;
+
+    // Generate a settlement proof
+    let (settlement_statement, settlement_proof, settlement_hint) = generate_settlement_proof(
+        obligation0,
+        obligation1,
+        intent0,
+        intent1,
+        input_bal0,
+        input_bal1,
+        output_bal0,
+        output_bal1,
+        args,
+    )
+    .await?;
+
+    // Build the settlement bundles
+    let obligation_bundle = ObligationBundle::new_private(
+        settlement_statement.clone().into(),
+        settlement_proof.clone().into(),
+    );
+
+    let bundle0 = build_private_settlement_bundle_subsequent_fill(
+        0, /* party_id */
+        validity_statement0,
+        validity_proof0,
+        &validity_hint0,
+        output_validity_statement0,
+        output_validity_proof0,
+        &output_validity_hint0,
+        &settlement_hint,
+    )?;
+    let bundle1 = build_private_settlement_bundle_subsequent_fill(
+        1, /* party_id */
+        validity_statement1,
+        validity_proof1,
+        &validity_hint1,
+        output_validity_statement1,
+        output_validity_proof1,
+        &output_validity_hint1,
+        &settlement_hint,
+    )?;
+
+    Ok((bundle0, bundle1, obligation_bundle))
+}
+
+/// Build a private settlement bundle for a party on the subsequent fill
+#[allow(clippy::too_many_arguments)]
+fn build_private_settlement_bundle_subsequent_fill(
+    party_id: u8,
+    validity_statement: IntentAndBalanceValidityStatement,
+    validity_proof: PlonkProof,
+    validity_hint: &ProofLinkingHint,
+    output_validity_statement: OutputBalanceValidityStatement,
+    output_validity_proof: PlonkProof,
+    output_validity_hint: &ProofLinkingHint,
+    settlement_hint: &ProofLinkingHint,
+) -> Result<SettlementBundle> {
+    let validity_link_proof = link_sized_intent_and_balance_settlement_with_party(
+        party_id,
+        validity_hint,
+        settlement_hint,
+    )?;
+    let output_validity_link_proof = link_sized_output_balance_settlement_with_party(
+        party_id,
+        output_validity_hint,
+        settlement_hint,
+    )?;
+
+    // Build the output balance bundle
+    let output_balance_bundle = OutputBalanceBundle::existing_output_balance(
+        U256::from(MERKLE_HEIGHT),
+        output_validity_statement.into(),
+        output_validity_proof.into(),
+        output_validity_link_proof.into(),
+    );
+    let auth_bundle = RenegadeSettledIntentAuthBundle {
+        merkleDepth: U256::from(MERKLE_HEIGHT),
+        statement: validity_statement.clone().into(),
+        validityProof: validity_proof.into(),
+    };
+
+    Ok(SettlementBundle::renegade_settled_private_fill(
         auth_bundle,
         output_balance_bundle,
         validity_link_proof.into(),
