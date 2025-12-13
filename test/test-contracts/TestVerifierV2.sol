@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+/* solhint-disable gas-calldata-parameters */
 pragma solidity ^0.8.24;
 
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
@@ -13,7 +14,8 @@ import {
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
     PrivateProtocolFeePaymentProofBundle,
-    PrivateRelayerFeePaymentProofBundle
+    PrivateRelayerFeePaymentProofBundle,
+    NoteRedemptionProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title Test Verifier Implementation
@@ -74,6 +76,11 @@ contract TestVerifierV2 is IVerifier {
         pure
         returns (bool)
     {
+        return true;
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata) external pure returns (bool) {
         return true;
     }
 

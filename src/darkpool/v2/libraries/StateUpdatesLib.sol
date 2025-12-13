@@ -19,7 +19,8 @@ import {
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
     PrivateProtocolFeePaymentProofBundle,
-    PrivateRelayerFeePaymentProofBundle
+    PrivateRelayerFeePaymentProofBundle,
+    NoteRedemptionProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
@@ -320,5 +321,36 @@ library StateUpdatesLib {
 
         // Emit the recovery id
         emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
+    }
+
+    // --- Note Redemption --- //
+
+    /// @notice Redeem a note
+    /// @param proofBundle The proof bundle for the note redemption
+    /// @param contracts The contract references needed for settlement
+    /// @param state The darkpool state containing all storage references
+    function redeemNote(
+        NoteRedemptionProofBundle calldata proofBundle,
+        DarkpoolContracts calldata contracts,
+        DarkpoolState storage state
+    )
+        external
+    {
+        // Verify the proof bundle
+        bool valid = contracts.verifier.verifyNoteRedemptionValidity(proofBundle);
+        if (!valid) revert IDarkpoolV2.NoteRedemptionVerificationFailed();
+
+        // Verify the Merkle root used in the note's inclusion proof
+        BN254.ScalarField noteRoot = proofBundle.statement.noteRoot;
+        state.assertRootInHistory(noteRoot);
+
+        // Spend the note's nullifier
+        BN254.ScalarField noteNullifier = proofBundle.statement.noteNullifier;
+        state.spendNullifier(noteNullifier);
+
+        // Execute the note's withdrawal
+        Note calldata note = proofBundle.statement.note;
+        SimpleTransfer memory transfer = note.buildTransfer();
+        ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
     }
 }
