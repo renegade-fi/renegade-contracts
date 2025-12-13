@@ -252,7 +252,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @inheritdoc IDarkpoolV2
     function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) public {
-        StateUpdatesLib.payPrivateRelayerFee(proofBundle);
+        DarkpoolContracts memory contracts = _getDarkpoolContracts();
+        StateUpdatesLib.payPrivateRelayerFee(proofBundle, contracts, _state);
     }
 
     // --------------

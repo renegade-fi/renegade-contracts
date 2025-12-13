@@ -21,6 +21,7 @@ import {
     PrivateProtocolFeePaymentProofBundle,
     PrivateRelayerFeePaymentProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
+import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
@@ -37,6 +38,7 @@ library StateUpdatesLib {
     using DarkpoolStateLib for DarkpoolState;
     using EncryptionKeyLib for EncryptionKey;
     using NoteLib for Note;
+    using SignatureWithNonceLib for SignatureWithNonce;
 
     // --- Order Cancellation --- //
 
@@ -281,7 +283,42 @@ library StateUpdatesLib {
 
     /// @notice Pay relayer fees privately on a balance
     /// @param proofBundle The proof bundle for the private relayer fee payment
-    function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) external pure {
-        revert("todo");
+    /// @param contracts The contract references needed for settlement
+    /// @param state The darkpool state containing all storage references
+    function payPrivateRelayerFee(
+        PrivateRelayerFeePaymentProofBundle calldata proofBundle,
+        DarkpoolContracts calldata contracts,
+        DarkpoolState storage state
+    )
+        external
+    {
+        // Verify the proof of fee payment
+        bool valid = contracts.verifier.verifyPrivateRelayerFeePaymentValidity(proofBundle);
+        if (!valid) revert IDarkpoolV2.PrivateRelayerFeePaymentVerificationFailed();
+
+        // Verify the Merkle root is in the history
+        BN254.ScalarField merkleRoot = proofBundle.statement.merkleRoot;
+        state.assertRootInHistory(merkleRoot);
+
+        // The relayer (fee recipient) must sign the note's encryption to authorize the ciphertext
+        // The receiver is leaked from the balance itself in the statement, so we can check that address recovery
+        // matches the expected value.
+        address receiver = proofBundle.statement.relayerFeeReceiver;
+        bytes memory ciphertextBytes = abi.encode(proofBundle.noteCiphertext);
+        bytes32 ciphertextHash = EfficientHashLib.hash(ciphertextBytes);
+        bool sigValid =
+            proofBundle.relayerCiphertextSignature.verifyPrehashedAndSpendNonce(receiver, ciphertextHash, state);
+        if (!sigValid) revert IDarkpoolV2.InvalidRelayerCiphertextSignature();
+
+        // Spend the nullifier of the previous balance and insert commitments to the new balance and the note
+        BN254.ScalarField balanceNullifier = proofBundle.statement.oldBalanceNullifier;
+        BN254.ScalarField newBalanceCommitment = proofBundle.statement.newBalanceCommitment;
+        BN254.ScalarField noteCommitment = proofBundle.statement.noteCommitment;
+        state.spendNullifier(balanceNullifier);
+        state.insertMerkleLeaf(proofBundle.merkleDepth, newBalanceCommitment, contracts.hasher);
+        state.insertMerkleLeaf(proofBundle.merkleDepth, noteCommitment, contracts.hasher);
+
+        // Emit the recovery id
+        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
     }
 }

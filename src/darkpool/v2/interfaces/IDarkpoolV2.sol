@@ -33,6 +33,8 @@ interface IDarkpoolV2 {
     // --- Error Messages --- //
     /// @notice The nullifier has already been spent
     error NullifierAlreadySpent();
+    /// @notice Error thrown when a signature nonce has already been spent
+    error NonceAlreadySpent();
     /// @notice Thrown when a Merkle root is not in the history
     error InvalidMerkleRoot();
     /// @notice Thrown when the Merkle depth is invalid
@@ -103,6 +105,8 @@ interface IDarkpoolV2 {
     error InvalidProtocolFeeReceiver();
     /// @notice Thrown when the protocol fee encryption key does not match the expected value
     error InvalidProtocolFeeEncryptionKey();
+    /// @notice Thrown when the relayer ciphertext signature is invalid
+    error InvalidRelayerCiphertextSignature();
 
     // --- Events --- //
 
