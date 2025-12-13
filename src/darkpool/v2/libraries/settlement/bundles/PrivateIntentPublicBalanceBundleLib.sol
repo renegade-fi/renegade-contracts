@@ -29,7 +29,7 @@ import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlem
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
-import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 
 // ---------------------------------
@@ -333,9 +333,8 @@ library PrivateIntentPublicBalanceBundleLib {
         uint256 commitment = BN254.ScalarField.unwrap(preMatchIntentCommitment);
 
         bytes32 commitmentHash = EfficientHashLib.hash(bytes32(commitment));
-        bool valid = authBundle.intentSignature.verifyPrehashed(intentOwner, commitmentHash);
+        bool valid = authBundle.intentSignature.verifyPrehashedAndSpendNonce(intentOwner, commitmentHash, state);
         if (!valid) revert IDarkpoolV2.InvalidIntentCommitmentSignature();
-        state.spendNonce(authBundle.intentSignature.nonce);
     }
 
     // -------------------------

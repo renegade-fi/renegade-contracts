@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
+import { ElGamalCiphertext } from "renegade-lib/Ciphertext.sol";
 import {
     ValidDepositStatement,
     ValidBalanceCreateStatement,
@@ -96,6 +98,10 @@ struct PrivateProtocolFeePaymentProofBundle {
 struct PrivateRelayerFeePaymentProofBundle {
     /// @dev The Merkle depth of the balance
     uint256 merkleDepth;
+    /// @dev The note ciphertext
+    ElGamalCiphertext noteCiphertext;
+    /// @dev A signature by the relayer authorizing the encryption of the note
+    SignatureWithNonce relayerCiphertextSignature;
     /// @dev The statement of the private relayer fee payment validity
     ValidPrivateRelayerFeePaymentStatement statement;
     /// @dev The proof of the private relayer fee payment validity

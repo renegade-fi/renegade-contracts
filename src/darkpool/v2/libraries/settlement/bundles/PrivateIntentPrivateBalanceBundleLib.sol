@@ -19,10 +19,9 @@ import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import {
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle,
-    SignatureWithNonce,
-    SignatureWithNonceLib,
     PrivateIntentPrivateBalanceAuthBundleLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import {
     OutputBalanceBundle,
     OutputBalanceBundleLib,
@@ -287,9 +286,8 @@ library PrivateIntentPrivateBalanceBundleLib {
         bytes32 digest = PrivateIntentPrivateBalanceAuthBundleLib.getOwnerSignatureDigest(bundleData);
         address signer = bundleData.statement.oneTimeAuthorizingAddress;
 
-        bool valid = bundleData.ownerSignature.verifyPrehashed(signer, digest);
+        bool valid = bundleData.ownerSignature.verifyPrehashedAndSpendNonce(signer, digest, state);
         if (!valid) revert IDarkpoolV2.InvalidOwnerSignature();
-        state.spendNonce(bundleData.ownerSignature.nonce);
     }
 
     // --------------------------------

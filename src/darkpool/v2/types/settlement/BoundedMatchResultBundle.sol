@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { SignatureWithNonce } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 
 // --------------------------------------------

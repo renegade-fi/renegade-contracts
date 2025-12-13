@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { ECDSALib } from "renegade-lib/ECDSA.sol";
 import { Intent } from "darkpoolv2-types/Intent.sol";
 import {
     IntentOnlyValidityStatement,
@@ -13,48 +12,11 @@ import {
     IntentAndBalanceValidityStatement
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
+import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 
 // ------------------------------
 // | Intent Authorization Types |
 // ------------------------------
-
-/// @notice A signature with a nonce
-/// @dev We assume the signature is encoded in the format:
-/// - r in the first 32 bytes
-/// - s in the next 32 bytes
-/// - v in the last byte
-/// @dev We further assume that the signature is over the following:
-/// H(H(message) || nonce)
-struct SignatureWithNonce {
-    /// @dev The nonce of the signature
-    uint256 nonce;
-    /// @dev The signature
-    bytes signature;
-}
-
-/// @title Signature With Nonce Library
-/// @author Renegade Eng
-/// @notice Library for computing the hash of a signature with a nonce
-library SignatureWithNonceLib {
-    /// @notice Verify a signature with a nonce
-    /// @param signature The signature to verify
-    /// @param expectedSigner The expected signer of the signature
-    /// @param digest The bytes32 digest of the message to verify
-    /// @return Whether the signature is valid
-    /// @dev Verifies the signature over H(digest || nonce)
-    function verifyPrehashed(
-        SignatureWithNonce memory signature,
-        address expectedSigner,
-        bytes32 digest
-    )
-        internal
-        pure
-        returns (bool)
-    {
-        bytes32 signatureHash = EfficientHashLib.hash(digest, bytes32(signature.nonce));
-        return ECDSALib.verify(signatureHash, signature.signature, expectedSigner);
-    }
-}
 
 // --- Public Intent Authorization --- //
 
