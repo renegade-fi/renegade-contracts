@@ -16,7 +16,8 @@ import {
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
     PrivateProtocolFeePaymentProofBundle,
-    PrivateRelayerFeePaymentProofBundle
+    PrivateRelayerFeePaymentProofBundle,
+    NoteRedemptionProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import {
     ValidDepositStatement,
@@ -27,7 +28,8 @@ import {
     ValidPublicProtocolFeePaymentStatement,
     ValidPublicRelayerFeePaymentStatement,
     ValidPrivateProtocolFeePaymentStatement,
-    ValidPrivateRelayerFeePaymentStatement
+    ValidPrivateRelayerFeePaymentStatement,
+    ValidNoteRedemptionStatement
 } from "darkpoolv2-lib/public_inputs/Fees.sol";
 import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
@@ -44,6 +46,7 @@ contract Verifier is IVerifier {
     using PublicInputsLib for ValidPublicRelayerFeePaymentStatement;
     using PublicInputsLib for ValidPrivateProtocolFeePaymentStatement;
     using PublicInputsLib for ValidPrivateRelayerFeePaymentStatement;
+    using PublicInputsLib for ValidNoteRedemptionStatement;
 
     /// @notice The verification keys contract
     IVkeys public immutable VKEYS;
@@ -138,6 +141,17 @@ contract Verifier is IVerifier {
         returns (bool)
     {
         VerificationKey memory vk = VKEYS.privateRelayerFeePaymentKeys();
+        BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
+        return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool)
+    {
+        VerificationKey memory vk = VKEYS.noteRedemptionKeys();
         BN254.ScalarField[] memory publicInputs = proofBundle.statement.statementSerialize();
         return VerifierCore.verify(proofBundle.proof, publicInputs, vk);
     }
