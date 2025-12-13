@@ -33,7 +33,8 @@ import {
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
     PrivateProtocolFeePaymentProofBundle,
-    PrivateRelayerFeePaymentProofBundle
+    PrivateRelayerFeePaymentProofBundle,
+    NoteRedemptionProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
@@ -254,6 +255,12 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) public {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         StateUpdatesLib.payPrivateRelayerFee(proofBundle, contracts, _state);
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function redeemNote(NoteRedemptionProofBundle calldata proofBundle) public {
+        DarkpoolContracts memory contracts = _getDarkpoolContracts();
+        StateUpdatesLib.redeemNote(proofBundle, contracts, _state);
     }
 
     // --------------

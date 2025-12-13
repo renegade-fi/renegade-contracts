@@ -12,7 +12,8 @@ import {
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
     PrivateProtocolFeePaymentProofBundle,
-    PrivateRelayerFeePaymentProofBundle
+    PrivateRelayerFeePaymentProofBundle,
+    NoteRedemptionProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 
 /// @title IVerifier
@@ -79,6 +80,14 @@ interface IVerifier {
     /// @param proofBundle The proof bundle for the private relayer fee payment
     /// @return True if the proof is valid, false otherwise
     function verifyPrivateRelayerFeePaymentValidity(PrivateRelayerFeePaymentProofBundle calldata proofBundle)
+        external
+        view
+        returns (bool);
+
+    /// @notice Verify a proof of `VALID NOTE REDEMPTION`
+    /// @param proofBundle The proof bundle for the note redemption
+    /// @return True if the proof is valid, false otherwise
+    function verifyNoteRedemptionValidity(NoteRedemptionProofBundle calldata proofBundle)
         external
         view
         returns (bool);
