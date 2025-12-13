@@ -182,7 +182,7 @@ library RenegadeSettledPrivateIntentLib {
     /// @param state The darkpool state containing all storage references
     /// @dev As in the natively-settled public intent case, no balance obligation constraints are checked here.
     /// The balance constraint is implicitly checked by transferring into the darkpool.
-    function executeBounded(
+    function executeBoundedMatch(
         BoundedMatchResultBundle calldata matchBundle,
         SettlementObligation memory obligation,
         SettlementBundle calldata settlementBundle,

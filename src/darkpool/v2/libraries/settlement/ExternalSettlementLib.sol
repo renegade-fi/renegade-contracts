@@ -20,6 +20,7 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
+import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 import { SettlementLib } from "./SettlementLib.sol";
 import { SettlementVerification } from "./SettlementVerification.sol";
@@ -96,14 +97,9 @@ library ExternalSettlementLib {
         uint256 numDeposits = SettlementBundleLib.getNumDeposits(internalPartySettlementBundle) + 1;
         uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(internalPartySettlementBundle) + 1;
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
+        uint256 proofLinkingCapacity = SettlementBundleLib.getNumProofLinkingArguments(internalPartySettlementBundle);
 
-        return
-            SettlementContextLib.newContext(
-                numDeposits,
-                numWithdrawals,
-                proofCapacity,
-                0 /* proof linking capacity */
-            );
+        return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
     }
 
     /// @notice Allocate transfers to settle an external party's obligation into the settlement context
@@ -160,6 +156,10 @@ library ExternalSettlementLib {
             );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.executeBoundedMatch(
+                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
+            );
+        } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
+            RenegadeSettledPrivateIntentLib.executeBoundedMatch(
                 matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
             );
         } else {
