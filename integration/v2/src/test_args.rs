@@ -163,6 +163,13 @@ impl TestArgs {
 
     // --- Balances --- //
 
+    /// Get the balance of the given address for the given token
+    pub async fn balance(&self, addr: Address, token: Address) -> Result<U256> {
+        let erc20 = self.erc20_from_addr(token)?;
+        let balance = erc20.balanceOf(addr).call().await?;
+        Ok(balance)
+    }
+
     /// Get the base balance of the given address
     pub async fn base_balance(&self, addr: Address) -> Result<U256> {
         let erc20 = self.base_token()?;

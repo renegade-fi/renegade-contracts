@@ -5,6 +5,7 @@ use crate::v2::IDarkpoolV2;
 use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
+    fees::valid_public_relayer_fee_payment::ValidPublicRelayerFeePaymentStatement,
     settlement::{
         intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementStatement,
         intent_and_balance_public_settlement::IntentAndBalancePublicSettlementStatement,
@@ -83,6 +84,18 @@ impl IDarkpoolV2::OrderCancellationProofBundle {
     }
 }
 
+impl IDarkpoolV2::PublicRelayerFeePaymentProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(statement: ValidPublicRelayerFeePaymentStatement, proof: PlonkProof) -> Self {
+        Self {
+            // We use the default merkle height for now
+            merkleDepth: U256::from(MERKLE_HEIGHT),
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -139,6 +152,21 @@ impl From<ValidOrderCancellationStatement> for IDarkpoolV2::ValidOrderCancellati
             owner: statement.owner,
             merkleRoot: scalar_to_u256(&statement.merkle_root),
             oldIntentNullifier: scalar_to_u256(&statement.old_intent_nullifier),
+        }
+    }
+}
+
+impl From<ValidPublicRelayerFeePaymentStatement>
+    for IDarkpoolV2::ValidPublicRelayerFeePaymentStatement
+{
+    fn from(statement: ValidPublicRelayerFeePaymentStatement) -> Self {
+        Self {
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+            newRelayerFeeBalanceShare: scalar_to_u256(&statement.new_relayer_fee_balance_share),
+            note: statement.note.into(),
         }
     }
 }

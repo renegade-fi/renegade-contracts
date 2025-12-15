@@ -12,6 +12,7 @@ pub mod balance;
 pub mod commitments;
 pub mod deposit;
 pub mod intent;
+pub mod note;
 pub mod obligation;
 pub mod proof_bundles;
 pub mod withdrawal;

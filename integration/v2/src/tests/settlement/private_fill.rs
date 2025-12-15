@@ -148,12 +148,12 @@ integration_test_async!(test_settlement__private_fill);
 
 /// The state elements for a subsequent fill
 pub struct SubsequentFillStateElements {
-    intent0: DarkpoolStateIntent,
-    intent1: DarkpoolStateIntent,
-    input_bal0: DarkpoolStateBalance,
-    input_bal1: DarkpoolStateBalance,
-    output_bal0: DarkpoolStateBalance,
-    output_bal1: DarkpoolStateBalance,
+    pub(crate) intent0: DarkpoolStateIntent,
+    pub(crate) intent1: DarkpoolStateIntent,
+    pub(crate) input_bal0: DarkpoolStateBalance,
+    pub(crate) input_bal1: DarkpoolStateBalance,
+    pub(crate) output_bal0: DarkpoolStateBalance,
+    pub(crate) output_bal1: DarkpoolStateBalance,
 }
 
 /// Build a settlement bundle for the first fill
