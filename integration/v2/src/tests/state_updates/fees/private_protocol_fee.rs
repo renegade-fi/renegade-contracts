@@ -56,12 +56,21 @@ pub async fn build_proof_bundle(
     opening: &MerkleAuthenticationPath,
     args: &TestArgs,
 ) -> Result<PrivateProtocolFeePaymentProofBundle> {
+    let (_, proof_bundle) = build_proof_bundle_with_note(bal, opening, args).await?;
+    Ok(proof_bundle)
+}
+
+pub async fn build_proof_bundle_with_note(
+    bal: &mut DarkpoolStateBalance,
+    opening: &MerkleAuthenticationPath,
+    args: &TestArgs,
+) -> Result<(Note, PrivateProtocolFeePaymentProofBundle)> {
     let recipient = args.protocol_fee_recipient().await?;
     let protocol_fee_key = args.protocol_fee_encryption_key().await?;
-    let (_, statement, proof) =
+    let (note, statement, proof) =
         prove_private_protocol_fee_payment_relation(recipient, protocol_fee_key, bal, opening)?;
-
-    Ok(PrivateProtocolFeePaymentProofBundle::new(statement, proof))
+    let proof_bundle = PrivateProtocolFeePaymentProofBundle::new(statement, proof);
+    Ok((note, proof_bundle))
 }
 
 /// Prove the private protocol fee payment relation
