@@ -199,6 +199,10 @@ library StateUpdatesLib {
 
         // Execute the fee payment
         Note calldata note = proofBundle.statement.note;
+        if (note.receiver != state.getProtocolFeeRecipient()) {
+            revert IDarkpoolV2.InvalidProtocolFeeReceiver();
+        }
+
         SimpleTransfer memory transfer = note.buildTransfer();
         ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
 

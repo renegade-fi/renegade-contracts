@@ -74,6 +74,12 @@ impl TestArgs {
         Ok(fee.into())
     }
 
+    /// Get the recipient of the public protocol fee
+    pub async fn public_protocol_fee_recipient(&self) -> Result<Address> {
+        let recipient = self.darkpool.getProtocolFeeRecipient().call().await?;
+        Ok(recipient)
+    }
+
     // --- Addresses and Contracts --- //
 
     /// Get the address of the wallet

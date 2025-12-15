@@ -185,6 +185,11 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         return _state.getDefaultProtocolFeeRate();
     }
 
+    /// @inheritdoc IDarkpoolV2
+    function getProtocolFeeRecipient() public view returns (address) {
+        return _state.getProtocolFeeRecipient();
+    }
+
     /// @notice Get the public encryption key for the protocol's fees
     /// @return The public encryption key for the protocol's fees
     function protocolFeeKey() public view returns (EncryptionKey memory) {

@@ -5,7 +5,10 @@ use crate::v2::IDarkpoolV2;
 use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::{
-    fees::valid_public_relayer_fee_payment::ValidPublicRelayerFeePaymentStatement,
+    fees::{
+        valid_public_protocol_fee_payment::ValidPublicProtocolFeePaymentStatement,
+        valid_public_relayer_fee_payment::ValidPublicRelayerFeePaymentStatement,
+    },
     settlement::{
         intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementStatement,
         intent_and_balance_public_settlement::IntentAndBalancePublicSettlementStatement,
@@ -96,6 +99,18 @@ impl IDarkpoolV2::PublicRelayerFeePaymentProofBundle {
     }
 }
 
+impl IDarkpoolV2::PublicProtocolFeePaymentProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(statement: ValidPublicProtocolFeePaymentStatement, proof: PlonkProof) -> Self {
+        Self {
+            // We use the default merkle height for now
+            merkleDepth: U256::from(MERKLE_HEIGHT),
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -166,6 +181,21 @@ impl From<ValidPublicRelayerFeePaymentStatement>
             newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
             recoveryId: scalar_to_u256(&statement.recovery_id),
             newRelayerFeeBalanceShare: scalar_to_u256(&statement.new_relayer_fee_balance_share),
+            note: statement.note.into(),
+        }
+    }
+}
+
+impl From<ValidPublicProtocolFeePaymentStatement>
+    for IDarkpoolV2::ValidPublicProtocolFeePaymentStatement
+{
+    fn from(statement: ValidPublicProtocolFeePaymentStatement) -> Self {
+        Self {
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+            newProtocolFeeBalanceShare: scalar_to_u256(&statement.new_protocol_fee_balance_share),
             note: statement.note.into(),
         }
     }
