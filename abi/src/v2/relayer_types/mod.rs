@@ -1,6 +1,7 @@
 //! Relayer type interactions and conversions for the V2 ABI
 
 use alloy::primitives::U256;
+use renegade_circuit_types_v2::elgamal::BabyJubJubPoint;
 use renegade_circuit_types_v2::fixed_point::FixedPoint;
 use renegade_constants_v2::Scalar;
 use renegade_crypto_v2::fields::scalar_to_u256;
@@ -9,6 +10,7 @@ use crate::v2::IDarkpoolV2;
 use crate::v2::BN254;
 
 pub mod balance;
+pub mod ciphertext;
 pub mod commitments;
 pub mod deposit;
 pub mod intent;
@@ -60,6 +62,26 @@ impl From<IDarkpoolV2::FixedPoint> for FixedPoint {
     fn from(fixed_point: IDarkpoolV2::FixedPoint) -> Self {
         Self {
             repr: u256_to_scalar(fixed_point.repr),
+        }
+    }
+}
+
+/// Convert a `BabyJubJubPoint` to a `IDarkpoolV2::BabyJubJubPoint`
+impl From<BabyJubJubPoint> for IDarkpoolV2::BabyJubJubPoint {
+    fn from(point: BabyJubJubPoint) -> Self {
+        Self {
+            x: scalar_to_u256(&point.x),
+            y: scalar_to_u256(&point.y),
+        }
+    }
+}
+
+/// Convert a `IDarkpoolV2::BabyJubJubPoint` to a `BabyJubJubPoint`
+impl From<IDarkpoolV2::BabyJubJubPoint> for BabyJubJubPoint {
+    fn from(point: IDarkpoolV2::BabyJubJubPoint) -> Self {
+        Self {
+            x: u256_to_scalar(point.x),
+            y: u256_to_scalar(point.y),
         }
     }
 }

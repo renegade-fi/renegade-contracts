@@ -1,11 +1,14 @@
 //! Proof bundle conversion helpers
 
 use super::*;
-use crate::v2::IDarkpoolV2;
+use crate::v2::IDarkpoolV2::{self, SignatureWithNonce};
 use crate::v2::BN254::G1Point;
-use renegade_circuit_types_v2::{traits::BaseType, PlonkLinkProof, PlonkProof};
+use renegade_circuit_types_v2::{
+    note::NoteCiphertext, traits::BaseType, PlonkLinkProof, PlonkProof,
+};
 use renegade_circuits_v2::zk_circuits::{
     fees::{
+        valid_private_relayer_fee_payment::ValidPrivateRelayerFeePaymentStatement,
         valid_public_protocol_fee_payment::ValidPublicProtocolFeePaymentStatement,
         valid_public_relayer_fee_payment::ValidPublicRelayerFeePaymentStatement,
     },
@@ -111,6 +114,25 @@ impl IDarkpoolV2::PublicProtocolFeePaymentProofBundle {
     }
 }
 
+impl IDarkpoolV2::PrivateRelayerFeePaymentProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(
+        note_ciphertext: NoteCiphertext,
+        relayer_ciphertext_signature: SignatureWithNonce,
+        statement: ValidPrivateRelayerFeePaymentStatement,
+        proof: PlonkProof,
+    ) -> Self {
+        Self {
+            // We use the default merkle height for now
+            merkleDepth: U256::from(MERKLE_HEIGHT),
+            noteCiphertext: note_ciphertext.into(),
+            relayerCiphertextSignature: relayer_ciphertext_signature,
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -197,6 +219,22 @@ impl From<ValidPublicProtocolFeePaymentStatement>
             recoveryId: scalar_to_u256(&statement.recovery_id),
             newProtocolFeeBalanceShare: scalar_to_u256(&statement.new_protocol_fee_balance_share),
             note: statement.note.into(),
+        }
+    }
+}
+
+impl From<ValidPrivateRelayerFeePaymentStatement>
+    for IDarkpoolV2::ValidPrivateRelayerFeePaymentStatement
+{
+    fn from(statement: ValidPrivateRelayerFeePaymentStatement) -> Self {
+        Self {
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            relayerFeeReceiver: statement.relayer_fee_receiver,
+            noteCommitment: scalar_to_u256(&statement.note_commitment),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+            newRelayerFeeBalanceShare: scalar_to_u256(&statement.new_relayer_fee_balance_share),
         }
     }
 }
