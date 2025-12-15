@@ -26,7 +26,7 @@ pub async fn test_pay_public_protocol_fee(args: TestArgs) -> Result<()> {
     let protocol_fee_balance = U256::from(bal.inner.protocol_fee_balance);
 
     // Build a proof bundle
-    let recipient = args.public_protocol_fee_recipient().await?;
+    let recipient = args.protocol_fee_recipient().await?;
     let opening = state_elements.output_balance_opening;
     let proof_bundle = build_proof_bundle(recipient, bal, &opening)?;
 

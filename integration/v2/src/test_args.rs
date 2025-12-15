@@ -9,7 +9,7 @@ use alloy::{
     transports::http::reqwest::Url,
 };
 use eyre::Result;
-use renegade_circuit_types::fixed_point::FixedPoint;
+use renegade_circuit_types::{elgamal::EncryptionKey, fixed_point::FixedPoint};
 
 use crate::{
     CliArgs,
@@ -75,9 +75,15 @@ impl TestArgs {
     }
 
     /// Get the recipient of the public protocol fee
-    pub async fn public_protocol_fee_recipient(&self) -> Result<Address> {
+    pub async fn protocol_fee_recipient(&self) -> Result<Address> {
         let recipient = self.darkpool.getProtocolFeeRecipient().call().await?;
         Ok(recipient)
+    }
+
+    /// Get the encryption key for protocol fee notes
+    pub async fn protocol_fee_encryption_key(&self) -> Result<EncryptionKey> {
+        let key = self.darkpool.getProtocolFeeKey().call().await?;
+        Ok(key.into())
     }
 
     // --- Addresses and Contracts --- //
