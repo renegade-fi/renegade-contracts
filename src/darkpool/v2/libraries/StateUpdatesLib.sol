@@ -60,12 +60,12 @@ library StateUpdatesLib {
         bool valid = verifier.verifyOrderCancellationValidity(orderCancellationProofBundle);
         if (!valid) revert IDarkpoolV2.OrderCancellationVerificationFailed();
 
-        // 2. Verify the signature over the intent nullifier by the owner
+        // 2. Verify the signature over the intent nullifier by the owner (with nonce for replay protection)
         address owner = orderCancellationProofBundle.statement.owner;
         BN254.ScalarField intentNullifier = orderCancellationProofBundle.statement.oldIntentNullifier;
         bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
 
-        bool sigValid = ECDSALib.verify(nullifierHash, auth.signature, owner);
+        bool sigValid = auth.signature.verifyPrehashedAndSpendNonce(owner, nullifierHash, state);
         if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
 
         // 3. Spend the nullifier to cancel the order

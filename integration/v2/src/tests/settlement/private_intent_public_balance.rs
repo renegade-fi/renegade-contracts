@@ -25,7 +25,7 @@ use renegade_circuits::{
     zk_circuits::{
         proof_linking::intent_only::link_sized_intent_only_settlement,
         settlement::intent_only_public_settlement::{
-            self, IntentOnlyPublicSettlementStatement, SizedIntentOnlyPublicSettlementCircuit,
+            self, IntentOnlyPublicSettlementCircuit, IntentOnlyPublicSettlementStatement,
         },
         validity_proofs::{
             intent_only::{self, IntentOnlyValidityStatement, SizedIntentOnlyValidityCircuit},
@@ -279,9 +279,8 @@ fn generate_settlement_proof(
 )> {
     let (witness, mut statement) = intent_only_public_settlement::test_helpers::create_witness_statement_with_intent_and_obligation(intent, obligation);
     statement.relayer_fee = settlement_relayer_fee();
-    let (proof, link_hint) = singleprover_prove_with_hint::<SizedIntentOnlyPublicSettlementCircuit>(
-        &witness, &statement,
-    )?;
+    let (proof, link_hint) =
+        singleprover_prove_with_hint::<IntentOnlyPublicSettlementCircuit>(&witness, &statement)?;
 
     Ok((statement, proof, link_hint))
 }

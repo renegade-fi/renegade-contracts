@@ -68,10 +68,10 @@ use test_helpers::{assert_eq_result, integration_test_async};
 use crate::{
     test_args::TestArgs,
     tests::{
-        create_balance::create_balance,
         settlement::{
             compute_fee_take, settlement_relayer_fee, settlement_relayer_fee_rate, split_obligation,
         },
+        state_updates::create_balance::create_balance,
     },
     util::{
         deposit::fund_for_deposit, fuzzing::create_matching_intents_and_obligations,
