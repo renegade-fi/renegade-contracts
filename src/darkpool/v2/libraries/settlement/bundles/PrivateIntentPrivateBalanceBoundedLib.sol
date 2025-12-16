@@ -52,6 +52,9 @@ import { PostMatchBalanceShare, PostMatchBalanceShareLib } from "darkpoolv2-type
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
+import {
+    PrivateIntentPrivateBalanceBundleLib
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 
 // ----------------
 // | Bundle Types |
@@ -70,7 +73,6 @@ struct RenegadeSettledIntentBoundedFirstFillBundle {
     PlonkProof settlementProof;
     /// @dev The proof linking the authorization and settlement proofs
     LinkingProof authSettlementLinkingProof;
-    // TODO: Add bounded settlement specific fields (min/max amounts, bounded match result, etc.)
 }
 
 /// @notice The settlement bundle data for a `RENEGADE_SETTLED_INTENT` bundle with bounded settlement
@@ -85,7 +87,6 @@ struct RenegadeSettledIntentBoundedBundle {
     PlonkProof settlementProof;
     /// @dev The proof linking the authorization and settlement proofs
     LinkingProof authSettlementLinkingProof;
-    // TODO: Add bounded settlement specific fields (min/max amounts, bounded match result, etc.)
 }
 
 // -----------
@@ -173,7 +174,7 @@ library PrivateIntentPrivateBalanceBoundedLib {
         state.assertRootInHistory(authBundle.statement.merkleRoot);
 
         // Verify the intent signature
-        _verifyIntentSignature(authBundle, state);
+        PrivateIntentPrivateBalanceBundleLib._verifyIntentSignature(authBundle, state);
 
         // Push the validity proof to the settlement context
         pushValidityProof(
@@ -290,24 +291,6 @@ library PrivateIntentPrivateBalanceBoundedLib {
         IntentAndBalanceValidityStatement memory authStatement = bundle.auth.statement;
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
-    }
-
-    /// @notice Verify the signature on the intent authorization bundle for a first fill
-    /// @param bundleData The bundle to check validity for
-    /// @param state The state to use for verification
-    function _verifyIntentSignature(
-        RenegadeSettledIntentAuthBundleFirstFill memory bundleData,
-        DarkpoolState storage state
-    )
-        internal
-    {
-        // Verify the owner signature and spend the nonce
-        bytes32 digest = PrivateIntentPrivateBalanceAuthBundleLib.getOwnerSignatureDigest(bundleData);
-        address signer = bundleData.statement.oneTimeAuthorizingAddress;
-
-        bool valid = bundleData.ownerSignature.verifyPrehashed(signer, digest);
-        if (!valid) revert IDarkpoolV2.InvalidOwnerSignature();
-        state.spendNonce(bundleData.ownerSignature.nonce);
     }
 
     // --------------------------------
@@ -772,6 +755,7 @@ library PrivateIntentPrivateBalanceBoundedLib {
 
         // Push the settlement proof to the settlement context
         BN254.ScalarField[] memory publicInputs = statement.statementSerialize();
+        // TODO: Update verification keys
         VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
         settlementContext.pushProof(publicInputs, proof, vk);
     }
