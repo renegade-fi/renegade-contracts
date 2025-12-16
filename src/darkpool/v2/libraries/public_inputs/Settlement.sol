@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
-import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { FixedPoint } from "renegade-lib/FixedPoint.sol";
 import { PostMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
+import { BoundedMatchResult } from "darkpoolv2-types/BoundedMatchResult.sol";
 
 // --- Settlement Statements --- //
 // Settlement proofs verify that:
@@ -71,6 +71,28 @@ struct IntentAndBalancePublicSettlementStatement {
     FixedPoint relayerFee;
     /// @dev The recipient of the relayer fee
     address relayerFeeRecipient;
+}
+
+/// @notice A statement for a proof of intent and balance bounded settlement
+/// @dev The statement type for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+/// @dev Similar to public settlement but with bounded match result instead of exact obligation
+struct IntentAndBalanceBoundedSettlementStatement {
+    /// @dev The bounded match result that the intent must be able to capitalize
+    BoundedMatchResult boundedMatchResult;
+    /// @dev The leaked pre-update amount public share of the intent
+    /// @dev Because this circuit represents a public settlement, we leak the public
+    /// share and allow the contracts to update it on-chain.
+    BN254.ScalarField amountPublicShare;
+    /// @dev The updated public shares of the post-match balance fields for the input balance
+    PostMatchBalanceShare inBalancePublicShares;
+    /// @dev The updated public shares of the post-match balance fields for the output balance
+    PostMatchBalanceShare outBalancePublicShares;
+    /// @dev The relayer fee rate charged to the external party
+    FixedPoint externalRelayerFeeRate;
+    /// @dev The relayer fee rate charged to the internal party
+    FixedPoint internalRelayerFeeRate;
+    /// @dev The address at which the relayer receives their fee
+    address relayerFeeAddress;
 }
 
 /// @notice A statement for a proof of intent and balance private settlement
