@@ -1,10 +1,31 @@
 // SPDX-License-Identifier: MIT
+// solhint-disable one-contract-per-file
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 
-/// @title Pre-match balance share
+/// @notice A full share of a balance
+struct BalanceShare {
+    /// @dev The mint of the token in the balance
+    BN254.ScalarField mint;
+    /// @dev The owner of the balance
+    BN254.ScalarField owner;
+    /// @dev The relayer fee recipient of the balance
+    BN254.ScalarField relayerFeeRecipient;
+    /// @dev The signing authority for the balance
+    /// @dev This is a Schnorr public key over the Baby JubJub curve
+    /// @dev We use this value to sign commitments to new state elements, allowing their authorization to be
+    /// bootstrapped form an existing balance.
+    BabyJubJubPoint signingAuthority;
+    /// @dev The relayer fee balance of the balance
+    BN254.ScalarField relayerFeeBalance;
+    /// @dev The protocol fee balance of the balance
+    BN254.ScalarField protocolFeeBalance;
+    /// @dev The amount of the token in the balance
+    BN254.ScalarField amount;
+}
+
 /// @notice A pre-match balance share is a share of the balance without the `amount` or fees fields.
 /// @dev We use this type to represent balances whose `amount` or fees fields are determined in a later circuit
 /// within a proof-linked chain of circuits. For example, we may leak a `PreMatchBalanceShare` in a validity circuit
@@ -35,7 +56,28 @@ struct PostMatchBalanceShare {
     BN254.ScalarField amount;
 }
 
+/// @title Balance Share Library
+/// @author Renegade Eng
+/// @notice Library for balance shares
+library BalanceShareLib {
+    /// @notice Serialize a balance share to scalars
+    /// @param share The balance share to serialize
+    /// @return scalars The serialized balance share as an array of scalars
+    function scalarSerialize(BalanceShare memory share) internal pure returns (uint256[] memory scalars) {
+        scalars = new uint256[](8);
+        scalars[0] = BN254.ScalarField.unwrap(share.mint);
+        scalars[1] = BN254.ScalarField.unwrap(share.owner);
+        scalars[2] = BN254.ScalarField.unwrap(share.relayerFeeRecipient);
+        scalars[3] = BN254.ScalarField.unwrap(share.signingAuthority.x);
+        scalars[4] = BN254.ScalarField.unwrap(share.signingAuthority.y);
+        scalars[5] = BN254.ScalarField.unwrap(share.relayerFeeBalance);
+        scalars[6] = BN254.ScalarField.unwrap(share.protocolFeeBalance);
+        scalars[7] = BN254.ScalarField.unwrap(share.amount);
+    }
+}
+
 /// @title Post-match balance share library
+/// @author Renegade Eng
 /// @notice Library for post-match balance shares
 library PostMatchBalanceShareLib {
     /// @notice Serialize a post-match balance share to scalars

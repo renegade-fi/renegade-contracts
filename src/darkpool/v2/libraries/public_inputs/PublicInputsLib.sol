@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { BN254Helpers } from "renegade-lib/verifier/BN254Helpers.sol";
 import { VerificationKey } from "renegade-lib/verifier/Types.sol";
+import { BalanceShareLib } from "darkpoolv2-types/Balance.sol";
 import { ValidDepositStatement, ValidBalanceCreateStatement, ValidWithdrawalStatement } from "./Transfers.sol";
 import {
     ValidPublicProtocolFeePaymentStatement,
@@ -72,20 +73,17 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 12;
+        uint256 nPublicInputs = 13;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.from)));
         publicInputs[1] = BN254.ScalarField.wrap(uint256(uint160(statement.deposit.token)));
         publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
         publicInputs[3] = statement.newBalanceCommitment;
         publicInputs[4] = statement.recoveryId;
-        publicInputs[5] = statement.newBalancePublicShares[0];
-        publicInputs[6] = statement.newBalancePublicShares[1];
-        publicInputs[7] = statement.newBalancePublicShares[2];
-        publicInputs[8] = statement.newBalancePublicShares[3];
-        publicInputs[9] = statement.newBalancePublicShares[4];
-        publicInputs[10] = statement.newBalancePublicShares[5];
-        publicInputs[11] = statement.newBalancePublicShares[6];
+        uint256[] memory balanceShareScalars = BalanceShareLib.scalarSerialize(statement.newBalance);
+        for (uint256 i = 0; i < balanceShareScalars.length; ++i) {
+            publicInputs[5 + i] = BN254.ScalarField.wrap(balanceShareScalars[i]);
+        }
     }
 
     /// @notice Serialize the public inputs for a proof of withdrawal validity

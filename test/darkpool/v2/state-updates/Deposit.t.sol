@@ -14,6 +14,8 @@ import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { Deposit, DepositAuth, DEPOSIT_WITNESS_TYPE_STRING } from "darkpoolv2-types/transfers/Deposit.sol";
 import { ValidDepositStatement, ValidBalanceCreateStatement } from "darkpoolv2-lib/public_inputs/Transfers.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
+import { BalanceShare } from "darkpoolv2-types/Balance.sol";
+import { BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 
 /// @title DepositTest
 /// @author Renegade Eng
@@ -196,17 +198,22 @@ contract DepositTest is DarkpoolV2TestUtils {
         BN254.ScalarField newBalanceCommitment = randomScalar();
         uint256 merkleDepth = DarkpoolConstants.DEFAULT_MERKLE_DEPTH;
 
-        // Generate 7 random public shares for the new balance
-        BN254.ScalarField[7] memory newBalancePublicShares;
-        for (uint256 i = 0; i < 7; i++) {
-            newBalancePublicShares[i] = randomScalar();
-        }
+        // Generate a random balance share for the new balance
+        BalanceShare memory newBalance = BalanceShare({
+            mint: randomScalar(),
+            owner: randomScalar(),
+            relayerFeeRecipient: randomScalar(),
+            signingAuthority: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() }),
+            relayerFeeBalance: randomScalar(),
+            protocolFeeBalance: randomScalar(),
+            amount: randomScalar()
+        });
 
         ValidBalanceCreateStatement memory statement = ValidBalanceCreateStatement({
             deposit: deposit,
             newBalanceCommitment: newBalanceCommitment,
             recoveryId: randomScalar(),
-            newBalancePublicShares: newBalancePublicShares
+            newBalance: newBalance
         });
 
         return
