@@ -12,11 +12,11 @@ use renegade_circuits_v2::zk_circuits::proof_linking::output_balance::get_group_
 use renegade_circuits_v2::zk_circuits::settlement::{
     intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementCircuit,
     intent_and_balance_public_settlement::IntentAndBalancePublicSettlementCircuit,
-    intent_only_public_settlement::SizedIntentOnlyPublicSettlementCircuit,
+    intent_only_public_settlement::IntentOnlyPublicSettlementCircuit,
 };
 use renegade_circuits_v2::zk_circuits::valid_order_cancellation::SizedValidOrderCancellationCircuit;
 use renegade_circuits_v2::zk_circuits::valid_withdrawal::SizedValidWithdrawal;
-use renegade_circuits_v2::zk_circuits::validity_proofs::new_output_balance::NewOutputBalanceValidityCircuit;
+use renegade_circuits_v2::zk_circuits::validity_proofs::new_output_balance::SizedNewOutputBalanceValidityCircuit;
 use renegade_circuits_v2::zk_circuits::validity_proofs::{
     intent_and_balance::SizedIntentAndBalanceValidityCircuit,
     intent_and_balance_first_fill::SizedIntentAndBalanceFirstFillValidityCircuit,
@@ -103,13 +103,13 @@ impl V2Circuit {
                 generate_vkey_for_circuit::<SizedIntentAndBalanceValidityCircuit>()
             }
             Self::NewOutputBalanceValidity => {
-                generate_vkey_for_circuit::<NewOutputBalanceValidityCircuit>()
+                generate_vkey_for_circuit::<SizedNewOutputBalanceValidityCircuit>()
             }
             Self::OutputBalanceValidity => {
                 generate_vkey_for_circuit::<SizedOutputBalanceValidityCircuit>()
             }
             Self::IntentOnlyPublicSettlement => {
-                generate_vkey_for_circuit::<SizedIntentOnlyPublicSettlementCircuit>()
+                generate_vkey_for_circuit::<IntentOnlyPublicSettlementCircuit>()
             }
             Self::IntentAndBalancePublicSettlement => {
                 generate_vkey_for_circuit::<IntentAndBalancePublicSettlementCircuit>()
@@ -261,18 +261,18 @@ fn generate_vkey_for_circuit<T: SingleProverCircuit>() -> VerificationKey {
 
 /// Generate the link verification key for the intent-only settlement linking instance
 fn generate_intent_only_settlement_link_vkey() -> ProofLinkingVK {
-    let layout = get_intent_public_settlement_group_layout::<MERKLE_HEIGHT>().unwrap();
+    let layout = get_intent_public_settlement_group_layout().unwrap();
     ProofLinkingVK::from(layout)
 }
 
 /// Generate the link verification key for the intent and balance settlement linking instance for the given party
 fn generate_intent_and_balance_settlement_link_vkey(party: u8) -> ProofLinkingVK {
-    let layout = get_intent_and_balance_settlement_group_layout::<MERKLE_HEIGHT>(party).unwrap();
+    let layout = get_intent_and_balance_settlement_group_layout(party).unwrap();
     ProofLinkingVK::from(layout)
 }
 
 /// Generate the link verification key for the output balance settlement linking instance for the given party
 fn generate_output_balance_settlement_link_vkey(party: u8) -> ProofLinkingVK {
-    let layout = get_output_balance_settlement_group_layout::<MERKLE_HEIGHT>(party).unwrap();
+    let layout = get_output_balance_settlement_group_layout(party).unwrap();
     ProofLinkingVK::from(layout)
 }

@@ -29,7 +29,7 @@ contract PublicProtocolFeeTest is DarkpoolV2TestUtils {
     function setUp() public override {
         super.setUp();
         feeToken = baseToken;
-        feeReceiver = vm.randomAddress();
+        feeReceiver = protocolFeeAddr;
     }
 
     // -----------

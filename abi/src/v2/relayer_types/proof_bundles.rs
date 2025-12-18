@@ -325,21 +325,14 @@ impl From<IntentAndBalanceFirstFillValidityStatement>
     fn from(statement: IntentAndBalanceFirstFillValidityStatement) -> Self {
         Self {
             merkleRoot: scalar_to_u256(&statement.merkle_root),
-            intentAndAuthorizingAddressCommitment: scalar_to_u256(
-                &statement.intent_and_authorizing_address_commitment,
-            ),
             intentPublicShare: statement.intent_public_share.into(),
             intentPrivateShareCommitment: scalar_to_u256(
                 &statement.intent_private_share_commitment,
             ),
             intentRecoveryId: scalar_to_u256(&statement.intent_recovery_id),
             balancePartialCommitment: statement.balance_partial_commitment.into(),
-            newOneTimeAddressPublicShare: scalar_to_u256(
-                &statement.new_one_time_address_public_share,
-            ),
             oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
             balanceRecoveryId: scalar_to_u256(&statement.balance_recovery_id),
-            oneTimeAuthorizingAddress: statement.one_time_authorizing_address,
         }
     }
 }

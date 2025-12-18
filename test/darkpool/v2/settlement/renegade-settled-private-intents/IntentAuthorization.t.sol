@@ -72,27 +72,6 @@ contract RenegadeSettledPrivateIntentAuthorizationTest is RenegadeSettledPrivate
         authorizeIntentHelper(obligationBundle, bundle);
     }
 
-    /// @dev Test a bundle verification case with an invalid owner signature
-    function test_invalidOwnerSignature_wrongSigner() public {
-        // Create bundle and replace the owner signature with a signature from wrong signer
-        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle) =
-            createSampleRenegadeSettledBundle(true /* isFirstFill */ );
-        RenegadeSettledIntentFirstFillBundle memory bundleData =
-            abi.decode(bundle.data, (RenegadeSettledIntentFirstFillBundle));
-        RenegadeSettledIntentAuthBundleFirstFill memory authBundle = bundleData.auth;
-
-        // Sign with wrong signer
-        SignatureWithNonce memory wrongSig =
-            createOwnerSignature(authBundle.statement.intentAndAuthorizingAddressCommitment, wrongSigner.privateKey);
-        authBundle.ownerSignature = wrongSig;
-        bundleData.auth = authBundle;
-        bundle.data = abi.encode(bundleData);
-
-        // Should revert with InvalidOwnerSignature
-        vm.expectRevert(RenegadeSettledPrivateIntentLib.InvalidOwnerSignature.selector);
-        authorizeIntentHelper(obligationBundle, bundle);
-    }
-
     /// @dev Test a bundle verification case with an invalid Merkle depth
     function test_invalidMerkleDepth() public {
         // Create bundle with invalid Merkle depth

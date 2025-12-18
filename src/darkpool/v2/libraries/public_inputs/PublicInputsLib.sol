@@ -281,22 +281,19 @@ library PublicInputsLib {
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 14;
+        uint256 nPublicInputs = 11;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
         publicInputs[0] = statement.merkleRoot;
-        publicInputs[1] = statement.intentAndAuthorizingAddressCommitment;
-        publicInputs[2] = statement.intentPublicShare.inToken;
-        publicInputs[3] = statement.intentPublicShare.outToken;
-        publicInputs[4] = statement.intentPublicShare.owner;
-        publicInputs[5] = statement.intentPublicShare.minPrice;
-        publicInputs[6] = statement.intentPrivateShareCommitment;
-        publicInputs[7] = statement.intentRecoveryId;
-        publicInputs[8] = statement.balancePartialCommitment.privateCommitment;
-        publicInputs[9] = statement.balancePartialCommitment.partialPublicCommitment;
-        publicInputs[10] = statement.newOneTimeAddressPublicShare;
-        publicInputs[11] = statement.oldBalanceNullifier;
-        publicInputs[12] = statement.balanceRecoveryId;
-        publicInputs[13] = BN254.ScalarField.wrap(uint256(uint160(statement.oneTimeAuthorizingAddress)));
+        publicInputs[1] = statement.intentPublicShare.inToken;
+        publicInputs[2] = statement.intentPublicShare.outToken;
+        publicInputs[3] = statement.intentPublicShare.owner;
+        publicInputs[4] = statement.intentPublicShare.minPrice;
+        publicInputs[5] = statement.intentPrivateShareCommitment;
+        publicInputs[6] = statement.intentRecoveryId;
+        publicInputs[7] = statement.balancePartialCommitment.privateCommitment;
+        publicInputs[8] = statement.balancePartialCommitment.partialPublicCommitment;
+        publicInputs[9] = statement.oldBalanceNullifier;
+        publicInputs[10] = statement.balanceRecoveryId;
     }
 
     /// @notice Serialize the public inputs for a proof of single-intent match settlement
