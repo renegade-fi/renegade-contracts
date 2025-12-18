@@ -34,6 +34,8 @@ interface IDarkpoolV2 {
     // --- Error Messages --- //
     /// @notice The nullifier has already been spent
     error NullifierAlreadySpent();
+    /// @notice The existing balance nullifier has already been spent
+    error ExistingBalanceNullifierSpent();
     /// @notice Error thrown when a signature nonce has already been spent
     error NonceAlreadySpent();
     /// @notice Thrown when a Merkle root is not in the history

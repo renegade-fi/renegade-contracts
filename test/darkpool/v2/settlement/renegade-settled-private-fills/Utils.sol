@@ -31,6 +31,7 @@ import { IntentPreMatchShare } from "darkpoolv2-types/Intent.sol";
 import { IntentAndBalancePrivateSettlementStatement } from "darkpoolv2-lib/public_inputs/Settlement.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { PostMatchBalanceShare, PreMatchBalanceShare } from "darkpoolv2-types/Balance.sol";
+import { BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import {
     OutputBalanceBundle,
@@ -99,10 +100,12 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             mint: randomScalar(),
             owner: randomScalar(),
             relayerFeeRecipient: randomScalar(),
-            oneTimeAuthority: randomScalar()
+            signingAuthority: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() })
         });
 
         NewOutputBalanceValidityStatement memory statement = NewOutputBalanceValidityStatement({
+            existingBalanceMerkleRoot: randomScalar(),
+            existingBalanceNullifier: randomScalar(),
             preMatchBalanceShares: preMatchBalanceShares,
             newBalancePartialCommitment: randomPartialCommitment(),
             recoveryId: randomScalar()

@@ -106,6 +106,13 @@ struct IntentAndBalanceValidityStatement {
 /// @notice A statement for a proof of new output balance validity
 /// @dev The statement type for `NEW OUTPUT BALANCE VALIDITY`
 struct NewOutputBalanceValidityStatement {
+    /// @dev The Merkle root to which the existing balance opens
+    /// @dev This balance bootstraps the new balance's authorization
+    BN254.ScalarField existingBalanceMerkleRoot;
+    /// @dev The nullifier of the existing balance
+    /// @dev This nullifier will be leaked and checked on-chain to ensure it hasn't
+    /// been spent. This prevents bootstrapping off of outdated balances.
+    BN254.ScalarField existingBalanceNullifier;
     /// @dev The pre-match balance shares for the new balance
     PreMatchBalanceShare preMatchBalanceShares;
     /// @dev A partial commitment to the new output balance

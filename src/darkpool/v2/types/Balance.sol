@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 
 /// @title Pre-match balance share
 /// @notice A pre-match balance share is a share of the balance without the `amount` or fees fields.
@@ -15,8 +16,11 @@ struct PreMatchBalanceShare {
     BN254.ScalarField owner;
     /// @dev The relayer fee recipient of the balance
     BN254.ScalarField relayerFeeRecipient;
-    /// @dev The one-time authority of the balance
-    BN254.ScalarField oneTimeAuthority;
+    /// @dev The signing authority for the balance
+    /// @dev This is a Schnorr public key over the Baby JubJub curve
+    /// @dev We use this value to sign commitments to new state elements, allowing their authorization to be
+    /// bootstrapped form an existing balance.
+    BabyJubJubPoint signingAuthority;
 }
 
 /// @title Post-match balance share

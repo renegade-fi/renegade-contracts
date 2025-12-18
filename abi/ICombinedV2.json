@@ -2283,6 +2283,11 @@
   },
   {
     "type": "error",
+    "name": "ExistingBalanceNullifierSpent",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FeePaymentVerificationFailed",
     "inputs": []
   },
@@ -7164,6 +7169,16 @@
             "internalType": "struct NewOutputBalanceValidityStatement",
             "components": [
               {
+                "name": "existingBalanceMerkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "existingBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
                 "name": "preMatchBalanceShares",
                 "type": "tuple",
                 "internalType": "struct PreMatchBalanceShare",
@@ -7184,9 +7199,21 @@
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "oneTimeAuthority",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
+                    "name": "signingAuthority",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   }
                 ]
               },
@@ -7229,6 +7256,16 @@
             "internalType": "struct NewOutputBalanceValidityStatement",
             "components": [
               {
+                "name": "existingBalanceMerkleRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "existingBalanceNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
                 "name": "preMatchBalanceShares",
                 "type": "tuple",
                 "internalType": "struct PreMatchBalanceShare",
@@ -7249,9 +7286,21 @@
                     "internalType": "BN254.ScalarField"
                   },
                   {
-                    "name": "oneTimeAuthority",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
+                    "name": "signingAuthority",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
                   }
                 ]
               },
@@ -11507,34 +11556,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "ownerSignature",
-            "type": "tuple",
-            "internalType": "struct SignatureWithNonce",
-            "components": [
-              {
-                "name": "nonce",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "signature",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          },
-          {
             "name": "statement",
             "type": "tuple",
             "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
             "components": [
               {
                 "name": "merkleRoot",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "intentAndAuthorizingAddressCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -11593,11 +11620,6 @@
                 ]
               },
               {
-                "name": "newOneTimeAddressPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
                 "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
@@ -11606,11 +11628,6 @@
                 "name": "balanceRecoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "oneTimeAuthorizingAddress",
-                "type": "address",
-                "internalType": "address"
               }
             ]
           },
@@ -11736,34 +11753,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "ownerSignature",
-            "type": "tuple",
-            "internalType": "struct SignatureWithNonce",
-            "components": [
-              {
-                "name": "nonce",
-                "type": "uint256",
-                "internalType": "uint256"
-              },
-              {
-                "name": "signature",
-                "type": "bytes",
-                "internalType": "bytes"
-              }
-            ]
-          },
-          {
             "name": "statement",
             "type": "tuple",
             "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
             "components": [
               {
                 "name": "merkleRoot",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "intentAndAuthorizingAddressCommitment",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
               },
@@ -11822,11 +11817,6 @@
                 ]
               },
               {
-                "name": "newOneTimeAddressPublicShare",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
                 "name": "oldBalanceNullifier",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
@@ -11835,11 +11825,6 @@
                 "name": "balanceRecoveryId",
                 "type": "uint256",
                 "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "oneTimeAuthorizingAddress",
-                "type": "address",
-                "internalType": "address"
               }
             ]
           },
@@ -13214,34 +13199,12 @@
                 "internalType": "uint256"
               },
               {
-                "name": "ownerSignature",
-                "type": "tuple",
-                "internalType": "struct SignatureWithNonce",
-                "components": [
-                  {
-                    "name": "nonce",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  },
-                  {
-                    "name": "signature",
-                    "type": "bytes",
-                    "internalType": "bytes"
-                  }
-                ]
-              },
-              {
                 "name": "statement",
                 "type": "tuple",
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
                     "name": "merkleRoot",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
@@ -13300,11 +13263,6 @@
                     ]
                   },
                   {
-                    "name": "newOneTimeAddressPublicShare",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
                     "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
@@ -13313,11 +13271,6 @@
                     "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
                   }
                 ]
               },
@@ -13868,34 +13821,12 @@
                 "internalType": "uint256"
               },
               {
-                "name": "ownerSignature",
-                "type": "tuple",
-                "internalType": "struct SignatureWithNonce",
-                "components": [
-                  {
-                    "name": "nonce",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  },
-                  {
-                    "name": "signature",
-                    "type": "bytes",
-                    "internalType": "bytes"
-                  }
-                ]
-              },
-              {
                 "name": "statement",
                 "type": "tuple",
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
                     "name": "merkleRoot",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
@@ -13954,11 +13885,6 @@
                     ]
                   },
                   {
-                    "name": "newOneTimeAddressPublicShare",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
                     "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
@@ -13967,11 +13893,6 @@
                     "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
                   }
                 ]
               },
@@ -15352,34 +15273,12 @@
                 "internalType": "uint256"
               },
               {
-                "name": "ownerSignature",
-                "type": "tuple",
-                "internalType": "struct SignatureWithNonce",
-                "components": [
-                  {
-                    "name": "nonce",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  },
-                  {
-                    "name": "signature",
-                    "type": "bytes",
-                    "internalType": "bytes"
-                  }
-                ]
-              },
-              {
                 "name": "statement",
                 "type": "tuple",
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
                     "name": "merkleRoot",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
@@ -15438,11 +15337,6 @@
                     ]
                   },
                   {
-                    "name": "newOneTimeAddressPublicShare",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
                     "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
@@ -15451,11 +15345,6 @@
                     "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
                   }
                 ]
               },
@@ -15799,34 +15688,12 @@
                 "internalType": "uint256"
               },
               {
-                "name": "ownerSignature",
-                "type": "tuple",
-                "internalType": "struct SignatureWithNonce",
-                "components": [
-                  {
-                    "name": "nonce",
-                    "type": "uint256",
-                    "internalType": "uint256"
-                  },
-                  {
-                    "name": "signature",
-                    "type": "bytes",
-                    "internalType": "bytes"
-                  }
-                ]
-              },
-              {
                 "name": "statement",
                 "type": "tuple",
                 "internalType": "struct IntentAndBalanceValidityStatementFirstFill",
                 "components": [
                   {
                     "name": "merkleRoot",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "intentAndAuthorizingAddressCommitment",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
                   },
@@ -15885,11 +15752,6 @@
                     ]
                   },
                   {
-                    "name": "newOneTimeAddressPublicShare",
-                    "type": "uint256",
-                    "internalType": "BN254.ScalarField"
-                  },
-                  {
                     "name": "oldBalanceNullifier",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
@@ -15898,11 +15760,6 @@
                     "name": "balanceRecoveryId",
                     "type": "uint256",
                     "internalType": "BN254.ScalarField"
-                  },
-                  {
-                    "name": "oneTimeAuthorizingAddress",
-                    "type": "address",
-                    "internalType": "address"
                   }
                 ]
               },
