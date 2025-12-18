@@ -117,6 +117,12 @@ contract VKeys is IVkeys {
         return settlementVKeys.intentOnlyPublicSettlementKeys();
     }
 
+    /// @notice Get the verification key for `INTENT ONLY BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT ONLY BOUNDED SETTLEMENT`
+    function intentOnlyBoundedSettlementKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentOnlyBoundedSettlementKeys();
+    }
+
     /// @notice Get the verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     function intentAndBalancePublicSettlementKeys() external view override returns (VerificationKey memory) {
@@ -127,6 +133,12 @@ contract VKeys is IVkeys {
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     function intentAndBalancePrivateSettlementKeys() external view override returns (VerificationKey memory) {
         return settlementVKeys.intentAndBalancePrivateSettlementKeys();
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    function intentAndBalanceBoundedSettlementKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentAndBalanceBoundedSettlementKeys();
     }
 
     /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`

@@ -38,6 +38,12 @@ contract SettlementVKeys {
         return __deserializeKey(VerificationKeys.INTENT_ONLY_PUBLIC_SETTLEMENT_VKEY);
     }
 
+    /// @notice Get the verification key for `INTENT ONLY BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT ONLY BOUNDED SETTLEMENT`
+    function intentOnlyBoundedSettlementKeys() external pure returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_ONLY_BOUNDED_SETTLEMENT_VKEY);
+    }
+
     /// @notice Get the verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     function intentAndBalancePublicSettlementKeys() external pure returns (VerificationKey memory) {
@@ -48,6 +54,12 @@ contract SettlementVKeys {
     /// @return The verification key for `INTENT AND BALANCE PRIVATE SETTLEMENT`
     function intentAndBalancePrivateSettlementKeys() external pure returns (VerificationKey memory) {
         return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_PRIVATE_SETTLEMENT_VKEY);
+    }
+
+    /// @notice Get the verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    function intentAndBalanceBoundedSettlementKeys() external pure returns (VerificationKey memory) {
+        return __deserializeKey(VerificationKeys.INTENT_AND_BALANCE_BOUNDED_SETTLEMENT_VKEY);
     }
 
     /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`

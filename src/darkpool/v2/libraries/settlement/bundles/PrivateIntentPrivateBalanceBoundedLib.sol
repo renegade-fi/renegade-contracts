@@ -755,8 +755,7 @@ library PrivateIntentPrivateBalanceBoundedLib {
 
         // Push the settlement proof to the settlement context
         BN254.ScalarField[] memory publicInputs = statement.statementSerialize();
-        // TODO: Update verification keys
-        VerificationKey memory vk = vkeys.intentAndBalancePublicSettlementKeys();
+        VerificationKey memory vk = vkeys.intentAndBalanceBoundedSettlementKeys();
         settlementContext.pushProof(publicInputs, proof, vk);
     }
 
