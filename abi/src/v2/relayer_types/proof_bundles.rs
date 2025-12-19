@@ -6,6 +6,7 @@ use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{
     note::NoteCiphertext, traits::BaseType, PlonkLinkProof, PlonkProof,
 };
+use renegade_circuits_v2::zk_circuits::fees::valid_note_redemption::ValidNoteRedemptionStatement;
 use renegade_circuits_v2::zk_circuits::fees::valid_private_protocol_fee_payment::ValidPrivateProtocolFeePaymentStatement;
 use renegade_circuits_v2::zk_circuits::{
     fees::{
@@ -146,6 +147,16 @@ impl IDarkpoolV2::PrivateProtocolFeePaymentProofBundle {
     }
 }
 
+impl IDarkpoolV2::NoteRedemptionProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(statement: ValidNoteRedemptionStatement, proof: PlonkProof) -> Self {
+        Self {
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -266,6 +277,16 @@ impl From<ValidPrivateProtocolFeePaymentStatement>
             noteCommitment: scalar_to_u256(&statement.note_commitment),
             noteCiphertext: statement.note_ciphertext.into(),
             protocolEncryptionKey: statement.protocol_encryption_key.into(),
+        }
+    }
+}
+
+impl From<ValidNoteRedemptionStatement> for IDarkpoolV2::ValidNoteRedemptionStatement {
+    fn from(statement: ValidNoteRedemptionStatement) -> Self {
+        Self {
+            note: statement.note.into(),
+            noteRoot: scalar_to_u256(&statement.note_root),
+            noteNullifier: scalar_to_u256(&statement.note_nullifier),
         }
     }
 }
