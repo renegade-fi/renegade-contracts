@@ -12,10 +12,8 @@ import {
 } from "renegade-lib/verifier/Types.sol";
 
 import { CommitmentLib } from "darkpoolv2-lib/Commitments.sol";
-import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
-import { IDarkpool } from "darkpoolv1-interfaces/IDarkpool.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import {
     RenegadeSettledIntentAuthBundleFirstFill,
@@ -306,8 +304,8 @@ library PrivateIntentPrivateBalanceBundleLib {
     /// @dev A settlement *may* create a new output balance, or it may use an existing balance. These two cases
     /// correspond to the helpers below
     /// @param netReceiveAmount The net receive amount of the trader after fees have been applied
-    /// @param outputBalanceBundle The output balance's authorization bundle
     /// @param settlementStatement The settlement statement to use for the update
+    /// @param outputBalanceBundle The output balance's authorization bundle
     /// @param settlementProof The settlement proof; included here to proof-link the output balance authorization into
     /// the settlement proof
     /// @param settlementContext The settlement context to authorize the output balance for

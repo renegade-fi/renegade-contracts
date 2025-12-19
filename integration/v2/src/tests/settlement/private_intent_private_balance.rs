@@ -89,8 +89,8 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
 
     // Fund both parties
     let (mut party0_bal, party0_bal_opening) =
-        fund_party0(&args.party0_signer(), &obligation0, &args).await?;
-    fund_party1(&args.party1_signer(), &obligation1, &args).await?;
+        fund_ring2_party(&args.party0_signer(), &obligation0, &args).await?;
+    fund_ring0_party(&args.party1_signer(), &obligation1, &args).await?;
 
     // Split the obligations in two for two fills
     let (first_obligation0, second_obligation0) = split_obligation(&obligation0);
@@ -151,7 +151,7 @@ async fn test_settlement__private_intent_private_balance(args: TestArgs) -> Resu
     let fee_take = compute_fee_take(&first_obligation0, &args).await?;
     state_intent0.apply_settlement_obligation(&first_obligation0);
     party0_bal.apply_obligation_in_balance(&first_obligation0);
-    out_balance0.apply_obligation_out_balance(&first_obligation0, &fee_take);
+    out_balance0.apply_obligation_out_balance_no_fees(&first_obligation0, &fee_take);
 
     // Build a settlement bundle for the next fill
     let obligation_bundle = ObligationBundle::new_public(
@@ -231,7 +231,7 @@ pub fn create_intents_and_obligations(
 // --- Funding --- //
 
 /// Fund the ring-2 party with a deposit
-pub async fn fund_party0(
+pub async fn fund_ring2_party(
     signer: &PrivateKeySigner,
     obligation: &SettlementObligation,
     args: &TestArgs,
@@ -243,13 +243,13 @@ pub async fn fund_party0(
     };
 
     fund_for_deposit(obligation.input_token, signer, &deposit, args).await?;
-    let (receipt, bal) = create_balance(args, &deposit).await?;
+    let (receipt, bal) = create_balance(signer, &deposit, args).await?;
     let opening = find_state_element_opening(&bal, &receipt).await?;
     Ok((bal, opening))
 }
 
 /// Fund the ring-0 party
-pub async fn fund_party1(
+pub async fn fund_ring0_party(
     signer: &PrivateKeySigner,
     obligation: &SettlementObligation,
     args: &TestArgs,
@@ -349,7 +349,7 @@ pub fn build_settlement_bundle_first_fill(
 }
 
 /// Build an auth bundle for the first fill
-fn build_auth_bundle_first_fill(
+pub(crate) fn build_auth_bundle_first_fill(
     owner: &PrivateKeySigner,
     commitment: Scalar,
     validity_statement: &IntentAndBalanceFirstFillValidityStatement,
@@ -430,7 +430,7 @@ pub async fn build_settlement_bundle_subsequent_fill(
 // --- Proofs --- //
 
 /// Generate a validity proof for the ring 2 party on the first fill
-fn generate_validity_proof_first_fill(
+pub(crate) fn generate_validity_proof_first_fill(
     intent: &Intent,
     bal: &mut DarkpoolStateBalance,
     balance_opening: &MerkleAuthenticationPath,
@@ -569,7 +569,7 @@ fn generate_validity_proof_subsequent_fill(
 }
 
 /// Generate a new output balance validity proof
-fn generate_new_output_balance_validity_proof(
+pub(crate) fn generate_new_output_balance_validity_proof(
     owner: Address,
     obligation: &SettlementObligation,
     test_args: &TestArgs,
