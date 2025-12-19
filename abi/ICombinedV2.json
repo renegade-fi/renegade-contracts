@@ -635,6 +635,38 @@
   },
   {
     "type": "function",
+    "name": "getProtocolFeeKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct EncryptionKey",
+        "components": [
+          {
+            "name": "point",
+            "type": "tuple",
+            "internalType": "struct BabyJubJubPoint",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getProtocolFeeRecipient",
     "inputs": [],
     "outputs": [
@@ -1569,38 +1601,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "protocolFeeKey",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct EncryptionKey",
-        "components": [
-          {
-            "name": "point",
-            "type": "tuple",
-            "internalType": "struct BabyJubJubPoint",
-            "components": [
-              {
-                "name": "x",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              },
-              {
-                "name": "y",
-                "type": "uint256",
-                "internalType": "BN254.ScalarField"
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",

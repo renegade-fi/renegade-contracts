@@ -6,6 +6,7 @@ use crate::v2::BN254::G1Point;
 use renegade_circuit_types_v2::{
     note::NoteCiphertext, traits::BaseType, PlonkLinkProof, PlonkProof,
 };
+use renegade_circuits_v2::zk_circuits::fees::valid_private_protocol_fee_payment::ValidPrivateProtocolFeePaymentStatement;
 use renegade_circuits_v2::zk_circuits::{
     fees::{
         valid_private_relayer_fee_payment::ValidPrivateRelayerFeePaymentStatement,
@@ -133,6 +134,18 @@ impl IDarkpoolV2::PrivateRelayerFeePaymentProofBundle {
     }
 }
 
+impl IDarkpoolV2::PrivateProtocolFeePaymentProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(statement: ValidPrivateProtocolFeePaymentStatement, proof: PlonkProof) -> Self {
+        Self {
+            // We use the default merkle height for now
+            merkleDepth: U256::from(MERKLE_HEIGHT),
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
@@ -235,6 +248,24 @@ impl From<ValidPrivateRelayerFeePaymentStatement>
             newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
             recoveryId: scalar_to_u256(&statement.recovery_id),
             newRelayerFeeBalanceShare: scalar_to_u256(&statement.new_relayer_fee_balance_share),
+        }
+    }
+}
+
+impl From<ValidPrivateProtocolFeePaymentStatement>
+    for IDarkpoolV2::ValidPrivateProtocolFeePaymentStatement
+{
+    fn from(statement: ValidPrivateProtocolFeePaymentStatement) -> Self {
+        Self {
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldBalanceNullifier: scalar_to_u256(&statement.old_balance_nullifier),
+            newBalanceCommitment: scalar_to_u256(&statement.new_balance_commitment),
+            recoveryId: scalar_to_u256(&statement.recovery_id),
+            newProtocolFeeBalanceShare: scalar_to_u256(&statement.new_protocol_fee_balance_share),
+            protocolFeeReceiver: statement.protocol_fee_receiver,
+            noteCommitment: scalar_to_u256(&statement.note_commitment),
+            noteCiphertext: statement.note_ciphertext.into(),
+            protocolEncryptionKey: statement.protocol_encryption_key.into(),
         }
     }
 }
@@ -421,7 +452,7 @@ impl From<PlonkLinkProof> for IDarkpoolV2::LinkingProof {
 // ----------------------
 
 /// Size a vector of values to be a known fixed size
-fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
+pub(crate) fn size_vec<const N: usize, T>(vec: Vec<T>) -> [T; N] {
     let size = vec.len();
     if size != N {
         panic!("vector is not the correct size: expected {N}, got {size}");

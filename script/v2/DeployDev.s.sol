@@ -45,7 +45,7 @@ contract DeployDevScript is Script, DeployV2Utils {
 
         // Use a dummy encryption key
         EncryptionKey memory protocolFeeKey = EncryptionKey({
-            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(uint256(0)), y: BN254.ScalarField.wrap(uint256(0)) })
+            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(uint256(0)), y: BN254.ScalarField.wrap(uint256(1)) })
         });
 
         // Call the shared deployment logic

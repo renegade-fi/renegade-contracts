@@ -185,7 +185,7 @@ interface IDarkpoolV2 {
 
     /// @notice Get the public encryption key for the protocol's fees
     /// @return The public encryption key for the protocol's fees
-    function protocolFeeKey() external view returns (EncryptionKey memory);
+    function getProtocolFeeKey() external view returns (EncryptionKey memory);
 
     /// @notice Get the protocol fee recipient address
     /// @return The address that receives protocol fees
