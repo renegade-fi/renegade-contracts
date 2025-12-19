@@ -26,7 +26,7 @@ import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.so
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 /// @title Native Settled Public Intent Library
@@ -164,10 +164,8 @@ library NativeSettledPublicIntentLib {
         }
 
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
-        // Spending the nonce here prevents replays on registering the intent for a first fill.
-        bool sigValid = auth.intentSignature.verifyPrehashed(auth.permit.intent.owner, intentHash);
+        bool sigValid = auth.intentSignature.verifyPrehashedAndSpendNonce(auth.permit.intent.owner, intentHash, state);
         if (!sigValid) revert InvalidIntentSignature();
-        state.spendNonce(auth.intentSignature.nonce);
 
         // Verify the intent's fields on its first fill
         IntentLib.validate(auth.permit.intent);
@@ -199,9 +197,9 @@ library NativeSettledPublicIntentLib {
 
         // Verify that the executor has signed the settlement obligation
         bytes32 executorDigest = bundleData.computeExecutorDigest(obligation);
-        bool executorValid = auth.executorSignature.verifyPrehashed(auth.permit.executor, executorDigest);
+        bool executorValid =
+            auth.executorSignature.verifyPrehashedAndSpendNonce(auth.permit.executor, executorDigest, state);
         if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
-        state.spendNonce(auth.executorSignature.nonce);
     }
 
     // -------------------------------
@@ -226,9 +224,9 @@ library NativeSettledPublicIntentLib {
 
         // Verify that the executor has signed the bounded match result
         bytes32 matchResultHash = permit.computeHash();
-        bool executorValid = matchBundle.executorSignature.verifyPrehashed(auth.permit.executor, matchResultHash);
+        bool executorValid =
+            matchBundle.executorSignature.verifyPrehashedAndSpendNonce(auth.permit.executor, matchResultHash, state);
         if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
-        state.spendNonce(matchBundle.executorSignature.nonce);
     }
 
     // --------------------------
