@@ -12,6 +12,7 @@ use renegade_circuits_v2::zk_circuits::{
     },
     valid_balance_create::ValidBalanceCreateStatement,
     valid_deposit::ValidDepositStatement,
+    valid_order_cancellation::ValidOrderCancellationStatement,
     valid_withdrawal::ValidWithdrawalStatement,
     validity_proofs::{
         intent_and_balance::IntentAndBalanceValidityStatement,
@@ -72,11 +73,21 @@ impl IDarkpoolV2::WithdrawalProofBundle {
     }
 }
 
+impl IDarkpoolV2::OrderCancellationProofBundle {
+    /// Create a new proof bundle from a statement and proof
+    pub fn new(statement: ValidOrderCancellationStatement, proof: PlonkProof) -> Self {
+        Self {
+            statement: statement.into(),
+            proof: proof.into(),
+        }
+    }
+}
+
 // -------------------
 // | Statement Types |
 // -------------------
 
-// --- Validity Statements --- //
+// --- State Update Statements --- //
 
 impl From<ValidBalanceCreateStatement> for IDarkpoolV2::ValidBalanceCreateStatement {
     fn from(statement: ValidBalanceCreateStatement) -> Self {
@@ -121,6 +132,18 @@ impl From<ValidWithdrawalStatement> for IDarkpoolV2::ValidWithdrawalStatement {
         }
     }
 }
+
+impl From<ValidOrderCancellationStatement> for IDarkpoolV2::ValidOrderCancellationStatement {
+    fn from(statement: ValidOrderCancellationStatement) -> Self {
+        Self {
+            owner: statement.owner,
+            merkleRoot: scalar_to_u256(&statement.merkle_root),
+            oldIntentNullifier: scalar_to_u256(&statement.old_intent_nullifier),
+        }
+    }
+}
+
+// --- Validity Statements --- //
 
 impl From<IntentOnlyFirstFillValidityStatement>
     for IDarkpoolV2::IntentOnlyValidityStatementFirstFill

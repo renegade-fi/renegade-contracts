@@ -8,6 +8,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { DarkpoolV2TestUtils } from "../DarkpoolV2TestUtils.sol";
 import { OrderCancellationProofBundle } from "darkpoolv2-types/ProofBundles.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
+import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
@@ -42,15 +43,18 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
     /// @return The order cancellation authorization
     function createOrderCancellationAuth(BN254.ScalarField intentNullifier)
         internal
-        view
         returns (OrderCancellationAuth memory)
     {
-        // Sign the intent nullifier
+        // Generate a random nonce for replay protection
+        uint256 nonce = vm.randomUint();
+
+        // Sign H(nullifierHash || nonce)
         bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(intentOwner.privateKey, nullifierHash);
+        bytes32 signatureHash = EfficientHashLib.hash(nullifierHash, bytes32(nonce));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(intentOwner.privateKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        return OrderCancellationAuth({ signature: signature });
+        return OrderCancellationAuth({ signature: SignatureWithNonce({ nonce: nonce, signature: signature }) });
     }
 
     /// @notice Create an order cancellation proof bundle for testing
@@ -74,15 +78,18 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
     /// @return The order cancellation authorization with wrong signer
     function createOrderCancellationAuthWrongSigner(BN254.ScalarField intentNullifier)
         internal
-        view
         returns (OrderCancellationAuth memory)
     {
-        // Sign the intent nullifier with wrong signer
+        // Generate a random nonce for replay protection
+        uint256 nonce = vm.randomUint();
+
+        // Sign H(nullifierHash || nonce) with wrong signer
         bytes32 nullifierHash = EfficientHashLib.hash(BN254.ScalarField.unwrap(intentNullifier));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongSigner.privateKey, nullifierHash);
+        bytes32 signatureHash = EfficientHashLib.hash(nullifierHash, bytes32(nonce));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongSigner.privateKey, signatureHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        return OrderCancellationAuth({ signature: signature });
+        return OrderCancellationAuth({ signature: SignatureWithNonce({ nonce: nonce, signature: signature }) });
     }
 
     // ---------
@@ -105,16 +112,17 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
     /// @notice Test that a nullifier cannot be reused
     function test_orderCancellation_duplicateNullifier() public {
         // Generate test data
-        (OrderCancellationAuth memory auth, OrderCancellationProofBundle memory proofBundle) =
-            generateRandomOrderCancellationCalldata();
+        OrderCancellationProofBundle memory proofBundle = createOrderCancellationProofBundle();
+        OrderCancellationAuth memory auth = createOrderCancellationAuth(proofBundle.statement.oldIntentNullifier);
 
         // Execute the cancellation once
         darkpool.cancelOrder(auth, proofBundle);
 
-        // Try to execute the same cancellation again with the same nullifier
+        // Try to execute the same cancellation again with the same nullifier but a fresh nonce
         // Should revert because the nullifier is already spent
+        OrderCancellationAuth memory auth2 = createOrderCancellationAuth(proofBundle.statement.oldIntentNullifier);
         vm.expectRevert(NullifierLib.NullifierAlreadySpent.selector);
-        darkpool.cancelOrder(auth, proofBundle);
+        darkpool.cancelOrder(auth2, proofBundle);
     }
 
     /// @notice Test order cancellation with invalid signature

@@ -10,8 +10,20 @@
         "components": [
           {
             "name": "signature",
-            "type": "bytes",
-            "internalType": "bytes"
+            "type": "tuple",
+            "internalType": "struct SignatureWithNonce",
+            "components": [
+              {
+                "name": "nonce",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
           }
         ]
       },
@@ -553,6 +565,26 @@
   },
   {
     "type": "function",
+    "name": "getDefaultProtocolFee",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct FixedPoint",
+        "components": [
+          {
+            "name": "repr",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getMerkleRoot",
     "inputs": [
       {
@@ -951,6 +983,52 @@
             "name": "merkleDepth",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "noteCiphertext",
+            "type": "tuple",
+            "internalType": "struct ElGamalCiphertext",
+            "components": [
+              {
+                "name": "ephemeralKey",
+                "type": "tuple",
+                "internalType": "struct BabyJubJubPoint",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "ciphertext",
+                "type": "uint256[]",
+                "internalType": "BN254.ScalarField[]"
+              }
+            ]
+          },
+          {
+            "name": "relayerCiphertextSignature",
+            "type": "tuple",
+            "internalType": "struct SignatureWithNonce",
+            "components": [
+              {
+                "name": "nonce",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
           },
           {
             "name": "statement",
@@ -1363,6 +1441,204 @@
                     "internalType": "BN254.ScalarField"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "protocolFeeKey",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct EncryptionKey",
+        "components": [
+          {
+            "name": "point",
+            "type": "tuple",
+            "internalType": "struct BabyJubJubPoint",
+            "components": [
+              {
+                "name": "x",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "y",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "redeemNote",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct NoteRedemptionProofBundle",
+        "components": [
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidNoteRedemptionStatement",
+            "components": [
+              {
+                "name": "note",
+                "type": "tuple",
+                "internalType": "struct Note",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "blinder",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "noteRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "noteNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
               }
             ]
           },
@@ -2075,7 +2351,22 @@
   },
   {
     "type": "error",
+    "name": "InvalidProtocolFee",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidProtocolFeeEncryptionKey",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidProtocolFeeRates",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidProtocolFeeReceiver",
     "inputs": []
   },
   {
@@ -2085,7 +2376,27 @@
   },
   {
     "type": "error",
+    "name": "InvalidRelayerCiphertextSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidSettlementBundleType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NonceAlreadySpent",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoteRedemptionVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NullifierAlreadySpent",
     "inputs": []
   },
   {
@@ -2106,7 +2417,27 @@
   },
   {
     "type": "error",
+    "name": "PrivateProtocolFeePaymentVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PrivateRelayerFeePaymentVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ProofVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PublicProtocolFeePaymentVerificationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PublicRelayerFeePaymentVerificationFailed",
     "inputs": []
   },
   {
@@ -2784,6 +3115,178 @@
   },
   {
     "type": "function",
+    "name": "verifyNoteRedemptionValidity",
+    "inputs": [
+      {
+        "name": "proofBundle",
+        "type": "tuple",
+        "internalType": "struct NoteRedemptionProofBundle",
+        "components": [
+          {
+            "name": "statement",
+            "type": "tuple",
+            "internalType": "struct ValidNoteRedemptionStatement",
+            "components": [
+              {
+                "name": "note",
+                "type": "tuple",
+                "internalType": "struct Note",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "blinder",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "noteRoot",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              },
+              {
+                "name": "noteNullifier",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          },
+          {
+            "name": "proof",
+            "type": "tuple",
+            "internalType": "struct PlonkProof",
+            "components": [
+              {
+                "name": "wireComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "zComm",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "quotientComms",
+                "type": "tuple[5]",
+                "internalType": "struct BN254.G1Point[5]",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZeta",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wZetaOmega",
+                "type": "tuple",
+                "internalType": "struct BN254.G1Point",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.BaseField"
+                  }
+                ]
+              },
+              {
+                "name": "wireEvals",
+                "type": "uint256[5]",
+                "internalType": "BN254.ScalarField[5]"
+              },
+              {
+                "name": "sigmaEvals",
+                "type": "uint256[4]",
+                "internalType": "BN254.ScalarField[4]"
+              },
+              {
+                "name": "zBar",
+                "type": "uint256",
+                "internalType": "BN254.ScalarField"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "verifyOrderCancellationValidity",
     "inputs": [
       {
@@ -3173,6 +3676,52 @@
             "name": "merkleDepth",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "noteCiphertext",
+            "type": "tuple",
+            "internalType": "struct ElGamalCiphertext",
+            "components": [
+              {
+                "name": "ephemeralKey",
+                "type": "tuple",
+                "internalType": "struct BabyJubJubPoint",
+                "components": [
+                  {
+                    "name": "x",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "y",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
+              },
+              {
+                "name": "ciphertext",
+                "type": "uint256[]",
+                "internalType": "BN254.ScalarField[]"
+              }
+            ]
+          },
+          {
+            "name": "relayerCiphertextSignature",
+            "type": "tuple",
+            "internalType": "struct SignatureWithNonce",
+            "components": [
+              {
+                "name": "nonce",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
           },
           {
             "name": "statement",

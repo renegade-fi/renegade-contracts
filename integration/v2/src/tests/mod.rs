@@ -1,6 +1,4 @@
 //! Integration tests for the Renegade v2 solidity contracts
 
-mod create_balance;
-mod deposit;
 mod settlement;
-mod withdraw;
+mod state_updates;
