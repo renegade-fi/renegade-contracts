@@ -3,7 +3,7 @@
 use alloy::primitives::U256;
 use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::NoteRedemptionProofBundle;
-use renegade_circuit_types::{PlonkProof, note::Note};
+use renegade_circuit_types::PlonkProof;
 use renegade_circuits::{
     singleprover_prove,
     zk_circuits::fees::valid_note_redemption::{
@@ -11,6 +11,7 @@ use renegade_circuits::{
     },
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
+use renegade_darkpool_types::note::Note;
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{

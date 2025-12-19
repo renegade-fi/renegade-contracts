@@ -14,8 +14,8 @@ use renegade_abi::v2::IDarkpoolV2::{
     PublicIntentPermit, RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill,
     SettlementBundle,
 };
-use renegade_circuit_types::{
-    PlonkLinkProof, PlonkProof, ProofLinkingHint,
+use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
+use renegade_darkpool_types::{
     balance::{Balance, DarkpoolStateBalance, PostMatchBalanceShare, PreMatchBalanceShare},
     intent::{DarkpoolStateIntent, Intent, PreMatchIntentShare},
     settlement_obligation::SettlementObligation,

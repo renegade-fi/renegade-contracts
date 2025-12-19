@@ -13,8 +13,8 @@ use renegade_abi::v2::{
     },
     auth_helpers::sign_with_nonce,
 };
-use renegade_circuit_types::{
-    Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint,
+use renegade_circuit_types::{Commitment, PlonkLinkProof, PlonkProof, ProofLinkingHint};
+use renegade_darkpool_types::{
     intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
     state_wrapper::StateWrapper,

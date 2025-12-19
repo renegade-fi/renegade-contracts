@@ -1,6 +1,6 @@
 //! Commitment type conversions
 
-use renegade_circuit_types_v2::state_wrapper::PartialCommitment;
+use darkpool_types::state_wrapper::PartialCommitment;
 use renegade_crypto_v2::fields::scalar_to_u256;
 
 use crate::v2::IDarkpoolV2;

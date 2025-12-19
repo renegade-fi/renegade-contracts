@@ -10,13 +10,11 @@ use eyre::{Result, eyre};
 use itertools::Itertools;
 use num_bigint::BigUint;
 use renegade_abi::v2::IDarkpoolV2::{self, IDarkpoolV2Events};
-use renegade_circuit_types::{
-    state_wrapper::StateWrapper,
-    traits::{CircuitBaseType, SecretShareBaseType},
-};
+use renegade_circuit_types::traits::{CircuitBaseType, SecretShareBaseType};
 use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_constants::{MERKLE_HEIGHT, Scalar};
 use renegade_crypto::fields::{scalar_to_u256, u256_to_scalar};
+use renegade_darkpool_types::state_wrapper::StateWrapper;
 
 use crate::util::darkpool::Darkpool;
 

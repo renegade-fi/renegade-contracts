@@ -3,9 +3,8 @@
 use super::*;
 use crate::v2::IDarkpoolV2::{self, SignatureWithNonce};
 use crate::v2::BN254::G1Point;
-use renegade_circuit_types_v2::{
-    note::NoteCiphertext, traits::BaseType, PlonkLinkProof, PlonkProof,
-};
+use darkpool_types::note::NoteCiphertext;
+use renegade_circuit_types_v2::{PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::fees::valid_note_redemption::ValidNoteRedemptionStatement;
 use renegade_circuits_v2::zk_circuits::fees::valid_private_protocol_fee_payment::ValidPrivateProtocolFeePaymentStatement;
 use renegade_circuits_v2::zk_circuits::{

@@ -1,13 +1,15 @@
 //! Relayer type interactions and conversions for the V2 ABI
 
 use alloy::primitives::U256;
-use renegade_circuit_types_v2::elgamal::BabyJubJubPoint;
 use renegade_circuit_types_v2::fixed_point::FixedPoint;
 use renegade_constants_v2::Scalar;
 use renegade_crypto_v2::fields::scalar_to_u256;
 
 use crate::v2::IDarkpoolV2;
 use crate::v2::BN254;
+
+// Re-export for use in other modules
+pub use renegade_circuit_types_v2::primitives::baby_jubjub::BabyJubJubPoint;
 
 pub mod balance;
 pub mod ciphertext;

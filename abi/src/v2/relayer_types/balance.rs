@@ -1,9 +1,8 @@
 //! Balance type conversions
 
+use darkpool_types::balance::{BalanceShare, PostMatchBalanceShare, PreMatchBalanceShare};
 use renegade_circuit_types_v2::{
-    balance::{BalanceShare, PostMatchBalanceShare, PreMatchBalanceShare},
-    elgamal::BabyJubJubPointShare,
-    schnorr::SchnorrPublicKeyShare,
+    primitives::baby_jubjub::BabyJubJubPointShare, schnorr::SchnorrPublicKeyShare,
 };
 use renegade_crypto_v2::fields::scalar_to_u256;
 

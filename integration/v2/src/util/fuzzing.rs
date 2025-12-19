@@ -3,12 +3,11 @@
 use crate::test_args::TestArgs;
 use alloy::primitives::{Address, U256};
 use eyre::Result;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use renegade_abi::v2::IDarkpoolV2::{Deposit, Withdrawal};
-use renegade_circuit_types::{
-    intent::Intent, max_amount, settlement_obligation::SettlementObligation, Amount,
-};
+use renegade_circuit_types::{Amount, max_amount};
 use renegade_circuits::test_helpers::{compute_implied_price, compute_min_amount_out};
+use renegade_darkpool_types::{intent::Intent, settlement_obligation::SettlementObligation};
 
 /// A random "amount" in the Renegade sense
 ///
