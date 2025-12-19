@@ -102,10 +102,7 @@ library RenegadeSettledPrivateIntentLib {
         uint256 netReceiveAmount =
             PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
-        // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, contracts, state);
-
-        // 3. Validate the output balance validity
+        // 2. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
             bundle.settlementStatement,
@@ -115,6 +112,9 @@ library RenegadeSettledPrivateIntentLib {
             contracts,
             state
         );
+
+        // 3. Validate the intent and input (capitalizing) balance authorization
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, contracts, state);
     }
 
     /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill
@@ -148,10 +148,7 @@ library RenegadeSettledPrivateIntentLib {
         uint256 netReceiveAmount =
             PrivateIntentPrivateBalanceBundleLib.applyFees(bundle.settlementStatement, state, settlementContext);
 
-        // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, contracts, state);
-
-        // 3. Validate the output balance validity
+        // 2. Validate the output balance validity
         PrivateIntentPrivateBalanceBundleLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
             bundle.settlementStatement,
@@ -161,6 +158,9 @@ library RenegadeSettledPrivateIntentLib {
             contracts,
             state
         );
+
+        // 3. Validate the intent and input (capitalizing) balance authorization
+        bundle.authorizeAndUpdateIntentAndBalance(settlementContext, contracts, state);
     }
 
     /// @notice Execute a renegade settled private intent bundle with bounded settlement

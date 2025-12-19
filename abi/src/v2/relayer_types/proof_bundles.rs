@@ -168,14 +168,7 @@ impl From<ValidBalanceCreateStatement> for IDarkpoolV2::ValidBalanceCreateStatem
         Self {
             deposit: statement.deposit.into(),
             newBalanceCommitment: scalar_to_u256(&statement.balance_commitment),
-            newBalancePublicShares: size_vec(
-                statement
-                    .new_balance_share
-                    .to_scalars()
-                    .into_iter()
-                    .map(|s| scalar_to_u256(&s))
-                    .collect(),
-            ),
+            newBalanceShares: statement.new_balance_share.into(),
             recoveryId: scalar_to_u256(&statement.recovery_id),
         }
     }
@@ -355,6 +348,8 @@ impl From<IntentAndBalanceValidityStatement> for IDarkpoolV2::IntentAndBalanceVa
 impl From<NewOutputBalanceValidityStatement> for IDarkpoolV2::NewOutputBalanceValidityStatement {
     fn from(statement: NewOutputBalanceValidityStatement) -> Self {
         Self {
+            existingBalanceMerkleRoot: scalar_to_u256(&statement.existing_balance_merkle_root),
+            existingBalanceNullifier: scalar_to_u256(&statement.existing_balance_nullifier),
             preMatchBalanceShares: statement.pre_match_balance_shares.into(),
             newBalancePartialCommitment: statement.new_balance_partial_commitment.into(),
             recoveryId: scalar_to_u256(&statement.recovery_id),

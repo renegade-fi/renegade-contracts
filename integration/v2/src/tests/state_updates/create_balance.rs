@@ -118,7 +118,7 @@ fn build_witness_statement(
         deposit.token,
         deposit.from,
         args.relayer_signer_addr(),
-        deposit.from,
+        args.balance_authority.public_key(),
     )
     .with_amount(amount_u128);
 

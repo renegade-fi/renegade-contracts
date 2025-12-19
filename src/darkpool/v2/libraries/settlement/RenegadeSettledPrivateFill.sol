@@ -80,14 +80,14 @@ library RenegadeSettledPrivateFillLib {
             settlementBundle.decodeRenegadeSettledPrivateFirstFillBundle();
         PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
 
-        // 1. Authorize the intent and input balance
-        RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateIntentAndBalance(
-            partyId, bundleData, obligation, settlementContext, contracts, state
-        );
-
-        // 2. Validate the output balance validity
+        // 1. Validate the output balance validity
         RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateOutputBalance(
             partyId, bundleData.outputBalanceBundle, obligation, settlementContext, contracts, state
+        );
+
+        // 2. Authorize the intent and input balance
+        RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateIntentAndBalance(
+            partyId, bundleData, obligation, settlementContext, contracts, state
         );
     }
 
@@ -111,14 +111,14 @@ library RenegadeSettledPrivateFillLib {
         RenegadeSettledPrivateFillBundle memory bundleData = settlementBundle.decodeRenegadeSettledPrivateBundle();
         PrivateObligationBundle memory obligation = obligationBundle.decodePrivateObligation();
 
-        // 1. Authorize the intent and input balance
-        RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateIntentAndBalance(
-            partyId, bundleData, obligation, settlementContext, contracts, state
-        );
-
-        // 2. Validate the output balance validity
+        // 1. Validate the output balance validity
         RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateOutputBalance(
             partyId, bundleData.outputBalanceBundle, obligation, settlementContext, contracts, state
+        );
+
+        // 2. Authorize the intent and input balance
+        RenegadeSettledPrivateFillBundleLib.authorizeAndUpdateIntentAndBalance(
+            partyId, bundleData, obligation, settlementContext, contracts, state
         );
     }
 }

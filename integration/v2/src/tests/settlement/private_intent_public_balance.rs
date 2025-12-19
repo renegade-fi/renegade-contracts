@@ -1,7 +1,7 @@
 //! Tests for settling a natively-settled private intent
 
 use alloy::{
-    primitives::{Address, U160, U256, aliases::U48, keccak256},
+    primitives::{Address, U160, U256, aliases::U48},
     signers::local::PrivateKeySigner,
 };
 use eyre::Result;
@@ -182,6 +182,12 @@ async fn fund_parties(args: &TestArgs) -> Result<()> {
 
 /// Approve a balance to be spent by the darkpool via the permit2 contract
 async fn approve_balance(token: Address, signer: &PrivateKeySigner, args: &TestArgs) -> Result<()> {
+    // Approve Permit2 to spend the ERC20 tokens
+    let erc20 = args.erc20_from_addr_with_signer(token, signer.clone())?;
+    let permit2_addr = args.permit2_addr()?;
+    send_tx(erc20.approve(permit2_addr, U256::MAX)).await?;
+
+    // Approve the darkpool to spend the tokens via Permit2
     let amt = U160::MAX;
     let permit2 = args.permit2_with_signer(signer)?;
     let darkpool = args.darkpool_addr();
@@ -352,8 +358,7 @@ fn build_auth_bundle_first_fill(
     validity_proof: &PlonkProof,
 ) -> Result<PrivateIntentAuthBundleFirstFill> {
     let comm_u256 = scalar_to_u256(&commitment);
-    let comm_hash = keccak256(comm_u256.to_be_bytes_vec());
-    let signature = sign_with_nonce(comm_hash.as_slice(), owner)?;
+    let signature = sign_with_nonce(&comm_u256.to_be_bytes_vec(), owner)?;
 
     Ok(PrivateIntentAuthBundleFirstFill {
         intentSignature: signature,

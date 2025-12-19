@@ -444,9 +444,58 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newBalancePublicShares",
-                "type": "uint256[7]",
-                "internalType": "BN254.ScalarField[7]"
+                "name": "newBalanceShares",
+                "type": "tuple",
+                "internalType": "struct BalanceShare",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "relayerFeeRecipient",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "signingAuthority",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               }
             ]
           },
@@ -3006,9 +3055,58 @@
                 "internalType": "BN254.ScalarField"
               },
               {
-                "name": "newBalancePublicShares",
-                "type": "uint256[7]",
-                "internalType": "BN254.ScalarField[7]"
+                "name": "newBalanceShares",
+                "type": "tuple",
+                "internalType": "struct BalanceShare",
+                "components": [
+                  {
+                    "name": "mint",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "owner",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "relayerFeeRecipient",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "signingAuthority",
+                    "type": "tuple",
+                    "internalType": "struct BabyJubJubPoint",
+                    "components": [
+                      {
+                        "name": "x",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      },
+                      {
+                        "name": "y",
+                        "type": "uint256",
+                        "internalType": "BN254.ScalarField"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "relayerFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "protocolFeeBalance",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  },
+                  {
+                    "name": "amount",
+                    "type": "uint256",
+                    "internalType": "BN254.ScalarField"
+                  }
+                ]
               }
             ]
           },

@@ -80,7 +80,7 @@ library PublicInputsLib {
         publicInputs[2] = BN254.ScalarField.wrap(statement.deposit.amount);
         publicInputs[3] = statement.newBalanceCommitment;
         publicInputs[4] = statement.recoveryId;
-        uint256[] memory balanceShareScalars = BalanceShareLib.scalarSerialize(statement.newBalance);
+        uint256[] memory balanceShareScalars = BalanceShareLib.scalarSerialize(statement.newBalanceShares);
         for (uint256 i = 0; i < balanceShareScalars.length; ++i) {
             publicInputs[5 + i] = BN254.ScalarField.wrap(balanceShareScalars[i]);
         }

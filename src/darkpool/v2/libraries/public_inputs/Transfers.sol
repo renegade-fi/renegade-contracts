@@ -36,7 +36,7 @@ struct ValidBalanceCreateStatement {
     BN254.ScalarField recoveryId;
     /// @dev The public shares of the new balance
     /// @dev These shares represent an entire balance
-    BalanceShare newBalance;
+    BalanceShare newBalanceShares;
 }
 
 // --- Withdrawal Statements --- //

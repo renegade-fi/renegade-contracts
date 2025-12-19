@@ -213,7 +213,7 @@ contract DepositTest is DarkpoolV2TestUtils {
             deposit: deposit,
             newBalanceCommitment: newBalanceCommitment,
             recoveryId: randomScalar(),
-            newBalance: newBalance
+            newBalanceShares: newBalance
         });
 
         return

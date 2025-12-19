@@ -9,7 +9,9 @@ use alloy::{
     transports::http::reqwest::Url,
 };
 use eyre::Result;
-use renegade_circuit_types::{elgamal::EncryptionKey, fixed_point::FixedPoint};
+use renegade_circuit_types::{
+    elgamal::EncryptionKey, fixed_point::FixedPoint, schnorr::SchnorrPrivateKey,
+};
 
 use crate::{
     CliArgs,
@@ -37,6 +39,10 @@ pub(crate) struct TestArgs {
     pub tx_submitter: PrivateKeySigner,
     /// The relayer's signer which is used to authorize fee payments
     pub relayer_signer: PrivateKeySigner,
+    /// The balance authority private key to use for testing
+    ///
+    /// It's simpler to sample this once and use the same key across balances. This gives easy access to the private key.
+    pub balance_authority: SchnorrPrivateKey,
     /// The RPC URL for the test network
     pub rpc_url: String,
 }
@@ -252,6 +258,7 @@ impl From<CliArgs> for TestArgs {
             party1_signer,
             tx_submitter,
             relayer_signer,
+            balance_authority: SchnorrPrivateKey::random(),
             rpc_url: cli_args.rpc_url,
         }
     }
