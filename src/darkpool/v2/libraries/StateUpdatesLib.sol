@@ -8,7 +8,6 @@ import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
-import { ECDSALib } from "renegade-lib/ECDSA.sol";
 import { EncryptionKey, EncryptionKeyLib } from "renegade-lib/Ciphertext.sol";
 
 import {
