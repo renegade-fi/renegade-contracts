@@ -9,7 +9,8 @@ import {
     ValidPublicProtocolFeePaymentStatement,
     ValidPublicRelayerFeePaymentStatement,
     ValidPrivateProtocolFeePaymentStatement,
-    ValidPrivateRelayerFeePaymentStatement
+    ValidPrivateRelayerFeePaymentStatement,
+    ValidNoteRedemptionStatement
 } from "./Fees.sol";
 import { ValidOrderCancellationStatement } from "./OrderCancellation.sol";
 import {
@@ -211,6 +212,26 @@ library PublicInputsLib {
         publicInputs[4] = statement.newRelayerFeeBalanceShare;
         publicInputs[5] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeReceiver)));
         publicInputs[6] = statement.noteCommitment;
+    }
+
+    /// @notice Serialize the public inputs for a proof of note redemption validity
+    /// @param statement The statement to serialize
+    /// @return publicInputs The serialized public inputs
+    function statementSerialize(ValidNoteRedemptionStatement memory statement)
+        internal
+        pure
+        returns (BN254.ScalarField[] memory publicInputs)
+    {
+        uint256 nPublicInputs = 6;
+        publicInputs = new BN254.ScalarField[](nPublicInputs);
+        // Serialize the note fields
+        publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.note.mint)));
+        publicInputs[1] = BN254.ScalarField.wrap(statement.note.amount);
+        publicInputs[2] = BN254.ScalarField.wrap(uint256(uint160(statement.note.receiver)));
+        publicInputs[3] = statement.note.blinder;
+        // Serialize the note root and nullifier
+        publicInputs[4] = statement.noteRoot;
+        publicInputs[5] = statement.noteNullifier;
     }
 
     /// @notice Serialize the public inputs for a proof of intent only validity (first fill)

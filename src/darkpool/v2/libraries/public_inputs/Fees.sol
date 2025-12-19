@@ -93,3 +93,13 @@ struct ValidPrivateRelayerFeePaymentStatement {
     /// @dev The commitment to the note
     BN254.ScalarField noteCommitment;
 }
+
+/// @notice A statement proving validity of a note redemption
+struct ValidNoteRedemptionStatement {
+    /// @dev The note being redeemed
+    Note note;
+    /// @dev The Merkle root to which the note opens
+    BN254.ScalarField noteRoot;
+    /// @dev The nullifier of the note
+    BN254.ScalarField noteNullifier;
+}

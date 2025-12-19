@@ -12,7 +12,8 @@ import {
     PublicProtocolFeePaymentProofBundle,
     PublicRelayerFeePaymentProofBundle,
     PrivateProtocolFeePaymentProofBundle,
-    PrivateRelayerFeePaymentProofBundle
+    PrivateRelayerFeePaymentProofBundle,
+    NoteRedemptionProofBundle
 } from "darkpoolv2-types/ProofBundles.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
@@ -55,6 +56,8 @@ interface IDarkpoolV2 {
     error PrivateProtocolFeePaymentVerificationFailed();
     /// @notice Thrown when a private relayer fee payment verification fails
     error PrivateRelayerFeePaymentVerificationFailed();
+    /// @notice Thrown when a note redemption verification fails
+    error NoteRedemptionVerificationFailed();
     /// @notice Thrown when an order cancellation verification fails
     error OrderCancellationVerificationFailed();
     /// @notice Thrown when the order cancellation signature is invalid
@@ -232,6 +235,11 @@ interface IDarkpoolV2 {
     /// @notice Pay relayer fees privately on a balance
     /// @param proofBundle The proof bundle for the private relayer fee payment
     function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) external;
+
+    /// @notice Redeem a note
+    /// @dev Redeeming a note withdraws the note's contents to its receiver's EOA
+    /// @param proofBundle The proof bundle for the note redemption
+    function redeemNote(NoteRedemptionProofBundle calldata proofBundle) external;
 
     /// @notice Settle a trade
     /// @param obligationBundle The obligation bundle for the trade. This type encodes the result of the trade.

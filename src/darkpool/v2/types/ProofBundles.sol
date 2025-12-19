@@ -12,7 +12,8 @@ import {
     ValidPublicProtocolFeePaymentStatement,
     ValidPublicRelayerFeePaymentStatement,
     ValidPrivateProtocolFeePaymentStatement,
-    ValidPrivateRelayerFeePaymentStatement
+    ValidPrivateRelayerFeePaymentStatement,
+    ValidNoteRedemptionStatement
 } from "darkpoolv2-lib/public_inputs/Fees.sol";
 import { ValidOrderCancellationStatement } from "darkpoolv2-lib/public_inputs/OrderCancellation.sol";
 
@@ -105,5 +106,13 @@ struct PrivateRelayerFeePaymentProofBundle {
     /// @dev The statement of the private relayer fee payment validity
     ValidPrivateRelayerFeePaymentStatement statement;
     /// @dev The proof of the private relayer fee payment validity
+    PlonkProof proof;
+}
+
+/// @notice A validation bundle for redeeming a note
+struct NoteRedemptionProofBundle {
+    /// @dev The statement of the note redemption validity
+    ValidNoteRedemptionStatement statement;
+    /// @dev The proof of the note redemption validity
     PlonkProof proof;
 }
