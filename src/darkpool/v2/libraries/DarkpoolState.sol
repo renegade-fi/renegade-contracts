@@ -9,6 +9,7 @@ import { FeeRate } from "darkpoolv2-types/Fee.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
+import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 
 /// @title Darkpool State
 /// @notice Storage struct bundling core darkpool state
@@ -27,6 +28,8 @@ struct DarkpoolState {
     /// @notice The address at which external parties pay protocol fees
     /// @dev This is only used for external parties in atomic matches
     address protocolFeeRecipient;
+    /// @notice The public encryption key for the protocol's fees
+    EncryptionKey protocolFeeKey;
     /// @notice A per-pair fee override for the darkpool
     /// @dev This is used to set the protocol fee rate for atomic matches on a per-pair basis
     /// @dev Only external match fees are overridden, internal match fees are always the protocol fee rate
@@ -126,6 +129,13 @@ library DarkpoolStateLib {
     /// @return The protocol fee recipient address
     function getProtocolFeeRecipient(DarkpoolState storage state) internal view returns (address) {
         return state.protocolFeeRecipient;
+    }
+
+    /// @notice Get the protocol fee encryption key
+    /// @param state The darkpool state
+    /// @return The protocol fee encryption key
+    function getProtocolFeeKey(DarkpoolState storage state) internal view returns (EncryptionKey memory) {
+        return state.protocolFeeKey;
     }
 
     /// @notice Get the protocol fee rate for a trading pair

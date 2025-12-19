@@ -87,11 +87,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // | Storage |
     // -----------
 
-    // --- Fee Storage --- //
-
-    /// @notice The public encryption key for the protocol's fees
-    EncryptionKey public protocolFeeKey;
-
     // --- Delegate Addresses --- //
 
     /// @notice The hasher for the darkpool
@@ -111,8 +106,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @notice Bundled core darkpool state
     /// @dev We bundle the state here to pass it as a single parameter to verification methods.
-    /// @dev Contains: openPublicIntents mapping, spentNonces mapping, perPairFeeOverrides mapping, merkleTree, and
-    /// nullifierSet
+    /// @dev Contains: openPublicIntents mapping, spentNonces mapping, perPairFeeOverrides mapping, merkleTree,
+    /// nullifierSet, protocolFeeKey, protocolFeeRecipient, and defaultProtocolFeeRate
     DarkpoolState private _state;
 
     // ---------------------------------
@@ -145,8 +140,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
         _state.defaultProtocolFeeRate = FixedPointLib.wrap(defaultProtocolFeeRateRepr);
         _state.protocolFeeRecipient = protocolFeeRecipient_;
+        _state.protocolFeeKey = protocolFeeKey_;
         _state.merkleMountainRange.initialize(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
-        protocolFeeKey = protocolFeeKey_;
         hasher = hasher_;
         vkeys = vkeys_;
         verifier = verifier_;
@@ -187,6 +182,12 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     /// @inheritdoc IDarkpoolV2
     function getDefaultProtocolFee() public view returns (FixedPoint memory) {
         return _state.getDefaultProtocolFeeRate();
+    }
+
+    /// @notice Get the public encryption key for the protocol's fees
+    /// @return The public encryption key for the protocol's fees
+    function protocolFeeKey() public view returns (EncryptionKey memory) {
+        return _state.getProtocolFeeKey();
     }
 
     // -----------------
@@ -245,7 +246,8 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
 
     /// @inheritdoc IDarkpoolV2
     function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) public {
-        StateUpdatesLib.payPrivateProtocolFee(proofBundle);
+        DarkpoolContracts memory contracts = _getDarkpoolContracts();
+        StateUpdatesLib.payPrivateProtocolFee(proofBundle, contracts, _state);
     }
 
     /// @inheritdoc IDarkpoolV2
