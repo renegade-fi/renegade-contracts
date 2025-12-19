@@ -204,8 +204,36 @@ library StateUpdatesLib {
 
     /// @notice Pay relayer fees publicly on a balance
     /// @param proofBundle The proof bundle for the public relayer fee payment
-    function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) external pure {
-        revert("todo");
+    /// @param contracts The contract references needed for settlement
+    /// @param state The darkpool state containing all storage references
+    function payPublicRelayerFee(
+        PublicRelayerFeePaymentProofBundle calldata proofBundle,
+        DarkpoolContracts calldata contracts,
+        DarkpoolState storage state
+    )
+        external
+    {
+        // Verify the proof of fee payment
+        bool valid = contracts.verifier.verifyPublicRelayerFeePaymentValidity(proofBundle);
+        if (!valid) revert IDarkpoolV2.PublicRelayerFeePaymentVerificationFailed();
+
+        // Verify the Merkle root is in the history
+        BN254.ScalarField merkleRoot = proofBundle.statement.merkleRoot;
+        state.assertRootInHistory(merkleRoot);
+
+        // Spend the nullifier of the previous balance and insert the new balance's commitment
+        BN254.ScalarField balanceNullifier = proofBundle.statement.oldBalanceNullifier;
+        BN254.ScalarField newBalanceCommitment = proofBundle.statement.newBalanceCommitment;
+        state.spendNullifier(balanceNullifier);
+        state.insertMerkleLeaf(proofBundle.merkleDepth, newBalanceCommitment, contracts.hasher);
+
+        // Execute the fee payment
+        Note calldata note = proofBundle.statement.note;
+        SimpleTransfer memory transfer = note.buildTransfer();
+        ExternalTransferLib.executeTransfer(transfer, contracts.weth, contracts.permit2);
+
+        // Emit the recovery id so that indexers can track the balance's update
+        emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
     }
 
     /// @notice Pay protocol fees privately on a balance
