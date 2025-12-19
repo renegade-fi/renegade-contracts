@@ -27,7 +27,7 @@ import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkp
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SettlementContracts } from "darkpoolv2-lib/settlement/SettlementLib.sol";
+import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
@@ -413,7 +413,7 @@ library PrivateIntentPublicBalanceBundleLib {
     function pushValidityProof(
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         internal
         view
@@ -431,7 +431,7 @@ library PrivateIntentPublicBalanceBundleLib {
     function pushValidityProof(
         PrivateIntentPublicBalanceBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -450,7 +450,7 @@ library PrivateIntentPublicBalanceBundleLib {
     function pushValidityProof(
         PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         internal
         view
@@ -468,7 +468,7 @@ library PrivateIntentPublicBalanceBundleLib {
     function pushValidityProof(
         PrivateIntentPublicBalanceBoundedBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts,
+        DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
         internal
@@ -508,7 +508,7 @@ library PrivateIntentPublicBalanceBundleLib {
     function pushSettlementProofs(
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         internal
         view
@@ -530,7 +530,7 @@ library PrivateIntentPublicBalanceBundleLib {
     function pushSettlementProofs(
         PrivateIntentPublicBalanceBundle memory bundleData,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         internal
         view
@@ -584,7 +584,7 @@ library PrivateIntentPublicBalanceBundleLib {
         PlonkProof memory validityProof,
         LinkingProof memory authSettlementLinkingProof,
         SettlementContext memory settlementContext,
-        SettlementContracts memory contracts
+        DarkpoolContracts memory contracts
     )
         private
         view
