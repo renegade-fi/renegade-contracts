@@ -61,11 +61,9 @@ library BoundedMatchResultLib {
         uint256 externalPartyAmountIn
     )
         internal
-        view
+        pure
         returns (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation)
     {
-        // Validate the bounded match result
-        validateBoundedMatchResult(matchResult, externalPartyAmountIn);
         uint256 internalPartyAmountIn = computeInternalPartyAmountIn(matchResult, externalPartyAmountIn);
 
         internalObligation = SettlementObligation({
@@ -78,8 +76,6 @@ library BoundedMatchResultLib {
 
         return (externalObligation, internalObligation);
     }
-
-    // --- Helpers --- //
 
     /// @notice Validates a `BoundedMatchResult` along with the input amount supplied by the external party
     /// @param boundedMatchResult The `BoundedMatchResult` to validate
@@ -103,6 +99,8 @@ library BoundedMatchResultLib {
         // 4. Validate price
         validatePrice(boundedMatchResult);
     }
+
+    // --- Helpers --- //
 
     /// @notice Validates an amount within the bounds of a `BoundedMatchResult`
     /// @param boundedMatchResult The `BoundedMatchResult` to validate the amount within

@@ -83,9 +83,13 @@ contract FullMatchTests is RenegadeSettledBoundedPrivateIntentTestUtils {
         (SettlementObligation memory actualExternalObligation, SettlementObligation memory actualInternalObligation) =
             buildObligationsFromMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Compute fees that will be deducted from internal party's output
-        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) = computeMatchFees(actualInternalObligation);
-        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
+        // Compute fees that will be deducted from both parties' outputs
+        (FeeTake memory internalRelayerFee, FeeTake memory internalProtocolFee) =
+            computeMatchFees(actualInternalObligation);
+        uint256 internalTotalFee = internalRelayerFee.fee + internalProtocolFee.fee;
+        (FeeTake memory externalRelayerFee, FeeTake memory externalProtocolFee) =
+            computeMatchFees(actualExternalObligation);
+        uint256 externalTotalFee = externalRelayerFee.fee + externalProtocolFee.fee;
 
         // Set up expected differences accounting for fees
         // Internal party: No ERC20 changes (uses darkpool private balances)
@@ -94,15 +98,15 @@ contract FullMatchTests is RenegadeSettledBoundedPrivateIntentTestUtils {
         ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
         expectedDifferences.party0BaseChange = 0; // Internal party uses darkpool balances
         expectedDifferences.party0QuoteChange = 0; // Internal party uses darkpool balances
-        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut);
+        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut) - int256(externalTotalFee);
         expectedDifferences.party1QuoteChange = -int256(actualExternalObligation.amountIn);
-        expectedDifferences.relayerFeeBaseChange = 0;
-        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake.fee);
-        expectedDifferences.protocolFeeBaseChange = 0;
-        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake.fee);
+        expectedDifferences.relayerFeeBaseChange = int256(externalRelayerFee.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(internalRelayerFee.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(externalProtocolFee.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(internalProtocolFee.fee);
         expectedDifferences.darkpoolBaseChange = -int256(actualInternalObligation.amountIn); // Input token sent to
         // external party
-        expectedDifferences.darkpoolQuoteChange = int256(actualExternalObligation.amountIn) - int256(totalFee); // Received
+        expectedDifferences.darkpoolQuoteChange = int256(actualExternalObligation.amountIn) - int256(internalTotalFee); // Received
         // from external party minus fees
 
         // Check balances before and after settlement
@@ -133,24 +137,28 @@ contract FullMatchTests is RenegadeSettledBoundedPrivateIntentTestUtils {
         (SettlementObligation memory actualExternalObligation, SettlementObligation memory actualInternalObligation) =
             buildObligationsFromMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Compute fees that will be deducted from internal party's output
-        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) = computeMatchFees(actualInternalObligation);
-        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
+        // Compute fees that will be deducted from both parties' outputs
+        (FeeTake memory internalRelayerFee, FeeTake memory internalProtocolFee) =
+            computeMatchFees(actualInternalObligation);
+        uint256 internalTotalFee = internalRelayerFee.fee + internalProtocolFee.fee;
+        (FeeTake memory externalRelayerFee, FeeTake memory externalProtocolFee) =
+            computeMatchFees(actualExternalObligation);
+        uint256 externalTotalFee = externalRelayerFee.fee + externalProtocolFee.fee;
 
         // Set up expected differences accounting for fees
         // Darkpool: Loses internal party's input, gains external party's input minus fees
         ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
         expectedDifferences.party0BaseChange = 0; // Internal party uses darkpool balances
         expectedDifferences.party0QuoteChange = 0; // Internal party uses darkpool balances
-        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut);
+        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut) - int256(externalTotalFee);
         expectedDifferences.party1QuoteChange = -int256(actualExternalObligation.amountIn);
-        expectedDifferences.relayerFeeBaseChange = 0;
-        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake.fee);
-        expectedDifferences.protocolFeeBaseChange = 0;
-        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake.fee);
+        expectedDifferences.relayerFeeBaseChange = int256(externalRelayerFee.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(internalRelayerFee.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(externalProtocolFee.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(internalProtocolFee.fee);
         expectedDifferences.darkpoolBaseChange = -int256(actualInternalObligation.amountIn); // Input token sent to
         // external party
-        expectedDifferences.darkpoolQuoteChange = int256(actualExternalObligation.amountIn) - int256(totalFee); // Received
+        expectedDifferences.darkpoolQuoteChange = int256(actualExternalObligation.amountIn) - int256(internalTotalFee); // Received
         // from external party minus fees
 
         // Check balances before and after settlement

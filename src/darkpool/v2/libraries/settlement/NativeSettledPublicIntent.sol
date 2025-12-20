@@ -6,6 +6,7 @@ import {
     BoundedMatchResultPermit,
     BoundedMatchResultPermitLib
 } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import {
     PartyId,
     PublicIntentPublicBalanceBundle,
@@ -24,6 +25,7 @@ import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settle
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
+import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
@@ -87,13 +89,15 @@ library NativeSettledPublicIntentLib {
 
     /// @notice Validate and execute a public intent and public balance settlement bundle for a bounded match
     /// @param matchBundle The bounded match result authorization bundle to validate
-    /// @param obligation The settlement obligation to validate
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatch(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolState storage state
@@ -102,12 +106,19 @@ library NativeSettledPublicIntentLib {
     {
         // Decode the settlement bundle data
         PublicIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePublicBundleData();
+        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
+            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Verify that the executor has signed the bounded match result, authorizing the settlement obligation derived
-        // from it
+        // Verify that the executor has signed the bounded match result
         validateBoundedMatchResultAuthorization(bundleData, matchBundle, state);
 
-        executeInner(bundleData, obligation, settlementContext, state);
+        executeInner(bundleData, internalObligation, settlementContext, state);
+
+        // Allocate transfers for external party
+        FeeRate memory externalRelayerFeeRate = bundleData.relayerFeeRate;
+        ExternalSettlementLib.allocateExternalPartyTransfers(
+            externalPartyRecipient, externalRelayerFeeRate, externalObligation, settlementContext, state
+        );
     }
 
     /// @notice Execute a public intent and public balance settlement bundle

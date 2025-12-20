@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IPermit2 } from "permit2-lib/interfaces/IPermit2.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
@@ -15,21 +14,25 @@ import {
     SettlementBundleType,
     SettlementBundleLib
 } from "darkpoolv2-types/settlement/SettlementBundle.sol";
+import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
-import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { NativeSettledPublicIntentLib } from "./NativeSettledPublicIntent.sol";
 import { NativeSettledPrivateIntentLib } from "./NativeSettledPrivateIntent.sol";
 import { RenegadeSettledPrivateIntentLib } from "./RenegadeSettledPrivateIntent.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
-import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
+import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { SettlementLib } from "./SettlementLib.sol";
 import { SettlementVerification } from "./SettlementVerification.sol";
+import { FeeRate, FeeRateLib, FeeTake, FeeTakeLib } from "darkpoolv2-types/Fee.sol";
 
 /// @title ExternalSettlementLib
 /// @author Renegade Eng
 /// @notice Library for external settlement operations
 library ExternalSettlementLib {
+    using DarkpoolStateLib for DarkpoolState;
+    using FeeRateLib for FeeRate;
+    using FeeTakeLib for FeeTake;
     using SettlementBundleLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
     using SettlementObligationLib for SettlementObligation;
@@ -51,21 +54,22 @@ library ExternalSettlementLib {
     )
         external
     {
+        // Validate the bounded match result
+        BoundedMatchResultLib.validateBoundedMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
+
         // Allocate a settlement context
         SettlementContext memory settlementContext = allocateExternalSettlementContext(internalPartySettlementBundle);
 
-        // Build settlement obligations from the bounded match result and external party amount in
-        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
-            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
-
-        // Validate and authorize the settlement bundles
+        // Validate and execute the settlement bundle
         executeExternalSettlementBundle(
-            matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, contracts, state
+            matchBundle,
+            externalPartyAmountIn,
+            recipient,
+            internalPartySettlementBundle,
+            settlementContext,
+            contracts,
+            state
         );
-
-        // Allocate transfers for external party
-        // Authorization is implied by virtue of the external party being the one settling
-        allocateExternalMatchSettlementTransfers(recipient, externalObligation, settlementContext);
 
         // Execute the transfers necessary for settlement
         // The helpers above will push transfers to the settlement context if necessary
@@ -79,7 +83,8 @@ library ExternalSettlementLib {
     // --- Allocation --- //
 
     /// @notice Allocate a settlement context for an external match
-    /// @dev The number of transfers and proofs for the external party is known: (1 deposit + 1 withdrawal + 0 proofs)
+    /// @dev The number of transfers and proofs for the external party is known:
+    /// (1 deposit + 3 withdrawals [output + relayer fee + protocol fee] + 0 proofs)
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @return The allocated settlement context
     function allocateExternalSettlementContext(SettlementBundle calldata internalPartySettlementBundle)
@@ -88,23 +93,25 @@ library ExternalSettlementLib {
         returns (SettlementContext memory)
     {
         uint256 numDeposits = SettlementBundleLib.getNumDeposits(internalPartySettlementBundle) + 1;
-        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(internalPartySettlementBundle) + 1;
+        uint256 numWithdrawals = SettlementBundleLib.getNumWithdrawals(internalPartySettlementBundle) + 3;
         uint256 proofCapacity = SettlementBundleLib.getNumProofs(internalPartySettlementBundle);
         uint256 proofLinkingCapacity = SettlementBundleLib.getNumProofLinkingArguments(internalPartySettlementBundle);
 
         return SettlementContextLib.newContext(numDeposits, numWithdrawals, proofCapacity, proofLinkingCapacity);
     }
 
-    /// @notice Allocate transfers to settle an external party's obligation into the settlement context
-    /// @dev TODO: Implement fee computation and withdrawal transfers for relayer/protocol fees, and use recipient
-    /// parameter for withdrawal
-    /// @param recipient The recipient of the withdrawal
-    /// @param externalObligation The external party's settlement obligation to settle
-    /// @param settlementContext The settlement context to which we append post-validation updates.
-    function allocateExternalMatchSettlementTransfers(
+    /// @notice Allocate transfers for external party in an external match
+    /// @param recipient The recipient address for the external party's withdrawal
+    /// @param relayerFeeRate The relayer fee rate
+    /// @param externalObligation The external party's settlement obligation
+    /// @param settlementContext The settlement context to push transfers to
+    /// @param state The darkpool state for protocol fee lookup
+    function allocateExternalPartyTransfers(
         address recipient,
+        FeeRate memory relayerFeeRate,
         SettlementObligation memory externalObligation,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        DarkpoolState storage state
     )
         internal
         view
@@ -115,24 +122,40 @@ library ExternalSettlementLib {
         SimpleTransfer memory deposit = externalObligation.buildERC20ApprovalDeposit(owner);
         settlementContext.pushDeposit(deposit);
 
-        // Withdraw the output token from the darkpool
-        uint256 totalFee = 0;
+        // Compute the fee takes
+        FeeRate memory protocolFeeRate =
+            state.getProtocolFeeRate(externalObligation.inputToken, externalObligation.outputToken);
+        FeeTake memory relayerFeeTake =
+            relayerFeeRate.computeFeeTake(externalObligation.outputToken, externalObligation.amountOut);
+        FeeTake memory protocolFeeTake =
+            protocolFeeRate.computeFeeTake(externalObligation.outputToken, externalObligation.amountOut);
+
+        // Withdraw the output token from the darkpool to the recipient specified by the external party (minus fees)
+        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
         SimpleTransfer memory withdrawal = externalObligation.buildWithdrawalTransfer(recipient, totalFee);
         settlementContext.pushWithdrawal(withdrawal);
+
+        // Withdraw the relayer and protocol fees to their respective recipients
+        SimpleTransfer memory relayerFeeWithdrawal = relayerFeeTake.buildWithdrawalTransfer();
+        SimpleTransfer memory protocolFeeWithdrawal = protocolFeeTake.buildWithdrawalTransfer();
+        settlementContext.pushWithdrawal(relayerFeeWithdrawal);
+        settlementContext.pushWithdrawal(protocolFeeWithdrawal);
     }
 
     // --- Settlement Bundle Validation --- //
 
     /// @notice Execute an external settlement bundle
     /// @param matchBundle The bounded match result authorization bundle to validate
-    /// @param internalObligation The settlement obligation to validate
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param internalPartySettlementBundle The settlement bundle for the internal party
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeExternalSettlementBundle(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory internalObligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata internalPartySettlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
@@ -143,15 +166,32 @@ library ExternalSettlementLib {
         SettlementBundleType bundleType = internalPartySettlementBundle.bundleType;
         if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PUBLIC_INTENT) {
             NativeSettledPublicIntentLib.executeBoundedMatch(
-                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, state
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                internalPartySettlementBundle,
+                settlementContext,
+                state
             );
         } else if (bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT) {
             NativeSettledPrivateIntentLib.executeBoundedMatch(
-                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, contracts, state
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                internalPartySettlementBundle,
+                settlementContext,
+                contracts,
+                state
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             RenegadeSettledPrivateIntentLib.executeBoundedMatch(
-                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, contracts, state
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                internalPartySettlementBundle,
+                settlementContext,
+                contracts,
+                state
             );
         } else {
             // TODO: Add support for other settlement bundle types
