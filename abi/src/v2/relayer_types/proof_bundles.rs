@@ -16,6 +16,7 @@ use renegade_circuits_v2::zk_circuits::{
     settlement::{
         intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementStatement,
         intent_and_balance_public_settlement::IntentAndBalancePublicSettlementStatement,
+        intent_only_bounded_settlement::IntentOnlyBoundedSettlementStatement,
         intent_only_public_settlement::IntentOnlyPublicSettlementStatement,
     },
     valid_balance_create::ValidBalanceCreateStatement,
@@ -377,6 +378,19 @@ impl From<IntentOnlyPublicSettlementStatement>
             obligation: statement.settlement_obligation.into(),
             relayerFee: statement.relayer_fee.into(),
             relayerFeeRecipient: statement.relayer_fee_recipient,
+        }
+    }
+}
+
+impl From<IntentOnlyBoundedSettlementStatement>
+    for IDarkpoolV2::IntentOnlyBoundedSettlementStatement
+{
+    fn from(statement: IntentOnlyBoundedSettlementStatement) -> Self {
+        Self {
+            boundedMatchResult: statement.bounded_match_result.into(),
+            externalRelayerFeeRate: statement.external_relayer_fee.into(),
+            internalRelayerFeeRate: statement.internal_relayer_fee.into(),
+            relayerFeeAddress: statement.relayer_fee_recipient,
         }
     }
 }
