@@ -216,6 +216,14 @@ library DarkpoolStateLib {
         state.nullifierSet.spend(nullifier);
     }
 
+    /// @notice Check if a nullifier has been spent
+    /// @param state The darkpool state
+    /// @param nullifier The nullifier to check
+    /// @return Whether the nullifier has been spent
+    function isNullifierSpent(DarkpoolState storage state, BN254.ScalarField nullifier) internal view returns (bool) {
+        return state.nullifierSet.isSpent(nullifier);
+    }
+
     /// @notice Insert a leaf into the Merkle mountain range at the given depth
     /// @param state The darkpool state
     /// @param depth The depth at which to insert the leaf

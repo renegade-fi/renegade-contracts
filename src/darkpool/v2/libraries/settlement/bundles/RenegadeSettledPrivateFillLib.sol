@@ -336,6 +336,14 @@ library RenegadeSettledPrivateFillLib {
         internal
     {
         NewBalanceBundle memory newBalanceBundle = outputBalanceBundle.decodeNewBalanceBundle();
+
+        // We bootstrap a new balance's authorization from an existing balance in-circuit
+        // The contracts must then verify the bootstrapping balance's validity
+        state.assertRootInHistory(newBalanceBundle.statement.existingBalanceMerkleRoot);
+        if (state.isNullifierSpent(newBalanceBundle.statement.existingBalanceNullifier)) {
+            revert IDarkpoolV2.ExistingBalanceNullifierSpent();
+        }
+
         ProofLinkingVK memory proofLinkingVkey = _getOutputBalanceProofLinkingVkey(partyId, contracts.vkeys);
         PrivateIntentPrivateBalanceBundleLib.pushValidityProof(
             newBalanceBundle.statement.statementSerialize(),

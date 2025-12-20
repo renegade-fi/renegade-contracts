@@ -22,7 +22,6 @@ import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { VerifierCore } from "renegade-lib/verifier/VerifierCore.sol";
 import { MerkleTreeLib } from "renegade-lib/merkle/MerkleTree.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
-import { DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { IntentPublicShare, IntentPreMatchShare, IntentPreMatchShareLib } from "darkpoolv2-types/Intent.sol";
 import {
