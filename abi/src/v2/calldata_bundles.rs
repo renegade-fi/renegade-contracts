@@ -1,5 +1,5 @@
 //! Calldata bundle implementations for the V2 ABI
-use alloy::primitives::U256;
+use alloy::primitives::{Address, U256};
 use alloy::sol_types::SolValue;
 
 use super::IDarkpoolV2::*;
@@ -78,6 +78,28 @@ impl SettlementBundle {
         linking_proof: LinkingProof,
     ) -> Self {
         let inner = PrivateIntentPublicBalanceFirstFillBundle {
+            auth,
+            settlementStatement: settlement_statement,
+            settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: true,
+            bundleType: NATIVE_SETTLED_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
+
+    /// Build a private intent, public balance settlement bundle for a bounded first fill
+    pub fn private_intent_public_balance_bounded_first_fill(
+        auth: PrivateIntentAuthBundleFirstFill,
+        settlement_statement: IntentOnlyBoundedSettlementStatement,
+        settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = PrivateIntentPublicBalanceBoundedFirstFillBundle {
             auth,
             settlementStatement: settlement_statement,
             settlementProof: settlement_proof,
@@ -238,6 +260,27 @@ impl OutputBalanceBundle {
             data: data.into(),
             proof,
             settlementLinkingProof: linking_proof,
+        }
+    }
+}
+
+impl BoundedMatchResult {
+    /// Build a bounded match result bundle
+    pub fn new(
+        internal_party_input_token: Address,
+        internal_party_output_token: Address,
+        price: FixedPoint,
+        min_internal_party_amt_in: U256,
+        max_internal_party_amt_in: U256,
+        block_deadline: U256,
+    ) -> Self {
+        Self {
+            internalPartyInputToken: internal_party_input_token,
+            internalPartyOutputToken: internal_party_output_token,
+            price: price,
+            minInternalPartyAmountIn: min_internal_party_amt_in,
+            maxInternalPartyAmountIn: max_internal_party_amt_in,
+            blockDeadline: block_deadline,
         }
     }
 }

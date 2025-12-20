@@ -172,7 +172,7 @@ integration_test_async!(test_settlement__native_settled_private_intent);
 /// Fund the two parties with the base and quote tokens
 ///
 /// Test setup will fund the parties with the tokens and approve the permit2 contract to spend the tokens.
-async fn fund_parties(args: &TestArgs) -> Result<()> {
+pub(crate) async fn fund_parties(args: &TestArgs) -> Result<()> {
     let base = args.base_addr()?;
     let quote = args.quote_addr()?;
     approve_balance(base, &args.party0_signer(), args).await?;
@@ -181,7 +181,11 @@ async fn fund_parties(args: &TestArgs) -> Result<()> {
 }
 
 /// Approve a balance to be spent by the darkpool via the permit2 contract
-async fn approve_balance(token: Address, signer: &PrivateKeySigner, args: &TestArgs) -> Result<()> {
+pub(crate) async fn approve_balance(
+    token: Address,
+    signer: &PrivateKeySigner,
+    args: &TestArgs,
+) -> Result<()> {
     // Approve Permit2 to spend the ERC20 tokens
     let erc20 = args.erc20_from_addr_with_signer(token, signer.clone())?;
     let permit2_addr = args.permit2_addr()?;
@@ -227,7 +231,7 @@ async fn create_intents_and_obligations(
 /// Generate first fill validity proofs for an intent
 ///
 /// Also return a commitment to the intent
-fn generate_first_fill_validity_proof(
+pub(crate) fn generate_first_fill_validity_proof(
     intent: &Intent,
 ) -> Result<(
     Commitment,
@@ -256,7 +260,7 @@ fn generate_first_fill_validity_proof(
 }
 
 /// Generate a subsequent fill validity proof for an intent
-fn generate_subsequent_fill_validity_proof(
+pub(crate) fn generate_subsequent_fill_validity_proof(
     intent: &StateWrapper<Intent>,
     merkle_opening: &MerkleAuthenticationPath,
 ) -> Result<(IntentOnlyValidityStatement, PlonkProof, ProofLinkingHint)> {
@@ -351,12 +355,14 @@ pub fn build_settlement_bundle_subsequent_fill(
 }
 
 /// Build an auth bundle for an intent
-fn build_auth_bundle_first_fill(
+pub(crate) fn build_auth_bundle_first_fill(
     owner: &PrivateKeySigner,
     commitment: Scalar,
     validity_statement: &IntentOnlyFirstFillValidityStatement,
     validity_proof: &PlonkProof,
 ) -> Result<PrivateIntentAuthBundleFirstFill> {
+    // Pass raw commitment bytes to sign_with_nonce which will hash them.
+    // This matches the Solidity: keccak256(keccak256(commitment) || nonce)
     let comm_u256 = scalar_to_u256(&commitment);
     let signature = sign_with_nonce(&comm_u256.to_be_bytes_vec(), owner)?;
 
@@ -369,7 +375,7 @@ fn build_auth_bundle_first_fill(
 }
 
 /// Build an auth bundle for a subsequent fill
-fn build_auth_bundle_subsequent_fill(
+pub(crate) fn build_auth_bundle_subsequent_fill(
     validity_statement: &IntentOnlyValidityStatement,
     validity_proof: &PlonkProof,
 ) -> Result<PrivateIntentAuthBundle> {
@@ -381,7 +387,7 @@ fn build_auth_bundle_subsequent_fill(
 }
 
 /// Generate a linking proof between a validity proof and a settlement proof
-fn generate_linking_proof(
+pub(crate) fn generate_linking_proof(
     validity_link_hint: &ProofLinkingHint,
     settlement_link_hint: &ProofLinkingHint,
 ) -> Result<PlonkLinkProof> {

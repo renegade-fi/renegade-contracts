@@ -8,6 +8,8 @@ use renegade_darkpool_types::{fee::FeeTake, settlement_obligation::SettlementObl
 
 use crate::test_args::TestArgs;
 
+mod external_match;
+
 pub(crate) mod private_fill;
 pub(crate) mod private_intent_private_balance;
 mod private_intent_public_balance;
