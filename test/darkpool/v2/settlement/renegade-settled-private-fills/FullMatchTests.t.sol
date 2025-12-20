@@ -151,17 +151,17 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
         );
 
         // Validate against a single Merkle tree
-        // Order per party: balance (from _updateIntentAndBalance), intent, output balance (from
-        // authorizeAndUpdateOutputBalance)
+        // Order per party: output balance (from authorizeAndUpdateOutputBalance), input balance (from
+        // _updateIntentAndBalance), intent
         MerkleTreeLib.MerkleTreeConfig memory config =
             MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
         MerkleTreeLib.initialize(testTree, config);
+        testTree.insertLeaf(outBalanceCommitment0, hasher);
         testTree.insertLeaf(inputBalanceCommitment0, hasher);
         testTree.insertLeaf(intentCommitment0, hasher);
-        testTree.insertLeaf(outBalanceCommitment0, hasher);
+        testTree.insertLeaf(outBalanceCommitment1, hasher);
         testTree.insertLeaf(inputBalanceCommitment1, hasher);
         testTree.insertLeaf(intentCommitment1, hasher);
-        testTree.insertLeaf(outBalanceCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();
@@ -225,15 +225,17 @@ contract FullMatchTests is RenegadeSettledPrivateFillTestUtils {
         );
 
         // Validate against a single Merkle tree
+        // Order per party: output balance (from authorizeAndUpdateOutputBalance), input balance (from
+        // _updateIntentAndBalance), intent
         MerkleTreeLib.MerkleTreeConfig memory config =
             MerkleTreeLib.MerkleTreeConfig({ storeRoots: false, depth: bundleData0.auth.merkleDepth });
         MerkleTreeLib.initialize(testTree, config);
+        testTree.insertLeaf(outBalanceCommitment0, hasher);
         testTree.insertLeaf(inBalanceCommitment0, hasher);
         testTree.insertLeaf(intentCommitment0, hasher);
-        testTree.insertLeaf(outBalanceCommitment0, hasher);
+        testTree.insertLeaf(outBalanceCommitment1, hasher);
         testTree.insertLeaf(inBalanceCommitment1, hasher);
         testTree.insertLeaf(intentCommitment1, hasher);
-        testTree.insertLeaf(outBalanceCommitment1, hasher);
 
         // Get the root of the tree and check that it's in the Merkle mountain range history
         BN254.ScalarField root = testTree.getRoot();

@@ -9,7 +9,7 @@ use crate::v2::{
 
 #[cfg(feature = "v2-auth-helpers")]
 use alloy::signers::{local::PrivateKeySigner, Error as SignerError};
-use renegade_circuit_types_v2::settlement_obligation::SettlementObligation as CircuitObligation;
+use darkpool_types::settlement_obligation::SettlementObligation as CircuitObligation;
 
 impl From<IDarkpoolV2::SettlementObligation> for CircuitObligation {
     fn from(obligation: IDarkpoolV2::SettlementObligation) -> Self {

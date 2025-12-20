@@ -103,8 +103,9 @@ contract RenegadeSettledPrivateFillTestUtils is DarkpoolV2TestUtils {
             signingAuthority: BabyJubJubPoint({ x: randomScalar(), y: randomScalar() })
         });
 
+        BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         NewOutputBalanceValidityStatement memory statement = NewOutputBalanceValidityStatement({
-            existingBalanceMerkleRoot: randomScalar(),
+            existingBalanceMerkleRoot: merkleRoot,
             existingBalanceNullifier: randomScalar(),
             preMatchBalanceShares: preMatchBalanceShares,
             newBalancePartialCommitment: randomPartialCommitment(),

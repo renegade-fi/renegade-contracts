@@ -151,7 +151,7 @@ library ExternalSettlementLib {
             );
         } else if (bundleType == SettlementBundleType.RENEGADE_SETTLED_INTENT) {
             RenegadeSettledPrivateIntentLib.executeBoundedMatch(
-                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, hasher, vkeys, state
+                matchBundle, internalObligation, internalPartySettlementBundle, settlementContext, contracts, state
             );
         } else {
             // TODO: Add support for other settlement bundle types

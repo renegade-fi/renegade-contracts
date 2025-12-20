@@ -5,7 +5,6 @@ use renegade_abi::v2::{
     IDarkpoolV2::{Deposit, DepositProofBundle},
     relayer_types::u256_to_u128,
 };
-use renegade_circuit_types::balance::DarkpoolStateBalance;
 use renegade_circuits::{
     singleprover_prove,
     test_helpers::check_constraints_satisfied,
@@ -15,6 +14,7 @@ use renegade_circuits::{
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
 use renegade_crypto::fields::u256_to_scalar;
+use renegade_darkpool_types::balance::DarkpoolStateBalance;
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
 
 use crate::{

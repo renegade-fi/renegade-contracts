@@ -5,7 +5,7 @@ use crate::v2::{
     IDarkpoolV2,
 };
 
-use renegade_circuit_types_v2::withdrawal::Withdrawal as CircuitWithdrawal;
+use darkpool_types::withdrawal::Withdrawal as CircuitWithdrawal;
 
 impl From<IDarkpoolV2::Withdrawal> for CircuitWithdrawal {
     fn from(withdrawal: IDarkpoolV2::Withdrawal) -> Self {

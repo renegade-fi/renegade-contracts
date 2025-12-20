@@ -1,6 +1,6 @@
 //! Note types helpers
 
-use renegade_circuit_types_v2::note::Note;
+use darkpool_types::note::Note;
 use renegade_crypto_v2::fields::scalar_to_u256;
 
 use crate::v2::{

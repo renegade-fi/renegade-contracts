@@ -5,7 +5,7 @@ use crate::v2::{
     IDarkpoolV2,
 };
 
-use renegade_circuit_types_v2::deposit::Deposit as CircuitDeposit;
+use darkpool_types::deposit::Deposit as CircuitDeposit;
 
 impl From<IDarkpoolV2::Deposit> for CircuitDeposit {
     fn from(deposit: IDarkpoolV2::Deposit) -> Self {

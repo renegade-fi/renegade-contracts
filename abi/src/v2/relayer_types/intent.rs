@@ -5,16 +5,19 @@ use super::u256_to_scalar;
 use crate::v2::IDarkpoolV2::SignatureWithNonce;
 use crate::v2::{
     relayer_types::{u128_to_u256, u256_to_u128},
-    IDarkpoolV2::{self, PublicIntentPermit},
+    IDarkpoolV2,
 };
-#[cfg(feature = "v2-auth-helpers")]
-use alloy::signers::Error as SignerError;
-use alloy::{signers::local::PrivateKeySigner, sol_types::SolValue};
-use renegade_circuit_types_v2::{
-    fixed_point::FixedPointShare,
-    intent::{Intent as CircuitIntent, IntentShare, PreMatchIntentShare},
-};
+use darkpool_types::intent::{Intent as CircuitIntent, IntentShare, PreMatchIntentShare};
+use renegade_circuit_types_v2::fixed_point::FixedPointShare;
 use renegade_crypto_v2::fields::scalar_to_u256;
+#[cfg(feature = "v2-auth-helpers")]
+use {
+    crate::v2::IDarkpoolV2::PublicIntentPermit,
+    alloy::{
+        signers::{local::PrivateKeySigner, Error as SignerError},
+        sol_types::SolValue,
+    },
+};
 
 impl From<IDarkpoolV2::Intent> for CircuitIntent {
     fn from(intent: IDarkpoolV2::Intent) -> Self {

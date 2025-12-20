@@ -6,7 +6,7 @@ use renegade_abi::v2::{
     IDarkpoolV2::{Deposit, NewBalanceDepositProofBundle},
     relayer_types::u256_to_u128,
 };
-use renegade_circuit_types::{
+use renegade_darkpool_types::{
     balance::{Balance, DarkpoolStateBalance},
     state_wrapper::StateWrapper,
 };
@@ -118,7 +118,7 @@ fn build_witness_statement(
         deposit.token,
         deposit.from,
         args.relayer_signer_addr(),
-        deposit.from,
+        args.balance_authority.public_key(),
     )
     .with_amount(amount_u128);
 

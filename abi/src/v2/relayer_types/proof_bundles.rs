@@ -3,9 +3,8 @@
 use super::*;
 use crate::v2::IDarkpoolV2::{self, SignatureWithNonce};
 use crate::v2::BN254::G1Point;
-use renegade_circuit_types_v2::{
-    note::NoteCiphertext, traits::BaseType, PlonkLinkProof, PlonkProof,
-};
+use darkpool_types::note::NoteCiphertext;
+use renegade_circuit_types_v2::{PlonkLinkProof, PlonkProof};
 use renegade_circuits_v2::zk_circuits::fees::valid_note_redemption::ValidNoteRedemptionStatement;
 use renegade_circuits_v2::zk_circuits::fees::valid_private_protocol_fee_payment::ValidPrivateProtocolFeePaymentStatement;
 use renegade_circuits_v2::zk_circuits::{
@@ -168,14 +167,7 @@ impl From<ValidBalanceCreateStatement> for IDarkpoolV2::ValidBalanceCreateStatem
         Self {
             deposit: statement.deposit.into(),
             newBalanceCommitment: scalar_to_u256(&statement.balance_commitment),
-            newBalancePublicShares: size_vec(
-                statement
-                    .new_balance_share
-                    .to_scalars()
-                    .into_iter()
-                    .map(|s| scalar_to_u256(&s))
-                    .collect(),
-            ),
+            newBalanceShares: statement.new_balance_share.into(),
             recoveryId: scalar_to_u256(&statement.recovery_id),
         }
     }
@@ -355,6 +347,8 @@ impl From<IntentAndBalanceValidityStatement> for IDarkpoolV2::IntentAndBalanceVa
 impl From<NewOutputBalanceValidityStatement> for IDarkpoolV2::NewOutputBalanceValidityStatement {
     fn from(statement: NewOutputBalanceValidityStatement) -> Self {
         Self {
+            existingBalanceMerkleRoot: scalar_to_u256(&statement.existing_balance_merkle_root),
+            existingBalanceNullifier: scalar_to_u256(&statement.existing_balance_nullifier),
             preMatchBalanceShares: statement.pre_match_balance_shares.into(),
             newBalancePartialCommitment: statement.new_balance_partial_commitment.into(),
             recoveryId: scalar_to_u256(&statement.recovery_id),

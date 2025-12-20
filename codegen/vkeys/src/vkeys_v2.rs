@@ -7,7 +7,7 @@ use renegade_circuits_v2::zk_circuits::fees::valid_private_relayer_fee_payment::
 use renegade_circuits_v2::zk_circuits::fees::valid_public_protocol_fee_payment::SizedValidPublicProtocolFeePayment;
 use renegade_circuits_v2::zk_circuits::fees::valid_public_relayer_fee_payment::SizedValidPublicRelayerFeePayment;
 use renegade_circuits_v2::zk_circuits::proof_linking::intent_and_balance::get_group_layout as get_intent_and_balance_settlement_group_layout;
-use renegade_circuits_v2::zk_circuits::proof_linking::intent_only::get_intent_public_settlement_group_layout;
+use renegade_circuits_v2::zk_circuits::proof_linking::intent_only::get_intent_only_settlement_group_layout;
 use renegade_circuits_v2::zk_circuits::proof_linking::output_balance::get_group_layout as get_output_balance_settlement_group_layout;
 use renegade_circuits_v2::zk_circuits::settlement::{
     intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementCircuit,
@@ -261,7 +261,7 @@ fn generate_vkey_for_circuit<T: SingleProverCircuit>() -> VerificationKey {
 
 /// Generate the link verification key for the intent-only settlement linking instance
 fn generate_intent_only_settlement_link_vkey() -> ProofLinkingVK {
-    let layout = get_intent_public_settlement_group_layout().unwrap();
+    let layout = get_intent_only_settlement_group_layout().unwrap();
     ProofLinkingVK::from(layout)
 }
 

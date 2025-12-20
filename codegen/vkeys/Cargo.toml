@@ -10,9 +10,9 @@ renegade-circuits-v1 = { package = "circuits", git = "https://github.com/renegad
 renegade-circuit-types-v1 = { package = "circuit-types", git = "https://github.com/renegade-fi/renegade.git" }
 renegade-constants-v1 = { package = "constants", git = "https://github.com/renegade-fi/renegade.git" }
 
-renegade-circuits-v2 = { package = "circuits", path = "/Users/joeykraut/work/renegade/circuits" }
-renegade-circuit-types-v2 = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/circuit-types" }
-renegade-constants-v2 = { package = "constants", path = "/Users/joeykraut/work/renegade/constants" }
+renegade-circuits-v2 = { package = "circuits-core", path = "/Users/joeykraut/work/renegade/crates/circuits/circuits-core" }
+renegade-circuit-types-v2 = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/crates/circuits/circuit-types" }
+renegade-constants-v2 = { package = "constants", path = "/Users/joeykraut/work/renegade/crates/constants" }
 
 # === EVM === #
 alloy = "0.14"

@@ -3,7 +3,7 @@
 use alloy::primitives::{Address, U256};
 use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::PublicProtocolFeePaymentProofBundle;
-use renegade_circuit_types::{PlonkProof, balance::DarkpoolStateBalance};
+use renegade_circuit_types::PlonkProof;
 use renegade_circuits::{
     singleprover_prove,
     zk_circuits::fees::valid_public_protocol_fee_payment::{
@@ -12,6 +12,7 @@ use renegade_circuits::{
     },
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
+use renegade_darkpool_types::balance::DarkpoolStateBalance;
 use test_helpers::{assert_eq_result, integration_test_async};
 
 use crate::{

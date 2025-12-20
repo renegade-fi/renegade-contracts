@@ -5,8 +5,8 @@ use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::{
     ObligationBundle, OutputBalanceBundle, RenegadeSettledIntentAuthBundle, SettlementBundle,
 };
-use renegade_circuit_types::{
-    PlonkProof, ProofLinkingHint,
+use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
+use renegade_darkpool_types::{
     balance::{DarkpoolStateBalance, PostMatchBalanceShare},
     intent::{DarkpoolStateIntent, Intent},
     settlement_obligation::SettlementObligation,
@@ -175,29 +175,37 @@ pub async fn build_first_fill_bundles(
     SubsequentFillStateElements,
 )> {
     // Party 0 validity proofs
+    let in_bal0_clone = input_bal0.clone();
     let (mut state_intent0, validity_statement0, validity_proof0, validity_hint0) =
         private_intent_private_balance::generate_validity_proof_first_fill(
             intent0,
             input_bal0,
             input_bal0_opening,
+            args,
         )?;
     let (mut output_balance0, new_output_statement0, new_output_proof0, new_output_hint0) =
         private_intent_private_balance::generate_new_output_balance_validity_proof(
             args.party0_addr(),
+            &in_bal0_clone,
+            input_bal0_opening,
             obligation0,
             args,
         )?;
 
     // Party 1 validity proofs
+    let in_bal1_clone = input_bal1.clone();
     let (mut state_intent1, validity_statement1, validity_proof1, validity_hint1) =
         private_intent_private_balance::generate_validity_proof_first_fill(
             intent1,
             input_bal1,
             input_bal1_opening,
+            args,
         )?;
     let (mut output_balance1, new_output_statement1, new_output_proof1, new_output_hint1) =
         private_intent_private_balance::generate_new_output_balance_validity_proof(
             args.party1_addr(),
+            &in_bal1_clone,
+            input_bal1_opening,
             obligation1,
             args,
         )?;
@@ -231,7 +239,6 @@ pub async fn build_first_fill_bundles(
         new_output_proof0,
         &new_output_hint0,
         &settlement_hint,
-        args,
     )?;
     let bundle1 = build_private_settlement_bundle_first_fill(
         1, /* party_id */
@@ -242,7 +249,6 @@ pub async fn build_first_fill_bundles(
         new_output_proof1.clone(),
         &new_output_hint1,
         &settlement_hint,
-        args,
     )?;
 
     // Save the state elements for the subsequent fill test
@@ -274,7 +280,6 @@ fn build_private_settlement_bundle_first_fill(
     output_validity_proof: PlonkProof,
     output_validity_hint: &ProofLinkingHint,
     settlement_hint: &ProofLinkingHint,
-    args: &TestArgs,
 ) -> Result<SettlementBundle> {
     // Link the validity and settlement proofs
     let validity_link_proof = link_sized_intent_and_balance_settlement_with_party(
@@ -296,16 +301,7 @@ fn build_private_settlement_bundle_first_fill(
         output_validity_link_proof.into(),
     );
 
-    // Build a validity auth bundle
-    let signer = if party_id == 0 {
-        args.party0_signer()
-    } else {
-        args.party1_signer()
-    };
-
     let auth_bundle = private_intent_private_balance::build_auth_bundle_first_fill(
-        &signer,
-        validity_statement.intent_and_authorizing_address_commitment,
         &validity_statement,
         &validity_proof,
     )?;

@@ -6,7 +6,6 @@ use renegade_abi::v2::{
     relayer_types::u256_to_u128,
     transfer_auth::withdrawal::create_withdrawal_auth,
 };
-use renegade_circuit_types::balance::DarkpoolStateBalance;
 use renegade_circuits::{
     singleprover_prove,
     test_helpers::check_constraints_satisfied,
@@ -16,6 +15,7 @@ use renegade_circuits::{
     },
 };
 use renegade_common::types::merkle::MerkleAuthenticationPath;
+use renegade_darkpool_types::balance::DarkpoolStateBalance;
 use test_helpers::{assert_eq_result, assert_true_result, integration_test_async};
 
 use crate::{
@@ -120,7 +120,7 @@ fn build_witness_statement(
     let merkle_root = opening.compute_root();
 
     // Convert ABI Withdrawal to circuit Withdrawal
-    let circuit_withdrawal = renegade_circuit_types::withdrawal::Withdrawal {
+    let circuit_withdrawal = renegade_darkpool_types::withdrawal::Withdrawal {
         to: withdrawal.to,
         token: withdrawal.token,
         amount: u256_to_u128(withdrawal.amount),

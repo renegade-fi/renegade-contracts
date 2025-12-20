@@ -1,8 +1,8 @@
 //! State update tests
 
 use eyre::Result;
-use renegade_circuit_types::{balance::DarkpoolStateBalance, intent::DarkpoolStateIntent};
 use renegade_common::types::merkle::MerkleAuthenticationPath;
+use renegade_darkpool_types::{balance::DarkpoolStateBalance, intent::DarkpoolStateIntent};
 
 use crate::{
     test_args::TestArgs,

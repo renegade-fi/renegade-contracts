@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
+import { BalanceShare } from "darkpoolv2-types/Balance.sol";
 import { Deposit } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal } from "darkpoolv2-types/transfers/Withdrawal.sol";
 
@@ -30,13 +31,12 @@ struct ValidBalanceCreateStatement {
     /// @dev The deposit to execute
     Deposit deposit;
     /// @dev A commitment to the updated balance
-    /// TODO: Decide whether this should be a partial commitment or a full commitment
     BN254.ScalarField newBalanceCommitment;
     /// @dev the recovery id of the balance
     BN254.ScalarField recoveryId;
     /// @dev The public shares of the new balance
     /// @dev These shares represent an entire balance
-    BN254.ScalarField[7] newBalancePublicShares;
+    BalanceShare newBalanceShares;
 }
 
 // --- Withdrawal Statements --- //

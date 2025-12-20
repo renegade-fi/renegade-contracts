@@ -2,10 +2,9 @@
 
 use eyre::Result;
 use renegade_abi::v2::IDarkpoolV2::FeeRate;
-use renegade_circuit_types::{
-    fee::FeeTake, fixed_point::FixedPoint, settlement_obligation::SettlementObligation,
-};
+use renegade_circuit_types::fixed_point::FixedPoint;
 use renegade_crypto::fields::scalar_to_u128;
+use renegade_darkpool_types::{fee::FeeTake, settlement_obligation::SettlementObligation};
 
 use crate::test_args::TestArgs;
 

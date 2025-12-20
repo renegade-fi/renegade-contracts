@@ -27,6 +27,7 @@ v2-relayer-types = [
     "dep:renegade-circuits-v2",
     "dep:renegade-constants-v2",
     "dep:renegade-crypto-v2",
+    "dep:darkpool-types",
 ]
 v2-auth-helpers = ["alloy/rand"]
 
@@ -45,7 +46,8 @@ renegade-circuit-types = { package = "circuit-types", git = "https://github.com/
 renegade-common = { package = "common", git = "https://github.com/renegade-fi/renegade", optional = true }
 renegade-constants = { package = "constants", git = "https://github.com/renegade-fi/renegade", optional = true }
 
-renegade-circuits-v2 = { package = "circuits", path = "/Users/joeykraut/work/renegade/circuits", optional = true }
-renegade-circuit-types-v2 = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/circuit-types", optional = true }
-renegade-constants-v2 = { package = "constants", path = "/Users/joeykraut/work/renegade/constants", optional = true }
-renegade-crypto-v2 = { package = "renegade-crypto", path = "/Users/joeykraut/work/renegade/renegade-crypto", optional = true }
+renegade-circuits-v2 = { package = "circuits-core", path = "/Users/joeykraut/work/renegade/crates/circuits/circuits-core", optional = true }
+renegade-circuit-types-v2 = { package = "circuit-types", path = "/Users/joeykraut/work/renegade/crates/circuits/circuit-types", optional = true }
+renegade-constants-v2 = { package = "constants", path = "/Users/joeykraut/work/renegade/crates/constants", optional = true }
+renegade-crypto-v2 = { package = "crypto", path = "/Users/joeykraut/work/renegade/crates/crypto", optional = true }
+darkpool-types = { path = "/Users/joeykraut/work/renegade/crates/darkpool-types", optional = true }
