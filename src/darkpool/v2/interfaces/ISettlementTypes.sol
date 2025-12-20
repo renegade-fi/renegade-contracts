@@ -12,7 +12,9 @@ import {
 } from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import {
     PrivateIntentPublicBalanceFirstFillBundle,
-    PrivateIntentPublicBalanceBundle
+    PrivateIntentPublicBalanceBundle,
+    PrivateIntentPublicBalanceBoundedFirstFillBundle,
+    PrivateIntentPublicBalanceBoundedBundle
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import {
     RenegadeSettledIntentFirstFillBundle,
@@ -28,7 +30,9 @@ import {
     SignatureWithNonce
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import {
-    ObligationBundle, ObligationType, PrivateObligationBundle
+    ObligationBundle,
+    ObligationType,
+    PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
     OutputBalanceBundle,
@@ -62,6 +66,14 @@ interface ISettlementTypes {
         external
         pure
         returns (PrivateIntentPublicBalanceBundle memory);
+    function exposePrivateIntentPublicBalanceBoundedFirstFillBundle(PrivateIntentPublicBalanceBoundedFirstFillBundle calldata)
+        external
+        pure
+        returns (PrivateIntentPublicBalanceBoundedFirstFillBundle memory);
+    function exposePrivateIntentPublicBalanceBoundedBundle(PrivateIntentPublicBalanceBoundedBundle calldata)
+        external
+        pure
+        returns (PrivateIntentPublicBalanceBoundedBundle memory);
     function exposeRenegadeSettledIntentFirstFillBundle(RenegadeSettledIntentFirstFillBundle calldata)
         external
         pure
@@ -112,10 +124,7 @@ interface ISettlementTypes {
         returns (PrivateObligationBundle memory);
 
     // Output balance bundle types
-    function exposeOutputBalanceBundle(OutputBalanceBundle calldata)
-        external
-        pure
-        returns (OutputBalanceBundle memory);
+    function exposeOutputBalanceBundle(OutputBalanceBundle calldata) external pure returns (OutputBalanceBundle memory);
     function exposeOutputBalanceBundleType(OutputBalanceBundleType) external pure returns (OutputBalanceBundleType);
     function exposeExistingBalanceBundle(ExistingBalanceBundle calldata)
         external
