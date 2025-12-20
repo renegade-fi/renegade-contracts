@@ -256,18 +256,6 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         darkpoolRealVerifier.settleMatch(obligationBundle, bundle0, bundle1);
     }
 
-    /// @notice Test a replay attack on a user's intent (first fill)
-    function test_fullMatch_ownerSignatureReplay_firstFill() public {
-        // Create match data (first fill)
-        (ObligationBundle memory obligationBundle, SettlementBundle memory bundle0, SettlementBundle memory bundle1) =
-            _createMatchData(true);
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-
-        // Try settling the same match again, the owner signature nonce should be replayed
-        vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
-        darkpool.settleMatch(obligationBundle, bundle0, bundle1);
-    }
-
     /// @notice Test the case in which a balance nullifier is already spent on a settlement bundle (first fill)
     function test_fullMatch_balanceNullifierAlreadySpent_firstFill() public {
         // Create match data and settle

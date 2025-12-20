@@ -59,12 +59,6 @@ struct IntentOnlyValidityStatement {
 struct IntentAndBalanceValidityStatementFirstFill {
     /// @dev The Merkle root to which the balance opens
     BN254.ScalarField merkleRoot;
-    /// @dev A commitment to the new one-time address and the original intent's commitment
-    /// @dev A signature over this commitment by the previous one-time authorizing
-    /// address is checked in-contract. This authorizes both the creation of the
-    /// new intent by the owner and the rotation of the one-time authorizing address.
-    BN254.ScalarField intentAndAuthorizingAddressCommitment;
-    /// @dev The public shares of the intent minus the `amount_in` field
     /// @dev The public share of the `amount_in` field is leaked after it's been
     /// updated by the settlement circuit.
     IntentPreMatchShare intentPublicShare;
@@ -77,18 +71,10 @@ struct IntentAndBalanceValidityStatementFirstFill {
     BN254.ScalarField intentRecoveryId;
     /// @dev The partial commitment to the new balance
     PartialCommitment balancePartialCommitment;
-    /// @dev The public share of the one-time authorizing address after it has been re-encrypted
-    /// @dev Note that this value is only validated in-circuit and placed here to leak the value to indexers
-    BN254.ScalarField newOneTimeAddressPublicShare;
     /// @dev The nullifier of the old balance
     BN254.ScalarField oldBalanceNullifier;
     /// @dev The recovery identifier of the new balance
     BN254.ScalarField balanceRecoveryId;
-    /// @dev The owner-delegated authorizing signer of the balance
-    /// @dev This one-time signer allows the balance to authorize a single intent for
-    /// the first fill. This address may be rotated after it is used to prevent
-    /// linking across transactions.
-    address oneTimeAuthorizingAddress;
 }
 
 /// @notice A statement for a proof of intent and balance validity

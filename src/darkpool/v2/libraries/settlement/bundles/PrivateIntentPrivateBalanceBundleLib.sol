@@ -18,8 +18,7 @@ import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import {
     RenegadeSettledIntentAuthBundleFirstFill,
-    RenegadeSettledIntentAuthBundle,
-    PrivateIntentPrivateBalanceAuthBundleLib
+    RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SignatureWithNonce, SignatureWithNonceLib } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
 import {
@@ -161,9 +160,6 @@ library PrivateIntentPrivateBalanceBundleLib {
         // Validate the Merkle root used to authorize the input balance
         state.assertRootInHistory(authBundle.statement.merkleRoot);
 
-        // Verify the intent signature
-        _verifyIntentSignature(authBundle, state);
-
         // Push the validity proof to the settlement context
         pushValidityProof(
             authBundle.statement.statementSerialize(),
@@ -271,23 +267,6 @@ library PrivateIntentPrivateBalanceBundleLib {
         IntentAndBalanceValidityStatement memory authStatement = bundle.auth.statement;
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
         emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
-    }
-
-    /// @notice Verify the signature on the intent authorization bundle for a first fill
-    /// @param bundleData The bundle to check validity for
-    /// @param state The state to use for verification
-    function _verifyIntentSignature(
-        RenegadeSettledIntentAuthBundleFirstFill memory bundleData,
-        DarkpoolState storage state
-    )
-        internal
-    {
-        // Verify the owner signature and spend the nonce
-        bytes32 digest = PrivateIntentPrivateBalanceAuthBundleLib.getOwnerSignatureDigest(bundleData);
-        address signer = bundleData.statement.oneTimeAuthorizingAddress;
-
-        bool valid = bundleData.ownerSignature.verifyPrehashedAndSpendNonce(signer, digest, state);
-        if (!valid) revert IDarkpoolV2.InvalidOwnerSignature();
     }
 
     // --------------------------------

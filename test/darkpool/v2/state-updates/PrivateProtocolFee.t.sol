@@ -92,7 +92,7 @@ contract PrivateProtocolFeeTest is DarkpoolV2TestUtils {
     {
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         address receiver = protocolFeeAddr;
-        EncryptionKey memory encryptionKey = darkpool.protocolFeeKey();
+        EncryptionKey memory encryptionKey = darkpool.getProtocolFeeKey();
         proofBundle = createPrivateProtocolFeeProofBundle(merkleRoot, receiver, encryptionKey);
     }
 
@@ -134,7 +134,7 @@ contract PrivateProtocolFeeTest is DarkpoolV2TestUtils {
         // Use a random Merkle root that is NOT in history
         BN254.ScalarField invalidMerkleRoot = randomScalar();
         address receiver = protocolFeeAddr;
-        EncryptionKey memory encryptionKey = darkpool.protocolFeeKey();
+        EncryptionKey memory encryptionKey = darkpool.getProtocolFeeKey();
         PrivateProtocolFeePaymentProofBundle memory proofBundle =
             createPrivateProtocolFeeProofBundle(invalidMerkleRoot, receiver, encryptionKey);
 
@@ -160,7 +160,7 @@ contract PrivateProtocolFeeTest is DarkpoolV2TestUtils {
     function test_payPrivateProtocolFee_wrongReceiver_reverts() public {
         BN254.ScalarField merkleRoot = darkpool.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         address wrongReceiver = vm.randomAddress();
-        EncryptionKey memory encryptionKey = darkpool.protocolFeeKey();
+        EncryptionKey memory encryptionKey = darkpool.getProtocolFeeKey();
 
         PrivateProtocolFeePaymentProofBundle memory proofBundle =
             createPrivateProtocolFeeProofBundle(merkleRoot, wrongReceiver, encryptionKey);

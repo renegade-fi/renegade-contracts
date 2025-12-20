@@ -7,7 +7,6 @@ import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { ObligationBundle, ObligationType, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
-    SignatureWithNonce,
     RenegadeSettledIntentAuthBundleFirstFill,
     RenegadeSettledIntentAuthBundle
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
@@ -44,30 +43,6 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
     // | Utils |
     // ---------
 
-    // --- Signatures --- //
-
-    /// @dev Sign the owner signature digest for a renegade settled private intent
-    /// @dev The signature is over intentAndAuthorizingAddressCommitment which combines
-    /// the intent commitment and the new one-time key hash
-    function createOwnerSignature(
-        BN254.ScalarField intentAndAuthorizingAddressCommitment,
-        uint256 signerPrivateKey
-    )
-        internal
-        returns (SignatureWithNonce memory)
-    {
-        // Hash the intent and authorizing address commitment with a random nonce
-        // This matches getOwnerSignatureDigest which hashes the single commitment
-        uint256 nonce = randomUint();
-        uint256 commitment = BN254.ScalarField.unwrap(intentAndAuthorizingAddressCommitment);
-        bytes32 digest = EfficientHashLib.hash(commitment);
-        bytes32 signatureDigest = EfficientHashLib.hash(digest, bytes32(nonce));
-
-        // Sign with the private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, signatureDigest);
-        return SignatureWithNonce({ nonce: nonce, signature: abi.encodePacked(r, s, v) });
-    }
-
     // --- Dummy Data --- //
 
     /// @dev Create a dummy `SettlementContext` for the test
@@ -89,15 +64,12 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
         BN254.ScalarField merkleRoot = darkpoolState.getMerkleRoot(DarkpoolConstants.DEFAULT_MERKLE_DEPTH);
         return IntentAndBalanceValidityStatementFirstFill({
             merkleRoot: merkleRoot,
-            intentAndAuthorizingAddressCommitment: randomScalar(),
             intentPublicShare: intentPublicShare,
             intentPrivateShareCommitment: randomScalar(),
             intentRecoveryId: randomScalar(),
             balancePartialCommitment: randomPartialCommitment(),
-            newOneTimeAddressPublicShare: randomScalar(),
             oldBalanceNullifier: randomScalar(),
-            balanceRecoveryId: randomScalar(),
-            oneTimeAuthorizingAddress: oneTimeOwner.addr
+            balanceRecoveryId: randomScalar()
         });
     }
 
@@ -204,20 +176,12 @@ contract RenegadeSettledPrivateIntentTestUtils is SettlementTestUtils {
     {
         // Create the statement types
         IntentAndBalanceValidityStatementFirstFill memory validityStatement = createSampleStatementFirstFill();
-        validityStatement.oneTimeAuthorizingAddress = oneTimeKey.addr;
         IntentAndBalancePublicSettlementStatement memory settlementStatement =
             createSampleRenegadeSettlementStatement(obligation);
-
-        // Sign the owner signature digest
-        // The signature is over intentAndAuthorizingAddressCommitment which combines
-        // the intent commitment and the new one-time key hash
-        SignatureWithNonce memory ownerSignature =
-            createOwnerSignature(validityStatement.intentAndAuthorizingAddressCommitment, oneTimeKey.privateKey);
 
         // Create auth bundle
         RenegadeSettledIntentAuthBundleFirstFill memory auth = RenegadeSettledIntentAuthBundleFirstFill({
             merkleDepth: merkleDepth,
-            ownerSignature: ownerSignature,
             statement: validityStatement,
             validityProof: createDummyProof()
         });

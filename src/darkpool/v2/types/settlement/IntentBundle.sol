@@ -81,14 +81,6 @@ struct PrivateIntentAuthBundle {
 struct RenegadeSettledIntentAuthBundleFirstFill {
     /// @dev The depth of the Merkle tree to insert the intent into
     uint256 merkleDepth;
-    /// @dev The signature of the intent and an updated balance one time key hash
-    /// @dev In specific, we sign:
-    ///     H(intentCommitment || updatedBalanceOneTimeKeyHash)
-    /// under the previous, now leaked, one time key. This authorizes the intent to be capitalized by
-    /// the balance which the owner (hidden) has deposited in the darkpool. This signature also
-    /// authorizes the one time key to be rotated to the new one time key.
-    /// TODO: Move this to an in-circuit verification
-    SignatureWithNonce ownerSignature;
     /// @dev The statement for the proof intent and balance validity
     IntentAndBalanceValidityStatementFirstFill statement;
     /// @dev The proof of intent and balance validity
@@ -103,21 +95,4 @@ struct RenegadeSettledIntentAuthBundle {
     IntentAndBalanceValidityStatement statement;
     /// @dev The proof of intent and balance validity
     PlonkProof validityProof;
-}
-
-/// @title Private Intent, Private Balance Auth Bundle Library
-/// @author Renegade Eng
-/// @notice Library for decoding private intent, private balance auth bundle data
-library PrivateIntentPrivateBalanceAuthBundleLib {
-    /// @notice Get the digest for the owner signature
-    /// @param bundleData The bundle data to get the digest for
-    /// @return digest The digest for the owner signature
-    function getOwnerSignatureDigest(RenegadeSettledIntentAuthBundleFirstFill memory bundleData)
-        internal
-        pure
-        returns (bytes32 digest)
-    {
-        uint256 commitment = BN254.ScalarField.unwrap(bundleData.statement.intentAndAuthorizingAddressCommitment);
-        digest = EfficientHashLib.hash(commitment);
-    }
 }

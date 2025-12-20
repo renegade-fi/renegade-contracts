@@ -139,9 +139,6 @@ library RenegadeSettledPrivateFillLib {
         // Validate the Merkle root used to authorize the input balance
         state.assertRootInHistory(bundleData.auth.statement.merkleRoot);
 
-        // Verify that the owner has signed the intent
-        PrivateIntentPrivateBalanceBundleLib._verifyIntentSignature(bundleData.auth, state);
-
         // Push the validity proof to the settlement context
         ProofLinkingVK memory proofLinkingVkey = _getIntentAndBalanceProofLinkingVkey(partyId, contracts.vkeys);
         PrivateIntentPrivateBalanceBundleLib.pushValidityProof(
