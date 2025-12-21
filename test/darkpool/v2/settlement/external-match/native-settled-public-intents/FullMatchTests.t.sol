@@ -83,20 +83,24 @@ contract FullMatchTests is PublicIntentExternalMatchTestUtils {
         (SettlementObligation memory actualExternalObligation, SettlementObligation memory actualInternalObligation) =
             buildObligationsFromMatchResult(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Compute fees that will be deducted from internal party's output
-        (FeeTake memory relayerFeeTake, FeeTake memory protocolFeeTake) = computeMatchFees(actualInternalObligation);
-        uint256 totalFee = relayerFeeTake.fee + protocolFeeTake.fee;
+        // Compute fees that will be deducted from both parties' outputs
+        (FeeTake memory internalRelayerFee, FeeTake memory internalProtocolFee) =
+            computeMatchFees(actualInternalObligation);
+        uint256 internalTotalFee = internalRelayerFee.fee + internalProtocolFee.fee;
+        (FeeTake memory externalRelayerFee, FeeTake memory externalProtocolFee) =
+            computeMatchFees(actualExternalObligation);
+        uint256 externalTotalFee = externalRelayerFee.fee + externalProtocolFee.fee;
 
         // Set up expected differences accounting for fees
         ExpectedDifferences memory expectedDifferences = createEmptyExpectedDifferences();
         expectedDifferences.party0BaseChange = -int256(actualInternalObligation.amountIn);
-        expectedDifferences.party0QuoteChange = int256(actualInternalObligation.amountOut) - int256(totalFee);
-        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut);
+        expectedDifferences.party0QuoteChange = int256(actualInternalObligation.amountOut) - int256(internalTotalFee);
+        expectedDifferences.party1BaseChange = int256(actualExternalObligation.amountOut) - int256(externalTotalFee);
         expectedDifferences.party1QuoteChange = -int256(actualExternalObligation.amountIn);
-        expectedDifferences.relayerFeeBaseChange = 0;
-        expectedDifferences.relayerFeeQuoteChange = int256(relayerFeeTake.fee);
-        expectedDifferences.protocolFeeBaseChange = 0;
-        expectedDifferences.protocolFeeQuoteChange = int256(protocolFeeTake.fee);
+        expectedDifferences.relayerFeeBaseChange = int256(externalRelayerFee.fee);
+        expectedDifferences.relayerFeeQuoteChange = int256(internalRelayerFee.fee);
+        expectedDifferences.protocolFeeBaseChange = int256(externalProtocolFee.fee);
+        expectedDifferences.protocolFeeQuoteChange = int256(internalProtocolFee.fee);
         expectedDifferences.darkpoolBaseChange = 0;
         expectedDifferences.darkpoolQuoteChange = 0;
 

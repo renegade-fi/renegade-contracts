@@ -19,6 +19,9 @@ import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
+import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 
 /// @title Renegade Settled Private Intent Library
 /// @author Renegade Eng
@@ -165,7 +168,8 @@ library RenegadeSettledPrivateIntentLib {
 
     /// @notice Execute a renegade settled private intent bundle with bounded settlement
     /// @param matchBundle The bounded match result bundle to execute the settlement bundle for
-    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param contracts The contract references needed for settlement
@@ -174,7 +178,8 @@ library RenegadeSettledPrivateIntentLib {
     /// The balance constraint is implicitly checked by transferring into the darkpool.
     function executeBoundedMatch(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
@@ -183,35 +188,53 @@ library RenegadeSettledPrivateIntentLib {
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeBoundedFirstFill(matchBundle, obligation, settlementBundle, settlementContext, contracts, state);
+            executeBoundedMatchFirstFill(
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                settlementBundle,
+                settlementContext,
+                contracts,
+                state
+            );
         } else {
-            executeBoundedSubsequentFill(matchBundle, obligation, settlementBundle, settlementContext, contracts, state);
+            executeBoundedMatchSubsequentFill(
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                settlementBundle,
+                settlementContext,
+                contracts,
+                state
+            );
         }
     }
 
-    /// @notice Execute the state updates necessary to settle the bundle for a first fill with bounded settlement
+    /// @notice Execute a bounded match for a first fill
     /// @param matchBundle The bounded match result bundle to execute the settlement bundle for
-    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
-    function executeBoundedFirstFill(
+    function executeBoundedMatchFirstFill(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        private
     {
-        // Decode the bundle data
         RenegadeSettledIntentBoundedFirstFillBundle memory bundle =
             PrivateIntentPrivateBalanceBoundedLib.decodeRenegadeSettledIntentBundleDataFirstFill(settlementBundle);
+        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
+            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
         // 1. Validate the bounded match result settlement
-        // The methods below may modify the memory state of the statement, so we append the proof first
         PrivateIntentPrivateBalanceBoundedLib.verifySettlement(
             matchBundle.permit.matchResult,
             bundle.settlementStatement,
@@ -222,11 +245,11 @@ library RenegadeSettledPrivateIntentLib {
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
         uint256 netReceiveAmount = PrivateIntentPrivateBalanceBoundedLib.applyFees(
-            bundle.settlementStatement, obligation, state, settlementContext
+            bundle.settlementStatement, internalObligation, state, settlementContext
         );
 
         // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(obligation.amountIn, settlementContext, contracts, state);
+        bundle.authorizeAndUpdateIntentAndBalance(internalObligation.amountIn, settlementContext, contracts, state);
 
         // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBoundedLib.authorizeAndUpdateOutputBalance(
@@ -238,31 +261,43 @@ library RenegadeSettledPrivateIntentLib {
             contracts,
             state
         );
+
+        // Allocate transfers for external party
+        FeeRate memory relayerFeeRate = FeeRate({
+            rate: bundle.settlementStatement.externalRelayerFeeRate,
+            recipient: bundle.settlementStatement.relayerFeeAddress
+        });
+        ExternalSettlementLib.allocateExternalPartyTransfers(
+            externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
+        );
     }
 
-    /// @notice Execute the state updates necessary to settle the bundle for a subsequent fill with bounded settlement
+    /// @notice Execute a bounded match for a subsequent fill
     /// @param matchBundle The bounded match result bundle to execute the settlement bundle for
-    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to execute
     /// @param settlementContext The settlement context to which we append post-execution updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
-    function executeBoundedSubsequentFill(
+    function executeBoundedMatchSubsequentFill(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        private
     {
         // Decode the bundle data
         RenegadeSettledIntentBoundedBundle memory bundle =
             PrivateIntentPrivateBalanceBoundedLib.decodeRenegadeSettledIntentBundleData(settlementBundle);
+        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
+            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
         // 1. Validate the obligation settlement
-        // The methods below may modify the memory state of the statement, so we append the proof first
         PrivateIntentPrivateBalanceBoundedLib.verifySettlement(
             matchBundle.permit.matchResult,
             bundle.settlementStatement,
@@ -273,11 +308,11 @@ library RenegadeSettledPrivateIntentLib {
 
         // Pay fees to the relayer and protocol, and compute the trader's receive amount net of fees
         uint256 netReceiveAmount = PrivateIntentPrivateBalanceBoundedLib.applyFees(
-            bundle.settlementStatement, obligation, state, settlementContext
+            bundle.settlementStatement, internalObligation, state, settlementContext
         );
 
         // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(obligation.amountIn, settlementContext, contracts, state);
+        bundle.authorizeAndUpdateIntentAndBalance(internalObligation.amountIn, settlementContext, contracts, state);
 
         // 3. Validate the output balance validity
         PrivateIntentPrivateBalanceBoundedLib.authorizeAndUpdateOutputBalance(
@@ -288,6 +323,15 @@ library RenegadeSettledPrivateIntentLib {
             settlementContext,
             contracts,
             state
+        );
+
+        // Allocate transfers for external party
+        FeeRate memory relayerFeeRate = FeeRate({
+            rate: bundle.settlementStatement.externalRelayerFeeRate,
+            recipient: bundle.settlementStatement.relayerFeeAddress
+        });
+        ExternalSettlementLib.allocateExternalPartyTransfers(
+            externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
         );
     }
 }
