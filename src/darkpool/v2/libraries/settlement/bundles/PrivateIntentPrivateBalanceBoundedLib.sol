@@ -352,8 +352,16 @@ library PrivateIntentPrivateBalanceBoundedLib {
     )
         internal
     {
-        // Verify the output balance validity proof
         NewBalanceBundle memory newBalanceBundle = bundle.decodeNewBalanceBundle();
+
+        // We bootstrap a new balance's authorization from an existing balance in-circuit
+        // The contracts must then verify the bootstrapping balance's validity
+        state.assertRootInHistory(newBalanceBundle.statement.existingBalanceMerkleRoot);
+        if (state.isNullifierSpent(newBalanceBundle.statement.existingBalanceNullifier)) {
+            revert IDarkpoolV2.ExistingBalanceNullifierSpent();
+        }
+
+        // Verify the output balance validity proof
         pushValidityProof(
             newBalanceBundle.statement.statementSerialize(),
             bundle.proof,
@@ -814,8 +822,7 @@ library PrivateIntentPrivateBalanceBoundedLib {
     {
         // First compute the fee rates
         FeeRate memory relayerFeeRate = FeeRate({
-            rate: settlementStatement.internalRelayerFeeRate,
-            recipient: settlementStatement.relayerFeeAddress
+            rate: settlementStatement.internalRelayerFeeRate, recipient: settlementStatement.relayerFeeAddress
         });
         FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
 
