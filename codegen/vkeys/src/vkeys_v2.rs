@@ -12,6 +12,7 @@ use renegade_circuits_v2::zk_circuits::proof_linking::output_balance::get_group_
 use renegade_circuits_v2::zk_circuits::settlement::{
     intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementCircuit,
     intent_and_balance_public_settlement::IntentAndBalancePublicSettlementCircuit,
+    intent_only_bounded_settlement::IntentOnlyBoundedSettlementCircuit,
     intent_only_public_settlement::IntentOnlyPublicSettlementCircuit,
 };
 use renegade_circuits_v2::zk_circuits::valid_order_cancellation::SizedValidOrderCancellationCircuit;
@@ -57,6 +58,7 @@ enum V2Circuit {
     OutputBalanceValidity,
     // --- Settlement Circuits --- //
     IntentOnlyPublicSettlement,
+    IntentOnlyBoundedSettlement,
     IntentAndBalancePublicSettlement,
     IntentAndBalancePrivateSettlement,
 }
@@ -111,6 +113,9 @@ impl V2Circuit {
             Self::IntentOnlyPublicSettlement => {
                 generate_vkey_for_circuit::<IntentOnlyPublicSettlementCircuit>()
             }
+            Self::IntentOnlyBoundedSettlement => {
+                generate_vkey_for_circuit::<IntentOnlyBoundedSettlementCircuit>()
+            }
             Self::IntentAndBalancePublicSettlement => {
                 generate_vkey_for_circuit::<IntentAndBalancePublicSettlementCircuit>()
             }
@@ -139,6 +144,7 @@ impl V2Circuit {
             Self::NewOutputBalanceValidity => "NEW_OUTPUT_BALANCE_VALIDITY",
             Self::OutputBalanceValidity => "OUTPUT_BALANCE_VALIDITY",
             Self::IntentOnlyPublicSettlement => "INTENT_ONLY_PUBLIC_SETTLEMENT",
+            Self::IntentOnlyBoundedSettlement => "INTENT_ONLY_BOUNDED_SETTLEMENT",
             Self::IntentAndBalancePublicSettlement => "INTENT_AND_BALANCE_PUBLIC_SETTLEMENT",
             Self::IntentAndBalancePrivateSettlement => "INTENT_AND_BALANCE_PRIVATE_SETTLEMENT",
         }
@@ -163,6 +169,7 @@ impl V2Circuit {
             Self::NewOutputBalanceValidity,
             Self::OutputBalanceValidity,
             Self::IntentOnlyPublicSettlement,
+            Self::IntentOnlyBoundedSettlement,
             Self::IntentAndBalancePublicSettlement,
             Self::IntentAndBalancePrivateSettlement,
         ]

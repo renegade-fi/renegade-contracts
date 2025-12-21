@@ -21,9 +21,11 @@ import {
     IntentOnlyValidityStatement,
     IntentOnlyValidityStatementFirstFill
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
-import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { PartialCommitment } from "darkpoolv2-types/PartialCommitment.sol";
-import { PrivateIntentAuthBundle, PrivateIntentAuthBundleFirstFill } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import {
+    PrivateIntentAuthBundle,
+    PrivateIntentAuthBundleFirstFill
+} from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { PublicInputsLib } from "darkpoolv2-lib/public_inputs/PublicInputsLib.sol";
 import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -118,7 +120,8 @@ library PrivateIntentPublicBalanceBundleLib {
         pure
         returns (PrivateIntentPublicBalanceFirstFillBundle memory bundleData)
     {
-        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        bool validType =
+            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceFirstFillBundle));
     }
@@ -145,7 +148,8 @@ library PrivateIntentPublicBalanceBundleLib {
         pure
         returns (PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData)
     {
-        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
+        bool validType =
+            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.NATIVELY_SETTLED_PRIVATE_INTENT;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (PrivateIntentPublicBalanceBoundedFirstFillBundle));
     }
@@ -547,27 +551,45 @@ library PrivateIntentPublicBalanceBundleLib {
     /// @notice Push the settlement proof to the context for a bounded settlement
     /// @param bundleData The bundle containing proofs
     /// @param settlementContext The context to push to
+    /// @param contracts The contract references needed for settlement
     function pushSettlementProofs(
         PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        DarkpoolContracts memory contracts
     )
         internal
-        pure
+        view
     {
-        _pushBoundedSettlementProofInner(bundleData.settlementStatement, bundleData.settlementProof, settlementContext);
+        _pushBoundedSettlementProofInner(
+            bundleData.settlementStatement,
+            bundleData.settlementProof,
+            bundleData.auth.validityProof,
+            bundleData.authSettlementLinkingProof,
+            settlementContext,
+            contracts
+        );
     }
 
     /// @notice Push the settlement proof to the context for a bounded settlement
     /// @param bundleData The bundle containing proofs
     /// @param settlementContext The context to push to
+    /// @param contracts The contract references needed for settlement
     function pushSettlementProofs(
         PrivateIntentPublicBalanceBoundedBundle memory bundleData,
-        SettlementContext memory settlementContext
+        SettlementContext memory settlementContext,
+        DarkpoolContracts memory contracts
     )
         internal
-        pure
+        view
     {
-        _pushBoundedSettlementProofInner(bundleData.settlementStatement, bundleData.settlementProof, settlementContext);
+        _pushBoundedSettlementProofInner(
+            bundleData.settlementStatement,
+            bundleData.settlementProof,
+            bundleData.auth.validityProof,
+            bundleData.authSettlementLinkingProof,
+            settlementContext,
+            contracts
+        );
     }
 
     /// @notice Internal helper to push settlement proof and proof linking for exact match
@@ -603,24 +625,36 @@ library PrivateIntentPublicBalanceBundleLib {
         settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
-    /// @notice Internal helper to push settlement proof for bounded match
-    /// @param settlementStatement The bounded settlement statement
+    /// @notice Internal helper to push settlement proof and proof linking for bounded match
+    /// @param settlementStatement The settlement statement
     /// @param settlementProof The settlement proof
+    /// @param validityProof The validity proof (for proof linking)
+    /// @param authSettlementLinkingProof The proof linking the auth and settlement proofs
     /// @param settlementContext The context to push to
+    /// @param contracts The contract references needed for settlement
     function _pushBoundedSettlementProofInner(
         IntentOnlyBoundedSettlementStatement memory settlementStatement,
         PlonkProof memory settlementProof,
-        SettlementContext memory settlementContext
+        PlonkProof memory validityProof,
+        LinkingProof memory authSettlementLinkingProof,
+        SettlementContext memory settlementContext,
+        DarkpoolContracts memory contracts
     )
         private
-        pure
+        view
     {
         // Push the settlement proof
         BN254.ScalarField[] memory publicInputs = settlementStatement.statementSerialize();
-        VerificationKey memory vk = PublicInputsLib.dummyVkey();
+        VerificationKey memory vk = contracts.vkeys.intentOnlyBoundedSettlementKeys();
         settlementContext.pushProof(publicInputs, settlementProof, vk);
 
-        // TODO: Push the proof linking argument
+        ProofLinkingInstance memory proofLinkingArgument = ProofLinkingInstance({
+            wireComm0: validityProof.wireComms[0],
+            wireComm1: settlementProof.wireComms[0],
+            proof: authSettlementLinkingProof,
+            vk: contracts.vkeys.intentOnlySettlementLinkingKey()
+        });
+        settlementContext.pushProofLinkingArgument(proofLinkingArgument);
     }
 
     // -------------

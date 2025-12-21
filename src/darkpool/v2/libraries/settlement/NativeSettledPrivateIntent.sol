@@ -141,7 +141,7 @@ library NativeSettledPrivateIntentLib {
 
         // Push validity and settlement proofs
         bundleData.pushValidityProof(settlementContext, contracts);
-        bundleData.pushSettlementProofs(settlementContext);
+        bundleData.pushSettlementProofs(settlementContext, contracts);
 
         // State mutation: Insert post-match intent commitment into Merkle tree
         state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
@@ -196,7 +196,7 @@ library NativeSettledPrivateIntentLib {
 
         // Push validity and settlement proofs
         bundleData.pushValidityProof(settlementContext, contracts, state);
-        bundleData.pushSettlementProofs(settlementContext);
+        bundleData.pushSettlementProofs(settlementContext, contracts);
 
         // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
         state.spendNullifier(bundleData.auth.statement.oldIntentNullifier);

@@ -317,31 +317,29 @@ library PublicInputsLib {
     /// @notice Serialize the public inputs for a proof of single-intent bounded match settlement
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    /// @dev NOTE: This is a temporary placeholder implementation until the circuits are completed.
-    /// The actual circuit public inputs format may differ from this serialization.
     function statementSerialize(IntentOnlyBoundedSettlementStatement memory statement)
         internal
         pure
         returns (BN254.ScalarField[] memory publicInputs)
     {
-        uint256 nPublicInputs = 11;
+        uint256 nPublicInputs = 9;
         publicInputs = new BN254.ScalarField[](nPublicInputs);
 
         // Add the bounded match result fields
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.boundedMatchResult.internalPartyInputToken)));
         publicInputs[1] =
             BN254.ScalarField.wrap(uint256(uint160(statement.boundedMatchResult.internalPartyOutputToken)));
-        publicInputs[2] = BN254.ScalarField.wrap(statement.boundedMatchResult.price.repr);
-        publicInputs[3] = BN254.ScalarField.wrap(statement.boundedMatchResult.minInternalPartyAmountIn);
-        publicInputs[4] = BN254.ScalarField.wrap(statement.boundedMatchResult.maxInternalPartyAmountIn);
+        publicInputs[2] = BN254.ScalarField.wrap(statement.boundedMatchResult.minInternalPartyAmountIn);
+        publicInputs[3] = BN254.ScalarField.wrap(statement.boundedMatchResult.maxInternalPartyAmountIn);
+        publicInputs[4] = BN254.ScalarField.wrap(statement.boundedMatchResult.price.repr);
         publicInputs[5] = BN254.ScalarField.wrap(statement.boundedMatchResult.blockDeadline);
 
         // Add the fee rates
         publicInputs[6] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
-        publicInputs[8] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
+        publicInputs[7] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
 
         // Add the relayer fee address
-        publicInputs[10] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeAddress)));
+        publicInputs[8] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeAddress)));
     }
 
     /// @notice Serialize the public inputs for a proof of intent and balance public settlement

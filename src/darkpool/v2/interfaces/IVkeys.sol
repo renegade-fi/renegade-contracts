@@ -74,6 +74,9 @@ interface IVkeys {
     /// @notice Get the verification key for `INTENT ONLY PUBLIC SETTLEMENT`
     /// @return The verification key for `INTENT ONLY PUBLIC SETTLEMENT`
     function intentOnlyPublicSettlementKeys() external view returns (VerificationKey memory);
+    /// @notice Get the verification key for `INTENT ONLY BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT ONLY BOUNDED SETTLEMENT`
+    function intentOnlyBoundedSettlementKeys() external view returns (VerificationKey memory);
     /// @notice Get the verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     /// @return The verification key for `INTENT AND BALANCE PUBLIC SETTLEMENT`
     function intentAndBalancePublicSettlementKeys() external view returns (VerificationKey memory);
