@@ -22,7 +22,7 @@ use renegade_abi::v2::{
 use renegade_circuit_types::{PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
     singleprover_prove_with_hint,
-    test_helpers::{BOUNDED_MAX_AMT, create_bounded_match_result, random_price},
+    test_helpers::{BOUNDED_MAX_AMT, create_bounded_match_result_with_balance, random_price},
     zk_circuits::settlement::intent_only_bounded_settlement::{
         self, IntentOnlyBoundedSettlementCircuit, IntentOnlyBoundedSettlementStatement,
     },
@@ -37,17 +37,16 @@ use test_helpers::{assert_eq_result, integration_test_async};
 ///
 /// This test will settle twice to test both the first and subsequent fill paths.
 #[allow(non_snake_case)]
-async fn test_settlement__external_match_native_settled_private_intent(
-    args: TestArgs,
-) -> Result<()> {
+async fn test_bounded_settlement__native_settled_private_intent(args: TestArgs) -> Result<()> {
     // Setup the external party (tx_submitter) with funding and darkpool approval
     setup_external_match(&args).await?;
 
     // Fund the parties, party0 (internal party) sells the base; party1 (external party) sells the quote
     fund_parties(&args).await?;
 
-    // Build the intent and match result
-    let (intent, bounded_match_result) = create_intent_and_match_result(&args).await?;
+    // Build the intent and match result (no private balance constraint, use max amount)
+    let (intent, bounded_match_result) =
+        create_intent_and_bounded_match_result(&args, BOUNDED_MAX_AMT)?;
 
     // --- First Fill --- //
 
@@ -121,7 +120,7 @@ async fn test_settlement__external_match_native_settled_private_intent(
 
     Ok(())
 }
-integration_test_async!(test_settlement__external_match_native_settled_private_intent);
+integration_test_async!(test_bounded_settlement__native_settled_private_intent);
 
 // -----------
 // | Helpers |
@@ -129,12 +128,19 @@ integration_test_async!(test_settlement__external_match_native_settled_private_i
 
 // --- Intents --- //
 
-/// Create an intent and a compatible match result representing an external match
+/// Create an intent and bounded match result constrained by a balance amount
+///
+/// This ensures `max_internal_party_amount_in <= balance_amount`, satisfying
+/// the circuit's capitalization constraint.
 ///
 /// Party 0 (internal party) sells the base; Party 1 (external party) sells the quote
-async fn create_intent_and_match_result(args: &TestArgs) -> Result<(Intent, BoundedMatchResult)> {
+pub(crate) fn create_intent_and_bounded_match_result(
+    args: &TestArgs,
+    balance_amount: u128,
+) -> Result<(Intent, BoundedMatchResult)> {
     let mut rng = thread_rng();
-    let amount_in = rng.gen_range(1..=BOUNDED_MAX_AMT);
+    // Intent amount must be >= balance_amount to allow meaningful bounded match results
+    let amount_in = rng.gen_range(balance_amount..=BOUNDED_MAX_AMT);
     let min_price = random_price();
     let internal_party_intent = Intent {
         in_token: args.base_addr()?,
@@ -144,7 +150,9 @@ async fn create_intent_and_match_result(args: &TestArgs) -> Result<(Intent, Boun
         amount_in,
     };
 
-    let bounded_match_result = create_bounded_match_result(&internal_party_intent);
+    // Use create_bounded_match_result_with_balance to ensure max <= balance_amount
+    let bounded_match_result =
+        create_bounded_match_result_with_balance(&internal_party_intent, balance_amount);
     Ok((internal_party_intent, bounded_match_result))
 }
 
@@ -153,7 +161,7 @@ async fn create_intent_and_match_result(args: &TestArgs) -> Result<(Intent, Boun
 /// Create random obligations for an external match
 ///
 /// Picks a random external amount and builds both obligations, mimicking contract's buildObligations
-fn create_obligations(
+pub(crate) fn create_obligations(
     match_bundle: &BoundedMatchResultBundle,
 ) -> (U256, SettlementObligation, SettlementObligation) {
     let mut rng = thread_rng();
@@ -215,7 +223,7 @@ fn generate_settlement_proof(
 // --- Calldata Bundles --- //
 
 /// Build a match result bundle
-fn build_match_result_bundle(
+pub(crate) fn build_match_result_bundle(
     bounded_match_result: &BoundedMatchResult,
     args: &TestArgs,
 ) -> Result<BoundedMatchResultBundle> {
