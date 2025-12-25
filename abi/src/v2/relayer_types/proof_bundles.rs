@@ -14,6 +14,7 @@ use renegade_circuits_v2::zk_circuits::{
         valid_public_relayer_fee_payment::ValidPublicRelayerFeePaymentStatement,
     },
     settlement::{
+        intent_and_balance_bounded_settlement::IntentAndBalanceBoundedSettlementStatement,
         intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementStatement,
         intent_and_balance_public_settlement::IntentAndBalancePublicSettlementStatement,
         intent_only_bounded_settlement::IntentOnlyBoundedSettlementStatement,
@@ -388,8 +389,8 @@ impl From<IntentOnlyBoundedSettlementStatement>
     fn from(statement: IntentOnlyBoundedSettlementStatement) -> Self {
         Self {
             boundedMatchResult: statement.bounded_match_result.into(),
-            externalRelayerFeeRate: statement.external_relayer_fee.into(),
             internalRelayerFeeRate: statement.internal_relayer_fee.into(),
+            externalRelayerFeeRate: statement.external_relayer_fee.into(),
             relayerFeeAddress: statement.relayer_fee_recipient,
         }
     }
@@ -406,6 +407,22 @@ impl From<IntentAndBalancePublicSettlementStatement>
             relayerFeeRecipient: statement.relayer_fee_recipient,
             settlementObligation: statement.settlement_obligation.into(),
             amountPublicShare: scalar_to_u256(&statement.amount_public_share),
+        }
+    }
+}
+
+impl From<IntentAndBalanceBoundedSettlementStatement>
+    for IDarkpoolV2::IntentAndBalanceBoundedSettlementStatement
+{
+    fn from(statement: IntentAndBalanceBoundedSettlementStatement) -> Self {
+        Self {
+            boundedMatchResult: statement.bounded_match_result.into(),
+            amountPublicShare: scalar_to_u256(&statement.amount_public_share),
+            inBalancePublicShares: statement.in_balance_public_shares.into(),
+            outBalancePublicShares: statement.out_balance_public_shares.into(),
+            internalRelayerFeeRate: statement.internal_relayer_fee.into(),
+            externalRelayerFeeRate: statement.external_relayer_fee.into(),
+            relayerFeeAddress: statement.relayer_fee_recipient,
         }
     }
 }

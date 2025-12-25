@@ -135,6 +135,12 @@ contract VKeys is IVkeys {
         return settlementVKeys.intentAndBalancePrivateSettlementKeys();
     }
 
+    /// @notice Get the verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    /// @return The verification key for `INTENT AND BALANCE BOUNDED SETTLEMENT`
+    function intentAndBalanceBoundedSettlementKeys() external view override returns (VerificationKey memory) {
+        return settlementVKeys.intentAndBalanceBoundedSettlementKeys();
+    }
+
     /// @notice Get the verification key for `OUTPUT BALANCE VALIDITY`
     /// @return The verification key for `OUTPUT BALANCE VALIDITY`
     function outputBalanceValidityKeys() external view override returns (VerificationKey memory) {
