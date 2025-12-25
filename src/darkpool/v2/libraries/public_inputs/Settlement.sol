@@ -87,10 +87,10 @@ struct IntentAndBalanceBoundedSettlementStatement {
     PostMatchBalanceShare inBalancePublicShares;
     /// @dev The updated public shares of the post-match balance fields for the output balance
     PostMatchBalanceShare outBalancePublicShares;
-    /// @dev The relayer fee rate charged to the external party
-    FixedPoint externalRelayerFeeRate;
-    /// @dev The relayer fee rate charged to the internal party
+    /// @dev The relayer fee rate charged to the internal party for the settlement
     FixedPoint internalRelayerFeeRate;
+    /// @dev The relayer fee rate charged to the external party for the settlement
+    FixedPoint externalRelayerFeeRate;
     /// @dev The address at which the relayer receives their fee
     address relayerFeeAddress;
 }
