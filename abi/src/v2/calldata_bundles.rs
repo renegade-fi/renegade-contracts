@@ -223,6 +223,30 @@ impl SettlementBundle {
             data: data.into(),
         }
     }
+
+    /// Build a renegade settled private intent bounded first fill bundle
+    pub fn renegade_settled_private_intent_bounded_first_fill(
+        auth: RenegadeSettledIntentAuthBundleFirstFill,
+        output_balance_bundle: OutputBalanceBundle,
+        settlement_statement: IntentAndBalanceBoundedSettlementStatement,
+        settlement_proof: PlonkProof,
+        linking_proof: LinkingProof,
+    ) -> Self {
+        let inner = RenegadeSettledIntentBoundedFirstFillBundle {
+            auth,
+            outputBalanceBundle: output_balance_bundle,
+            settlementStatement: settlement_statement,
+            settlementProof: settlement_proof,
+            authSettlementLinkingProof: linking_proof,
+        };
+        let data = inner.abi_encode();
+
+        Self {
+            isFirstFill: true,
+            bundleType: NATIVE_SETTLED_RENEGADE_PRIVATE_INTENT_BUNDLE_TYPE,
+            data: data.into(),
+        }
+    }
 }
 
 impl OutputBalanceBundle {
