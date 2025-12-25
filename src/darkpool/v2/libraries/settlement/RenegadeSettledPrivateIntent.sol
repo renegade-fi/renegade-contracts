@@ -248,10 +248,7 @@ library RenegadeSettledPrivateIntentLib {
             bundle.settlementStatement, internalObligation, state, settlementContext
         );
 
-        // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(internalObligation.amountIn, settlementContext, contracts, state);
-
-        // 3. Validate the output balance validity
+        // 2. Validate the output balance validity
         PrivateIntentPrivateBalanceBoundedLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
             bundle.settlementStatement,
@@ -261,6 +258,9 @@ library RenegadeSettledPrivateIntentLib {
             contracts,
             state
         );
+
+        // 3. Validate the intent and input (capitalizing) balance authorization
+        bundle.authorizeAndUpdateIntentAndBalance(internalObligation.amountIn, settlementContext, contracts, state);
 
         // Allocate transfers for external party
         FeeRate memory relayerFeeRate = FeeRate({
@@ -311,10 +311,7 @@ library RenegadeSettledPrivateIntentLib {
             bundle.settlementStatement, internalObligation, state, settlementContext
         );
 
-        // 2. Validate the intent and input (capitalizing) balance authorization
-        bundle.authorizeAndUpdateIntentAndBalance(internalObligation.amountIn, settlementContext, contracts, state);
-
-        // 3. Validate the output balance validity
+        // 2. Validate the output balance validity
         PrivateIntentPrivateBalanceBoundedLib.authorizeAndUpdateOutputBalance(
             netReceiveAmount,
             bundle.settlementStatement,
@@ -324,6 +321,9 @@ library RenegadeSettledPrivateIntentLib {
             contracts,
             state
         );
+
+        // 3. Validate the intent and input (capitalizing) balance authorization
+        bundle.authorizeAndUpdateIntentAndBalance(internalObligation.amountIn, settlementContext, contracts, state);
 
         // Allocate transfers for external party
         FeeRate memory relayerFeeRate = FeeRate({

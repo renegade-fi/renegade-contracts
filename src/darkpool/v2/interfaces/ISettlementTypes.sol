@@ -21,6 +21,10 @@ import {
     RenegadeSettledIntentBundle
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 import {
+    RenegadeSettledIntentBoundedFirstFillBundle,
+    RenegadeSettledIntentBoundedBundle
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBoundedLib.sol";
+import {
     PublicIntentAuthBundle,
     PublicIntentPermit,
     PrivateIntentAuthBundleFirstFill,
@@ -78,6 +82,14 @@ interface ISettlementTypes {
         external
         pure
         returns (RenegadeSettledIntentFirstFillBundle memory);
+    function exposeRenegadeSettledIntentBoundedFirstFillBundle(RenegadeSettledIntentBoundedFirstFillBundle calldata)
+        external
+        pure
+        returns (RenegadeSettledIntentBoundedFirstFillBundle memory);
+    function exposeRenegadeSettledIntentBoundedBundle(RenegadeSettledIntentBoundedBundle calldata)
+        external
+        pure
+        returns (RenegadeSettledIntentBoundedBundle memory);
     function exposeRenegadeSettledIntentBundle(RenegadeSettledIntentBundle calldata)
         external
         pure

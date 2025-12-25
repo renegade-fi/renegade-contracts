@@ -570,6 +570,7 @@ library PrivateIntentPrivateBalanceBoundedLib {
     /// `amountIn` field, which is updated in a match settlement. We must therefore apply the settlement to the
     /// `amountIn` public share and resume the commitment.
     /// @param bundleData The bundle data to compute the commitment for
+    /// @param internalPartyAmountIn The internal party's input amount (determined at runtime)
     /// @param hasher The hasher to use for hashing
     /// @return newIntentCommitment The full commitment to the updated intent
     function computeFullIntentCommitment(
@@ -744,7 +745,7 @@ library PrivateIntentPrivateBalanceBoundedLib {
         // Push the settlement proof to the settlement context
         BN254.ScalarField[] memory publicInputs = statement.statementSerialize();
         // TODO: Update verification keys
-        VerificationKey memory vk = contracts.vkeys.intentAndBalancePublicSettlementKeys();
+        VerificationKey memory vk = contracts.vkeys.intentAndBalanceBoundedSettlementKeys();
         settlementContext.pushProof(publicInputs, proof, vk);
     }
 

@@ -335,8 +335,8 @@ library PublicInputsLib {
         publicInputs[5] = BN254.ScalarField.wrap(statement.boundedMatchResult.blockDeadline);
 
         // Add the fee rates
-        publicInputs[6] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
-        publicInputs[7] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
+        publicInputs[6] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
+        publicInputs[7] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
 
         // Add the relayer fee address
         publicInputs[8] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeAddress)));
@@ -380,8 +380,6 @@ library PublicInputsLib {
     /// @notice Serialize the public inputs for a proof of intent and balance bounded settlement
     /// @param statement The statement to serialize
     /// @return publicInputs The serialized public inputs
-    /// @dev NOTE: This is a temporary placeholder implementation until the circuits are completed.
-    /// The actual circuit public inputs format may differ from this serialization.
     function statementSerialize(IntentAndBalanceBoundedSettlementStatement memory statement)
         internal
         pure
@@ -394,9 +392,9 @@ library PublicInputsLib {
         publicInputs[0] = BN254.ScalarField.wrap(uint256(uint160(statement.boundedMatchResult.internalPartyInputToken)));
         publicInputs[1] =
             BN254.ScalarField.wrap(uint256(uint160(statement.boundedMatchResult.internalPartyOutputToken)));
-        publicInputs[2] = BN254.ScalarField.wrap(statement.boundedMatchResult.price.repr);
-        publicInputs[3] = BN254.ScalarField.wrap(statement.boundedMatchResult.minInternalPartyAmountIn);
-        publicInputs[4] = BN254.ScalarField.wrap(statement.boundedMatchResult.maxInternalPartyAmountIn);
+        publicInputs[2] = BN254.ScalarField.wrap(statement.boundedMatchResult.minInternalPartyAmountIn);
+        publicInputs[3] = BN254.ScalarField.wrap(statement.boundedMatchResult.maxInternalPartyAmountIn);
+        publicInputs[4] = BN254.ScalarField.wrap(statement.boundedMatchResult.price.repr);
         publicInputs[5] = BN254.ScalarField.wrap(statement.boundedMatchResult.blockDeadline);
 
         // Add the leaked pre-update amount public share of the intent
@@ -412,9 +410,9 @@ library PublicInputsLib {
         publicInputs[11] = statement.outBalancePublicShares.protocolFeeBalance;
         publicInputs[12] = statement.outBalancePublicShares.amount;
 
-        // Add the fee rates
-        publicInputs[13] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
-        publicInputs[14] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
+        // Add the relayer fee rate
+        publicInputs[13] = BN254.ScalarField.wrap(statement.internalRelayerFeeRate.repr);
+        publicInputs[14] = BN254.ScalarField.wrap(statement.externalRelayerFeeRate.repr);
 
         // Add the relayer fee address
         publicInputs[15] = BN254.ScalarField.wrap(uint256(uint160(statement.relayerFeeAddress)));

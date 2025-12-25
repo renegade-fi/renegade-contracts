@@ -10,6 +10,7 @@ use renegade_circuits_v2::zk_circuits::proof_linking::intent_and_balance::get_gr
 use renegade_circuits_v2::zk_circuits::proof_linking::intent_only::get_intent_only_settlement_group_layout;
 use renegade_circuits_v2::zk_circuits::proof_linking::output_balance::get_group_layout as get_output_balance_settlement_group_layout;
 use renegade_circuits_v2::zk_circuits::settlement::{
+    intent_and_balance_bounded_settlement::IntentAndBalanceBoundedSettlementCircuit,
     intent_and_balance_private_settlement::IntentAndBalancePrivateSettlementCircuit,
     intent_and_balance_public_settlement::IntentAndBalancePublicSettlementCircuit,
     intent_only_bounded_settlement::IntentOnlyBoundedSettlementCircuit,
@@ -61,6 +62,7 @@ enum V2Circuit {
     IntentOnlyBoundedSettlement,
     IntentAndBalancePublicSettlement,
     IntentAndBalancePrivateSettlement,
+    IntentAndBalanceBoundedSettlement,
 }
 
 impl Display for V2Circuit {
@@ -122,6 +124,9 @@ impl V2Circuit {
             Self::IntentAndBalancePrivateSettlement => {
                 generate_vkey_for_circuit::<IntentAndBalancePrivateSettlementCircuit>()
             }
+            Self::IntentAndBalanceBoundedSettlement => {
+                generate_vkey_for_circuit::<IntentAndBalanceBoundedSettlementCircuit>()
+            }
         }
     }
 
@@ -147,6 +152,7 @@ impl V2Circuit {
             Self::IntentOnlyBoundedSettlement => "INTENT_ONLY_BOUNDED_SETTLEMENT",
             Self::IntentAndBalancePublicSettlement => "INTENT_AND_BALANCE_PUBLIC_SETTLEMENT",
             Self::IntentAndBalancePrivateSettlement => "INTENT_AND_BALANCE_PRIVATE_SETTLEMENT",
+            Self::IntentAndBalanceBoundedSettlement => "INTENT_AND_BALANCE_BOUNDED_SETTLEMENT",
         }
     }
 
@@ -172,6 +178,7 @@ impl V2Circuit {
             Self::IntentOnlyBoundedSettlement,
             Self::IntentAndBalancePublicSettlement,
             Self::IntentAndBalancePrivateSettlement,
+            Self::IntentAndBalanceBoundedSettlement,
         ]
     }
 }
