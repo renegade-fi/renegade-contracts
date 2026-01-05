@@ -9,10 +9,7 @@ use crate::{
     test_args::TestArgs, tests::settlement::get_total_fee, util::transactions::wait_for_tx_success,
 };
 
-<<<<<<< HEAD
 pub mod private_intent_private_balance;
-=======
->>>>>>> 994ec3f (integration: v2: settlement: external-match: add ring 1 tests)
 pub mod private_intent_public_balance;
 
 /// Compute the fee take for an external match

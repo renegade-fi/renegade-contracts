@@ -9,7 +9,7 @@ import { SettlementBundle, SettlementBundleType } from "darkpoolv2-types/settlem
 import {
     PrivateIntentPublicBalanceBoundedFirstFillBundle,
     PrivateIntentPublicBalanceBoundedBundle
-} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBoundedLib.sol";
 import {
     SignatureWithNonce,
     PrivateIntentAuthBundle,
