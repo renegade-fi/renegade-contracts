@@ -132,6 +132,9 @@ interface IDarkpoolV2 {
     /// @notice Emitted when a new recovery ID is registered on-chain
     /// @param recoveryId The recovery ID that was registered
     event RecoveryIdRegistered(BN254.ScalarField indexed recoveryId);
+    /// @notice Emitted when a note is posted to the darkpool
+    /// @param noteCommitment The commitment to the note
+    event NotePosted(uint256 indexed noteCommitment);
 
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract

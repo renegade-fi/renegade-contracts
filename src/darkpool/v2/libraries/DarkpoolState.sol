@@ -214,6 +214,9 @@ library DarkpoolStateLib {
     /// @param nullifier The nullifier to spend
     function spendNullifier(DarkpoolState storage state, BN254.ScalarField nullifier) internal {
         state.nullifierSet.spend(nullifier);
+
+        // Emit the nullifier spent event
+        emit IDarkpoolV2.NullifierSpent(nullifier);
     }
 
     /// @notice Check if a nullifier has been spent
