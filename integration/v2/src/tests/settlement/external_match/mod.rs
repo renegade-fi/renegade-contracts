@@ -54,7 +54,7 @@ pub async fn setup_external_match(args: &TestArgs) -> Result<()> {
     let signer = &args.tx_submitter;
     let base = args.base_token_with_signer(signer)?;
     let quote = args.quote_token_with_signer(signer)?;
-    let amt = U256::from(1) << 200; // 10^200
+    let amt = U256::from(1) << 200; // 2^200
     let darkpool = args.darkpool_addr();
     wait_for_tx_success(base.approve(darkpool, amt)).await?;
     wait_for_tx_success(quote.approve(darkpool, amt)).await?;
