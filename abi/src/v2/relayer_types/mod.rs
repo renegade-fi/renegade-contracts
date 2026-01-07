@@ -12,6 +12,7 @@ use crate::v2::BN254;
 pub use renegade_circuit_types_v2::primitives::baby_jubjub::BabyJubJubPoint;
 
 pub mod balance;
+pub mod bounded_match_result;
 pub mod ciphertext;
 pub mod commitments;
 pub mod deposit;

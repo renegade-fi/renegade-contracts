@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use alloy::{
-    primitives::{utils::parse_ether, U256},
+    primitives::{U256, utils::parse_ether},
     providers::ext::AnvilApi,
     signers::local::PrivateKeySigner,
 };
@@ -67,7 +67,7 @@ async fn setup_async(args: &TestArgs) -> Result<()> {
 }
 
 /// Fund the given address for the tests
-async fn fund_address(signer: &PrivateKeySigner, args: &TestArgs) -> Result<()> {
+pub(crate) async fn fund_address(signer: &PrivateKeySigner, args: &TestArgs) -> Result<()> {
     // Fund the address with ETH
     let address = signer.address();
     let bal = parse_ether("100")?;
