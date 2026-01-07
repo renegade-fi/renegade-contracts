@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { BN254 } from "solidity-bn254/BN254.sol";
 import { PartyId, SettlementBundle } from "darkpoolv2-types/settlement/SettlementBundle.sol";
 import {
-    PrivateIntentPublicBalanceBoundedBundle,
-    PrivateIntentPublicBalanceBoundedFirstFillBundle,
     PrivateIntentPublicBalanceBundle,
     PrivateIntentPublicBalanceBundleLib,
     PrivateIntentPublicBalanceFirstFillBundle
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
+import {
+    PrivateIntentPublicBalanceBoundedBundle,
+    PrivateIntentPublicBalanceBoundedFirstFillBundle,
+    PrivateIntentPublicBalanceBoundedLib
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBoundedLib.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
 import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
@@ -24,15 +25,16 @@ import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlem
 /// @title Native Settled Private Intent Library
 /// @author Renegade Eng
 /// @notice Library for validating a natively settled private intent
-/// @dev A natively settled private intent is a private intent with a private (darkpool) balance.
+/// @dev A natively settled private intent is a private intent with a public (ERC20) balance.
 library NativeSettledPrivateIntentLib {
     using DarkpoolStateLib for DarkpoolState;
     using ObligationLib for ObligationBundle;
-    using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceBoundedBundle;
-    using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceBoundedFirstFillBundle;
     using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceBundle;
     using PrivateIntentPublicBalanceBundleLib for PrivateIntentPublicBalanceFirstFillBundle;
     using PrivateIntentPublicBalanceBundleLib for SettlementBundle;
+    using PrivateIntentPublicBalanceBoundedLib for PrivateIntentPublicBalanceBoundedBundle;
+    using PrivateIntentPublicBalanceBoundedLib for PrivateIntentPublicBalanceBoundedFirstFillBundle;
+    using PrivateIntentPublicBalanceBoundedLib for SettlementBundle;
     using SettlementContextLib for SettlementContext;
 
     // --- Implementation --- //
@@ -124,32 +126,34 @@ library NativeSettledPrivateIntentLib {
     )
         private
     {
+        // Decode the bundle data
         PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData =
-            settlementBundle.decodePrivateIntentBoundedBundleDataFirstFill();
+            PrivateIntentPublicBalanceBoundedLib.decodePrivateIntentPublicBalanceBoundedBundleDataFirstFill(
+                settlementBundle
+            );
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
             BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Compute pre- and post-match intent commitments
-        (BN254.ScalarField preMatchCommitment, BN254.ScalarField postMatchCommitment) =
-            bundleData.computeIntentCommitments(internalObligation.amountIn, contracts.hasher);
+        // 1. Verify the settlement proof
+        PrivateIntentPublicBalanceBoundedLib.verifySettlement(
+            matchBundle.permit.matchResult,
+            bundleData.settlementStatement,
+            bundleData.settlementProof,
+            contracts,
+            settlementContext
+        );
 
-        // First-fill only: Verify intent commitment signature
-        PrivateIntentPublicBalanceBundleLib.verifyIntentCommitmentSignature(preMatchCommitment, bundleData.auth, state);
+        // 2. Apply fees
+        uint256 netReceiveAmount = PrivateIntentPublicBalanceBoundedLib.applyFees(
+            bundleData.settlementStatement, internalObligation, state, settlementContext
+        );
 
-        // Validate match result
-        bundleData.validateMatchResult(matchBundle.permit.matchResult);
+        // 3. Authorize and update intent (handles validity proof, state, and trader transfers)
+        bundleData.authorizeAndUpdateIntent(
+            internalObligation.amountIn, netReceiveAmount, internalObligation, settlementContext, contracts, state
+        );
 
-        // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, contracts);
-        bundleData.pushSettlementProofs(settlementContext, contracts);
-
-        // State mutation: Insert post-match intent commitment into Merkle tree
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
-
-        // Allocate transfers for internal party
-        bundleData.allocateTransfers(internalObligation, settlementContext, state);
-
-        // Allocate transfers for external party
+        // 4. Allocate transfers for external party
         FeeRate memory relayerFeeRate = FeeRate({
             rate: bundleData.settlementStatement.externalRelayerFeeRate,
             recipient: bundleData.settlementStatement.relayerFeeAddress
@@ -157,10 +161,6 @@ library NativeSettledPrivateIntentLib {
         ExternalSettlementLib.allocateExternalPartyTransfers(
             externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
         );
-
-        // Emit a recovery ID for the intent
-        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Execute a bounded match for a subsequent fill
@@ -182,30 +182,32 @@ library NativeSettledPrivateIntentLib {
     )
         private
     {
+        // Decode the bundle data
         PrivateIntentPublicBalanceBoundedBundle memory bundleData =
-            settlementBundle.decodePrivateIntentBoundedBundleData();
+            PrivateIntentPublicBalanceBoundedLib.decodePrivateIntentPublicBalanceBoundedBundle(settlementBundle);
         (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
             BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
-        // Validate match result
-        bundleData.validateMatchResult(matchBundle.permit.matchResult);
+        // 1. Verify the settlement proof
+        PrivateIntentPublicBalanceBoundedLib.verifySettlement(
+            matchBundle.permit.matchResult,
+            bundleData.settlementStatement,
+            bundleData.settlementProof,
+            contracts,
+            settlementContext
+        );
 
-        // Compute post-match commitment
-        BN254.ScalarField postMatchCommitment =
-            bundleData.computeFullIntentCommitment(internalObligation.amountIn, contracts.hasher);
+        // 2. Apply fees
+        uint256 netReceiveAmount = PrivateIntentPublicBalanceBoundedLib.applyFees(
+            bundleData.settlementStatement, internalObligation, state, settlementContext
+        );
 
-        // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, contracts, state);
-        bundleData.pushSettlementProofs(settlementContext, contracts);
+        // 3. Authorize and update intent (handles validity proof, state, and trader transfers)
+        bundleData.authorizeAndUpdateIntent(
+            internalObligation.amountIn, netReceiveAmount, internalObligation, settlementContext, contracts, state
+        );
 
-        // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
-        state.spendNullifier(bundleData.auth.statement.oldIntentNullifier);
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
-
-        // Allocate transfers for internal party
-        bundleData.allocateTransfers(internalObligation, settlementContext, state);
-
-        // Allocate transfers for external party
+        // 4. Allocate transfers for external party
         FeeRate memory relayerFeeRate = FeeRate({
             rate: bundleData.settlementStatement.externalRelayerFeeRate,
             recipient: bundleData.settlementStatement.relayerFeeAddress
@@ -213,10 +215,6 @@ library NativeSettledPrivateIntentLib {
         ExternalSettlementLib.allocateExternalPartyTransfers(
             externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
         );
-
-        // Emit a recovery ID for the intent
-        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a first fill
@@ -238,33 +236,23 @@ library NativeSettledPrivateIntentLib {
     )
         internal
     {
+        // Decode the bundle data
         PrivateIntentPublicBalanceFirstFillBundle memory bundleData =
-            settlementBundle.decodePrivateIntentBundleDataFirstFill();
+            PrivateIntentPublicBalanceBundleLib.decodePrivateIntentBundleDataFirstFill(settlementBundle);
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
-        // Compute pre- and post-match intent commitments
-        (BN254.ScalarField preMatchCommitment, BN254.ScalarField postMatchCommitment) =
-            bundleData.computeIntentCommitments(contracts.hasher);
+        // 1. Verify the settlement proof
+        PrivateIntentPublicBalanceBundleLib.verifySettlement(
+            obligation, bundleData.settlementStatement, bundleData.settlementProof, contracts, settlementContext
+        );
 
-        // First-fill only: Verify intent commitment signature
-        PrivateIntentPublicBalanceBundleLib.verifyIntentCommitmentSignature(preMatchCommitment, bundleData.auth, state);
+        // 2. Apply fees
+        uint256 netReceiveAmount = PrivateIntentPublicBalanceBundleLib.applyFees(
+            bundleData.settlementStatement, obligation, state, settlementContext
+        );
 
-        // Validate obligation
-        bundleData.validateObligation(obligation);
-
-        // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, contracts);
-        bundleData.pushSettlementProofs(settlementContext, contracts);
-
-        // State mutation: insert post-match commitment to intent into Merkle tree
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
-
-        // Allocate transfers
-        bundleData.allocateTransfers(obligation, settlementContext, state);
-
-        // Emit a recovery ID for the intent
-        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+        // 3. Authorize and update intent (handles validity proof, state, and trader transfers)
+        bundleData.authorizeAndUpdateIntent(netReceiveAmount, obligation, settlementContext, contracts, state);
     }
 
     /// @notice Validate and execute a settlement bundle with a private intent with a public balance for a subsequent
@@ -287,28 +275,22 @@ library NativeSettledPrivateIntentLib {
     )
         internal
     {
-        PrivateIntentPublicBalanceBundle memory bundleData = settlementBundle.decodePrivateIntentBundleData();
+        // Decode the bundle data
+        PrivateIntentPublicBalanceBundle memory bundleData =
+            PrivateIntentPublicBalanceBundleLib.decodePrivateIntentPublicBalanceBundle(settlementBundle);
         SettlementObligation memory obligation = obligationBundle.decodePublicObligation(partyId);
 
-        // Compute post-match commitment
-        BN254.ScalarField postMatchCommitment = bundleData.computeFullIntentCommitment(contracts.hasher);
+        // 1. Verify the settlement proof
+        PrivateIntentPublicBalanceBundleLib.verifySettlement(
+            obligation, bundleData.settlementStatement, bundleData.settlementProof, contracts, settlementContext
+        );
 
-        // Validate obligation
-        bundleData.validateObligation(obligation);
+        // 2. Apply fees
+        uint256 netReceiveAmount = PrivateIntentPublicBalanceBundleLib.applyFees(
+            bundleData.settlementStatement, obligation, state, settlementContext
+        );
 
-        // Push validity and settlement proofs
-        bundleData.pushValidityProof(settlementContext, contracts, state);
-        bundleData.pushSettlementProofs(settlementContext, contracts);
-
-        // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
-        state.spendNullifier(bundleData.auth.statement.oldIntentNullifier);
-        state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
-
-        // Allocate transfers
-        bundleData.allocateTransfers(obligation, settlementContext, state);
-
-        // Emit a recovery ID for the intent
-        BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
-        emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
+        // 3. Authorize and update intent (handles validity proof, state, and trader transfers)
+        bundleData.authorizeAndUpdateIntent(netReceiveAmount, obligation, settlementContext, contracts, state);
     }
 }

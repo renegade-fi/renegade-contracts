@@ -12,10 +12,12 @@ import {
 } from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import {
     PrivateIntentPublicBalanceFirstFillBundle,
-    PrivateIntentPublicBalanceBundle,
+    PrivateIntentPublicBalanceBundle
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
+import {
     PrivateIntentPublicBalanceBoundedFirstFillBundle,
     PrivateIntentPublicBalanceBoundedBundle
-} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBoundedLib.sol";
 import {
     RenegadeSettledIntentFirstFillBundle,
     RenegadeSettledIntentBundle
