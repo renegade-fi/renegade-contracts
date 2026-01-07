@@ -27,6 +27,7 @@ impl From<CircuitBoundedMatchResult> for IDarkpoolV2::BoundedMatchResult {
     }
 }
 
+#[cfg(feature = "v2-auth-helpers")]
 impl BoundedMatchResultBundle {
     pub fn new(
         bounded_match_result: &CircuitBoundedMatchResult,

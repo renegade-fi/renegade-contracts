@@ -34,8 +34,6 @@ use renegade_darkpool_types::{
 use test_helpers::{assert_eq_result, integration_test_async};
 
 /// Tests settling a natively-settled private intent via external match
-///
-/// This test will settle twice to test both the first and subsequent fill paths.
 #[allow(non_snake_case)]
 async fn test_settlement__external_match_native_settled_private_intent(
     args: TestArgs,
@@ -111,13 +109,7 @@ async fn test_settlement__external_match_native_settled_private_intent(
         external_party_quote_before - U256::from(external_obligation.amount_in)
     )?;
 
-    // --- Subsequent Fill --- //
-
-    // Build bounded match result bundle
-
-    // Build settlement bundle
-
-    // Settle the subsequent fill
+    // TODO: Add subsequent fill tests
 
     Ok(())
 }
