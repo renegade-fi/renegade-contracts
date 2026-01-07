@@ -80,9 +80,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     /// @notice Emitted when the external fee collection address is changed
     /// @param newAddress The new fee collection address
     event ExternalFeeCollectionAddressChanged(address indexed newAddress);
-    /// @notice Emitted when a note is posted to the darkpool
-    /// @param noteCommitment The commitment to the note
-    event NotePosted(uint256 indexed noteCommitment);
 
     // -----------
     // | Storage |

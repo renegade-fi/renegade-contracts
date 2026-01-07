@@ -194,7 +194,7 @@ library ExternalSettlementLib {
                 state
             );
         } else {
-            // TODO: Add support for other settlement bundle types
+            // Note: External settlement of RENEGADE_SETTLED_PRIVATE_FILL is not supported.
             revert IDarkpoolV2.InvalidSettlementBundleType();
         }
     }

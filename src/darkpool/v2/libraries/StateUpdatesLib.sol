@@ -281,6 +281,9 @@ library StateUpdatesLib {
         state.insertMerkleLeaf(proofBundle.merkleDepth, newBalanceCommitment, contracts.hasher);
         state.insertMerkleLeaf(proofBundle.merkleDepth, noteCommitment, contracts.hasher);
 
+        // Emit the note posted event
+        emit IDarkpoolV2.NotePosted(BN254.ScalarField.unwrap(noteCommitment));
+
         // Emit the recovery id
         emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
     }
@@ -321,6 +324,9 @@ library StateUpdatesLib {
         state.spendNullifier(balanceNullifier);
         state.insertMerkleLeaf(proofBundle.merkleDepth, newBalanceCommitment, contracts.hasher);
         state.insertMerkleLeaf(proofBundle.merkleDepth, noteCommitment, contracts.hasher);
+
+        // Emit the note posted event
+        emit IDarkpoolV2.NotePosted(BN254.ScalarField.unwrap(noteCommitment));
 
         // Emit the recovery id
         emit IDarkpoolV2.RecoveryIdRegistered(proofBundle.statement.recoveryId);
