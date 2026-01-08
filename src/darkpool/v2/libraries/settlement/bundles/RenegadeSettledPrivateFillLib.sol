@@ -236,6 +236,11 @@ library RenegadeSettledPrivateFillLib {
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
+
+        // 3. Emit recovery IDs for the intent and balance
+        IntentAndBalanceValidityStatementFirstFill memory authStatement = bundleData.auth.statement;
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
     }
 
     /// @notice Update the intent and input balance after authorization on a subsequent fill
@@ -282,6 +287,11 @@ library RenegadeSettledPrivateFillLib {
         uint256 merkleDepth = bundleData.auth.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
         state.insertMerkleLeaf(merkleDepth, newIntentCommitment, hasher);
+
+        // 3. Emit recovery IDs for the intent and balance
+        IntentAndBalanceValidityStatement memory authStatement = bundleData.auth.statement;
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.intentRecoveryId);
+        emit IDarkpoolV2.RecoveryIdRegistered(authStatement.balanceRecoveryId);
     }
 
     // --------------------------------
