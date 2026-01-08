@@ -8,6 +8,9 @@ import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 /// @author Renegade Eng
 /// @notice This library contains constants for the darkpool
 library DarkpoolConstants {
+    /// @notice Domain separator for public intent cancellation signatures
+    /// @dev Used to prevent signature reuse across different message types
+    bytes internal constant CANCEL_DOMAIN = "cancel";
     /// @notice The address used for native tokens in trade settlement
     /// @dev This is currently just ETH, but intentionally written abstractly
     address internal constant NATIVE_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
