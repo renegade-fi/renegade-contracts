@@ -26,8 +26,10 @@ import { Deposit, DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { SimpleTransfer } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
+import { PublicIntentPermit, PublicIntentPermitLib } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { Note, NoteLib } from "darkpoolv2-types/Note.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
+import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { ExternalTransferLib } from "darkpoolv2-lib/TransferLib.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 
@@ -38,16 +40,17 @@ library StateUpdatesLib {
     using DarkpoolStateLib for DarkpoolState;
     using EncryptionKeyLib for EncryptionKey;
     using NoteLib for Note;
+    using PublicIntentPermitLib for PublicIntentPermit;
     using SignatureWithNonceLib for SignatureWithNonce;
 
     // --- Order Cancellation --- //
 
-    /// @notice Cancel an order
+    /// @notice Cancel a private order
     /// @param state The darkpool state containing all storage references
     /// @param verifier The verifier to use for verification
     /// @param auth The authorization for the order cancellation
     /// @param orderCancellationProofBundle The proof bundle for the order cancellation
-    function cancelOrder(
+    function cancelPrivateOrder(
         DarkpoolState storage state,
         IVerifier verifier,
         OrderCancellationAuth calldata auth,
@@ -69,6 +72,37 @@ library StateUpdatesLib {
 
         // 3. Spend the nullifier to cancel the order
         state.spendNullifier(intentNullifier);
+    }
+
+    /// @notice Cancel a public intent
+    /// @dev This cancels a public intent by zeroing its entry in the openPublicIntents mapping.
+    /// @dev User signs H("cancel" || intentHash) where intentHash is the hash of the permit.
+    /// @param state The darkpool state containing all storage references
+    /// @param auth The authorization for the order cancellation
+    /// @param permit The public intent permit identifying the intent to cancel
+    function cancelPublicOrder(
+        DarkpoolState storage state,
+        OrderCancellationAuth calldata auth,
+        PublicIntentPermit calldata permit
+    )
+        external
+    {
+        // 1. Compute the intent hash
+        bytes32 intentHash = permit.computeHash();
+
+        // 2. Compute the cancel digest with domain separation: H("cancel" || intentHash)
+        bytes32 cancelDigest = keccak256(abi.encodePacked(DarkpoolConstants.CANCEL_DOMAIN, intentHash));
+
+        // 3. Verify the signature over the cancel digest by the owner (with nonce for replay protection)
+        address owner = permit.intent.owner;
+        bool sigValid = auth.signature.verifyPrehashedAndSpendNonce(owner, cancelDigest, state);
+        if (!sigValid) revert IDarkpoolV2.InvalidOrderCancellationSignature();
+
+        // 4. Cancel the intent by setting the amount remaining to 0
+        state.setOpenIntentAmountRemaining(intentHash, 0);
+
+        // 5. Emit cancellation event
+        emit IDarkpoolV2.PublicOrderCancelled(intentHash, owner);
     }
 
     // --- Deposit --- //

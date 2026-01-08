@@ -39,6 +39,7 @@ import {
 import { DepositAuth } from "darkpoolv2-types/transfers/Deposit.sol";
 import { WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
 import { OrderCancellationAuth } from "darkpoolv2-types/OrderCancellation.sol";
+import { PublicIntentPermit } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";
 import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
@@ -206,7 +207,12 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     )
         public
     {
-        StateUpdatesLib.cancelOrder(_state, verifier, auth, orderCancellationProofBundle);
+        StateUpdatesLib.cancelPrivateOrder(_state, verifier, auth, orderCancellationProofBundle);
+    }
+
+    /// @inheritdoc IDarkpoolV2
+    function cancelOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) public {
+        StateUpdatesLib.cancelPublicOrder(_state, auth, permit);
     }
 
     // --- Deposit --- //
