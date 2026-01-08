@@ -104,6 +104,9 @@ library StateUpdatesLib {
         BN254.ScalarField balanceNullifier = depositProofBundle.statement.oldBalanceNullifier;
         state.spendNullifier(balanceNullifier);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+
+        // Emit the recovery id
+        emit IDarkpoolV2.RecoveryIdRegistered(depositProofBundle.statement.recoveryId);
     }
 
     /// @notice Deposit a new balance into the darkpool
@@ -135,6 +138,9 @@ library StateUpdatesLib {
         // 3. Update the state; insert the new balance
         uint256 merkleDepth = newBalanceProofBundle.merkleDepth;
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+
+        // Emit the recovery id
+        emit IDarkpoolV2.RecoveryIdRegistered(newBalanceProofBundle.statement.recoveryId);
     }
 
     // --- Withdrawal --- //
@@ -168,6 +174,9 @@ library StateUpdatesLib {
         BN254.ScalarField balanceNullifier = withdrawalProofBundle.statement.oldBalanceNullifier;
         state.spendNullifier(balanceNullifier);
         state.insertMerkleLeaf(merkleDepth, newBalanceCommitment, hasher);
+
+        // Emit the recovery id
+        emit IDarkpoolV2.RecoveryIdRegistered(withdrawalProofBundle.statement.recoveryId);
     }
 
     // --- Fees --- //
