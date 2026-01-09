@@ -19,6 +19,7 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignedPermitSingle, SignedPermitSingleLib } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 import { SettlementObligation, SettlementObligationLib } from "darkpoolv2-types/Obligation.sol";
 import { Intent, IntentLib } from "darkpoolv2-types/Intent.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
@@ -48,6 +49,7 @@ library NativeSettledPublicIntentLib {
     using DarkpoolStateLib for DarkpoolState;
     using FeeRateLib for FeeRate;
     using FeeTakeLib for FeeTake;
+    using SignedPermitSingleLib for SignedPermitSingle;
 
     /// @notice Error thrown when an intent signature is invalid
     error InvalidIntentSignature();
@@ -138,13 +140,15 @@ library NativeSettledPublicIntentLib {
         (uint256 amountRemaining, bytes32 intentHash) = validatePublicIntentAuthorization(bundleData, state);
 
         // 2. Validate the intent and balance constraints on the obligation
-        Intent memory intent = bundleData.auth.permit.intent;
+        Intent memory intent = bundleData.auth.intentPermit.intent;
         validateObligationIntentConstraints(amountRemaining, intent, obligation);
 
         // 3. Execute the state updates necessary to settle the bundle
         FeeRate memory relayerFeeRate = bundleData.relayerFeeRate;
         FeeRate memory protocolFeeRate = state.getProtocolFeeRate(obligation.inputToken, obligation.outputToken);
-        executeStateUpdates(intentHash, intent, obligation, relayerFeeRate, protocolFeeRate, settlementContext, state);
+        executeStateUpdates(
+            intentHash, intent, obligation, bundleData.auth, relayerFeeRate, protocolFeeRate, settlementContext, state
+        );
     }
 
     // ------------------------
@@ -168,21 +172,22 @@ library NativeSettledPublicIntentLib {
         PublicIntentAuthBundle memory auth = bundleData.auth;
 
         // If the intent is already in the mapping, we need not check its owner's signature
-        intentHash = auth.permit.computeHash();
+        intentHash = auth.intentPermit.computeHash();
         amountRemaining = state.getOpenIntentAmountRemaining(intentHash);
         if (amountRemaining > 0) {
             return (amountRemaining, intentHash);
         }
 
         // If the intent is not in the mapping, this is its first fill, and we must verify the signature
-        bool sigValid = auth.intentSignature.verifyPrehashedAndSpendNonce(auth.permit.intent.owner, intentHash, state);
+        bool sigValid =
+            auth.intentSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.intent.owner, intentHash, state);
         if (!sigValid) revert InvalidIntentSignature();
 
         // Verify the intent's fields on its first fill
-        IntentLib.validate(auth.permit.intent);
+        IntentLib.validate(auth.intentPermit.intent);
 
         // Now that we've authorized the intent, update the amount remaining mapping
-        amountRemaining = auth.permit.intent.amountIn;
+        amountRemaining = auth.intentPermit.intent.amountIn;
         state.setOpenIntentAmountRemaining(intentHash, amountRemaining);
         return (amountRemaining, intentHash);
     }
@@ -209,7 +214,7 @@ library NativeSettledPublicIntentLib {
         // Verify that the executor has signed the settlement obligation
         bytes32 executorDigest = bundleData.computeExecutorDigest(obligation);
         bool executorValid =
-            auth.executorSignature.verifyPrehashedAndSpendNonce(auth.permit.executor, executorDigest, state);
+            auth.executorSignature.verifyPrehashedAndSpendNonce(auth.intentPermit.executor, executorDigest, state);
         if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
     }
 
@@ -235,8 +240,8 @@ library NativeSettledPublicIntentLib {
 
         // Verify that the executor has signed the bounded match result
         bytes32 matchResultHash = permit.computeHash();
-        bool executorValid =
-            matchBundle.executorSignature.verifyPrehashedAndSpendNonce(auth.permit.executor, matchResultHash, state);
+        bool executorValid = matchBundle.executorSignature
+            .verifyPrehashedAndSpendNonce(auth.intentPermit.executor, matchResultHash, state);
         if (!executorValid) revert IDarkpoolV2.InvalidExecutorSignature();
     }
 
@@ -279,6 +284,7 @@ library NativeSettledPublicIntentLib {
     /// @param intentHash The hash of the intent
     /// @param intent The intent to update
     /// @param obligation The settlement obligation to update
+    /// @param auth The public intent auth bundle containing permit registration data
     /// @param relayerFeeRate The relayer fee rate to update
     /// @param protocolFeeRate The protocol fee rate to update
     /// @param settlementContext The settlement context to which we append post-validation updates.
@@ -287,6 +293,7 @@ library NativeSettledPublicIntentLib {
         bytes32 intentHash,
         Intent memory intent,
         SettlementObligation memory obligation,
+        PublicIntentAuthBundle memory auth,
         FeeRate memory relayerFeeRate,
         FeeRate memory protocolFeeRate,
         SettlementContext memory settlementContext,
@@ -300,7 +307,8 @@ library NativeSettledPublicIntentLib {
 
         // Add transfers to settle the obligation
         // Deposit the input token into the darkpool
-        SimpleTransfer memory deposit = obligation.buildPermit2AllowanceDeposit(intent.owner);
+        // If the intent has signed permit, it will be used to set the darkpool's allowance
+        SimpleTransfer memory deposit = obligation.buildPermit2AllowanceDeposit(intent.owner, auth.allowancePermit);
         settlementContext.pushDeposit(deposit);
 
         // Withdraw the output token from the darkpool to the intent owner

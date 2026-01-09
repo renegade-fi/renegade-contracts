@@ -17,6 +17,7 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { FeeRate } from "darkpoolv2-types/Fee.sol";
@@ -85,10 +86,13 @@ contract PublicIntentSettlementTestUtils is SettlementTestUtils {
 
     // --- Dummy Data --- //
 
-    /// @dev Create a dummy `SettlementTransfers` list for the test
+    /// @dev Create a dummy `SettlementContext` for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(
-            1, /* numDeposits */ 3, /* numWithdrawals */ 1, /* verificationCapacity */ 1 /* proofLinkingCapacity */
+            1, // numDeposits
+            3, // numWithdrawals
+            1, // verificationCapacity
+            1 // proofLinkingCapacity
         );
     }
 
@@ -135,11 +139,13 @@ contract PublicIntentSettlementTestUtils is SettlementTestUtils {
         FeeRate memory feeRate = relayerFeeRate();
         SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
 
-        // Create auth bundle
+        // Create auth bundle with empty permit (no first-fill permit)
+        SignedPermitSingle memory emptyPermit;
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
-            permit: permit,
+            intentPermit: permit,
             intentSignature: intentSignature,
-            executorSignature: executorSignature
+            executorSignature: executorSignature,
+            allowancePermit: emptyPermit
         });
         PublicIntentPublicBalanceBundle memory bundleData =
             PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });

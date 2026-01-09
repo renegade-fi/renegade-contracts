@@ -15,6 +15,7 @@ import {
     PublicIntentPermit,
     PublicIntentPermitLib
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
+import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 import {
     BoundedMatchResultPermit,
     BoundedMatchResultBundle,
@@ -108,9 +109,13 @@ contract PublicIntentExternalMatchTestUtils is ExternalMatchTestUtils {
         FeeRate memory feeRate = relayerFeeRate();
         SignatureWithNonce memory executorSignature = createExecutorSignature(feeRate, obligation, executorPrivateKey);
 
-        // Create auth bundle
+        // Create auth bundle with empty permit (no first-fill permit)
+        SignedPermitSingle memory emptyPermit;
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
-            permit: permit, intentSignature: intentSignature, executorSignature: executorSignature
+            intentPermit: permit,
+            intentSignature: intentSignature,
+            executorSignature: executorSignature,
+            allowancePermit: emptyPermit
         });
         PublicIntentPublicBalanceBundle memory bundleData =
             PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });

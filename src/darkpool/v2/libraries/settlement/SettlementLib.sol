@@ -93,14 +93,14 @@ library SettlementLib {
 
     // --- Allocation --- //
 
-    /// @notice Allocate a settlement transfers list for the match settlement
-    /// @dev This list allows settlement validation logic to dynamically register transfers in this list.
-    /// We execute all transfers at the end in a single pass.
-    /// Dynamically pushing transfers to this list allows handlers to stay specific to the
+    /// @notice Allocate a settlement context for the match settlement
+    /// @dev This context allows settlement validation logic to dynamically register transfers and proofs.
+    /// We execute all operations at the end in a single pass.
+    /// Dynamically pushing to this context allows handlers to stay specific to the
     /// type of `SettlementBundle` they are operating on.
     /// @param party0SettlementBundle The settlement bundle for the first party
     /// @param party1SettlementBundle The settlement bundle for the second party
-    /// @return The allocated settlement transfers list
+    /// @return The allocated settlement context
     function allocateSettlementContext(
         SettlementBundle calldata party0SettlementBundle,
         SettlementBundle calldata party1SettlementBundle
@@ -253,20 +253,16 @@ library SettlementLib {
     /// @notice Execute the transfers necessary for settlement
     /// @param settlementContext The settlement context to execute the transfers from
     /// @param contracts The contract references needed for settlement
-    function executeTransfers(
-        SettlementContext memory settlementContext,
-        DarkpoolContracts memory contracts
-    )
-        internal
-    {
-        // First, execute the deposits
-        // We execute deposits first to ensure the darkpool is capitalized for withdrawals
+    function executeTransfers(SettlementContext memory settlementContext, DarkpoolContracts memory contracts) internal {
+        // 1. Execute deposits
+        // We execute deposits before withdrawals to ensure the darkpool is capitalized
+        // Permit registration is handled if needed
         for (uint256 i = 0; i < settlementContext.transfers.numDeposits(); ++i) {
             SimpleTransfer memory deposit = settlementContext.transfers.deposits.transfers[i];
             ExternalTransferLib.executeTransfer(deposit, contracts.weth, contracts.permit2);
         }
 
-        // Second, execute the withdrawals
+        // 2. Execute withdrawals
         for (uint256 i = 0; i < settlementContext.transfers.numWithdrawals(); ++i) {
             SimpleTransfer memory withdrawal = settlementContext.transfers.withdrawals.transfers[i];
             ExternalTransferLib.executeTransfer(withdrawal, contracts.weth, contracts.permit2);
