@@ -253,12 +253,7 @@ library SettlementLib {
     /// @notice Execute the transfers necessary for settlement
     /// @param settlementContext The settlement context to execute the transfers from
     /// @param contracts The contract references needed for settlement
-    function executeTransfers(
-        SettlementContext memory settlementContext,
-        DarkpoolContracts memory contracts
-    )
-        internal
-    {
+    function executeTransfers(SettlementContext memory settlementContext, DarkpoolContracts memory contracts) internal {
         // First, execute the deposits
         // We execute deposits first to ensure the darkpool is capitalized for withdrawals
         for (uint256 i = 0; i < settlementContext.transfers.numDeposits(); ++i) {

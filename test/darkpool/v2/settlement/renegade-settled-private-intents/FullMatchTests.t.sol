@@ -141,14 +141,14 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
         BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
         BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
-        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
-        );
-        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
-        );
+        BN254.ScalarField outBalanceCommitment0 =
+            PrivateIntentPrivateBalanceBundleLib.computeFullExistingOutputBalanceCommitment(
+                netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
+            );
+        BN254.ScalarField outBalanceCommitment1 =
+            PrivateIntentPrivateBalanceBundleLib.computeFullExistingOutputBalanceCommitment(
+                netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
+            );
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =
@@ -214,14 +214,14 @@ contract FullMatchTests is RenegadeSettledPrivateIntentTestUtils {
         BN254.ScalarField intentCommitment1 = bundleData1.computeFullIntentCommitment(hasher);
         BN254.ScalarField balanceCommitment0 = bundleData0.computeFullBalanceCommitment(hasher);
         BN254.ScalarField balanceCommitment1 = bundleData1.computeFullBalanceCommitment(hasher);
-        BN254.ScalarField outBalanceCommitment0 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
-        );
-        BN254.ScalarField outBalanceCommitment1 = PrivateIntentPrivateBalanceBundleLib
-            .computeFullExistingOutputBalanceCommitment(
-            netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
-        );
+        BN254.ScalarField outBalanceCommitment0 =
+            PrivateIntentPrivateBalanceBundleLib.computeFullExistingOutputBalanceCommitment(
+                netReceiveAmount0, outBalanceBundle0, bundleData0.settlementStatement, hasher
+            );
+        BN254.ScalarField outBalanceCommitment1 =
+            PrivateIntentPrivateBalanceBundleLib.computeFullExistingOutputBalanceCommitment(
+                netReceiveAmount1, outBalanceBundle1, bundleData1.settlementStatement, hasher
+            );
 
         // Validate against a single Merkle tree
         MerkleTreeLib.MerkleTreeConfig memory config =

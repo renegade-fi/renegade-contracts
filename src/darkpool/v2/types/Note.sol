@@ -27,10 +27,7 @@ library NoteLib {
     /// @return The transfer
     function buildTransfer(Note memory note) public pure returns (SimpleTransfer memory) {
         return SimpleTransfer({
-            account: note.receiver,
-            mint: note.mint,
-            amount: note.amount,
-            transferType: SimpleTransferType.Withdrawal
+            account: note.receiver, mint: note.mint, amount: note.amount, transferType: SimpleTransferType.Withdrawal
         });
     }
 }

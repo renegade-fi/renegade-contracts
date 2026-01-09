@@ -33,8 +33,9 @@ import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
-import { PrivateIntentPrivateBalanceBundleLib } from
-    "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
+import {
+    PrivateIntentPrivateBalanceBundleLib
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 import {
     OutputBalanceBundle,
     OutputBalanceBundleType,
@@ -97,7 +98,8 @@ library RenegadeSettledPrivateFillLib {
         pure
         returns (RenegadeSettledPrivateFirstFillBundle memory bundleData)
     {
-        bool validType = bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        bool validType =
+            bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFirstFillBundle));
     }
@@ -110,7 +112,8 @@ library RenegadeSettledPrivateFillLib {
         pure
         returns (RenegadeSettledPrivateFillBundle memory bundleData)
     {
-        bool validType = !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
+        bool validType =
+            !bundle.isFirstFill && bundle.bundleType == SettlementBundleType.RENEGADE_SETTLED_PRIVATE_FILL;
         require(validType, IDarkpoolV2.InvalidSettlementBundleType());
         bundleData = abi.decode(bundle.data, (RenegadeSettledPrivateFillBundle));
     }

@@ -65,9 +65,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
         address owner = intentOwner.addr;
 
         ValidOrderCancellationStatement memory statement = ValidOrderCancellationStatement({
-            merkleRoot: merkleRoot,
-            oldIntentNullifier: oldIntentNullifier,
-            owner: owner
+            merkleRoot: merkleRoot, oldIntentNullifier: oldIntentNullifier, owner: owner
         });
 
         return OrderCancellationProofBundle({ statement: statement, proof: createDummyProof() });

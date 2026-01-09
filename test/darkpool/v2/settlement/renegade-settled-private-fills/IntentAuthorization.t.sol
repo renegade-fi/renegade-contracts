@@ -10,7 +10,8 @@ import {
 } from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import { ObligationBundle, ObligationType } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
-    SignatureWithNonce, RenegadeSettledIntentAuthBundleFirstFill
+    SignatureWithNonce,
+    RenegadeSettledIntentAuthBundleFirstFill
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementLib } from "darkpoolv2-lib/settlement/SettlementLib.sol";

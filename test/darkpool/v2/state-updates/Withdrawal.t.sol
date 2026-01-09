@@ -82,10 +82,7 @@ contract WithdrawalTest is DarkpoolV2TestUtils {
     /// @notice Create a withdrawal proof bundle for testing
     /// @param withdrawal The withdrawal struct
     /// @return proofBundle The withdrawal proof bundle
-    function createWithdrawalProofBundle(Withdrawal memory withdrawal)
-        internal
-        returns (WithdrawalProofBundle memory)
-    {
+    function createWithdrawalProofBundle(Withdrawal memory withdrawal) internal returns (WithdrawalProofBundle memory) {
         BN254.ScalarField merkleRoot = randomScalar();
         BN254.ScalarField oldBalanceNullifier = randomScalar();
         BN254.ScalarField newBalanceCommitment = randomScalar();

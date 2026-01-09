@@ -4,11 +4,13 @@ pragma solidity ^0.8.24;
 /* solhint-disable func-name-mixedcase */
 
 import { PartyId, SettlementBundle, SettlementBundleLib } from "darkpoolv2-types/settlement/SettlementBundle.sol";
-import { RenegadeSettledIntentFirstFillBundle } from
-    "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
+import {
+    RenegadeSettledIntentFirstFillBundle
+} from "darkpoolv2-lib/settlement/bundles/PrivateIntentPrivateBalanceBundleLib.sol";
 import { ObligationBundle } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import {
-    SignatureWithNonce, RenegadeSettledIntentAuthBundleFirstFill
+    SignatureWithNonce,
+    RenegadeSettledIntentAuthBundleFirstFill
 } from "darkpoolv2-types/settlement/IntentBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";

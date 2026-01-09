@@ -7,13 +7,16 @@ import {
     RenegadeSettledPrivateFillBundle
 } from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 import {
-    ObligationBundle, ObligationLib, PrivateObligationBundle
+    ObligationBundle,
+    ObligationLib,
+    PrivateObligationBundle
 } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolState } from "darkpoolv2-lib/DarkpoolState.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
-import { RenegadeSettledPrivateFillLib as RenegadeSettledPrivateFillBundleLib } from
-    "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
+import {
+    RenegadeSettledPrivateFillLib as RenegadeSettledPrivateFillBundleLib
+} from "darkpoolv2-lib/settlement/bundles/RenegadeSettledPrivateFillLib.sol";
 
 /// @title Renegade Settled Private Fill Library
 /// @author Renegade Eng

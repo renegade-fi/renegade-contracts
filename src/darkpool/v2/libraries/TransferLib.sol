@@ -132,9 +132,7 @@ library ExternalTransferLib {
         ISignatureTransfer.TokenPermissions memory tokenPermissions =
             ISignatureTransfer.TokenPermissions({ token: deposit.token, amount: deposit.amount });
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: tokenPermissions,
-            nonce: auth.permit2Nonce,
-            deadline: auth.permit2Deadline
+            permitted: tokenPermissions, nonce: auth.permit2Nonce, deadline: auth.permit2Deadline
         });
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
             ISignatureTransfer.SignatureTransferDetails({ to: address(this), requestedAmount: deposit.amount });

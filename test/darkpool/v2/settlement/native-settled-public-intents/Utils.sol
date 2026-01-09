@@ -88,7 +88,13 @@ contract PublicIntentSettlementTestUtils is SettlementTestUtils {
     /// @dev Create a dummy `SettlementTransfers` list for the test
     function _createSettlementContext() internal pure virtual returns (SettlementContext memory context) {
         context = SettlementContextLib.newContext(
-            1, /* numDeposits */ 3, /* numWithdrawals */ 1, /* verificationCapacity */ 1 /* proofLinkingCapacity */
+            1,
+            /* numDeposits */
+            3,
+            /* numWithdrawals */
+            1,
+            /* verificationCapacity */
+            1 /* proofLinkingCapacity */
         );
     }
 
@@ -137,9 +143,7 @@ contract PublicIntentSettlementTestUtils is SettlementTestUtils {
 
         // Create auth bundle
         PublicIntentAuthBundle memory auth = PublicIntentAuthBundle({
-            permit: permit,
-            intentSignature: intentSignature,
-            executorSignature: executorSignature
+            permit: permit, intentSignature: intentSignature, executorSignature: executorSignature
         });
         PublicIntentPublicBalanceBundle memory bundleData =
             PublicIntentPublicBalanceBundle({ auth: auth, relayerFeeRate: feeRate });
