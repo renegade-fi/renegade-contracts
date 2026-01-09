@@ -10,9 +10,9 @@ use alloy::{
 use eyre::Result;
 use rand::{Rng, thread_rng};
 use renegade_abi::v2::IDarkpoolV2::{
-    self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle,
-    PublicIntentPermit, RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill,
-    SettlementBundle,
+    self, Deposit, ObligationBundle, OutputBalanceBundle, PublicIntentAuthBundle, PublicIntentPermit,
+    RenegadeSettledIntentAuthBundle, RenegadeSettledIntentAuthBundleFirstFill, SettlementBundle,
+    SignedPermitSingle,
 };
 use renegade_circuit_types::{PlonkLinkProof, PlonkProof, ProofLinkingHint};
 use renegade_circuits::{
@@ -285,9 +285,10 @@ pub fn build_settlement_bundle_ring0(
     let executor_signature =
         contracts_obligation.create_executor_signature(&relayer_fee, executor_signer)?;
     let auth_bundle = PublicIntentAuthBundle {
-        permit,
+        intentPermit: permit,
         intentSignature: intent_signature,
         executorSignature: executor_signature,
+        allowancePermit: SignedPermitSingle::default(),
     };
 
     Ok(SettlementBundle::public_intent_settlement(

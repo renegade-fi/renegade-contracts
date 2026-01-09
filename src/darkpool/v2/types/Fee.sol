@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 
 /// @notice A fee rate for a match
 struct FeeRate {
@@ -69,11 +70,13 @@ library FeeTakeLib {
     /// @param feeTake The fee take to build the withdrawal transfer for
     /// @return The withdrawal transfer
     function buildWithdrawalTransfer(FeeTake memory feeTake) public pure returns (SimpleTransfer memory) {
+        SignedPermitSingle memory empty;
         return SimpleTransfer({
             account: feeTake.recipient,
             mint: feeTake.mint,
             amount: feeTake.fee,
-            transferType: SimpleTransferType.Withdrawal
+            transferType: SimpleTransferType.Withdrawal,
+            allowancePermit: empty
         });
     }
 }
