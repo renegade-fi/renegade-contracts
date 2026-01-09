@@ -11,6 +11,7 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { ECDSALib } from "renegade-lib/ECDSA.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
+import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
 import {
     Deposit,
@@ -20,6 +21,7 @@ import {
     DEPOSIT_WITNESS_TYPE_STRING
 } from "darkpoolv2-types/transfers/Deposit.sol";
 import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawal.sol";
+import { SignedPermitSingle, SignedPermitSingleLib } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 
 /// @title ExternalTransferLib
 /// @author Renegade Eng
@@ -29,6 +31,7 @@ import { Withdrawal, WithdrawalAuth } from "darkpoolv2-types/transfers/Withdrawa
 /// individual deposit/withdrawals into/from Merklized balances.
 library ExternalTransferLib {
     using DepositLib for DepositWitness;
+    using SignedPermitSingleLib for SignedPermitSingle;
     // --- Errors --- //
     /// @notice Thrown when balance after transfer does not match expected balance
 
@@ -99,14 +102,48 @@ library ExternalTransferLib {
         SafeERC20.safeTransferFrom(token, transfer.account, self, transfer.amount);
     }
 
-    /// @notice Execute a permit2 allowance deposit
+    /// @notice Execute a permit2 allowance deposit, optionally registering a permit
+    /// @dev If permit registration data is provided, validates and registers the permit before transferring
     /// @param transfer The transfer to execute
     /// @param permit2 The permit2 contract instance
-    /// TODO: Allow this method to register a previously unused permit2 allowance
     function executePermit2AllowanceDeposit(SimpleTransfer memory transfer, IAllowanceTransfer permit2) internal {
-        address to = address(this);
+        address darkpool = address(this);
+
+        // Register permit if provided
+        if (transfer.allowancePermit.exists()) {
+            _validateAndRegisterPermit(transfer, permit2, darkpool);
+        }
+
         uint160 amount = uint160(transfer.amount);
-        permit2.transferFrom(transfer.account, to, amount, transfer.mint);
+        permit2.transferFrom(transfer.account, darkpool, amount, transfer.mint);
+    }
+
+    /// @notice Validate permit data matches the transfer and set token permissions for the darkpool
+    /// @dev Permit2 validates signature, expiration, and nonce
+    /// @param transfer The transfer containing Permit2 allowance permit data
+    /// @param permit2 The permit2 contract instance
+    /// @param spender The spender of the permit
+    function _validateAndRegisterPermit(
+        SimpleTransfer memory transfer,
+        IAllowanceTransfer permit2,
+        address spender
+    )
+        private
+    {
+        SignedPermitSingle memory permitData = transfer.allowancePermit;
+
+        // Validate token matches
+        if (permitData.permitSingle.details.token != transfer.mint) {
+            revert IDarkpoolV2.PermitTokenMismatch(permitData.permitSingle.details.token, transfer.mint);
+        }
+
+        // Validate spender is this contract
+        if (permitData.permitSingle.spender != spender) {
+            revert IDarkpoolV2.PermitSpenderMismatch(permitData.permitSingle.spender, spender);
+        }
+
+        // Register the permit (Permit2 validates signature, expiration, nonce)
+        permit2.permit(transfer.account, permitData.permitSingle, permitData.signature);
     }
 
     /// @notice Execute a permit2 signature deposit with witness
@@ -132,9 +169,7 @@ library ExternalTransferLib {
         ISignatureTransfer.TokenPermissions memory tokenPermissions =
             ISignatureTransfer.TokenPermissions({ token: deposit.token, amount: deposit.amount });
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
-            permitted: tokenPermissions,
-            nonce: auth.permit2Nonce,
-            deadline: auth.permit2Deadline
+            permitted: tokenPermissions, nonce: auth.permit2Nonce, deadline: auth.permit2Deadline
         });
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
             ISignatureTransfer.SignatureTransferDetails({ to: address(this), requestedAmount: deposit.amount });

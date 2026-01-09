@@ -13,6 +13,7 @@ import {
 } from "darkpoolv2-lib/public_inputs/ValidityProofs.sol";
 import { PlonkProof } from "renegade-lib/verifier/Types.sol";
 import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNonce.sol";
+import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 
 // ------------------------------
 // | Intent Authorization Types |
@@ -22,13 +23,16 @@ import { SignatureWithNonce } from "darkpoolv2-types/settlement/SignatureWithNon
 
 /// @notice The public intent authorization payload with signature attached
 struct PublicIntentAuthBundle {
-    /// @dev The intent authorization permit
-    PublicIntentPermit permit;
+    /// @dev The intent authorization data (intent + authorized executor)
+    PublicIntentPermit intentPermit;
     /// @dev The signature of the intent
     SignatureWithNonce intentSignature;
     /// @dev The signature of the settlement obligation by the authorized executor
     /// @dev This authorizes the fields of the obligation, and importantly implicitly authorizes the price
     SignatureWithNonce executorSignature;
+    /// @dev Optional Permit2 allowance permit for first-fill of ring 0 intents. If provided, the permit
+    /// is registered before the transfer. Empty if using existing allowance.
+    SignedPermitSingle allowancePermit;
 }
 
 /// @notice Intent authorization data for a public intent

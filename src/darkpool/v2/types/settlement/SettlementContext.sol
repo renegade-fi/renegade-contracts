@@ -36,6 +36,7 @@ library SettlementContextLib {
     /// @param numDeposits The initial number of deposits
     /// @param numWithdrawals The initial number of withdrawals
     /// @param verificationCapacity The capacity of the verifications list
+    /// @param proofLinkingCapacity The capacity of the proof linking arguments list
     /// @return The new settlement context
     function newContext(
         uint256 numDeposits,

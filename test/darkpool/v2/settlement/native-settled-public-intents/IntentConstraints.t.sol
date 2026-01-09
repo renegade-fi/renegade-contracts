@@ -64,7 +64,7 @@ contract IntentConstraintsTest is PublicIntentSettlementTestUtils {
         ObligationBundle memory corruptedObligationBundle = buildObligationBundle(obligation0, obligation1);
 
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
-        Intent memory intent = bundleData.auth.permit.intent;
+        Intent memory intent = bundleData.auth.intentPermit.intent;
         SettlementBundle memory newBundle = createPublicIntentSettlementBundle(intent, obligation0);
 
         // Expect the validation to revert with InvalidObligationPair
@@ -77,7 +77,7 @@ contract IntentConstraintsTest is PublicIntentSettlementTestUtils {
         // Create an intent and an obligation which is too large
         (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
-        Intent memory intent = bundleData.auth.permit.intent;
+        Intent memory intent = bundleData.auth.intentPermit.intent;
 
         // Decode and corrupt the obligation
         (, SettlementObligation memory obligation1) = obligationBundle.decodePublicObligationsMemory();
@@ -110,7 +110,7 @@ contract IntentConstraintsTest is PublicIntentSettlementTestUtils {
         // Create an intent and an obligation which has a bad price
         (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
-        Intent memory intent = bundleData.auth.permit.intent;
+        Intent memory intent = bundleData.auth.intentPermit.intent;
         (, SettlementObligation memory obligation1) = obligationBundle.decodePublicObligationsMemory();
 
         // Corrupt the obligation

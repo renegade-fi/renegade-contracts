@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/utils/EfficientHashLib.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 
 /// @notice A settlement obligation for a user
 struct SettlementObligation {
@@ -56,11 +57,30 @@ library SettlementObligationLib {
         pure
         returns (SimpleTransfer memory)
     {
+        SignedPermitSingle memory empty;
+        return buildPermit2AllowanceDeposit(obligation, owner, empty);
+    }
+
+    /// @notice Get the deposit transfer for a settlement obligation with optional Permit2 allowance permit
+    /// @param obligation The settlement obligation to get the deposit transfer for
+    /// @param owner The owner of the settlement obligation
+    /// @param allowancePermit Optional Permit2 allowance permit for first-fill (empty if using existing allowance)
+    /// @return The deposit transfer
+    function buildPermit2AllowanceDeposit(
+        SettlementObligation memory obligation,
+        address owner,
+        SignedPermitSingle memory allowancePermit
+    )
+        internal
+        pure
+        returns (SimpleTransfer memory)
+    {
         return SimpleTransfer({
             account: owner,
             mint: obligation.inputToken,
             amount: obligation.amountIn,
-            transferType: SimpleTransferType.Permit2AllowanceDeposit
+            transferType: SimpleTransferType.Permit2AllowanceDeposit,
+            allowancePermit: allowancePermit
         });
     }
 
@@ -76,11 +96,13 @@ library SettlementObligationLib {
         pure
         returns (SimpleTransfer memory)
     {
+        SignedPermitSingle memory empty;
         return SimpleTransfer({
             account: owner,
             mint: obligation.inputToken,
             amount: obligation.amountIn,
-            transferType: SimpleTransferType.ERC20ApprovalDeposit
+            transferType: SimpleTransferType.ERC20ApprovalDeposit,
+            allowancePermit: empty
         });
     }
 
@@ -98,11 +120,13 @@ library SettlementObligationLib {
         pure
         returns (SimpleTransfer memory)
     {
+        SignedPermitSingle memory empty;
         return SimpleTransfer({
             account: owner,
             mint: obligation.outputToken,
             amount: obligation.amountOut - totalFee,
-            transferType: SimpleTransferType.Withdrawal
+            transferType: SimpleTransferType.Withdrawal,
+            allowancePermit: empty
         });
     }
 }

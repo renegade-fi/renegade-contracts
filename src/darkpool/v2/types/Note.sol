@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { BN254 } from "solidity-bn254/BN254.sol";
 import { SimpleTransfer, SimpleTransferType } from "darkpoolv2-types/transfers/SimpleTransfer.sol";
+import { SignedPermitSingle } from "darkpoolv2-types/transfers/SignedPermitSingle.sol";
 
 /// @title Note
 /// @author Renegade Eng
@@ -26,11 +27,13 @@ library NoteLib {
     /// @param note The note to build the transfer from
     /// @return The transfer
     function buildTransfer(Note memory note) public pure returns (SimpleTransfer memory) {
+        SignedPermitSingle memory empty;
         return SimpleTransfer({
             account: note.receiver,
             mint: note.mint,
             amount: note.amount,
-            transferType: SimpleTransferType.Withdrawal
+            transferType: SimpleTransferType.Withdrawal,
+            allowancePermit: empty
         });
     }
 }

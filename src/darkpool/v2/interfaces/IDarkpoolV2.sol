@@ -112,6 +112,10 @@ interface IDarkpoolV2 {
     error InvalidProtocolFeeEncryptionKey();
     /// @notice Thrown when the relayer ciphertext signature is invalid
     error InvalidRelayerCiphertextSignature();
+    /// @notice Thrown when the permit token does not match the transfer token
+    error PermitTokenMismatch(address permitToken, address transferToken);
+    /// @notice Thrown when the permit spender is not the darkpool
+    error PermitSpenderMismatch(address permitSpender, address expected);
 
     // --- Events --- //
 

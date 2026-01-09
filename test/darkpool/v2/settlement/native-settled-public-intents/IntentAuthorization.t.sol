@@ -85,7 +85,7 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         (SettlementBundle memory bundle, ObligationBundle memory obligationBundle) = createSamplePublicIntentBundle();
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
-        SignatureWithNonce memory sig = signIntentPermit(authBundle.permit, wrongSigner.privateKey);
+        SignatureWithNonce memory sig = signIntentPermit(authBundle.intentPermit, wrongSigner.privateKey);
         authBundle.intentSignature = sig;
         bundleData.auth = authBundle;
         bundle.data = abi.encode(bundleData);
@@ -138,9 +138,9 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
         PublicIntentPublicBalanceBundle memory bundleData = abi.decode(bundle.data, (PublicIntentPublicBalanceBundle));
         PublicIntentAuthBundle memory authBundle = bundleData.auth;
 
-        bytes32 intentHash = authBundle.permit.computeHash();
+        bytes32 intentHash = authBundle.intentPermit.computeHash();
         uint256 amountRemaining = darkpoolState.openPublicIntents[intentHash];
-        uint256 expectedAmountRemaining = authBundle.permit.intent.amountIn - obligation0.amountIn;
+        uint256 expectedAmountRemaining = authBundle.intentPermit.intent.amountIn - obligation0.amountIn;
         assertEq(amountRemaining, expectedAmountRemaining, "Intent not cached");
 
         // Now create a second bundle with the same intent but invalid owner signature
@@ -150,7 +150,7 @@ contract IntentAuthorizationTest is PublicIntentSettlementTestUtils {
 
         // Setup an obligation for a smaller amount
         obligation0.amountIn = randomUint(1, amountRemaining);
-        uint256 minAmountOut = authBundle2.permit.intent.minPrice.unsafeFixedPointMul(obligation0.amountIn);
+        uint256 minAmountOut = authBundle2.intentPermit.intent.minPrice.unsafeFixedPointMul(obligation0.amountIn);
         obligation0.amountOut = minAmountOut + 1;
         FeeRate memory feeRate2 = relayerFeeRate();
         authBundle2.executorSignature = createExecutorSignature(feeRate2, obligation0, executor.privateKey);
