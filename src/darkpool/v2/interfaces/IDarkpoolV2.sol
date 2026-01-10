@@ -113,6 +113,10 @@ interface IDarkpoolV2 {
     error InvalidProtocolFeeEncryptionKey();
     /// @notice Thrown when the relayer ciphertext signature is invalid
     error InvalidRelayerCiphertextSignature();
+    /// @notice Thrown when an address parameter is zero
+    error AddressCannotBeZero();
+    /// @notice Thrown when fee is set to zero
+    error FeeCannotBeZero();
 
     // --- Events --- //
 
@@ -287,4 +291,40 @@ interface IDarkpoolV2 {
         SettlementBundle calldata internalPartySettlementBundle
     )
         external;
+
+    // --- Admin Interface --- //
+    // Note: owner() and paused() are inherited from OpenZeppelin's Ownable and Pausable contracts
+
+    /// @notice Pauses the contract
+    function pause() external;
+
+    /// @notice Unpauses the contract
+    function unpause() external;
+
+    /// @notice Set the default protocol fee rate
+    /// @param newFeeRateRepr The new fee rate as FixedPoint repr
+    function setDefaultProtocolFeeRate(uint256 newFeeRateRepr) external;
+
+    /// @notice Set per-pair fee override (or remove if feeRateRepr is 0)
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @param feeRateRepr The fee rate repr (0 to remove override)
+    function setPerPairFeeOverride(address asset0, address asset1, uint256 feeRateRepr) external;
+
+    /// @notice Set the protocol fee recipient address
+    /// @param newRecipient The new protocol fee recipient address
+    function setProtocolFeeRecipient(address newRecipient) external;
+
+    /// @notice Set the protocol fee encryption key
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) external;
+
+    /// @notice Set the verifier contract
+    /// @param newVerifier The new verifier contract
+    function setVerifier(IVerifier newVerifier) external;
+
+    /// @notice Set the hasher contract
+    /// @param newHasher The new hasher contract
+    function setHasher(IHasher newHasher) external;
 }
