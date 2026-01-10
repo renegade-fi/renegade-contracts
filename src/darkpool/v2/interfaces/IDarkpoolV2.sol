@@ -179,7 +179,6 @@ interface IDarkpoolV2 {
     /// @param vkeys_ The verification keys for the darkpool
     /// @param verifier_ The verifier for the darkpool
     /// @param permit2_ The Permit2 contract instance
-    /// @param transferExecutor_ The TransferExecutor contract address
     function initialize(
         address initialOwner,
         uint256 defaultProtocolFeeRateRepr,
@@ -189,8 +188,7 @@ interface IDarkpoolV2 {
         IHasher hasher_,
         IVkeys vkeys_,
         IVerifier verifier_,
-        IPermit2 permit2_,
-        address transferExecutor_
+        IPermit2 permit2_
     )
         external;
 

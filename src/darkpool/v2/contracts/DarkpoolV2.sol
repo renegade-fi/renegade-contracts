@@ -79,8 +79,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     IPermit2 public permit2;
     /// @notice The WETH9 contract instance used for depositing/withdrawing native tokens
     IWETH9 public weth;
-    /// @notice The TransferExecutor contract for handling external transfers
-    address public transferExecutor;
 
     // --- Protocol Level State Storage --- //
 
@@ -110,8 +108,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         IHasher hasher_,
         IVkeys vkeys_,
         IVerifier verifier_,
-        IPermit2 permit2_,
-        address transferExecutor_
+        IPermit2 permit2_
     )
         public
         initializer
@@ -127,7 +124,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         verifier = verifier_;
         permit2 = permit2_;
         weth = weth_;
-        transferExecutor = transferExecutor_;
     }
 
     // -----------------

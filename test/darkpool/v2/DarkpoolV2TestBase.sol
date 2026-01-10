@@ -13,7 +13,6 @@ import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { DarkpoolV2 } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { DarkpoolV2Proxy } from "darkpoolv2-proxies/DarkpoolV2Proxy.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
-import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 import { IHasher } from "renegade-lib/interfaces/IHasher.sol";
 import { IVerifier } from "darkpoolv2-interfaces/IVerifier.sol";
@@ -49,7 +48,6 @@ contract DarkpoolV2TestBase is TestUtils {
     ERC20Mock public quoteToken;
     ERC20Mock public baseToken;
     WethMock public weth;
-    TransferExecutor public transferExecutor;
     /// @dev Gas sponsor contract (points to the darkpool with disabled verification)
     IGasSponsor public gasSponsor;
 
@@ -101,9 +99,6 @@ contract DarkpoolV2TestBase is TestUtils {
         IVerifier realVerifier = new Verifier(vkeys);
         EncryptionKey memory protocolFeeKey = randomEncryptionKey();
 
-        // Deploy TransferExecutor
-        transferExecutor = new TransferExecutor();
-
         // Set admin and protocol fee addresses
         darkpoolOwner = vm.randomAddress();
         protocolFeeAddr = vm.randomAddress();
@@ -125,8 +120,7 @@ contract DarkpoolV2TestBase is TestUtils {
             hasher,
             vkeys,
             verifier,
-            permit2,
-            address(transferExecutor)
+            permit2
         );
         darkpool = IDarkpoolV2(address(darkpoolProxy));
 
@@ -141,8 +135,7 @@ contract DarkpoolV2TestBase is TestUtils {
             hasher,
             vkeys,
             realVerifier,
-            permit2,
-            address(transferExecutor)
+            permit2
         );
         darkpoolRealVerifier = IDarkpoolV2(address(darkpoolRealVerifierProxy));
     }

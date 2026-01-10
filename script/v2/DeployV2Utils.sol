@@ -17,7 +17,6 @@ import { IVkeys } from "darkpoolv2-interfaces/IVkeys.sol";
 import { IWETH9 } from "renegade-lib/interfaces/IWETH9.sol";
 import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
-import { TransferExecutor } from "darkpoolv1-contracts/TransferExecutor.sol";
 import { GasSponsor } from "darkpoolv1-contracts/GasSponsor.sol";
 import { GasSponsorProxy } from "darkpoolv1-proxies/GasSponsorProxy.sol";
 import { MalleableMatchConnector } from "renegade-connectors/MalleableMatchConnector.sol";
@@ -26,17 +25,8 @@ import { DeployUtils } from "../utils/DeployUtils.sol";
 
 /// @title DeployV2Utils
 /// @author Renegade Eng
-/// @notice Deployment utilities for the Renegade darkpool v1
+/// @notice Deployment utilities for the Renegade darkpool v2
 contract DeployV2Utils {
-    /// @notice Deploy the TransferExecutor contract
-    /// @param vm The VM to write deployments
-    /// @return The deployed TransferExecutor address
-    function deployTransferExecutor(Vm vm) internal returns (address) {
-        TransferExecutor transferExecutor = new TransferExecutor();
-        DeployUtils.writeDeployment(vm, "TransferExecutor", address(transferExecutor));
-        return address(transferExecutor);
-    }
-
     /// @notice Deploy the VKeys and Verifier contracts
     /// @param vm The VM to write deployments
     /// @return The deployed VKeys contract
@@ -129,7 +119,6 @@ contract DeployV2Utils {
         // Deploy library contracts for the darkpool
         IHasher hasher = IHasher(DeployUtils.deployHasher(vm));
         (IVkeys vkeys, IVerifier verifier) = deployVKeysAndVerifier(vm);
-        address transferExecutor = deployTransferExecutor(vm);
 
         // Deploy Darkpool with all required parameters
         DarkpoolV2 darkpool = new DarkpoolV2();
@@ -143,8 +132,7 @@ contract DeployV2Utils {
             hasher,
             vkeys,
             verifier,
-            permit2,
-            transferExecutor
+            permit2
         );
 
         DeployUtils.writeDeployment(vm, "Darkpool", address(darkpool));
