@@ -18,7 +18,7 @@ import { BN254 } from "solidity-bn254/BN254.sol";
 import { MerkleMountainLib } from "renegade-lib/merkle/MerkleMountain.sol";
 import { NullifierLib } from "renegade-lib/NullifierSet.sol";
 
-import { EncryptionKey } from "renegade-lib/Ciphertext.sol";
+import { EncryptionKey, BabyJubJubPoint } from "renegade-lib/Ciphertext.sol";
 import { FixedPoint, FixedPointLib } from "renegade-lib/FixedPoint.sol";
 import { DarkpoolConstants } from "darkpoolv2-lib/Constants.sol";
 
@@ -62,25 +62,6 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     using MerkleMountainLib for MerkleMountainLib.MerkleMountainRange;
     using NullifierLib for NullifierLib.NullifierSet;
     using DarkpoolStateLib for DarkpoolState;
-
-    // ----------
-    // | Events |
-    // ----------
-
-    /// @notice Emitted when the protocol fee rate is changed
-    /// @param newFee The new protocol fee rate
-    event FeeChanged(uint256 indexed newFee);
-    /// @notice Emitted when a per-token fee override is changed
-    /// @param asset The asset address
-    /// @param newFee The new fee rate for the asset
-    event ExternalMatchFeeChanged(address indexed asset, uint256 indexed newFee);
-    /// @notice Emitted when the protocol's public key is rotated
-    /// @param newPubkeyX The x-coordinate of the new public key
-    /// @param newPubkeyY The y-coordinate of the new public key
-    event PubkeyRotated(uint256 indexed newPubkeyX, uint256 indexed newPubkeyY);
-    /// @notice Emitted when the external fee collection address is changed
-    /// @param newAddress The new fee collection address
-    event ExternalFeeCollectionAddressChanged(address indexed newAddress);
 
     // -----------
     // | Storage |
@@ -300,6 +281,72 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         ExternalSettlementLib.settleExternalMatch(
             _state, contracts, externalPartyAmountIn, recipient, matchBundle, internalPartySettlementBundle
         );
+    }
+
+    // -----------------
+    // | Admin Setters |
+    // -----------------
+
+    /// @notice Set the default protocol fee rate
+    /// @param newFeeRateRepr The new fee rate as FixedPoint repr (must be non-zero)
+    function setDefaultProtocolFeeRate(uint256 newFeeRateRepr) external onlyOwner {
+        if (newFeeRateRepr == 0) revert IDarkpoolV2.FeeCannotBeZero();
+        FixedPoint memory newFeeRate = FixedPointLib.wrap(newFeeRateRepr);
+        _state.defaultProtocolFeeRate = newFeeRate;
+        emit FeeChanged(newFeeRateRepr);
+    }
+
+    /// @notice Set per-pair fee override (or remove if feeRateRepr is 0)
+    /// @dev Order of asset0/asset1 doesn't matter - keys are canonicalized
+    /// @param asset0 The first asset in the trading pair
+    /// @param asset1 The second asset in the trading pair
+    /// @param feeRateRepr The fee rate repr (0 to remove override)
+    function setExternalMatchFeeOverride(address asset0, address asset1, uint256 feeRateRepr) external onlyOwner {
+        FixedPoint memory feeRate = FixedPointLib.wrap(feeRateRepr);
+        _state.setPerPairFeeOverride(asset0, asset1, feeRate);
+        emit ExternalMatchFeeChanged(asset0, asset1, feeRateRepr);
+    }
+
+    /// @notice Set the protocol fee recipient address
+    /// @param newRecipient The new protocol fee recipient address
+    function setProtocolFeeRecipient(address newRecipient) external onlyOwner {
+        if (newRecipient == address(0)) revert IDarkpoolV2.AddressCannotBeZero();
+        _state.protocolFeeRecipient = newRecipient;
+        emit ExternalFeeCollectionAddressChanged(newRecipient);
+    }
+
+    /// @notice Set the protocol fee encryption key
+    /// @param newPubkeyX The new X coordinate of the public key
+    /// @param newPubkeyY The new Y coordinate of the public key
+    function setProtocolFeeKey(uint256 newPubkeyX, uint256 newPubkeyY) external onlyOwner {
+        _state.protocolFeeKey = EncryptionKey({
+            point: BabyJubJubPoint({ x: BN254.ScalarField.wrap(newPubkeyX), y: BN254.ScalarField.wrap(newPubkeyY) })
+        });
+        emit PubkeyRotated(newPubkeyX, newPubkeyY);
+    }
+
+    /// @notice Set the verifier contract
+    /// @param newVerifier The new verifier contract
+    function setVerifier(IVerifier newVerifier) external onlyOwner {
+        if (address(newVerifier) == address(0)) revert IDarkpoolV2.AddressCannotBeZero();
+        verifier = newVerifier;
+    }
+
+    /// @notice Set the hasher contract
+    /// @param newHasher The new hasher contract
+    function setHasher(IHasher newHasher) external onlyOwner {
+        if (address(newHasher) == address(0)) revert IDarkpoolV2.AddressCannotBeZero();
+        hasher = newHasher;
+    }
+
+    /// @notice Pause the darkpool
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the darkpool
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     // --------------------
