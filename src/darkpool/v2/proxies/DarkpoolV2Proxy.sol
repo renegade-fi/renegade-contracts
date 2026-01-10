@@ -29,7 +29,6 @@ contract DarkpoolV2Proxy is TransparentUpgradeableProxy {
     /// @param hasher The hasher for the darkpool
     /// @param verifier The verifier for the darkpool
     /// @param permit2 The Permit2 contract instance for handling deposits
-    /// @param transferExecutor The TransferExecutor contract address
     constructor(
         address implementation,
         address admin,
@@ -41,8 +40,7 @@ contract DarkpoolV2Proxy is TransparentUpgradeableProxy {
         IHasher hasher,
         IVkeys vkeys,
         IVerifier verifier,
-        IPermit2 permit2,
-        address transferExecutor
+        IPermit2 permit2
     )
         payable
         TransparentUpgradeableProxy(
@@ -58,8 +56,7 @@ contract DarkpoolV2Proxy is TransparentUpgradeableProxy {
                 hasher,
                 vkeys,
                 verifier,
-                permit2,
-                transferExecutor
+                permit2
             )
         )
     { }
