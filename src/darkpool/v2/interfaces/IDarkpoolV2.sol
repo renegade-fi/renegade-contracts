@@ -141,6 +141,11 @@ interface IDarkpoolV2 {
     /// @param orderHash The hash of the cancelled order
     /// @param owner The owner who cancelled the order
     event PublicOrderCancelled(bytes32 indexed orderHash, address indexed owner);
+    /// @notice Emitted when a per-pair fee override is changed
+    /// @param asset0 The first asset in the pair
+    /// @param asset1 The second asset in the pair
+    /// @param newFee The new fee rate for the pair
+    event PerPairFeeOverrideChanged(address indexed asset0, address indexed asset1, uint256 indexed newFee);
 
     /// @notice Initialize the darkpool contract
     /// @param initialOwner The initial owner of the contract
