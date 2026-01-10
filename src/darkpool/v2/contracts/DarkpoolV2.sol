@@ -187,6 +187,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         OrderCancellationProofBundle calldata orderCancellationProofBundle
     )
         public
+        whenNotPaused
     {
         StateUpdatesLib.cancelPrivateOrder(_state, verifier, auth, orderCancellationProofBundle);
     }
@@ -199,7 +200,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Deposit --- //
 
     /// @inheritdoc IDarkpoolV2
-    function deposit(DepositAuth calldata auth, DepositProofBundle calldata depositProofBundle) public {
+    function deposit(DepositAuth calldata auth, DepositProofBundle calldata depositProofBundle) public whenNotPaused {
         StateUpdatesLib.deposit(_state, verifier, hasher, permit2, auth, depositProofBundle);
     }
 
@@ -209,6 +210,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         NewBalanceDepositProofBundle calldata newBalanceProofBundle
     )
         public
+        whenNotPaused
     {
         StateUpdatesLib.depositNewBalance(_state, verifier, hasher, permit2, auth, newBalanceProofBundle);
     }
@@ -216,38 +218,44 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
     // --- Withdrawal --- //
 
     /// @inheritdoc IDarkpoolV2
-    function withdraw(WithdrawalAuth calldata auth, WithdrawalProofBundle calldata withdrawalProofBundle) public {
+    function withdraw(
+        WithdrawalAuth calldata auth,
+        WithdrawalProofBundle calldata withdrawalProofBundle
+    )
+        public
+        whenNotPaused
+    {
         StateUpdatesLib.withdraw(_state, verifier, hasher, auth, withdrawalProofBundle);
     }
 
     // --- Fees --- //
 
     /// @inheritdoc IDarkpoolV2
-    function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) public {
+    function payPublicProtocolFee(PublicProtocolFeePaymentProofBundle calldata proofBundle) public whenNotPaused {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         StateUpdatesLib.payPublicProtocolFee(proofBundle, contracts, _state);
     }
 
     /// @inheritdoc IDarkpoolV2
-    function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) public {
+    function payPublicRelayerFee(PublicRelayerFeePaymentProofBundle calldata proofBundle) public whenNotPaused {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         StateUpdatesLib.payPublicRelayerFee(proofBundle, contracts, _state);
     }
 
     /// @inheritdoc IDarkpoolV2
-    function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) public {
+    function payPrivateProtocolFee(PrivateProtocolFeePaymentProofBundle calldata proofBundle) public whenNotPaused {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         StateUpdatesLib.payPrivateProtocolFee(proofBundle, contracts, _state);
     }
 
     /// @inheritdoc IDarkpoolV2
-    function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) public {
+    function payPrivateRelayerFee(PrivateRelayerFeePaymentProofBundle calldata proofBundle) public whenNotPaused {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         StateUpdatesLib.payPrivateRelayerFee(proofBundle, contracts, _state);
     }
 
     /// @inheritdoc IDarkpoolV2
-    function redeemNote(NoteRedemptionProofBundle calldata proofBundle) public {
+    function redeemNote(NoteRedemptionProofBundle calldata proofBundle) public whenNotPaused {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         StateUpdatesLib.redeemNote(proofBundle, contracts, _state);
     }
@@ -263,6 +271,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         SettlementBundle calldata party1SettlementBundle
     )
         public
+        whenNotPaused
     {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         SettlementLib.settleMatch(_state, contracts, obligationBundle, party0SettlementBundle, party1SettlementBundle);
@@ -276,6 +285,7 @@ contract DarkpoolV2 is Initializable, Ownable2Step, Pausable, IDarkpoolV2 {
         SettlementBundle calldata internalPartySettlementBundle
     )
         public
+        whenNotPaused
     {
         DarkpoolContracts memory contracts = _getDarkpoolContracts();
         ExternalSettlementLib.settleExternalMatch(
