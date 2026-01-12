@@ -84,7 +84,7 @@ interface IDarkpool {
     event ExternalTransfer(address indexed account, address indexed mint, bool indexed isWithdrawal, uint256 amount);
     /// @notice Emitted when a note commitment is inserted into the Merkle tree
     /// @param noteCommitment The commitment inserted
-    event NotePosted(uint256 indexed noteCommitment);
+    event NotePosted(BN254.ScalarField indexed noteCommitment);
 
     /// @notice Initialize the darkpool
     /// @param initialOwner The initial owner of the contract

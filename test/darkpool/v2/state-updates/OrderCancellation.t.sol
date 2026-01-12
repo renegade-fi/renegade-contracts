@@ -65,9 +65,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
         address owner = intentOwner.addr;
 
         ValidOrderCancellationStatement memory statement = ValidOrderCancellationStatement({
-            merkleRoot: merkleRoot,
-            oldIntentNullifier: oldIntentNullifier,
-            owner: owner
+            merkleRoot: merkleRoot, oldIntentNullifier: oldIntentNullifier, owner: owner
         });
 
         return OrderCancellationProofBundle({ statement: statement, proof: createDummyProof() });
@@ -105,7 +103,7 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
 
         // Check that the nullifier is spent only in the cancellation
         assertFalse(darkpool.nullifierSpent(intentNullifier), "Nullifier should not be spent before cancellation");
-        darkpool.cancelOrder(auth, proofBundle);
+        darkpool.cancelPrivateOrder(auth, proofBundle);
         assertTrue(darkpool.nullifierSpent(intentNullifier), "Nullifier should be spent after cancellation");
     }
 
@@ -116,13 +114,13 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
         OrderCancellationAuth memory auth = createOrderCancellationAuth(proofBundle.statement.oldIntentNullifier);
 
         // Execute the cancellation once
-        darkpool.cancelOrder(auth, proofBundle);
+        darkpool.cancelPrivateOrder(auth, proofBundle);
 
         // Try to execute the same cancellation again with the same nullifier but a fresh nonce
         // Should revert because the nullifier is already spent
         OrderCancellationAuth memory auth2 = createOrderCancellationAuth(proofBundle.statement.oldIntentNullifier);
         vm.expectRevert(NullifierLib.NullifierAlreadySpent.selector);
-        darkpool.cancelOrder(auth2, proofBundle);
+        darkpool.cancelPrivateOrder(auth2, proofBundle);
     }
 
     /// @notice Test order cancellation with invalid signature
@@ -136,6 +134,6 @@ contract OrderCancellationTest is DarkpoolV2TestUtils {
 
         // Should revert due to invalid signature
         vm.expectRevert(IDarkpoolV2.InvalidOrderCancellationSignature.selector);
-        darkpool.cancelOrder(auth, proofBundle);
+        darkpool.cancelPrivateOrder(auth, proofBundle);
     }
 }

@@ -137,6 +137,9 @@ interface IDarkpoolV2 {
     /// @notice Emitted when a new recovery ID is registered on-chain
     /// @param recoveryId The recovery ID that was registered
     event RecoveryIdRegistered(BN254.ScalarField indexed recoveryId);
+    /// @notice Emitted when a note is posted to the darkpool
+    /// @param noteCommitment The commitment to the note
+    event NotePosted(uint256 indexed noteCommitment);
     /// @notice Emitted when a public order is cancelled
     /// @param orderHash The hash of the cancelled order
     /// @param owner The owner who cancelled the order
@@ -229,7 +232,7 @@ interface IDarkpoolV2 {
     /// @notice Cancel an order in the darkpool
     /// @param auth The authorization for the order cancellation
     /// @param orderCancellationProofBundle The proof bundle for the order cancellation
-    function cancelOrder(
+    function cancelPrivateOrder(
         OrderCancellationAuth memory auth,
         OrderCancellationProofBundle calldata orderCancellationProofBundle
     )
@@ -240,7 +243,7 @@ interface IDarkpoolV2 {
     /// @dev The owner must sign H("cancel" || intentHash) with a nonce for replay protection.
     /// @param auth The authorization for the order cancellation
     /// @param permit The public intent permit identifying the intent to cancel
-    function cancelOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) external;
+    function cancelPublicOrder(OrderCancellationAuth memory auth, PublicIntentPermit calldata permit) external;
 
     /// @notice Pay protocol fees publicly on a balance
     /// @param proofBundle The proof bundle for the public protocol fee payment

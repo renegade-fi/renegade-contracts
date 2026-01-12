@@ -34,9 +34,7 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
     /// @param intentHash The intent hash
     /// @param amount The amount to set
     function _setOpenIntentAmount(bytes32 intentHash, uint256 amount) internal {
-        stdstore.target(address(darkpool)).sig("openPublicIntents(bytes32)").with_key(intentHash).checked_write(
-            amount
-        );
+        stdstore.target(address(darkpool)).sig("openPublicIntents(bytes32)").with_key(intentHash).checked_write(amount);
     }
 
     /// @notice Generate a random public intent permit
@@ -74,12 +72,18 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
     }
 
     /// @notice Create a cancellation auth with correct signature (owner)
-    function createOrderCancellationAuth(PublicIntentPermit memory permit) internal returns (OrderCancellationAuth memory) {
+    function createOrderCancellationAuth(PublicIntentPermit memory permit)
+        internal
+        returns (OrderCancellationAuth memory)
+    {
         return _createOrderCancellationAuth(permit, intentOwner.privateKey);
     }
 
     /// @notice Create a cancellation auth with wrong signer
-    function createOrderCancellationAuthWrongSigner(PublicIntentPermit memory permit) internal returns (OrderCancellationAuth memory) {
+    function createOrderCancellationAuthWrongSigner(PublicIntentPermit memory permit)
+        internal
+        returns (OrderCancellationAuth memory)
+    {
         return _createOrderCancellationAuth(permit, wrongSigner.privateKey);
     }
 
@@ -96,12 +100,12 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
         OrderCancellationAuth memory auth = createOrderCancellationAuth(permit);
 
         // Execute the cancellation once - should succeed
-        darkpool.cancelOrder(auth, permit);
+        darkpool.cancelPublicOrder(auth, permit);
 
         // Try to execute the same cancellation again with the same nonce
         // Should revert because the nonce is already spent
         vm.expectRevert(DarkpoolStateLib.NonceAlreadySpent.selector);
-        darkpool.cancelOrder(auth, permit);
+        darkpool.cancelPublicOrder(auth, permit);
     }
 
     /// @notice Test public intent cancellation with invalid signature (wrong signer)
@@ -114,7 +118,7 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
 
         // Should revert due to invalid signature
         vm.expectRevert(IDarkpoolV2.InvalidOrderCancellationSignature.selector);
-        darkpool.cancelOrder(auth, permit);
+        darkpool.cancelPublicOrder(auth, permit);
     }
 
     /// @notice Test cancelling an open intent with non-zero amount remaining
@@ -133,7 +137,7 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
 
         // Create and execute the cancellation
         OrderCancellationAuth memory auth = createOrderCancellationAuth(permit);
-        darkpool.cancelOrder(auth, permit);
+        darkpool.cancelPublicOrder(auth, permit);
 
         // Amount should now be 0
         uint256 amountAfter = darkpool.openPublicIntents(intentHash);
@@ -152,6 +156,6 @@ contract PublicIntentCancellationTest is DarkpoolV2TestUtils {
         // Try to cancel permit B using the signature for permit A
         // Should fail because the signature is over the wrong intentHash
         vm.expectRevert(IDarkpoolV2.InvalidOrderCancellationSignature.selector);
-        darkpool.cancelOrder(authForA, permitB);
+        darkpool.cancelPublicOrder(authForA, permitB);
     }
 }
