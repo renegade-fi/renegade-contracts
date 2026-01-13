@@ -11,12 +11,15 @@ import {
     PrivateIntentPublicBalanceFirstFillBundle
 } from "darkpoolv2-lib/settlement/bundles/PrivateIntentPublicBalanceBundleLib.sol";
 import { BoundedMatchResultBundle } from "darkpoolv2-types/settlement/BoundedMatchResultBundle.sol";
+import { BoundedMatchResultLib } from "darkpoolv2-types/BoundedMatchResult.sol";
 import { DarkpoolState, DarkpoolStateLib } from "darkpoolv2-lib/DarkpoolState.sol";
 import { IDarkpoolV2 } from "darkpoolv2-interfaces/IDarkpoolV2.sol";
 import { ObligationBundle, ObligationLib } from "darkpoolv2-types/settlement/ObligationBundle.sol";
 import { SettlementContext, SettlementContextLib } from "darkpoolv2-types/settlement/SettlementContext.sol";
 import { DarkpoolContracts } from "darkpoolv2-contracts/DarkpoolV2.sol";
 import { SettlementObligation } from "darkpoolv2-types/Obligation.sol";
+import { FeeRate } from "darkpoolv2-types/Fee.sol";
+import { ExternalSettlementLib } from "darkpoolv2-lib/settlement/ExternalSettlementLib.sol";
 
 /// @title Native Settled Private Intent Library
 /// @author Renegade Eng
@@ -62,14 +65,16 @@ library NativeSettledPrivateIntentLib {
 
     /// @notice Validate and execute a bounded match settlement bundle with a private intent and public balance
     /// @param matchBundle The bounded match result bundle containing the match parameters
-    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatch(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
@@ -78,37 +83,55 @@ library NativeSettledPrivateIntentLib {
         internal
     {
         if (settlementBundle.isFirstFill) {
-            executeBoundedMatchFirstFill(matchBundle, obligation, settlementBundle, settlementContext, contracts, state);
+            executeBoundedMatchFirstFill(
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                settlementBundle,
+                settlementContext,
+                contracts,
+                state
+            );
         } else {
             executeBoundedMatchSubsequent(
-                matchBundle, obligation, settlementBundle, settlementContext, contracts, state
+                matchBundle,
+                externalPartyAmountIn,
+                externalPartyRecipient,
+                settlementBundle,
+                settlementContext,
+                contracts,
+                state
             );
         }
     }
 
-    /// @notice Validate and execute a bounded match settlement bundle for a first fill
+    /// @notice Execute a bounded match for a first fill
     /// @param matchBundle The bounded match result bundle containing the match parameters
-    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatchFirstFill(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        private
     {
         PrivateIntentPublicBalanceBoundedFirstFillBundle memory bundleData =
             settlementBundle.decodePrivateIntentBoundedBundleDataFirstFill();
+        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
+            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
         // Compute pre- and post-match intent commitments
         (BN254.ScalarField preMatchCommitment, BN254.ScalarField postMatchCommitment) =
-            bundleData.computeIntentCommitments(obligation.amountIn, contracts.hasher);
+            bundleData.computeIntentCommitments(internalObligation.amountIn, contracts.hasher);
 
         // First-fill only: Verify intent commitment signature
         PrivateIntentPublicBalanceBundleLib.verifyIntentCommitmentSignature(preMatchCommitment, bundleData.auth, state);
@@ -118,56 +141,78 @@ library NativeSettledPrivateIntentLib {
 
         // Push validity and settlement proofs
         bundleData.pushValidityProof(settlementContext, contracts);
-        bundleData.pushSettlementProofs(settlementContext);
+        bundleData.pushSettlementProofs(settlementContext, contracts);
 
         // State mutation: Insert post-match intent commitment into Merkle tree
         state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
 
-        // Allocate transfers
-        bundleData.allocateTransfers(obligation, settlementContext, state);
+        // Allocate transfers for internal party
+        bundleData.allocateTransfers(internalObligation, settlementContext, state);
+
+        // Allocate transfers for external party
+        FeeRate memory relayerFeeRate = FeeRate({
+            rate: bundleData.settlementStatement.externalRelayerFeeRate,
+            recipient: bundleData.settlementStatement.relayerFeeAddress
+        });
+        ExternalSettlementLib.allocateExternalPartyTransfers(
+            externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
+        );
 
         // Emit a recovery ID for the intent
         BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
         emit IDarkpoolV2.RecoveryIdRegistered(recoveryId);
     }
 
-    /// @notice Validate and execute a bounded match settlement bundle for a subsequent fill
+    /// @notice Execute a bounded match for a subsequent fill
     /// @param matchBundle The bounded match result bundle containing the match parameters
-    /// @param obligation The settlement obligation derived from the bounded match result
+    /// @param externalPartyAmountIn The input amount for the external party
+    /// @param externalPartyRecipient The recipient address for the external party's withdrawal
     /// @param settlementBundle The settlement bundle to validate
     /// @param settlementContext The settlement context to which we append post-validation updates.
     /// @param contracts The contract references needed for settlement
     /// @param state The darkpool state containing all storage references
     function executeBoundedMatchSubsequent(
         BoundedMatchResultBundle calldata matchBundle,
-        SettlementObligation memory obligation,
+        uint256 externalPartyAmountIn,
+        address externalPartyRecipient,
         SettlementBundle calldata settlementBundle,
         SettlementContext memory settlementContext,
         DarkpoolContracts memory contracts,
         DarkpoolState storage state
     )
-        internal
+        private
     {
         PrivateIntentPublicBalanceBoundedBundle memory bundleData =
             settlementBundle.decodePrivateIntentBoundedBundleData();
+        (SettlementObligation memory externalObligation, SettlementObligation memory internalObligation) =
+            BoundedMatchResultLib.buildObligations(matchBundle.permit.matchResult, externalPartyAmountIn);
 
         // Validate match result
         bundleData.validateMatchResult(matchBundle.permit.matchResult);
 
         // Compute post-match commitment
         BN254.ScalarField postMatchCommitment =
-            bundleData.computeFullIntentCommitment(obligation.amountIn, contracts.hasher);
+            bundleData.computeFullIntentCommitment(internalObligation.amountIn, contracts.hasher);
 
         // Push validity and settlement proofs
         bundleData.pushValidityProof(settlementContext, contracts, state);
-        bundleData.pushSettlementProofs(settlementContext);
+        bundleData.pushSettlementProofs(settlementContext, contracts);
 
         // State mutation: spend old intent nullifier + insert post-match commitment to intent into Merkle tree
         state.spendNullifier(bundleData.auth.statement.oldIntentNullifier);
         state.insertMerkleLeaf(bundleData.auth.merkleDepth, postMatchCommitment, contracts.hasher);
 
-        // Allocate transfers
-        bundleData.allocateTransfers(obligation, settlementContext, state);
+        // Allocate transfers for internal party
+        bundleData.allocateTransfers(internalObligation, settlementContext, state);
+
+        // Allocate transfers for external party
+        FeeRate memory relayerFeeRate = FeeRate({
+            rate: bundleData.settlementStatement.externalRelayerFeeRate,
+            recipient: bundleData.settlementStatement.relayerFeeAddress
+        });
+        ExternalSettlementLib.allocateExternalPartyTransfers(
+            externalPartyRecipient, relayerFeeRate, externalObligation, settlementContext, state
+        );
 
         // Emit a recovery ID for the intent
         BN254.ScalarField recoveryId = bundleData.auth.statement.recoveryId;
